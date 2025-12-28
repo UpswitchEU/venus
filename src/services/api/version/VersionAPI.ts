@@ -511,4 +511,117 @@ export class VersionAPI {
       notes: backendVersion.notes,
     }
   }
+
+  /**
+   * Create version with conversation context
+   * 
+   * Used when version is created from a Mercury conversation
+   * 
+   * @param reportId - Report identifier
+   * @param conversationId - Mercury conversation ID
+   * @param request - Create version request
+   * @returns Created version
+   */
+  async createVersionFromConversation(
+    reportId: string,
+    conversationId: string,
+    request: CreateVersionRequest,
+    options?: APIRequestConfig
+  ): Promise<ValuationVersion> {
+    versionLogger.info('Creating version from conversation', {
+      reportId,
+      conversationId,
+    })
+
+    return this.createVersion({
+      ...request,
+      context: { conversationId },
+    } as CreateVersionRequest, options)
+  }
+
+  /**
+   * Get conversation context for a version
+   * 
+   * Returns Mercury conversation details that influenced this version
+   * 
+   * @param versionId - Version identifier
+   * @returns Conversation context or null
+   */
+  async getConversationContext(
+    versionId: string,
+    options?: APIRequestConfig
+  ): Promise<{
+    conversation: any
+    triggerMessage: any
+    triggerType: string
+    context: any
+  } | null> {
+    try {
+      versionLogger.info('Fetching conversation context', { versionId })
+
+      const response = await this.executeRequest<{
+        success: boolean
+        data: any
+      }>(
+        {
+          method: 'GET',
+          url: `/api/valuation-versions/${versionId}/conversation-context`,
+          headers: {},
+        },
+        options
+      )
+
+      if (!response.data) {
+        return null
+      }
+
+      versionLogger.info('Conversation context fetched', { versionId })
+
+      return {
+        conversation: response.data.conversation,
+        triggerMessage: response.data.trigger_message,
+        triggerType: response.data.trigger_type,
+        context: response.data.context,
+      }
+    } catch (error) {
+      versionLogger.error('Failed to fetch conversation context', {
+        versionId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+      return null
+    }
+  }
+
+  /**
+   * Get all conversations that influenced a version
+   * 
+   * @param versionId - Version identifier
+   * @returns Array of conversations
+   */
+  async getConversationsByVersion(
+    versionId: string,
+    options?: APIRequestConfig
+  ): Promise<any[]> {
+    try {
+      const response = await this.executeRequest<{
+        success: boolean
+        data: any[]
+      }>(
+        {
+          method: 'GET',
+          url: `/api/valuation-versions/${versionId}/conversations`,
+          headers: {},
+        },
+        options
+      )
+
+      return response.data || []
+    } catch (error) {
+      versionLogger.error('Failed to fetch conversations', {
+        versionId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+      return []
+    }
+  }
 }

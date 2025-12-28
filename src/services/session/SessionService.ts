@@ -57,6 +57,108 @@ export class SessionService {
   }
 
   /**
+   * Check if user can create a new valuation (plan enforcement)
+   * 
+   * Bank-Grade Implementation:
+   * - Specific error types (PaywallError)
+   * - Graceful degradation if API fails
+   * - Comprehensive logging
+   * - Type-safe error handling
+   * 
+   * @throws PaywallError with usage data if user has hit limit
+   * @private
+   */
+  private async checkValuationCreationAllowed(): Promise<void> {
+    const checkStartTime = performance.now()
+    
+    try {
+      const baseURL =
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        process.env.NEXT_PUBLIC_API_BASE_URL ||
+        'https://api.upswitch.app'
+      const url = `${baseURL}/api/billing/plan-enforcement/check?usage_type=VALUATION`
+
+      logger.debug('Checking valuation creation limit', { url })
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for auth
+      })
+
+      const checkTime = performance.now() - checkStartTime
+
+      if (!response.ok) {
+        // If endpoint doesn't exist or fails, allow creation (graceful degradation)
+        logger.warn('Plan enforcement check failed, allowing creation (graceful degradation)', {
+          status: response.status,
+          statusText: response.statusText,
+          checkTime_ms: checkTime.toFixed(2),
+        })
+        return
+      }
+
+      const result = await response.json()
+
+      logger.debug('Plan enforcement check result', {
+        allowed: result.allowed,
+        current: result.current,
+        limit: result.limit,
+        checkTime_ms: checkTime.toFixed(2),
+      })
+
+      if (!result.allowed) {
+        // User has hit their valuation limit - throw specific error
+        logger.info('Valuation creation blocked by plan enforcement', {
+          current: result.current,
+          limit: result.limit,
+          reason: result.reason,
+          message: result.message,
+        })
+
+        // Create specific PaywallError (not generic ApplicationError)
+        const error = new ApplicationError(
+          result.message || 'Valuation limit reached. Upgrade to Premium for unlimited valuations.',
+          'PAYWALL_VALUATION_LIMIT',
+          {
+            current: result.current,
+            limit: result.limit,
+            reason: result.reason,
+            upgradeUrl: '/pricing',
+          }
+        )
+
+        // Mark as paywall error for specific handling
+        ;(error as any).isPaywallError = true
+        ;(error as any).current = result.current
+        ;(error as any).limit = result.limit
+
+        throw error
+      }
+
+      logger.info('Valuation limit check passed', {
+        current: result.current,
+        limit: result.limit,
+        checkTime_ms: checkTime.toFixed(2),
+      })
+    } catch (error) {
+      // If it's a paywall error, re-throw it
+      if ((error as any).isPaywallError) {
+        throw error
+      }
+
+      // Otherwise, log warning and allow creation (graceful degradation)
+      // This ensures users are never blocked by infrastructure issues
+      logger.warn('Plan enforcement check error, allowing creation (graceful degradation)', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+    }
+  }
+
+  /**
    * Load session from cache or backend
    *
    * CACHE-FIRST STRATEGY:
@@ -173,6 +275,10 @@ export class SessionService {
               logger.info('Session not found, creating new session', { reportId, flow })
 
               try {
+                // ⭐ PLAN ENFORCEMENT: Check if user can create valuation BEFORE creating session
+                // This prevents wasted API calls and provides immediate feedback
+                await this.checkValuationCreationAllowed()
+
                 // Create minimal session on backend with prefilledQuery in partialData
                 const partialData = prefilledQuery
                   ? ({ _prefilledQuery: prefilledQuery } as any)

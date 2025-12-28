@@ -38,6 +38,13 @@ interface SessionStore {
   // ✅ NEW: Callback for asset save success notifications (when valuation assets are saved)
   onAssetSaveSuccess?: () => void
 
+  // ⭐ PLAN ENFORCEMENT: Paywall state
+  paywallData: {
+    current: number
+    limit: number
+    message: string
+  } | null
+
   // Actions
   loadSession: (
     reportId: string,
@@ -49,6 +56,9 @@ interface SessionStore {
   saveSession: (reason?: 'user' | 'autosave' | 'system') => Promise<void>
   clearSession: () => void
   completeInitialization: () => void // ✅ NEW: Mark initialization as complete
+
+  // ⭐ PLAN ENFORCEMENT: Paywall actions
+  clearPaywall: () => void
 
   // Helpers
   getReportId: () => string | null
@@ -76,6 +86,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   lastSaved: null,
   hasUnsavedChanges: false,
   isInitializing: true, // ✅ NEW: Start in initializing state
+  paywallData: null, // ⭐ PLAN ENFORCEMENT: Paywall state
 
   /**
    * Load session from backend/cache
@@ -225,6 +236,33 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load session'
 
+        // ⭐ PLAN ENFORCEMENT: Handle paywall errors separately
+        const isPaywallError = (error as any).isPaywallError === true
+
+        if (isPaywallError) {
+          storeLogger.info('[Session] Load blocked by plan enforcement (paywall)', {
+            reportId: expectedReportId,
+            current: (error as any).current,
+            limit: (error as any).limit,
+          })
+
+          // Set paywall state (separate from generic error)
+          set({
+            isLoading: false,
+            error: null, // Don't set generic error for paywall
+            isInitializing: false,
+            paywallData: {
+              current: (error as any).current || 0,
+              limit: (error as any).limit || 1,
+              message: message,
+            },
+          })
+
+          // Don't re-throw paywall errors (handled by UI via paywallData)
+          return
+        }
+
+        // Generic error handling
         storeLogger.error('[Session] Load failed', {
           reportId: expectedReportId,
           error: message,
@@ -483,6 +521,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   completeInitialization: () => {
     set({ isInitializing: false })
     storeLogger.debug('[Session] Initialization complete - toasts enabled')
+  },
+
+  /**
+   * ⭐ PLAN ENFORCEMENT: Clear paywall state
+   * Called when user closes paywall modal or upgrades
+   */
+  clearPaywall: () => {
+    storeLogger.debug('[Session] Clearing paywall state')
+    set({ paywallData: null })
   },
 
   /**

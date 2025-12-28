@@ -198,6 +198,97 @@ class ReportServiceImpl implements ReportService {
   }
 
   /**
+   * Check if user can create a valuation (plan enforcement)
+   * Returns true if allowed, throws error with paywall data if blocked
+   */
+  private async checkValuationLimit(): Promise<void> {
+    try {
+      const baseURL =
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        process.env.NEXT_PUBLIC_API_BASE_URL ||
+        'https://api.upswitch.app'
+      const url = `${baseURL}/api/billing/plan-enforcement/check?usage_type=VALUATION`
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for auth
+      })
+
+      if (!response.ok) {
+        // If endpoint doesn't exist or fails, allow creation (graceful degradation)
+        reportLogger.warn('Plan enforcement check failed, allowing creation', {
+          status: response.status,
+        })
+        return
+      }
+
+      const result = await response.json()
+
+      if (!result.allowed) {
+        // User has hit their valuation limit
+        const error: any = new Error(result.message || 'Valuation limit reached')
+        error.isPaywallError = true
+        error.current = result.current
+        error.limit = result.limit
+        error.reason = result.reason
+        throw error
+      }
+
+      reportLogger.info('Valuation limit check passed', {
+        current: result.current,
+        limit: result.limit,
+      })
+    } catch (error) {
+      // If it's a paywall error, re-throw it
+      if ((error as any).isPaywallError) {
+        throw error
+      }
+
+      // Otherwise, log warning and allow creation (graceful degradation)
+      reportLogger.warn('Plan enforcement check error, allowing creation', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
+
+  /**
+   * Log usage after successful valuation creation
+   */
+  private async logValuationUsage(reportId: string): Promise<void> {
+    try {
+      const baseURL =
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        process.env.NEXT_PUBLIC_API_BASE_URL ||
+        'https://api.upswitch.app'
+      const url = `${baseURL}/api/billing/usage-logs`
+
+      await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          usage_type: 'VALUATION',
+          resource_id: reportId,
+          success: true,
+        }),
+      })
+
+      reportLogger.info('Valuation usage logged', { reportId })
+    } catch (error) {
+      // Non-critical, just log the error
+      reportLogger.warn('Failed to log valuation usage', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        reportId,
+      })
+    }
+  }
+
+  /**
    * Create new report
    */
   async createReport(initialData?: Partial<ValuationRequest>): Promise<ValuationSession> {
@@ -209,7 +300,10 @@ class ReportServiceImpl implements ReportService {
         hasInitialData: !!initialData && Object.keys(initialData).length > 0,
       })
 
-      // Create session object matching ValuationSession interface
+      // 1. Check plan enforcement BEFORE creating valuation
+      await this.checkValuationLimit()
+
+      // 2. Create session object matching ValuationSession interface
       const newSession: ValuationSession = {
         reportId,
         currentView: 'manual',
@@ -226,8 +320,20 @@ class ReportServiceImpl implements ReportService {
         reportId,
       })
 
+      // 3. Log usage after successful creation
+      await this.logValuationUsage(reportId)
+
       return response.session
     } catch (error) {
+      // If it's a paywall error, re-throw with additional context
+      if ((error as any).isPaywallError) {
+        reportLogger.info('Valuation blocked by plan enforcement', {
+          current: (error as any).current,
+          limit: (error as any).limit,
+        })
+        throw error
+      }
+
       reportLogger.error('Failed to create report', {
         error: error instanceof Error ? error.message : 'Unknown error',
         reportId,

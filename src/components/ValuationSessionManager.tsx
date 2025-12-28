@@ -20,6 +20,7 @@ import React, { useCallback, useEffect } from 'react'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationSession } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
+import { ValuationPaywallModal } from './ValuationPaywallModal'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection'
 
@@ -60,6 +61,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const error = useSessionStore((state) => state.error)
     const loadSession = useSessionStore((state) => state.loadSession)
     const clearSession = useSessionStore((state) => state.clearSession)
+
+    // ⭐ PLAN ENFORCEMENT: Subscribe to paywall state
+    const paywallData = useSessionStore((state) => state.paywallData)
+    const clearPaywall = useSessionStore((state) => state.clearPaywall)
 
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)
@@ -132,19 +137,39 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     }, [reportId, clearSession, router])
 
     // ✅ FIX: Pass isLoading to children so they can prevent UI from rendering during initial load
-    return children({
-      session,
-      stage,
-      isLoading,
-      error,
-      showOutOfCreditsModal: false, // TODO: Re-implement if needed
-      onCloseModal: () => {}, // No-op
-      prefilledQuery,
-      autoSend,
-      onRetry: handleRetry,
-      onStartOver: handleStartOver,
-      reportId,
-    })
+    return (
+      <>
+        {children({
+          session,
+          stage,
+          isLoading,
+          error,
+          showOutOfCreditsModal: false, // TODO: Re-implement if needed
+          onCloseModal: () => {}, // No-op
+          prefilledQuery,
+          autoSend,
+          onRetry: handleRetry,
+          onStartOver: handleStartOver,
+          reportId,
+        })}
+
+        {/* ⭐ PLAN ENFORCEMENT: Paywall Modal */}
+        <ValuationPaywallModal
+          isOpen={!!paywallData}
+          onClose={() => {
+            clearPaywall()
+            router.push('/') // Redirect to homepage
+          }}
+          current={paywallData?.current || 0}
+          limit={paywallData?.limit || 1}
+          message={paywallData?.message}
+          onUpgrade={() => {
+            // Redirect to Mercury pricing page (full URL for cross-app navigation)
+            window.location.href = 'https://app.upswitch.be/pricing'
+          }}
+        />
+      </>
+    )
   }
 )
 
