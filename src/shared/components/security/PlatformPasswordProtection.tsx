@@ -284,7 +284,6 @@ const PlatformPasswordProtection: React.FC<PlatformPasswordProtectionProps> = ({
           opacity={0.5}
           overlayGradient="from-black/40 via-black/30 to-black/60"
           disableAutoRotation={true}
-          disableKeyboardInteraction={true}
         />
 
         {/* Password Modal Overlay */}

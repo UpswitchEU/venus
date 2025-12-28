@@ -13,6 +13,7 @@ import { generalLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
 import { MinimalHeader } from '../MinimalHeader'
 import { VideoBackground } from '../VideoBackground'
+import { ALL_BUSINESS_VIDEOS } from '../../constants/videos'
 
 export const HomePage: React.FC = () => {
   const router = useRouter()
@@ -164,15 +165,10 @@ export const HomePage: React.FC = () => {
 
       {/* Video Background */}
       <VideoBackground
-        videos={[
-          '/videos/home/business-1.mp4',
-          '/videos/home/business-2.mp4',
-          '/videos/home/business-3.mp4',
-        ]}
+        videos={ALL_BUSINESS_VIDEOS}
         opacity={0.5}
         overlayGradient="from-black/40 via-black/30 to-black/60"
-        disableAutoRotation={true}
-        disableKeyboardInteraction={true}
+        disableAutoRotation={false}
       />
 
       <div className="min-h-screen relative pt-8 md:pt-12">

@@ -10,7 +10,6 @@ export interface VideoBackgroundProps {
   disableOnMobile?: boolean
   fallbackGradient?: string
   disableAutoRotation?: boolean
-  disableKeyboardInteraction?: boolean
 }
 
 export const VideoBackground: React.FC<VideoBackgroundProps> = ({
@@ -23,7 +22,6 @@ export const VideoBackground: React.FC<VideoBackgroundProps> = ({
   disableOnMobile = true,
   fallbackGradient = 'from-neutral-900 via-neutral-800 to-neutral-900',
   disableAutoRotation = false,
-  disableKeyboardInteraction = false,
 }) => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
   const [nextVideoIndex, setNextVideoIndex] = useState(0)
@@ -70,65 +68,8 @@ export const VideoBackground: React.FC<VideoBackgroundProps> = ({
     return () => clearInterval(interval)
   }, [videos, videoDuration, transitionDuration, hasError, disableAutoRotation])
 
-  // Keyboard interaction for video switching (disabled if disableKeyboardInteraction is true)
-  useEffect(() => {
-    // Early return if keyboard interaction is disabled
-    if (disableKeyboardInteraction) return
-    if (videos.length <= 1) return
-    if (hasError) return
-
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Additional safety: check if we're in password protection mode
-      const passwordOverlay = document.querySelector('[data-password-overlay="true"]')
-      if (passwordOverlay) {
-        e.stopPropagation()
-        e.stopImmediatePropagation()
-        return
-      }
-
-      // Don't respond if user is typing in an input field
-      const target = e.target as HTMLElement
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.contentEditable === 'true')
-      ) {
-        return
-      }
-
-      // Don't respond if the target is inside a form (additional safety check)
-      if (target && target.closest('form')) {
-        return
-      }
-
-      // Don't respond if the target has specific attributes that indicate it's an input
-      if (
-        target &&
-        (target.getAttribute('type') === 'password' ||
-          target.getAttribute('name') === 'password' ||
-          target.getAttribute('autocomplete') === 'current-password')
-      ) {
-        return
-      }
-
-      // Only respond to arrow keys and spacebar
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === ' ') {
-        e.preventDefault()
-        const newIndex = Math.floor(Math.random() * videos.length)
-        setNextVideoIndex(newIndex)
-        setIsTransitioning(true)
-
-        setTimeout(() => {
-          setCurrentVideoIndex(newIndex)
-          setIsTransitioning(false)
-        }, transitionDuration)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyPress, { capture: true })
-    return () => window.removeEventListener('keydown', handleKeyPress, { capture: true })
-  }, [disableKeyboardInteraction, videos, transitionDuration, hasError])
+  // Keyboard interaction completely disabled - only automatic rotation controls videos
+  // This prevents any keyboard events (including typing in input fields) from affecting video rotation
 
   // Set video-background class on body
   useEffect(() => {
