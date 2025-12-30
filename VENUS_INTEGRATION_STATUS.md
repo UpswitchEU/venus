@@ -258,3 +258,4 @@ Uses `credentials: 'include'` for cookie-based authentication (JWT).
 
 **Estimated Completion**: 1-2 days additional work
 
+

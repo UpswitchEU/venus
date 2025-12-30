@@ -41,3 +41,4 @@ export const DEFAULT_VIDEO_CONFIG = {
 	transitionDuration: 1000, // 1 second transition
 }
 
+
