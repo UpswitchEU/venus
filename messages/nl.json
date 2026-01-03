@@ -1,0 +1,64 @@
+{
+  "common": {
+    "submit": "Versturen",
+    "cancel": "Annuleren",
+    "save": "Opslaan",
+    "delete": "Verwijderen",
+    "edit": "Bewerken",
+    "loading": "Laden...",
+    "error": "Fout",
+    "success": "Succes",
+    "close": "Sluiten",
+    "open": "Openen",
+    "back": "Terug",
+    "next": "Volgende",
+    "search": "Zoeken",
+    "filter": "Filteren",
+    "sort": "Sorteren",
+    "clear": "Wissen",
+    "apply": "Toepassen",
+    "reset": "Resetten",
+    "required": "Verplicht",
+    "optional": "Optioneel"
+  },
+  "valuation": {
+    "title": "Bedrijfswaardering",
+    "calculate": "Waardering Berekenen",
+    "regenerate": "Waardering Opnieuw Genereren",
+    "calculateWithNormalization": "Waardering Berekenen met Normalisatie",
+    "submitting": "Berekenen...",
+    "form": {
+      "basicInformation": "Basisinformatie",
+      "financialData": "Financiële Gegevens",
+      "historicalData": "Historische Gegevens",
+      "ownershipStructure": "Eigendomsstructuur"
+    },
+    "fields": {
+      "revenue": "Omzet",
+      "ebitda": "EBITDA",
+      "industry": "Industrie",
+      "country": "Land",
+      "businessType": "Bedrijfstype",
+      "employeeCount": "Aantal Werknemers",
+      "foundingYear": "Oprichtingsjaar"
+    },
+    "errors": {
+      "required": "Dit veld is verplicht",
+      "invalid": "Ongeldige waarde",
+      "calculationFailed": "Waardering berekenen mislukt"
+    }
+  },
+  "reports": {
+    "title": "Waarderingsrapporten",
+    "new": "Nieuw Rapport",
+    "loading": "Rapport laden...",
+    "error": "Rapport laden mislukt",
+    "notFound": "Rapport niet gevonden"
+  },
+  "language": {
+    "english": "English",
+    "dutch": "Nederlands",
+    "selectLanguage": "Selecteer Taal",
+    "switchLanguage": "Taal Wisselen"
+  }
+}

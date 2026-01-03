@@ -1,0 +1,64 @@
+{
+  "common": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "close": "Close",
+    "open": "Open",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "clear": "Clear",
+    "apply": "Apply",
+    "reset": "Reset",
+    "required": "Required",
+    "optional": "Optional"
+  },
+  "valuation": {
+    "title": "Business Valuation",
+    "calculate": "Calculate Valuation",
+    "regenerate": "Regenerate Valuation",
+    "calculateWithNormalization": "Calculate Valuation with Normalization",
+    "submitting": "Calculating...",
+    "form": {
+      "basicInformation": "Basic Information",
+      "financialData": "Financial Data",
+      "historicalData": "Historical Data",
+      "ownershipStructure": "Ownership Structure"
+    },
+    "fields": {
+      "revenue": "Revenue",
+      "ebitda": "EBITDA",
+      "industry": "Industry",
+      "country": "Country",
+      "businessType": "Business Type",
+      "employeeCount": "Employee Count",
+      "foundingYear": "Founding Year"
+    },
+    "errors": {
+      "required": "This field is required",
+      "invalid": "Invalid value",
+      "calculationFailed": "Failed to calculate valuation"
+    }
+  },
+  "reports": {
+    "title": "Valuation Reports",
+    "new": "New Report",
+    "loading": "Loading report...",
+    "error": "Failed to load report",
+    "notFound": "Report not found"
+  },
+  "language": {
+    "english": "English",
+    "dutch": "Nederlands",
+    "selectLanguage": "Select Language",
+    "switchLanguage": "Switch Language"
+  }
+}

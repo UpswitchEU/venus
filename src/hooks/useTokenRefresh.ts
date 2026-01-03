@@ -123,10 +123,9 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       console.log('🔄 Proactive token refresh check...');
       await refreshToken();
         
-        // Broadcast session refresh to other tabs AFTER successful refresh
-        const syncManager = getSessionSyncManager();
-        syncManager.broadcastSessionRefresh(window.location.hostname);
-      }
+      // Broadcast session refresh to other tabs AFTER successful refresh
+      const syncManager = getSessionSyncManager();
+      syncManager.broadcastSessionRefresh(window.location.hostname);
     } catch (error: any) {
       if (error.response?.status === 401) {
         // User is not authenticated, stop checking

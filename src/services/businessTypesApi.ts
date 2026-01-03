@@ -86,11 +86,22 @@ class BusinessTypesApiService {
   }
 
   /**
+   * Extract locale from current URL pathname
+   */
+  private getLocaleFromPathname(): string {
+    if (typeof window === 'undefined') return 'en';
+    const match = window.location.pathname.match(/^\/(en|nl)/);
+    return (match?.[1] as 'en' | 'nl') || 'en';
+  }
+
+  /**
    * Get all business types from API with enhanced caching
    */
   async getBusinessTypes(): Promise<BusinessType[]> {
     try {
-      // Check cache first
+      const locale = this.getLocaleFromPathname();
+      
+      // Check cache first (locale-aware cache key would be ideal, but keeping existing cache for now)
       if (businessTypesCache.hasValidCache()) {
         const cachedData = await businessTypesCache.getBusinessTypes()
         if (cachedData) {
@@ -103,11 +114,11 @@ class BusinessTypesApiService {
         }
       }
 
-      // Fetch from API
-      generalLogger.debug('[BusinessTypesAPI] Fetching from API')
+      // Fetch from API with locale parameter
+      generalLogger.debug('[BusinessTypesAPI] Fetching from API', { locale })
       const [typesResponse, categoriesResponse] = await Promise.all([
-        this.api.get('/types', { params: { limit: 200 } }),
-        this.api.get('/categories'),
+        this.api.get('/types', { params: { limit: 200, locale } }),
+        this.api.get('/categories', { params: { locale } }),
       ])
 
       if (typesResponse.data.success && typesResponse.data.data) {
@@ -190,11 +201,14 @@ class BusinessTypesApiService {
    */
   async getBusinessTypeFull(businessTypeId: string): Promise<any> {
     try {
+      const locale = this.getLocaleFromPathname();
       if (process.env.NODE_ENV === 'development') {
-        generalLogger.debug(`[BusinessTypesApi] Fetching full metadata for: ${businessTypeId}`)
+        generalLogger.debug(`[BusinessTypesApi] Fetching full metadata for: ${businessTypeId}`, { locale })
       }
 
-      const response = await this.api.get(`/types/${businessTypeId}/full`)
+      const response = await this.api.get(`/types/${businessTypeId}/full`, {
+        params: { locale },
+      })
 
       if (response.data.success && response.data.data) {
         if (process.env.NODE_ENV === 'development') {
@@ -236,7 +250,10 @@ class BusinessTypesApiService {
     try {
       generalLogger.debug(`[BusinessTypesApi] Fetching questions for: ${businessTypeId}`, options)
 
-      const params: Record<string, string | undefined> = {}
+      const locale = this.getLocaleFromPathname();
+      const params: Record<string, string | undefined> = {
+        locale,
+      }
 
       if (options?.flow_type) {
         params.flow_type = options.flow_type
@@ -276,11 +293,16 @@ class BusinessTypesApiService {
    */
   async validateBusinessTypeData(businessTypeId: string, data: Record<string, any>): Promise<any> {
     try {
+      const locale = this.getLocaleFromPathname();
       generalLogger.debug(`[BusinessTypesApi] Validating data for: ${businessTypeId}`, {
         dataKeys: Object.keys(data),
+        locale,
       })
 
-      const response = await this.api.post(`/types/${businessTypeId}/validate`, { data })
+      const response = await this.api.post(`/types/${businessTypeId}/validate`, { 
+        data,
+        locale,
+      })
 
       if (response.data.success && response.data.data) {
         generalLogger.debug(`[BusinessTypesApi] Validation complete`, {
@@ -314,7 +336,10 @@ class BusinessTypesApiService {
     try {
       generalLogger.debug(`[BusinessTypesApi] Fetching benchmarks for: ${businessTypeId}`, options)
 
-      const params: any = {}
+      const locale = this.getLocaleFromPathname();
+      const params: any = {
+        locale,
+      }
 
       if (options?.country) {
         params.country = options.country
@@ -359,8 +384,9 @@ class BusinessTypesApiService {
   ): Promise<Array<{ text: string; confidence: number; reason: string }>> {
     if (!query || query.trim().length === 0) return []
     try {
+      const locale = this.getLocaleFromPathname();
       const response = await this.api.get('/types/search', {
-        params: { q: query, limit },
+        params: { q: query, limit, locale },
       })
 
       const raw = response?.data
