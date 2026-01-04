@@ -4,13 +4,17 @@
  * Automatically refreshes JWT tokens before they expire to ensure
  * users are never logged out unexpectedly
  * 
+ * Dual-Token System:
+ * - Access Token: 15 minutes (used for API authentication)
+ * - Refresh Token: 7 days (used to get new access token)
+ * - Both tokens are HTTP-only cookies on domain .upswitch.app
+ * 
  * Strategy:
- * - Proactive refresh at 80% of TTL (refresh before expiration)
- * - Check token expiry every 5 minutes
+ * - Proactive refresh every 5 minutes (before 15min access token expires)
  * - Background refresh without user interruption
  * - Silent refresh with exponential backoff
- * - Fallback to re-login if refresh fails
- * - Refresh on visibility change (tab focus)
+ * - Token rotation: Each refresh returns new access + refresh tokens
+ * - Fallback to re-login if refresh token is invalid/expired
  */
 
 import axios from 'axios';
@@ -66,19 +70,20 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
     lastRefreshAttemptRef.current = now;
     
     try {
-      console.log('🔄 Attempting to refresh session token...');
+      console.log('🔄 Attempting to refresh access token (dual-token system)...');
       
       const response = await axios.post(
         `${API_URL}/api/v2/auth/refresh`,
         {},
         {
-          withCredentials: true, // Important: Include cookies (refresh token)
+          withCredentials: true, // Important: Include cookies (upswitch_refresh_token)
           timeout: 10000, // 10 second timeout
         }
       );
       
+      // Backend returns new access_token + refresh_token in Set-Cookie headers
       if (response.data && response.data.user) {
-        console.log('✅ Session token refreshed successfully');
+        console.log('✅ Access token refreshed successfully (token rotation complete)');
         onRefreshSuccess?.();
         return true;
       } else {
@@ -89,8 +94,8 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       
       // Handle different error cases
       if (error.response?.status === 401) {
-        // Token is invalid or expired - user needs to re-login
-        console.warn('Token expired, user needs to re-login');
+        // Refresh token is invalid or expired - user needs to re-login
+        console.warn('⚠️ Refresh token expired or invalid, user needs to re-login');
         onTokenExpired?.();
         return false;
       }
@@ -119,8 +124,8 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
   const checkAndRefresh = useCallback(async () => {
     try {
       // Proactively refresh access token before it expires
-      // Access tokens expire in 15 minutes, so we refresh every 10 minutes
-      console.log('🔄 Proactive token refresh check...');
+      // Access tokens expire in 15 minutes, we check every 5 minutes
+      console.log('🔄 Proactive token refresh check (dual-token system)...');
       await refreshToken();
         
       // Broadcast session refresh to other tabs AFTER successful refresh
@@ -148,7 +153,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
    * Start token refresh checks
    */
   useEffect(() => {
-    console.log('🔐 Starting token refresh checks (interval: 1 hour)');
+    console.log('🔐 Starting token refresh checks (interval: 5 minutes, access token TTL: 15 minutes)');
     
     // Initial check after 5 seconds (give app time to initialize)
     const initialTimeout = setTimeout(() => {
@@ -180,6 +185,9 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
 /**
  * Hook for manually refreshing token
  * Useful for "Refresh Session" buttons or triggered refresh
+ * 
+ * Dual-Token System: Sends upswitch_refresh_token cookie to get new
+ * upswitch_access_token and upswitch_refresh_token (token rotation)
  */
 export const useManualTokenRefresh = () => {
   const isRefreshingRef = useRef(false);
@@ -197,13 +205,14 @@ export const useManualTokenRefresh = () => {
         `${API_URL}/api/v2/auth/refresh`,
         {},
         {
-          withCredentials: true, // Include refresh token cookie
+          withCredentials: true, // Include upswitch_refresh_token cookie
           timeout: 10000,
         }
       );
       
+      // Backend returns new access_token + refresh_token in Set-Cookie headers
       if (response.data && response.data.user) {
-        console.log('✅ Manual token refresh successful');
+        console.log('✅ Manual token refresh successful (dual-token rotation complete)');
         return true;
       } else {
         throw new Error('Token refresh failed: Invalid response');

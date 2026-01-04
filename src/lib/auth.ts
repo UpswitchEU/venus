@@ -70,16 +70,71 @@ export const useAuthStore = create<AuthState>()(
         set({ error, loading: false })
       },
 
-      // Check session with cookie
+      // Check session with cookie (supports dual-token system with auto-refresh)
       checkSession: async (): Promise<User | null> => {
         try {
-          const response = await fetch(`${API_URL}/api/auth/me`, {
+          // Try to get user with access token
+          const response = await fetch(`${API_URL}/api/v2/auth/me`, {
             method: 'GET',
-            credentials: 'include', // Send cookies
+            credentials: 'include', // Send cookies (upswitch_access_token, upswitch_refresh_token)
             headers: {
               'Accept': 'application/json',
             },
           })
+
+          // If access token expired (401), try to refresh automatically
+          if (response.status === 401) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🔄 [Auth] Access token expired, attempting refresh...')
+            }
+            
+            try {
+              const refreshResponse = await fetch(`${API_URL}/api/v2/auth/refresh`, {
+                method: 'POST',
+                credentials: 'include', // Send refresh token cookie
+                headers: {
+                  'Accept': 'application/json',
+                },
+              })
+              
+              if (refreshResponse.ok) {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('✅ [Auth] Token refreshed, retrying session check...')
+                }
+                
+                // Retry with new access token
+                const retryResponse = await fetch(`${API_URL}/api/v2/auth/me`, {
+                  method: 'GET',
+                  credentials: 'include',
+                  headers: {
+                    'Accept': 'application/json',
+                  },
+                })
+                
+                if (retryResponse.ok) {
+                  const data = await retryResponse.json()
+                  const user = data.success ? (data.data?.user || data.data) : data.user
+                  
+                  if (user) {
+                    get().setUser(user)
+                    trackAuthSuccess(user.id, 'cookie-refresh')
+                    authMetrics.recordSuccess()
+                    return user
+                  }
+                }
+              } else {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('ℹ️ [Auth] Token refresh failed, user needs to re-login')
+                }
+              }
+            } catch (refreshError) {
+              console.warn('⚠️ [Auth] Token refresh error:', refreshError)
+            }
+            
+            // Refresh failed or retry failed - user is not authenticated
+            get().setUser(null)
+            return null
+          }
 
           if (response.ok) {
             const data = await response.json()
@@ -142,8 +197,8 @@ export const useAuthStore = create<AuthState>()(
       // Exchange token for session
       exchangeToken: async (token: string): Promise<User | null> => {
         try {
-          // Exchange token for cookie
-          const exchangeResponse = await fetch(`${API_URL}/api/auth/exchange-token`, {
+          // Exchange token for dual-token cookies (access + refresh)
+          const exchangeResponse = await fetch(`${API_URL}/api/v2/auth/exchange-token`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -156,7 +211,7 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('Token exchange failed')
           }
 
-          // Verify session was set
+          // Verify session was set with new cookies
           const user = await get().checkSession()
           if (user) {
             trackAuthSuccess(user.id, 'token')
@@ -175,8 +230,22 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Logout
-      logout: () => {
+      // Logout (clears cookies and state)
+      logout: async () => {
+        try {
+          // Call backend logout to clear cookies
+          await fetch(`${API_URL}/api/v2/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json',
+            },
+          })
+        } catch (error) {
+          console.warn('⚠️ [Auth] Logout API call failed (non-fatal):', error)
+        }
+        
+        // Clear local state regardless of API call success
         set({ user: null, loading: false, error: null })
       },
     }),
@@ -194,8 +263,9 @@ async function initializeAuth(): Promise<void> {
   // HttpOnly Cookie Explainer
   console.log('🔐 [Auth] Initializing authentication...')
   console.log('🔐 [Auth] Note: Auth cookies are HttpOnly and invisible to JavaScript')
+  console.log('🔐 [Auth] Using dual-token system: access_token (15min) + refresh_token (7d)')
   console.log('🔐 [Auth] The browser automatically sends them in HTTP requests')
-  console.log('🔐 [Auth] Testing backend /api/auth/me to verify authentication...')
+  console.log('🔐 [Auth] Testing backend /api/v2/auth/me to verify authentication...')
 
   // Enhanced logging for cross-subdomain auth debugging
   if (process.env.NODE_ENV === 'development') {
@@ -203,8 +273,10 @@ async function initializeAuth(): Promise<void> {
       hostname: window.location.hostname,
       isSubdomain: window.location.hostname.includes('valuation.'),
       pathname: window.location.pathname,
+      apiUrl: API_URL,
     })
     console.log('🔐 [Auth] Note: document.cookie cannot detect HttpOnly cookies (this is correct for security)')
+    console.log('🔐 [Auth] Cookies: upswitch_access_token + upswitch_refresh_token on domain .upswitch.app')
   }
 
   try {
