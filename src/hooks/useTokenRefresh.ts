@@ -42,6 +42,9 @@ interface RefreshOptions {
   onTokenExpired?: () => void;
 }
 
+// Global refresh promise for mutex pattern (shared across all hook instances)
+let globalRefreshPromise: Promise<boolean> | null = null;
+
 export const useTokenRefresh = (options: RefreshOptions = {}) => {
   const { onRefreshSuccess, onRefreshFailure, onTokenExpired } = options;
   
@@ -50,12 +53,19 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
   const lastRefreshAttemptRef = useRef<number>(0);
   
   /**
-   * Refresh token with exponential backoff
+   * Refresh token with exponential backoff and mutex pattern
+   * Mutex ensures only one refresh happens at a time across all tabs/components
    */
   const refreshToken = useCallback(async (retryCount = 0): Promise<boolean> => {
-    // Prevent concurrent refresh attempts
+    // MUTEX PATTERN: If refresh already in progress globally, wait for it
+    if (globalRefreshPromise) {
+      console.log('Token refresh already in progress (global mutex), waiting...');
+      return globalRefreshPromise;
+    }
+    
+    // Prevent concurrent refresh attempts in this component
     if (isRefreshingRef.current) {
-      console.log('Token refresh already in progress, skipping...');
+      console.log('Token refresh already in progress (local), skipping...');
       return false;
     }
     
@@ -69,53 +79,59 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
     isRefreshingRef.current = true;
     lastRefreshAttemptRef.current = now;
     
-    try {
-      console.log('🔄 Attempting to refresh access token (dual-token system)...');
-      
-      const response = await axios.post(
-        `${API_URL}/api/v2/auth/refresh`,
-        {},
-        {
-          withCredentials: true, // Important: Include cookies (upswitch_refresh_token)
-          timeout: 10000, // 10 second timeout
-        }
-      );
-      
-      // Backend returns new access_token + refresh_token in Set-Cookie headers
-      if (response.data && response.data.user) {
-        console.log('✅ Access token refreshed successfully (token rotation complete)');
-        onRefreshSuccess?.();
-        return true;
-      } else {
-        throw new Error('Token refresh failed: Invalid response');
-      }
-    } catch (error: any) {
-      console.error('❌ Token refresh failed:', error);
-      
-      // Handle different error cases
-      if (error.response?.status === 401) {
-        // Refresh token is invalid or expired - user needs to re-login
-        console.warn('⚠️ Refresh token expired or invalid, user needs to re-login');
-        onTokenExpired?.();
-        return false;
-      }
-      
-      // Network error or server error - retry with exponential backoff
-      if (retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        console.log(`Retrying token refresh in ${delay}ms (attempt ${retryCount + 1}/3)...`);
+    // Create global refresh promise for mutex
+    globalRefreshPromise = (async () => {
+      try {
+        console.log('🔄 Attempting to refresh access token (dual-token system)...');
         
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return refreshToken(retryCount + 1);
+        const response = await axios.post(
+          `${API_URL}/api/v2/auth/refresh`,
+          {},
+          {
+            withCredentials: true, // Important: Include cookies (upswitch_refresh_token)
+            timeout: 10000, // 10 second timeout
+          }
+        );
+        
+        // Backend returns new access_token + refresh_token in Set-Cookie headers
+        if (response.data && response.data.user) {
+          console.log('✅ Access token refreshed successfully (token rotation complete)');
+          onRefreshSuccess?.();
+          return true;
+        } else {
+          throw new Error('Token refresh failed: Invalid response');
+        }
+      } catch (error: any) {
+        console.error('❌ Token refresh failed:', error);
+        
+        // Handle different error cases
+        if (error.response?.status === 401) {
+          // Refresh token is invalid or expired - user needs to re-login
+          console.warn('⚠️ Refresh token expired or invalid, user needs to re-login');
+          onTokenExpired?.();
+          return false;
+        }
+        
+        // Network error or server error - retry with exponential backoff
+        if (retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+          console.log(`Retrying token refresh in ${delay}ms (attempt ${retryCount + 1}/3)...`);
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return refreshToken(retryCount + 1);
+        }
+        
+        // Max retries exceeded
+        console.error('Token refresh failed after 3 attempts');
+        onRefreshFailure?.(error);
+        return false;
+      } finally {
+        isRefreshingRef.current = false;
+        globalRefreshPromise = null; // Clear global mutex when done
       }
-      
-      // Max retries exceeded
-      console.error('Token refresh failed after 3 attempts');
-      onRefreshFailure?.(error);
-      return false;
-    } finally {
-      isRefreshingRef.current = false;
-    }
+    })();
+    
+    return globalRefreshPromise;
   }, [onRefreshSuccess, onRefreshFailure, onTokenExpired]);
   
   /**
@@ -193,36 +209,48 @@ export const useManualTokenRefresh = () => {
   const isRefreshingRef = useRef(false);
   
   const refreshToken = useCallback(async (): Promise<boolean> => {
+    // MUTEX PATTERN: If refresh already in progress globally, wait for it
+    if (globalRefreshPromise) {
+      console.log('Token refresh already in progress (global mutex), waiting...');
+      return globalRefreshPromise;
+    }
+    
     if (isRefreshingRef.current) {
-      console.log('Token refresh already in progress');
+      console.log('Token refresh already in progress (local)');
       return false;
     }
     
     isRefreshingRef.current = true;
     
-    try {
-      const response = await axios.post(
-        `${API_URL}/api/v2/auth/refresh`,
-        {},
-        {
-          withCredentials: true, // Include upswitch_refresh_token cookie
-          timeout: 10000,
+    // Create global refresh promise for mutex
+    globalRefreshPromise = (async () => {
+      try {
+        const response = await axios.post(
+          `${API_URL}/api/v2/auth/refresh`,
+          {},
+          {
+            withCredentials: true, // Include upswitch_refresh_token cookie
+            timeout: 10000,
+          }
+        );
+        
+        // Backend returns new access_token + refresh_token in Set-Cookie headers
+        if (response.data && response.data.user) {
+          console.log('✅ Manual token refresh successful (dual-token rotation complete)');
+          return true;
+        } else {
+          throw new Error('Token refresh failed: Invalid response');
         }
-      );
-      
-      // Backend returns new access_token + refresh_token in Set-Cookie headers
-      if (response.data && response.data.user) {
-        console.log('✅ Manual token refresh successful (dual-token rotation complete)');
-        return true;
-      } else {
-        throw new Error('Token refresh failed: Invalid response');
+      } catch (error) {
+        console.error('❌ Manual token refresh failed:', error);
+        return false;
+      } finally {
+        isRefreshingRef.current = false;
+        globalRefreshPromise = null; // Clear global mutex when done
       }
-    } catch (error) {
-      console.error('❌ Manual token refresh failed:', error);
-      return false;
-    } finally {
-      isRefreshingRef.current = false;
-    }
+    })();
+    
+    return globalRefreshPromise;
   }, []);
   
   return {
