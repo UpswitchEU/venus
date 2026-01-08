@@ -8,6 +8,8 @@ Venus (Valuation Tester) is a Next.js 13 application running on the subdomain `v
 **Domain**: valuation.upswitch.app  
 **Stack**: Next.js 13.5.6, React, Zustand, Axios
 
+> **Note**: Venus serves as the **reference implementation** for the Upswitch authentication ecosystem. Mercury and Titan have been standardized to match Venus's dual-token architecture. This document is the authoritative source for authentication patterns across all applications.
+
 ## Dual-Token Authentication System
 
 ### Token Types
@@ -454,5 +456,6 @@ For issues or questions:
 **Last Updated**: January 2026  
 **Version**: 2.0 (Dual-Token System)  
 **Author**: UpSwitch Engineering Team
+
 
 
