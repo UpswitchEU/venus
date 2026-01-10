@@ -32,11 +32,21 @@ export const HomePage: React.FC = () => {
   useSessionInitialization()
 
   // Fetch business card if token is present from main platform
+  // Also handle prefilledQuery parameter for direct navigation from Mercury
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
     const fromMainPlatform = params.get('from') === 'upswitch'
+    const prefilledQuery = params.get('prefilledQuery')
+
+    // Handle prefilledQuery parameter (e.g., from Mercury accountant flow)
+    if (prefilledQuery && !query) {
+      setQuery(prefilledQuery)
+      generalLogger.info('Query prefilled from URL parameter', {
+        prefilledQuery,
+      })
+    }
 
     if (token && fromMainPlatform) {
       generalLogger.info('Business card token detected from main platform', {
@@ -52,8 +62,8 @@ export const HomePage: React.FC = () => {
         .then((data) => {
           setBusinessCardData(data)
 
-          // Prefill query with company name
-          if (data.company_name) {
+          // Prefill query with company name (only if not already set from prefilledQuery)
+          if (data.company_name && !prefilledQuery) {
             setQuery(data.company_name)
             generalLogger.info('Query prefilled from business card', {
               companyName: data.company_name,
@@ -71,7 +81,7 @@ export const HomePage: React.FC = () => {
       const newReportId = generateReportId()
       router.push(UrlGeneratorService.reportById(newReportId, { token }))
     }
-  }, [router])
+  }, [router, query])
 
   // Fetch recent reports on mount and when user changes
   useEffect(() => {

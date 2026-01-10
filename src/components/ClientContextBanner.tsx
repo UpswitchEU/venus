@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import { useClientContext } from '../stores/clientContext';
 import { X } from 'lucide-react';
 
@@ -9,9 +11,14 @@ import { X } from 'lucide-react';
  * Shows client's name and avatar, with option to exit client view.
  */
 export function ClientContextBanner() {
+  const [mounted, setMounted] = useState(false);
   const { isActingAsClient, client, clearClientContext } = useClientContext();
 
-  if (!isActingAsClient || !client) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || !isActingAsClient || !client) return null;
 
   return (
     <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">

@@ -74,9 +74,9 @@ export const useClientContext = create<ClientContextState>()(
         });
       },
 
-      getContextHeaders: () => {
+      getContextHeaders: (): Record<string, string> => {
         const state = get();
-        if (!state.isActingAsClient) return {};
+        if (!state.isActingAsClient) return {} as Record<string, string>;
 
         return {
           'X-Client-Context-User': state.client!.id,

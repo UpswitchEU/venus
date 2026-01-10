@@ -183,6 +183,7 @@ const AUTH_ENDPOINTS = [
   '/api/auth/me',
   '/api/auth/login',
   '/api/auth/logout',
+  '/api/auth/refresh',
   '/api/auth/exchange-token',
   '/api/auth/register'
 ]

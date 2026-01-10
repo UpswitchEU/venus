@@ -6,6 +6,7 @@
  * - Minimal logging (errors only)
  * - Fast initialization (<100ms)
  * - No over-engineering
+ * - Race condition prevention via promise caching
  * 
  * Flow:
  * 1. Check cookie (sync) → If exists, verify with backend
@@ -25,6 +26,47 @@ const API_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   'https://api.upswitch.app'
+
+/**
+ * Simple Auth Cache - Prevents redundant API calls
+ * Follows Mercury's pattern with 5-minute TTL
+ */
+interface CachedAuth {
+  user: User | null
+  timestamp: number
+  expiresAt: number
+}
+
+let authCache: CachedAuth | null = null
+const AUTH_CACHE_TTL = 5 * 60 * 1000 // 5 minutes like Mercury
+
+function getAuthCache(): User | null {
+  if (!authCache) return null
+  if (Date.now() > authCache.expiresAt) {
+    authCache = null
+    return null
+  }
+  return authCache.user
+}
+
+function setAuthCache(user: User | null): void {
+  const now = Date.now()
+  authCache = {
+    user,
+    timestamp: now,
+    expiresAt: now + AUTH_CACHE_TTL,
+  }
+}
+
+function clearAuthCache(): void {
+  authCache = null
+}
+
+/**
+ * Promise cache for in-flight auth checks - Prevents race conditions
+ * Following Mercury's pattern for concurrent request deduplication
+ */
+let checkSessionPromise: Promise<User | null> | null = null
 
 /**
  * Auth state interface
@@ -72,15 +114,31 @@ export const useAuthStore = create<AuthState>()(
 
       // Check session with cookie (supports dual-token system with auto-refresh)
       checkSession: async (): Promise<User | null> => {
-        try {
-          // Try to get user with access token
-          const response = await fetch(`${API_URL}/api/v2/auth/me`, {
-            method: 'GET',
-            credentials: 'include', // Send cookies (upswitch_access_token, upswitch_refresh_token)
-            headers: {
-              'Accept': 'application/json',
-            },
-          })
+        // CRITICAL: Check cache first (like Mercury)
+        const cached = getAuthCache()
+        if (cached) {
+          set({ user: cached, loading: false, error: null })
+          return cached
+        }
+
+        // CRITICAL: Deduplicate concurrent requests (like Mercury)
+        // If already checking session, return the existing promise
+        if (checkSessionPromise) {
+          return checkSessionPromise
+        }
+
+        // Create new check session promise
+        checkSessionPromise = (async () => {
+          try {
+            // Try to get user with access token
+            // Use Venus proxy route for same-origin request (no CORS issues)
+            const response = await fetch('/api/auth/me', {
+              method: 'GET',
+              credentials: 'include', // Send cookies (upswitch_access_token, upswitch_refresh_token)
+              headers: {
+                'Accept': 'application/json',
+              },
+            })
 
           // If access token expired (401), try to refresh automatically
           if (response.status === 401) {
@@ -89,7 +147,8 @@ export const useAuthStore = create<AuthState>()(
             }
             
             try {
-              const refreshResponse = await fetch(`${API_URL}/api/v2/auth/refresh`, {
+              // Use local API proxy route which forwards to Titan with cookies
+              const refreshResponse = await fetch('/api/auth/refresh', {
                 method: 'POST',
                 credentials: 'include', // Send refresh token cookie
                 headers: {
@@ -103,7 +162,8 @@ export const useAuthStore = create<AuthState>()(
                 }
                 
                 // Retry with new access token
-                const retryResponse = await fetch(`${API_URL}/api/v2/auth/me`, {
+                // Use Venus proxy route for same-origin request (no CORS issues)
+                const retryResponse = await fetch('/api/auth/me', {
                   method: 'GET',
                   credentials: 'include',
                   headers: {
@@ -184,12 +244,16 @@ export const useAuthStore = create<AuthState>()(
                 }
               }
               
+              // Cache successful auth result (like Mercury)
+              setAuthCache(user)
+              
               return user
             }
           }
           
           // No active session - not an error, just guest mode
           get().setUser(null)
+          clearAuthCache() // Clear cache when no user
           return null
         } catch (error) {
           // Log and track errors
@@ -200,8 +264,15 @@ export const useAuthStore = create<AuthState>()(
           
           get().setError(errorMessage)
           get().setUser(null)
+          clearAuthCache() // Clear cache on error
           return null
+        } finally {
+          // CRITICAL: Clear promise cache so next call can make a fresh request
+          checkSessionPromise = null
         }
+        })()
+
+        return checkSessionPromise
       },
 
       // Exchange token for session
@@ -243,22 +314,42 @@ export const useAuthStore = create<AuthState>()(
       // Logout (clears cookies and state)
       logout: async () => {
         try {
-          // Call backend logout to clear cookies
-          await fetch(`${API_URL}/api/v2/auth/logout`, {
+          // 1. Clear local state first (optimistic)
+          set({ user: null, loading: false, error: null })
+          clearAuthCache()
+          
+          // 2. Clear localStorage/sessionStorage
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('upswitch_has_session')
+            localStorage.removeItem('upswitch_user')
+            sessionStorage.clear()
+          }
+          
+          // 3. Call backend to clear cookies (AWAIT it properly)
+          await fetch('/api/auth/logout', {
             method: 'POST',
             credentials: 'include',
-            headers: {
-              'Accept': 'application/json',
-            },
+            headers: { 'Accept': 'application/json' },
           })
-        } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('⚠️ [Auth] Logout API call failed (non-fatal):', error)
+          
+          // 4. Broadcast to same-origin tabs only (secure)
+          if (typeof window !== 'undefined') {
+            window.postMessage(
+              { type: 'upswitch-logout', timestamp: Date.now() },
+              window.location.origin
+            )
           }
+          
+          // DO NOT clear cookies client-side (server does it with HttpOnly)
+          // DO NOT use setTimeout (use proper await)
+          
+        } catch (error) {
+          console.warn('[Venus Auth] Logout failed (non-fatal):', error)
+          // State already cleared, user can continue
         }
         
-        // Clear local state regardless of API call success
-        set({ user: null, loading: false, error: null })
+        // Track logout
+        authMetrics.recordLogout()
       },
     }),
     { name: 'AuthStore' }
@@ -279,9 +370,12 @@ async function initializeAuth(): Promise<void> {
       hostname: window.location.hostname,
       isSubdomain: window.location.hostname.includes('valuation.'),
       pathname: window.location.pathname,
-      apiUrl: API_URL,
+      usingProxyRoutes: true, // Using Venus proxy routes for auth
     })
     console.log('🔐 [Auth] Using dual-token system (HttpOnly cookies): access_token (15min) + refresh_token (7d)')
+    console.log('🔐 [Auth] Note: Auth cookies are HttpOnly and invisible to JavaScript')
+    console.log('🔐 [Auth] The browser automatically sends them in HTTP requests')
+    console.log('🔐 [Auth] Testing backend /api/auth/me to verify authentication...')
   }
 
   try {
@@ -346,13 +440,22 @@ async function initializeAuth(): Promise<void> {
           if (user) {
             setUser(user)
             
-            // Clean URL
-            window.history.replaceState({}, '', window.location.pathname)
+            // Clean URL but preserve prefilledQuery parameter for HomePage
+            const url = new URL(window.location.href)
+            url.searchParams.delete('clientToken')
+            // Preserve prefilledQuery if present (used by HomePage)
+            if (!url.searchParams.has('prefilledQuery')) {
+              // Only clean URL completely if no prefilledQuery
+              window.history.replaceState({}, '', url.pathname + (url.search || ''))
+            } else {
+              window.history.replaceState({}, '', url.toString())
+            }
             
             if (process.env.NODE_ENV === 'development') {
               console.log('✅ [Auth] Client context established', {
                 accountant: context.accountantUser.email,
                 client: context.clientUser.full_name,
+                hasPrefilledQuery: url.searchParams.has('prefilledQuery'),
               })
             }
             

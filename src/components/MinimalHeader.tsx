@@ -20,14 +20,8 @@ export const MinimalHeader: React.FC = () => {
     try {
       generalLogger.info('Logging out user')
 
-      // Get backend URL from environment
-      const backendUrl =
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'https://api.upswitch.app'
-
-      // Call backend logout endpoint
-      const response = await fetch(`${backendUrl}/api/auth/logout`, {
+      // Call local API proxy route which forwards to Titan with cookies
+      const response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include', // Send authentication cookie
         headers: {

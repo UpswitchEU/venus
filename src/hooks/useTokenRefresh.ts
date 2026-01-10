@@ -84,8 +84,9 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       try {
         console.log('🔄 Attempting to refresh access token (dual-token system)...');
         
+        // Use local API proxy route which forwards to Titan with cookies
         const response = await axios.post(
-          `${API_URL}/api/v2/auth/refresh`,
+          '/api/auth/refresh',
           {},
           {
             withCredentials: true, // Important: Include cookies (upswitch_refresh_token)
@@ -225,8 +226,9 @@ export const useManualTokenRefresh = () => {
     // Create global refresh promise for mutex
     globalRefreshPromise = (async () => {
       try {
+        // Use local API proxy route which forwards to Titan with cookies
         const response = await axios.post(
-          `${API_URL}/api/v2/auth/refresh`,
+          '/api/auth/refresh',
           {},
           {
             withCredentials: true, // Include upswitch_refresh_token cookie

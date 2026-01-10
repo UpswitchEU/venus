@@ -283,9 +283,9 @@ export class SessionService {
                 // NOTE: Titan generates the session_key, we don't specify it
                 const createResponse = await backendAPI.createValuationSession({
                   currentView: flow || 'manual', // Use provided flow or default to manual
-                  sessionData: prefilledQuery ? { _prefilledQuery: prefilledQuery } : {},
-                  partialData: prefilledQuery ? { _prefilledQuery: prefilledQuery } : {},
-                })
+                  sessionData: prefilledQuery ? { _prefilledQuery: prefilledQuery } as any : {},
+                  partialData: prefilledQuery ? { _prefilledQuery: prefilledQuery } as any : {},
+                } as any)
 
                 if (!createResponse?.session) {
                   logger.error('Failed to create new session', { requestedReportId: reportId })

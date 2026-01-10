@@ -85,6 +85,7 @@ export function trackAuthFailure(error: string, context?: Record<string, any>): 
 class AuthMetrics {
   private successCount = 0
   private failureCount = 0
+  private logoutCount = 0
   private startTime = Date.now()
 
   recordSuccess(): void {
@@ -93,6 +94,10 @@ class AuthMetrics {
 
   recordFailure(): void {
     this.failureCount++
+  }
+
+  recordLogout(): void {
+    this.logoutCount++
   }
 
   getSuccessRate(): number {
@@ -105,6 +110,7 @@ class AuthMetrics {
     return {
       successCount: this.successCount,
       failureCount: this.failureCount,
+      logoutCount: this.logoutCount,
       successRate: this.getSuccessRate(),
       uptimeMs: uptime,
     }
@@ -113,6 +119,7 @@ class AuthMetrics {
   reset(): void {
     this.successCount = 0
     this.failureCount = 0
+    this.logoutCount = 0
     this.startTime = Date.now()
   }
 }

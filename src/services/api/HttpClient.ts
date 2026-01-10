@@ -64,10 +64,8 @@ export class HttpClient {
           const contextHeaders = useClientContext.getState().getContextHeaders()
           
           if (Object.keys(contextHeaders).length > 0) {
-            config.headers = {
-              ...config.headers,
-              ...contextHeaders,
-            }
+            // Merge headers properly for Axios
+            Object.assign(config.headers, contextHeaders)
             
             if (process.env.NODE_ENV === 'development') {
               apiLogger.debug('Added client context headers to request', {
