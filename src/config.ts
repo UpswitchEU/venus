@@ -3,14 +3,15 @@ import { env } from './utils/env'
 // API Configuration
 export const API_CONFIG = {
   baseURL:
-    env.VITE_VALUATION_ENGINE_URL ||
-    env.VITE_VALUATION_API_URL ||
+    env.NEXT_PUBLIC_VALUATION_ENGINE_URL ||
+    env.NEXT_PUBLIC_VALUATION_API_URL ||
+    process.env.NEXT_PUBLIC_VALUATION_ENGINE_URL ||
     'https://api.valuations.upswitch.app',
   timeout: 30000,
   streaming: {
     enabled: process.env.NEXT_PUBLIC_ENABLE_STREAMING === 'true' || true,
-    timeout: parseInt(process.env.NEXT_PUBLIC_STREAMING_TIMEOUT || '30000'),
-    maxRetries: parseInt(process.env.NEXT_PUBLIC_MAX_RETRY_ATTEMPTS || '3'),
+    timeout: parseInt(process.env.NEXT_PUBLIC_STREAMING_TIMEOUT || '30000', 10),
+    maxRetries: parseInt(process.env.NEXT_PUBLIC_MAX_RETRY_ATTEMPTS || '3', 10),
   },
 }
 

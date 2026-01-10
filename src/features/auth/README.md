@@ -334,17 +334,17 @@ catch (error) {
 
 ```env
 # Unlimited credits mode (development only)
-VITE_UNLIMITED_CREDITS_MODE=true
+NEXT_PUBLIC_UNLIMITED_CREDITS_MODE=true
 
 # Credit API endpoint
-VITE_CREDIT_API_URL=https://api.example.com/credits
+NEXT_PUBLIC_CREDIT_API_URL=https://api.example.com/credits
 ```
 
 ### Feature Flags
 
 ```typescript
 // Enable unlimited credits (development)
-const UNLIMITED_CREDITS = import.meta.env.VITE_UNLIMITED_CREDITS_MODE === 'true'
+const UNLIMITED_CREDITS = process.env.NEXT_PUBLIC_UNLIMITED_CREDITS_MODE === 'true'
 ```
 
 ---

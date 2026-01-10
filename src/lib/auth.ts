@@ -117,7 +117,7 @@ export const useAuthStore = create<AuthState>()(
                   
                   if (user) {
                     get().setUser(user)
-                    trackAuthSuccess(user.id, 'cookie-refresh')
+                    trackAuthSuccess(user.id, 'cookie')
                     authMetrics.recordSuccess()
                     return user
                   }
@@ -128,7 +128,9 @@ export const useAuthStore = create<AuthState>()(
                 }
               }
             } catch (refreshError) {
-              console.warn('⚠️ [Auth] Token refresh error:', refreshError)
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('⚠️ [Auth] Token refresh error:', refreshError)
+              }
             }
             
             // Refresh failed or retry failed - user is not authenticated
@@ -153,25 +155,33 @@ export const useAuthStore = create<AuthState>()(
                 const guestSessionId = getSessionId()
                 
                 if (guestSessionId) {
-                  console.log('🔄 [Auth] Found guest session with active user, migrating...', {
-                    guestSessionId: guestSessionId.substring(0, 15) + '...',
-                    userId: user.id.substring(0, 8) + '...',
-                  })
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('🔄 [Auth] Found guest session with active user, migrating...', {
+                      guestSessionId: guestSessionId.substring(0, 15) + '...',
+                      userId: user.id.substring(0, 8) + '...',
+                    })
+                  }
                   
                   const { backendAPI } = await import('../services/backendApi')
                   const migrationResult = await backendAPI.migrateGuestData(guestSessionId)
                   
-                  console.log('✅ [Auth] Guest data migrated', {
-                    migratedReports: migrationResult.migratedReports,
-                    migratedSessions: migrationResult.migratedSessions,
-                  })
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('✅ [Auth] Guest data migrated', {
+                      migratedReports: migrationResult.migratedReports,
+                      migratedSessions: migrationResult.migratedSessions,
+                    })
+                  }
                   
                   clearSession()
-                  console.log('🧹 [Auth] Guest session cleared')
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('🧹 [Auth] Guest session cleared')
+                  }
                 }
               } catch (migrationError) {
                 // Non-fatal - don't block authentication
-                console.warn('⚠️ [Auth] Guest migration check failed (non-fatal):', migrationError)
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn('⚠️ [Auth] Guest migration check failed (non-fatal):', migrationError)
+                }
               }
               
               return user
@@ -242,7 +252,9 @@ export const useAuthStore = create<AuthState>()(
             },
           })
         } catch (error) {
-          console.warn('⚠️ [Auth] Logout API call failed (non-fatal):', error)
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️ [Auth] Logout API call failed (non-fatal):', error)
+          }
         }
         
         // Clear local state regardless of API call success
@@ -260,23 +272,16 @@ export const useAuthStore = create<AuthState>()(
 async function initializeAuth(): Promise<void> {
   const { setLoading, checkSession, exchangeToken, setUser } = useAuthStore.getState()
 
-  // HttpOnly Cookie Explainer
-  console.log('🔐 [Auth] Initializing authentication...')
-  console.log('🔐 [Auth] Note: Auth cookies are HttpOnly and invisible to JavaScript')
-  console.log('🔐 [Auth] Using dual-token system: access_token (15min) + refresh_token (7d)')
-  console.log('🔐 [Auth] The browser automatically sends them in HTTP requests')
-  console.log('🔐 [Auth] Testing backend /api/v2/auth/me to verify authentication...')
-
-  // Enhanced logging for cross-subdomain auth debugging
+  // Enhanced logging for cross-subdomain auth debugging (development only)
   if (process.env.NODE_ENV === 'development') {
+    console.log('🔐 [Auth] Initializing authentication...')
     console.log('🔐 [Auth] Environment:', {
       hostname: window.location.hostname,
       isSubdomain: window.location.hostname.includes('valuation.'),
       pathname: window.location.pathname,
       apiUrl: API_URL,
     })
-    console.log('🔐 [Auth] Note: document.cookie cannot detect HttpOnly cookies (this is correct for security)')
-    console.log('🔐 [Auth] Cookies: upswitch_access_token + upswitch_refresh_token on domain .upswitch.app')
+    console.log('🔐 [Auth] Using dual-token system (HttpOnly cookies): access_token (15min) + refresh_token (7d)')
   }
 
   try {
@@ -344,33 +349,39 @@ async function initializeAuth(): Promise<void> {
             const guestSessionId = getSessionId()
             
             if (guestSessionId) {
-              console.log('🔄 [Auth] Migrating guest data to user account...', {
-                guestSessionId: guestSessionId.substring(0, 15) + '...',
-                userId: user.id.substring(0, 8) + '...',
-              })
+              if (process.env.NODE_ENV === 'development') {
+                console.log('🔄 [Auth] Migrating guest data to user account...', {
+                  guestSessionId: guestSessionId.substring(0, 15) + '...',
+                  userId: user.id.substring(0, 8) + '...',
+                })
+              }
               
               // Call migration API
               const { backendAPI } = await import('../services/backendApi')
               const migrationResult = await backendAPI.migrateGuestData(guestSessionId)
               
-              console.log('✅ [Auth] Guest migration complete', {
-                migratedReports: migrationResult.migratedReports,
-                migratedSessions: migrationResult.migratedSessions,
-              })
+              if (process.env.NODE_ENV === 'development') {
+                console.log('✅ [Auth] Guest migration complete', {
+                  migratedReports: migrationResult.migratedReports,
+                  migratedSessions: migrationResult.migratedSessions,
+                })
+              }
               
               // Clear guest session so future requests use user_id from cookie
               clearSession()
-              console.log('🧹 [Auth] Guest session cleared')
+              if (process.env.NODE_ENV === 'development') {
+                console.log('🧹 [Auth] Guest session cleared')
+              }
               
               // Refresh reports list to show migrated reports
               const { useReportsStore } = await import('../store/useReportsStore')
               useReportsStore.getState().fetchReports(user.id)
-            } else {
-              console.log('ℹ️ [Auth] No guest session to migrate')
             }
           } catch (migrationError) {
             // Log but don't fail login - migration is non-critical
-            console.warn('⚠️ [Auth] Guest migration failed (non-fatal):', migrationError)
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ [Auth] Guest migration failed (non-fatal):', migrationError)
+            }
           }
         }
       } catch (tokenError) {

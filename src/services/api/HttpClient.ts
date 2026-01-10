@@ -36,8 +36,10 @@ export class HttpClient {
     this.client = axios.create({
       baseURL:
         baseURL ||
-        env.VITE_BACKEND_URL ||
-        env.VITE_API_BASE_URL ||
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        process.env.NEXT_PUBLIC_API_BASE_URL ||
+        env.NEXT_PUBLIC_BACKEND_URL ||
+        env.NEXT_PUBLIC_API_BASE_URL ||
         'https://api.upswitch.app',
       timeout: defaultTimeout,
       headers: {
