@@ -44,7 +44,7 @@ export class SessionAPI extends HttpClient {
       const response = await this.executeRequest<any>(
         {
           method: 'GET',
-          url: `/api/valuation-sessions/${reportId}`,
+          url: `/api/v2/valuations/sessions/${reportId}`,
           headers: {},
         } as any,
         options
@@ -193,7 +193,7 @@ export class SessionAPI extends HttpClient {
       const sessionData = await this.executeRequest<any>(
         {
           method: 'POST',
-          url: '/api/valuation-sessions',
+          url: '/api/v2/valuations/sessions',
           data: backendSession,
           headers: {},
         } as any,
@@ -263,7 +263,7 @@ export class SessionAPI extends HttpClient {
       const response = await this.executeRequest<{ success: boolean; data: any }>(
         {
           method: 'PATCH',
-          url: `/api/valuation-sessions/${reportId}`,
+          url: `/api/v2/valuations/sessions/${reportId}`,
           data: backendUpdates.updates, // Backend expects updates directly, not wrapped
           headers: {},
         } as any,

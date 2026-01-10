@@ -32,7 +32,7 @@ export class ValuationAPI extends HttpClient {
       return await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
-          url: '/api/valuations/calculate',
+          url: '/api/v2/valuations/calculate',
           data: {
             ...data,
             dataSource: 'manual',
@@ -65,7 +65,7 @@ export class ValuationAPI extends HttpClient {
       return await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
-          url: '/api/valuations/calculate',
+          url: '/api/v2/valuations/calculate',
           data: {
             ...data,
             dataSource: 'ai-guided',
@@ -91,7 +91,7 @@ export class ValuationAPI extends HttpClient {
       return await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
-          url: '/api/valuations/calculate',
+          url: '/api/v2/valuations/calculate',
           data: {
             ...data,
             dataSource: 'instant',
@@ -128,7 +128,7 @@ export class ValuationAPI extends HttpClient {
       return await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
-          url: '/api/valuations/calculate',
+          url: '/api/v2/valuations/calculate',
           data: backendData,
           headers: {},
         } as any,

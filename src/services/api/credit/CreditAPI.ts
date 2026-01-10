@@ -24,7 +24,7 @@ export class CreditAPI extends HttpClient {
       return await this.executeRequest<{ creditsRemaining: number; isPremium: boolean }>(
         {
           method: 'GET',
-          url: '/api/credits/status',
+          url: '/api/v2/credits/status',
           headers: {},
         } as any,
         options
@@ -61,7 +61,7 @@ export class CreditAPI extends HttpClient {
       }>(
         {
           method: 'GET',
-          url: '/api/credits/plan',
+          url: '/api/v2/credits/plan',
           headers: {},
         } as any,
         options
@@ -83,7 +83,7 @@ export class CreditAPI extends HttpClient {
       return await this.executeRequest<SaveValuationResponse>(
         {
           method: 'POST',
-          url: '/api/valuations/save',
+          url: '/api/v2/valuations/save',
           data,
           headers: {},
         } as any,
