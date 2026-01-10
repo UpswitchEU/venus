@@ -316,9 +316,57 @@ async function initializeAuth(): Promise<void> {
     }
 
     // ========================================================================
-    // STEP 2: Token exchange (Subdomain auth handoff, <200ms)
+    // STEP 2: Client Context Token Exchange (Accountant → Client handoff)
     // ========================================================================
     const params = new URLSearchParams(window.location.search)
+    const clientToken = params.get('clientToken')
+    
+    if (clientToken) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔗 [Auth] Client context token detected, exchanging...')
+      }
+      
+      try {
+        const response = await fetch(`${API_URL}/api/v2/auth/exchange-client-context`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ token: clientToken }),
+        })
+        
+        if (response.ok) {
+          const context = await response.json()
+          
+          // Set client context
+          const { useClientContext } = await import('../stores/clientContext')
+          useClientContext.getState().setClientContext(context)
+          
+          // Set auth user (accountant)
+          const user = await checkSession()
+          if (user) {
+            setUser(user)
+            
+            // Clean URL
+            window.history.replaceState({}, '', window.location.pathname)
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('✅ [Auth] Client context established', {
+                accountant: context.accountantUser.email,
+                client: context.clientUser.full_name,
+              })
+            }
+            
+            return
+          }
+        }
+      } catch (error) {
+        console.error('❌ [Auth] Client context exchange failed:', error)
+      }
+    }
+
+    // ========================================================================
+    // STEP 3: Token exchange (Subdomain auth handoff, <200ms)
+    // ========================================================================
     const token = params.get('token')
 
     if (token) {
@@ -406,7 +454,7 @@ async function initializeAuth(): Promise<void> {
     }
 
     // ========================================================================
-    // STEP 3: Guest mode (Still functional!)
+    // STEP 4: Guest mode (Still functional!)
     // ========================================================================
     if (process.env.NODE_ENV === 'development') {
       console.log('👤 [Auth] No authentication found, entering guest mode')

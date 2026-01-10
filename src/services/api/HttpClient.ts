@@ -55,9 +55,31 @@ export class HttpClient {
    * Setup common request and response interceptors
    */
   private setupInterceptors(): void {
-    // Request interceptor for guest session tracking
+    // Request interceptor for guest session tracking and client context
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
+        // Add client context headers if present
+        try {
+          const { useClientContext } = await import('../../stores/clientContext')
+          const contextHeaders = useClientContext.getState().getContextHeaders()
+          
+          if (Object.keys(contextHeaders).length > 0) {
+            config.headers = {
+              ...config.headers,
+              ...contextHeaders,
+            }
+            
+            if (process.env.NODE_ENV === 'development') {
+              apiLogger.debug('Added client context headers to request', {
+                headers: Object.keys(contextHeaders),
+              })
+            }
+          }
+        } catch (contextError) {
+          // Non-fatal - continue without client context
+          apiLogger.warn('Failed to add client context headers', { error: contextError })
+        }
+
         // CRITICAL: Check if user is authenticated first
         // Only send guest_session_id for non-authenticated users
         try {

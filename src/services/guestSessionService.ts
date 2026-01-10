@@ -183,12 +183,12 @@ class GuestSessionService {
     this.lastActivityUpdate = now
 
     // Fire and forget with simple retry
-    // FIX: Handle 429 rate limiting gracefully - don't retry on rate limit
+    // Handle 429 rate limiting gracefully - don't retry on rate limit
     try {
-      const response = await fetch(`${this.apiUrl}/api/guest/session/${sessionId}/activity`, {
+      const response = await fetch(`${this.apiUrl}/api/v2/guest/session/${sessionId}/activity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}), // FIX: Send empty object to satisfy Fastify/NestJS validation
+        body: JSON.stringify({ timestamp: new Date().toISOString() }), // Send timestamp for activity tracking
       })
 
       // If rate limited (429), just skip - don't retry

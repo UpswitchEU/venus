@@ -7,6 +7,7 @@ import { useSessionStore } from '../store/useSessionStore'
 import { generalLogger } from '../utils/logger'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
+import { useClientContext } from '../stores/clientContext'
 
 interface UserDropdownProps {
   user: UserType | null
@@ -14,6 +15,8 @@ interface UserDropdownProps {
 }
 
 export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) => {
+  // Get client context to show client avatar when acting as client
+  const { isActingAsClient, client } = useClientContext()
   const router = useRouter()
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
@@ -101,6 +104,15 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   // Get user initials for placeholder
   const getUserInitials = () => {
+    // Show client initials when acting as client
+    if (isActingAsClient && client) {
+      const names = client.fullName.split(' ')
+      if (names.length >= 2) {
+        return `${names[0][0]}${names[1][0]}`.toUpperCase()
+      }
+      return client.fullName.substring(0, 2).toUpperCase()
+    }
+    
     if (!user?.name) return '?'
     const names = user.name.split(' ')
     if (names.length >= 2) {
@@ -109,9 +121,10 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     return user.name.substring(0, 2).toUpperCase()
   }
 
-  // Use avatar from user object directly
-  const avatarUrl = user?.avatar_url || user?.avatar
+  // Use client avatar when acting as client, otherwise use user avatar
+  const avatarUrl = (isActingAsClient && client) ? client.avatarUrl : (user?.avatar_url || user?.avatar)
   const hasAvatar = !!avatarUrl
+  const displayName = (isActingAsClient && client) ? client.fullName : (user?.name || user?.email)
 
   const handleUserClick = () => {
     setIsOpen((prev) => !prev)
@@ -393,7 +406,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         ref={buttonRef}
         onClick={handleUserClick}
         className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-full bg-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-300 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-        aria-label={user ? `${user.name || user.email} - Account Menu` : 'Guest - Account Menu'}
+        aria-label={user ? `${displayName} - Account Menu` : 'Guest - Account Menu'}
         aria-expanded={isOpen}
         aria-haspopup="true"
         style={{ position: 'relative', zIndex: 101 }}
@@ -403,7 +416,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             {hasAvatar ? (
               <img
                 src={avatarUrl || ''}
-                alt={user?.name || 'User'}
+                alt={displayName || 'User'}
                 className="w-full h-full rounded-full object-cover"
                 loading="lazy"
                 onError={(e) => {
