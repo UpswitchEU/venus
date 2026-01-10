@@ -51,8 +51,8 @@ export class UtilityAPI extends HttpClient {
       return await this.executeRequest<GuestMigrationResponse>(
         {
           method: 'POST',
-          url: '/api/migrate-guest-data',
-          data: { guestSessionId },
+          url: '/api/v2/guest/migrate',
+          data: { guest_session_id: guestSessionId, user_id: null }, // Backend expects snake_case
           headers: {},
         } as any,
         options

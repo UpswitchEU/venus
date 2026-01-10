@@ -157,7 +157,7 @@ export class ValuationAPI extends HttpClient {
       return await this.executeRequest<{ html: string; completeness_percent: number }>(
         {
           method: 'POST',
-          url: '/api/valuation/preview-html',
+          url: '/api/v2/valuations/preview-html',
           data,
           headers: {},
         } as any,

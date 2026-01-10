@@ -21,7 +21,7 @@ export class ReportAPI extends HttpClient {
       return await this.executeRequest<ValuationResponse>(
         {
           method: 'GET',
-          url: `/api/reports/${reportId}`,
+          url: `/api/v2/valuations/reports/${reportId}`,
           headers: {},
         } as any,
         options
@@ -43,7 +43,7 @@ export class ReportAPI extends HttpClient {
       return await this.executeRequest<ValuationResponse>(
         {
           method: 'PUT',
-          url: `/api/reports/${reportId}`,
+          url: `/api/v2/valuations/reports/${reportId}`,
           data,
           headers: {},
         } as any,
@@ -62,7 +62,7 @@ export class ReportAPI extends HttpClient {
       return await this.executeRequest<{ success: boolean }>(
         {
           method: 'DELETE',
-          url: `/api/reports/${reportId}`,
+          url: `/api/v2/valuations/reports/${reportId}`,
           headers: {},
         } as any,
         options
@@ -111,7 +111,7 @@ export class ReportAPI extends HttpClient {
       // Call Node.js backend endpoint which proxies to Python engine
       const response = await this.client.request({
         method: 'POST',
-        url: `/api/valuations/pdf/accountant-view`,
+        url: `/api/v2/valuations/pdf/accountant-view`,
         data: { reportId },
         responseType: 'blob', // Important: request as blob for PDF
         signal,

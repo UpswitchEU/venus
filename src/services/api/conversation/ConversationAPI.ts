@@ -62,7 +62,7 @@ export class ConversationAPI extends HttpClient {
     try {
       await this.executeRequest<void>({
         method: 'POST',
-        url: '/api/conversation/messages',
+        url: '/api/v2/intelligent-conversation/messages',
         data: {
           reportId: data.reportId,
           messageId: data.messageId,

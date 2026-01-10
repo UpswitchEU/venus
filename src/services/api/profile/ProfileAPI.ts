@@ -31,7 +31,7 @@ export class ProfileAPI extends HttpClient {
       }>(
         {
           method: 'GET',
-          url: '/api/profiles/me',
+          url: '/api/v2/users/profile/me',
           headers: {},
         } as any,
         options
@@ -56,7 +56,7 @@ export class ProfileAPI extends HttpClient {
       }>(
         {
           method: 'PUT',
-          url: '/api/profiles/me',
+          url: '/api/v2/users/profile/me',
           data,
           headers: {},
         } as any,
