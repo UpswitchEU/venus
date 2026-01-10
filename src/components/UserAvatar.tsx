@@ -42,8 +42,8 @@ const UserAvatar: React.FC<UserAvatarProps> = React.memo(({ size = 'md', classNa
     return user.name.substring(0, 2).toUpperCase()
   }
 
-  // Get avatar URL
-  const avatarUrl = user?.avatar_url
+  // Get avatar URL (check both avatar_url and avatar fields)
+  const avatarUrl = user?.avatar_url || user?.avatar
   const hasValidAvatar = avatarUrl && !imageError
 
   // Handle image load error

@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Disable React error overlay in production
+  reactStrictMode: true,
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
+  
   // TypeScript configuration
   typescript: {
     // Ignore TypeScript errors during build (errors are in test files which are excluded)
@@ -20,6 +27,18 @@ const nextConfig = {
 
   // Optimize bundle splitting and tree-shaking
   webpack: (config, { dev, isServer }) => {
+    // Disable React error overlay
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'react-error-overlay': false,
+      }
+      // Also disable error overlay via webpack plugins
+      config.plugins = config.plugins || []
+      config.plugins = config.plugins.filter(
+        (plugin) => plugin.constructor.name !== 'ReactRefreshPlugin' || !dev
+      )
+    }
     // Exclude vitest.config.ts from being processed by Next.js
     config.module.rules.push({
       test: /vitest\.config\.ts$/,

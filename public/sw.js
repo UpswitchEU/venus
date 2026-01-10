@@ -185,7 +185,8 @@ const AUTH_ENDPOINTS = [
   '/api/auth/logout',
   '/api/auth/refresh',
   '/api/auth/exchange-token',
-  '/api/auth/register'
+  '/api/auth/register',
+  '/api/reports' // Also bypass SW for reports to ensure fresh data
 ]
 
 // Fetch event - network first for dynamic content, cache first for static assets

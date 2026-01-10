@@ -62,13 +62,8 @@ class ReportServiceImpl implements ReportService {
         status,
       })
 
-      // Call existing backend endpoint: GET /api/reports
-      // Include guest session ID header for guest users
-      const baseURL =
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'https://api.upswitch.app'
-      const url = `${baseURL}/api/reports?limit=${limit}&offset=${offset}`
+      // Use local API proxy route which forwards to Titan with cookies
+      const url = `/api/reports?limit=${limit}&offset=${offset}`
 
       // Get guest session ID if user is a guest
       const headers: HeadersInit = {

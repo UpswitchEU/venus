@@ -173,12 +173,14 @@ export const useAuthStore = create<AuthState>()(
                 
                 if (retryResponse.ok) {
                   const data = await retryResponse.json()
-                  const user = data.success ? (data.data?.user || data.data) : data.user
+                  const user = data.success ? (data.data?.user || data.data) : data.user || data
                   
                   if (user) {
                     get().setUser(user)
                     trackAuthSuccess(user.id, 'cookie')
                     authMetrics.recordSuccess()
+                    // Cache successful auth result
+                    setAuthCache(user)
                     return user
                   }
                 }
@@ -200,7 +202,8 @@ export const useAuthStore = create<AuthState>()(
 
           if (response.ok) {
             const data = await response.json()
-            const user = data.success ? (data.data?.user || data.data) : data.user
+            // Handle different response formats (Mercury wraps, Titan returns directly)
+            const user = data.success ? (data.data?.user || data.data) : data.user || data
             
             if (user) {
               get().setUser(user)
