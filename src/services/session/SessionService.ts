@@ -272,31 +272,58 @@ export class SessionService {
 
             if (!sessionResponse?.session) {
               // Session doesn't exist - create it automatically
-              logger.info('Session not found, creating new session', { reportId, flow })
+              logger.info('Session not found, creating new session', { requestedReportId: reportId, flow })
 
               try {
                 // ⭐ PLAN ENFORCEMENT: Check if user can create valuation BEFORE creating session
                 // This prevents wasted API calls and provides immediate feedback
                 await this.checkValuationCreationAllowed()
 
-                // Create minimal session on backend with prefilledQuery in partialData
-                const partialData = prefilledQuery
-                  ? ({ _prefilledQuery: prefilledQuery } as any)
-                  : {}
+                // Create minimal session on backend
+                // NOTE: Titan generates the session_key, we don't specify it
                 const createResponse = await backendAPI.createValuationSession({
-                  reportId,
                   currentView: flow || 'manual', // Use provided flow or default to manual
-                  sessionData: {},
-                  partialData,
+                  sessionData: prefilledQuery ? { _prefilledQuery: prefilledQuery } : {},
+                  partialData: prefilledQuery ? { _prefilledQuery: prefilledQuery } : {},
                 })
 
                 if (!createResponse?.session) {
-                  logger.error('Failed to create new session', { reportId })
+                  logger.error('Failed to create new session', { requestedReportId: reportId })
                   return null
                 }
 
+                // Titan generated a new session_key - use it as the reportId
+                const actualReportId = createResponse.reportId || createResponse.session.reportId;
+                
+                if (!actualReportId) {
+                  logger.error('Backend did not return session_key/reportId', { response: createResponse })
+                  return null
+                }
+
+                // ⚠️ IMPORTANT: If Titan generated a different ID than what's in the URL,
+                // we need to redirect to the correct URL
+                if (actualReportId !== reportId) {
+                  logger.warn('Titan generated different session_key than requested', {
+                    requestedReportId: reportId,
+                    actualReportId: actualReportId,
+                  })
+                  
+                  // Update browser URL to match the actual session ID from backend
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    url.pathname = url.pathname.replace(reportId, actualReportId);
+                    logger.info('Redirecting to correct session URL', {
+                      from: reportId,
+                      to: actualReportId,
+                      newUrl: url.toString(),
+                    })
+                    window.history.replaceState({}, '', url.toString());
+                  }
+                }
+
                 logger.info('New session created successfully', {
-                  reportId,
+                  requestedReportId: reportId,
+                  actualReportId: actualReportId,
                   currentView: createResponse.session.currentView,
                   hasPrefilledQuery: !!prefilledQuery,
                 })
@@ -306,6 +333,9 @@ export class SessionService {
                 const normalizedSession = normalizeSessionDates(createResponse.session)
                 const mergedSession = mergeSessionFields(normalizedSession)
 
+                // Ensure reportId is set correctly
+                mergedSession.reportId = actualReportId;
+
                 // Ensure prefilledQuery is in partialData (merge in case backend didn't preserve it)
                 if (prefilledQuery) {
                   mergedSession.partialData = mergePrefilledQuery(
@@ -314,8 +344,8 @@ export class SessionService {
                   )
                 }
 
-                // Cache the new session
-                globalSessionCache.set(reportId, mergedSession)
+                // Cache the new session with the actual reportId
+                globalSessionCache.set(actualReportId, mergedSession)
 
                 return mergedSession
               } catch (createError) {

@@ -167,29 +167,29 @@ export class SessionAPI extends HttpClient {
       // Handle both CreateValuationSessionRequest and ValuationSession types
       const sessionAny = session as any
 
-      // Map frontend 'conversational' to backend 'ai-guided'
-      const mappedCurrentView =
-        session.currentView === 'conversational' ? 'ai-guided' : session.currentView
+      // Map frontend 'conversational' to backend 'simple' view_type
+      // Note: Titan API uses 'simple' | 'advanced', not 'manual' | 'conversational'
+      const viewType = 'simple'; // Always use simple for now
 
-      // Map dataSource: 'conversational' → 'ai-guided'
-      // If dataSource exists, map it; otherwise derive from currentView
-      const mappedDataSource =
-        sessionAny.dataSource === 'conversational'
-          ? 'ai-guided'
-          : sessionAny.dataSource ||
-            (session.currentView === 'conversational' ? 'ai-guided' : 'manual')
+      // Build session_data object to send to Titan
+      // Titan API expects: { session_data: {...}, view_type: 'simple'|'advanced', current_step: number }
+      const sessionDataPayload = {
+        ...(sessionAny.sessionData || {}),
+        ...(sessionAny.partialData || {}),
+        // Preserve any existing fields from the session object
+        ...(session.currentView && { currentView: session.currentView }),
+        ...(sessionAny.dataSource && { dataSource: sessionAny.dataSource }),
+      };
 
       const backendSession = {
-        reportId: session.reportId,
-        currentView: mappedCurrentView,
-        dataSource: mappedDataSource,
-        // Include sessionData and partialData if present
-        ...(sessionAny.sessionData && { sessionData: sessionAny.sessionData }),
-        ...(sessionAny.partialData && { partialData: sessionAny.partialData }),
+        session_data: sessionDataPayload,
+        view_type: viewType,
+        current_step: sessionAny.current_step || 1,
       }
 
-      // Backend endpoint: /api/valuation-sessions (POST)
-      // Note: executeRequest already unwraps response.data.data, so response IS the session data
+      // Backend endpoint: POST /api/v2/valuations/sessions
+      // Titan generates the session_key, we don't specify it
+      // Response will contain: { session_key, session_data, view_type, status, ... }
       const sessionData = await this.executeRequest<any>(
         {
           method: 'POST',
@@ -205,24 +205,36 @@ export class SessionAPI extends HttpClient {
         throw new Error('Backend returned empty session data')
       }
 
-      // Map backend 'ai-guided' to frontend 'conversational'
-      if ((sessionData.currentView as string) === 'ai-guided') {
-        sessionData.currentView = 'conversational'
-      }
-      // Map dataSource: 'ai-guided' → 'conversational'
-      if (sessionData.dataSource === 'ai-guided') {
-        sessionData.dataSource = 'conversational'
+      // Titan returns session_key, map it to reportId for Venus
+      const reportId = sessionData.session_key || sessionData.reportId;
+      
+      // CRITICAL: Validate required fields exist
+      if (!reportId) {
+        throw new Error(`Backend returned incomplete session data: missing session_key`)
       }
 
-      // CRITICAL: Validate required fields exist
-      if (!sessionData.reportId) {
-        throw new Error(`Backend returned incomplete session data: missing reportId`)
+      // Build Venus-compatible session object
+      // Titan's response: { id, session_key, session_data, view_type, status, ... }
+      // Venus expects: { reportId, currentView, sessionData, ... }
+      const venusSession = {
+        ...sessionData,
+        reportId: reportId,  // Use session_key as reportId
+        currentView: session.currentView || 'manual', // Preserve requested view
+        sessionData: sessionData.session_data || {},
+      };
+
+      // Map backend 'ai-guided' to frontend 'conversational' (if it exists in session_data)
+      if (venusSession.sessionData?.currentView === 'ai-guided') {
+        venusSession.currentView = 'conversational';
+      }
+      if (venusSession.sessionData?.dataSource === 'ai-guided') {
+        venusSession.sessionData.dataSource = 'conversational';
       }
 
       return {
         success: true,
-        session: sessionData,
-        reportId: sessionData.reportId,
+        session: venusSession,
+        reportId: reportId,
       }
     } catch (error) {
       this.handleSessionError(error, 'create session')
