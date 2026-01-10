@@ -188,6 +188,7 @@ class GuestSessionService {
       const response = await fetch(`${this.apiUrl}/api/guest/session/${sessionId}/activity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}), // FIX: Send empty object to satisfy Fastify/NestJS validation
       })
 
       // If rate limited (429), just skip - don't retry
