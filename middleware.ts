@@ -20,19 +20,30 @@ const intlMiddleware = createMiddleware({
 
 /**
  * Detect locale from Accept-Language header
+ * Prefers Dutch (nl) if detected, otherwise defaults to English (en)
  */
 function detectLocaleFromHeader(acceptLanguage: string): string {
-	// Parse Accept-Language header
+	if (!acceptLanguage) {
+		return defaultLocale;
+	}
+	
+	// Parse Accept-Language header (e.g., "nl-BE, nl;q=0.9, en;q=0.8")
 	const languages = acceptLanguage
 		.split(',')
 		.map(lang => lang.split(';')[0].trim().toLowerCase());
 	
 	// Check if any preferred language matches our supported locales
+	// Check Dutch first (nl, nl-BE, nl-NL, etc.)
 	for (const lang of languages) {
 		if (lang.startsWith('nl')) return 'nl';
+	}
+	
+	// Then check English (en, en-US, en-GB, etc.)
+	for (const lang of languages) {
 		if (lang.startsWith('en')) return 'en';
 	}
 	
+	// Default to English if no match
 	return defaultLocale;
 }
 
@@ -66,36 +77,19 @@ export async function middleware(request: NextRequest) {
 		url.pathname = `/${detectedLocale}/reports/${reportsMatch[1]}`;
 		// Query parameters are automatically preserved by clone()
 		
-		// Create a modified request with the rewritten pathname for intlMiddleware
-		// We need to modify the request URL so intlMiddleware processes the locale-prefixed URL
-		const modifiedRequest = new NextRequest(url, request);
-		
-		// Call intlMiddleware on the rewritten URL to handle any further i18n logic
-		// Since the URL already has a locale prefix, intlMiddleware won't redirect
-		const response = intlMiddleware(modifiedRequest);
-		
-		// If intlMiddleware returns a response, use it and ensure headers are set
-		if (response instanceof Response) {
-			// Ensure iframe-friendly headers are set
-			response.headers.delete('X-Frame-Options');
-			const existingCSP = response.headers.get('Content-Security-Policy');
-			if (!existingCSP || !existingCSP.includes('frame-ancestors')) {
-				response.headers.set(
-					'Content-Security-Policy',
-					"frame-ancestors 'self' https://upswitch.app https://*.upswitch.app"
-				);
-			}
-			return response;
-		}
-		
-		// Fallback: create rewrite response if intlMiddleware doesn't return one
-		// This ensures the URL is rewritten internally (no redirect)
+		// Use NextResponse.rewrite() to internally rewrite the URL (no redirect)
+		// This allows Next.js to process the request with the locale-prefixed URL
 		const rewriteResponse = NextResponse.rewrite(url);
+		
+		// Ensure iframe-friendly headers are set
 		rewriteResponse.headers.delete('X-Frame-Options');
 		rewriteResponse.headers.set(
 			'Content-Security-Policy',
 			"frame-ancestors 'self' https://upswitch.app https://*.upswitch.app"
 		);
+		
+		// Return the rewrite response - Next.js will continue processing with the rewritten URL
+		// The intlMiddleware will run on the rewritten URL since it has a locale prefix
 		return rewriteResponse;
 	}
 
