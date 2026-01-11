@@ -1,5 +1,6 @@
 import {
     AlertCircle,
+    ArrowLeft,
     Check,
     Download,
     Edit3,
@@ -213,6 +214,60 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   // Fullscreen hook - use prop if provided, otherwise use hook
   const { handleOpenFullscreen: handleHookFullscreen } = useValuationToolbarFullscreen()
   const handleFullScreen = onFullScreen ?? handleHookFullscreen
+
+  // Return URL for Mercury integration
+  const [returnUrl, setReturnUrl] = React.useState<string | null>(null)
+  const [sourceApp, setSourceApp] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    // Check for return URL in sessionStorage
+    if (typeof window !== 'undefined') {
+      const storedReturnUrl = sessionStorage.getItem('upswitch_return_url')
+      const storedSourceApp = sessionStorage.getItem('upswitch_source')
+      setReturnUrl(storedReturnUrl)
+      setSourceApp(storedSourceApp)
+    }
+  }, [])
+
+  const handleReturnToMercury = () => {
+    if (returnUrl) {
+      // Broadcast report update before leaving
+      if (reportId) {
+        try {
+          const session = useSessionStore.getState().session
+          const event = new CustomEvent('upswitch-report-updated', {
+            detail: {
+              reportId,
+              reportName: session?.name,
+              updatedAt: session?.updatedAt || new Date(),
+              source: 'valuation.upswitch.app',
+            },
+          })
+          window.dispatchEvent(event)
+
+          // Also try BroadcastChannel if available
+          if (typeof BroadcastChannel !== 'undefined') {
+            const channel = new BroadcastChannel('upswitch-report-sync')
+            channel.postMessage({
+              type: 'upswitch-report-updated',
+              data: {
+                reportId,
+                reportName: session?.name,
+                updatedAt: session?.updatedAt || new Date(),
+              },
+              source: 'valuation.upswitch.app',
+            })
+            channel.close()
+          }
+        } catch (error) {
+          console.warn('[Toolbar] Failed to broadcast before return:', error)
+        }
+      }
+
+      // Navigate back to Mercury
+      window.location.href = returnUrl
+    }
+  }
 
   return (
     <>
@@ -433,8 +488,28 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                 )}
               </div>
 
-              {/* Right Section - User Info */}
+              {/* Right Section - Return Button + User Info */}
               <div className="flex items-center gap-1.5">
+                {returnUrl && (
+                  <>
+                    <Tooltip
+                      content={`Return to ${sourceApp === 'mercury-accountant' ? 'Client Dashboard' : 'Mercury Dashboard'}`}
+                      position="bottom"
+                      className=""
+                    >
+                      <button
+                        onClick={handleReturnToMercury}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="hidden sm:inline">
+                          {sourceApp === 'mercury-accountant' ? 'Back to Client' : 'Back to Dashboard'}
+                        </span>
+                      </button>
+                    </Tooltip>
+                    <div className="h-6 w-px bg-zinc-700 mx-1"></div>
+                  </>
+                )}
                 <div className="flex items-center gap-3">
                   <UserDropdown user={user} onLogout={handleLogout} />
                 </div>

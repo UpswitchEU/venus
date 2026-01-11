@@ -783,12 +783,13 @@ export class SessionService {
       // ✅ UPDATE cache with fresh data (Cursor/ChatGPT pattern)
       // This ensures page refresh loads complete valuation instantly
       // Instead of invalidating cache, we reload and update it with latest data
+      let freshSession: ValuationSession | null = null
       try {
         // Clear cache first to ensure we fetch fresh data from backend
         globalSessionCache.remove(reportId)
 
         // Reload session from backend to get complete data
-        const freshSession = await this.loadSession(reportId)
+        freshSession = await this.loadSession(reportId)
 
         if (freshSession) {
           // Cache the fresh session with all valuation data
@@ -809,6 +810,49 @@ export class SessionService {
           reportId,
           error: getErrorMessage(cacheError),
         })
+      }
+
+      // ✅ NEW: Broadcast report update for Mercury integration
+      if (data.valuationResult && typeof window !== 'undefined') {
+        try {
+          const { broadcastReportUpdated } = await import('../../utils/auth/cross-domain-logout')
+          const { useVersionHistoryStore } = await import('../../store/useVersionHistoryStore')
+          const { useClientContext } = await import('../../stores/clientContext')
+          
+          const versionStore = useVersionHistoryStore.getState()
+          const versions = versionStore.versions[reportId] || []
+          const latestVersion = versionStore.getLatestVersion(reportId)
+          const clientContext = useClientContext.getState()
+          
+          broadcastReportUpdated({
+            reportId,
+            reportName: freshSession?.name,
+            updatedAt: new Date(),
+            clientId: clientContext.isActingAsClient ? (clientContext.relationshipId ?? undefined) : undefined,
+            valuationResult: {
+              equity_value_low: data.valuationResult.equity_value_low,
+              equity_value_mid: data.valuationResult.equity_value_mid,
+              equity_value_high: data.valuationResult.equity_value_high,
+              recommended_asking_price: data.valuationResult.recommended_asking_price,
+              confidence_score: data.valuationResult.confidence_score,
+              methodology: data.valuationResult.methodology,
+            },
+            versionCount: versions.length,
+            latestVersion: latestVersion ? {
+              versionNumber: latestVersion.versionNumber,
+              createdAt: latestVersion.createdAt,
+              changes: latestVersion.changesSummary,
+            } : undefined,
+          })
+          
+          logger.info('Report update broadcasted to Mercury', { reportId })
+        } catch (broadcastError) {
+          // Non-critical - don't fail the save if broadcast fails
+          logger.warn('Failed to broadcast report update', {
+            reportId,
+            error: getErrorMessage(broadcastError),
+          })
+        }
       }
 
       const duration = performance.now() - startTime

@@ -333,11 +333,29 @@ export function broadcastReportCreated(reportData: {
 
 /**
  * Broadcast report update event to same-origin tabs
+ * Enhanced for Mercury integration - includes full valuation data
  */
 export function broadcastReportUpdated(reportData: {
   reportId: string
+  reportName?: string
   updatedAt: Date
   clientId?: string
+  // ✅ NEW: Include valuation results for optimistic updates
+  valuationResult?: {
+    equity_value_low?: number
+    equity_value_mid?: number
+    equity_value_high?: number
+    recommended_asking_price?: number
+    confidence_score?: number
+    methodology?: string
+  }
+  // ✅ NEW: Include version info for activity tracking
+  versionCount?: number
+  latestVersion?: {
+    versionNumber: number
+    createdAt: Date
+    changes?: any
+  }
 }): void {
   if (typeof window === 'undefined') return;
 
@@ -364,6 +382,8 @@ export function broadcastReportUpdated(reportData: {
 
     console.log('[CrossDomainSync] Report updated event broadcasted', {
       reportId: reportData.reportId,
+      hasValuationResult: !!reportData.valuationResult,
+      versionCount: reportData.versionCount,
     });
   } catch (error) {
     console.error('[CrossDomainSync] Error broadcasting report updated:', error);
@@ -411,10 +431,30 @@ export function broadcastReportDeleted(reportData: {
 /**
  * Listen for report events from other tabs/subdomains
  * Used for cross-subdomain state sync (Mercury → Venus)
+ * Enhanced for Mercury integration - includes full valuation data
  */
 export function listenForReportEvents(callbacks: {
   onReportCreated?: (data: { reportId: string; reportName?: string; createdAt: Date; clientId?: string }) => void
-  onReportUpdated?: (data: { reportId: string; updatedAt: Date; clientId?: string }) => void
+  onReportUpdated?: (data: {
+    reportId: string
+    reportName?: string
+    updatedAt: Date
+    clientId?: string
+    valuationResult?: {
+      equity_value_low?: number
+      equity_value_mid?: number
+      equity_value_high?: number
+      recommended_asking_price?: number
+      confidence_score?: number
+      methodology?: string
+    }
+    versionCount?: number
+    latestVersion?: {
+      versionNumber: number
+      createdAt: Date
+      changes?: any
+    }
+  }) => void
   onReportDeleted?: (data: { reportId: string; clientId?: string }) => void
 }): () => void {
   if (typeof window === 'undefined') {

@@ -184,6 +184,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   /**
    * Handle "Back to Home" click
    * Checks report state and shows appropriate confirmation modal
+   * Updated for Mercury integration - returns to Mercury if return_url exists
    */
   const handleBackToHome = () => {
     generalLogger.info('[UserDropdown] Back to Home clicked', {
@@ -194,6 +195,50 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     })
 
     setIsOpen(false)
+
+    // Check for return URL (Mercury integration)
+    if (typeof window !== 'undefined') {
+      const returnUrl = sessionStorage.getItem('upswitch_return_url')
+      if (returnUrl) {
+        generalLogger.info('[UserDropdown] Return URL found, redirecting to Mercury', {
+          returnUrl,
+        })
+        // Broadcast report update before leaving
+        if (reportId) {
+          try {
+            const event = new CustomEvent('upswitch-report-updated', {
+              detail: {
+                reportId,
+                reportName: session?.name,
+                updatedAt: session?.updatedAt || new Date(),
+                source: 'valuation.upswitch.app',
+              },
+            })
+            window.dispatchEvent(event)
+
+            // Also try BroadcastChannel if available
+            if (typeof BroadcastChannel !== 'undefined') {
+              const channel = new BroadcastChannel('upswitch-report-sync')
+              channel.postMessage({
+                type: 'upswitch-report-updated',
+                data: {
+                  reportId,
+                  reportName: session?.name,
+                  updatedAt: session?.updatedAt || new Date(),
+                },
+                source: 'valuation.upswitch.app',
+              })
+              channel.close()
+            }
+          } catch (error) {
+            generalLogger.warn('[UserDropdown] Failed to broadcast before return:', error)
+          }
+        }
+        // Navigate back to Mercury
+        window.location.href = returnUrl
+        return
+      }
+    }
 
     // If not on a report page, just navigate to home
     if (!isOnReportPage || !reportId) {
@@ -238,6 +283,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   /**
    * Exit report without saving
+   * Updated for Mercury integration - returns to Mercury if return_url exists
    */
   const handleExitReport = async () => {
     try {
@@ -249,6 +295,19 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       }
       // Close modal first
       setShowExitModal(false)
+      
+      // Check for return URL (Mercury integration)
+      if (typeof window !== 'undefined') {
+        const returnUrl = sessionStorage.getItem('upswitch_return_url')
+        if (returnUrl) {
+          generalLogger.info('[UserDropdown] Return URL found, redirecting to Mercury', {
+            returnUrl,
+          })
+          window.location.href = returnUrl
+          return
+        }
+      }
+      
       // Navigate to home
       const homeUrl = UrlGeneratorService.root()
       generalLogger.info('[UserDropdown] Navigating to home', { homeUrl })
@@ -260,6 +319,16 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       })
       // Still navigate even if cleanup fails
       setShowExitModal(false)
+      
+      // Check for return URL even on error
+      if (typeof window !== 'undefined') {
+        const returnUrl = sessionStorage.getItem('upswitch_return_url')
+        if (returnUrl) {
+          window.location.href = returnUrl
+          return
+        }
+      }
+      
       router.push(UrlGeneratorService.root())
     }
   }

@@ -464,6 +464,24 @@ async function initializeAuth(): Promise<void> {
     const params = new URLSearchParams(window.location.search)
     const clientToken = params.get('clientToken')
     
+    // ========================================================================
+    // STEP 2.5: Parse and Store Return URL for Mercury Integration
+    // ========================================================================
+    const returnUrl = params.get('return_url')
+    const sourceApp = params.get('source')
+    
+    if (returnUrl) {
+      // Store in sessionStorage for later use when user wants to return
+      sessionStorage.setItem('upswitch_return_url', returnUrl)
+      if (sourceApp) {
+        sessionStorage.setItem('upswitch_source', sourceApp)
+      }
+      console.log('[Auth] Return URL captured:', {
+        returnUrl,
+        source: sourceApp,
+      })
+    }
+    
     if (clientToken) {
       // Validate token format before attempting exchange
       if (clientToken.length < 20 || !/^[A-Za-z0-9_-]+$/.test(clientToken)) {
