@@ -35,7 +35,25 @@ export async function middleware(request: NextRequest) {
 	}
 
 	// Handle i18n routing
-	return intlMiddleware(request);
+	const response = intlMiddleware(request);
+	
+	// CRITICAL: Remove X-Frame-Options header if present (Vercel might set it by default)
+	// We rely on CSP frame-ancestors instead for cross-subdomain embedding from upswitch.app
+	if (response instanceof Response) {
+		// Remove X-Frame-Options to allow cross-subdomain embedding
+		response.headers.delete('X-Frame-Options');
+		// Ensure CSP frame-ancestors is set for cross-subdomain embedding
+		// This allows embedding from upswitch.app (parent domain) and all subdomains
+		const existingCSP = response.headers.get('Content-Security-Policy');
+		if (!existingCSP || !existingCSP.includes('frame-ancestors')) {
+			response.headers.set(
+				'Content-Security-Policy',
+				"frame-ancestors 'self' https://upswitch.app https://*.upswitch.app"
+			);
+		}
+	}
+	
+	return response;
 }
 
 /**
