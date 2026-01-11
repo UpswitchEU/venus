@@ -45,6 +45,7 @@ export class UtilityAPI extends HttpClient {
    */
   async migrateGuestData(
     guestSessionId: string,
+    userId: string,
     options?: APIRequestConfig
   ): Promise<GuestMigrationResponse> {
     try {
@@ -52,13 +53,13 @@ export class UtilityAPI extends HttpClient {
         {
           method: 'POST',
           url: '/api/v2/guest/migrate',
-          data: { guest_session_id: guestSessionId, user_id: null }, // Backend expects snake_case
+          data: { guest_session_id: guestSessionId, user_id: userId }, // Backend expects snake_case
           headers: {},
         } as any,
         options
       )
     } catch (error) {
-      apiLogger.error('Guest data migration failed', { error, guestSessionId })
+      apiLogger.error('Guest data migration failed', { error, guestSessionId, userId })
       const axiosError = error as any
       const statusCode = axiosError?.response?.status
       throw new APIError('Failed to migrate guest data', statusCode, undefined, true, {

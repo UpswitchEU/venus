@@ -208,8 +208,8 @@ class BackendAPI {
     return this.utilityAPI.health()
   }
 
-  async migrateGuestData(guestSessionId: string): Promise<GuestMigrationResponse> {
-    return this.utilityAPI.migrateGuestData(guestSessionId)
+  async migrateGuestData(guestSessionId: string, userId: string): Promise<GuestMigrationResponse> {
+    return this.utilityAPI.migrateGuestData(guestSessionId, userId)
   }
 
   async getConversationStatus(sessionId: string): Promise<ConversationStatusResponse> {

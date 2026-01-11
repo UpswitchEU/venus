@@ -270,9 +270,9 @@ export const useAuthStore = create<AuthState>()(
                 const { getSessionId, clearSession } = useGuestSessionStore.getState()
                 const guestSessionId = getSessionId()
                 
-                if (guestSessionId) {
+                if (guestSessionId && user.id) {
                   const { backendAPI } = await import('../services/backendApi')
-                  await backendAPI.migrateGuestData(guestSessionId)
+                  await backendAPI.migrateGuestData(guestSessionId, user.id)
                   clearSession()
                 }
               } catch (migrationError) {
@@ -631,10 +631,10 @@ async function initializeAuth(): Promise<void> {
             const { getSessionId, clearSession } = useGuestSessionStore.getState()
             const guestSessionId = getSessionId()
             
-            if (guestSessionId) {
+            if (guestSessionId && user.id) {
               // Call migration API
               const { backendAPI } = await import('../services/backendApi')
-              const migrationResult = await backendAPI.migrateGuestData(guestSessionId)
+              const migrationResult = await backendAPI.migrateGuestData(guestSessionId, user.id)
               
               // Clear guest session so future requests use user_id from cookie
               clearSession()
