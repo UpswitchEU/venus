@@ -656,23 +656,28 @@ async function initializeAuth(): Promise<void> {
               // Call migration API
               const { backendAPI } = await import('../services/backendApi')
               try {
-                const migrationResult = await backendAPI.migrateGuestData(guestSessionId, user.id)
-                console.log('[Auth] ✅ Guest data migrated successfully:', migrationResult)
+                await backendAPI.migrateGuestData(guestSessionId, user.id)
                 
                 // Refresh reports list to show migrated reports
                 const { useReportsStore } = await import('../store/useReportsStore')
                 useReportsStore.getState().fetchReports(user.id)
               } catch (error) {
+                // Migration failed - guest session will be cleared in finally block
                 // Log but don't fail login - migration is non-critical
-                console.warn('[Auth] Guest migration failed (non-fatal):', error)
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn('[Auth] Guest migration failed (non-fatal):', error)
+                }
               } finally {
-                // Always clear guest session after attempting migration
+                // Always clear guest session after attempting migration (success or failure)
+                // This prevents retry loops when migration fails
                 clearSession()
               }
             }
           } catch (migrationError) {
             // Log but don't fail login - migration is non-critical
-            console.warn('[Auth] Guest migration outer check failed (non-fatal):', migrationError)
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[Auth] Guest migration check failed (non-fatal):', migrationError)
+            }
           }
         }
       } catch (tokenError) {

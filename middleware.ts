@@ -64,36 +64,8 @@ export async function middleware(request: NextRequest) {
 		return;
 	}
 
-	// Handle /reports/:id without locale - rewrite to detected locale
-	// This is needed for iframe embedding from Mercury which doesn't include locale
-	const reportsMatch = pathname.match(/^\/reports\/(.+)$/);
-	if (reportsMatch) {
-		// Detect locale from Accept-Language header
-		const acceptLanguage = request.headers.get('accept-language') || '';
-		const detectedLocale = detectLocaleFromHeader(acceptLanguage);
-		
-		// Create rewritten URL with locale prefix, preserving all query parameters
-		const url = request.nextUrl.clone();
-		url.pathname = `/${detectedLocale}/reports/${reportsMatch[1]}`;
-		// Query parameters are automatically preserved by clone()
-		
-		// Use NextResponse.rewrite() to internally rewrite the URL (no redirect)
-		// This allows Next.js to process the request with the locale-prefixed URL
-		const rewriteResponse = NextResponse.rewrite(url);
-		
-		// Ensure iframe-friendly headers are set
-		rewriteResponse.headers.delete('X-Frame-Options');
-		rewriteResponse.headers.set(
-			'Content-Security-Policy',
-			"frame-ancestors 'self' https://upswitch.app https://*.upswitch.app"
-		);
-		
-		// Return the rewrite response - Next.js will continue processing with the rewritten URL
-		// The intlMiddleware will run on the rewritten URL since it has a locale prefix
-		return rewriteResponse;
-	}
-
-	// Handle i18n routing
+	// Let next-intl middleware handle all routing (including locale detection)
+	// It will automatically detect locale from Accept-Language header and redirect/rewrite
 	const response = intlMiddleware(request);
 	
 	// CRITICAL: Remove X-Frame-Options header if present (Vercel might set it by default)
