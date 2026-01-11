@@ -81,35 +81,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         {/* Manifest is still referenced here as it's not part of metadata API */}
         <link rel="manifest" href="/manifest.json" />
-        {/* CRITICAL: Force Service Worker update check and cache clear */}
+        {/* Service Worker update check and cache clear (silent) */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 if ('serviceWorker' in navigator) {
-                  // Force update check
+                  // Force update check (silent)
                   navigator.serviceWorker.getRegistration().then(function(reg) {
                     if (reg) {
-                      console.log('[SW Force Update] Checking for updates...')
                       reg.update()
                     }
                   }).catch(function(err) {
-                    console.error('[SW Force Update] Error:', err)
+                    // Silent error handling
                   })
                   
-                  // Clear all caches to ensure fresh content
+                  // Clear all caches to ensure fresh content (silent)
                   caches.keys().then(function(names) {
-                    console.log('[Cache Clear] Found caches:', names)
                     return Promise.all(
                       names.map(function(name) {
-                        console.log('[Cache Clear] Deleting cache:', name)
                         return caches.delete(name)
                       })
                     )
-                  }).then(function() {
-                    console.log('[Cache Clear] All caches cleared')
                   }).catch(function(err) {
-                    console.error('[Cache Clear] Error:', err)
+                    // Silent error handling
                   })
                 }
               })();

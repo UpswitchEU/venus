@@ -215,10 +215,11 @@ export function clearAllAuthState(): void {
 
     // DO NOT clear cookies here - server clears HttpOnly cookies
     // Client-side document.cookie cannot clear HttpOnly cookies anyway
-
-    console.log('[CrossDomainLogout] Local storage cleared (cookies handled by server)');
   } catch (error) {
-    console.error('[CrossDomainLogout] Error clearing auth state:', error);
+    // Silent error handling - only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[CrossDomainLogout] Error clearing auth state:', error);
+    }
   }
 }
 
@@ -236,7 +237,10 @@ export async function checkAuthState(): Promise<boolean> {
     const user = await useAuthStore.getState().checkSession();
     return user !== null;
   } catch (error) {
-    console.warn('[CrossDomainLogout] Auth state check failed:', error);
+    // Silent error handling - only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[CrossDomainLogout] Auth state check failed:', error);
+    }
     return false;
   }
 }

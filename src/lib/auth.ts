@@ -476,19 +476,25 @@ async function initializeAuth(): Promise<void> {
       if (sourceApp) {
         sessionStorage.setItem('upswitch_source', sourceApp)
       }
-      console.log('[Auth] Return URL captured:', {
-        returnUrl,
-        source: sourceApp,
-      })
+      // Silent - only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth] Return URL captured:', {
+          returnUrl,
+          source: sourceApp,
+        })
+      }
     }
     
     if (clientToken) {
       // Validate token format before attempting exchange
       if (clientToken.length < 20 || !/^[A-Za-z0-9_-]+$/.test(clientToken)) {
-        console.warn('[Auth] Invalid client token format:', {
-          length: clientToken.length,
-          preview: clientToken.substring(0, 10) + '...',
-        })
+        // Silent - only log in development
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[Auth] Invalid client token format:', {
+            length: clientToken.length,
+            preview: clientToken.substring(0, 10) + '...',
+          })
+        }
         // Continue to normal auth flow - don't block user
         // Just clean up invalid token from URL
         const url = new URL(window.location.href)
@@ -571,11 +577,14 @@ async function initializeAuth(): Promise<void> {
             // Retry on network errors or server errors
             if (attempt < maxRetries - 1) {
               const delay = baseDelay * Math.pow(2, attempt)
-              console.warn(`[Auth] Client context exchange failed, retrying in ${delay}ms...`, {
-                attempt: attempt + 1,
-                maxRetries,
-                error: lastError.message,
-              })
+              // Silent - only log in development
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`[Auth] Client context exchange failed, retrying in ${delay}ms...`, {
+                  attempt: attempt + 1,
+                  maxRetries,
+                  error: lastError.message,
+                })
+              }
               await new Promise(resolve => setTimeout(resolve, delay))
           }
         }

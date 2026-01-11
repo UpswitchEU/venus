@@ -25,13 +25,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
     if (process.env.NODE_ENV === 'production') {
       registerServiceWorker({
         onUpdate: (registration) => {
-          console.log('[ServiceWorker] New version available! Please refresh.')
+          // Silent update notification
         },
         onSuccess: () => {
-          console.log('[ServiceWorker] App is ready for offline use')
+          // Silent success
         },
         onError: (error) => {
-          console.error('[ServiceWorker] Registration failed:', error)
+          // Silent error handling - only log in development
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[ServiceWorker] Registration failed:', error)
+          }
         },
       })
     }

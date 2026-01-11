@@ -29,17 +29,14 @@ export async function GET(request: NextRequest) {
 		});
 		const cookieHeader = cookiePairs.join('; ');
 		
-		// CRITICAL: Log cookie state for debugging
-		console.log('[Venus /api/auth/me] Cookie state:', {
-			hasAccessToken: !!accessToken,
-			hasRefreshToken: !!refreshToken,
-			totalCookies: cookiePairs.length,
-			cookieNames: cookiePairs.map(c => c.split('=')[0]),
-			cookieHeaderLength: cookieHeader.length,
-			requestCookieHeader: requestCookieHeader.substring(0, 100), // First 100 chars for debugging
-			hasAccessTokenInHeader: requestCookieHeader.includes('upswitch_access_token'),
-			hasRefreshTokenInHeader: requestCookieHeader.includes('upswitch_refresh_token'),
-		});
+		// Cookie state check (silent - only log in development)
+		if (process.env.NODE_ENV === 'development') {
+			console.log('[Venus /api/auth/me] Cookie state:', {
+				hasAccessToken: !!accessToken,
+				hasRefreshToken: !!refreshToken,
+				totalCookies: cookiePairs.length,
+			});
+		}
 
 		if (!accessToken && !refreshToken) {
 			// Return 401 with isAuthenticated: false (not an error condition)
@@ -49,15 +46,7 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		// Forward request to Titan API with cookies
-		// CRITICAL: Log cookie forwarding for debugging
-		console.log('[Venus /api/auth/me] Forwarding to Titan:', {
-			titanUrl: `${titanApiUrl}/api/v2/auth/me`,
-			hasAccessToken: !!accessToken,
-			hasRefreshToken: !!refreshToken,
-			cookieCount: cookiePairs.length,
-			cookieNames: cookiePairs.map(c => c.split('=')[0]),
-		});
+		// Forward request to Titan API with cookies (silent)
 		
 		const response = await fetch(`${titanApiUrl}/api/v2/auth/me`, {
 			method: 'GET',
@@ -71,10 +60,6 @@ export async function GET(request: NextRequest) {
 
 		if (!response.ok) {
 			// User not authenticated - this is a valid state, not an error
-			console.log('[Venus /api/auth/me] Titan response not OK:', {
-				status: response.status,
-				statusText: response.statusText,
-			});
 			return NextResponse.json(
 				{ isAuthenticated: false },
 				{ status: 401 }
@@ -82,11 +67,6 @@ export async function GET(request: NextRequest) {
 		}
 
 		const data = await response.json();
-		
-		console.log('[Venus /api/auth/me] Success:', {
-			userId: data.id,
-			email: data.email,
-		});
 
 		// Return with no-cache headers to ensure fresh auth state
 		return NextResponse.json(data, {

@@ -27,8 +27,6 @@ export function LogoutListener() {
   useEffect(() => {
     // 1. Listen for logout events from same-origin tabs
     const cleanupLogoutListener = listenForLogout(() => {
-      console.log('[LogoutListener] Logout event received, clearing auth state');
-      
       // Clear all auth state
       clearAllAuthState();
       
@@ -43,8 +41,6 @@ export function LogoutListener() {
 
     // 2. Listen for login events from same-origin tabs
     const cleanupLoginListener = listenForLogin(async () => {
-      console.log('[LogoutListener] Login event received, refreshing auth state');
-      
       // Refresh auth state to detect new login
       await checkSession();
     });
@@ -58,8 +54,6 @@ export function LogoutListener() {
       
       // If we think we're authenticated but backend says we're not
       if (currentUser && !isAuthenticated) {
-        console.log('[LogoutListener] Auth state changed - user logged out (cookies cleared)');
-        
         // Clear all auth state
         clearAllAuthState();
         
@@ -74,8 +68,6 @@ export function LogoutListener() {
       
       // If we think we're not authenticated but backend says we are
       if (!currentUser && isAuthenticated) {
-        console.log('[LogoutListener] Auth state changed - user logged in (cookies set)');
-        
         // Direct call to checkSession - promise cache handles concurrency
         await checkSession();
       }

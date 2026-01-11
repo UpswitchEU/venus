@@ -26,20 +26,23 @@ export function AsyncArchitectureInitializer() {
     if (process.env.NODE_ENV === 'production') {
       registerServiceWorker({
         onUpdate: (registration) => {
-          console.log('[AsyncArchitecture] New version available! Please refresh.')
-          // Optional: Show toast notification to user
+          // Silent update notification
         },
         onSuccess: () => {
-          console.log('[AsyncArchitecture] App is ready for offline use')
+          // Silent success
         },
         onError: (error) => {
-          console.error('[AsyncArchitecture] Service worker registration failed:', error)
+          // Silent error handling - only log in development
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[AsyncArchitecture] Service worker registration failed:', error)
+          }
         },
       }).catch((error) => {
-        console.error('[AsyncArchitecture] Failed to register service worker:', error)
+        // Silent error handling - only log in development
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[AsyncArchitecture] Failed to register service worker:', error)
+        }
       })
-    } else {
-      console.log('[AsyncArchitecture] Service worker disabled in development')
     }
 
     // RUM and performance monitoring are automatically initialized on import
