@@ -19,35 +19,6 @@ const intlMiddleware = createMiddleware({
 });
 
 /**
- * Detect locale from Accept-Language header
- * Prefers Dutch (nl) if detected, otherwise defaults to English (en)
- */
-function detectLocaleFromHeader(acceptLanguage: string): string {
-	if (!acceptLanguage) {
-		return defaultLocale;
-	}
-	
-	// Parse Accept-Language header (e.g., "nl-BE, nl;q=0.9, en;q=0.8")
-	const languages = acceptLanguage
-		.split(',')
-		.map(lang => lang.split(';')[0].trim().toLowerCase());
-	
-	// Check if any preferred language matches our supported locales
-	// Check Dutch first (nl, nl-BE, nl-NL, etc.)
-	for (const lang of languages) {
-		if (lang.startsWith('nl')) return 'nl';
-	}
-	
-	// Then check English (en, en-US, en-GB, etc.)
-	for (const lang of languages) {
-		if (lang.startsWith('en')) return 'en';
-	}
-	
-	// Default to English if no match
-	return defaultLocale;
-}
-
-/**
  * Middleware function
  * Runs on every request
  */
