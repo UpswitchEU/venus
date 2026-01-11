@@ -265,19 +265,40 @@ export const useAuthStore = create<AuthState>()(
               
               // CRITICAL: Check if we need to migrate guest data
               // This handles case where user navigates directly to subdomain while already logged in
+              // Only migrate if there's actually a guest session AND user wasn't previously authenticated
               try {
                 const { useGuestSessionStore } = await import('../store/useGuestSessionStore')
                 const { getSessionId, clearSession } = useGuestSessionStore.getState()
                 const guestSessionId = getSessionId()
+                const previousUser = useAuthStore.getState().user
                 
-                if (guestSessionId && user.id) {
-                  const { backendAPI } = await import('../services/backendApi')
-                  await backendAPI.migrateGuestData(guestSessionId, user.id)
+                // Only migrate if:
+                // 1. There's a guest session ID
+                // 2. User is authenticated
+                // 3. User wasn't previously authenticated (this is a new login, not a session refresh)
+                if (guestSessionId && user.id && (!previousUser || previousUser.id !== user.id)) {
+                  try {
+                    const { backendAPI } = await import('../services/backendApi')
+                    await backendAPI.migrateGuestData(guestSessionId, user.id)
+                    clearSession()
+                  } catch (migrationError) {
+                    // Migration failed - clear guest session anyway to prevent retries
+                    clearSession()
+                    // Log but don't throw - migration is non-critical
+                    if (process.env.NODE_ENV === 'development') {
+                      console.warn('[Auth] Guest migration failed (non-fatal):', migrationError)
+                    }
+                  }
+                } else if (guestSessionId && previousUser?.id === user.id) {
+                  // User was already authenticated - clear any stale guest session
                   clearSession()
                 }
               } catch (migrationError) {
                 // Non-fatal - don't block authentication
-                console.warn('[Auth] Guest migration check failed (non-fatal):', migrationError)
+                // Only log in development to avoid console noise
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn('[Auth] Guest migration check failed (non-fatal):', migrationError)
+                }
               }
               
               // Cache successful auth result (like Mercury)
@@ -634,18 +655,24 @@ async function initializeAuth(): Promise<void> {
             if (guestSessionId && user.id) {
               // Call migration API
               const { backendAPI } = await import('../services/backendApi')
-              const migrationResult = await backendAPI.migrateGuestData(guestSessionId, user.id)
-              
-              // Clear guest session so future requests use user_id from cookie
-              clearSession()
-              
-              // Refresh reports list to show migrated reports
-              const { useReportsStore } = await import('../store/useReportsStore')
-              useReportsStore.getState().fetchReports(user.id)
+              try {
+                const migrationResult = await backendAPI.migrateGuestData(guestSessionId, user.id)
+                console.log('[Auth] ✅ Guest data migrated successfully:', migrationResult)
+                
+                // Refresh reports list to show migrated reports
+                const { useReportsStore } = await import('../store/useReportsStore')
+                useReportsStore.getState().fetchReports(user.id)
+              } catch (error) {
+                // Log but don't fail login - migration is non-critical
+                console.warn('[Auth] Guest migration failed (non-fatal):', error)
+              } finally {
+                // Always clear guest session after attempting migration
+                clearSession()
+              }
             }
           } catch (migrationError) {
             // Log but don't fail login - migration is non-critical
-            console.warn('[Auth] Guest migration failed (non-fatal):', migrationError)
+            console.warn('[Auth] Guest migration outer check failed (non-fatal):', migrationError)
           }
         }
       } catch (tokenError) {

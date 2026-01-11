@@ -31,13 +31,19 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({
 	params,
 }: LocaleLayoutProps): Promise<Metadata> {
-	const { locale } = await params;
+	// Safely await params with error handling
+	let locale: string;
+	try {
+		const resolvedParams = await params;
+		locale = resolvedParams?.locale || 'en';
+	} catch (error) {
+		console.error('Failed to resolve locale params in generateMetadata:', error);
+		locale = 'en'; // Fallback to default locale
+	}
 	
 	// Validate locale before generating metadata
 	if (!locales.includes(locale as Locale)) {
-		return {
-			title: 'Page Not Found',
-		};
+		locale = 'en'; // Fallback to default locale instead of 404
 	}
 	
 	return {
@@ -52,11 +58,21 @@ export default async function LocaleLayout({
 	children,
 	params,
 }: LocaleLayoutProps) {
-	const { locale } = await params;
+	// Safely await params with error handling
+	let locale: string;
+	try {
+		const resolvedParams = await params;
+		locale = resolvedParams?.locale || 'en';
+	} catch (error) {
+		console.error('Failed to resolve locale params:', error);
+		locale = 'en'; // Fallback to default locale
+	}
 	
 	// Validate locale
 	if (!locales.includes(locale as Locale)) {
-		notFound();
+		// Fallback to default locale instead of 404 to prevent Server Component errors
+		// This can happen when middleware rewrites don't match exactly
+		locale = 'en';
 	}
 
 	// Load messages for the current locale with error handling
