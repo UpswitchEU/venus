@@ -151,25 +151,7 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Allow iframe embedding for reports (used by Mercury's VenusEmbeddedModal)
-        source: '/reports/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://upswitch.app https://*.upswitch.app",
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-        ],
-      },
-      {
-        // Deny iframe embedding for all other routes (security)
+        // Allow iframe embedding from upswitch.app (cross-subdomain) for all routes
         source: '/(.*)',
         headers: [
           {
