@@ -8,9 +8,11 @@ interface ValuationReportPageProps {
   params:
     | Promise<{
         id: string
+        locale: string
       }>
     | {
         id: string
+        locale: string
       }
   searchParams?:
     | Promise<{
@@ -19,6 +21,11 @@ interface ValuationReportPageProps {
         flow?: 'manual' | 'conversational'
         prefilledQuery?: string
         autoSend?: string
+        clientToken?: string
+        return_url?: string
+        client_id?: string
+        source?: string
+        embedded?: string
       }>
     | {
         mode?: 'edit' | 'view'
@@ -26,6 +33,11 @@ interface ValuationReportPageProps {
         flow?: 'manual' | 'conversational'
         prefilledQuery?: string
         autoSend?: string
+        clientToken?: string
+        return_url?: string
+        client_id?: string
+        source?: string
+        embedded?: string
       }
 }
 
@@ -34,6 +46,11 @@ interface ValuationReportPageProps {
 
 /**
  * Valuation Report Page
+ *
+ * World-Class URL State Management:
+ * - Preserves query parameters (mode, version, flow) in URL
+ * - Supports browser back/forward navigation
+ * - Updates URL when switching versions/flows
  *
  * Supports M&A workflow with multiple modes:
  * - Edit mode (default): Editable form for adjustments and regeneration
@@ -45,6 +62,11 @@ interface ValuationReportPageProps {
  * - ?version=N (load specific version, default: latest)
  * - ?flow=manual|conversational (existing flow selection)
  * - ?prefilledQuery=Restaurant (existing prefill)
+ * - ?clientToken=... (for accountant client context)
+ * - ?return_url=... (for navigation back to Mercury)
+ * - ?client_id=... (for client context)
+ * - ?source=... (for tracking)
+ * - ?embedded=true (for iframe embedding)
  */
 export default function ValuationReportPage({ params, searchParams }: ValuationReportPageProps) {
   // FIX: Call ALL hooks BEFORE any conditional throws/returns to comply with React rules of hooks
@@ -67,10 +89,15 @@ export default function ValuationReportPage({ params, searchParams }: ValuationR
     flow?: 'manual' | 'conversational'
     prefilledQuery?: string
     autoSend?: string
+    clientToken?: string
+    return_url?: string
+    client_id?: string
+    source?: string
+    embedded?: string
   }
 
   // Extract values AFTER all hooks have been called
-  const { id } = resolvedParams || { id: '' }
+  const { id, locale } = resolvedParams || { id: '', locale: 'en' }
   const mode: 'edit' | 'view' = resolvedSearchParams.mode || 'edit' // Default to edit mode (M&A workflow)
   const versionNumber: number | undefined = resolvedSearchParams.version
     ? parseInt(resolvedSearchParams.version)
@@ -87,7 +114,13 @@ export default function ValuationReportPage({ params, searchParams }: ValuationR
 
   return (
     <ErrorBoundary>
-      <ValuationReport reportId={id} initialMode={mode} initialVersion={versionNumber} />
+      <ValuationReport 
+        reportId={id} 
+        initialMode={mode} 
+        initialVersion={versionNumber}
+        // Pass through URL params for context
+        urlParams={resolvedSearchParams}
+      />
     </ErrorBoundary>
   )
 }
