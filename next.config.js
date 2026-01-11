@@ -171,18 +171,12 @@ const nextConfig = {
     ]
   },
 
-  // Configure rewrites for API routes and locale handling
+  // Configure rewrites for API routes
   async rewrites() {
     return [
       {
         source: '/api/:path*',
         destination: '/api/:path*',
-      },
-      // Rewrite /reports/:id to /en/reports/:id for iframe embedding
-      // Mercury loads reports without locale, but Venus expects /[locale]/reports/[id]
-      {
-        source: '/reports/:id',
-        destination: '/en/reports/:id',
       },
     ]
   },
