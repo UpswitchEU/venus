@@ -16,73 +16,75 @@ export async function POST(request: NextRequest) {
 
 		// Use Next.js cookies() helper to read cookies properly
 		const cookieStore = await cookies();
-		const refreshToken = cookieStore.get('upswitch_refresh_token');
+		const refreshToken = cookieStore.get('upswitch_refresh_token')?.value;
 		
-		// Build cookie header manually from cookie store
+		// Build cookie header from cookie store to forward to Titan
 		const cookiePairs: string[] = [];
 		cookieStore.getAll().forEach(cookie => {
 			cookiePairs.push(`${cookie.name}=${cookie.value}`);
 		});
 		const cookieHeader = cookiePairs.join('; ');
-		
-		console.log('[Venus /api/auth/refresh] Refreshing tokens:', {
-			hasRefreshToken: !!refreshToken,
-			cookieCount: cookiePairs.length,
-		});
 
 		if (!refreshToken) {
-			// No refresh token available
 			return NextResponse.json(
-				{ error: 'No refresh token available' },
+				{
+					success: false,
+					message: 'No refresh token found',
+				},
 				{ status: 401 }
 			);
 		}
-
-		// Forward request to Titan API with cookies
+		
+		// Call Titan API refresh endpoint
+		// Forward cookies in Cookie header (Titan will extract refresh token from cookies)
+		// Also send refreshToken in body as fallback for cross-domain scenarios
 		const response = await fetch(`${titanApiUrl}/api/v2/auth/refresh`, {
 			method: 'POST',
 			headers: {
-				Cookie: cookieHeader,
 				'Content-Type': 'application/json',
+				Cookie: cookieHeader, // Forward cookies to Titan
 			},
+			credentials: 'include',
+			body: JSON.stringify({ refreshToken }), // Fallback for cross-domain scenarios
 		});
-
+		
 		if (!response.ok) {
-			console.log('[Venus /api/auth/refresh] Titan response not OK:', {
-				status: response.status,
-				statusText: response.statusText,
-			});
+			const errorData = await response
+				.json()
+				.catch(() => ({ message: 'Token refresh failed' }));
 			return NextResponse.json(
-				{ error: 'Token refresh failed' },
+				{
+					success: false,
+					message: errorData.message || 'Token refresh failed',
+				},
 				{ status: response.status }
 			);
 		}
-
+		
 		const data = await response.json();
 		
-		// Create response with wrapped data (match Mercury's format)
+		// Forward cookies from Titan API to client
+		// Use getSetCookie() to match Mercury's pattern
+		const setCookieHeaders = response.headers.getSetCookie();
 		const nextResponse = NextResponse.json({
 			success: true,
 			data: data,
 			message: 'Token refreshed successfully',
 		});
 		
-		// Forward any Set-Cookie headers from Titan to the client
-		// Use getSetCookie() for proper multi-cookie handling (like Mercury)
-		const setCookieHeaders = response.headers.getSetCookie();
+		// Forward all Set-Cookie headers from Titan
 		setCookieHeaders.forEach(cookie => {
 			nextResponse.headers.append('Set-Cookie', cookie);
 		});
 		
-		console.log('[Venus /api/auth/refresh] Refresh successful:', {
-			setCookieCount: setCookieHeaders.length,
-		});
-
 		return nextResponse;
 	} catch (error) {
-		console.error('[Venus /api/auth/refresh] Error:', error);
+		console.error('[POST /api/auth/refresh] Error:', error);
 		return NextResponse.json(
-			{ error: 'Internal server error' },
+			{
+				success: false,
+				message: 'An unexpected error occurred',
+			},
 			{ status: 500 }
 		);
 	}

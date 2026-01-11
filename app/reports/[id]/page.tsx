@@ -19,6 +19,10 @@ interface ValuationReportPageProps {
         flow?: 'manual' | 'conversational'
         prefilledQuery?: string
         autoSend?: string
+        clientToken?: string
+        return_url?: string
+        client_id?: string
+        source?: string
       }>
     | {
         mode?: 'edit' | 'view'
@@ -26,6 +30,10 @@ interface ValuationReportPageProps {
         flow?: 'manual' | 'conversational'
         prefilledQuery?: string
         autoSend?: string
+        clientToken?: string
+        return_url?: string
+        client_id?: string
+        source?: string
       }
 }
 
@@ -34,6 +42,11 @@ interface ValuationReportPageProps {
 
 /**
  * Valuation Report Page
+ *
+ * World-Class URL State Management:
+ * - Preserves query parameters (mode, version, flow) in URL
+ * - Supports browser back/forward navigation
+ * - Updates URL when switching versions/flows
  *
  * Supports M&A workflow with multiple modes:
  * - Edit mode (default): Editable form for adjustments and regeneration
@@ -45,6 +58,8 @@ interface ValuationReportPageProps {
  * - ?version=N (load specific version, default: latest)
  * - ?flow=manual|conversational (existing flow selection)
  * - ?prefilledQuery=Restaurant (existing prefill)
+ * - ?clientToken=... (for accountant client context)
+ * - ?return_url=... (for navigation back to Mercury)
  */
 export default function ValuationReportPage({ params, searchParams }: ValuationReportPageProps) {
   // FIX: Call ALL hooks BEFORE any conditional throws/returns to comply with React rules of hooks
@@ -67,6 +82,10 @@ export default function ValuationReportPage({ params, searchParams }: ValuationR
     flow?: 'manual' | 'conversational'
     prefilledQuery?: string
     autoSend?: string
+    clientToken?: string
+    return_url?: string
+    client_id?: string
+    source?: string
   }
 
   // Extract values AFTER all hooks have been called
@@ -87,7 +106,13 @@ export default function ValuationReportPage({ params, searchParams }: ValuationR
 
   return (
     <ErrorBoundary>
-      <ValuationReport reportId={id} initialMode={mode} initialVersion={versionNumber} />
+      <ValuationReport 
+        reportId={id} 
+        initialMode={mode} 
+        initialVersion={versionNumber}
+        // Pass through URL params for context
+        urlParams={resolvedSearchParams}
+      />
     </ErrorBoundary>
   )
 }

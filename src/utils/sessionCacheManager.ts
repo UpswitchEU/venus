@@ -455,6 +455,108 @@ export class SessionCacheManager {
       }
     }
   }
+
+  /**
+   * Warm cache for frequently accessed reports
+   * 
+   * World-Class Cache Warming:
+   * - Pre-loads recent reports in background
+   * - Improves perceived performance
+   * - Non-blocking operation
+   */
+  async warmCache(reportIds: string[]): Promise<void> {
+    if (typeof window === 'undefined') return
+
+    try {
+      cacheLogger.info('Warming cache for reports', { count: reportIds.length })
+
+      // Warm cache in background (non-blocking)
+      Promise.all(
+        reportIds.map(async (reportId) => {
+          // Only warm if not already cached
+          if (this.has(reportId)) {
+            return
+          }
+
+          try {
+            // Fetch session from backend
+            const { backendAPI } = await import('../services/backendApi')
+            const response = await backendAPI.getValuationSession(reportId)
+
+            if (response?.session) {
+              // Cache the session
+              this.set(reportId, response.session)
+              cacheLogger.debug('Cache warmed for report', { reportId })
+            }
+          } catch (error) {
+            // Non-critical - cache warming is optional
+            cacheLogger.debug('Failed to warm cache for report', {
+              reportId,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        })
+      ).catch((error) => {
+        // Non-critical
+        cacheLogger.warn('Cache warming failed', { error })
+      })
+    } catch (error) {
+      cacheLogger.warn('Cache warming initialization failed', { error })
+    }
+  }
+
+  /**
+   * Invalidate cache for a report (mark as stale)
+   * 
+   * World-Class Cache Invalidation:
+   * - Marks cache as stale
+   * - Forces refresh on next access
+   * - Handles partial updates gracefully
+   */
+  invalidate(reportId: string): void {
+    try {
+      const key = this.getCacheKey(reportId)
+      const cached = localStorage.getItem(key)
+
+      if (!cached) {
+        return // Not cached, nothing to invalidate
+      }
+
+      try {
+        const parsed: CachedSession = JSON.parse(cached)
+        
+        // Mark as expired (force refresh)
+        parsed.expiresAt = Date.now() - 1
+        
+        localStorage.setItem(key, JSON.stringify(parsed))
+        
+        cacheLogger.info('Cache invalidated for report', { reportId })
+      } catch {
+        // Corrupted cache - just delete it
+        this.delete(reportId)
+      }
+    } catch (error) {
+      cacheLogger.error('Failed to invalidate cache', { reportId, error })
+    }
+  }
+
+  /**
+   * Invalidate all caches (useful for logout or major updates)
+   */
+  invalidateAll(): void {
+    try {
+      const keys = Object.keys(localStorage)
+      const sessionKeys = keys.filter((key) => key.startsWith(CACHE_PREFIX))
+
+      for (const key of sessionKeys) {
+        localStorage.removeItem(key)
+      }
+
+      cacheLogger.info('All caches invalidated', { count: sessionKeys.length })
+    } catch (error) {
+      cacheLogger.error('Failed to invalidate all caches', { error })
+    }
+  }
 }
 
 // Singleton instance

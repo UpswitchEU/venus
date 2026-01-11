@@ -38,7 +38,7 @@ interface CachedAuth {
 }
 
 let authCache: CachedAuth | null = null
-const AUTH_CACHE_TTL = 5 * 60 * 1000 // 5 minutes like Mercury
+const AUTH_CACHE_TTL = 3 * 60 * 1000 // 3 minutes (matches Mercury's optimized timing)
 
 function getAuthCache(): User | null {
   if (!authCache) return null
@@ -67,6 +67,17 @@ function clearAuthCache(): void {
  * Following Mercury's pattern for concurrent request deduplication
  */
 let checkSessionPromise: Promise<User | null> | null = null
+
+/**
+ * Promise cache for in-flight refresh calls - Prevents race conditions
+ * Multiple components might try to refresh simultaneously when token expires
+ */
+let refreshPromise: Promise<boolean> | null = null
+
+/**
+ * Promise cache for initialization - Prevents multiple simultaneous initializations
+ */
+let initPromise: Promise<void> | null = null
 
 /**
  * Auth state interface
@@ -129,26 +140,26 @@ export const useAuthStore = create<AuthState>()(
 
         // Create new check session promise
         checkSessionPromise = (async () => {
-          try {
-            // Try to get user with access token
+        try {
+          // Try to get user with access token
             // Use Venus proxy route for same-origin request (no CORS issues)
             const response = await fetch('/api/auth/me', {
-              method: 'GET',
-              credentials: 'include', // Send cookies (upswitch_access_token, upswitch_refresh_token)
-              headers: {
-                'Accept': 'application/json',
-              },
-            })
+            method: 'GET',
+            credentials: 'include', // Send cookies (upswitch_access_token, upswitch_refresh_token)
+            headers: {
+              'Accept': 'application/json',
+            },
+          })
 
           // If access token expired (401), try to refresh automatically
           if (response.status === 401) {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('🔄 [Auth] Access token expired, attempting refresh...')
-            }
-            
-            try {
-              // Use local API proxy route which forwards to Titan with cookies
-              const refreshResponse = await fetch('/api/auth/refresh', {
+            // CRITICAL: Deduplicate concurrent refresh attempts
+            // If already refreshing, wait for that promise
+            if (!refreshPromise) {
+              refreshPromise = (async () => {
+                try {
+                  // Use local API proxy route which forwards to Titan with cookies
+                  const refreshResponse = await fetch('/api/auth/refresh', {
                 method: 'POST',
                 credentials: 'include', // Send refresh token cookie
                 headers: {
@@ -156,14 +167,48 @@ export const useAuthStore = create<AuthState>()(
                 },
               })
               
-              if (refreshResponse.ok) {
-                if (process.env.NODE_ENV === 'development') {
-                  console.log('✅ [Auth] Token refreshed, retrying session check...')
+                  if (!refreshResponse.ok) {
+                    const errorData = await refreshResponse.json().catch(() => ({}))
+                    const errorMessage = errorData.message || 'Token refresh failed'
+                    
+                    // Classify error for better handling
+                    if (refreshResponse.status === 401 || refreshResponse.status === 403) {
+                      // Refresh token expired - user needs to re-login
+                      logAuthError('Token refresh failed - refresh token expired', {
+                        status: refreshResponse.status,
+                        message: errorMessage,
+                      })
+                      return false
+                    }
+                    
+                    // Other errors - might be temporary
+                    logAuthError('Token refresh failed - server error', {
+                      status: refreshResponse.status,
+                      message: errorMessage,
+                    })
+                    return false
+                  }
+                  
+                  return true
+                } catch (refreshError) {
+                  // Network error during refresh
+                  logAuthError('Token refresh failed - network error', {
+                    error: refreshError instanceof Error ? refreshError.message : String(refreshError),
+                  })
+                  return false
+                } finally {
+                  // Clear promise cache after completion
+                  refreshPromise = null
+                }
+              })()
                 }
                 
+            const refreshSuccess = await refreshPromise
+            
+            if (refreshSuccess) {
                 // Retry with new access token
-                // Use Venus proxy route for same-origin request (no CORS issues)
-                const retryResponse = await fetch('/api/auth/me', {
+              // Use Venus proxy route for same-origin request (no CORS issues)
+              const retryResponse = await fetch('/api/auth/me', {
                   method: 'GET',
                   credentials: 'include',
                   headers: {
@@ -173,30 +218,38 @@ export const useAuthStore = create<AuthState>()(
                 
                 if (retryResponse.ok) {
                   const data = await retryResponse.json()
-                  const user = data.success ? (data.data?.user || data.data) : data.user || data
+                const user = data.success ? (data.data?.user || data.data) : data.user || data
                   
                   if (user) {
                     get().setUser(user)
                     trackAuthSuccess(user.id, 'cookie')
                     authMetrics.recordSuccess()
-                    // Cache successful auth result
-                    setAuthCache(user)
+                  // Cache successful auth result
+                  setAuthCache(user)
+                  
+                  // Clear any previous errors
+                  get().setError(null)
+                  
                     return user
-                  }
                 }
               } else {
-                if (process.env.NODE_ENV === 'development') {
-                  console.log('ℹ️ [Auth] Token refresh failed, user needs to re-login')
-                }
+                // Retry failed even after refresh - might be a different issue
+                logAuthError('Auth check failed after token refresh', {
+                  status: retryResponse.status,
+                })
               }
-            } catch (refreshError) {
-              if (process.env.NODE_ENV === 'development') {
-                console.warn('⚠️ [Auth] Token refresh error:', refreshError)
-              }
+            } else {
+              // Refresh failed - clear auth state gracefully
+              logAuthError('Token refresh failed, falling back to guest mode', {})
             }
             
             // Refresh failed or retry failed - user is not authenticated
+            // Graceful fallback: clear user but don't show error (allows guest mode)
             get().setUser(null)
+            clearAuthCache()
+            
+            // Only set error if it's not a normal expiration (401 is expected when not logged in)
+            // Don't show error for guest users
             return null
           }
 
@@ -218,37 +271,29 @@ export const useAuthStore = create<AuthState>()(
                 const guestSessionId = getSessionId()
                 
                 if (guestSessionId) {
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log('🔄 [Auth] Found guest session with active user, migrating...', {
-                      guestSessionId: guestSessionId.substring(0, 15) + '...',
-                      userId: user.id.substring(0, 8) + '...',
-                    })
-                  }
-                  
                   const { backendAPI } = await import('../services/backendApi')
-                  const migrationResult = await backendAPI.migrateGuestData(guestSessionId)
-                  
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log('✅ [Auth] Guest data migrated', {
-                      migratedReports: migrationResult.migratedReports,
-                      migratedSessions: migrationResult.migratedSessions,
-                    })
-                  }
-                  
+                  await backendAPI.migrateGuestData(guestSessionId)
                   clearSession()
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log('🧹 [Auth] Guest session cleared')
-                  }
                 }
               } catch (migrationError) {
                 // Non-fatal - don't block authentication
-                if (process.env.NODE_ENV === 'development') {
-                  console.warn('⚠️ [Auth] Guest migration check failed (non-fatal):', migrationError)
-                }
+                console.warn('[Auth] Guest migration check failed (non-fatal):', migrationError)
               }
               
               // Cache successful auth result (like Mercury)
               setAuthCache(user)
+              
+              // Broadcast login event to other tabs ONLY if this is a new login
+              // (not just a session check - avoid unnecessary broadcasts)
+              const previousUser = useAuthStore.getState().user
+              if (typeof window !== 'undefined' && (!previousUser || previousUser.id !== user.id)) {
+                try {
+                  const { broadcastLogin } = await import('../utils/auth/cross-domain-logout')
+                  broadcastLogin()
+                } catch (error) {
+                  // Non-fatal
+                }
+              }
               
               return user
             }
@@ -314,12 +359,23 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Logout (clears cookies and state)
+      // Logout (clears cookies and state) - Idempotent and race-condition safe
       logout: async () => {
+        // Idempotency check - prevent concurrent logout calls
+        if (get().loading === false && !get().user) {
+          // Already logged out, skip
+          return;
+        }
+
         try {
-          // 1. Clear local state first (optimistic)
+          // 1. Clear local state IMMEDIATELY (optimistic UI)
           set({ user: null, loading: false, error: null })
           clearAuthCache()
+          
+          // CRITICAL: Clear all promise caches to prevent stale auth state
+          checkSessionPromise = null
+          refreshPromise = null
+          // Note: Don't clear initPromise - it's fine to let it complete
           
           // 2. Clear localStorage/sessionStorage
           if (typeof window !== 'undefined') {
@@ -335,12 +391,10 @@ export const useAuthStore = create<AuthState>()(
             headers: { 'Accept': 'application/json' },
           })
           
-          // 4. Broadcast to same-origin tabs only (secure)
+          // 4. Broadcast to same-origin tabs AFTER backend succeeds
           if (typeof window !== 'undefined') {
-            window.postMessage(
-              { type: 'upswitch-logout', timestamp: Date.now() },
-              window.location.origin
-            )
+            const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
+            broadcastLogout()
           }
           
           // DO NOT clear cookies client-side (server does it with HttpOnly)
@@ -348,6 +402,17 @@ export const useAuthStore = create<AuthState>()(
           
         } catch (error) {
           console.warn('[Venus Auth] Logout failed (non-fatal):', error)
+          
+          // Still broadcast logout on error (graceful degradation)
+          if (typeof window !== 'undefined') {
+            try {
+              const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
+              broadcastLogout()
+            } catch (broadcastError) {
+              // Non-fatal
+            }
+          }
+          
           // State already cleared, user can continue
         }
         
@@ -362,24 +427,19 @@ export const useAuthStore = create<AuthState>()(
 /**
  * Initialize authentication
  * Called once on app load
+ * Prevents race conditions by deduplicating concurrent initialization calls
  */
 async function initializeAuth(): Promise<void> {
-  const { setLoading, checkSession, exchangeToken, setUser } = useAuthStore.getState()
-
-  // Enhanced logging for cross-subdomain auth debugging (development only)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔐 [Auth] Initializing authentication...')
-    console.log('🔐 [Auth] Environment:', {
-      hostname: window.location.hostname,
-      isSubdomain: window.location.hostname.includes('valuation.'),
-      pathname: window.location.pathname,
-      usingProxyRoutes: true, // Using Venus proxy routes for auth
-    })
-    console.log('🔐 [Auth] Using dual-token system (HttpOnly cookies): access_token (15min) + refresh_token (7d)')
-    console.log('🔐 [Auth] Note: Auth cookies are HttpOnly and invisible to JavaScript')
-    console.log('🔐 [Auth] The browser automatically sends them in HTTP requests')
-    console.log('🔐 [Auth] Testing backend /api/auth/me to verify authentication...')
+  // CRITICAL: Deduplicate concurrent initialization calls
+  // If already initializing, return the existing promise
+  if (initPromise) {
+    return initPromise
   }
+
+  initPromise = (async () => {
+    const { setLoading, checkSession, exchangeToken, setUser } = useAuthStore.getState()
+
+    // Minimal logging (errors only)
 
   try {
     setLoading(true)
@@ -389,40 +449,40 @@ async function initializeAuth(): Promise<void> {
     // ========================================================================
     // Note: We always check the session with the backend because HttpOnly cookies
     // are invisible to JavaScript. The browser automatically sends them in requests.
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🍪 [Auth] Checking session with backend (HttpOnly cookies sent automatically)...')
-    }
-    
     const user = await checkSession()
     
     if (user) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('✅ [Auth] Cookie session valid', { 
-          userId: user.id, 
-          email: user.email 
-        })
-      }
       trackAuthSuccess(user.id, 'cookie')
       authMetrics.recordSuccess()
       return
     }
-    
-    // No valid session from cookie - try token exchange
-    if (process.env.NODE_ENV === 'development') {
-      console.log('ℹ️ [Auth] No valid session from cookie, checking for token exchange...')
-    }
 
     // ========================================================================
     // STEP 2: Client Context Token Exchange (Accountant → Client handoff)
+    // Enhanced with validation, retry logic, and better error handling
     // ========================================================================
     const params = new URLSearchParams(window.location.search)
     const clientToken = params.get('clientToken')
     
     if (clientToken) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔗 [Auth] Client context token detected, exchanging...')
-      }
-      
+      // Validate token format before attempting exchange
+      if (clientToken.length < 20 || !/^[A-Za-z0-9_-]+$/.test(clientToken)) {
+        console.warn('[Auth] Invalid client token format:', {
+          length: clientToken.length,
+          preview: clientToken.substring(0, 10) + '...',
+        })
+        // Continue to normal auth flow - don't block user
+        // Just clean up invalid token from URL
+        const url = new URL(window.location.href)
+        url.searchParams.delete('clientToken')
+        window.history.replaceState({}, '', url.toString())
+      } else {
+        // Attempt exchange with retry logic
+        let lastError: Error | null = null
+        const maxRetries = 3
+        const baseDelay = 500 // 500ms base delay
+        
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         const response = await fetch(`${API_URL}/api/v2/auth/exchange-client-context`, {
           method: 'POST',
@@ -433,6 +493,11 @@ async function initializeAuth(): Promise<void> {
         
         if (response.ok) {
           const context = await response.json()
+              
+              // Validate context structure
+              if (!context.accountantUser || !context.clientUser || !context.relationship) {
+                throw new Error('Invalid client context structure received')
+              }
           
           // Set client context
           const { useClientContext } = await import('../stores/clientContext')
@@ -454,19 +519,69 @@ async function initializeAuth(): Promise<void> {
               window.history.replaceState({}, '', url.toString())
             }
             
-            if (process.env.NODE_ENV === 'development') {
-              console.log('✅ [Auth] Client context established', {
-                accountant: context.accountantUser.email,
-                client: context.clientUser.full_name,
-                hasPrefilledQuery: url.searchParams.has('prefilledQuery'),
-              })
+                return
+              } else {
+                throw new Error('Failed to authenticate after client context exchange')
+              }
+            } else {
+              // Handle specific error cases
+              const errorData = await response.json().catch(() => ({}))
+              const status = response.status
+              
+              if (status === 401 || status === 403) {
+                // Token expired or invalid - don't retry
+                throw new Error(errorData.message || 'Client context token expired or invalid. Please try creating a new valuation.')
+              } else if (status >= 500 && attempt < maxRetries - 1) {
+                // Server error - retry with exponential backoff
+                const delay = baseDelay * Math.pow(2, attempt)
+                await new Promise(resolve => setTimeout(resolve, delay))
+                continue
+              } else {
+                throw new Error(errorData.message || `Failed to exchange client context token (${status})`)
+              }
+            }
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error))
+            
+            // Don't retry on validation errors or auth errors
+            if (lastError.message.includes('expired') || 
+                lastError.message.includes('invalid') ||
+                lastError.message.includes('Invalid client context')) {
+              break
             }
             
-            return
+            // Retry on network errors or server errors
+            if (attempt < maxRetries - 1) {
+              const delay = baseDelay * Math.pow(2, attempt)
+              console.warn(`[Auth] Client context exchange failed, retrying in ${delay}ms...`, {
+                attempt: attempt + 1,
+                maxRetries,
+                error: lastError.message,
+              })
+              await new Promise(resolve => setTimeout(resolve, delay))
           }
         }
-      } catch (error) {
-        console.error('❌ [Auth] Client context exchange failed:', error)
+        }
+        
+        // If we get here, all retries failed
+        if (lastError) {
+          console.error('[Auth] Client context exchange failed after retries:', lastError)
+          
+          // Show user-friendly error message
+          const errorMessage = lastError.message.includes('expired') 
+            ? 'The valuation link has expired. Please create a new valuation from the client page.'
+            : lastError.message.includes('invalid')
+            ? 'Invalid valuation link. Please create a new valuation from the client page.'
+            : 'Unable to load client context. Please try again or create a new valuation.'
+          
+          // Set error in auth store for UI to display
+          useAuthStore.getState().setError(errorMessage)
+          
+          // Clean up invalid token from URL
+          const url = new URL(window.location.href)
+          url.searchParams.delete('clientToken')
+          window.history.replaceState({}, '', url.toString())
+        }
       }
     }
 
@@ -476,23 +591,10 @@ async function initializeAuth(): Promise<void> {
     const token = params.get('token')
 
     if (token) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🎟️ [Auth] Token detected in URL, exchanging...', {
-          tokenLength: token.length,
-          tokenPrefix: token.substring(0, 10) + '...',
-        })
-      }
-      
       try {
         const user = await exchangeToken(token)
         
         if (user) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('✅ [Auth] Token exchange successful', { 
-              userId: user.id, 
-              email: user.email 
-            })
-          }
           trackAuthSuccess(user.id, 'token')
           authMetrics.recordSuccess()
           
@@ -503,29 +605,12 @@ async function initializeAuth(): Promise<void> {
             const guestSessionId = getSessionId()
             
             if (guestSessionId) {
-              if (process.env.NODE_ENV === 'development') {
-                console.log('🔄 [Auth] Migrating guest data to user account...', {
-                  guestSessionId: guestSessionId.substring(0, 15) + '...',
-                  userId: user.id.substring(0, 8) + '...',
-                })
-              }
-              
               // Call migration API
               const { backendAPI } = await import('../services/backendApi')
               const migrationResult = await backendAPI.migrateGuestData(guestSessionId)
               
-              if (process.env.NODE_ENV === 'development') {
-                console.log('✅ [Auth] Guest migration complete', {
-                  migratedReports: migrationResult.migratedReports,
-                  migratedSessions: migrationResult.migratedSessions,
-                })
-              }
-              
               // Clear guest session so future requests use user_id from cookie
               clearSession()
-              if (process.env.NODE_ENV === 'development') {
-                console.log('🧹 [Auth] Guest session cleared')
-              }
               
               // Refresh reports list to show migrated reports
               const { useReportsStore } = await import('../store/useReportsStore')
@@ -533,9 +618,7 @@ async function initializeAuth(): Promise<void> {
             }
           } catch (migrationError) {
             // Log but don't fail login - migration is non-critical
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('⚠️ [Auth] Guest migration failed (non-fatal):', migrationError)
-            }
+            console.warn('[Auth] Guest migration failed (non-fatal):', migrationError)
           }
         }
       } catch (tokenError) {
@@ -552,19 +635,12 @@ async function initializeAuth(): Promise<void> {
       url.searchParams.delete('token')
       window.history.replaceState({}, '', url.toString())
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🧹 [Auth] Token removed from URL')
-      }
-      
       return
     }
 
     // ========================================================================
     // STEP 4: Guest mode (Still functional!)
     // ========================================================================
-    if (process.env.NODE_ENV === 'development') {
-      console.log('👤 [Auth] No authentication found, entering guest mode')
-    }
     
     setUser(null)
     authMetrics.recordSuccess() // Guest mode is a valid state
@@ -583,12 +659,20 @@ async function initializeAuth(): Promise<void> {
     setUser(null) // Continue as guest on error
   } finally {
     setLoading(false)
+    // CRITICAL: Clear promise cache after completion
+    initPromise = null
   }
+  })()
+
+  return initPromise
 }
 
 // Initialize on module load (browser only)
 if (typeof window !== 'undefined') {
   initializeAuth()
+  
+  // Note: Auth watcher removed from here - handled by LogoutListener component
+  // This prevents duplicate watchers and keeps logic in one place
 }
 
 /**

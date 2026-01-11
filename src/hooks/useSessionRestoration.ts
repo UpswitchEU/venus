@@ -23,6 +23,7 @@ import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { generalLogger } from '../utils/logger'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { useToast } from './useToast'
+import { useRestorationProgress } from './useRestorationProgress'
 
 /**
  * Hook to automatically restore form data, results, and versions from session
@@ -51,6 +52,15 @@ export function useSessionRestoration() {
   const { fetchVersions } = useVersionHistoryStore()
   const { loadAllNormalizations } = useEbitdaNormalizationStore()
   const { showToast } = useToast()
+
+  // Restoration progress tracking
+  const { progress, updateProgress, reset } = useRestorationProgress({
+    reportId: reportId ?? null, // Convert undefined to null
+    onProgressChange: (progress) => {
+      // Store progress in session store for UI to display
+      useSessionStore.setState({ restorationProgress: progress })
+    },
+  })
 
   // Track restored reports using a Set (simple and efficient)
   const restoredReports = useRef<Set<string>>(new Set())
@@ -100,6 +110,9 @@ export function useSessionRestoration() {
     // Mark as restoring immediately to prevent duplicates
     restoredReports.current.add(reportId)
 
+    // Start restoration progress
+    updateProgress('restoring', 'Loading session')
+
     generalLogger.info('Starting session restoration', {
       reportId,
       hasSessionData: !!sessionData,
@@ -117,37 +130,43 @@ export function useSessionRestoration() {
       hasTopLevelValuationResult: !!currentSession?.valuationResult,
     })
 
-    try {
-      // STEP 1: Restore form data (from merged sessionData)
-      restoreFormData(reportId, sessionData, updateFormData)
+    // Async restoration with progress tracking
+    const restoreAsync = async () => {
+      try {
+        // STEP 1: Restore form data
+        updateProgress('restoring', 'Restoring form data')
+        restoreFormData(reportId, sessionData, updateFormData)
 
-      // STEP 2: Restore valuation results (from merged sessionData which includes top-level fields)
-      restoreResults(
-        reportId,
-        sessionData,
-        currentSession,
-        setResult,
-        setHtmlReport,
-        setInfoTabHtml
-      )
+        // STEP 2: Restore valuation results
+        updateProgress('restoring', 'Restoring valuation results')
+        restoreResults(
+          reportId,
+          sessionData,
+          currentSession,
+          setResult,
+          setHtmlReport,
+          setInfoTabHtml
+        )
 
-      // STEP 3: Fetch version history (async, non-blocking)
-      fetchVersions(reportId)
-        .then(() => {
+        // STEP 3: Fetch version history (async, non-blocking)
+        updateProgress('restoring', 'Loading version history')
+        try {
+          await fetchVersions(reportId)
           generalLogger.info('Version history fetched', {
             reportId,
           })
-        })
-        .catch((error) => {
+        } catch (error) {
           generalLogger.warn('Failed to fetch versions (non-blocking)', {
             error: error instanceof Error ? error.message : String(error),
             reportId,
           })
-        })
+          // Continue - versions are optional
+        }
 
-      // STEP 4: Load EBITDA normalizations (async, non-blocking)
-      loadAllNormalizations(reportId)
-        .then(() => {
+        // STEP 4: Load EBITDA normalizations (async, non-blocking)
+        updateProgress('restoring', 'Restoring normalization data')
+        try {
+          await loadAllNormalizations(reportId)
           const normalizations = useEbitdaNormalizationStore.getState().normalizations
           const count = Object.keys(normalizations).length
           generalLogger.info('EBITDA normalizations loaded', {
@@ -155,64 +174,76 @@ export function useSessionRestoration() {
             count,
             years: Object.keys(normalizations),
           })
-        })
-        .catch((error) => {
+        } catch (error) {
           generalLogger.warn('Failed to load normalizations (non-blocking)', {
             error: error instanceof Error ? error.message : String(error),
             reportId,
           })
-        })
+          // Continue - normalizations are optional
+        }
 
-      generalLogger.info('Session restoration completed successfully', {
-        reportId,
-        restoredFormData: true,
-        restoredValuationResult: !!sessionData?.valuation_result,
-        restoredHtmlReport: !!sessionData?.html_report,
-        restoredInfoTabHtml: !!sessionData?.info_tab_html,
-      })
+        // Mark restoration as complete
+        updateProgress('completed')
 
-      // ✅ FIX: Only show toast if we actually restored meaningful data (not a new empty report)
-      // Check for actual user-entered data or valuation results
-      const hasRestoredData =
-        sessionData &&
-        typeof sessionData === 'object' &&
-        Object.keys(sessionData).length > 0 &&
-        (sessionData.company_name ||
-          sessionData.revenue ||
-          sessionData.ebitda ||
-          sessionData.current_year_data?.revenue ||
-          sessionData.current_year_data?.ebitda ||
-          sessionData.valuation_result ||
-          sessionData.html_report ||
-          sessionData.info_tab_html)
-
-      // ✅ FIX: Check if we're in initialization phase (prevents toasts during initial load)
-      const isInitializing = useSessionStore.getState().isInitializing
-
-      if (hasRestoredData && !isInitializing) {
-        // Only show toast if there's actual data AND we're not in initialization phase
-      showToast('Report loaded successfully', 'success', 3000)
-      } else {
-        generalLogger.debug('Skipping load toast', {
+        generalLogger.info('Session restoration completed successfully', {
           reportId,
-          reason: isInitializing ? 'initializing' : 'no meaningful data',
-          hasRestoredData,
-          isInitializing,
+          restoredFormData: true,
+          restoredValuationResult: !!sessionData?.valuation_result,
+          restoredHtmlReport: !!sessionData?.html_report,
+          restoredInfoTabHtml: !!sessionData?.info_tab_html,
         })
-      }
-    } catch (error) {
-      generalLogger.error('Session restoration failed', {
-        error: error instanceof Error ? error.message : String(error),
-        reportId,
-      })
-      // Remove from restored set to allow retry on next mount
-      restoredReports.current.delete(reportId)
-      lastReportIdRef.current = null // Reset to allow retry
 
-      // Show error toast
-      showToast('Failed to load report data. Please refresh the page.', 'error', 5000)
+        // ✅ FIX: Only show toast if we actually restored meaningful data (not a new empty report)
+        // Check for actual user-entered data or valuation results
+        const hasRestoredData =
+          sessionData &&
+          typeof sessionData === 'object' &&
+          Object.keys(sessionData).length > 0 &&
+          (sessionData.company_name ||
+            sessionData.revenue ||
+            sessionData.ebitda ||
+            sessionData.current_year_data?.revenue ||
+            sessionData.current_year_data?.ebitda ||
+            sessionData.valuation_result ||
+            sessionData.html_report ||
+            sessionData.info_tab_html)
+
+        // ✅ FIX: Check if we're in initialization phase (prevents toasts during initial load)
+        const isInitializing = useSessionStore.getState().isInitializing
+
+        if (hasRestoredData && !isInitializing) {
+          // Only show toast if there's actual data AND we're not in initialization phase
+          showToast('Report loaded successfully', 'success', 3000)
+        } else {
+          generalLogger.debug('Skipping load toast', {
+            reportId,
+            reason: isInitializing ? 'initializing' : 'no meaningful data',
+            hasRestoredData,
+            isInitializing,
+          })
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        generalLogger.error('Session restoration failed', {
+          error: errorMessage,
+          reportId,
+        })
+        
+        // Update progress with error
+        updateProgress('error', undefined, errorMessage)
+        
+        // Remove from restored set to allow retry on next mount
+        restoredReports.current.delete(reportId)
+        lastReportIdRef.current = null // Reset to allow retry
+
+        // Show error toast
+        showToast('Failed to load report data. Please refresh the page.', 'error', 5000)
+      }
     }
-  }, [reportId, updateFormData, setResult, setHtmlReport, setInfoTabHtml, fetchVersions, showToast])
+
+    // Execute restoration
+    restoreAsync()
+  }, [reportId, updateFormData, setResult, setHtmlReport, setInfoTabHtml, fetchVersions, loadAllNormalizations, showToast, updateProgress])
 
   // Cleanup: Allow re-restoration if component remounts
   useEffect(() => {

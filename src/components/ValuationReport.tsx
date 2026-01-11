@@ -1,14 +1,16 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import React, { Suspense } from 'react'
+import React, { Suspense, useEffect } from 'react'
 import { reportService } from '../services'
 import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
-import { ValuationFlowSelector } from './ValuationFlowSelector'
-import { ValuationSessionManager } from './ValuationSessionManager'
+import { useUrlState } from '../hooks/useUrlState'
+// Lazy load heavy components for code splitting
+const ValuationFlowSelector = React.lazy(() => import('./ValuationFlowSelector').then(m => ({ default: m.ValuationFlowSelector })))
+const ValuationSessionManager = React.lazy(() => import('./ValuationSessionManager').then(m => ({ default: m.ValuationSessionManager })))
 
 /**
  * ValuationReport Component - Next.js Compatible
@@ -25,6 +27,7 @@ import { ValuationSessionManager } from './ValuationSessionManager'
  * - Supports edit/view mode switching
  * - Supports version selection
  * - Always editable by default (M&A requirement)
+ * - World-class URL state management
  */
 interface ValuationReportProps {
   reportId: string
@@ -32,6 +35,8 @@ interface ValuationReportProps {
   initialMode?: 'edit' | 'view'
   /** Initial version number to load */
   initialVersion?: number
+  /** URL parameters for context (clientToken, return_url, etc.) */
+  urlParams?: Record<string, string | undefined>
 }
 
 export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
@@ -39,8 +44,39 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     reportId,
     initialMode = 'edit', // Default to edit mode for M&A workflow
     initialVersion,
+    urlParams = {},
   }) => {
     const router = useRouter()
+    
+    // URL state management for browser navigation support
+    const { urlState, updateUrl } = useUrlState({
+      reportId,
+      onStateChange: (state) => {
+        // URL changed via browser navigation - component will re-render with new props
+        // The ValuationFlowSelector will handle the state change
+        generalLogger.debug('[ValuationReport] URL state changed', {
+          reportId,
+          mode: state.mode,
+          version: state.version,
+          flow: state.flow,
+        })
+      },
+    })
+    
+    // Sync initial mode and version to URL on mount
+    useEffect(() => {
+      const currentMode = urlState.mode || initialMode
+      const currentVersion = urlState.version !== undefined ? urlState.version : initialVersion
+      
+      // Only update URL if state differs from URL (and we have initial values)
+      if ((initialMode && currentMode !== urlState.mode) || 
+          (initialVersion !== undefined && currentVersion !== urlState.version)) {
+        updateUrl({
+          mode: currentMode,
+          version: currentVersion,
+        }, { replace: true })
+      }
+    }, []) // Only on mount
 
     // Handle valuation completion
     // NOTE: saveCompleteSession is already called in useValuationFormSubmission
@@ -93,10 +129,32 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       return null
     }
 
+    // Preload critical resources in background
+    useEffect(() => {
+      // Preload ValuationFlowSelector and ValuationSessionManager
+      // These are already lazy loaded, but we can prefetch them
+      if (typeof window !== 'undefined') {
+        // Prefetch critical components
+        Promise.all([
+          import('./ValuationFlowSelector'),
+          import('./ValuationSessionManager'),
+        ]).catch(() => {
+          // Non-critical - preloading is optional
+        })
+      }
+    }, [])
+
     return (
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950">
         <Suspense
-          fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}
+          fallback={
+            <div className="flex items-center justify-center h-screen">
+              <div className="text-center">
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-400">Loading valuation tool...</p>
+              </div>
+            </div>
+          }
         >
           <ValuationSessionManager
             reportId={reportId}

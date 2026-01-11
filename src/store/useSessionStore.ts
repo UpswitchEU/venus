@@ -17,6 +17,7 @@
 import { create } from 'zustand'
 import { sessionService } from '../services'
 import type { ValuationSession } from '../types/valuation'
+import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import { storeLogger } from '../utils/logger'
 
 interface SessionStore {
@@ -32,6 +33,9 @@ interface SessionStore {
 
   // ✅ NEW: Initialization tracking to suppress toasts during setup
   isInitializing: boolean
+
+  // ✅ NEW: Restoration progress tracking
+  restorationProgress: RestorationProgress | null
 
   // ✅ NEW: Callback for save success notifications
   onSaveSuccess?: () => void
@@ -86,6 +90,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   lastSaved: null,
   hasUnsavedChanges: false,
   isInitializing: true, // ✅ NEW: Start in initializing state
+  restorationProgress: null, // ✅ NEW: Restoration progress tracking
   paywallData: null, // ⭐ PLAN ENFORCEMENT: Paywall state
 
   /**

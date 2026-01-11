@@ -14,34 +14,19 @@ import { UserDropdown } from './UserDropdown'
  * No navigation links - clean landing page experience.
  */
 export const MinimalHeader: React.FC = () => {
-  const { user, refreshAuth } = useAuth()
+  const { user, logout } = useAuth()
 
   const handleLogout = async () => {
     try {
       generalLogger.info('Logging out user')
 
-      // Call local API proxy route which forwards to Titan with cookies
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include', // Send authentication cookie
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
+      // Use unified logout function from auth hook (idempotent, race-condition safe)
+      await logout()
+      
         generalLogger.info('Logout successful')
-        // Refresh auth state to clear user data
-        await refreshAuth()
-      } else {
-        generalLogger.warn('Logout request failed', { status: response.status })
-        // Still refresh auth state in case session is already invalid
-        await refreshAuth()
-      }
     } catch (error) {
       generalLogger.error('Logout failed', { error })
-      // Still refresh auth state to clear local state
-      await refreshAuth()
+      // Logout function handles errors gracefully, so we don't need to do anything else
     }
   }
 

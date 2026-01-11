@@ -11,6 +11,7 @@ import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 
 import { useGuestSessionStore } from '../../store/useGuestSessionStore'
 import { env } from '../../utils/env'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
+import { classifyError, getUserFriendlyErrorMessage, defaultShouldRetry } from '../../utils/errorRecovery'
 
 export interface APIRequestConfig {
   timeout?: number
@@ -179,16 +180,28 @@ export class HttpClient {
         return response
       },
       (error) => {
-        // Handle response errors with correlation ID if available
+        // Handle response errors with correlation ID and error classification
         const correlationId = error.config ? extractCorrelationId(error.response) : null
+        const errorCategory = classifyError(error)
+        const userFriendlyMessage = getUserFriendlyErrorMessage(error, errorCategory)
+        
         if (correlationId) {
           apiLogger.error('API request failed with correlation ID', {
             correlationId,
             url: error.config?.url,
             status: error.response?.status,
             error: error.message,
+            errorCategory,
+            userFriendlyMessage,
           })
         }
+        
+        // Enhance error with user-friendly message and category
+        if (error instanceof Error) {
+          ;(error as any).userFriendlyMessage = userFriendlyMessage
+          ;(error as any).errorCategory = errorCategory
+        }
+        
         return Promise.reject(error)
       }
     )
@@ -289,6 +302,11 @@ export class HttpClient {
   /**
    * Default retry predicate - retry on network errors and 5xx server errors
    *
+   * World-Class Retry Logic:
+   * - Uses error classification for intelligent retry decisions
+   * - Retries network and server errors
+   * - Does NOT retry auth/validation errors
+   *
    * Retries:
    * - Network errors (no response)
    * - 5xx server errors
@@ -298,11 +316,25 @@ export class HttpClient {
    * Does NOT retry:
    * - 4xx client errors (except 408, 429)
    * - Authentication errors (401, 403)
+   * - Validation errors (400)
    */
   private shouldRetryError(error: any): boolean {
-    // Retry on network errors (no response)
-    if (!error.response) {
+    // Use error classification for intelligent retry decisions
+    const errorCategory = classifyError(error)
+    
+    // Retry network and server errors
+    if (errorCategory === 'network' || errorCategory === 'server') {
       return true
+    }
+    
+    // Don't retry auth or validation errors
+    if (errorCategory === 'auth' || errorCategory === 'validation') {
+      return false
+    }
+    
+    // Fallback to status-based check for unknown errors
+    if (!error.response) {
+      return true // Network error
     }
 
     const status = error.response?.status

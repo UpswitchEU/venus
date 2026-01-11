@@ -184,6 +184,8 @@ const AUTH_ENDPOINTS = [
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/refresh',
+  '/api/reports',
+  '/api/reports/',
   '/api/auth/exchange-token',
   '/api/auth/register',
   '/api/reports' // Also bypass SW for reports to ensure fresh data

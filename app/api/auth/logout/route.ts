@@ -29,6 +29,7 @@ export async function POST(request: Request) {
 		const nextResponse = NextResponse.json({ success: true });
 
 		// Get Set-Cookie headers from Titan (to clear cookies)
+		// Use getSetCookie() to get all cookies, then append each one
 		const setCookieHeaders = response.headers.getSetCookie();
 		
 		// Forward cookie clearing headers from Titan

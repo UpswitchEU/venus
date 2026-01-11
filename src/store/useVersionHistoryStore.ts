@@ -32,6 +32,13 @@ export interface VersionHistoryStore {
   activeVersions: Record<string, number> // Currently selected version per report
   loading: boolean
   error: string | null
+  
+  // ✅ NEW: Sync status tracking
+  syncStatus: Record<string, {
+    lastSyncedAt: number | null
+    isSyncing: boolean
+    syncError: string | null
+  }> // Keyed by reportId
 
   // Actions
   fetchVersions: (reportId: string) => Promise<void>
@@ -52,6 +59,7 @@ export interface VersionHistoryStore {
     versionB: number
   ) => VersionComparison | null
   clearVersions: (reportId: string) => void
+  syncVersions: (reportId: string) => Promise<void> // ✅ NEW: Explicit sync method
 }
 
 /**
@@ -139,14 +147,30 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
       activeVersions: {},
       loading: false,
       error: null,
+      syncStatus: {}, // ✅ NEW: Sync status tracking
 
       /**
        * Fetch versions for report
        *
-       * Tries backend first, falls back to local storage
+       * World-Class Version Sync:
+       * - Tries backend first, falls back to local storage
+       * - Handles conflicts gracefully
+       * - Shows sync status
        */
       fetchVersions: async (reportId: string) => {
         set({ loading: true, error: null })
+        
+        // Update sync status
+        set((state) => ({
+          syncStatus: {
+            ...state.syncStatus,
+            [reportId]: {
+              ...state.syncStatus[reportId],
+              isSyncing: true,
+              syncError: null,
+            },
+          },
+        }))
 
         try {
           versionLogger.info('Fetching versions', { reportId })
@@ -187,6 +211,14 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
               [reportId]: response.activeVersion,
             },
             loading: false,
+            syncStatus: {
+              ...state.syncStatus,
+              [reportId]: {
+                lastSyncedAt: Date.now(),
+                isSyncing: false,
+                syncError: null,
+              },
+            },
           }))
 
           versionLogger.info('Versions loaded from backend', {
@@ -215,10 +247,12 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             (a, b) => a.versionNumber - b.versionNumber
           )
 
+          const errorMessage = error instanceof Error ? error.message : String(error)
           versionLogger.warn('Backend unavailable, using local versions', {
             reportId,
             count: localVersions.length,
             deduplicatedCount: deduplicatedLocalVersions.length,
+            error: errorMessage,
           })
 
           set((state) => ({
@@ -227,6 +261,14 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
               [reportId]: deduplicatedLocalVersions,
             },
             loading: false,
+            syncStatus: {
+              ...state.syncStatus,
+              [reportId]: {
+                lastSyncedAt: state.syncStatus[reportId]?.lastSyncedAt || null,
+                isSyncing: false,
+                syncError: errorMessage,
+              },
+            },
           }))
         }
       },
@@ -654,6 +696,14 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
         }
 
         return comparison
+      },
+
+      /**
+       * Sync versions for report (explicit sync method)
+       * This is an alias for fetchVersions for clarity
+       */
+      syncVersions: async (reportId: string) => {
+        await get().fetchVersions(reportId)
       },
 
       /**

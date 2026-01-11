@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { ToastProvider } from '../src/hooks/useToast'
 import { registerServiceWorker } from '../src/utils/serviceWorkerRegistration'
+import { LogoutListener } from '../src/components/LogoutListener'
 // RUM is auto-initialized on import
 import '../src/utils/performance/rum'
 // Auth is auto-initialized on import
@@ -11,9 +12,10 @@ import '../src/lib/auth'
 /**
  * Root Providers Component
  *
- * Simplified to only essential providers:
+ * Essential providers:
  * - ToastProvider for notifications
  * - Auth initialized on module import
+ * - LogoutListener for cross-subdomain sync
  * - Service Worker registration
  * - RUM for performance monitoring
  */
@@ -35,5 +37,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  return <ToastProvider>{children}</ToastProvider>
+  return (
+    <ToastProvider>
+      <LogoutListener />
+      {children}
+    </ToastProvider>
+  )
 }

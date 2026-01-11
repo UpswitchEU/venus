@@ -1,105 +1,265 @@
 /**
- * Unit tests for reportIdGenerator utility
+ * Report ID Generator Tests
+ * Verifies collision-proof ID generation between Venus and Mercury
  */
 
-import { describe, expect, it } from 'vitest'
 import {
   generateReportId,
-  generateReportName,
-  getReportTimestamp,
   isValidReportId,
+  getReportSource,
+  getReportTimestamp,
+  isVenusReportId,
+  isMercuryReportId,
 } from '../reportIdGenerator'
 
 describe('reportIdGenerator', () => {
   describe('generateReportId', () => {
-    it('should generate a valid report ID', () => {
+    it('should generate valid report ID with Venus prefix', () => {
       const id = generateReportId()
-      expect(id).toBeTruthy()
-      expect(typeof id).toBe('string')
-      expect(id.length).toBeGreaterThan(0)
-      expect(id).toMatch(/^val_\d+_[a-z0-9]+$/)
+      expect(id).toMatch(/^val_\d+_v[a-z0-9]+$/)
     })
 
-    it('should generate unique IDs', () => {
+    it('should generate unique IDs on consecutive calls', () => {
       const id1 = generateReportId()
-      // Small delay to ensure different timestamp
       const id2 = generateReportId()
       expect(id1).not.toBe(id2)
     })
 
-    it('should generate IDs with consistent format', () => {
-      const ids = Array.from({ length: 10 }, () => generateReportId())
-      ids.forEach((id) => {
-        expect(id).toMatch(/^val_\d+_[a-z0-9]+$/)
-      })
+    it('should always start with "val_" prefix', () => {
+      const id = generateReportId()
+      expect(id.startsWith('val_')).toBe(true)
+    })
+
+    it('should include timestamp in milliseconds', () => {
+      const before = Date.now()
+      const id = generateReportId()
+      const after = Date.now()
+
+      const timestamp = getReportTimestamp(id)
+      expect(timestamp).toBeGreaterThanOrEqual(before)
+      expect(timestamp).toBeLessThanOrEqual(after)
+    })
+
+    it('should include Venus source identifier "v"', () => {
+      const id = generateReportId()
+      const parts = id.split('_')
+      expect(parts[2].charAt(0)).toBe('v')
+    })
+
+    it('should generate 1000 unique IDs without collisions', () => {
+      const ids = new Set<string>()
+      for (let i = 0; i < 1000; i++) {
+        ids.add(generateReportId())
+      }
+      expect(ids.size).toBe(1000)
     })
   })
 
   describe('isValidReportId', () => {
-    it('should validate a generated report ID', () => {
+    it('should validate Venus-generated IDs', () => {
       const id = generateReportId()
       expect(isValidReportId(id)).toBe(true)
     })
 
-    it('should validate correct format', () => {
-      expect(isValidReportId('val_1729800000_abc123xyz')).toBe(true)
-      expect(isValidReportId('val_1234567890_test123')).toBe(true)
+    it('should validate Mercury-generated IDs (simulated)', () => {
+      const mercuryId = `val_${Date.now()}_m7a8b9c0d`
+      expect(isValidReportId(mercuryId)).toBe(true)
     })
 
-    it('should reject empty string', () => {
-      expect(isValidReportId('')).toBe(false)
-    })
-
-    it('should reject null or undefined', () => {
-      expect(isValidReportId(null as any)).toBe(false)
-      expect(isValidReportId(undefined as any)).toBe(false)
+    it('should validate legacy IDs without source prefix', () => {
+      const legacyId = 'val_1729800000_abc123xyz'
+      expect(isValidReportId(legacyId)).toBe(true)
     })
 
     it('should reject invalid formats', () => {
-      expect(isValidReportId('invalid-id-format')).toBe(false)
-      expect(isValidReportId('123')).toBe(false)
-      expect(isValidReportId('val_abc_def')).toBe(false) // non-numeric timestamp
-      expect(isValidReportId('val_123')).toBe(false) // missing random part
+      expect(isValidReportId('invalid')).toBe(false)
+      expect(isValidReportId('val_abc_123')).toBe(false)
+      expect(isValidReportId('report_123_abc')).toBe(false)
+      expect(isValidReportId('')).toBe(false)
+    })
+  })
+
+  describe('getReportSource', () => {
+    it('should identify Venus-generated IDs', () => {
+      const id = generateReportId()
+      expect(getReportSource(id)).toBe('venus')
+    })
+
+    it('should identify Mercury-generated IDs', () => {
+      const mercuryId = `val_${Date.now()}_m7a8b9c0d`
+      expect(getReportSource(mercuryId)).toBe('mercury')
+    })
+
+    it('should identify legacy IDs as unknown', () => {
+      const legacyId = 'val_1729800000_abc123xyz'
+      expect(getReportSource(legacyId)).toBe('unknown')
+    })
+
+    it('should return unknown for invalid IDs', () => {
+      expect(getReportSource('invalid')).toBe('unknown')
+    })
+  })
+
+  describe('isVenusReportId', () => {
+    it('should return true for Venus IDs', () => {
+      const id = generateReportId()
+      expect(isVenusReportId(id)).toBe(true)
+    })
+
+    it('should return false for Mercury IDs', () => {
+      const mercuryId = `val_${Date.now()}_m7a8b9c0d`
+      expect(isVenusReportId(mercuryId)).toBe(false)
+    })
+
+    it('should return false for legacy IDs', () => {
+      const legacyId = 'val_1729800000_abc123xyz'
+      expect(isVenusReportId(legacyId)).toBe(false)
+    })
+  })
+
+  describe('isMercuryReportId', () => {
+    it('should return true for Mercury IDs', () => {
+      const mercuryId = `val_${Date.now()}_m7a8b9c0d`
+      expect(isMercuryReportId(mercuryId)).toBe(true)
+    })
+
+    it('should return false for Venus IDs', () => {
+      const id = generateReportId()
+      expect(isMercuryReportId(id)).toBe(false)
+    })
+
+    it('should return false for legacy IDs', () => {
+      const legacyId = 'val_1729800000_abc123xyz'
+      expect(isMercuryReportId(legacyId)).toBe(false)
     })
   })
 
   describe('getReportTimestamp', () => {
-    it('should extract timestamp from valid report ID', () => {
-      const timestamp = Date.now()
-      const id = `val_${timestamp}_abc123`
-      expect(getReportTimestamp(id)).toBe(timestamp)
+    it('should extract timestamp from Venus ID', () => {
+      const before = Date.now()
+      const id = generateReportId()
+      const after = Date.now()
+
+      const timestamp = getReportTimestamp(id)
+      expect(timestamp).toBeGreaterThanOrEqual(before)
+      expect(timestamp).toBeLessThanOrEqual(after)
     })
 
-    it('should return null for invalid report ID', () => {
-      expect(getReportTimestamp('invalid')).toBe(null)
-      expect(getReportTimestamp('val_abc_def')).toBe(null)
+    it('should extract timestamp from Mercury ID', () => {
+      const now = Date.now()
+      const mercuryId = `val_${now}_m7a8b9c0d`
+      expect(getReportTimestamp(mercuryId)).toBe(now)
+    })
+
+    it('should extract timestamp from legacy ID', () => {
+      const timestamp = 1729800000
+      const legacyId = `val_${timestamp}_abc123xyz`
+      expect(getReportTimestamp(legacyId)).toBe(timestamp)
+    })
+
+    it('should return null for invalid ID', () => {
+      expect(getReportTimestamp('invalid')).toBeNull()
     })
   })
 
-  describe('generateReportName', () => {
-    it('should generate a report name', () => {
-      const id = generateReportId()
-      const name = generateReportName(id)
-      expect(name).toBeTruthy()
-      expect(typeof name).toBe('string')
-      expect(name.length).toBeGreaterThan(0)
+  describe('Collision Prevention', () => {
+    it('should NEVER generate IDs that could collide with Mercury', () => {
+      // Generate 10,000 Venus IDs
+      const venusIds = Array.from({ length: 10000 }, () => generateReportId())
+
+      // Verify ALL start with 'v' prefix
+      venusIds.forEach((id) => {
+        const parts = id.split('_')
+        expect(parts[2].charAt(0)).toBe('v')
+      })
+
+      // Simulate Mercury IDs with 'm' prefix
+      const mercuryIds = Array.from(
+        { length: 10000 },
+        () => `val_${Date.now()}_m${Math.random().toString(36).substr(2, 9)}`
+      )
+
+      // Verify NO overlap between Venus and Mercury IDs
+      const venusSet = new Set(venusIds)
+      const mercurySet = new Set(mercuryIds)
+
+      const intersection = new Set([...venusSet].filter((id) => mercurySet.has(id)))
+      expect(intersection.size).toBe(0)
     })
 
-    it('should generate consistent names for same ID', () => {
-      const id = generateReportId()
-      const name1 = generateReportName(id)
-      const name2 = generateReportName(id)
-      expect(name1).toBe(name2)
+    it('should maintain uniqueness under high concurrency', async () => {
+      // Simulate concurrent ID generation
+      const promises = Array.from({ length: 100 }, () => Promise.resolve(generateReportId()))
+
+      const ids = await Promise.all(promises)
+      const uniqueIds = new Set(ids)
+
+      expect(uniqueIds.size).toBe(100)
     })
 
-    it('should generate different names for different IDs', () => {
-      const id1 = generateReportId()
-      const id2 = generateReportId()
-      const name1 = generateReportName(id1)
-      const name2 = generateReportName(id2)
-      // Names might be the same due to hash collisions, but usually different
-      expect(name1).toBeTruthy()
-      expect(name2).toBeTruthy()
+    it('should generate IDs with sufficient entropy', () => {
+      const id = generateReportId()
+      const parts = id.split('_')
+      const randomPart = parts[2].substring(1) // Remove 'v' prefix
+
+      // Should have at least 8 characters of randomness
+      expect(randomPart.length).toBeGreaterThanOrEqual(8)
+
+      // Should only contain lowercase alphanumeric
+      expect(randomPart).toMatch(/^[a-z0-9]+$/)
+    })
+  })
+
+  describe('Backward Compatibility', () => {
+    it('should validate legacy IDs without source prefix', () => {
+      const legacyIds = [
+        'val_1729800000_abc123xyz',
+        'val_1234567890_xyz789abc',
+        'val_9876543210_def456ghi',
+      ]
+
+      legacyIds.forEach((id) => {
+        expect(isValidReportId(id)).toBe(true)
+        expect(getReportSource(id)).toBe('unknown')
+      })
+    })
+
+    it('should extract timestamp from legacy IDs', () => {
+      const legacyId = 'val_1729800000_abc123xyz'
+      expect(getReportTimestamp(legacyId)).toBe(1729800000)
+    })
+  })
+
+  describe('Edge Cases', () => {
+    it('should handle rapid successive calls', () => {
+      const ids = []
+      for (let i = 0; i < 100; i++) {
+        ids.push(generateReportId())
+      }
+
+      // All should be unique
+      const uniqueIds = new Set(ids)
+      expect(uniqueIds.size).toBe(100)
+
+      // All should be valid
+      ids.forEach((id) => {
+        expect(isValidReportId(id)).toBe(true)
+        expect(isVenusReportId(id)).toBe(true)
+      })
+    })
+
+    it('should handle empty string gracefully', () => {
+      expect(isValidReportId('')).toBe(false)
+      expect(getReportSource('')).toBe('unknown')
+      expect(getReportTimestamp('')).toBeNull()
+    })
+
+    it('should handle malformed IDs gracefully', () => {
+      const malformed = ['val_', 'val_123_', 'val__abc', '_123_abc', 'val_abc_123']
+
+      malformed.forEach((id) => {
+        expect(isValidReportId(id)).toBe(false)
+      })
     })
   })
 })

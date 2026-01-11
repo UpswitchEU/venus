@@ -150,6 +150,19 @@ class ReportServiceImpl implements ReportService {
         count: sessions.length,
       })
 
+      // Warm cache for recent reports (non-blocking)
+      if (sessions.length > 0 && typeof window !== 'undefined') {
+        try {
+          const { globalSessionCache } = await import('../../utils/sessionCacheManager')
+          const recentReportIds = sessions.slice(0, 5).map(s => s.reportId) // Warm top 5
+          globalSessionCache.warmCache(recentReportIds).catch(() => {
+            // Non-critical - cache warming is optional
+          })
+        } catch (error) {
+          // Non-critical
+        }
+      }
+
       return sessions
     } catch (error) {
       reportLogger.error('Failed to fetch recent reports', {
@@ -284,22 +297,29 @@ class ReportServiceImpl implements ReportService {
   }
 
   /**
-   * Create new report
+   * Create new report with optimistic updates
+   * 
+   * World-Class Optimistic Updates:
+   * - Returns optimistic report immediately (<10ms)
+   * - Syncs in background
+   * - Handles sync failures gracefully
+   * - Shows sync status indicator
    */
   async createReport(initialData?: Partial<ValuationRequest>): Promise<ValuationSession> {
     const reportId = generateReportId()
 
     try {
-      reportLogger.info('Creating new report', {
+      reportLogger.info('Creating new report (optimistic)', {
         reportId,
         hasInitialData: !!initialData && Object.keys(initialData).length > 0,
       })
 
       // 1. Check plan enforcement BEFORE creating valuation
+      // This is synchronous and fast, so we do it before returning optimistic result
       await this.checkValuationLimit()
 
-      // 2. Create session object matching ValuationSession interface
-      const newSession: ValuationSession = {
+      // 2. Create optimistic session object (return immediately)
+      const optimisticSession: ValuationSession = {
         reportId,
         currentView: 'manual',
         dataSource: 'manual',
@@ -307,18 +327,65 @@ class ReportServiceImpl implements ReportService {
         updatedAt: new Date(),
         partialData: initialData || {},
         sessionData: initialData || {},
+      } as ValuationSession & { _optimistic?: boolean }
+      
+      // Mark as optimistic for UI to show sync status
+      ;(optimisticSession as any)._optimistic = true
+
+      // 3. Sync to backend in background (don't await)
+      this.syncReportToBackend(optimisticSession)
+        .then((syncedSession) => {
+          reportLogger.info('Report synced successfully', {
+            reportId,
+            syncedAt: syncedSession.updatedAt,
+          })
+          
+          // Broadcast report creation event for cross-subdomain sync
+          if (typeof window !== 'undefined') {
+            try {
+              const { broadcastReportCreated } = require('../../utils/auth/cross-domain-logout')
+              broadcastReportCreated({
+                reportId,
+                reportName: syncedSession.name,
+                createdAt: syncedSession.createdAt,
+                clientId: this.getClientId(),
+              })
+            } catch (error) {
+              // Non-critical - sync still succeeded
+              reportLogger.warn('Failed to broadcast report creation', { reportId, error })
+            }
+          }
+        })
+        .catch((error) => {
+          // Handle sync failure gracefully
+          reportLogger.warn('Report sync failed (non-critical)', {
+            reportId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            note: 'Report exists locally and can be synced later',
+          })
+          
+          // Store sync failure for retry later
+          this.queueSyncRetry(reportId, optimisticSession)
+        })
+      
+      // Broadcast optimistic creation immediately (before sync completes)
+      if (typeof window !== 'undefined') {
+        try {
+          const { broadcastReportCreated } = require('../../utils/auth/cross-domain-logout')
+          broadcastReportCreated({
+            reportId,
+            reportName: optimisticSession.name,
+            createdAt: optimisticSession.createdAt,
+            clientId: this.getClientId(),
+          })
+        } catch (error) {
+          // Non-critical - optimistic creation still succeeded
+          reportLogger.warn('Failed to broadcast optimistic report creation', { reportId, error })
+        }
       }
 
-      const response = await backendAPI.createValuationSession(newSession)
-
-      reportLogger.info('Report created successfully', {
-        reportId,
-      })
-
-      // 3. Log usage after successful creation
-      await this.logValuationUsage(reportId)
-
-      return response.session
+      // 4. Return optimistic session immediately
+      return optimisticSession
     } catch (error) {
       // If it's a paywall error, re-throw with additional context
       if ((error as any).isPaywallError) {
@@ -334,6 +401,57 @@ class ReportServiceImpl implements ReportService {
         reportId,
       })
       throw error
+    }
+  }
+
+  /**
+   * Sync report to backend (background operation)
+   */
+  private async syncReportToBackend(session: ValuationSession): Promise<ValuationSession> {
+    const response = await backendAPI.createValuationSession(session)
+    
+    // Log usage after successful sync
+    await this.logValuationUsage(session.reportId)
+    
+    // Return synced session (without _optimistic flag)
+    return response.session
+  }
+
+  /**
+   * Queue sync retry for failed syncs
+   */
+  private queueSyncRetry(reportId: string, session: ValuationSession): void {
+    // Store in localStorage for retry on next page load
+    if (typeof window !== 'undefined') {
+      try {
+        const pendingSyncs = JSON.parse(
+          localStorage.getItem('venus_pending_syncs') || '[]'
+        )
+        pendingSyncs.push({
+          reportId,
+          session,
+          retryCount: 0,
+          lastAttempt: Date.now(),
+        })
+        localStorage.setItem('venus_pending_syncs', JSON.stringify(pendingSyncs))
+      } catch (error) {
+        reportLogger.warn('Failed to queue sync retry', { reportId, error })
+      }
+    }
+  }
+
+  /**
+   * Get client ID from client context (if accountant is acting as client)
+   */
+  private getClientId(): string | undefined {
+    if (typeof window === 'undefined') return undefined
+    
+    try {
+      const { useClientContext } = require('../../stores/clientContext')
+      const context = useClientContext.getState()
+      return context.isActingAsClient ? context.relationshipId : undefined
+    } catch (error) {
+      return undefined
     }
   }
 
@@ -364,18 +482,14 @@ class ReportServiceImpl implements ReportService {
 
   /**
    * Delete report
-   * Uses existing DELETE /api/reports/:reportId endpoint
+   * Uses local proxy route DELETE /api/reports/:reportId
    */
   async deleteReport(reportId: string): Promise<void> {
     try {
       reportLogger.info('Deleting report', { reportId })
 
-      // Call existing backend endpoint: DELETE /api/reports/:reportId
-      const baseURL =
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'https://api.upswitch.app'
-      const url = `${baseURL}/api/reports/${reportId}`
+      // Use local API proxy route which forwards to Titan with cookies
+      const url = `/api/reports/${reportId}`
 
       // Get guest session ID header for guest users
       const headers: HeadersInit = {
