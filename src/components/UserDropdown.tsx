@@ -8,6 +8,7 @@ import { generalLogger } from '../utils/logger'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
 import { useClientContext } from '../stores/clientContext'
+import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 
 interface UserDropdownProps {
   user: UserType | null
@@ -23,6 +24,9 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   const [showExitModal, setShowExitModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null) // Track button position
+  
+  // Embedded mode detection for iframe integration
+  const { isEmbedded, closeEmbedded } = useEmbeddedMode()
 
   // Get session state to check report status
   const session = useSessionStore((state) => state.session)
@@ -184,7 +188,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   /**
    * Handle "Back to Home" click
    * Checks report state and shows appropriate confirmation modal
-   * Updated for Mercury integration - returns to Mercury if return_url exists
+   * Updated for Mercury integration - uses embedded mode or returns to Mercury if return_url exists
    */
   const handleBackToHome = () => {
     generalLogger.info('[UserDropdown] Back to Home clicked', {
@@ -192,11 +196,19 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       isOnReportPage,
       reportId,
       hasSession: !!session,
+      isEmbedded,
     })
 
     setIsOpen(false)
 
-    // Check for return URL (Mercury integration)
+    // If embedded in iframe (Mercury modal), close the embedded view
+    if (isEmbedded) {
+      generalLogger.info('[UserDropdown] Embedded mode detected, closing embedded view')
+      closeEmbedded()
+      return
+    }
+
+    // Check for return URL (Mercury integration - direct access with return URL)
     if (typeof window !== 'undefined') {
       const returnUrl = sessionStorage.getItem('upswitch_return_url')
       if (returnUrl) {
@@ -283,11 +295,11 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   /**
    * Exit report without saving
-   * Updated for Mercury integration - returns to Mercury if return_url exists
+   * Updated for Mercury integration - uses embedded mode or returns to Mercury if return_url exists
    */
   const handleExitReport = async () => {
     try {
-      generalLogger.info('[UserDropdown] Exiting report', { reportId })
+      generalLogger.info('[UserDropdown] Exiting report', { reportId, isEmbedded })
       if (reportId) {
         // Clear session
         clearSession()
@@ -296,7 +308,14 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       // Close modal first
       setShowExitModal(false)
       
-      // Check for return URL (Mercury integration)
+      // If embedded in iframe (Mercury modal), close the embedded view
+      if (isEmbedded) {
+        generalLogger.info('[UserDropdown] Embedded mode detected, closing embedded view')
+        closeEmbedded()
+        return
+      }
+      
+      // Check for return URL (Mercury integration - direct access with return URL)
       if (typeof window !== 'undefined') {
         const returnUrl = sessionStorage.getItem('upswitch_return_url')
         if (returnUrl) {
@@ -319,6 +338,12 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       })
       // Still navigate even if cleanup fails
       setShowExitModal(false)
+      
+      // If embedded, try to close even on error
+      if (isEmbedded) {
+        closeEmbedded()
+        return
+      }
       
       // Check for return URL even on error
       if (typeof window !== 'undefined') {

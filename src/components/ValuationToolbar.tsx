@@ -13,6 +13,7 @@ import {
     MessageSquare,
     RefreshCw,
     Save,
+    X,
 } from 'lucide-react'
 import React from 'react'
 import {
@@ -24,6 +25,7 @@ import {
     useValuationToolbarRefresh,
     useValuationToolbarTabs,
 } from '../hooks/valuationToolbar'
+import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { ValuationToolbarProps } from '../types/valuation'
@@ -215,7 +217,10 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   const { handleOpenFullscreen: handleHookFullscreen } = useValuationToolbarFullscreen()
   const handleFullScreen = onFullScreen ?? handleHookFullscreen
 
-  // Return URL for Mercury integration
+  // Embedded mode detection for iframe integration
+  const { isEmbedded, closeEmbedded } = useEmbeddedMode()
+
+  // Return URL for Mercury integration (for direct access, not embedded)
   const [returnUrl, setReturnUrl] = React.useState<string | null>(null)
   const [sourceApp, setSourceApp] = React.useState<string | null>(null)
 
@@ -488,27 +493,44 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                 )}
               </div>
 
-              {/* Right Section - Return Button + User Info */}
+              {/* Right Section - Close/Return Button + User Info */}
               <div className="flex items-center gap-1.5">
-                {returnUrl && (
+                {isEmbedded ? (
+                  /* Embedded Mode - Show Close Button */
                   <>
-                    <Tooltip
-                      content={`Return to ${sourceApp === 'mercury-accountant' ? 'Client Dashboard' : 'Mercury Dashboard'}`}
-                      position="bottom"
-                      className=""
-                    >
+                    <Tooltip content="Close and return to Mercury" position="bottom" className="">
                       <button
-                        onClick={handleReturnToMercury}
+                        onClick={closeEmbedded}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium"
                       >
-                        <ArrowLeft className="w-4 h-4" />
-                        <span className="hidden sm:inline">
-                          {sourceApp === 'mercury-accountant' ? 'Back to Client' : 'Back to Dashboard'}
-                        </span>
+                        <X className="w-4 h-4" />
+                        <span className="hidden sm:inline">Close</span>
                       </button>
                     </Tooltip>
                     <div className="h-6 w-px bg-zinc-700 mx-1"></div>
                   </>
+                ) : (
+                  returnUrl && (
+                    /* Direct Access with Return URL - Show Return Button */
+                    <>
+                      <Tooltip
+                        content={`Return to ${sourceApp === 'mercury-accountant' ? 'Client Dashboard' : 'Mercury Dashboard'}`}
+                        position="bottom"
+                        className=""
+                      >
+                        <button
+                          onClick={handleReturnToMercury}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                          <span className="hidden sm:inline">
+                            {sourceApp === 'mercury-accountant' ? 'Back to Client' : 'Back to Dashboard'}
+                          </span>
+                        </button>
+                      </Tooltip>
+                      <div className="h-6 w-px bg-zinc-700 mx-1"></div>
+                    </>
+                  )
                 )}
                 <div className="flex items-center gap-3">
                   <UserDropdown user={user} onLogout={handleLogout} />

@@ -37,13 +37,13 @@ const versionLogger = createContextLogger('VersionAPI')
  * - Delete version
  *
  * Backend endpoints (to be implemented):
- * - GET /api/valuation-sessions/:reportId/versions
- * - POST /api/valuation-sessions/:reportId/versions
- * - GET /api/valuation-sessions/:reportId/versions/:versionNumber
- * - PATCH /api/valuation-sessions/:reportId/versions/:versionNumber
- * - DELETE /api/valuation-sessions/:reportId/versions/:versionNumber
- * - GET /api/valuation-sessions/:reportId/versions/compare?v1=1&v2=3
- * - GET /api/valuation-sessions/:reportId/versions/statistics
+ * - GET /api/v2/valuations/sessions/:reportId/versions
+ * - POST /api/v2/valuations/sessions/:reportId/versions
+ * - GET /api/v2/valuations/sessions/:reportId/versions/:versionNumber
+ * - PATCH /api/v2/valuations/sessions/:reportId/versions/:versionNumber
+ * - DELETE /api/v2/valuations/sessions/:reportId/versions/:versionNumber
+ * - GET /api/v2/valuations/sessions/:reportId/versions/compare?v1=1&v2=3
+ * - GET /api/v2/valuations/sessions/:reportId/versions/statistics
  *
  * Note: Uses direct fetch calls since backend endpoints don't exist yet
  */
@@ -110,7 +110,7 @@ export class VersionAPI {
       if (options?.pinnedOnly) params.append('pinned', 'true')
 
       const query = params.toString()
-      const url = `/api/valuation-sessions/${reportId}/versions${query ? `?${query}` : ''}`
+      const url = `/api/v2/valuations/sessions/${reportId}/versions${query ? `?${query}` : ''}`
 
       // Backend endpoint returns:
       // { success: true, data: { versions: [...], total: N, active_version: N } }
@@ -195,7 +195,7 @@ export class VersionAPI {
       }>(
         {
           method: 'GET',
-          url: `/api/valuation-sessions/${reportId}/versions/${versionNumber}`,
+          url: `/api/v2/valuations/sessions/${reportId}/versions/${versionNumber}`,
           headers: {},
         },
         options
@@ -256,7 +256,7 @@ export class VersionAPI {
       }>(
         {
           method: 'POST',
-          url: `/api/valuation-sessions/${request.reportId}/versions`,
+          url: `/api/v2/valuations/sessions/${request.reportId}/versions`,
           data: backendRequest,
           headers: {},
         },
@@ -312,7 +312,7 @@ export class VersionAPI {
       }>(
         {
           method: 'PATCH',
-          url: `/api/valuation-sessions/${reportId}/versions/${versionNumber}`,
+          url: `/api/v2/valuations/sessions/${reportId}/versions/${versionNumber}`,
           data: {
             version_label: updates.versionLabel,
             notes: updates.notes,
@@ -360,7 +360,7 @@ export class VersionAPI {
       await this.executeRequest<{ success: boolean }>(
         {
           method: 'DELETE',
-          url: `/api/valuation-sessions/${reportId}/versions/${versionNumber}`,
+          url: `/api/v2/valuations/sessions/${reportId}/versions/${versionNumber}`,
           headers: {},
         },
         options
@@ -400,7 +400,7 @@ export class VersionAPI {
       }>(
         {
           method: 'GET',
-          url: `/api/valuation-sessions/${reportId}/versions/compare?v1=${versionA}&v2=${versionB}`,
+          url: `/api/v2/valuations/sessions/${reportId}/versions/compare?v1=${versionA}&v2=${versionB}`,
           headers: {},
         },
         options
@@ -453,7 +453,7 @@ export class VersionAPI {
       }>(
         {
           method: 'GET',
-          url: `/api/valuation-sessions/${reportId}/versions/statistics`,
+          url: `/api/v2/valuations/sessions/${reportId}/versions/statistics`,
           headers: {},
         },
         options

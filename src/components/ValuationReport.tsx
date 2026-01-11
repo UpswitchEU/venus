@@ -8,6 +8,7 @@ import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
 import { useUrlState } from '../hooks/useUrlState'
+import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 // Lazy load heavy components for code splitting
 const ValuationFlowSelector = React.lazy(() => import('./ValuationFlowSelector').then(m => ({ default: m.ValuationFlowSelector })))
 const ValuationSessionManager = React.lazy(() => import('./ValuationSessionManager').then(m => ({ default: m.ValuationSessionManager })))
@@ -47,6 +48,9 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     urlParams = {},
   }) => {
     const router = useRouter()
+    
+    // Embedded mode detection for iframe integration
+    const { isEmbedded } = useEmbeddedMode()
     
     // URL state management for browser navigation support
     const { urlState, updateUrl } = useUrlState({
@@ -145,7 +149,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     }, [])
 
     return (
-      <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950">
+      <div className={`flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 ${isEmbedded ? 'embedded-mode' : ''}`}>
         <Suspense
           fallback={
             <div className="flex items-center justify-center h-screen">

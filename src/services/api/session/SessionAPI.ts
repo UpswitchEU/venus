@@ -271,7 +271,7 @@ export class SessionAPI extends HttpClient {
         },
       }
 
-      // Backend endpoint: /api/valuation-sessions/:reportId (PATCH, not PUT)
+      // Backend endpoint: /api/v2/valuations/sessions/:reportId (PATCH, not PUT)
       const response = await this.executeRequest<{ success: boolean; data: any }>(
         {
           method: 'PATCH',
@@ -319,11 +319,11 @@ export class SessionAPI extends HttpClient {
       // Map frontend 'conversational' to backend 'ai-guided'
       const backendView = view === 'conversational' ? 'ai-guided' : view
 
-      // Backend endpoint: /api/valuation-sessions/:reportId/switch-view (POST, not PUT)
+      // Backend endpoint: /api/v2/valuations/sessions/:reportId/switch-view (POST, not PUT)
       const response = await this.executeRequest<{ success: boolean; data?: any }>(
         {
           method: 'POST',
-          url: `/api/valuation-sessions/${reportId}/switch-view`,
+          url: `/api/v2/valuations/sessions/${reportId}/switch-view`,
           data: { view: backendView },
           headers: {},
         } as any,
@@ -483,7 +483,7 @@ export class SessionAPI extends HttpClient {
       const response = await this.executeRequest<{ success: boolean; message: string }>(
         {
           method: 'PUT',
-          url: `/api/valuation-sessions/${reportId}/result`,
+          url: `/api/v2/valuations/sessions/${reportId}/result`,
           data: {
             sessionData: data.sessionData, // ✅ NEW: Send input data
             valuationResult: data.valuationResult,
