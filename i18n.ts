@@ -18,11 +18,20 @@ export const defaultLocale: Locale = 'en';
  * Load messages for the given locale
  */
 export default getRequestConfig(async ({ locale }) => {
+	// Handle undefined locale (can happen during build/SSR before middleware runs)
+	// This is normal and expected - just use default locale
+	if (!locale) {
+		locale = defaultLocale;
+	}
+
 	// Validate that the incoming locale is valid
 	// FIX: Don't call notFound() as it causes Server Component errors during SSR
 	// Instead, fall back to default locale for robustness
-	if (!locale || !locales.includes(locale as Locale)) {
-		console.warn(`Invalid locale requested: ${locale}, falling back to ${defaultLocale}`);
+	if (!locales.includes(locale as Locale)) {
+		// Only warn if locale was provided but invalid (not undefined)
+		if (locale !== defaultLocale) {
+			console.warn(`[i18n] Invalid locale requested: ${locale}, falling back to ${defaultLocale}`);
+		}
 		locale = defaultLocale;
 	}
 
