@@ -1,8 +1,8 @@
-import dynamic from 'next/dynamic'
+import nextDynamic from 'next/dynamic'
 import { Suspense } from 'react'
 
 // Dynamically import the client component with no SSR
-const ValuationReportClient = dynamic(
+const ValuationReportClient = nextDynamic(
   () => import('./ValuationReportClient').then(mod => mod.ValuationReportClient),
   { ssr: false }
 )
