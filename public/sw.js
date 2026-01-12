@@ -212,8 +212,22 @@ self.addEventListener('fetch', (event) => {
   // Service worker intercepting them causes CORS and network errors
   try {
     const parsedUrl = new URL(url)
+    
     // Get current origin from service worker registration scope
-    const currentOrigin = new URL(self.registration.scope).origin
+    // Fallback to checking if URL contains known external domains
+    let currentOrigin
+    try {
+      currentOrigin = new URL(self.registration.scope).origin
+    } catch (scopeError) {
+      // If scope is invalid, use a conservative approach: skip if URL contains external domains
+      const externalDomains = ['api.upswitch.app', 'upswitch.app']
+      if (externalDomains.some(domain => parsedUrl.hostname.includes(domain))) {
+        return // Skip external API requests
+      }
+      // If we can't determine origin, skip to be safe
+      return
+    }
+    
     const requestOrigin = parsedUrl.origin
     
     // If request is to a different origin, skip service worker entirely
@@ -221,7 +235,8 @@ self.addEventListener('fetch', (event) => {
       return // Let browser handle cross-origin requests directly
     }
   } catch (e) {
-    // Invalid URL or scope, skip
+    // Invalid URL or unexpected error - skip to be safe
+    // Better to skip than to break requests
     return
   }
   
