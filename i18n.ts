@@ -52,7 +52,7 @@ export default getRequestConfig(async ({ locale }) => {
 		locale: validLocale,
 		messages,
 		timeZone: 'Europe/Brussels', // Default timezone for EU operations
-		now: new Date(),
+		// Removed now: new Date() - Date objects cannot be serialized and may cause SSR errors
 	};
 });
 
