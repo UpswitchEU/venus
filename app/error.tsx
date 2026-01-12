@@ -1,6 +1,7 @@
 'use client'
 
 import { AppErrorBoundary } from './_components/AppErrorBoundary'
+import { useEffect } from 'react'
 
 interface ErrorProps {
   error: Error & { digest?: string }
@@ -14,5 +15,17 @@ interface ErrorProps {
  * Reuses shared AppErrorBoundary component to avoid duplication.
  */
 export default function Error({ error, reset }: ErrorProps) {
+  // Log full error details to help debug iframe SSR issue
+  useEffect(() => {
+    console.error('[Root Error Boundary] Full error details:', {
+      message: error.message,
+      stack: error.stack,
+      digest: error.digest,
+      name: error.name,
+      error: error,
+      url: typeof window !== 'undefined' ? window.location.href : 'SSR',
+    })
+  }, [error])
+  
   return <AppErrorBoundary error={error} reset={reset} context="app-level" />
 }

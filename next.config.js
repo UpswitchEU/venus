@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Temporarily enable detailed errors to debug iframe SSR issue
+  productionBrowserSourceMaps: true,
+  
   // Disable React error overlay in production
   reactStrictMode: true,
   onDemandEntries: {
