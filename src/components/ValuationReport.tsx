@@ -152,10 +152,11 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       <div className={`flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 ${isEmbedded ? 'embedded-mode' : ''}`}>
         <Suspense
           fallback={
-            <div className="flex items-center justify-center h-screen">
+            <div className="flex items-center justify-center h-screen bg-zinc-950">
               <div className="text-center">
-                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-gray-400">Loading valuation tool...</p>
+                <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-300 text-lg font-medium">Initializing valuation tool...</p>
+                <p className="text-gray-500 text-sm mt-2">This will only take a moment</p>
               </div>
             </div>
           }

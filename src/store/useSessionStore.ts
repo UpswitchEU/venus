@@ -239,7 +239,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           }
         }, 2000) // 2 second fallback - restoration should complete faster
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to load session'
+        const rawMessage = error instanceof Error ? error.message : 'Failed to load session'
 
         // ⭐ PLAN ENFORCEMENT: Handle paywall errors separately
         const isPaywallError = (error as any).isPaywallError === true
@@ -259,7 +259,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             paywallData: {
               current: (error as any).current || 0,
               limit: (error as any).limit || 1,
-              message: message,
+              message: rawMessage,
             },
           })
 
@@ -267,10 +267,28 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           return
         }
 
+        // Determine user-friendly error message based on error type
+        let userMessage = rawMessage
+        const statusCode = (error as any).response?.status || (error as any).status
+        
+        if (rawMessage.includes('timeout') || rawMessage.includes('Timeout')) {
+          userMessage = 'Connection timed out. Please check your internet connection and try again.'
+        } else if (statusCode === 401 || statusCode === 403) {
+          userMessage = 'Authentication failed. Please reload the page or contact support.'
+        } else if (statusCode === 404) {
+          userMessage = 'Session not found. Please start a new valuation from the client page.'
+        } else if (statusCode === 500 || statusCode >= 500) {
+          userMessage = 'Server error. Our team has been notified. Please try again later.'
+        } else if (rawMessage.includes('Network') || rawMessage.includes('fetch')) {
+          userMessage = 'Network error. Please check your connection and try again.'
+        }
+
         // Generic error handling
         storeLogger.error('[Session] Load failed', {
           reportId: expectedReportId,
-          error: message,
+          error: rawMessage,
+          statusCode,
+          userMessage,
         })
 
         // ✅ FIX: Only update error state if reportId hasn't changed during load
@@ -285,8 +303,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         }
 
         set({
-          error: message,
+          error: userMessage,
           isLoading: false,
+          isInitializing: false,
         })
 
         throw error

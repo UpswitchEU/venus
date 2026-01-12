@@ -36,14 +36,18 @@ export function classifyError(error: unknown): ErrorCategory {
   const message = error.message.toLowerCase()
   const name = error.name.toLowerCase()
 
-  // Network errors
+  // Network errors (including timeout)
   if (
     name === 'networkerror' ||
     name === 'typeerror' ||
+    name === 'aborterror' ||
     message.includes('network') ||
     message.includes('fetch') ||
     message.includes('failed to fetch') ||
-    message.includes('networkerror')
+    message.includes('networkerror') ||
+    message.includes('timeout') ||
+    message.includes('timed out') ||
+    message.includes('aborted')
   ) {
     return 'network'
   }
@@ -93,15 +97,22 @@ export function classifyError(error: unknown): ErrorCategory {
 export function getUserFriendlyErrorMessage(error: unknown, category?: ErrorCategory): string {
   const errorCategory = category || classifyError(error)
 
+  // Check for specific timeout errors
+  const errorMessage = error instanceof Error ? error.message.toLowerCase() : ''
+  const isTimeout = errorMessage.includes('timeout') || errorMessage.includes('timed out') || errorMessage.includes('aborted')
+
   switch (errorCategory) {
     case 'network':
+      if (isTimeout) {
+        return 'The request took too long to complete. The server might be experiencing high load. Please try again.'
+      }
       return 'Network connection failed. Please check your internet connection and try again.'
     case 'auth':
       return 'Your session has expired. Please log in again to continue.'
     case 'validation':
       return 'Invalid data provided. Please check your input and try again.'
     case 'server':
-      return 'Server error occurred. Please try again in a moment.'
+      return 'The server is experiencing issues. Please try again in a moment.'
     default:
       return error instanceof Error 
         ? error.message 

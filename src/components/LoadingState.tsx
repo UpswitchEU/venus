@@ -18,14 +18,23 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   containerClassName,
 }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
 
   useEffect(() => {
-    // Cycle through steps every 3 seconds for better readability
+    // Cycle through steps every 1.5 seconds for faster feel
     const interval = setInterval(() => {
       setCurrentStepIndex((prev) => (prev + 1) % steps.length)
-    }, 3000)
+    }, 1500)
 
-    return () => clearInterval(interval)
+    // Show warning after 20 seconds
+    const warningTimer = setTimeout(() => {
+      setShowTimeoutWarning(true)
+    }, 20000)
+
+    return () => {
+      clearInterval(interval)
+      clearTimeout(warningTimer)
+    }
   }, [steps.length])
 
   const currentStep = steps[currentStepIndex]
@@ -95,7 +104,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
             isDark ? 'text-white' : 'text-slate-ink'
           }`}
         >
-          {currentStep.text}
+          {showTimeoutWarning ? 'Almost there...' : currentStep.text}
         </h3>
         <p
           key={`subtext-${currentStepIndex}`}
@@ -103,9 +112,18 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
             isDark ? 'text-zinc-400' : 'text-zinc-500'
           }`}
         >
-          {currentStep.subtext}
+          {showTimeoutWarning ? 'This is taking longer than usual. Please wait...' : currentStep.subtext}
         </p>
       </div>
+
+      {/* Timeout Warning */}
+      {showTimeoutWarning && (
+        <div className={`mt-4 text-xs animate-in fade-in duration-500 ${
+          isDark ? 'text-amber-400' : 'text-amber-600'
+        }`}>
+          Still loading... If this persists, please refresh the page.
+        </div>
+      )}
     </div>
   )
 }

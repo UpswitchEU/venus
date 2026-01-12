@@ -25,14 +25,66 @@ import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 export class SessionAPI extends HttpClient {
+  // Request deduplication cache
+  private static requestCache = new Map<string, Promise<any>>()
+  private static cacheTimestamps = new Map<string, number>()
+  private static readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
   /**
-   * Get valuation session data
+   * Get valuation session data with request deduplication and caching
    */
   async getValuationSession(
     reportId: string,
     options?: APIRequestConfig
   ): Promise<ValuationSessionResponse | null> {
+    // Check cache first
+    const cacheKey = `session-${reportId}`
+    const cachedTimestamp = SessionAPI.cacheTimestamps.get(cacheKey)
+    
+    if (cachedTimestamp && Date.now() - cachedTimestamp < SessionAPI.CACHE_TTL) {
+      const cachedPromise = SessionAPI.requestCache.get(cacheKey)
+      if (cachedPromise) {
+        apiLogger.debug('Returning cached session request', { reportId })
+        return cachedPromise
+      }
+    }
+
+    // Create new request with retry logic
+    const requestPromise = this.getValuationSessionWithRetry(reportId, options)
+    
+    // Cache the promise
+    SessionAPI.requestCache.set(cacheKey, requestPromise)
+    SessionAPI.cacheTimestamps.set(cacheKey, Date.now())
+    
+    // Clean up cache after completion
+    requestPromise.finally(() => {
+      setTimeout(() => {
+        SessionAPI.requestCache.delete(cacheKey)
+        SessionAPI.cacheTimestamps.delete(cacheKey)
+      }, SessionAPI.CACHE_TTL)
+    })
+    
+    return requestPromise
+  }
+
+  /**
+   * Internal method with retry logic
+   */
+  private async getValuationSessionWithRetry(
+    reportId: string,
+    options?: APIRequestConfig,
+    attempt = 0
+  ): Promise<ValuationSessionResponse | null> {
+    const maxRetries = 3
+    const baseDelay = 1000 // 1 second
+    
     try {
+      // Add 10-second timeout per attempt
+      const timeoutOptions = {
+        ...options,
+        timeout: 10000,
+      }
+      
       // ✅ FIX: HttpClient unwraps response.data?.data || response.data
       // Backend returns: res.json({ success: true, data: sessionObject })
       // Axios receives: { success: true, data: sessionObject }
@@ -47,7 +99,7 @@ export class SessionAPI extends HttpClient {
           url: `/api/v2/valuations/sessions/${reportId}`,
           headers: {},
         } as any,
-        options
+        timeoutOptions
       )
 
       // ✅ FIX: HttpClient already unwrapped the response, so response IS the session data
@@ -130,6 +182,27 @@ export class SessionAPI extends HttpClient {
         session: sessionData,
       }
     } catch (error) {
+      // Retry logic with exponential backoff
+      const isRetryable = 
+        isNetworkError(error) || 
+        (error as any).code === 'ECONNABORTED' ||
+        (error as any).message?.includes('timeout')
+      
+      if (isRetryable && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt)
+        apiLogger.warn('Session load failed, retrying', {
+          reportId,
+          attempt: attempt + 1,
+          maxRetries,
+          delay,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        
+        await new Promise(resolve => setTimeout(resolve, delay))
+        return this.getValuationSessionWithRetry(reportId, options, attempt + 1)
+      }
+      
+      // Max retries reached or non-retryable error
       const axiosError = error as any
 
       // DIAGNOSTIC: Log the error in detail

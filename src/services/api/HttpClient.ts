@@ -33,7 +33,7 @@ export class HttpClient {
   protected activeRequests: Map<string, AbortController> = new Map()
   protected requestTimeouts: Map<string, NodeJS.Timeout> = new Map()
 
-  constructor(baseURL?: string, defaultTimeout: number = 90000) {
+  constructor(baseURL?: string, defaultTimeout: number = 30000) {
     this.client = axios.create({
       baseURL:
         baseURL ||
@@ -365,7 +365,7 @@ export class HttpClient {
     config: InternalAxiosRequestConfig,
     options?: APIRequestConfig
   ): Promise<T> {
-    const timeout = options?.timeout || 90000 // Default 90 seconds
+    const timeout = options?.timeout || 30000 // Default 30 seconds for faster failure detection
     const correlationId = Math.random().toString(36).substring(2, 15)
 
     // Check for duplicate request

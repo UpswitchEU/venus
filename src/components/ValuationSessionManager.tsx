@@ -81,8 +81,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // ✅ FIX: Load session when reportId changes (promise cache prevents duplicates)
     // Add cleanup to prevent state updates after unmount
+    // Add 30-second timeout with error handling
     useEffect(() => {
       let isMounted = true
+      let timeoutId: NodeJS.Timeout
 
       generalLogger.info('[SessionManager] Loading session', {
         reportId,
@@ -90,30 +92,47 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         prefilledQuery,
       })
 
-      loadSession(reportId, detectedFlow, prefilledQuery)
+      // Create timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error('Session load timeout (30 seconds)'))
+        }, 30000)
+      })
+
+      // Race between load and timeout
+      Promise.race([
+        loadSession(reportId, detectedFlow, prefilledQuery),
+        timeoutPromise
+      ])
         .then(() => {
           if (!isMounted) {
             generalLogger.debug('[SessionManager] Load completed after unmount, ignoring', {
               reportId,
             })
           }
+          clearTimeout(timeoutId)
         })
         .catch((err) => {
+          clearTimeout(timeoutId)
+          
           if (!isMounted) {
             generalLogger.debug('[SessionManager] Load failed after unmount, ignoring', {
               reportId,
             })
             return
           }
+          
           generalLogger.error('[SessionManager] Load failed', {
             reportId,
             flow: detectedFlow,
             error: err.message,
+            isTimeout: err.message?.includes('timeout'),
           })
         })
 
       return () => {
         isMounted = false
+        clearTimeout(timeoutId)
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reportId, detectedFlow, prefilledQuery]) // loadSession is stable - don't include in deps

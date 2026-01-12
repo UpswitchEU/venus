@@ -214,7 +214,15 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       // Check both isLoading and isInitializing to prevent premature rendering
       const isInitializing = useSessionStore.getState().isInitializing
       if (isLoading || isInitializing || !session || session.reportId !== reportId) {
-        return <LoadingState steps={INITIALIZATION_STEPS} variant="dark" />
+        // Show minimal loading to avoid flash - session should load quickly from cache
+        return (
+          <div className="flex items-center justify-center h-screen bg-zinc-950">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">Preparing session...</p>
+            </div>
+          </div>
+        )
       }
 
       // Use reportId from props (always available) or validated session
@@ -236,7 +244,16 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
           {/* Render unified flow component based on session view */}
           {/* Smooth fade-in animation when component mounts */}
           <div key={flowKey} className="absolute inset-0 animate-in fade-in duration-200 ease-out">
-            <Suspense fallback={<LoadingState steps={INITIALIZATION_STEPS} variant="dark" />}>
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center h-screen bg-zinc-950">
+                  <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-gray-400 text-sm">Loading flow...</p>
+                  </div>
+                </div>
+              }
+            >
               <ValuationFlow
                 reportId={effectiveReportId}
                 flowType={flowType}

@@ -466,24 +466,14 @@ async function initializeAuth(): Promise<void> {
     setLoading(true)
 
     // ========================================================================
-    // STEP 1: Cookie-based auth (Primary method, <50ms)
-    // ========================================================================
-    // Note: We always check the session with the backend because HttpOnly cookies
-    // are invisible to JavaScript. The browser automatically sends them in requests.
-    const user = await checkSession()
-    
-    if (user) {
-      trackAuthSuccess(user.id, 'cookie')
-      authMetrics.recordSuccess()
-      return
-    }
-
-    // ========================================================================
-    // STEP 2: Client Context Token Exchange (Accountant → Client handoff)
-    // Enhanced with validation, retry logic, and better error handling
+    // STEP 1: Client Context Token Exchange (Highest Priority - Accountant → Client)
+    // Check for clientToken FIRST to avoid unnecessary cookie checks
     // ========================================================================
     const params = new URLSearchParams(window.location.search)
     const clientToken = params.get('clientToken')
+    
+    // If clientToken is present, prioritize its exchange (skip cookie check)
+    // This prevents guest session creation and ensures immediate authenticated state
     
     // ========================================================================
     // STEP 2.5: Parse and Store Return URL for Mercury Integration
@@ -508,7 +498,7 @@ async function initializeAuth(): Promise<void> {
     
     if (clientToken) {
       // Validate token format before attempting exchange
-      if (clientToken.length < 20 || !/^[A-Za-z0-9_-]+$/.test(clientToken)) {
+      if (clientToken.length < 20 || !/^[A-Za-z0-9._-]+$/.test(clientToken)) {
         // Silent - only log in development
         if (process.env.NODE_ENV === 'development') {
           console.warn('[Auth] Invalid client token format:', {
@@ -529,12 +519,19 @@ async function initializeAuth(): Promise<void> {
         
         for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
+        // Add 5-second timeout per attempt
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000)
+        
         const response = await fetch(`${API_URL}/api/v2/auth/exchange-client-context`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ token: clientToken }),
+          signal: controller.signal,
         })
+        
+        clearTimeout(timeoutId)
         
         if (response.ok) {
           const context = await response.json()
@@ -630,6 +627,21 @@ async function initializeAuth(): Promise<void> {
           url.searchParams.delete('clientToken')
           window.history.replaceState({}, '', url.toString())
         }
+      }
+    }
+
+    // ========================================================================
+    // STEP 2: Cookie-based auth (Fallback if no clientToken, <50ms)
+    // ========================================================================
+    // Note: We always check the session with the backend because HttpOnly cookies
+    // are invisible to JavaScript. The browser automatically sends them in requests.
+    if (!clientToken) {
+      const user = await checkSession()
+      
+      if (user) {
+        trackAuthSuccess(user.id, 'cookie')
+        authMetrics.recordSuccess()
+        return
       }
     }
 
