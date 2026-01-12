@@ -1,51 +1,27 @@
-'use client'
-
-import { use } from 'react'
 import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
 import { ValuationReport } from '../../../../src/components/ValuationReport'
 
 interface ValuationReportPageProps {
-  params:
-    | Promise<{
-        id: string
-        locale: string
-      }>
-    | {
-        id: string
-        locale: string
-      }
-  searchParams?:
-    | Promise<{
-        mode?: 'edit' | 'view'
-        version?: string
-        flow?: 'manual' | 'conversational'
-        prefilledQuery?: string
-        autoSend?: string
-        clientToken?: string
-        return_url?: string
-        client_id?: string
-        source?: string
-        embedded?: string
-      }>
-    | {
-        mode?: 'edit' | 'view'
-        version?: string
-        flow?: 'manual' | 'conversational'
-        prefilledQuery?: string
-        autoSend?: string
-        clientToken?: string
-        return_url?: string
-        client_id?: string
-        source?: string
-        embedded?: string
-      }
+  params: Promise<{
+    id: string
+    locale: string
+  }>
+  searchParams?: Promise<{
+    mode?: 'edit' | 'view'
+    version?: string
+    flow?: 'manual' | 'conversational'
+    prefilledQuery?: string
+    autoSend?: string
+    clientToken?: string
+    return_url?: string
+    client_id?: string
+    source?: string
+    embedded?: string
+  }>
 }
 
-// Note: generateMetadata removed - cannot be used in client components
-// Metadata is handled via document head in ValuationReport component
-
 /**
- * Valuation Report Page
+ * Valuation Report Page (Server Component)
  *
  * World-Class URL State Management:
  * - Preserves query parameters (mode, version, flow) in URL
@@ -67,52 +43,29 @@ interface ValuationReportPageProps {
  * - ?client_id=... (for client context)
  * - ?source=... (for tracking)
  * - ?embedded=true (for iframe embedding)
+ *
+ * FIX: Made this a Server Component to properly handle async params
+ * Client Components cannot handle Promise params in Next.js App Router
  */
-export default function ValuationReportPage({ params, searchParams }: ValuationReportPageProps) {
-  // FIX: Call ALL hooks BEFORE any conditional throws/returns to comply with React rules of hooks
-  // This ensures the same number of hooks are called on every render
-  
-  // Handle both Promise and plain object params (Next.js 14+ compatibility)
-  const paramsPromise = params instanceof Promise ? params : Promise.resolve(params)
-  const resolvedParams = use(paramsPromise)
+export default async function ValuationReportPage({ params, searchParams }: ValuationReportPageProps) {
+  // Server Components can await params directly
+  const resolvedParams = await params
+  const resolvedSearchParams = searchParams ? await searchParams : {}
 
-  // Handle searchParams (optional)
-  // FIX: Always call use() hook unconditionally to comply with React rules of hooks
-  const searchParamsPromise = searchParams
-    ? searchParams instanceof Promise
-      ? searchParams
-      : Promise.resolve(searchParams)
-    : Promise.resolve({})
-  const resolvedSearchParams = use(searchParamsPromise) as {
-    mode?: 'edit' | 'view'
-    version?: string
-    flow?: 'manual' | 'conversational'
-    prefilledQuery?: string
-    autoSend?: string
-    clientToken?: string
-    return_url?: string
-    client_id?: string
-    source?: string
-    embedded?: string
-  }
-
-  // Extract values AFTER all hooks have been called
-  const { id, locale } = resolvedParams || { id: '', locale: 'en' }
-  const mode: 'edit' | 'view' = resolvedSearchParams.mode || 'edit' // Default to edit mode (M&A workflow)
+  // Extract values
+  const { id, locale } = resolvedParams
+  const mode: 'edit' | 'view' = resolvedSearchParams.mode || 'edit'
   const versionNumber: number | undefined = resolvedSearchParams.version
     ? parseInt(resolvedSearchParams.version)
     : undefined
 
-  // Validate AFTER all hooks have been called
-  // FIX: Don't throw during SSR - return error UI instead to prevent iframe crashes
-  if (!params || !id) {
+  // Validate - return error UI instead of throwing
+  if (!id) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-4">Invalid Report URL</h1>
-          <p className="text-gray-400">
-            {!params ? 'Missing route parameters' : 'Missing report ID'}
-          </p>
+          <p className="text-gray-400">Missing report ID</p>
         </div>
       </div>
     )
@@ -124,7 +77,6 @@ export default function ValuationReportPage({ params, searchParams }: ValuationR
         reportId={id} 
         initialMode={mode} 
         initialVersion={versionNumber}
-        // Pass through URL params for context
         urlParams={resolvedSearchParams}
       />
     </ErrorBoundary>
