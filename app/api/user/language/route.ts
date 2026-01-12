@@ -4,7 +4,11 @@
  * Proxies language preference updates to Titan API
  */
 
+import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force dynamic rendering - this route uses cookies
+export const dynamic = 'force-dynamic';
 
 /**
  * Update user language preference
@@ -12,10 +16,26 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function PUT(request: NextRequest) {
 	try {
-		// Get access token from cookie
-		const accessToken = request.cookies.get('upswitch_access_token')?.value;
-
-		if (!accessToken) {
+		// CRITICAL: Prioritize request headers for cookies (works in iframe context)
+		// HTTP-only cookies set for .upswitch.app domain are sent in request headers
+		// but may not be accessible via cookies() helper in iframe context
+		const requestCookieHeader = request.headers.get('cookie') || '';
+		
+		// Also try cookies() helper as fallback
+		const cookieStore = await cookies();
+		const cookiePairs: string[] = [];
+		cookieStore.getAll().forEach(cookie => {
+			cookiePairs.push(`${cookie.name}=${cookie.value}`);
+		});
+		const cookieStoreHeader = cookiePairs.join('; ');
+		
+		// Use request headers first (contains all cookies sent by browser), fallback to cookie store
+		const cookieHeader = requestCookieHeader || cookieStoreHeader;
+		
+		// Check for auth token in cookie header string
+		const hasAccessToken = cookieHeader.includes('upswitch_access_token=');
+		
+		if (!hasAccessToken) {
 			return NextResponse.json(
 				{ error: 'Unauthorized' },
 				{ status: 401 }
@@ -35,16 +55,17 @@ export async function PUT(request: NextRequest) {
 		}
 
 		// Get backend URL from environment
-		const backendUrl = process.env.VITE_BACKEND_URL || process.env.VITE_API_BASE_URL || 'https://api.upswitch.app';
+		const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.upswitch.app';
 		
-		// Forward request to Titan API
+		// Forward request to Titan API with cookies
 		const titanApiUrl = `${backendUrl}/api/v2/users/language`;
 		
 		const response = await fetch(titanApiUrl, {
 			method: 'PUT',
 			headers: {
 				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${accessToken}`,
+				// Forward cookies from request headers (contains all cookies sent by browser)
+				Cookie: cookieHeader,
 			},
 			body: JSON.stringify({ language }),
 		});
@@ -61,7 +82,7 @@ export async function PUT(request: NextRequest) {
 
 		return NextResponse.json(data, { status: 200 });
 	} catch (error) {
-		console.error('Error updating language preference:', error);
+		console.error('[Venus /api/user/language] Error:', error);
 		return NextResponse.json(
 			{ error: 'Internal server error' },
 			{ status: 500 }
