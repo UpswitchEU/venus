@@ -10,6 +10,9 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering - this route uses cookies() which is dynamic
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
 	try {
 		const titanApiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app';
