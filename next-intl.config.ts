@@ -5,13 +5,15 @@
  */
 
 import { getRequestConfig } from 'next-intl/server';
-import { notFound } from 'next/navigation';
 import { locales, defaultLocale, type Locale } from './i18n';
 
 export default getRequestConfig(async ({ locale }) => {
 	// Validate that the incoming locale is valid
+	// FIX: Don't call notFound() as it causes Server Component errors during SSR in iframe context
+	// Instead, fall back to default locale for robustness
 	if (!locale || !locales.includes(locale as Locale)) {
-		notFound();
+		console.warn(`[next-intl.config] Invalid locale requested: ${locale}, falling back to ${defaultLocale}`);
+		locale = defaultLocale;
 	}
 
 	// Ensure locale is a valid string (TypeScript guard)
