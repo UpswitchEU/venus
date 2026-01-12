@@ -68,8 +68,12 @@ export default async function LocaleLayout({
 	}
 	
 	// Validate locale - ensure it's always valid
+	// Silently handle invalid locales (can happen with favicon requests, etc.)
 	if (!locale || !locales.includes(locale as Locale)) {
-		console.warn(`[LocaleLayout] Invalid locale: ${locale}, falling back to 'en'`);
+		// Don't warn for file extensions or empty strings - these are expected
+		if (locale && !locale.includes('.')) {
+			console.warn(`[LocaleLayout] Invalid locale: ${locale}, falling back to 'en'`);
+		}
 		locale = 'en';
 	}
 
