@@ -9,6 +9,9 @@
 
 import { NextResponse } from 'next/server';
 
+// Force dynamic rendering - this route uses request headers
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
 	try {
 		// Use NEXT_PUBLIC_API_URL to match Mercury's env variable name
