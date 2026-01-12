@@ -17,18 +17,27 @@ export async function POST(request: NextRequest) {
 	try {
 		const titanApiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app';
 
-		// Use Next.js cookies() helper to read cookies properly
-		const cookieStore = await cookies();
-		const refreshToken = cookieStore.get('upswitch_refresh_token')?.value;
+		// CRITICAL: Prioritize request headers for cookies (works in iframe context)
+		// HTTP-only cookies set for .upswitch.app domain are sent in request headers
+		const requestCookieHeader = request.headers.get('cookie') || '';
 		
-		// Build cookie header from cookie store to forward to Titan
+		// Also try cookies() helper as fallback
+		const cookieStore = await cookies();
 		const cookiePairs: string[] = [];
 		cookieStore.getAll().forEach(cookie => {
 			cookiePairs.push(`${cookie.name}=${cookie.value}`);
 		});
-		const cookieHeader = cookiePairs.join('; ');
+		const cookieStoreHeader = cookiePairs.join('; ');
+		
+		// Use request headers first (contains all cookies sent by browser), fallback to cookie store
+		const cookieHeader = requestCookieHeader || cookieStoreHeader;
+		
+		// Extract refresh token from cookie header string (fallback to cookie store)
+		const refreshTokenFromStore = cookieStore.get('upswitch_refresh_token')?.value;
+		const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=');
+		const refreshToken = refreshTokenFromStore || (hasRefreshToken ? 'present' : null);
 
-		if (!refreshToken) {
+		if (!hasRefreshToken && !refreshTokenFromStore) {
 			return NextResponse.json(
 				{
 					success: false,
