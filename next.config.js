@@ -1,3 +1,7 @@
+import createNextIntlPlugin from 'next-intl/plugin';
+
+const withNextIntl = createNextIntlPlugin('./i18n.ts');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Temporarily enable detailed errors to debug iframe SSR issue
@@ -206,4 +210,4 @@ const nextConfig = {
   }),
 }
 
-export default nextConfig
+export default withNextIntl(nextConfig)
