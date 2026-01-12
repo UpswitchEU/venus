@@ -104,12 +104,18 @@ export default function ValuationReportPage({ params, searchParams }: ValuationR
     : undefined
 
   // Validate AFTER all hooks have been called
-  if (!params) {
-    throw new Error('Params are required')
-  }
-
-  if (!id) {
-    throw new Error('Report ID is required')
+  // FIX: Don't throw during SSR - return error UI instead to prevent iframe crashes
+  if (!params || !id) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Invalid Report URL</h1>
+          <p className="text-gray-400">
+            {!params ? 'Missing route parameters' : 'Missing report ID'}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
