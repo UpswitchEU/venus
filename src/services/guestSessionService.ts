@@ -63,29 +63,16 @@ class GuestSessionService {
       }
 
       // Session expires soon or is expired - verify on backend
+      // Note: Backend doesn't have GET by ID endpoint, so we trust localStorage
+      // If session is expired, we'll create a new one below
       if (expiresAt > new Date()) {
-        // Session not expired yet, but close to expiration - verify it exists
-        try {
-          const response = await retry(
-            () =>
-              fetch(`${this.apiUrl}/api/guest/session/${storedSessionId}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-              }),
-            1, // Reduced from 3 to 1 retry
-            1000
-          )
-
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success) {
-              localStorage.setItem(GUEST_SESSION_EXPIRES_KEY, data.data.expires_at)
-              return storedSessionId
-            }
-          }
-        } catch (error) {
-          generalLogger.warn('Failed to verify existing session, creating new one', { error })
-        }
+        // Session not expired yet, but close to expiration - trust localStorage
+        // Backend only has /sessions/current which requires middleware/cookies
+        generalLogger.debug('Session close to expiration, trusting localStorage', {
+          sessionId: storedSessionId.substring(0, 15) + '...',
+          expiresAt,
+        })
+        return storedSessionId
       }
     }
 
@@ -104,37 +91,42 @@ class GuestSessionService {
    */
   private async _createSession(): Promise<string> {
     try {
-      const sessionId = this.generateSessionId()
+      // Backend endpoint: POST /api/v2/guest/sessions
+      // Backend generates the session_id, we don't send one
       const response = await retry(
         () =>
-          fetch(`${this.apiUrl}/api/guest/session`, {
+          fetch(`${this.apiUrl}/api/v2/guest/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: sessionId }),
+            body: JSON.stringify({}), // Backend generates session_id
+            credentials: 'include', // Include cookies for session tracking
           }),
         1, // Reduced from 3 to 1 retry
         1000
       )
 
       if (!response.ok) {
-        throw new Error(`Failed to create guest session: ${response.statusText}`)
+        throw new Error(`Failed to create guest session: ${response.status} ${response.statusText}`)
       }
 
+      // Backend returns GuestSessionEntity directly (not wrapped in {success, data})
       const data = await response.json()
-      if (!data.success || !data.data?.session_id) {
-        throw new Error('Invalid response from session creation')
+      
+      // Backend returns: { session_id, expires_at, created_at, ... }
+      if (!data.session_id) {
+        throw new Error('Invalid response from session creation: missing session_id')
       }
 
       // Store session ID and expiration
-      localStorage.setItem(GUEST_SESSION_KEY, data.data.session_id)
-      localStorage.setItem(GUEST_SESSION_EXPIRES_KEY, data.data.expires_at)
+      localStorage.setItem(GUEST_SESSION_KEY, data.session_id)
+      localStorage.setItem(GUEST_SESSION_EXPIRES_KEY, data.expires_at)
 
       generalLogger.info('Guest session created', {
-        sessionId: data.data.session_id,
-        expiresAt: data.data.expires_at,
+        sessionId: data.session_id,
+        expiresAt: data.expires_at,
       })
 
-      return data.data.session_id
+      return data.session_id
     } catch (error) {
       generalLogger.error('Failed to create guest session', { error })
       // Fallback: use client-generated session ID
@@ -185,10 +177,12 @@ class GuestSessionService {
     // Fire and forget with simple retry
     // Handle 429 rate limiting gracefully - don't retry on rate limit
     try {
+      // Backend endpoint: POST /api/v2/guest/session/:sessionId/activity (singular 'session')
       const response = await fetch(`${this.apiUrl}/api/v2/guest/session/${sessionId}/activity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timestamp: new Date().toISOString() }), // Send timestamp for activity tracking
+        body: JSON.stringify({}), // Backend doesn't require body, just tracks activity
+        credentials: 'include', // Include cookies
       })
 
       // If rate limited (429), just skip - don't retry
