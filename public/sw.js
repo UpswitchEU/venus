@@ -13,7 +13,7 @@
  */
 
 // Version tracking for debugging (increment on each deploy)
-const SW_VERSION = '1.0.7'
+const SW_VERSION = '1.0.8'
 const CACHE_NAME = `upswitch-valuation-v${SW_VERSION}`
 const RUNTIME_CACHE = `upswitch-runtime-v${SW_VERSION}`
 
@@ -206,6 +206,24 @@ self.addEventListener('fetch', (event) => {
   }
 
   const url = request.url
+  
+  // CRITICAL: Skip ALL cross-origin requests (only handle same-origin)
+  // Cross-origin requests to api.upswitch.app should be handled directly by the browser
+  // Service worker intercepting them causes CORS and network errors
+  try {
+    const parsedUrl = new URL(url)
+    // Get current origin from service worker registration scope
+    const currentOrigin = new URL(self.registration.scope).origin
+    const requestOrigin = parsedUrl.origin
+    
+    // If request is to a different origin, skip service worker entirely
+    if (requestOrigin !== currentOrigin) {
+      return // Let browser handle cross-origin requests directly
+    }
+  } catch (e) {
+    // Invalid URL or scope, skip
+    return
+  }
   
   // CRITICAL: ALWAYS bypass service worker for auth endpoints
   // Never cache authentication requests - they must always be fresh
