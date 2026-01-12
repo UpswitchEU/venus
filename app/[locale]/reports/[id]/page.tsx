@@ -1,71 +1,67 @@
-import { ValuationReportClient } from './ValuationReportClient'
+import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
 
-interface ValuationReportPageProps {
+// Dynamically import the client component with no SSR
+const ValuationReportClient = dynamic(
+  () => import('./ValuationReportClient').then(mod => mod.ValuationReportClient),
+  { ssr: false }
+)
+
+interface PageProps {
   params: Promise<{
     id: string
     locale: string
   }>
-  searchParams?: Promise<{
-    mode?: 'edit' | 'view'
-    version?: string
-    flow?: 'manual' | 'conversational'
-    prefilledQuery?: string
-    autoSend?: string
-    clientToken?: string
-    return_url?: string
-    client_id?: string
-    source?: string
-    embedded?: string
-  }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-// Force dynamic rendering - this page uses async params
+// Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
+// Disable static generation
+export const dynamicParams = true
+
 /**
- * Valuation Report Page (Server Component)
- *
- * This Server Component handles:
- * - Async params resolution
- * - Locale validation
- * - Props serialization for Client Component
- *
- * Delegates rendering to ValuationReportClient (Client Component)
- * to avoid Server Component → Client Component boundary issues.
+ * Valuation Report Page - Ultra-minimal Server Component
+ * 
+ * This uses dynamic imports with ssr: false to completely bypass
+ * Server Component rendering of the ValuationReport component.
  */
-export default async function ValuationReportPage({ params, searchParams }: ValuationReportPageProps) {
-  // Safely resolve params with error handling
-  let resolvedParams: { id: string; locale: string }
+export default async function Page({ params, searchParams }: PageProps) {
+  let id = ''
+  let locale = 'en'
+  let mode: 'edit' | 'view' = 'edit'
+  let version: number | undefined
+  let urlParams: Record<string, string> = {}
+
+  // Resolve params safely
   try {
-    resolvedParams = await params
-  } catch (error) {
-    console.error('[ValuationReportPage] Failed to resolve params:', error)
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Invalid Report URL</h1>
-          <p className="text-gray-400">Failed to load route parameters</p>
-        </div>
-      </div>
-    )
+    const p = await params
+    id = p.id
+    locale = p.locale
+  } catch (e) {
+    console.error('[Page] params error:', e)
   }
 
-  // Safely resolve searchParams with error handling
-  let resolvedSearchParams: Record<string, string> = {}
+  // Resolve searchParams safely
   try {
-    const rawSearchParams = searchParams ? await searchParams : {}
-    // Filter out undefined values to ensure proper serialization
-    resolvedSearchParams = Object.entries(rawSearchParams)
-      .filter(([_, value]) => value !== undefined)
-      .reduce((acc, [key, value]) => ({ ...acc, [key]: value as string }), {})
-  } catch (error) {
-    console.error('[ValuationReportPage] Failed to resolve searchParams:', error)
-    // Non-fatal - continue with empty search params
+    const sp = searchParams ? await searchParams : {}
+    // Convert to plain object with string values only
+    for (const [key, value] of Object.entries(sp)) {
+      if (typeof value === 'string') {
+        urlParams[key] = value
+      } else if (Array.isArray(value) && value.length > 0) {
+        urlParams[key] = value[0]
+      }
+    }
+    
+    mode = (urlParams.mode as 'edit' | 'view') || 'edit'
+    version = urlParams.version ? parseInt(urlParams.version) : undefined
+  } catch (e) {
+    console.error('[Page] searchParams error:', e)
   }
 
-  const { id, locale } = resolvedParams
-
-  // Validate report ID
+  // Return error UI if no ID
   if (!id) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
@@ -77,20 +73,20 @@ export default async function ValuationReportPage({ params, searchParams }: Valu
     )
   }
 
-  // Extract mode and version with proper defaults
-  const mode: 'edit' | 'view' = resolvedSearchParams.mode as 'edit' | 'view' || 'edit'
-  const versionNumber: number | undefined = resolvedSearchParams.version
-    ? parseInt(resolvedSearchParams.version)
-    : undefined
-
-  // Pass serialized props to Client Component
+  // Return loading UI during CSR hydration
   return (
-    <ValuationReportClient
-      reportId={id}
-      locale={locale}
-      initialMode={mode}
-      initialVersion={versionNumber}
-      urlParams={resolvedSearchParams}
-    />
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    }>
+      <ValuationReportClient
+        reportId={id}
+        locale={locale}
+        initialMode={mode}
+        initialVersion={version}
+        urlParams={urlParams}
+      />
+    </Suspense>
   )
 }
