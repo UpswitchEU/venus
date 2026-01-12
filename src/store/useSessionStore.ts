@@ -178,6 +178,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const session = await sessionService.loadSession(expectedReportId, flow, prefilledQuery)
 
         if (!session) {
+          // Session not found and couldn't be auto-created - redirect to home
+          storeLogger.warn('[Session] Session not found, redirecting to home', { expectedReportId })
+          
+          // Only redirect if we're in a browser environment
+          if (typeof window !== 'undefined') {
+            // Preserve locale if present in URL
+            const currentPath = window.location.pathname
+            const localeMatch = currentPath.match(/^\/(en|nl)/)
+            const locale = localeMatch ? localeMatch[1] : 'en'
+            
+            // Redirect to home page to create new session
+            window.location.href = `/${locale}`
+            return
+          }
+          
           throw new Error(`Session not found: ${expectedReportId}`)
         }
 
@@ -276,7 +291,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         } else if (statusCode === 401 || statusCode === 403) {
           userMessage = 'Authentication failed. Please reload the page or contact support.'
         } else if (statusCode === 404) {
-          userMessage = 'Session not found. Please start a new valuation from the client page.'
+          // Session not found - redirect to home instead of showing error
+          storeLogger.warn('[Session] Session not found (404), redirecting to home', { expectedReportId })
+          
+          if (typeof window !== 'undefined') {
+            const currentPath = window.location.pathname
+            const localeMatch = currentPath.match(/^\/(en|nl)/)
+            const locale = localeMatch ? localeMatch[1] : 'en'
+            
+            window.location.href = `/${locale}`
+            return
+          }
+          
+          userMessage = 'Session not found. Redirecting to home page...'
         } else if (statusCode === 500 || statusCode >= 500) {
           userMessage = 'Server error. Our team has been notified. Please try again later.'
         } else if (rawMessage.includes('Network') || rawMessage.includes('fetch')) {
