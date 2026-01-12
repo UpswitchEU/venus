@@ -178,19 +178,35 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const session = await sessionService.loadSession(expectedReportId, flow, prefilledQuery)
 
         if (!session) {
-          // Session not found and couldn't be auto-created - redirect to home
-          storeLogger.warn('[Session] Session not found, redirecting to home', { expectedReportId })
+          // Session not found and couldn't be auto-created
+          storeLogger.warn('[Session] Session not found', { expectedReportId })
           
-          // Only redirect if we're in a browser environment
+          // Only redirect if we're viewing a specific report page
+          // Don't redirect if we're already on home page to avoid infinite loops
           if (typeof window !== 'undefined') {
-            // Preserve locale if present in URL
             const currentPath = window.location.pathname
-            const localeMatch = currentPath.match(/^\/(en|nl)/)
-            const locale = localeMatch ? localeMatch[1] : 'en'
             
-            // Redirect to home page to create new session
-            window.location.href = `/${locale}`
-            return
+            // Only redirect if we're on a report detail page (contains /reports/)
+            // This prevents redirect loops on home page
+            if (currentPath.includes('/reports/')) {
+              const localeMatch = currentPath.match(/^\/(en|nl)/)
+              const locale = localeMatch ? localeMatch[1] : 'en'
+              
+              storeLogger.info('[Session] Redirecting from report page to home', {
+                from: currentPath,
+                to: `/${locale}`,
+              })
+              
+              // Redirect to home page to create new session
+              window.location.href = `/${locale}`
+              return
+            } else {
+              // We're already on home page or another page - don't redirect
+              // Just set error state and let the page handle it
+              storeLogger.warn('[Session] Not found but already on home page, setting error state', {
+                currentPath,
+              })
+            }
           }
           
           throw new Error(`Session not found: ${expectedReportId}`)
@@ -291,19 +307,33 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         } else if (statusCode === 401 || statusCode === 403) {
           userMessage = 'Authentication failed. Please reload the page or contact support.'
         } else if (statusCode === 404) {
-          // Session not found - redirect to home instead of showing error
-          storeLogger.warn('[Session] Session not found (404), redirecting to home', { expectedReportId })
+          // Session not found (404) - only redirect if we're on a report page
+          storeLogger.warn('[Session] Session not found (404)', { expectedReportId })
           
           if (typeof window !== 'undefined') {
             const currentPath = window.location.pathname
-            const localeMatch = currentPath.match(/^\/(en|nl)/)
-            const locale = localeMatch ? localeMatch[1] : 'en'
             
-            window.location.href = `/${locale}`
-            return
+            // Only redirect if we're on a report detail page
+            if (currentPath.includes('/reports/')) {
+              const localeMatch = currentPath.match(/^\/(en|nl)/)
+              const locale = localeMatch ? localeMatch[1] : 'en'
+              
+              storeLogger.info('[Session] Redirecting from report page to home (404)', {
+                from: currentPath,
+                to: `/${locale}`,
+              })
+              
+              window.location.href = `/${locale}`
+              return
+            } else {
+              // Already on home page - just show error
+              storeLogger.warn('[Session] 404 but already on home page, showing error', {
+                currentPath,
+              })
+            }
           }
           
-          userMessage = 'Session not found. Redirecting to home page...'
+          userMessage = 'Session not found. Please start a new valuation.'
         } else if (statusCode === 500 || statusCode >= 500) {
           userMessage = 'Server error. Our team has been notified. Please try again later.'
         } else if (rawMessage.includes('Network') || rawMessage.includes('fetch')) {
