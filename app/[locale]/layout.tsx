@@ -5,7 +5,7 @@
 
 import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
+import { getMessages, getLocale } from 'next-intl/server';
 import { locales, type Locale } from '../../i18n';
 
 interface LocaleLayoutProps {
@@ -73,35 +73,50 @@ export default async function LocaleLayout({
 		locale = 'en';
 	}
 
+	// Get locale from request context (set by middleware) as fallback
+	// This ensures next-intl can find the locale even if params resolution fails
+	let requestLocale: string | undefined;
+	try {
+		requestLocale = await getLocale();
+	} catch (e) {
+		// getLocale() can fail if called outside request context - that's OK
+		requestLocale = undefined;
+	}
+	
+	// Use request locale if available, otherwise use resolved locale from params
+	// Ensure we always have a valid locale string
+	const finalLocale: string = requestLocale || locale || 'en';
+	
+	// Validate final locale
+	const validFinalLocale: Locale = locales.includes(finalLocale as Locale) 
+		? (finalLocale as Locale) 
+		: 'en';
+	
 	// Load messages for the current locale with comprehensive error handling
 	let messages: Record<string, any> = {};
 	try {
-		messages = await getMessages({ locale });
+		// Try to get messages using request context locale first (most reliable)
+		// If that fails, fall back to explicit locale
+		try {
+			messages = await getMessages();
+		} catch (contextError) {
+			// If request context doesn't have locale, use explicit locale
+			messages = await getMessages({ locale: validFinalLocale });
+		}
+		
 		// Ensure messages is a plain object (not undefined/null)
 		if (!messages || typeof messages !== 'object') {
-			console.warn(`[LocaleLayout] Invalid messages for locale: ${locale}, using empty object`);
+			console.warn(`[LocaleLayout] Invalid messages for locale: ${validFinalLocale}, using empty object`);
 			messages = {};
 		}
 	} catch (error) {
-		console.error(`[LocaleLayout] Failed to load messages for locale: ${locale}`, error);
-		// Try fallback to English if not already English
-		if (locale !== 'en') {
-			try {
-				messages = await getMessages({ locale: 'en' });
-				if (!messages || typeof messages !== 'object') {
-					messages = {};
-				}
-			} catch (fallbackError) {
-				console.error('[LocaleLayout] Failed to load fallback English messages', fallbackError);
-				messages = {};
-			}
-		} else {
-			messages = {};
-		}
+		console.error(`[LocaleLayout] Failed to load messages for locale: ${validFinalLocale}`, error);
+		// Fallback to empty messages object - app will still work
+		messages = {};
 	}
 
-	// Ensure locale is valid before passing to NextIntlClientProvider
-	const validLocale: Locale = locales.includes(locale as Locale) ? (locale as Locale) : 'en';
+	// Use the validated final locale for the provider
+	const validLocale: Locale = validFinalLocale;
 
 	return (
 		<NextIntlClientProvider locale={validLocale} messages={messages}>
