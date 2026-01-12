@@ -97,15 +97,34 @@ export default async function LocaleLayout({
 		: 'en';
 	
 	// Load messages for the current locale with comprehensive error handling
+	// CRITICAL: Never throw errors - always return valid data to prevent Server Components render errors
 	let messages: Record<string, any> = {};
 	try {
 		// Try to get messages using request context locale first (most reliable)
 		// If that fails, fall back to explicit locale
 		try {
-			messages = await getMessages();
+			const contextMessages = await getMessages();
+			// Validate messages object
+			if (contextMessages && typeof contextMessages === 'object') {
+				messages = contextMessages;
+			}
 		} catch (contextError) {
 			// If request context doesn't have locale, use explicit locale
-			messages = await getMessages({ locale: validFinalLocale });
+			try {
+				const explicitMessages = await getMessages({ locale: validFinalLocale });
+				// Validate messages object
+				if (explicitMessages && typeof explicitMessages === 'object') {
+					messages = explicitMessages;
+				}
+			} catch (explicitError) {
+				// Both methods failed - use empty object (non-fatal)
+				console.warn(`[LocaleLayout] Failed to load messages (both methods), using empty object`, {
+					locale: validFinalLocale,
+					contextError: contextError instanceof Error ? contextError.message : String(contextError),
+					explicitError: explicitError instanceof Error ? explicitError.message : String(explicitError),
+				});
+				messages = {};
+			}
 		}
 		
 		// Ensure messages is a plain object (not undefined/null)
@@ -114,7 +133,11 @@ export default async function LocaleLayout({
 			messages = {};
 		}
 	} catch (error) {
-		console.error(`[LocaleLayout] Failed to load messages for locale: ${validFinalLocale}`, error);
+		// CRITICAL: Catch any unexpected errors and prevent Server Components render error
+		console.error(`[LocaleLayout] Unexpected error loading messages for locale: ${validFinalLocale}`, {
+			error: error instanceof Error ? error.message : String(error),
+			stack: error instanceof Error ? error.stack : undefined,
+		});
 		// Fallback to empty messages object - app will still work
 		messages = {};
 	}

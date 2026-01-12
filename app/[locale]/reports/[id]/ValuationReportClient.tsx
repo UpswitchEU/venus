@@ -22,13 +22,14 @@ interface ValuationReportClientProps {
  * - Proper handling of async params
  * - Works consistently across all locales
  */
-export function ValuationReportClient({
+export default function ValuationReportClient({
   reportId,
   locale,
   initialMode,
   initialVersion,
   urlParams,
 }: ValuationReportClientProps) {
+  // locale is passed but ValuationReport doesn't need it (i18n handled by NextIntlClientProvider in layout)
   return (
     <ValuationReport
       reportId={reportId}
@@ -38,6 +39,3 @@ export function ValuationReportClient({
     />
   )
 }
-
-// Default export for dynamic import compatibility
-export default ValuationReportClient

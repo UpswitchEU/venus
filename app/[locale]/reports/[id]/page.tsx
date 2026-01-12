@@ -82,13 +82,24 @@ export default async function Page({ params, searchParams }: PageProps) {
   }
 
   // Return component - loading handled by dynamic import
-  return (
-    <ValuationReportClient
-      reportId={id}
-      locale={locale}
-      initialMode={mode}
-      initialVersion={version}
-      urlParams={urlParams}
-    />
-  )
+  // CRITICAL: Only pass defined props to avoid serialization issues
+  const clientProps: {
+    reportId: string
+    locale: string
+    initialMode: 'edit' | 'view'
+    initialVersion?: number
+    urlParams: Record<string, string>
+  } = {
+    reportId: id,
+    locale: locale,
+    initialMode: mode,
+    urlParams: urlParams,
+  }
+  
+  // Only include initialVersion if it's defined (not undefined)
+  if (version !== undefined && !isNaN(version)) {
+    clientProps.initialVersion = version
+  }
+  
+  return <ValuationReportClient {...clientProps} />
 }
