@@ -1,4 +1,4 @@
-import { ValuationReport } from '../../../../src/components/ValuationReport'
+import { ValuationReportClient } from './ValuationReportClient'
 
 interface ValuationReportPageProps {
   params: Promise<{
@@ -19,41 +19,23 @@ interface ValuationReportPageProps {
   }>
 }
 
-// Force dynamic rendering - this page uses async params which are only available at request time
+// Force dynamic rendering - this page uses async params
 export const dynamic = 'force-dynamic'
 
 /**
  * Valuation Report Page (Server Component)
  *
- * World-Class URL State Management:
- * - Preserves query parameters (mode, version, flow) in URL
- * - Supports browser back/forward navigation
- * - Updates URL when switching versions/flows
+ * This Server Component handles:
+ * - Async params resolution
+ * - Locale validation
+ * - Props serialization for Client Component
  *
- * Supports M&A workflow with multiple modes:
- * - Edit mode (default): Editable form for adjustments and regeneration
- * - View mode: Static report view
- * - Version selection: Load specific version (v1, v2, v3...)
- *
- * Query params:
- * - ?mode=edit|view (default: edit for always-editable UX)
- * - ?version=N (load specific version, default: latest)
- * - ?flow=manual|conversational (existing flow selection)
- * - ?prefilledQuery=Restaurant (existing prefill)
- * - ?clientToken=... (for accountant client context)
- * - ?return_url=... (for navigation back to Mercury)
- * - ?client_id=... (for client context)
- * - ?source=... (for tracking)
- * - ?embedded=true (for iframe embedding)
- *
- * FIX: Server Component - cannot wrap Client Components (ErrorBoundary) around it
- * Error boundaries are handled at app-level (app/error.tsx and app/[locale]/reports/[id]/error.tsx)
+ * Delegates rendering to ValuationReportClient (Client Component)
+ * to avoid Server Component → Client Component boundary issues.
  */
 export default async function ValuationReportPage({ params, searchParams }: ValuationReportPageProps) {
-  // Server Components can await params directly with error handling
+  // Safely resolve params with error handling
   let resolvedParams: { id: string; locale: string }
-  let resolvedSearchParams: Record<string, string | undefined> = {}
-
   try {
     resolvedParams = await params
   } catch (error) {
@@ -68,21 +50,22 @@ export default async function ValuationReportPage({ params, searchParams }: Valu
     )
   }
 
+  // Safely resolve searchParams with error handling
+  let resolvedSearchParams: Record<string, string> = {}
   try {
-    resolvedSearchParams = searchParams ? await searchParams : {}
+    const rawSearchParams = searchParams ? await searchParams : {}
+    // Filter out undefined values to ensure proper serialization
+    resolvedSearchParams = Object.entries(rawSearchParams)
+      .filter(([_, value]) => value !== undefined)
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value as string }), {})
   } catch (error) {
     console.error('[ValuationReportPage] Failed to resolve searchParams:', error)
     // Non-fatal - continue with empty search params
   }
 
-  // Extract values
   const { id, locale } = resolvedParams
-  const mode: 'edit' | 'view' = resolvedSearchParams.mode as 'edit' | 'view' || 'edit'
-  const versionNumber: number | undefined = resolvedSearchParams.version
-    ? parseInt(resolvedSearchParams.version)
-    : undefined
 
-  // Validate - return error UI instead of throwing
+  // Validate report ID
   if (!id) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
@@ -94,11 +77,18 @@ export default async function ValuationReportPage({ params, searchParams }: Valu
     )
   }
 
-  // ValuationReport is a Client Component - it can have its own error boundaries internally
+  // Extract mode and version with proper defaults
+  const mode: 'edit' | 'view' = resolvedSearchParams.mode as 'edit' | 'view' || 'edit'
+  const versionNumber: number | undefined = resolvedSearchParams.version
+    ? parseInt(resolvedSearchParams.version)
+    : undefined
+
+  // Pass serialized props to Client Component
   return (
-    <ValuationReport 
-      reportId={id} 
-      initialMode={mode} 
+    <ValuationReportClient
+      reportId={id}
+      locale={locale}
+      initialMode={mode}
       initialVersion={versionNumber}
       urlParams={resolvedSearchParams}
     />
