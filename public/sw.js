@@ -1,76 +1,38 @@
 /**
- * Service Worker - TEMPORARILY DISABLED
+ * Service Worker - COMPLETELY DISABLED
  * 
- * This service worker is disabled because it was causing infinite fetch loops
- * and preventing the application from loading properly.
- * 
- * When this version installs, it will:
- * 1. Clear all existing caches
- * 2. Unregister itself
- * 3. Reload all clients to ensure clean state
+ * This is an empty service worker that does nothing.
+ * It will be automatically unregistered by the browser.
  * 
  * @module sw
  */
 
-const SW_VERSION = '1.0.9-disabled'
+const SW_VERSION = '1.0.10-empty'
 
-console.log(`[ServiceWorker] Version ${SW_VERSION} - DISABLED MODE`)
-console.log('[ServiceWorker] This SW will unregister itself and clear all caches')
+console.log(`[ServiceWorker] Version ${SW_VERSION} - EMPTY/NO-OP`)
 
-// Clear all caches on install
+// Immediately skip waiting and activate
 self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] Install - clearing all caches')
-  
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      console.log('[ServiceWorker] Found caches:', cacheNames)
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          console.log('[ServiceWorker] Deleting cache:', cacheName)
-          return caches.delete(cacheName)
-        })
-      )
-    }).then(() => {
-      console.log('[ServiceWorker] All caches cleared successfully')
-      // Skip waiting to activate immediately
-      return self.skipWaiting()
-    })
-  )
+  console.log('[ServiceWorker] Install - immediately skipping waiting')
+  self.skipWaiting()
 })
 
-// Unregister on activate
+// Claim all clients and clear caches
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Activate - unregistering')
-  
+  console.log('[ServiceWorker] Activate - claiming clients and clearing caches')
   event.waitUntil(
-    self.clients.claim().then(() => {
-      console.log('[ServiceWorker] Claimed all clients')
-      return self.registration.unregister()
-    }).then((success) => {
-      if (success) {
-        console.log('[ServiceWorker] Unregistered successfully')
-      } else {
-        console.warn('[ServiceWorker] Unregister returned false')
-      }
-      
-      // Reload all clients after a short delay
-      setTimeout(() => {
-        self.clients.matchAll({ type: 'window' }).then((clients) => {
-          console.log('[ServiceWorker] Reloading', clients.length, 'clients')
-          clients.forEach((client) => {
-            console.log('[ServiceWorker] Sending reload message to:', client.url)
-            client.postMessage({ type: 'SW_DISABLED', message: 'Service worker disabled, page will reload' })
-          })
-        })
-      }, 100)
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => caches.delete(cacheName))
+        )
+      })
+    ]).then(() => {
+      console.log('[ServiceWorker] Activated, caches cleared')
     })
   )
 })
 
-// Don't intercept any fetch events - let browser handle everything
-self.addEventListener('fetch', (event) => {
-  // Pass through all requests - no interception
-  return
-})
-
-console.log('[ServiceWorker] Disabled SW registered - will unregister on next activation')
+// No fetch interception - let all requests pass through
+console.log('[ServiceWorker] Empty service worker loaded - no fetch interception')

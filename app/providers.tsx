@@ -21,23 +21,26 @@ import '../src/lib/auth'
  */
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Register service worker for offline support (production only)
-    if (process.env.NODE_ENV === 'production') {
-      registerServiceWorker({
-        onUpdate: (registration) => {
-          // Silent update notification
-        },
-        onSuccess: () => {
-          // Silent success
-        },
-        onError: (error) => {
-          // Silent error handling - only log in development
-          if (process.env.NODE_ENV === 'development') {
-            console.error('[ServiceWorker] Registration failed:', error)
-          }
-        },
-      })
-    }
+    // TEMPORARILY DISABLED: Service worker registration
+    // The service worker was causing infinite reload loops and fetch failures.
+    // Re-enable after fixing the SW implementation.
+    
+    // if (process.env.NODE_ENV === 'production') {
+    //   registerServiceWorker({
+    //     onUpdate: (registration) => {
+    //       // Silent update notification
+    //     },
+    //     onSuccess: () => {
+    //       // Silent success
+    //     },
+    //     onError: (error) => {
+    //       // Silent error handling - only log in development
+    //       if (process.env.NODE_ENV === 'development') {
+    //         console.error('[ServiceWorker] Registration failed:', error)
+    //       }
+    //     },
+    //   })
+    // }
   }, [])
 
   return (
