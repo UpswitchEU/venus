@@ -377,11 +377,52 @@ export class SessionService {
 
                 return mergedSession
               } catch (createError) {
-                logger.error('Error creating new session', {
+                // ✅ IMPROVED: Categorize errors for better user experience
+                const errorMessage = createError instanceof Error ? createError.message : String(createError)
+                
+                // Paywall error - already handled by checkValuationCreationAllowed
+                if (errorMessage.includes('paywall') || errorMessage.includes('limit') || errorMessage.includes('plan')) {
+                  logger.info('Session creation blocked by plan enforcement', {
+                    reportId,
+                    error: errorMessage,
+                  })
+                  // Re-throw paywall errors so they can be handled by the store
+                  throw createError
+                }
+                
+                // Authentication errors
+                if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('authentication')) {
+                  logger.error('Session creation failed - authentication required', {
+                    reportId,
+                    error: errorMessage,
+                  })
+                  throw new Error('Authentication required. Please log in to continue.')
+                }
+                
+                // Network errors
+                if (errorMessage.includes('Network') || errorMessage.includes('fetch') || errorMessage.includes('timeout')) {
+                  logger.error('Session creation failed - network error', {
+                    reportId,
+                    error: errorMessage,
+                  })
+                  throw new Error('Network error. Please check your connection and try again.')
+                }
+                
+                // Backend validation errors
+                if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
+                  logger.error('Session creation failed - validation error', {
+                    reportId,
+                    error: errorMessage,
+                  })
+                  throw new Error(`Invalid session data: ${errorMessage}`)
+                }
+                
+                // Generic error
+                logger.error('Session creation failed - unknown error', {
                   reportId,
-                  error: createError instanceof Error ? createError.message : String(createError),
+                  error: errorMessage,
                 })
-                return null
+                throw new Error(`Failed to create session: ${errorMessage}`)
               }
             }
 

@@ -16,7 +16,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationSession } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
@@ -40,6 +40,7 @@ interface ValuationSessionManagerProps {
     onRetry: () => void
     onStartOver: () => void
     reportId: string
+    showTimeoutWarning: boolean
   }) => React.ReactNode
 }
 
@@ -69,6 +70,26 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)
 
+    // ✅ TIMEOUT WARNING: Show warning after 10 seconds of loading
+    const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
+
+    useEffect(() => {
+      if (isLoading || isInitializing) {
+        const warningTimer = setTimeout(() => {
+          setShowTimeoutWarning(true)
+          generalLogger.warn('[SessionManager] Loading taking longer than expected', {
+            reportId,
+            isLoading,
+            isInitializing,
+          })
+        }, 10000) // Show warning after 10s
+
+        return () => clearTimeout(warningTimer)
+      } else {
+        setShowTimeoutWarning(false)
+      }
+    }, [isLoading, isInitializing, reportId])
+
     // Extract URL params
     const prefilledQuery = searchParams?.get('prefilledQuery') || null
     const autoSend = searchParams?.get('autoSend') === 'true'
@@ -92,9 +113,17 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         prefilledQuery,
       })
 
-      // Create timeout promise
+      // Create timeout promise that also resets store state
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
+          // ✅ CRITICAL FIX: Force reset isInitializing on timeout
+          // This prevents infinite loading when API calls hang
+          generalLogger.warn('[SessionManager] Session load timeout, resetting state', { reportId })
+          useSessionStore.setState({ 
+            isInitializing: false, 
+            isLoading: false,
+            error: 'Session load timeout (30 seconds). Please refresh the page or try again.' 
+          })
           reject(new Error('Session load timeout (30 seconds)'))
         }, 30000)
       })
@@ -170,6 +199,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           onRetry: handleRetry,
           onStartOver: handleStartOver,
           reportId,
+          showTimeoutWarning,
         })}
 
         {/* ⭐ PLAN ENFORCEMENT: Paywall Modal */}

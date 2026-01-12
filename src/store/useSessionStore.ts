@@ -366,6 +366,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         })
 
         throw error
+      } finally {
+        // ✅ CRITICAL FIX: Always reset isInitializing, even if error is thrown
+        // This prevents infinite loading state when errors occur
+        const finalState = get()
+        if (finalState.isInitializing && finalState.session?.reportId === expectedReportId) {
+          storeLogger.debug('[Session] Ensuring isInitializing reset in finally block', { 
+            reportId: expectedReportId 
+          })
+          set({ isInitializing: false })
+        }
       }
     })()
 
