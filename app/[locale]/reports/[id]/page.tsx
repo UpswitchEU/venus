@@ -1,4 +1,3 @@
-import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
 import { ValuationReport } from '../../../../src/components/ValuationReport'
 
 interface ValuationReportPageProps {
@@ -44,8 +43,8 @@ interface ValuationReportPageProps {
  * - ?source=... (for tracking)
  * - ?embedded=true (for iframe embedding)
  *
- * FIX: Made this a Server Component to properly handle async params
- * Client Components cannot handle Promise params in Next.js App Router
+ * FIX: Server Component - cannot wrap Client Components (ErrorBoundary) around it
+ * Error boundaries are handled at app-level (app/error.tsx and app/[locale]/reports/[id]/error.tsx)
  */
 export default async function ValuationReportPage({ params, searchParams }: ValuationReportPageProps) {
   // Server Components can await params directly
@@ -71,14 +70,13 @@ export default async function ValuationReportPage({ params, searchParams }: Valu
     )
   }
 
+  // ValuationReport is a Client Component - it can have its own error boundaries internally
   return (
-    <ErrorBoundary>
-      <ValuationReport 
-        reportId={id} 
-        initialMode={mode} 
-        initialVersion={versionNumber}
-        urlParams={resolvedSearchParams}
-      />
-    </ErrorBoundary>
+    <ValuationReport 
+      reportId={id} 
+      initialMode={mode} 
+      initialVersion={versionNumber}
+      urlParams={resolvedSearchParams}
+    />
   )
 }
