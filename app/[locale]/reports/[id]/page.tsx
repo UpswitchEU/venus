@@ -2,8 +2,9 @@ import nextDynamic from 'next/dynamic'
 
 // Dynamically import the client component with no SSR
 // ssr: false means it only renders on the client, so no Suspense needed
+// Use default import to avoid "Cannot access .then on server" error
 const ValuationReportClient = nextDynamic(
-  () => import('./ValuationReportClient').then(mod => mod.ValuationReportClient),
+  () => import('./ValuationReportClient'),
   { 
     ssr: false,
     loading: () => (

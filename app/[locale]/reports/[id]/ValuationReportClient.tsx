@@ -38,3 +38,6 @@ export function ValuationReportClient({
     />
   )
 }
+
+// Default export for dynamic import compatibility
+export default ValuationReportClient
