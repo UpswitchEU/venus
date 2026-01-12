@@ -58,34 +58,53 @@ export default async function LocaleLayout({
 	params,
 }: LocaleLayoutProps) {
 	// Safely await params with error handling
-	let locale: string;
+	let locale: string = 'en'; // Default fallback
 	try {
 		const resolvedParams = await params;
 		locale = resolvedParams?.locale || 'en';
 	} catch (error) {
-		console.error('Failed to resolve locale params:', error);
+		console.error('[LocaleLayout] Failed to resolve locale params:', error);
 		locale = 'en'; // Fallback to default locale
 	}
 	
-	// Validate locale
-	if (!locales.includes(locale as Locale)) {
-		// Fallback to default locale instead of 404 to prevent Server Component errors
-		// This can happen when middleware rewrites don't match exactly
+	// Validate locale - ensure it's always valid
+	if (!locale || !locales.includes(locale as Locale)) {
+		console.warn(`[LocaleLayout] Invalid locale: ${locale}, falling back to 'en'`);
 		locale = 'en';
 	}
 
-	// Load messages for the current locale with error handling
-	let messages;
+	// Load messages for the current locale with comprehensive error handling
+	let messages: Record<string, any> = {};
 	try {
 		messages = await getMessages({ locale });
+		// Ensure messages is a plain object (not undefined/null)
+		if (!messages || typeof messages !== 'object') {
+			console.warn(`[LocaleLayout] Invalid messages for locale: ${locale}, using empty object`);
+			messages = {};
+		}
 	} catch (error) {
-		console.error('Failed to load messages for locale:', locale, error);
-		// Fallback to empty messages object to prevent crash
-		messages = {};
+		console.error(`[LocaleLayout] Failed to load messages for locale: ${locale}`, error);
+		// Try fallback to English if not already English
+		if (locale !== 'en') {
+			try {
+				messages = await getMessages({ locale: 'en' });
+				if (!messages || typeof messages !== 'object') {
+					messages = {};
+				}
+			} catch (fallbackError) {
+				console.error('[LocaleLayout] Failed to load fallback English messages', fallbackError);
+				messages = {};
+			}
+		} else {
+			messages = {};
+		}
 	}
 
+	// Ensure locale is valid before passing to NextIntlClientProvider
+	const validLocale: Locale = locales.includes(locale as Locale) ? (locale as Locale) : 'en';
+
 	return (
-		<NextIntlClientProvider locale={locale} messages={messages}>
+		<NextIntlClientProvider locale={validLocale} messages={messages}>
 			{children}
 		</NextIntlClientProvider>
 	);

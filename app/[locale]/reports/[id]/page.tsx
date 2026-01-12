@@ -1,10 +1,17 @@
 import nextDynamic from 'next/dynamic'
-import { Suspense } from 'react'
 
 // Dynamically import the client component with no SSR
+// ssr: false means it only renders on the client, so no Suspense needed
 const ValuationReportClient = nextDynamic(
   () => import('./ValuationReportClient').then(mod => mod.ValuationReportClient),
-  { ssr: false }
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    )
+  }
 )
 
 interface PageProps {
@@ -73,20 +80,14 @@ export default async function Page({ params, searchParams }: PageProps) {
     )
   }
 
-  // Return loading UI during CSR hydration
+  // Return component - loading handled by dynamic import
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
-      </div>
-    }>
-      <ValuationReportClient
-        reportId={id}
-        locale={locale}
-        initialMode={mode}
-        initialVersion={version}
-        urlParams={urlParams}
-      />
-    </Suspense>
+    <ValuationReportClient
+      reportId={id}
+      locale={locale}
+      initialMode={mode}
+      initialVersion={version}
+      urlParams={urlParams}
+    />
   )
 }
