@@ -79,18 +79,28 @@ export class HttpClient {
           apiLogger.warn('Failed to add client context headers', { error: contextError })
         }
 
-        // CRITICAL: Check if user is authenticated first
-        // Only send guest_session_id for non-authenticated users
+        // CRITICAL: Check if user is authenticated OR has client context
+        // Only send guest_session_id for truly anonymous users
         try {
           const { useAuthStore } = await import('../../lib/auth')
           const user = useAuthStore.getState().user
           
-          // If user is authenticated, DO NOT send guest_session_id
-          // Backend will use user_id from HttpOnly cookie
-          if (user) {
-            apiLogger.debug('User authenticated, skipping guest session tracking', {
-              userId: user.id.substring(0, 8) + '...',
-            })
+          // Check if we have client context headers (accountant acting on behalf of client)
+          const hasClientContext = config.headers?.['x-client-context-user'] || 
+                                   config.headers?.['x-client-context-accountant']
+          
+          // If user is authenticated OR has client context, DO NOT send guest_session_id
+          // This ensures accountant-client workflows ALWAYS use authenticated sessions
+          if (user || hasClientContext) {
+            if (hasClientContext) {
+              apiLogger.debug('Client context present - using authenticated session (accountant for client)', {
+                clientUserId: String(config.headers?.['x-client-context-user']).substring(0, 8) + '...',
+              })
+            } else if (user) {
+              apiLogger.debug('User authenticated, skipping guest session tracking', {
+                userId: user.id.substring(0, 8) + '...',
+              })
+            }
             return config
           }
         } catch (authError) {
