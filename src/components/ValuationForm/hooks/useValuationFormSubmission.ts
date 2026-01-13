@@ -210,6 +210,12 @@ export const useValuationFormSubmission = (
         // Explicitly set dataSource for manual flow
         // This ensures backend knows this is a manual (FREE) calculation
         ;(request as any).dataSource = 'manual'
+        
+        // CRITICAL: Include reportId from session for version linking
+        // This ensures versions are created correctly and linked to the session
+        if (reportId) {
+          ;(request as any).reportId = reportId
+        }
 
         // M&A Workflow: Check if this is a regeneration
         let previousVersion: any = null

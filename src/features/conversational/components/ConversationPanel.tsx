@@ -651,6 +651,12 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
       // Build request (buildValuationRequest will include normalized EBITDA)
       const request = buildValuationRequest(formData)
       ;(request as any).dataSource = 'ai-guided'
+      
+      // CRITICAL: Include reportId from session for version linking
+      // This ensures versions are created correctly and linked to the session
+      if (sessionId) {
+        ;(request as any).reportId = sessionId
+      }
 
       // Trigger valuation
       const result = await valuationService.calculateValuation(request)

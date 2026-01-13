@@ -155,6 +155,25 @@ export class SessionAPI extends HttpClient {
         return null
       }
 
+      // Map session_key to reportId if reportId is missing
+      if (!sessionData.reportId && sessionData.session_key) {
+        sessionData.reportId = sessionData.session_key
+      }
+      
+      // Map backend view types to frontend view types
+      // Backend: 'simple' | 'advanced'
+      // Frontend: 'manual' | 'conversational'
+      if (sessionData.view_type === 'simple' && !sessionData.currentView) {
+        sessionData.currentView = 'manual'
+      } else if (sessionData.view_type === 'advanced' && !sessionData.currentView) {
+        sessionData.currentView = 'conversational'
+      }
+      
+      // Also check session_data for currentView
+      if (sessionData.session_data?.currentView) {
+        sessionData.currentView = sessionData.session_data.currentView
+      }
+      
       // Map backend 'ai-guided' to frontend 'conversational'
       if ((sessionData.currentView as string) === 'ai-guided') {
         sessionData.currentView = 'conversational'
@@ -240,17 +259,19 @@ export class SessionAPI extends HttpClient {
       // Handle both CreateValuationSessionRequest and ValuationSession types
       const sessionAny = session as any
 
-      // Map frontend 'conversational' to backend 'simple' view_type
-      // Note: Titan API uses 'simple' | 'advanced', not 'manual' | 'conversational'
-      const viewType = 'simple'; // Always use simple for now
+      // Map frontend view types to backend view types
+      // Frontend: 'manual' | 'conversational'
+      // Backend: 'simple' | 'advanced'
+      const currentView = session.currentView || sessionAny.currentView || 'manual';
+      const viewType = currentView === 'conversational' ? 'advanced' : 'simple';
 
       // Build session_data object to send to Titan
       // Titan API expects: { session_data: {...}, view_type: 'simple'|'advanced', current_step: number }
       const sessionDataPayload = {
         ...(sessionAny.sessionData || {}),
         ...(sessionAny.partialData || {}),
-        // Preserve any existing fields from the session object
-        ...(session.currentView && { currentView: session.currentView }),
+        // Preserve currentView in session_data for restoration
+        currentView: currentView,
         ...(sessionAny.dataSource && { dataSource: sessionAny.dataSource }),
       };
 
@@ -258,6 +279,8 @@ export class SessionAPI extends HttpClient {
         session_data: sessionDataPayload,
         view_type: viewType,
         current_step: sessionAny.current_step || 1,
+        // Also send currentView at top level for DTO transformation
+        currentView: currentView,
       }
 
       // Backend endpoint: POST /api/v2/valuations/sessions

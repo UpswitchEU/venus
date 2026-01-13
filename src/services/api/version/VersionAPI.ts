@@ -492,21 +492,27 @@ export class VersionAPI {
    * Normalizes field names and date objects.
    */
   private transformVersionFromBackend(backendVersion: any): ValuationVersion {
+    // Extract version_data which contains formData and valuationResult
+    const versionData = backendVersion.version_data || {};
+    
     return {
       id: backendVersion.id,
-      reportId: backendVersion.report_id,
+      reportId: backendVersion.report_id || backendVersion.reportId,
       versionNumber: backendVersion.version_number,
       versionLabel: backendVersion.version_label || `Version ${backendVersion.version_number}`,
       createdAt: new Date(backendVersion.created_at),
       createdBy: backendVersion.created_by || null,
-      formData: backendVersion.form_data,
-      valuationResult: backendVersion.valuation_result || null,
-      htmlReport: backendVersion.html_report || null,
-      infoTabHtml: backendVersion.info_tab_html || null,
-      changesSummary: backendVersion.changes_summary || { totalChanges: 0, significantChanges: [] },
-      isActive: backendVersion.is_active || false,
-      isPinned: backendVersion.is_pinned || false,
-      calculationDuration_ms: backendVersion.calculation_duration_ms,
+      // Extract formData from multiple possible locations
+      formData: backendVersion.formData || versionData.formData || versionData.inputs || backendVersion.form_data || {},
+      // Extract valuationResult from multiple possible locations
+      valuationResult: backendVersion.valuationResult || versionData.valuationResult || versionData.outputs || backendVersion.valuation_result || null,
+      // Extract HTML reports from multiple possible locations
+      htmlReport: backendVersion.htmlReport || versionData.htmlReport || versionData.outputs?.html_report || versionData.outputs?.details?.html_report || backendVersion.html_report || null,
+      infoTabHtml: backendVersion.infoTabHtml || versionData.infoTabHtml || versionData.outputs?.info_tab_html || versionData.outputs?.details?.info_tab_html || backendVersion.info_tab_html || null,
+      changesSummary: backendVersion.changesSummary || backendVersion.changes_summary || { totalChanges: 0, significantChanges: [] },
+      isActive: backendVersion.isActive || backendVersion.is_active || false,
+      isPinned: backendVersion.isPinned || backendVersion.is_pinned || false,
+      calculationDuration_ms: backendVersion.calculationDuration_ms || backendVersion.calculation_duration_ms,
       tags: backendVersion.tags || [],
       notes: backendVersion.notes,
     }
