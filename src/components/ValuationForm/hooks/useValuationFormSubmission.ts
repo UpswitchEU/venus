@@ -210,7 +210,7 @@ export const useValuationFormSubmission = (
         // Explicitly set dataSource for manual flow
         // This ensures backend knows this is a manual (FREE) calculation
         ;(request as any).dataSource = 'manual'
-        
+
         // CRITICAL: Include reportId from session for version linking
         // This ensures versions are created correctly and linked to the session
         if (reportId) {
@@ -351,7 +351,7 @@ export const useValuationFormSubmission = (
                   versionNumber: newVersion.versionNumber,
                   versionLabel: newVersion.versionLabel,
                 })
-                
+
                 // Snapshot draft normalizations to this version
                 await snapshotNormalizationsToVersion(reportId, newVersion.id)
 
@@ -382,7 +382,7 @@ export const useValuationFormSubmission = (
                   versionNumber: firstVersion.versionNumber,
                   versionLabel: firstVersion.versionLabel,
                 })
-                
+
                 // Snapshot draft normalizations to this version
                 await snapshotNormalizationsToVersion(reportId, firstVersion.id)
 

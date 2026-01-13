@@ -19,10 +19,10 @@ export interface CompanyNameInputProps
   value: string
   onChange: (value: string) => void
   countryCode?: string
-  selectedCompany?: CompanySearchResult | null  // Controlled from parent
-  onCompanyChange?: (company: CompanySearchResult | null) => void  // Selection change notification
-  onClearCompany?: () => void  // User wants to change company
-  isVerifying?: boolean  // Show verifying state in preview
+  selectedCompany?: CompanySearchResult | null // Controlled from parent
+  onCompanyChange?: (company: CompanySearchResult | null) => void // Selection change notification
+  onClearCompany?: () => void // User wants to change company
+  isVerifying?: boolean // Show verifying state in preview
 }
 
 export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
@@ -117,7 +117,10 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
   useEffect(() => {
     if (value) {
       // Don't search if company is already selected (prevents redundant API calls)
-      if (selectedCompany && value.toLowerCase().trim() === selectedCompany.company_name.toLowerCase().trim()) {
+      if (
+        selectedCompany &&
+        value.toLowerCase().trim() === selectedCompany.company_name.toLowerCase().trim()
+      ) {
         generalLogger.debug('[CompanyNameInput] Skipping search - company already selected', {
           company_name: selectedCompany.company_name,
         })
@@ -145,7 +148,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
     onChange(newValue)
     setShowSuggestions(true)
     setExactMatch(null) // Clear exact match until search completes
-    
+
     // ALWAYS clear selected company when user types (even if it matches)
     // This ensures clean slate for new search
     if (selectedCompany) {
@@ -155,7 +158,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         new_value: newValue,
       })
     }
-    
+
     setHighlightedIndex(-1) // Reset highlight when typing
   }
 
@@ -182,19 +185,19 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
       // Handle Enter key
       if (e.key === 'Enter') {
         e.preventDefault()
-        
+
         // If dropdown is showing and item is highlighted, select it
         if (showSuggestions && highlightedIndex >= 0 && highlightedIndex < searchResults.length) {
           handleSelectCompany(searchResults[highlightedIndex])
           return
         }
-        
+
         // If there's an exact match, select it
         if (exactMatch && !selectedCompany) {
           handleSelectCompany(exactMatch)
           return
         }
-        
+
         // Otherwise, just close dropdown
         setShowSuggestions(false)
         return
@@ -228,7 +231,14 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           break
       }
     },
-    [showSuggestions, searchResults, highlightedIndex, exactMatch, selectedCompany, handleSelectCompany]
+    [
+      showSuggestions,
+      searchResults,
+      highlightedIndex,
+      exactMatch,
+      selectedCompany,
+      handleSelectCompany,
+    ]
   )
 
   // Handle click outside to close suggestions
@@ -379,7 +389,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
 
   // Determine right icon (loading spinner or checkmark)
   const rightIcon = isLoading ? renderLoadingSpinner() : renderCheckmark()
-  
+
   // Read-only when company is selected
   const isReadOnly = !!selectedCompany
 
@@ -418,7 +428,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         inputRef={inputRef}
       />
       {renderSuggestions()}
-      
+
       {/* Show preview card when company selected */}
       {selectedCompany && (
         <CompanyPreviewCard

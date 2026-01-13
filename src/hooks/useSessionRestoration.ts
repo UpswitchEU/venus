@@ -22,8 +22,8 @@ import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { generalLogger } from '../utils/logger'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
-import { useToast } from './useToast'
 import { useRestorationProgress } from './useRestorationProgress'
+import { useToast } from './useToast'
 
 /**
  * Hook to automatically restore form data, results, and versions from session
@@ -228,10 +228,10 @@ export function useSessionRestoration() {
           error: errorMessage,
           reportId,
         })
-        
+
         // Update progress with error
         updateProgress('error', undefined, errorMessage)
-        
+
         // Remove from restored set to allow retry on next mount
         restoredReports.current.delete(reportId)
         lastReportIdRef.current = null // Reset to allow retry
@@ -243,7 +243,17 @@ export function useSessionRestoration() {
 
     // Execute restoration
     restoreAsync()
-  }, [reportId, updateFormData, setResult, setHtmlReport, setInfoTabHtml, fetchVersions, loadAllNormalizations, showToast, updateProgress])
+  }, [
+    reportId,
+    updateFormData,
+    setResult,
+    setHtmlReport,
+    setInfoTabHtml,
+    fetchVersions,
+    loadAllNormalizations,
+    showToast,
+    updateProgress,
+  ])
 
   // Cleanup: Allow re-restoration if component remounts
   useEffect(() => {

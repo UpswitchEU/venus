@@ -54,7 +54,7 @@ export interface ValuationVersion {
     adjustment_count?: number // Total adjustment count
     [key: string]: any // Allow other metadata
   }
-  
+
   // Normalization data snapshot
   normalization_data?: {
     [year: string]: {
@@ -188,7 +188,7 @@ export interface CreateVersionRequest {
 
   // Changes from current version (auto-detected if not provided)
   changesSummary?: VersionChanges
-  
+
   // Normalization data snapshot (captured from store at version creation)
   normalization_data?: ValuationVersion['normalization_data']
 }

@@ -112,15 +112,19 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
             isDark ? 'text-zinc-400' : 'text-zinc-500'
           }`}
         >
-          {showTimeoutWarning ? 'This is taking longer than usual. Please wait...' : currentStep.subtext}
+          {showTimeoutWarning
+            ? 'This is taking longer than usual. Please wait...'
+            : currentStep.subtext}
         </p>
       </div>
 
       {/* Timeout Warning */}
       {showTimeoutWarning && (
-        <div className={`mt-4 text-xs animate-in fade-in duration-500 ${
-          isDark ? 'text-amber-400' : 'text-amber-600'
-        }`}>
+        <div
+          className={`mt-4 text-xs animate-in fade-in duration-500 ${
+            isDark ? 'text-amber-400' : 'text-amber-600'
+          }`}
+        >
           Still loading... If this persists, please refresh the page.
         </div>
       )}

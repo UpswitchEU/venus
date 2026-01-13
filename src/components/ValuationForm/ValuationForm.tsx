@@ -134,29 +134,31 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       setHistoricalInputs((currentInputs) => {
         const restoredInputs: { [key: string]: string } = { ...currentInputs }
         let hasNewData = false
-      
-        historicalYearsData.forEach((yearData: { year: number; revenue?: number; ebitda?: number }) => {
-          const revenueKey = `${yearData.year}_revenue`
-          const ebitdaKey = `${yearData.year}_ebitda`
-          
-          // Only restore revenue if it has a truthy value (not 0, not null, not undefined)
-          if (yearData.revenue) {
-            const currentRevenue = currentInputs[revenueKey]
-            if (!currentRevenue || currentRevenue.trim() === '') {
-              restoredInputs[revenueKey] = yearData.revenue.toString()
-              hasNewData = true
+
+        historicalYearsData.forEach(
+          (yearData: { year: number; revenue?: number; ebitda?: number }) => {
+            const revenueKey = `${yearData.year}_revenue`
+            const ebitdaKey = `${yearData.year}_ebitda`
+
+            // Only restore revenue if it has a truthy value (not 0, not null, not undefined)
+            if (yearData.revenue) {
+              const currentRevenue = currentInputs[revenueKey]
+              if (!currentRevenue || currentRevenue.trim() === '') {
+                restoredInputs[revenueKey] = yearData.revenue.toString()
+                hasNewData = true
+              }
+            }
+
+            // Only restore ebitda if it has a truthy value (not 0, not null, not undefined)
+            if (yearData.ebitda) {
+              const currentEbitda = currentInputs[ebitdaKey]
+              if (!currentEbitda || currentEbitda.trim() === '') {
+                restoredInputs[ebitdaKey] = yearData.ebitda.toString()
+                hasNewData = true
+              }
             }
           }
-          
-          // Only restore ebitda if it has a truthy value (not 0, not null, not undefined)
-          if (yearData.ebitda) {
-            const currentEbitda = currentInputs[ebitdaKey]
-            if (!currentEbitda || currentEbitda.trim() === '') {
-              restoredInputs[ebitdaKey] = yearData.ebitda.toString()
-              hasNewData = true
-            }
-          }
-        })
+        )
 
         if (hasNewData) {
           generalLogger.info('[ValuationForm] Restored historical data to inputs', {
@@ -167,7 +169,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
           })
           return restoredInputs
         }
-        
+
         // No new data to restore, return current inputs unchanged
         return currentInputs
       })
@@ -320,7 +322,11 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         inputKeys: Object.keys(historicalInputs),
         extractedYears: Array.from(yearSet).sort((a, b) => a - b),
         historicalYearsCount: historicalYears.length,
-        historicalYears: historicalYears.map((h) => ({ year: h.year, hasRevenue: h.revenue > 0, hasEbitda: h.ebitda > 0 })),
+        historicalYears: historicalYears.map((h) => ({
+          year: h.year,
+          hasRevenue: h.revenue > 0,
+          hasEbitda: h.ebitda > 0,
+        })),
       })
     }
 
@@ -517,22 +523,23 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
   // Use form submission hook
   const { handleSubmit, isSubmitting } = useValuationFormSubmission(setEmployeeCountError)
-  
+
   // EBITDA Normalization integration
-  const currentYear = Math.min(new Date().getFullYear(), 2100);
-  const { hasNormalization } = useEbitdaNormalizationStore();
-  const [showNormalizationConfirmation, setShowNormalizationConfirmation] = useState(false);
-  const [pendingSubmitEvent, setPendingSubmitEvent] = useState<React.FormEvent | null>(null);
-  const { getLatestVersion } = useVersionHistoryStore();
-  
+  const currentYear = Math.min(new Date().getFullYear(), 2100)
+  const { hasNormalization } = useEbitdaNormalizationStore()
+  const [showNormalizationConfirmation, setShowNormalizationConfirmation] = useState(false)
+  const [pendingSubmitEvent, setPendingSubmitEvent] = useState<React.FormEvent | null>(null)
+  const { getLatestVersion } = useVersionHistoryStore()
+
   // Check if any normalizations exist
-  const hasAnyNormalization = hasNormalization(currentYear) || 
-    hasNormalization(currentYear - 1) || 
-    hasNormalization(currentYear - 2);
-  
+  const hasAnyNormalization =
+    hasNormalization(currentYear) ||
+    hasNormalization(currentYear - 1) ||
+    hasNormalization(currentYear - 2)
+
   // Get current version number
-  const currentVersion = reportId ? getLatestVersion(reportId) : null;
-  const currentVersionNumber = currentVersion?.versionNumber || 0;
+  const currentVersion = reportId ? getLatestVersion(reportId) : null
+  const currentVersionNumber = currentVersion?.versionNumber || 0
 
   // Memoize prefilledQuery to prevent render loops
   // ROOT CAUSE FIX: Read session state via getState(), not as subscription
@@ -561,93 +568,93 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   }, [setEmployeeCountError, clearApiErrorFromStore])
 
   // Handle form submission with normalization check
-  const handleFormSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Check if normalizations exist and user hasn't confirmed yet
-    if (hasAnyNormalization && !showNormalizationConfirmation) {
-      generalLogger.info('Normalizations detected, showing confirmation popup');
-      setPendingSubmitEvent(e);
-      setShowNormalizationConfirmation(true);
-      return;
-    }
-    
-    // Proceed with normal submission
-    generalLogger.info('Form onSubmit handler called', {
-      hasHandleSubmit: !!handleSubmit,
-      isSubmitting,
-      hasNormalization: hasAnyNormalization,
-    });
-    try {
-      clearAllErrors();
-      await handleSubmit(e);
-    } catch (error) {
-      generalLogger.error('[Manual] Form submission error', { error });
-      // Reset loading state on unexpected error
-      const { setCalculating } = useManualResultsStore.getState();
-      setCalculating(false);
-    }
-  }, [hasAnyNormalization, showNormalizationConfirmation, handleSubmit, isSubmitting, clearAllErrors]);
+  const handleFormSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+
+      // Check if normalizations exist and user hasn't confirmed yet
+      if (hasAnyNormalization && !showNormalizationConfirmation) {
+        generalLogger.info('Normalizations detected, showing confirmation popup')
+        setPendingSubmitEvent(e)
+        setShowNormalizationConfirmation(true)
+        return
+      }
+
+      // Proceed with normal submission
+      generalLogger.info('Form onSubmit handler called', {
+        hasHandleSubmit: !!handleSubmit,
+        isSubmitting,
+        hasNormalization: hasAnyNormalization,
+      })
+      try {
+        clearAllErrors()
+        await handleSubmit(e)
+      } catch (error) {
+        generalLogger.error('[Manual] Form submission error', { error })
+        // Reset loading state on unexpected error
+        const { setCalculating } = useManualResultsStore.getState()
+        setCalculating(false)
+      }
+    },
+    [hasAnyNormalization, showNormalizationConfirmation, handleSubmit, isSubmitting, clearAllErrors]
+  )
 
   // Handle confirmation of normalization
   const handleConfirmNormalization = useCallback(async () => {
     if (pendingSubmitEvent) {
-      setShowNormalizationConfirmation(false);
-      await handleFormSubmit(pendingSubmitEvent);
-      setPendingSubmitEvent(null);
+      setShowNormalizationConfirmation(false)
+      await handleFormSubmit(pendingSubmitEvent)
+      setPendingSubmitEvent(null)
     }
-  }, [pendingSubmitEvent, handleFormSubmit]);
+  }, [pendingSubmitEvent, handleFormSubmit])
 
   return (
     <>
-    <form
-      onSubmit={handleFormSubmit}
-      className="space-y-12 @container"
-    >
-      <BasicInformationSection
-        formData={formData}
-        updateFormData={updateFormData}
-        businessTypes={businessTypes}
-        businessTypesLoading={businessTypesLoading}
-        businessTypesError={businessTypesError}
-        prefilledQuery={prefilledQuery}
-      />
+      <form onSubmit={handleFormSubmit} className="space-y-12 @container">
+        <BasicInformationSection
+          formData={formData}
+          updateFormData={updateFormData}
+          businessTypes={businessTypes}
+          businessTypesLoading={businessTypesLoading}
+          businessTypesError={businessTypesError}
+          prefilledQuery={prefilledQuery}
+        />
 
-      <OwnershipStructureSection
-        formData={formData}
-        updateFormData={updateFormData}
-        employeeCountError={employeeCountError}
-        setEmployeeCountError={setEmployeeCountError}
-      />
+        <OwnershipStructureSection
+          formData={formData}
+          updateFormData={updateFormData}
+          employeeCountError={employeeCountError}
+          setEmployeeCountError={setEmployeeCountError}
+        />
 
-      <FinancialDataSection formData={formData} updateFormData={updateFormData} />
+        <FinancialDataSection formData={formData} updateFormData={updateFormData} />
 
-      <HistoricalDataSection
-        historicalInputs={historicalInputs}
-        setHistoricalInputs={setHistoricalInputs}
-        foundingYear={formData.founding_year}
-      />
+        <HistoricalDataSection
+          historicalInputs={historicalInputs}
+          setHistoricalInputs={setHistoricalInputs}
+          foundingYear={formData.founding_year}
+        />
 
-      <FormSubmitSection
-        isSubmitting={isSubmitting}
-        error={displayError}
-        clearError={clearAllErrors}
-        formData={formData}
-        isRegenerationMode={isRegenerationMode}
+        <FormSubmitSection
+          isSubmitting={isSubmitting}
+          error={displayError}
+          clearError={clearAllErrors}
+          formData={formData}
+          isRegenerationMode={isRegenerationMode}
+        />
+      </form>
+
+      {/* Normalization Confirmation Popup */}
+      <RecalculateConfirmationPopup
+        isOpen={showNormalizationConfirmation}
+        currentVersion={currentVersionNumber}
+        onConfirm={handleConfirmNormalization}
+        onCancel={() => {
+          setShowNormalizationConfirmation(false)
+          setPendingSubmitEvent(null)
+        }}
+        isCreating={isSubmitting}
       />
-    </form>
-    
-    {/* Normalization Confirmation Popup */}
-    <RecalculateConfirmationPopup
-      isOpen={showNormalizationConfirmation}
-      currentVersion={currentVersionNumber}
-      onConfirm={handleConfirmNormalization}
-      onCancel={() => {
-        setShowNormalizationConfirmation(false);
-        setPendingSubmitEvent(null);
-      }}
-      isCreating={isSubmitting}
-    />
     </>
   )
 }

@@ -242,7 +242,9 @@ export const useConversationRestoration = (
           })
 
           // Load EBITDA normalizations (async, non-blocking)
-          useEbitdaNormalizationStore.getState().loadAllNormalizations(sessionId)
+          useEbitdaNormalizationStore
+            .getState()
+            .loadAllNormalizations(sessionId)
             .then(() => {
               const normalizations = useEbitdaNormalizationStore.getState().normalizations
               chatLogger.info('✅ Normalizations loaded for conversation', {

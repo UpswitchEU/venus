@@ -24,8 +24,8 @@ import { useToast } from '../../../hooks/useToast'
 import { conversationAPI } from '../../../services/api/conversation/ConversationAPI'
 import { guestCreditService } from '../../../services/guestCreditService'
 import {
-    useConversationalChatStore,
-    useConversationalResultsStore,
+  useConversationalChatStore,
+  useConversationalResultsStore,
 } from '../../../store/conversational'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { Message } from '../../../types/message'
@@ -33,14 +33,14 @@ import type { ValuationResponse } from '../../../types/valuation'
 import { chatLogger } from '../../../utils/logger'
 import { CreditGuard } from '../../auth/components/CreditGuard'
 import {
-    ConversationProvider,
-    useConversationActions,
-    useConversationState,
+  ConversationProvider,
+  useConversationActions,
+  useConversationState,
 } from '../context/ConversationContext'
 import { useConversationRestoration } from '../hooks'
 import {
-    generateImportSummaryMessage,
-    shouldGenerateImportSummary,
+  generateImportSummaryMessage,
+  shouldGenerateImportSummary,
 } from '../utils/generateImportSummary'
 import { BusinessProfileSection } from './BusinessProfileSection'
 import { ConversationPanel } from './ConversationPanel'
@@ -190,7 +190,7 @@ const ConversationalLayoutInner: React.FC<ConversationalLayoutProps> = ({
 
     return () => {
       // Clean up callbacks on unmount
-      useSessionStore.setState({ 
+      useSessionStore.setState({
         onSaveSuccess: undefined,
         onAssetSaveSuccess: undefined,
       })
@@ -544,7 +544,8 @@ const ConversationalLayoutInner: React.FC<ConversationalLayoutProps> = ({
     const hasRestoredMessages = state.messages.length > 0
     const hasCollectedData =
       sessionData && typeof sessionData === 'object' && Object.keys(sessionData).length > 0
-    const wouldShowSummaryBlock = hasRestoredMessages && hasCollectedData && restoration.state.isRestored
+    const wouldShowSummaryBlock =
+      hasRestoredMessages && hasCollectedData && restoration.state.isRestored
 
     if (wouldShowSummaryBlock) {
       chatLogger.debug('Skipping import summary: ConversationSummaryBlock is displayed', {

@@ -1,6 +1,6 @@
 /**
  * Cookie Health Detection (Simplified)
- * 
+ *
  * Simple check for cookie accessibility
  * No over-engineering, just basic detection
  */
@@ -26,9 +26,9 @@ export interface CookieHealthStatus {
  */
 export async function checkCookieHealth(): Promise<CookieHealthStatus> {
   const accessible = checkCookieExists()
-  
+
   return {
     accessible,
-    blocked: !accessible
+    blocked: !accessible,
   }
 }

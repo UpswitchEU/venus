@@ -1,204 +1,204 @@
 /**
  * Cross-Domain Logout Synchronization
- * 
+ *
  * Ensures logout state is synchronized across all Upswitch subdomains:
  * - upswitch.app (Mercury)
  * - api.upswitch.app (Titan)
  * - valuation.upswitch.app (Venus)
- * 
+ *
  * Uses postMessage API to notify all open tabs/windows across subdomains
  * Also watches for cookie changes via visibility/focus events
  */
 
-const LOGOUT_EVENT = 'upswitch-logout';
-const LOGIN_EVENT = 'upswitch-login';
-const REPORT_CREATED_EVENT = 'upswitch-report-created';
-const REPORT_UPDATED_EVENT = 'upswitch-report-updated';
-const REPORT_DELETED_EVENT = 'upswitch-report-deleted';
+const LOGOUT_EVENT = 'upswitch-logout'
+const LOGIN_EVENT = 'upswitch-login'
+const REPORT_CREATED_EVENT = 'upswitch-report-created'
+const REPORT_UPDATED_EVENT = 'upswitch-report-updated'
+const REPORT_DELETED_EVENT = 'upswitch-report-deleted'
 
 /**
  * Broadcast logout event to same-origin tabs only (secure)
- * 
+ *
  * Uses BroadcastChannel for efficiency (same-origin tabs)
  * Falls back to postMessage for compatibility
- * 
+ *
  * SECURITY: Only broadcasts to same origin - no wildcard origins
  * Cross-origin logout is handled by backend cookie clearing
  */
 export function broadcastLogout(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return
 
   try {
     const message = {
       type: LOGOUT_EVENT,
       timestamp: Date.now(),
       source: window.location.hostname,
-    };
+    }
 
     // Use BroadcastChannel if available (more efficient)
     if (typeof BroadcastChannel !== 'undefined') {
       try {
-        const channel = new BroadcastChannel('upswitch-auth-sync');
-        channel.postMessage(message);
-        channel.close(); // Close after sending
+        const channel = new BroadcastChannel('upswitch-auth-sync')
+        channel.postMessage(message)
+        channel.close() // Close after sending
       } catch (error) {
         // Fallback to postMessage
       }
     }
 
     // Also use postMessage for compatibility
-    window.postMessage(message, window.location.origin);
-    
-    console.log('[CrossDomainLogout] Logout event broadcasted to same-origin tabs');
+    window.postMessage(message, window.location.origin)
+
+    console.log('[CrossDomainLogout] Logout event broadcasted to same-origin tabs')
   } catch (error) {
-    console.error('[CrossDomainLogout] Error broadcasting logout:', error);
+    console.error('[CrossDomainLogout] Error broadcasting logout:', error)
   }
 }
 
 /**
  * Listen for logout events from other same-origin tabs
  * This should be called on app initialization
- * 
+ *
  * SECURITY: Only accepts messages from same origin (strict check)
  */
 export function listenForLogout(callback: () => void): () => void {
   if (typeof window === 'undefined') {
-    return () => {}; // No-op cleanup function
+    return () => {} // No-op cleanup function
   }
 
   const handleMessage = (event: MessageEvent) => {
     // STRICT: Only accept messages from same origin
-    const isSameOrigin = event.origin === window.location.origin;
+    const isSameOrigin = event.origin === window.location.origin
 
     if (
       event.data?.type === LOGOUT_EVENT &&
       isSameOrigin &&
       event.data.source !== window.location.hostname // Don't react to our own messages
     ) {
-      console.log('[CrossDomainLogout] Received logout event from another tab');
-      callback(); // Just clear state, don't redirect
+      console.log('[CrossDomainLogout] Received logout event from another tab')
+      callback() // Just clear state, don't redirect
     }
-  };
+  }
 
-  window.addEventListener('message', handleMessage);
+  window.addEventListener('message', handleMessage)
 
   // Return cleanup function
   return () => {
-    window.removeEventListener('message', handleMessage);
-  };
+    window.removeEventListener('message', handleMessage)
+  }
 }
 
 /**
  * Listen for login events from other tabs/subdomains
- * 
+ *
  * Uses BroadcastChannel for same-origin tabs (more efficient)
  * Also listens for custom 'user-login' events (Mercury pattern)
  * Falls back to postMessage for compatibility
  */
 export function listenForLogin(callback: () => void): () => void {
   if (typeof window === 'undefined') {
-    return () => {}; // No-op cleanup function
+    return () => {} // No-op cleanup function
   }
 
-  let channel: BroadcastChannel | null = null;
-  
+  let channel: BroadcastChannel | null = null
+
   // Use BroadcastChannel if available (more efficient for same-origin)
   if (typeof BroadcastChannel !== 'undefined') {
     try {
-      channel = new BroadcastChannel('upswitch-auth-sync');
+      channel = new BroadcastChannel('upswitch-auth-sync')
       channel.onmessage = (event) => {
         if (event.data?.type === LOGIN_EVENT && event.data.source !== window.location.hostname) {
-          console.log('[CrossDomainLogout] Received login event via BroadcastChannel');
-          callback();
+          console.log('[CrossDomainLogout] Received login event via BroadcastChannel')
+          callback()
         }
-      };
+      }
     } catch (error) {
-      console.warn('[CrossDomainLogout] BroadcastChannel not available, using postMessage');
+      console.warn('[CrossDomainLogout] BroadcastChannel not available, using postMessage')
     }
   }
 
   // Fallback to postMessage for compatibility
   const handleMessage = (event: MessageEvent) => {
     // STRICT: Only accept messages from same origin
-    const isSameOrigin = event.origin === window.location.origin;
+    const isSameOrigin = event.origin === window.location.origin
 
     if (
       event.data?.type === LOGIN_EVENT &&
       isSameOrigin &&
       event.data.source !== window.location.hostname
     ) {
-      console.log('[CrossDomainLogout] Received login event via postMessage');
-      callback();
+      console.log('[CrossDomainLogout] Received login event via postMessage')
+      callback()
     }
-  };
+  }
 
   // Listen for Mercury's custom event pattern
   const handleCustomEvent = (event: Event) => {
-    console.log('[CrossDomainLogout] Received user-login custom event');
-    callback();
-  };
+    console.log('[CrossDomainLogout] Received user-login custom event')
+    callback()
+  }
 
-  window.addEventListener('message', handleMessage);
-  window.addEventListener('user-login', handleCustomEvent);
+  window.addEventListener('message', handleMessage)
+  window.addEventListener('user-login', handleCustomEvent)
 
   // Return cleanup function
   return () => {
     if (channel) {
-      channel.close();
+      channel.close()
     }
-    window.removeEventListener('message', handleMessage);
-    window.removeEventListener('user-login', handleCustomEvent);
-  };
+    window.removeEventListener('message', handleMessage)
+    window.removeEventListener('user-login', handleCustomEvent)
+  }
 }
 
 /**
  * Broadcast login event to same-origin tabs
- * 
+ *
  * Uses BroadcastChannel for efficiency (same-origin tabs)
  * Falls back to postMessage for compatibility
  * Also dispatches custom event for Mercury compatibility
  */
 export function broadcastLogin(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return
 
   try {
     const message = {
       type: LOGIN_EVENT,
       timestamp: Date.now(),
       source: window.location.hostname,
-    };
+    }
 
     // Use BroadcastChannel if available (more efficient)
     if (typeof BroadcastChannel !== 'undefined') {
       try {
-        const channel = new BroadcastChannel('upswitch-auth-sync');
-        channel.postMessage(message);
-        channel.close(); // Close after sending
+        const channel = new BroadcastChannel('upswitch-auth-sync')
+        channel.postMessage(message)
+        channel.close() // Close after sending
       } catch (error) {
         // Fallback to postMessage
       }
     }
 
     // Also use postMessage for compatibility
-    window.postMessage(message, window.location.origin);
+    window.postMessage(message, window.location.origin)
 
     // Also dispatch custom event for Mercury compatibility
-    window.dispatchEvent(new CustomEvent('user-login', { detail: {} }));
+    window.dispatchEvent(new CustomEvent('user-login', { detail: {} }))
 
-    console.log('[CrossDomainLogout] Login event broadcasted to same-origin tabs');
+    console.log('[CrossDomainLogout] Login event broadcasted to same-origin tabs')
   } catch (error) {
-    console.error('[CrossDomainLogout] Error broadcasting login:', error);
+    console.error('[CrossDomainLogout] Error broadcasting login:', error)
   }
 }
 
 /**
  * Clear all auth-related storage (NOT cookies - server handles those)
  * This is called when logout is detected from another tab
- * 
+ *
  * IMPORTANT: Does NOT clear cookies - those are HttpOnly and cleared by server
  */
 export function clearAllAuthState(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return
 
   try {
     // Clear localStorage
@@ -207,25 +207,25 @@ export function clearAllAuthState(): void {
       'upswitch_user',
       'UpSwitch_dev_logged_out',
       'upswitch_auth_cache',
-    ];
-    localStorageKeys.forEach((key) => localStorage.removeItem(key));
+    ]
+    localStorageKeys.forEach((key) => localStorage.removeItem(key))
 
     // Clear sessionStorage
-    sessionStorage.clear();
+    sessionStorage.clear()
 
     // DO NOT clear cookies here - server clears HttpOnly cookies
     // Client-side document.cookie cannot clear HttpOnly cookies anyway
   } catch (error) {
     // Silent error handling - only log in development
     if (process.env.NODE_ENV === 'development') {
-      console.error('[CrossDomainLogout] Error clearing auth state:', error);
+      console.error('[CrossDomainLogout] Error clearing auth state:', error)
     }
   }
 }
 
 /**
  * Check auth state by calling checkSession directly
- * 
+ *
  * CORE SOLUTION: Uses checkSession() which has built-in promise caching
  * No mutex needed - promise cache handles all concurrency automatically
  * Multiple calls = single API request (handled by checkSession's promise cache)
@@ -233,28 +233,28 @@ export function clearAllAuthState(): void {
 export async function checkAuthState(): Promise<boolean> {
   try {
     // Direct call to checkSession - its promise cache handles all concurrency
-    const { useAuthStore } = await import('../../lib/auth');
-    const user = await useAuthStore.getState().checkSession();
-    return user !== null;
+    const { useAuthStore } = await import('../../lib/auth')
+    const user = await useAuthStore.getState().checkSession()
+    return user !== null
   } catch (error) {
     // Silent error handling - only log in development
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[CrossDomainLogout] Auth state check failed:', error);
+      console.warn('[CrossDomainLogout] Auth state check failed:', error)
     }
-    return false;
+    return false
   }
 }
 
 /**
  * Setup auth state watcher
- * 
+ *
  * STRIPE/AIRBNB APPROACH: Minimal, efficient detection
  * - Visibility change for background tabs (primary)
- * 
+ *
  * KEY INSIGHT: Cookies are shared automatically via .upswitch.app domain.
  * When user switches tabs, the next API call will automatically detect
  * cookie changes. We only need to check when tab becomes visible.
- * 
+ *
  * Storage events don't work cross-subdomain, so we rely on:
  * 1. PostMessage (same-origin tabs) - handled separately
  * 2. Visibility change (background tabs) - checks on next API call
@@ -263,34 +263,34 @@ export function setupAuthStateWatcher(
   onAuthStateChange: (isAuthenticated: boolean) => void
 ): () => void {
   if (typeof window === 'undefined') {
-    return () => {}; // No-op cleanup function
+    return () => {} // No-op cleanup function
   }
 
   // Simple check function - promise cache handles concurrency
   const checkAuth = async () => {
     try {
-      const isAuthenticated = await checkAuthState();
-      onAuthStateChange(isAuthenticated);
+      const isAuthenticated = await checkAuthState()
+      onAuthStateChange(isAuthenticated)
     } catch (error) {
-      console.warn('[CrossDomainLogout] Auth check error:', error);
+      console.warn('[CrossDomainLogout] Auth check error:', error)
     }
-  };
+  }
 
   // Visibility change for background tabs
   // When tab becomes visible, check auth state
   // Cookies are shared automatically, so next API call will detect changes
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') {
-      checkAuth();
+      checkAuth()
     }
-  };
+  }
 
-  window.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('visibilitychange', handleVisibilityChange)
 
   // Return cleanup function
   return () => {
-    window.removeEventListener('visibilitychange', handleVisibilityChange);
-  };
+    window.removeEventListener('visibilitychange', handleVisibilityChange)
+  }
 }
 
 /**
@@ -303,7 +303,7 @@ export function broadcastReportCreated(reportData: {
   createdAt: Date
   clientId?: string
 }): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return
 
   try {
     const message = {
@@ -311,27 +311,27 @@ export function broadcastReportCreated(reportData: {
       timestamp: Date.now(),
       source: window.location.hostname,
       data: reportData,
-    };
+    }
 
     // Use BroadcastChannel if available (more efficient)
     if (typeof BroadcastChannel !== 'undefined') {
       try {
-        const channel = new BroadcastChannel('upswitch-report-sync');
-        channel.postMessage(message);
-        channel.close();
+        const channel = new BroadcastChannel('upswitch-report-sync')
+        channel.postMessage(message)
+        channel.close()
       } catch (error) {
         // Fallback to postMessage
       }
     }
 
     // Also use postMessage for compatibility
-    window.postMessage(message, window.location.origin);
+    window.postMessage(message, window.location.origin)
 
     console.log('[CrossDomainSync] Report created event broadcasted', {
       reportId: reportData.reportId,
-    });
+    })
   } catch (error) {
-    console.error('[CrossDomainSync] Error broadcasting report created:', error);
+    console.error('[CrossDomainSync] Error broadcasting report created:', error)
   }
 }
 
@@ -361,7 +361,7 @@ export function broadcastReportUpdated(reportData: {
     changes?: any
   }
 }): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return
 
   try {
     const message = {
@@ -369,39 +369,36 @@ export function broadcastReportUpdated(reportData: {
       timestamp: Date.now(),
       source: window.location.hostname,
       data: reportData,
-    };
+    }
 
     // Use BroadcastChannel if available
     if (typeof BroadcastChannel !== 'undefined') {
       try {
-        const channel = new BroadcastChannel('upswitch-report-sync');
-        channel.postMessage(message);
-        channel.close();
+        const channel = new BroadcastChannel('upswitch-report-sync')
+        channel.postMessage(message)
+        channel.close()
       } catch (error) {
         // Fallback to postMessage
       }
     }
 
-    window.postMessage(message, window.location.origin);
+    window.postMessage(message, window.location.origin)
 
     console.log('[CrossDomainSync] Report updated event broadcasted', {
       reportId: reportData.reportId,
       hasValuationResult: !!reportData.valuationResult,
       versionCount: reportData.versionCount,
-    });
+    })
   } catch (error) {
-    console.error('[CrossDomainSync] Error broadcasting report updated:', error);
+    console.error('[CrossDomainSync] Error broadcasting report updated:', error)
   }
 }
 
 /**
  * Broadcast report deletion event to same-origin tabs
  */
-export function broadcastReportDeleted(reportData: {
-  reportId: string
-  clientId?: string
-}): void {
-  if (typeof window === 'undefined') return;
+export function broadcastReportDeleted(reportData: { reportId: string; clientId?: string }): void {
+  if (typeof window === 'undefined') return
 
   try {
     const message = {
@@ -409,26 +406,26 @@ export function broadcastReportDeleted(reportData: {
       timestamp: Date.now(),
       source: window.location.hostname,
       data: reportData,
-    };
+    }
 
     // Use BroadcastChannel if available
     if (typeof BroadcastChannel !== 'undefined') {
       try {
-        const channel = new BroadcastChannel('upswitch-report-sync');
-        channel.postMessage(message);
-        channel.close();
+        const channel = new BroadcastChannel('upswitch-report-sync')
+        channel.postMessage(message)
+        channel.close()
       } catch (error) {
         // Fallback to postMessage
       }
     }
 
-    window.postMessage(message, window.location.origin);
+    window.postMessage(message, window.location.origin)
 
     console.log('[CrossDomainSync] Report deleted event broadcasted', {
       reportId: reportData.reportId,
-    });
+    })
   } catch (error) {
-    console.error('[CrossDomainSync] Error broadcasting report deleted:', error);
+    console.error('[CrossDomainSync] Error broadcasting report deleted:', error)
   }
 }
 
@@ -438,7 +435,12 @@ export function broadcastReportDeleted(reportData: {
  * Enhanced for Mercury integration - includes full valuation data
  */
 export function listenForReportEvents(callbacks: {
-  onReportCreated?: (data: { reportId: string; reportName?: string; createdAt: Date; clientId?: string }) => void
+  onReportCreated?: (data: {
+    reportId: string
+    reportName?: string
+    createdAt: Date
+    clientId?: string
+  }) => void
   onReportUpdated?: (data: {
     reportId: string
     reportName?: string
@@ -462,61 +464,61 @@ export function listenForReportEvents(callbacks: {
   onReportDeleted?: (data: { reportId: string; clientId?: string }) => void
 }): () => void {
   if (typeof window === 'undefined') {
-    return () => {}; // No-op cleanup function
+    return () => {} // No-op cleanup function
   }
 
-  let channel: BroadcastChannel | null = null;
+  let channel: BroadcastChannel | null = null
 
   // Use BroadcastChannel if available
   if (typeof BroadcastChannel !== 'undefined') {
     try {
-      channel = new BroadcastChannel('upswitch-report-sync');
+      channel = new BroadcastChannel('upswitch-report-sync')
       channel.onmessage = (event) => {
-        const { type, data, source } = event.data;
-        
+        const { type, data, source } = event.data
+
         // Don't react to our own messages
-        if (source === window.location.hostname) return;
+        if (source === window.location.hostname) return
 
         if (type === REPORT_CREATED_EVENT && callbacks.onReportCreated) {
-          callbacks.onReportCreated(data);
+          callbacks.onReportCreated(data)
         } else if (type === REPORT_UPDATED_EVENT && callbacks.onReportUpdated) {
-          callbacks.onReportUpdated(data);
+          callbacks.onReportUpdated(data)
         } else if (type === REPORT_DELETED_EVENT && callbacks.onReportDeleted) {
-          callbacks.onReportDeleted(data);
+          callbacks.onReportDeleted(data)
         }
-      };
+      }
     } catch (error) {
-      console.warn('[CrossDomainSync] BroadcastChannel not available, using postMessage');
+      console.warn('[CrossDomainSync] BroadcastChannel not available, using postMessage')
     }
   }
 
   // Fallback to postMessage
   const handleMessage = (event: MessageEvent) => {
     // STRICT: Only accept messages from same origin
-    const isSameOrigin = event.origin === window.location.origin;
+    const isSameOrigin = event.origin === window.location.origin
 
     if (!isSameOrigin || event.data.source === window.location.hostname) {
-      return;
+      return
     }
 
-    const { type, data } = event.data;
+    const { type, data } = event.data
 
     if (type === REPORT_CREATED_EVENT && callbacks.onReportCreated) {
-      callbacks.onReportCreated(data);
+      callbacks.onReportCreated(data)
     } else if (type === REPORT_UPDATED_EVENT && callbacks.onReportUpdated) {
-      callbacks.onReportUpdated(data);
+      callbacks.onReportUpdated(data)
     } else if (type === REPORT_DELETED_EVENT && callbacks.onReportDeleted) {
-      callbacks.onReportDeleted(data);
+      callbacks.onReportDeleted(data)
     }
-  };
+  }
 
-  window.addEventListener('message', handleMessage);
+  window.addEventListener('message', handleMessage)
 
   // Return cleanup function
   return () => {
     if (channel) {
-      channel.close();
+      channel.close()
     }
-    window.removeEventListener('message', handleMessage);
-  };
+    window.removeEventListener('message', handleMessage)
+  }
 }

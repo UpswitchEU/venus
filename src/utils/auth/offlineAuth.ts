@@ -1,6 +1,6 @@
 /**
  * Offline Auth Support
- * 
+ *
  * Caches auth state for offline use
  * Provides offline-first auth checks
  * Syncs when connection is restored
@@ -108,4 +108,3 @@ export function onOnlineStatusChange(callback: (isOnline: boolean) => void): () 
     window.removeEventListener('offline', handleOffline)
   }
 }
-

@@ -37,10 +37,10 @@ import { ChatInputForm, MessagesList } from './chat'
 
 // Re-export types for backward compatibility
 export type {
-    CalculateOptionData,
-    CollectedData,
-    StreamingChatProps,
-    ValuationPreviewData
+  CalculateOptionData,
+  CollectedData,
+  StreamingChatProps,
+  ValuationPreviewData,
 } from './StreamingChat.types'
 
 export const StreamingChat: React.FC<import('./StreamingChat.types').StreamingChatProps> = ({

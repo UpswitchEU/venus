@@ -157,7 +157,10 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
         Without it, the entire report loses its styling because the selectors don't match any elements.
       */}
       <div className="final-report">
-        <div className="accountant-view-report" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
+        <div
+          className="accountant-view-report"
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+        />
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 'use client'
 
-import { AppErrorBoundary } from './_components/AppErrorBoundary'
 import { useEffect } from 'react'
+import { AppErrorBoundary } from './_components/AppErrorBoundary'
 
 interface ErrorProps {
   error: Error & { digest?: string }
@@ -26,6 +26,6 @@ export default function Error({ error, reset }: ErrorProps) {
       url: typeof window !== 'undefined' ? window.location.href : 'SSR',
     })
   }, [error])
-  
+
   return <AppErrorBoundary error={error} reset={reset} context="app-level" />
 }

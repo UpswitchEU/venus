@@ -45,7 +45,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 }) => {
   // Track which fields were auto-filled from registry
   const [autoFilledFields, setAutoFilledFields] = useState<string[]>([])
-  
+
   // LinkedIn pattern: Form owns selected company state
   const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null)
   const [isVerifyingCompany, setIsVerifyingCompany] = useState(false)
@@ -57,7 +57,8 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
     // Check for KBO data in business_context
     const businessContext = formData.business_context as any
-    const kboRegistration = businessContext?.kbo_registration || businessContext?.kbo_registration_number
+    const kboRegistration =
+      businessContext?.kbo_registration || businessContext?.kbo_registration_number
     const legalForm = businessContext?.legal_form
     const companyId = businessContext?.company_id
     const companyAddress = businessContext?.company_address || ''
@@ -89,7 +90,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
       if (initialSelectedCompany && !selectedCompany) {
         // Show company immediately (smooth UX)
         setSelectedCompany(initialSelectedCompany)
-        
+
         // Verify in background
         setIsVerifyingCompany(true)
         try {
@@ -99,28 +100,29 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
             formData.country_code || 'BE',
             1
           )
-          
+
           if (response.success && response.results?.[0]) {
             const freshData = response.results[0]
-            
+
             // Check if data changed
             const dataChanged =
               freshData.registration_number !== initialSelectedCompany.registration_number ||
               freshData.legal_form !== initialSelectedCompany.legal_form ||
               freshData.status !== initialSelectedCompany.status ||
               freshData.address !== initialSelectedCompany.address
-            
+
             if (dataChanged) {
               generalLogger.info('[BasicInfo] KBO data updated since last save', {
                 company_name: freshData.company_name,
                 changes: {
-                  registration: freshData.registration_number !== initialSelectedCompany.registration_number,
+                  registration:
+                    freshData.registration_number !== initialSelectedCompany.registration_number,
                   legal_form: freshData.legal_form !== initialSelectedCompany.legal_form,
                   status: freshData.status !== initialSelectedCompany.status,
                   address: freshData.address !== initialSelectedCompany.address,
                 },
               })
-              
+
               // Update with fresh data
               setSelectedCompany(freshData)
             }
@@ -135,7 +137,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
         }
       }
     }
-    
+
     verifyRestoredCompany()
   }, [initialSelectedCompany, formData.country_code])
 

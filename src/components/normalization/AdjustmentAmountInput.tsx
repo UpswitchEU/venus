@@ -1,6 +1,6 @@
 /**
  * Smart Adjustment Amount Input Component
- * 
+ *
  * Features:
  * - Clears placeholder "0" on focus
  * - Allows minus "-" as first character
@@ -9,14 +9,14 @@
  * - Real-time formatting
  */
 
-import React, { useEffect, useRef, useState } from 'react';
-import { NormalizationCategoryDefinition } from '../../types/ebitdaNormalization';
+import React, { useEffect, useRef, useState } from 'react'
+import { NormalizationCategoryDefinition } from '../../types/ebitdaNormalization'
 
 interface AdjustmentAmountInputProps {
-  category: NormalizationCategoryDefinition;
-  value: number;
-  onChange: (value: number) => void;
-  disabled?: boolean;
+  category: NormalizationCategoryDefinition
+  value: number
+  onChange: (value: number) => void
+  disabled?: boolean
 }
 
 export function AdjustmentAmountInput({
@@ -25,68 +25,68 @@ export function AdjustmentAmountInput({
   onChange,
   disabled = false,
 }: AdjustmentAmountInputProps) {
-  const [inputValue, setInputValue] = useState<string>('');
-  const [isFocused, setIsFocused] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [inputValue, setInputValue] = useState<string>('')
+  const [isFocused, setIsFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Sync value to input display
   useEffect(() => {
     if (!isFocused) {
-      setInputValue(value === 0 ? '' : String(value));
+      setInputValue(value === 0 ? '' : String(value))
     }
-  }, [value, isFocused]);
+  }, [value, isFocused])
 
   const handleFocus = () => {
-    setIsFocused(true);
+    setIsFocused(true)
     // Clear if it's zero
     if (value === 0) {
-      setInputValue('');
+      setInputValue('')
     }
-  };
+  }
 
   const handleBlur = () => {
-    setIsFocused(false);
+    setIsFocused(false)
     // Parse and normalize the value
-    const parsed = parseFloat(inputValue);
+    const parsed = parseFloat(inputValue)
     if (isNaN(parsed) || inputValue === '' || inputValue === '-') {
-      onChange(0);
-      setInputValue('');
+      onChange(0)
+      setInputValue('')
     } else {
-      onChange(parsed);
-      setInputValue(String(parsed));
+      onChange(parsed)
+      setInputValue(String(parsed))
     }
-  };
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    
+    const newValue = e.target.value
+
     // Allow empty, minus sign, numbers, and one decimal point
     if (newValue === '' || newValue === '-' || /^-?\d*\.?\d*$/.test(newValue)) {
-      setInputValue(newValue);
-      
+      setInputValue(newValue)
+
       // Update parent if it's a valid number
-      const parsed = parseFloat(newValue);
+      const parsed = parseFloat(newValue)
       if (!isNaN(parsed)) {
-        onChange(parsed);
+        onChange(parsed)
       } else if (newValue === '' || newValue === '-') {
         // Don't update parent while typing minus or empty
       }
     }
-  };
+  }
 
   const getPlaceholder = () => {
     if (category.adjustmentDirection === 'add') {
-      return 'e.g., 10000 (add back)';
+      return 'e.g., 10000 (add back)'
     } else if (category.adjustmentDirection === 'subtract') {
-      return 'e.g., -10000 (subtract)';
+      return 'e.g., -10000 (subtract)'
     } else {
-      return 'e.g., 10000 or -10000';
+      return 'e.g., 10000 or -10000'
     }
-  };
+  }
 
   const getVisualIndicator = () => {
-    if (value === 0) return null;
-    
+    if (value === 0) return null
+
     return (
       <div
         className={`absolute right-16 top-1/2 -translate-y-1/2 text-sm font-semibold transition-colors ${
@@ -95,17 +95,17 @@ export function AdjustmentAmountInput({
       >
         {value > 0 ? '+' : '−'}
       </div>
-    );
-  };
+    )
+  }
 
   return (
     <div className="relative">
       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500 text-sm font-medium z-10">
         €
       </span>
-      
+
       {getVisualIndicator()}
-      
+
       <input
         ref={inputRef}
         type="text"
@@ -122,8 +122,8 @@ export function AdjustmentAmountInput({
             value > 0
               ? 'border-moss-300 hover:border-moss-400 focus:border-moss-500 focus:ring-2 focus:ring-moss-500/20'
               : value < 0
-              ? 'border-rust-300 hover:border-rust-400 focus:border-rust-500 focus:ring-2 focus:ring-rust-500/20'
-              : 'border-gray-200 hover:border-primary-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20'
+                ? 'border-rust-300 hover:border-rust-400 focus:border-rust-500 focus:ring-2 focus:ring-rust-500/20'
+                : 'border-gray-200 hover:border-primary-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20'
           }
           focus:outline-none
           placeholder:text-stone-300
@@ -132,10 +132,10 @@ export function AdjustmentAmountInput({
         placeholder={getPlaceholder()}
         aria-label={`${category.label} amount`}
       />
-      
+
       <label className="absolute left-8 top-2 text-xs text-stone-500 font-medium pointer-events-none">
         Adjustment Amount
       </label>
     </div>
-  );
+  )
 }

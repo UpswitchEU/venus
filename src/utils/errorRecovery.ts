@@ -1,6 +1,6 @@
 /**
  * Error Recovery System
- * 
+ *
  * World-Class Error Recovery:
  * - Automatic retry with exponential backoff
  * - Error classification (network, auth, validation)
@@ -99,7 +99,10 @@ export function getUserFriendlyErrorMessage(error: unknown, category?: ErrorCate
 
   // Check for specific timeout errors
   const errorMessage = error instanceof Error ? error.message.toLowerCase() : ''
-  const isTimeout = errorMessage.includes('timeout') || errorMessage.includes('timed out') || errorMessage.includes('aborted')
+  const isTimeout =
+    errorMessage.includes('timeout') ||
+    errorMessage.includes('timed out') ||
+    errorMessage.includes('aborted')
 
   switch (errorCategory) {
     case 'network':
@@ -114,8 +117,8 @@ export function getUserFriendlyErrorMessage(error: unknown, category?: ErrorCate
     case 'server':
       return 'The server is experiencing issues. Please try again in a moment.'
     default:
-      return error instanceof Error 
-        ? error.message 
+      return error instanceof Error
+        ? error.message
         : 'An unexpected error occurred. Please try again.'
   }
 }
@@ -170,7 +173,7 @@ function calculateBackoffDelay(attempt: number, baseDelay: number, maxDelay: num
 
 /**
  * Retry function with exponential backoff
- * 
+ *
  * World-Class Retry Logic:
  * - Exponential backoff
  * - Error classification
@@ -181,13 +184,7 @@ export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   options: ErrorRecoveryOptions = {}
 ): Promise<ErrorRecoveryResult<T>> {
-  const {
-    maxRetries = 3,
-    baseDelay = 500,
-    maxDelay = 10000,
-    onRetry,
-    shouldRetry,
-  } = options
+  const { maxRetries = 3, baseDelay = 500, maxDelay = 10000, onRetry, shouldRetry } = options
 
   let lastError: Error | undefined
   let attempts = 0
@@ -202,7 +199,7 @@ export async function retryWithBackoff<T>(
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
-      
+
       // Check if we should retry this error
       if (shouldRetry && !shouldRetry(lastError)) {
         return {

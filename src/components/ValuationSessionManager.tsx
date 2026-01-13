@@ -98,7 +98,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // ✅ FIX: Show loading until session is loaded AND initialized
     // This prevents the glitch where forms show before data is ready
-    const stage: Stage = (isLoading || isInitializing || !session || session.reportId !== reportId) ? 'loading' : 'data-entry'
+    const stage: Stage =
+      isLoading || isInitializing || !session || session.reportId !== reportId
+        ? 'loading'
+        : 'data-entry'
 
     // ✅ FIX: Load session when reportId changes (promise cache prevents duplicates)
     // Add cleanup to prevent state updates after unmount
@@ -119,20 +122,17 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           // ✅ CRITICAL FIX: Force reset isInitializing on timeout
           // This prevents infinite loading when API calls hang
           generalLogger.warn('[SessionManager] Session load timeout, resetting state', { reportId })
-          useSessionStore.setState({ 
-            isInitializing: false, 
+          useSessionStore.setState({
+            isInitializing: false,
             isLoading: false,
-            error: 'Session load timeout (30 seconds). Please refresh the page or try again.' 
+            error: 'Session load timeout (30 seconds). Please refresh the page or try again.',
           })
           reject(new Error('Session load timeout (30 seconds)'))
         }, 30000)
       })
 
       // Race between load and timeout
-      Promise.race([
-        loadSession(reportId, detectedFlow, prefilledQuery),
-        timeoutPromise
-      ])
+      Promise.race([loadSession(reportId, detectedFlow, prefilledQuery), timeoutPromise])
         .then(() => {
           if (!isMounted) {
             generalLogger.debug('[SessionManager] Load completed after unmount, ignoring', {
@@ -143,14 +143,14 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         })
         .catch((err) => {
           clearTimeout(timeoutId)
-          
+
           if (!isMounted) {
             generalLogger.debug('[SessionManager] Load failed after unmount, ignoring', {
               reportId,
             })
             return
           }
-          
+
           generalLogger.error('[SessionManager] Load failed', {
             reportId,
             flow: detectedFlow,

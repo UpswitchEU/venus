@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import React, { useEffect, useRef, useState } from 'react'
+import { ALL_BUSINESS_VIDEOS } from '../../constants/videos'
 import { RecentReportsSection } from '../../features/reports'
 import { useAuth } from '../../hooks/useAuth'
 import { useSessionInitialization } from '../../hooks/useSessionInitialization'
@@ -14,7 +15,6 @@ import { generalLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
 import { MinimalHeader } from '../MinimalHeader'
 import { VideoBackground } from '../VideoBackground'
-import { ALL_BUSINESS_VIDEOS } from '../../constants/videos'
 
 export const HomePage: React.FC = () => {
   const router = useRouter()

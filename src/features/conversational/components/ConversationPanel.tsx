@@ -8,13 +8,13 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react'
-import { StreamingChat } from '../../../components/StreamingChat'
 import { NormalizationModal } from '../../../components/normalization/NormalizationModal'
+import { StreamingChat } from '../../../components/StreamingChat'
 import { reportService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import {
-    useConversationalChatStore,
-    useConversationalResultsStore,
+  useConversationalChatStore,
+  useConversationalResultsStore,
 } from '../../../store/conversational'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
@@ -25,9 +25,9 @@ import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { chatLogger, generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import {
-    areChangesSignificant,
-    detectVersionChanges,
-    generateAutoLabel,
+  areChangesSignificant,
+  detectVersionChanges,
+  generateAutoLabel,
 } from '../../../utils/versionDiffDetection'
 import { ComponentErrorBoundary } from '../../shared/components/ErrorBoundary'
 import { useConversationActions, useConversationState } from '../context/ConversationContext'
@@ -110,7 +110,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
   const state = useConversationState()
   const actions = useConversationActions()
   const { updateCollectedData } = useConversationalChatStore()
-  
+
   // Normalization state
   const [showNormalizationModal, setShowNormalizationModal] = useState(false)
   const [selectedNormalizationYear, setSelectedNormalizationYear] = useState<number | null>(null)
@@ -371,7 +371,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
     if (hasRestoredMessages) {
       return false // Messages exist - summary will be inline
     }
-    
+
     // Show if we have collected data but no messages yet
     const currentSession = useSessionStore.getState().session
     const hasCollectedData =
@@ -405,7 +405,9 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
   const handleContinue = useCallback(() => {
     // Hide summary block and focus on input
     // Find and focus the textarea input
-    const textarea = document.querySelector('textarea[placeholder*="Ask about your business"]') as HTMLTextAreaElement
+    const textarea = document.querySelector(
+      'textarea[placeholder*="Ask about your business"]'
+    ) as HTMLTextAreaElement
     if (textarea) {
       textarea.focus()
       // Scroll to bottom to show input
@@ -563,19 +565,19 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
   // Handle opening normalization modal
   const handleOpenNormalization = useCallback(() => {
     generalLogger.info('[Conversational] Opening normalization modal', { sessionId })
-    
+
     // Get session data to extract years
     const session = useSessionStore.getState().session
     if (!session?.sessionData) {
       generalLogger.warn('[Conversational] No session data for normalization')
       return
     }
-    
+
     const sessionData = session.sessionData as any
-    
+
     // Start with current year if available
     const currentYear = sessionData.current_year_data?.year || new Date().getFullYear()
-    
+
     // For now, open modal for current year (multi-year support can be added later)
     setSelectedNormalizationYear(currentYear)
     setShowNormalizationModal(true)
@@ -590,7 +592,9 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
   // Handle recalculate valuation after normalization
   const handleRecalculateValuation = useCallback(async () => {
     try {
-      generalLogger.info('[Conversational] Recalculating valuation with normalization', { sessionId })
+      generalLogger.info('[Conversational] Recalculating valuation with normalization', {
+        sessionId,
+      })
 
       // Get current session data
       const session = useSessionStore.getState().session
@@ -602,7 +606,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
       // Get all normalizations
       const normalizations = useEbitdaNormalizationStore.getState().normalizations
       const hasNormalizations = Object.keys(normalizations).length > 0
-      
+
       if (!hasNormalizations) {
         generalLogger.warn('[Conversational] No normalizations to recalculate')
         return
@@ -612,7 +616,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
       actions.setGenerating(true)
       onValuationStart?.()
       const wasSet = trySetCalculating()
-      
+
       if (!wasSet) {
         generalLogger.warn('[Conversational] Already calculating, skipping recalculate')
         return
@@ -651,7 +655,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
       // Build request (buildValuationRequest will include normalized EBITDA)
       const request = buildValuationRequest(formData)
       ;(request as any).dataSource = 'ai-guided'
-      
+
       // CRITICAL: Include reportId from session for version linking
       // This ensures versions are created correctly and linked to the session
       if (sessionId) {
@@ -666,11 +670,11 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
         if (!reportId) {
           throw new Error('Report ID is required for version creation')
         }
-        
+
         const previousVersion = getLatestVersion(reportId)
-        
+
         // Detect changes if previous version exists
-        const changes = previousVersion 
+        const changes = previousVersion
           ? detectVersionChanges(previousVersion.formData, formData)
           : { totalChanges: 0, significantChanges: [] }
 
@@ -682,7 +686,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
           htmlReport: result.html_report || undefined,
           infoTabHtml: result.info_tab_html || undefined,
           changesSummary: changes,
-          versionLabel: previousVersion 
+          versionLabel: previousVersion
             ? generateAutoLabel(previousVersion.versionNumber + 1, changes)
             : 'v1 - Normalized EBITDA',
         })
@@ -699,19 +703,18 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
 
         // Update results store
         setResult(result)
-        
+
         // Notify parent
         onValuationComplete?.(result)
-        
+
         generalLogger.info('[Conversational] Recalculation complete with normalized EBITDA')
-        
+
         // Reset states
         setCalculating(false)
         actions.setGenerating(false)
       } else {
         throw new Error('Recalculation returned no result')
       }
-
     } catch (error) {
       generalLogger.error('[Conversational] Recalculation failed', { error })
       actions.setError(
@@ -791,7 +794,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
             onRecalculateValuation={handleRecalculateValuation}
           />
         </div>
-        
+
         {/* Normalization Modal */}
         {showNormalizationModal && selectedNormalizationYear && (
           <NormalizationModal

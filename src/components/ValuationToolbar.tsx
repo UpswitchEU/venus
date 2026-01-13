@@ -1,32 +1,32 @@
 import {
-    AlertCircle,
-    ArrowLeft,
-    Check,
-    Download,
-    Edit3,
-    Eye,
-    GitBranch,
-    History,
-    Info,
-    Loader2,
-    Maximize,
-    MessageSquare,
-    RefreshCw,
-    Save,
-    X,
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Download,
+  Edit3,
+  Eye,
+  GitBranch,
+  History,
+  Info,
+  Loader2,
+  Maximize,
+  MessageSquare,
+  RefreshCw,
+  Save,
+  X,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React from 'react'
-import {
-    useValuationToolbarAuth,
-    useValuationToolbarDownload,
-    useValuationToolbarFlow,
-    useValuationToolbarFullscreen,
-    useValuationToolbarName,
-    useValuationToolbarRefresh,
-    useValuationToolbarTabs,
-} from '../hooks/valuationToolbar'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
+import {
+  useValuationToolbarAuth,
+  useValuationToolbarDownload,
+  useValuationToolbarFlow,
+  useValuationToolbarFullscreen,
+  useValuationToolbarName,
+  useValuationToolbarRefresh,
+  useValuationToolbarTabs,
+} from '../hooks/valuationToolbar'
 import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { ValuationToolbarProps } from '../types/valuation'
@@ -72,9 +72,9 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   // ✅ FIX: Deduplicate versions when combining props and store versions
   // Use props if provided, otherwise use store, but ensure no duplicates
   const rawDisplayVersions = versions || (reportId ? storeVersions[reportId] || [] : [])
-  
+
   // Deduplicate by versionNumber (keep the latest one if duplicates exist)
-  const versionMap = new Map<number, typeof rawDisplayVersions[0]>()
+  const versionMap = new Map<number, (typeof rawDisplayVersions)[0]>()
   rawDisplayVersions.forEach((version) => {
     const existing = versionMap.get(version.versionNumber)
     // Keep the version with the latest createdAt or id if duplicates exist
@@ -89,7 +89,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   const displayVersions = Array.from(versionMap.values()).sort(
     (a, b) => b.versionNumber - a.versionNumber
   )
-  
+
   const storeActiveVersion = reportId ? getActiveVersion(reportId) : null
   const displayActiveVersion = activeVersion ?? storeActiveVersion?.versionNumber
 
@@ -371,7 +371,11 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     )}
                   </button>
                 </Tooltip>
-                <Tooltip content={t('navigation.flows.conversational')} position="bottom" className="">
+                <Tooltip
+                  content={t('navigation.flows.conversational')}
+                  position="bottom"
+                  className=""
+                >
                   <button
                     onClick={() => handleFlowIconClick('conversational')}
                     disabled={currentView === 'conversational' || isSyncing}
@@ -460,7 +464,11 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                 {displayVersions.length > 0 && (
                   <>
                     <div className="mx-2 h-6 w-px bg-zinc-700"></div>
-                    <Tooltip content={t('report.toolbar.selectVersion')} position="bottom" className="">
+                    <Tooltip
+                      content={t('report.toolbar.selectVersion')}
+                      position="bottom"
+                      className=""
+                    >
                       <div className="relative">
                         <select
                           value={
@@ -500,7 +508,11 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                 {isEmbedded ? (
                   /* Embedded Mode - Show Close Button */
                   <>
-                    <Tooltip content={t('report.toolbar.returnToMercury')} position="bottom" className="">
+                    <Tooltip
+                      content={t('report.toolbar.returnToMercury')}
+                      position="bottom"
+                      className=""
+                    >
                       <button
                         onClick={closeEmbedded}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium"
@@ -516,7 +528,11 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     /* Direct Access with Return URL - Show Return Button */
                     <>
                       <Tooltip
-                        content={sourceApp === 'mercury-accountant' ? t('report.toolbar.backToClient') : t('report.toolbar.backToDashboard')}
+                        content={
+                          sourceApp === 'mercury-accountant'
+                            ? t('report.toolbar.backToClient')
+                            : t('report.toolbar.backToDashboard')
+                        }
                         position="bottom"
                         className=""
                       >
@@ -526,7 +542,9 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                         >
                           <ArrowLeft className="w-4 h-4" />
                           <span className="hidden sm:inline">
-                            {sourceApp === 'mercury-accountant' ? t('report.toolbar.backToClient') : t('report.toolbar.backToDashboard')}
+                            {sourceApp === 'mercury-accountant'
+                              ? t('report.toolbar.backToClient')
+                              : t('report.toolbar.backToDashboard')}
                           </span>
                         </button>
                       </Tooltip>

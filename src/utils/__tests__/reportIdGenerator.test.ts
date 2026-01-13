@@ -5,11 +5,11 @@
 
 import {
   generateReportId,
-  isValidReportId,
   getReportSource,
   getReportTimestamp,
-  isVenusReportId,
   isMercuryReportId,
+  isValidReportId,
+  isVenusReportId,
 } from '../reportIdGenerator'
 
 describe('reportIdGenerator', () => {

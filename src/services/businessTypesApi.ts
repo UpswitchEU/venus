@@ -89,9 +89,9 @@ class BusinessTypesApiService {
    * Extract locale from current URL pathname
    */
   private getLocaleFromPathname(): string {
-    if (typeof window === 'undefined') return 'en';
-    const match = window.location.pathname.match(/^\/(en|nl)/);
-    return (match?.[1] as 'en' | 'nl') || 'en';
+    if (typeof window === 'undefined') return 'en'
+    const match = window.location.pathname.match(/^\/(en|nl)/)
+    return (match?.[1] as 'en' | 'nl') || 'en'
   }
 
   /**
@@ -99,8 +99,8 @@ class BusinessTypesApiService {
    */
   async getBusinessTypes(): Promise<BusinessType[]> {
     try {
-      const locale = this.getLocaleFromPathname();
-      
+      const locale = this.getLocaleFromPathname()
+
       // Check cache first (locale-aware cache key would be ideal, but keeping existing cache for now)
       if (businessTypesCache.hasValidCache()) {
         const cachedData = await businessTypesCache.getBusinessTypes()
@@ -201,9 +201,11 @@ class BusinessTypesApiService {
    */
   async getBusinessTypeFull(businessTypeId: string): Promise<any> {
     try {
-      const locale = this.getLocaleFromPathname();
+      const locale = this.getLocaleFromPathname()
       if (process.env.NODE_ENV === 'development') {
-        generalLogger.debug(`[BusinessTypesApi] Fetching full metadata for: ${businessTypeId}`, { locale })
+        generalLogger.debug(`[BusinessTypesApi] Fetching full metadata for: ${businessTypeId}`, {
+          locale,
+        })
       }
 
       const response = await this.api.get(`/types/${businessTypeId}/full`, {
@@ -250,7 +252,7 @@ class BusinessTypesApiService {
     try {
       generalLogger.debug(`[BusinessTypesApi] Fetching questions for: ${businessTypeId}`, options)
 
-      const locale = this.getLocaleFromPathname();
+      const locale = this.getLocaleFromPathname()
       const params: Record<string, string | undefined> = {
         locale,
       }
@@ -293,13 +295,13 @@ class BusinessTypesApiService {
    */
   async validateBusinessTypeData(businessTypeId: string, data: Record<string, any>): Promise<any> {
     try {
-      const locale = this.getLocaleFromPathname();
+      const locale = this.getLocaleFromPathname()
       generalLogger.debug(`[BusinessTypesApi] Validating data for: ${businessTypeId}`, {
         dataKeys: Object.keys(data),
         locale,
       })
 
-      const response = await this.api.post(`/types/${businessTypeId}/validate`, { 
+      const response = await this.api.post(`/types/${businessTypeId}/validate`, {
         data,
         locale,
       })
@@ -336,7 +338,7 @@ class BusinessTypesApiService {
     try {
       generalLogger.debug(`[BusinessTypesApi] Fetching benchmarks for: ${businessTypeId}`, options)
 
-      const locale = this.getLocaleFromPathname();
+      const locale = this.getLocaleFromPathname()
       const params: any = {
         locale,
       }
@@ -384,7 +386,7 @@ class BusinessTypesApiService {
   ): Promise<Array<{ text: string; confidence: number; reason: string }>> {
     if (!query || query.trim().length === 0) return []
     try {
-      const locale = this.getLocaleFromPathname();
+      const locale = this.getLocaleFromPathname()
       const response = await this.api.get('/types/search', {
         params: { q: query, limit, locale },
       })

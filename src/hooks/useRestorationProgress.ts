@@ -1,13 +1,13 @@
 /**
  * Restoration Progress Hook
- * 
+ *
  * World-Class Restoration Progress Tracking:
  * - Shows progress indicators during restoration
  * - Handles partial restoration gracefully
  * - Caches restoration state
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 export interface RestorationProgress {
   stage: 'idle' | 'loading' | 'restoring' | 'completed' | 'error'
@@ -53,17 +53,17 @@ export function useRestorationProgress({
     (stage: RestorationProgress['stage'], step?: string, error?: string) => {
       setProgress((prev) => {
         const stepIndex = step ? RESTORATION_STEPS.indexOf(step as any) : -1
-        const completedSteps = stepIndex >= 0 
-          ? RESTORATION_STEPS.slice(0, stepIndex + 1)
-          : prev.completedSteps
-        
-        const progressValue = stage === 'completed' 
-          ? 100 
-          : stage === 'error'
-          ? prev.progress
-          : stepIndex >= 0
-          ? Math.round(((stepIndex + 1) / RESTORATION_STEPS.length) * 100)
-          : prev.progress
+        const completedSteps =
+          stepIndex >= 0 ? RESTORATION_STEPS.slice(0, stepIndex + 1) : prev.completedSteps
+
+        const progressValue =
+          stage === 'completed'
+            ? 100
+            : stage === 'error'
+              ? prev.progress
+              : stepIndex >= 0
+                ? Math.round(((stepIndex + 1) / RESTORATION_STEPS.length) * 100)
+                : prev.progress
 
         const newProgress: RestorationProgress = {
           stage,

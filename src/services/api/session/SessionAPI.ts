@@ -40,7 +40,7 @@ export class SessionAPI extends HttpClient {
     // Check cache first
     const cacheKey = `session-${reportId}`
     const cachedTimestamp = SessionAPI.cacheTimestamps.get(cacheKey)
-    
+
     if (cachedTimestamp && Date.now() - cachedTimestamp < SessionAPI.CACHE_TTL) {
       const cachedPromise = SessionAPI.requestCache.get(cacheKey)
       if (cachedPromise) {
@@ -51,11 +51,11 @@ export class SessionAPI extends HttpClient {
 
     // Create new request with retry logic
     const requestPromise = this.getValuationSessionWithRetry(reportId, options)
-    
+
     // Cache the promise
     SessionAPI.requestCache.set(cacheKey, requestPromise)
     SessionAPI.cacheTimestamps.set(cacheKey, Date.now())
-    
+
     // Clean up cache after completion
     requestPromise.finally(() => {
       setTimeout(() => {
@@ -63,7 +63,7 @@ export class SessionAPI extends HttpClient {
         SessionAPI.cacheTimestamps.delete(cacheKey)
       }, SessionAPI.CACHE_TTL)
     })
-    
+
     return requestPromise
   }
 
@@ -77,14 +77,14 @@ export class SessionAPI extends HttpClient {
   ): Promise<ValuationSessionResponse | null> {
     const maxRetries = 3
     const baseDelay = 1000 // 1 second
-    
+
     try {
       // Add 10-second timeout per attempt
       const timeoutOptions = {
         ...options,
         timeout: 10000,
       }
-      
+
       // ✅ FIX: HttpClient unwraps response.data?.data || response.data
       // Backend returns: res.json({ success: true, data: sessionObject })
       // Axios receives: { success: true, data: sessionObject }
@@ -159,7 +159,7 @@ export class SessionAPI extends HttpClient {
       if (!sessionData.reportId && sessionData.session_key) {
         sessionData.reportId = sessionData.session_key
       }
-      
+
       // Map backend view types to frontend view types
       // Backend: 'simple' | 'advanced'
       // Frontend: 'manual' | 'conversational'
@@ -168,12 +168,12 @@ export class SessionAPI extends HttpClient {
       } else if (sessionData.view_type === 'advanced' && !sessionData.currentView) {
         sessionData.currentView = 'conversational'
       }
-      
+
       // Also check session_data for currentView
       if (sessionData.session_data?.currentView) {
         sessionData.currentView = sessionData.session_data.currentView
       }
-      
+
       // Map backend 'ai-guided' to frontend 'conversational'
       if ((sessionData.currentView as string) === 'ai-guided') {
         sessionData.currentView = 'conversational'
@@ -202,11 +202,11 @@ export class SessionAPI extends HttpClient {
       }
     } catch (error) {
       // Retry logic with exponential backoff
-      const isRetryable = 
-        isNetworkError(error) || 
+      const isRetryable =
+        isNetworkError(error) ||
         (error as any).code === 'ECONNABORTED' ||
         (error as any).message?.includes('timeout')
-      
+
       if (isRetryable && attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt)
         apiLogger.warn('Session load failed, retrying', {
@@ -216,11 +216,11 @@ export class SessionAPI extends HttpClient {
           delay,
           error: error instanceof Error ? error.message : String(error),
         })
-        
-        await new Promise(resolve => setTimeout(resolve, delay))
+
+        await new Promise((resolve) => setTimeout(resolve, delay))
         return this.getValuationSessionWithRetry(reportId, options, attempt + 1)
       }
-      
+
       // Max retries reached or non-retryable error
       const axiosError = error as any
 
@@ -262,8 +262,8 @@ export class SessionAPI extends HttpClient {
       // Map frontend view types to backend view types
       // Frontend: 'manual' | 'conversational'
       // Backend: 'simple' | 'advanced'
-      const currentView = session.currentView || sessionAny.currentView || 'manual';
-      const viewType = currentView === 'conversational' ? 'advanced' : 'simple';
+      const currentView = session.currentView || sessionAny.currentView || 'manual'
+      const viewType = currentView === 'conversational' ? 'advanced' : 'simple'
 
       // Build session_data object to send to Titan
       // Titan API expects: { session_data: {...}, view_type: 'simple'|'advanced', current_step: number }
@@ -273,7 +273,7 @@ export class SessionAPI extends HttpClient {
         // Preserve currentView in session_data for restoration
         currentView: currentView,
         ...(sessionAny.dataSource && { dataSource: sessionAny.dataSource }),
-      };
+      }
 
       const backendSession = {
         session_data: sessionDataPayload,
@@ -302,8 +302,8 @@ export class SessionAPI extends HttpClient {
       }
 
       // Titan returns session_key, map it to reportId for Venus
-      const reportId = sessionData.session_key || sessionData.reportId;
-      
+      const reportId = sessionData.session_key || sessionData.reportId
+
       // CRITICAL: Validate required fields exist
       if (!reportId) {
         throw new Error(`Backend returned incomplete session data: missing session_key`)
@@ -314,17 +314,17 @@ export class SessionAPI extends HttpClient {
       // Venus expects: { reportId, currentView, sessionData, ... }
       const venusSession = {
         ...sessionData,
-        reportId: reportId,  // Use session_key as reportId
+        reportId: reportId, // Use session_key as reportId
         currentView: session.currentView || 'manual', // Preserve requested view
         sessionData: sessionData.session_data || {},
-      };
+      }
 
       // Map backend 'ai-guided' to frontend 'conversational' (if it exists in session_data)
       if (venusSession.sessionData?.currentView === 'ai-guided') {
-        venusSession.currentView = 'conversational';
+        venusSession.currentView = 'conversational'
       }
       if (venusSession.sessionData?.dataSource === 'ai-guided') {
-        venusSession.sessionData.dataSource = 'conversational';
+        venusSession.sessionData.dataSource = 'conversational'
       }
 
       return {

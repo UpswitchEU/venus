@@ -1,6 +1,6 @@
 /**
  * Auth Status Component
- * 
+ *
  * Displays authentication status with loading states, success indicators,
  * and user-friendly error messages
  */
@@ -10,7 +10,7 @@ import { useAuth } from '../lib/auth'
 
 export const AuthStatus: React.FC = () => {
   const { user, isAuthenticated, loading, error, refreshAuth } = useAuth()
-  
+
   if (loading) {
     return (
       <div className="auth-status auth-status-loading" role="status" aria-live="polite">
@@ -30,7 +30,7 @@ export const AuthStatus: React.FC = () => {
         <div className="auth-status-content">
           <p className="auth-status-message">Unable to verify authentication</p>
           <button
-            onClick={() => window.location.href = 'https://upswitch.app'}
+            onClick={() => (window.location.href = 'https://upswitch.app')}
             style={{
               marginTop: '0.75rem',
               padding: '0.5rem 1rem',
@@ -68,16 +68,20 @@ export const AuthStatus: React.FC = () => {
     <div className="auth-status auth-status-guest" role="status">
       <div className="auth-status-content">
         <p className="auth-status-message">Continuing as guest</p>
-        <p className="auth-status-hint" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
-          💡 <a 
-            href="https://upswitch.app" 
-            target="_blank" 
+        <p
+          className="auth-status-hint"
+          style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}
+        >
+          💡{' '}
+          <a
+            href="https://upswitch.app"
+            target="_blank"
             rel="noopener noreferrer"
             style={{ color: '#3b82f6', textDecoration: 'underline' }}
           >
             Log in at upswitch.app
-          </a>
-          {' '}for full access
+          </a>{' '}
+          for full access
         </p>
       </div>
     </div>
@@ -88,7 +92,9 @@ export const AuthStatus: React.FC = () => {
  * Auth Loading Indicator
  * Simple loading spinner for auth operations
  */
-export const AuthLoadingIndicator: React.FC<{ message?: string }> = ({ message = 'Authenticating...' }) => {
+export const AuthLoadingIndicator: React.FC<{ message?: string }> = ({
+  message = 'Authenticating...',
+}) => {
   return (
     <div className="auth-loading-indicator" role="status" aria-live="polite">
       <div className="auth-spinner" aria-hidden="true" />
@@ -102,18 +108,17 @@ export const AuthLoadingIndicator: React.FC<{ message?: string }> = ({ message =
  * Auth Error Message
  * User-friendly error display with retry option
  */
-export const AuthErrorMessage: React.FC<{ error: string; onRetry?: () => void }> = ({ error, onRetry }) => {
+export const AuthErrorMessage: React.FC<{ error: string; onRetry?: () => void }> = ({
+  error,
+  onRetry,
+}) => {
   return (
     <div className="auth-error-message" role="alert">
       <div className="auth-error-icon">⚠️</div>
       <div className="auth-error-content">
         <p className="auth-error-text">{error}</p>
         {onRetry && (
-          <button
-            className="auth-error-retry"
-            onClick={onRetry}
-            aria-label="Retry authentication"
-          >
+          <button className="auth-error-retry" onClick={onRetry} aria-label="Retry authentication">
             Try Again
           </button>
         )}
@@ -121,4 +126,3 @@ export const AuthErrorMessage: React.FC<{ error: string; onRetry?: () => void }>
     </div>
   )
 }
-

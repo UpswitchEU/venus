@@ -2,16 +2,21 @@
 
 import { useRouter } from 'next/navigation'
 import React, { Suspense, useEffect } from 'react'
+import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
+import { useUrlState } from '../hooks/useUrlState'
 import { reportService } from '../services'
 import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
-import { useUrlState } from '../hooks/useUrlState'
-import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
+
 // Lazy load heavy components for code splitting
-const ValuationFlowSelector = React.lazy(() => import('./ValuationFlowSelector').then(m => ({ default: m.ValuationFlowSelector })))
-const ValuationSessionManager = React.lazy(() => import('./ValuationSessionManager').then(m => ({ default: m.ValuationSessionManager })))
+const ValuationFlowSelector = React.lazy(() =>
+  import('./ValuationFlowSelector').then((m) => ({ default: m.ValuationFlowSelector }))
+)
+const ValuationSessionManager = React.lazy(() =>
+  import('./ValuationSessionManager').then((m) => ({ default: m.ValuationSessionManager }))
+)
 
 /**
  * ValuationReport Component - Next.js Compatible
@@ -48,10 +53,10 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     urlParams = {},
   }) => {
     const router = useRouter()
-    
+
     // Embedded mode detection for iframe integration
     const { isEmbedded } = useEmbeddedMode()
-    
+
     // URL state management for browser navigation support
     const { urlState, updateUrl } = useUrlState({
       reportId,
@@ -66,19 +71,24 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
         })
       },
     })
-    
+
     // Sync initial mode and version to URL on mount
     useEffect(() => {
       const currentMode = urlState.mode || initialMode
       const currentVersion = urlState.version !== undefined ? urlState.version : initialVersion
-      
+
       // Only update URL if state differs from URL (and we have initial values)
-      if ((initialMode && currentMode !== urlState.mode) || 
-          (initialVersion !== undefined && currentVersion !== urlState.version)) {
-        updateUrl({
-          mode: currentMode,
-          version: currentVersion,
-        }, { replace: true })
+      if (
+        (initialMode && currentMode !== urlState.mode) ||
+        (initialVersion !== undefined && currentVersion !== urlState.version)
+      ) {
+        updateUrl(
+          {
+            mode: currentMode,
+            version: currentVersion,
+          },
+          { replace: true }
+        )
       }
     }, []) // Only on mount
 
@@ -139,17 +149,18 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       // These are already lazy loaded, but we can prefetch them
       if (typeof window !== 'undefined') {
         // Prefetch critical components
-        Promise.all([
-          import('./ValuationFlowSelector'),
-          import('./ValuationSessionManager'),
-        ]).catch(() => {
-          // Non-critical - preloading is optional
-        })
+        Promise.all([import('./ValuationFlowSelector'), import('./ValuationSessionManager')]).catch(
+          () => {
+            // Non-critical - preloading is optional
+          }
+        )
       }
     }, [])
 
     return (
-      <div className={`flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 ${isEmbedded ? 'embedded-mode' : ''}`}>
+      <div
+        className={`flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 ${isEmbedded ? 'embedded-mode' : ''}`}
+      >
         <Suspense
           fallback={
             <div className="flex items-center justify-center h-screen bg-zinc-950">

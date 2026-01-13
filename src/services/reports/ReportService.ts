@@ -154,7 +154,7 @@ class ReportServiceImpl implements ReportService {
       if (sessions.length > 0 && typeof window !== 'undefined') {
         try {
           const { globalSessionCache } = await import('../../utils/sessionCacheManager')
-          const recentReportIds = sessions.slice(0, 5).map(s => s.reportId) // Warm top 5
+          const recentReportIds = sessions.slice(0, 5).map((s) => s.reportId) // Warm top 5
           globalSessionCache.warmCache(recentReportIds).catch(() => {
             // Non-critical - cache warming is optional
           })
@@ -298,7 +298,7 @@ class ReportServiceImpl implements ReportService {
 
   /**
    * Create new report with optimistic updates
-   * 
+   *
    * World-Class Optimistic Updates:
    * - Returns optimistic report immediately (<10ms)
    * - Syncs in background
@@ -328,7 +328,7 @@ class ReportServiceImpl implements ReportService {
         partialData: initialData || {},
         sessionData: initialData || {},
       } as ValuationSession & { _optimistic?: boolean }
-      
+
       // Mark as optimistic for UI to show sync status
       ;(optimisticSession as any)._optimistic = true
 
@@ -339,7 +339,7 @@ class ReportServiceImpl implements ReportService {
             reportId,
             syncedAt: syncedSession.updatedAt,
           })
-          
+
           // Broadcast report creation event for cross-subdomain sync
           if (typeof window !== 'undefined') {
             try {
@@ -363,11 +363,11 @@ class ReportServiceImpl implements ReportService {
             error: error instanceof Error ? error.message : 'Unknown error',
             note: 'Report exists locally and can be synced later',
           })
-          
+
           // Store sync failure for retry later
           this.queueSyncRetry(reportId, optimisticSession)
         })
-      
+
       // Broadcast optimistic creation immediately (before sync completes)
       if (typeof window !== 'undefined') {
         try {
@@ -409,10 +409,10 @@ class ReportServiceImpl implements ReportService {
    */
   private async syncReportToBackend(session: ValuationSession): Promise<ValuationSession> {
     const response = await backendAPI.createValuationSession(session)
-    
+
     // Log usage after successful sync
     await this.logValuationUsage(session.reportId)
-    
+
     // Return synced session (without _optimistic flag)
     return response.session
   }
@@ -424,9 +424,7 @@ class ReportServiceImpl implements ReportService {
     // Store in localStorage for retry on next page load
     if (typeof window !== 'undefined') {
       try {
-        const pendingSyncs = JSON.parse(
-          localStorage.getItem('venus_pending_syncs') || '[]'
-        )
+        const pendingSyncs = JSON.parse(localStorage.getItem('venus_pending_syncs') || '[]')
         pendingSyncs.push({
           reportId,
           session,
@@ -445,7 +443,7 @@ class ReportServiceImpl implements ReportService {
    */
   private getClientId(): string | undefined {
     if (typeof window === 'undefined') return undefined
-    
+
     try {
       const { useClientContext } = require('../../stores/clientContext')
       const context = useClientContext.getState()

@@ -51,10 +51,10 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
   }
 
   const yearsToShow = calculateHistoricalYears()
-  
+
   // Get normalization store state
-  const { 
-    openNormalizationModal, 
+  const {
+    openNormalizationModal,
     hasNormalization,
     getNormalizedEbitda,
     getTotalAdjustments,
@@ -82,7 +82,7 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
         const ebitdaKey = `${year}_ebitda`
         const revenue = historicalInputs[revenueKey] || ''
         const ebitda = historicalInputs[ebitdaKey] || ''
-        
+
         // Check if this year has normalization
         const isNormalized = hasNormalization(year)
 
@@ -148,7 +148,7 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
                     prefix="€"
                     formatAsCurrency
                   />
-                  
+
                   {/* EBITDA Normalization Link */}
                   {sessionId && ebitda && parseFloat(ebitda.replace(/,/g, '')) !== 0 && (
                     <div className="mt-3">
@@ -160,8 +160,18 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
                         }}
                         className="text-sm text-river-300 hover:text-river-100 flex items-center gap-1 transition-colors"
                       >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
                         </svg>
                         Normalize EBITDA for {year}
                       </button>

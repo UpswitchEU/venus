@@ -1,6 +1,6 @@
 /**
  * Authentication Module Tests
- * 
+ *
  * Tests for simplified auth implementation
  * Verifies cookie auth, token exchange, and guest flows
  */
@@ -15,10 +15,10 @@ describe('Authentication Module', () => {
   beforeEach(() => {
     // Reset store state
     useAuthStore.setState({ user: null, loading: false, error: null })
-    
+
     // Clear mock calls
     vi.clearAllMocks()
-    
+
     // Reset document.cookie
     Object.defineProperty(document, 'cookie', {
       writable: true,
@@ -303,4 +303,3 @@ describe('Authentication Module', () => {
     })
   })
 })
-

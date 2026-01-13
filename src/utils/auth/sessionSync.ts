@@ -1,6 +1,6 @@
 /**
  * Session Synchronization
- * 
+ *
  * Keeps sessions synchronized across tabs and subdomains
  * Uses BroadcastChannel API for same-origin communication
  * Uses localStorage events for cross-tab updates
@@ -201,4 +201,3 @@ export function destroySessionSyncManager(): void {
     sessionSyncManager = null
   }
 }
-

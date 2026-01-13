@@ -43,11 +43,11 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
   // State for normalization tracking
   const [hasNormalizations, setHasNormalizations] = useState(false)
   const [normalizedYearsCount, setNormalizedYearsCount] = useState(0)
-  
+
   // Fetch normalization status
   useEffect(() => {
     if (!sessionId) return
-    
+
     const loadNormalizations = async () => {
       try {
         await useEbitdaNormalizationStore.getState().loadAllNormalizations(sessionId)
@@ -59,10 +59,10 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
         console.error('Failed to load normalizations:', error)
       }
     }
-    
+
     loadNormalizations()
   }, [sessionId])
-  
+
   // Extract key data points
   // FIX: Use correct field names matching the data structure (country_code, founding_year, number_of_owners)
   const companyName = collectedData?.company_name
@@ -92,9 +92,7 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
   const employees = collectedData?.number_of_employees || collectedData?.employees
   // FIX: Check number_of_owners first (matches generateImportSummary), then fallback to other field names
   const owners =
-    collectedData?.number_of_owners ||
-    collectedData?.active_owner_managers ||
-    collectedData?.owners
+    collectedData?.number_of_owners || collectedData?.active_owner_managers || collectedData?.owners
   const sharesForSale = collectedData?.shares_for_sale || collectedData?.equity_stake_for_sale
 
   // Extract historical financial data
@@ -117,8 +115,7 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
           const value = collectedData[key]
           // Skip SKIPPED values, null, undefined
           if (value !== 'SKIPPED' && value !== null && value !== undefined) {
-            const numValue =
-              typeof value === 'number' ? value : parseFloat(String(value))
+            const numValue = typeof value === 'number' ? value : parseFloat(String(value))
             if (!isNaN(numValue)) {
               const existing = historicalYearsMap.get(year) || {
                 year,
@@ -139,8 +136,7 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
           const value = collectedData[key]
           // Skip SKIPPED values, null, undefined
           if (value !== 'SKIPPED' && value !== null && value !== undefined) {
-            const numValue =
-              typeof value === 'number' ? value : parseFloat(String(value))
+            const numValue = typeof value === 'number' ? value : parseFloat(String(value))
             if (!isNaN(numValue)) {
               const existing = historicalYearsMap.get(year) || {
                 year,
@@ -156,9 +152,7 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
   }
 
   // Convert map to array and sort by year (newest first)
-  const historicalYears: HistoricalYearData[] = Array.from(
-    historicalYearsMap.values()
-  )
+  const historicalYears: HistoricalYearData[] = Array.from(historicalYearsMap.values())
     .filter((yearData) => yearData.revenue !== null || yearData.ebitda !== null) // Only include years with at least one value
     .sort((a, b) => b.year - a.year) // Sort newest first
 
@@ -239,9 +233,7 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
                         <div className="w-1.5 h-1.5 rounded-full bg-primary-400 mt-1.5 flex-shrink-0" />
                         <div className="min-w-0">
                           <p className="text-xs text-zinc-400">{field.label}</p>
-                          <p className="text-sm font-medium text-white truncate">
-                            {field.value}
-                          </p>
+                          <p className="text-sm font-medium text-white truncate">{field.value}</p>
                         </div>
                       </div>
                     ))}
@@ -323,18 +315,19 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
                     <div className="mb-3 p-2 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
                       <p className="text-xs text-green-400 font-medium">
-                        EBITDA normalized for {normalizedYearsCount} year{normalizedYearsCount > 1 ? 's' : ''}
+                        EBITDA normalized for {normalizedYearsCount} year
+                        {normalizedYearsCount > 1 ? 's' : ''}
                       </p>
                     </div>
                   )}
-                  
+
                   <div className="flex items-center justify-between gap-4">
                     <p className="text-sm text-zinc-400 flex-1">
                       {hasNormalizations
                         ? 'Recalculate valuation with normalized EBITDA'
                         : isComplete
-                        ? 'Your valuation report is ready to view'
-                        : 'Continue the conversation to complete your valuation'}
+                          ? 'Your valuation report is ready to view'
+                          : 'Continue the conversation to complete your valuation'}
                     </p>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {/* Normalize button (only after valuation complete, before normalization) */}
@@ -347,7 +340,7 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
                           Normalize EBITDA
                         </button>
                       )}
-                      
+
                       {/* Recalculate button (only when normalized) */}
                       {isComplete && hasNormalizations && onRecalculateValuation && (
                         <button
@@ -358,7 +351,7 @@ export const ConversationSummaryBlock: React.FC<ConversationSummaryBlockProps> =
                           Recalculate Valuation
                         </button>
                       )}
-                      
+
                       {/* Original buttons */}
                       {isComplete && onViewReport && (
                         <button

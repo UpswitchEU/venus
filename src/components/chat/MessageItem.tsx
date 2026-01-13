@@ -21,9 +21,9 @@ import { CompanyNameConfirmationCard } from '../CompanyNameConfirmationCard'
 import { KBOSuggestionsList } from '../KBOSuggestionsList'
 import { SuggestionChips } from '../SuggestionChips'
 import {
-    type BusinessTypeSuggestion,
-    hasBusinessTypeSuggestions,
-    parseBusinessTypeSuggestions,
+  type BusinessTypeSuggestion,
+  hasBusinessTypeSuggestions,
+  parseBusinessTypeSuggestions,
 } from '../utils/businessTypeParsing'
 import { hasKBOSuggestions, type KBOSuggestion, parseKBOSuggestions } from '../utils/kboParsing'
 import { ValuationReadyCTA } from '../ValuationReadyCTA'
@@ -263,7 +263,7 @@ export const MessageItem = React.memo<MessageItemProps>(
     if (isSummaryMessage && collectedData) {
       // Get sessionId from metadata or other sources
       const sessionId = getMetadataString('session_id') || undefined
-      
+
       return (
         <div className="flex justify-start">
           <div className="max-w-[85%] mr-auto w-full">

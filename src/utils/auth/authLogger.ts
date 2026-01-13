@@ -1,6 +1,6 @@
 /**
  * Enhanced Auth Logging
- * 
+ *
  * Structured logging with context for authentication operations
  * Includes performance timing, error stack traces, and user action tracking
  */
@@ -162,4 +162,3 @@ if (typeof window !== 'undefined') {
   const isDev = process.env.NODE_ENV === 'development'
   authLogger.setLogLevel(isDev ? LogLevel.DEBUG : LogLevel.INFO)
 }
-

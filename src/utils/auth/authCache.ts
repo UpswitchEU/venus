@@ -1,6 +1,6 @@
 /**
  * Auth Result Caching
- * 
+ *
  * Caches successful auth results to reduce API calls
  * Implements LRU eviction for memory efficiency
  */
@@ -156,7 +156,7 @@ let authCache: AuthCache | null = null
 export function getAuthCache(): AuthCache {
   if (!authCache) {
     authCache = new AuthCache()
-    
+
     // Cleanup expired entries every minute
     setInterval(() => {
       authCache?.cleanup()
@@ -174,4 +174,3 @@ export function destroyAuthCache(): void {
     authCache = null
   }
 }
-

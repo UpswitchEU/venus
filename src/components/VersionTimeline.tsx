@@ -66,7 +66,7 @@ export function VersionTimeline({
     }
   })
   const uniqueByIdVersions = Array.from(idMap.values())
-  
+
   // Then deduplicate by versionNumber (keep latest createdAt)
   const versionMap = new Map<number, ValuationVersion>()
   uniqueByIdVersions.forEach((version) => {
@@ -76,7 +76,7 @@ export function VersionTimeline({
     } else {
       const versionCreatedAt = version.createdAt ? new Date(version.createdAt).getTime() : 0
       const existingCreatedAt = existing.createdAt ? new Date(existing.createdAt).getTime() : 0
-      
+
       if (versionCreatedAt > existingCreatedAt) {
         versionMap.set(version.versionNumber, version)
       }
@@ -177,12 +177,14 @@ function VersionTimelineItem({
     : []
 
   // Check if version has normalized EBITDA
-  const hasNormalizedEbitda = version.changeMetadata?.normalized_years && 
+  const hasNormalizedEbitda =
+    version.changeMetadata?.normalized_years &&
     Array.isArray(version.changeMetadata.normalized_years) &&
     version.changeMetadata.normalized_years.length > 0
-  const normalizedYearsCount = hasNormalizedEbitda && version.changeMetadata?.normalized_years 
-    ? version.changeMetadata.normalized_years.length 
-    : 0
+  const normalizedYearsCount =
+    hasNormalizedEbitda && version.changeMetadata?.normalized_years
+      ? version.changeMetadata.normalized_years.length
+      : 0
 
   return (
     <div className="relative transition-all duration-200 rounded-lg bg-harvest-50">

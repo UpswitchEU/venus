@@ -9,9 +9,9 @@
 
 import React from 'react'
 import {
-    getIndustryGuidance,
-    validateEbitdaMargin,
-    validateRevenue,
+  getIndustryGuidance,
+  validateEbitdaMargin,
+  validateRevenue,
 } from '../../../config/industryGuidance'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
@@ -37,10 +37,10 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   formData,
   updateFormData,
 }) => {
-  const currentYear = Math.min(new Date().getFullYear(), 2100);
-  const reportId = useSessionStore((state) => state.session?.reportId);
-  const sessionId = reportId; // Use reportId as sessionId
-  
+  const currentYear = Math.min(new Date().getFullYear(), 2100)
+  const reportId = useSessionStore((state) => state.session?.reportId)
+  const sessionId = reportId // Use reportId as sessionId
+
   const {
     hasNormalization,
     getNormalizedEbitda,
@@ -51,29 +51,29 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
     removeNormalization,
     activeYear,
     closeNormalizationModal,
-  } = useEbitdaNormalizationStore();
-  
+  } = useEbitdaNormalizationStore()
+
   const handleOpenNormalization = async (year: number) => {
     if (!sessionId) {
-      console.error('No session ID available');
-      return;
+      console.error('No session ID available')
+      return
     }
-    const ebitdaValue = year === currentYear ? formData.ebitda : 0;
+    const ebitdaValue = year === currentYear ? formData.ebitda : 0
     if (ebitdaValue === undefined) {
-      console.warn('EBITDA value not set');
-      return;
+      console.warn('EBITDA value not set')
+      return
     }
-    await openNormalizationModal(year, ebitdaValue, sessionId);
-  };
-  
+    await openNormalizationModal(year, ebitdaValue, sessionId)
+  }
+
   const handleRemoveNormalization = async (year: number) => {
-    if (!sessionId) return;
+    if (!sessionId) return
     try {
-      await removeNormalization(sessionId, year);
+      await removeNormalization(sessionId, year)
     } catch (error) {
-      console.error('Failed to remove normalization', error);
+      console.error('Failed to remove normalization', error)
     }
-  };
+  }
   return (
     <div className="space-y-6">
       <h3 className="text-xl font-semibold text-white mb-6 pb-2 border-b border-white/10 tracking-tight">
@@ -158,7 +158,10 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
             return (
               <>
                 {/* Conditional rendering: Normalized field vs Normal field */}
-                {hasNormalization(currentYear) && sessionId && formData.ebitda !== undefined && formData.ebitda !== null ? (
+                {hasNormalization(currentYear) &&
+                sessionId &&
+                formData.ebitda !== undefined &&
+                formData.ebitda !== null ? (
                   <NormalizedEBITDAField
                     label="EBITDA (Required)"
                     originalValue={formData.ebitda}
@@ -176,7 +179,9 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                       label="EBITDA (Required)"
                       placeholder="e.g., 500,000"
                       value={
-                        formData.ebitda !== undefined && formData.ebitda !== null ? formData.ebitda : ''
+                        formData.ebitda !== undefined && formData.ebitda !== null
+                          ? formData.ebitda
+                          : ''
                       }
                       onChange={(e) => {
                         const cleanedValue = e.target.value.replace(/,/g, '')
@@ -193,7 +198,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                       required
                       helpText={helpText}
                     />
-                    
+
                     {/* EBITDA Normalization Link */}
                     {sessionId && formData.ebitda !== undefined && formData.ebitda !== null && (
                       <div className="mt-3">
@@ -202,8 +207,18 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                           onClick={() => handleOpenNormalization(currentYear)}
                           className="text-sm text-river-300 hover:text-river-100 flex items-center gap-1 transition-colors"
                         >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
                           </svg>
                           Normalize EBITDA for {currentYear}
                         </button>
@@ -216,7 +231,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
           })()}
         </div>
       </div>
-      
+
       {/* Normalization Modal */}
       {sessionId && (
         <NormalizationModal
@@ -224,7 +239,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
           year={currentYear}
           sessionId={sessionId}
           onClose={() => {
-            closeNormalizationModal();
+            closeNormalizationModal()
           }}
         />
       )}

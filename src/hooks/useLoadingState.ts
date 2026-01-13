@@ -1,6 +1,6 @@
 /**
  * Loading State Management Hook
- * 
+ *
  * World-Class Loading State Management:
  * - Centralized loading state
  * - Progress indicators
@@ -8,7 +8,7 @@
  * - Loading timeouts
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export interface LoadingState {
   isLoading: boolean
@@ -76,7 +76,7 @@ export function useLoadingState(options: UseLoadingStateOptions = {}): UseLoadin
             isLoading: false,
             error: 'Operation timed out. Please try again.',
           }))
-          
+
           if (onTimeout) {
             onTimeout()
           }
@@ -152,13 +152,15 @@ export function useMultipleLoadingStates() {
   const [, forceUpdate] = useState(0)
 
   const getState = useCallback((key: string): LoadingState => {
-    return statesRef.current.get(key) || {
-      isLoading: false,
-      progress: 0,
-      message: null,
-      error: null,
-      startTime: null,
-    }
+    return (
+      statesRef.current.get(key) || {
+        isLoading: false,
+        progress: 0,
+        message: null,
+        error: null,
+        startTime: null,
+      }
+    )
   }, [])
 
   const startLoading = useCallback((key: string, message?: string) => {

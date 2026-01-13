@@ -493,8 +493,8 @@ export class VersionAPI {
    */
   private transformVersionFromBackend(backendVersion: any): ValuationVersion {
     // Extract version_data which contains formData and valuationResult
-    const versionData = backendVersion.version_data || {};
-    
+    const versionData = backendVersion.version_data || {}
+
     return {
       id: backendVersion.id,
       reportId: backendVersion.report_id || backendVersion.reportId,
@@ -503,16 +503,40 @@ export class VersionAPI {
       createdAt: new Date(backendVersion.created_at),
       createdBy: backendVersion.created_by || null,
       // Extract formData from multiple possible locations
-      formData: backendVersion.formData || versionData.formData || versionData.inputs || backendVersion.form_data || {},
+      formData:
+        backendVersion.formData ||
+        versionData.formData ||
+        versionData.inputs ||
+        backendVersion.form_data ||
+        {},
       // Extract valuationResult from multiple possible locations
-      valuationResult: backendVersion.valuationResult || versionData.valuationResult || versionData.outputs || backendVersion.valuation_result || null,
+      valuationResult:
+        backendVersion.valuationResult ||
+        versionData.valuationResult ||
+        versionData.outputs ||
+        backendVersion.valuation_result ||
+        null,
       // Extract HTML reports from multiple possible locations
-      htmlReport: backendVersion.htmlReport || versionData.htmlReport || versionData.outputs?.html_report || versionData.outputs?.details?.html_report || backendVersion.html_report || null,
-      infoTabHtml: backendVersion.infoTabHtml || versionData.infoTabHtml || versionData.outputs?.info_tab_html || versionData.outputs?.details?.info_tab_html || backendVersion.info_tab_html || null,
-      changesSummary: backendVersion.changesSummary || backendVersion.changes_summary || { totalChanges: 0, significantChanges: [] },
+      htmlReport:
+        backendVersion.htmlReport ||
+        versionData.htmlReport ||
+        versionData.outputs?.html_report ||
+        versionData.outputs?.details?.html_report ||
+        backendVersion.html_report ||
+        null,
+      infoTabHtml:
+        backendVersion.infoTabHtml ||
+        versionData.infoTabHtml ||
+        versionData.outputs?.info_tab_html ||
+        versionData.outputs?.details?.info_tab_html ||
+        backendVersion.info_tab_html ||
+        null,
+      changesSummary: backendVersion.changesSummary ||
+        backendVersion.changes_summary || { totalChanges: 0, significantChanges: [] },
       isActive: backendVersion.isActive || backendVersion.is_active || false,
       isPinned: backendVersion.isPinned || backendVersion.is_pinned || false,
-      calculationDuration_ms: backendVersion.calculationDuration_ms || backendVersion.calculation_duration_ms,
+      calculationDuration_ms:
+        backendVersion.calculationDuration_ms || backendVersion.calculation_duration_ms,
       tags: backendVersion.tags || [],
       notes: backendVersion.notes,
     }
@@ -520,9 +544,9 @@ export class VersionAPI {
 
   /**
    * Create version with conversation context
-   * 
+   *
    * Used when version is created from a Mercury conversation
-   * 
+   *
    * @param reportId - Report identifier
    * @param conversationId - Mercury conversation ID
    * @param request - Create version request
@@ -539,17 +563,20 @@ export class VersionAPI {
       conversationId,
     })
 
-    return this.createVersion({
-      ...request,
-      context: { conversationId },
-    } as CreateVersionRequest, options)
+    return this.createVersion(
+      {
+        ...request,
+        context: { conversationId },
+      } as CreateVersionRequest,
+      options
+    )
   }
 
   /**
    * Get conversation context for a version
-   * 
+   *
    * Returns Mercury conversation details that influenced this version
-   * 
+   *
    * @param versionId - Version identifier
    * @returns Conversation context or null
    */
@@ -600,14 +627,11 @@ export class VersionAPI {
 
   /**
    * Get all conversations that influenced a version
-   * 
+   *
    * @param versionId - Version identifier
    * @returns Array of conversations
    */
-  async getConversationsByVersion(
-    versionId: string,
-    options?: APIRequestConfig
-  ): Promise<any[]> {
+  async getConversationsByVersion(versionId: string, options?: APIRequestConfig): Promise<any[]> {
     try {
       const response = await this.executeRequest<{
         success: boolean

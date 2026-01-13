@@ -97,7 +97,7 @@ export function buildValuationRequest(
 
   // Check if current year EBITDA is normalized
   const currentYearNormalization = normalizationStore.normalizations[currentYear]
-  
+
   // Build current_year_data with normalization support
   const currentYearData: any = {
     year: currentYear,
@@ -108,7 +108,9 @@ export function buildValuationRequest(
       ebitda_normalization_metadata: {
         reported_ebitda: currentYearNormalization.reported_ebitda,
         total_adjustments: currentYearNormalization.total_adjustments,
-        adjustment_count: currentYearNormalization.adjustments.length + (currentYearNormalization.custom_adjustments?.length || 0),
+        adjustment_count:
+          currentYearNormalization.adjustments.length +
+          (currentYearNormalization.custom_adjustments?.length || 0),
         confidence_score: currentYearNormalization.confidence_score,
         has_custom_adjustments: (currentYearNormalization.custom_adjustments?.length || 0) > 0,
       },
@@ -138,8 +140,8 @@ export function buildValuationRequest(
           year.year <= 2100
       )
       .map((year) => {
-        const normalization = normalizationStore.normalizations[year.year];
-        
+        const normalization = normalizationStore.normalizations[year.year]
+
         // If normalization exists, use normalized EBITDA
         if (normalization) {
           return {
@@ -150,20 +152,21 @@ export function buildValuationRequest(
             ebitda_normalization_metadata: {
               reported_ebitda: normalization.reported_ebitda,
               total_adjustments: normalization.total_adjustments,
-              adjustment_count: normalization.adjustments.length + (normalization.custom_adjustments?.length || 0),
+              adjustment_count:
+                normalization.adjustments.length + (normalization.custom_adjustments?.length || 0),
               confidence_score: normalization.confidence_score,
               has_custom_adjustments: (normalization.custom_adjustments?.length || 0) > 0,
             },
-          };
+          }
         }
-        
+
         // No normalization, use reported EBITDA
         return {
-        year: Math.min(Math.max(year.year, 2000), 2100),
-        revenue: Math.max(year.revenue || 0, 1),
-        ebitda: Number(year.ebitda),
+          year: Math.min(Math.max(year.year, 2000), 2100),
+          revenue: Math.max(year.revenue || 0, 1),
+          ebitda: Number(year.ebitda),
           ebitda_normalized: false,
-        };
+        }
       })
       .sort((a, b) => a.year - b.year) || []
 

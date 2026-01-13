@@ -1,13 +1,13 @@
-import { useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation'
+import { useEffect } from 'react'
 
 /**
  * Hook to detect if Venus is running in embedded mode (iframe within Mercury)
  * and provide utilities for communicating with the parent window
  */
 export function useEmbeddedMode() {
-  const searchParams = useSearchParams();
-  const isEmbedded = searchParams?.get('embedded') === 'true';
+  const searchParams = useSearchParams()
+  const isEmbedded = searchParams?.get('embedded') === 'true'
 
   // Notify parent (Mercury) that Venus is ready
   useEffect(() => {
@@ -18,9 +18,9 @@ export function useEmbeddedMode() {
           timestamp: Date.now(),
         },
         '*'
-      ); // Mercury will verify origin
+      ) // Mercury will verify origin
     }
-  }, [isEmbedded]);
+  }, [isEmbedded])
 
   const closeEmbedded = () => {
     if (isEmbedded && typeof window !== 'undefined') {
@@ -30,9 +30,9 @@ export function useEmbeddedMode() {
           timestamp: Date.now(),
         },
         '*'
-      );
+      )
     }
-  };
+  }
 
   const notifyValuationComplete = (reportId: string) => {
     if (isEmbedded && typeof window !== 'undefined') {
@@ -43,9 +43,9 @@ export function useEmbeddedMode() {
           timestamp: Date.now(),
         },
         '*'
-      );
+      )
     }
-  };
+  }
 
-  return { isEmbedded, closeEmbedded, notifyValuationComplete };
+  return { isEmbedded, closeEmbedded, notifyValuationComplete }
 }

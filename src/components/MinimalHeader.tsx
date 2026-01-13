@@ -22,8 +22,8 @@ export const MinimalHeader: React.FC = () => {
 
       // Use unified logout function from auth hook (idempotent, race-condition safe)
       await logout()
-      
-        generalLogger.info('Logout successful')
+
+      generalLogger.info('Logout successful')
     } catch (error) {
       generalLogger.error('Logout failed', { error })
       // Logout function handles errors gracefully, so we don't need to do anything else

@@ -15,9 +15,9 @@
  */
 
 import { create } from 'zustand'
+import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import { sessionService } from '../services'
 import type { ValuationSession } from '../types/valuation'
-import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import { storeLogger } from '../utils/logger'
 
 interface SessionStore {
@@ -172,7 +172,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       set({ isLoading: true, error: null, isInitializing: true }) // ✅ NEW: Mark as initializing
 
       try {
-        storeLogger.info('[Session] Loading session', { reportId: expectedReportId, flow, prefilledQuery })
+        storeLogger.info('[Session] Loading session', {
+          reportId: expectedReportId,
+          flow,
+          prefilledQuery,
+        })
 
         // Load from SessionService (handles cache, backend, merging, auto-creation)
         const session = await sessionService.loadSession(expectedReportId, flow, prefilledQuery)
@@ -180,35 +184,38 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         if (!session) {
           // Session not found and couldn't be auto-created
           storeLogger.warn('[Session] Session not found', { expectedReportId })
-          
+
           // Only redirect if we're viewing a specific report page
           // Don't redirect if we're already on home page to avoid infinite loops
           if (typeof window !== 'undefined') {
             const currentPath = window.location.pathname
-            
+
             // Only redirect if we're on a report detail page (contains /reports/)
             // This prevents redirect loops on home page
             if (currentPath.includes('/reports/')) {
               const localeMatch = currentPath.match(/^\/(en|nl)/)
               const locale = localeMatch ? localeMatch[1] : 'en'
-              
+
               storeLogger.info('[Session] Redirecting from report page to home', {
                 from: currentPath,
                 to: `/${locale}`,
               })
-              
+
               // Redirect to home page to create new session
               window.location.href = `/${locale}`
               return
             } else {
               // We're already on home page or another page - don't redirect
               // Just set error state and let the page handle it
-              storeLogger.warn('[Session] Not found but already on home page, setting error state', {
-                currentPath,
-              })
+              storeLogger.warn(
+                '[Session] Not found but already on home page, setting error state',
+                {
+                  currentPath,
+                }
+              )
             }
           }
-          
+
           throw new Error(`Session not found: ${expectedReportId}`)
         }
 
@@ -266,7 +273,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           // Only set to false if still initializing and session matches (prevents race conditions)
           if (currentState.isInitializing && currentState.session?.reportId === expectedReportId) {
             set({ isInitializing: false })
-            storeLogger.debug('[Session] Initialization complete (fallback timeout)', { reportId: expectedReportId })
+            storeLogger.debug('[Session] Initialization complete (fallback timeout)', {
+              reportId: expectedReportId,
+            })
           }
         }, 2000) // 2 second fallback - restoration should complete faster
       } catch (error) {
@@ -301,7 +310,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         // Determine user-friendly error message based on error type
         let userMessage = rawMessage
         const statusCode = (error as any).response?.status || (error as any).status
-        
+
         if (rawMessage.includes('timeout') || rawMessage.includes('Timeout')) {
           userMessage = 'Connection timed out. Please check your internet connection and try again.'
         } else if (statusCode === 401 || statusCode === 403) {
@@ -309,20 +318,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         } else if (statusCode === 404) {
           // Session not found (404) - only redirect if we're on a report page
           storeLogger.warn('[Session] Session not found (404)', { expectedReportId })
-          
+
           if (typeof window !== 'undefined') {
             const currentPath = window.location.pathname
-            
+
             // Only redirect if we're on a report detail page
             if (currentPath.includes('/reports/')) {
               const localeMatch = currentPath.match(/^\/(en|nl)/)
               const locale = localeMatch ? localeMatch[1] : 'en'
-              
+
               storeLogger.info('[Session] Redirecting from report page to home (404)', {
                 from: currentPath,
                 to: `/${locale}`,
               })
-              
+
               window.location.href = `/${locale}`
               return
             } else {
@@ -332,7 +341,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
               })
             }
           }
-          
+
           userMessage = 'Session not found. Please start a new valuation.'
         } else if (statusCode === 500 || statusCode >= 500) {
           userMessage = 'Server error. Our team has been notified. Please try again later.'
@@ -371,8 +380,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         // This prevents infinite loading state when errors occur
         const finalState = get()
         if (finalState.isInitializing && finalState.session?.reportId === expectedReportId) {
-          storeLogger.debug('[Session] Ensuring isInitializing reset in finally block', { 
-            reportId: expectedReportId 
+          storeLogger.debug('[Session] Ensuring isInitializing reset in finally block', {
+            reportId: expectedReportId,
           })
           set({ isInitializing: false })
         }

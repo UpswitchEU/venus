@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { Providers } from './providers'
 import { locales } from '../i18n'
 import { ClientContextBanner } from '../src/components/ClientContextBanner'
+import { Providers } from './providers'
 
 export function generateStaticParams() {
-	return locales.map((locale) => ({ locale }));
+  return locales.map((locale) => ({ locale }))
 }
 
 export const metadata: Metadata = {

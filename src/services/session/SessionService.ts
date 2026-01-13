@@ -58,21 +58,21 @@ export class SessionService {
 
   /**
    * Check if user can create a new valuation (plan enforcement)
-   * 
+   *
    * Bank-Grade Implementation:
    * - Specific error types (PaywallError)
    * - Graceful degradation if API fails
    * - Comprehensive logging
    * - Type-safe error handling
    * - 5-second timeout to prevent hanging
-   * 
+   *
    * @throws PaywallError with usage data if user has hit limit
    * @private
    */
   private async checkValuationCreationAllowed(): Promise<void> {
     const checkStartTime = performance.now()
     const PLAN_ENFORCEMENT_TIMEOUT = 5000 // 5 seconds max for plan check
-    
+
     try {
       const baseURL =
         process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -130,7 +130,8 @@ export class SessionService {
 
           // Create specific PaywallError (not generic ApplicationError)
           const error = new ApplicationError(
-            result.message || 'Valuation limit reached. Upgrade to Premium for unlimited valuations.',
+            result.message ||
+              'Valuation limit reached. Upgrade to Premium for unlimited valuations.',
             'PAYWALL_VALUATION_LIMIT',
             {
               current: result.current,
@@ -155,17 +156,20 @@ export class SessionService {
         })
       } catch (fetchError) {
         clearTimeout(timeoutId)
-        
+
         // Check if it was a timeout
         if (fetchError instanceof Error && fetchError.name === 'AbortError') {
           const checkTime = performance.now() - checkStartTime
-          logger.warn('Plan enforcement check timed out, allowing creation (graceful degradation)', {
-            timeout_ms: PLAN_ENFORCEMENT_TIMEOUT,
-            elapsed_ms: checkTime.toFixed(2),
-          })
+          logger.warn(
+            'Plan enforcement check timed out, allowing creation (graceful degradation)',
+            {
+              timeout_ms: PLAN_ENFORCEMENT_TIMEOUT,
+              elapsed_ms: checkTime.toFixed(2),
+            }
+          )
           return
         }
-        
+
         // Re-throw other errors to be caught by outer catch
         throw fetchError
       }
@@ -300,7 +304,10 @@ export class SessionService {
 
             if (!sessionResponse?.session) {
               // Session doesn't exist - create it automatically
-              logger.info('Session not found, creating new session', { requestedReportId: reportId, flow })
+              logger.info('Session not found, creating new session', {
+                requestedReportId: reportId,
+                flow,
+              })
 
               try {
                 // ⭐ PLAN ENFORCEMENT: Check if user can create valuation BEFORE creating session
@@ -311,8 +318,8 @@ export class SessionService {
                 // NOTE: Titan generates the session_key, we don't specify it
                 const createResponse = await backendAPI.createValuationSession({
                   currentView: flow || 'manual', // Use provided flow or default to manual
-                  sessionData: prefilledQuery ? { _prefilledQuery: prefilledQuery } as any : {},
-                  partialData: prefilledQuery ? { _prefilledQuery: prefilledQuery } as any : {},
+                  sessionData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as any) : {},
+                  partialData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as any) : {},
                 } as any)
 
                 if (!createResponse?.session) {
@@ -321,10 +328,12 @@ export class SessionService {
                 }
 
                 // Titan generated a new session_key - use it as the reportId
-                const actualReportId = createResponse.reportId || createResponse.session.reportId;
-                
+                const actualReportId = createResponse.reportId || createResponse.session.reportId
+
                 if (!actualReportId) {
-                  logger.error('Backend did not return session_key/reportId', { response: createResponse })
+                  logger.error('Backend did not return session_key/reportId', {
+                    response: createResponse,
+                  })
                   return null
                 }
 
@@ -335,17 +344,17 @@ export class SessionService {
                     requestedReportId: reportId,
                     actualReportId: actualReportId,
                   })
-                  
+
                   // Update browser URL to match the actual session ID from backend
                   if (typeof window !== 'undefined') {
-                    const url = new URL(window.location.href);
-                    url.pathname = url.pathname.replace(reportId, actualReportId);
+                    const url = new URL(window.location.href)
+                    url.pathname = url.pathname.replace(reportId, actualReportId)
                     logger.info('Redirecting to correct session URL', {
                       from: reportId,
                       to: actualReportId,
                       newUrl: url.toString(),
                     })
-                    window.history.replaceState({}, '', url.toString());
+                    window.history.replaceState({}, '', url.toString())
                   }
                 }
 
@@ -362,7 +371,7 @@ export class SessionService {
                 const mergedSession = mergeSessionFields(normalizedSession)
 
                 // Ensure reportId is set correctly
-                mergedSession.reportId = actualReportId;
+                mergedSession.reportId = actualReportId
 
                 // Ensure prefilledQuery is in partialData (merge in case backend didn't preserve it)
                 if (prefilledQuery) {
@@ -378,10 +387,15 @@ export class SessionService {
                 return mergedSession
               } catch (createError) {
                 // ✅ IMPROVED: Categorize errors for better user experience
-                const errorMessage = createError instanceof Error ? createError.message : String(createError)
-                
+                const errorMessage =
+                  createError instanceof Error ? createError.message : String(createError)
+
                 // Paywall error - already handled by checkValuationCreationAllowed
-                if (errorMessage.includes('paywall') || errorMessage.includes('limit') || errorMessage.includes('plan')) {
+                if (
+                  errorMessage.includes('paywall') ||
+                  errorMessage.includes('limit') ||
+                  errorMessage.includes('plan')
+                ) {
                   logger.info('Session creation blocked by plan enforcement', {
                     reportId,
                     error: errorMessage,
@@ -389,25 +403,33 @@ export class SessionService {
                   // Re-throw paywall errors so they can be handled by the store
                   throw createError
                 }
-                
+
                 // Authentication errors
-                if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('authentication')) {
+                if (
+                  errorMessage.includes('401') ||
+                  errorMessage.includes('Unauthorized') ||
+                  errorMessage.includes('authentication')
+                ) {
                   logger.error('Session creation failed - authentication required', {
                     reportId,
                     error: errorMessage,
                   })
                   throw new Error('Authentication required. Please log in to continue.')
                 }
-                
+
                 // Network errors
-                if (errorMessage.includes('Network') || errorMessage.includes('fetch') || errorMessage.includes('timeout')) {
+                if (
+                  errorMessage.includes('Network') ||
+                  errorMessage.includes('fetch') ||
+                  errorMessage.includes('timeout')
+                ) {
                   logger.error('Session creation failed - network error', {
                     reportId,
                     error: errorMessage,
                   })
                   throw new Error('Network error. Please check your connection and try again.')
                 }
-                
+
                 // Backend validation errors
                 if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
                   logger.error('Session creation failed - validation error', {
@@ -416,7 +438,7 @@ export class SessionService {
                   })
                   throw new Error(`Invalid session data: ${errorMessage}`)
                 }
-                
+
                 // Generic error
                 logger.error('Session creation failed - unknown error', {
                   reportId,
@@ -887,17 +909,19 @@ export class SessionService {
           const { broadcastReportUpdated } = await import('../../utils/auth/cross-domain-logout')
           const { useVersionHistoryStore } = await import('../../store/useVersionHistoryStore')
           const { useClientContext } = await import('../../stores/clientContext')
-          
+
           const versionStore = useVersionHistoryStore.getState()
           const versions = versionStore.versions[reportId] || []
           const latestVersion = versionStore.getLatestVersion(reportId)
           const clientContext = useClientContext.getState()
-          
+
           broadcastReportUpdated({
             reportId,
             reportName: freshSession?.name,
             updatedAt: new Date(),
-            clientId: clientContext.isActingAsClient ? (clientContext.relationshipId ?? undefined) : undefined,
+            clientId: clientContext.isActingAsClient
+              ? (clientContext.relationshipId ?? undefined)
+              : undefined,
             valuationResult: {
               equity_value_low: data.valuationResult.equity_value_low,
               equity_value_mid: data.valuationResult.equity_value_mid,
@@ -907,13 +931,15 @@ export class SessionService {
               methodology: data.valuationResult.methodology,
             },
             versionCount: versions.length,
-            latestVersion: latestVersion ? {
-              versionNumber: latestVersion.versionNumber,
-              createdAt: latestVersion.createdAt,
-              changes: latestVersion.changesSummary,
-            } : undefined,
+            latestVersion: latestVersion
+              ? {
+                  versionNumber: latestVersion.versionNumber,
+                  createdAt: latestVersion.createdAt,
+                  changes: latestVersion.changesSummary,
+                }
+              : undefined,
           })
-          
+
           logger.info('Report update broadcasted to Mercury', { reportId })
         } catch (broadcastError) {
           // Non-critical - don't fail the save if broadcast fails

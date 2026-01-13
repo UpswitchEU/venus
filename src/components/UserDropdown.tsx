@@ -2,13 +2,13 @@ import { Home, Info, LogOut, Settings, User, UserPlus } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import React, { useEffect, useRef, useState } from 'react'
 import { User as UserType } from '../contexts/AuthContextTypes'
+import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import UrlGeneratorService from '../services/urlGenerator'
 import { useSessionStore } from '../store/useSessionStore'
+import { useClientContext } from '../stores/clientContext'
 import { generalLogger } from '../utils/logger'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
-import { useClientContext } from '../stores/clientContext'
-import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 
 interface UserDropdownProps {
   user: UserType | null
@@ -24,7 +24,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   const [showExitModal, setShowExitModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null) // Track button position
-  
+
   // Embedded mode detection for iframe integration
   const { isEmbedded, closeEmbedded } = useEmbeddedMode()
 
@@ -37,7 +37,8 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   // Check if we're on a report page
   const isOnReportPage = pathname?.startsWith('/reports/') && pathname !== '/reports/new'
-  const reportId = session?.reportId || (isOnReportPage ? pathname?.split('/reports/')[1]?.split('?')[0] : null)
+  const reportId =
+    session?.reportId || (isOnReportPage ? pathname?.split('/reports/')[1]?.split('?')[0] : null)
 
   // Debug logging for pathname detection
   useEffect(() => {
@@ -116,7 +117,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       }
       return client.fullName.substring(0, 2).toUpperCase()
     }
-    
+
     if (!user?.name) return '?'
     const names = user.name.split(' ')
     if (names.length >= 2) {
@@ -126,9 +127,9 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   }
 
   // Use client avatar when acting as client, otherwise use user avatar
-  const avatarUrl = (isActingAsClient && client) ? client.avatarUrl : (user?.avatar_url || user?.avatar)
+  const avatarUrl = isActingAsClient && client ? client.avatarUrl : user?.avatar_url || user?.avatar
   const hasAvatar = !!avatarUrl
-  const displayName = (isActingAsClient && client) ? client.fullName : (user?.name || user?.email)
+  const displayName = isActingAsClient && client ? client.fullName : user?.name || user?.email
 
   const handleUserClick = () => {
     setIsOpen((prev) => !prev)
@@ -307,14 +308,14 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       }
       // Close modal first
       setShowExitModal(false)
-      
+
       // If embedded in iframe (Mercury modal), close the embedded view
       if (isEmbedded) {
         generalLogger.info('[UserDropdown] Embedded mode detected, closing embedded view')
         closeEmbedded()
         return
       }
-      
+
       // Check for return URL (Mercury integration - direct access with return URL)
       if (typeof window !== 'undefined') {
         const returnUrl = sessionStorage.getItem('upswitch_return_url')
@@ -326,7 +327,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           return
         }
       }
-      
+
       // Navigate to home
       const homeUrl = UrlGeneratorService.root()
       generalLogger.info('[UserDropdown] Navigating to home', { homeUrl })
@@ -338,13 +339,13 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       })
       // Still navigate even if cleanup fails
       setShowExitModal(false)
-      
+
       // If embedded, try to close even on error
       if (isEmbedded) {
         closeEmbedded()
         return
       }
-      
+
       // Check for return URL even on error
       if (typeof window !== 'undefined') {
         const returnUrl = sessionStorage.getItem('upswitch_return_url')
@@ -353,7 +354,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           return
         }
       }
-      
+
       router.push(UrlGeneratorService.root())
     }
   }

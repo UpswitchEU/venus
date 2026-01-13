@@ -38,7 +38,7 @@ export const useValuationToolbarName = (
   options: UseValuationToolbarNameOptions = {}
 ): UseValuationToolbarNameReturn => {
   const { initialName = 'Valuation test123', companyName, reportId } = options
-  
+
   // ROOT CAUSE FIX: Only subscribe to reportId, not entire session object
   const sessionReportId = useSessionStore((state) => state.session?.reportId)
   const actualReportId = reportId || sessionReportId
@@ -89,8 +89,7 @@ export const useValuationToolbarName = (
         generatedName === initialName || // Still using default
         generatedName.includes('Valuation Report') || // Using default pattern
         generatedName === expectedAutoName || // Already matches auto-generated pattern
-        (generatedName.endsWith('business valuation') &&
-          !sessionName) // Ends with "business valuation" but no session name (likely auto-generated)
+        (generatedName.endsWith('business valuation') && !sessionName) // Ends with "business valuation" but no session name (likely auto-generated)
 
       if (shouldAutoGenerate) {
         const newName = NameGenerator.generateFromCompany(companyName)

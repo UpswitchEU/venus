@@ -102,7 +102,7 @@ export const ConversationProvider: React.FC<ConversationProviderProps> = ({
 }) => {
   // FIX: Call ALL hooks unconditionally before any effects to comply with React rules of hooks
   // This ensures the same number of hooks are called on every render
-  
+
   // Session management state
   const [sessionId, setSessionId] = useState<string>(initialSessionId)
   const [pythonSessionId, setPythonSessionId] = useState<string | null>(null)

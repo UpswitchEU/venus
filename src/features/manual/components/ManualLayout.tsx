@@ -20,9 +20,9 @@ import { shouldEnableSessionRestoration } from '../../../config/features'
 import { useAuth } from '../../../hooks/useAuth'
 import { useToast } from '../../../hooks/useToast'
 import {
-    useValuationToolbarFullscreen,
-    useValuationToolbarTabs,
-    type ValuationTab,
+  useValuationToolbarFullscreen,
+  useValuationToolbarTabs,
+  type ValuationTab,
 } from '../../../hooks/valuationToolbar'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
@@ -182,7 +182,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
     return () => {
       // Clean up callbacks on unmount
-      useSessionStore.setState({ 
+      useSessionStore.setState({
         onSaveSuccess: undefined,
         onAssetSaveSuccess: undefined,
       })
@@ -278,7 +278,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             businessHighlights: sessionDataObj?.business_highlights,
             reasonForSelling: sessionDataObj?.reason_for_selling,
             city: sessionDataObj?.city,
-            hasHistoricalData: !!(sessionDataObj?.historical_years_data && Array.isArray(sessionDataObj.historical_years_data) && sessionDataObj.historical_years_data.length > 0),
+            hasHistoricalData: !!(
+              sessionDataObj?.historical_years_data &&
+              Array.isArray(sessionDataObj.historical_years_data) &&
+              sessionDataObj.historical_years_data.length > 0
+            ),
             historicalDataCount: sessionDataObj?.historical_years_data?.length || 0,
             currentYearData: sessionDataObj?.current_year_data,
           },
@@ -337,9 +341,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           // The company_name might be in the valuation result but not yet synced to sessionData
           const resultCompanyName = result?.company_name
           const sessionCompanyName = sessionDataObj.company_name
-          const companyNameToRestore = sessionCompanyName !== undefined 
-            ? sessionCompanyName 
-            : resultCompanyName || undefined
+          const companyNameToRestore =
+            sessionCompanyName !== undefined ? sessionCompanyName : resultCompanyName || undefined
 
           generalLogger.info('[ManualLayout] Company name restoration check', {
             reportId,
@@ -429,13 +432,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             hasBusinessHighlights: !!formDataUpdate.business_highlights,
             hasReasonForSelling: !!formDataUpdate.reason_for_selling,
             hasCity: !!formDataUpdate.city,
-            hasHistoricalData: !!(formDataUpdate.historical_years_data && Array.isArray(formDataUpdate.historical_years_data) && formDataUpdate.historical_years_data.length > 0),
+            hasHistoricalData: !!(
+              formDataUpdate.historical_years_data &&
+              Array.isArray(formDataUpdate.historical_years_data) &&
+              formDataUpdate.historical_years_data.length > 0
+            ),
             historicalDataCount: formDataUpdate.historical_years_data?.length || 0,
-            historicalDataYears: formDataUpdate.historical_years_data?.map((h: any) => h.year) || [],
+            historicalDataYears:
+              formDataUpdate.historical_years_data?.map((h: any) => h.year) || [],
           })
 
           // ✅ LOGGING: Detailed historical data restoration logging
-          if (formDataUpdate.historical_years_data && Array.isArray(formDataUpdate.historical_years_data) && formDataUpdate.historical_years_data.length > 0) {
+          if (
+            formDataUpdate.historical_years_data &&
+            Array.isArray(formDataUpdate.historical_years_data) &&
+            formDataUpdate.historical_years_data.length > 0
+          ) {
             generalLogger.debug('[ManualLayout] Restoring historical data', {
               reportId,
               hasHistoricalData: true,
@@ -475,7 +487,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 companyNameExact: restoredFormData.company_name === formDataUpdate.company_name,
               },
             })
-            
+
             // ✅ FIX: If company_name is still empty after restoration, log warning
             if (!restoredFormData.company_name && formDataUpdate.company_name) {
               generalLogger.warn('[ManualLayout] Company name not restored properly', {
@@ -708,14 +720,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       // Use the same restoration logic as the main effect
       const { updateFormData: updateFormDataFn } = useManualFormStore.getState()
       const { result: currentResult } = useManualResultsStore.getState()
-      
+
       // ✅ FIX: Get company_name from result as fallback if not in sessionData
       // The company_name might be in the valuation result but not yet synced to sessionData
       const resultCompanyName = currentResult?.company_name
       const sessionCompanyName = sessionDataObj.company_name
-      const companyNameToRestore = sessionCompanyName !== undefined 
-        ? sessionCompanyName 
-        : resultCompanyName || undefined
+      const companyNameToRestore =
+        sessionCompanyName !== undefined ? sessionCompanyName : resultCompanyName || undefined
 
       generalLogger.info('[ManualLayout] Company name restoration check (reactive)', {
         reportId,
@@ -791,13 +802,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         hasBusinessHighlights: !!formDataUpdate.business_highlights,
         hasReasonForSelling: !!formDataUpdate.reason_for_selling,
         hasCity: !!formDataUpdate.city,
-        hasHistoricalData: !!(formDataUpdate.historical_years_data && Array.isArray(formDataUpdate.historical_years_data) && formDataUpdate.historical_years_data.length > 0),
+        hasHistoricalData: !!(
+          formDataUpdate.historical_years_data &&
+          Array.isArray(formDataUpdate.historical_years_data) &&
+          formDataUpdate.historical_years_data.length > 0
+        ),
         historicalDataCount: formDataUpdate.historical_years_data?.length || 0,
         historicalDataYears: formDataUpdate.historical_years_data?.map((h: any) => h.year) || [],
       })
 
       // ✅ LOGGING: Detailed historical data restoration logging (reactive)
-      if (formDataUpdate.historical_years_data && Array.isArray(formDataUpdate.historical_years_data) && formDataUpdate.historical_years_data.length > 0) {
+      if (
+        formDataUpdate.historical_years_data &&
+        Array.isArray(formDataUpdate.historical_years_data) &&
+        formDataUpdate.historical_years_data.length > 0
+      ) {
         generalLogger.debug('[ManualLayout] Restoring historical data (reactive)', {
           reportId,
           hasHistoricalData: true,
@@ -819,23 +838,33 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       // ✅ FIX: Verify restoration after a brief delay to ensure form component receives updates
       setTimeout(() => {
         const restoredFormData = useManualFormStore.getState().formData
-        generalLogger.info('[ManualLayout] Form fields restored from sessionData (reactive, verified)', {
-          reportId,
-          fieldsRestored: Object.keys(formDataUpdate).length,
-          companyName: restoredFormData.company_name,
-          revenue: restoredFormData.revenue,
-          ebitda: restoredFormData.ebitda,
-          hasHistoricalData: !!(restoredFormData.historical_years_data && Array.isArray(restoredFormData.historical_years_data) && restoredFormData.historical_years_data.length > 0),
-          restorationMatch: {
-            revenue: restoredFormData.revenue === formDataUpdate.revenue,
-            ebitda: restoredFormData.ebitda === formDataUpdate.ebitda,
-            companyName: restoredFormData.company_name === formDataUpdate.company_name,
-            businessDescription: restoredFormData.business_description === formDataUpdate.business_description,
-            businessHighlights: restoredFormData.business_highlights === formDataUpdate.business_highlights,
-            reasonForSelling: restoredFormData.reason_for_selling === formDataUpdate.reason_for_selling,
-            city: restoredFormData.city === formDataUpdate.city,
-          },
-        })
+        generalLogger.info(
+          '[ManualLayout] Form fields restored from sessionData (reactive, verified)',
+          {
+            reportId,
+            fieldsRestored: Object.keys(formDataUpdate).length,
+            companyName: restoredFormData.company_name,
+            revenue: restoredFormData.revenue,
+            ebitda: restoredFormData.ebitda,
+            hasHistoricalData: !!(
+              restoredFormData.historical_years_data &&
+              Array.isArray(restoredFormData.historical_years_data) &&
+              restoredFormData.historical_years_data.length > 0
+            ),
+            restorationMatch: {
+              revenue: restoredFormData.revenue === formDataUpdate.revenue,
+              ebitda: restoredFormData.ebitda === formDataUpdate.ebitda,
+              companyName: restoredFormData.company_name === formDataUpdate.company_name,
+              businessDescription:
+                restoredFormData.business_description === formDataUpdate.business_description,
+              businessHighlights:
+                restoredFormData.business_highlights === formDataUpdate.business_highlights,
+              reasonForSelling:
+                restoredFormData.reason_for_selling === formDataUpdate.reason_for_selling,
+              city: restoredFormData.city === formDataUpdate.city,
+            },
+          }
+        )
       }, 100)
 
       // ✅ FIX: Mark as saved if restoring an existing report that was explicitly saved by user

@@ -7,8 +7,8 @@
  * @module components/chat/ChatInputForm
  */
 
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 
 export interface ChatInputFormProps {
   input: string

@@ -7,8 +7,8 @@
  * @module components/ValuationForm/sections/FormSubmitSection
  */
 
-import React, { useEffect } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useEffect } from 'react'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import type { ValuationFormData } from '../../../types/valuation'
 
@@ -34,14 +34,15 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   isRegenerationMode = false,
 }) => {
   const t = useTranslations()
-  const currentYear = Math.min(new Date().getFullYear(), 2100);
-  const { hasNormalization } = useEbitdaNormalizationStore();
-  
+  const currentYear = Math.min(new Date().getFullYear(), 2100)
+  const { hasNormalization } = useEbitdaNormalizationStore()
+
   // Check if any normalizations exist
-  const hasAnyNormalization = hasNormalization(currentYear) || 
-    hasNormalization(currentYear - 1) || 
-    hasNormalization(currentYear - 2);
-  
+  const hasAnyNormalization =
+    hasNormalization(currentYear) ||
+    hasNormalization(currentYear - 1) ||
+    hasNormalization(currentYear - 2)
+
   const isFormValid =
     formData.revenue && formData.ebitda && formData.industry && formData.country_code
 
@@ -51,17 +52,17 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   if (!formData.ebitda) missingFields.push(t('forms.fields.ebitda'))
   if (!formData.industry) missingFields.push(t('forms.fields.businessType'))
   if (!formData.country_code) missingFields.push(t('forms.fields.country'))
-  
+
   // Determine button text based on context
   const getButtonText = () => {
     if (hasAnyNormalization) {
-      return t('forms.actions.calculateWithNormalization');
+      return t('forms.actions.calculateWithNormalization')
     }
     if (isRegenerationMode) {
-      return t('forms.actions.regenerate');
+      return t('forms.actions.regenerate')
     }
-    return t('forms.actions.calculate');
-  };
+    return t('forms.actions.calculate')
+  }
 
   // Debug: Log form validation state
   useEffect(() => {

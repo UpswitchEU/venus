@@ -12,13 +12,13 @@ import { generalLogger } from './logger'
 
 /**
  * Snapshot draft normalizations to a specific version
- * 
- * Creates immutable copies of draft normalizations (version_id = null) 
+ *
+ * Creates immutable copies of draft normalizations (version_id = null)
  * and links them to the specified version for version control
- * 
+ *
  * This function is used by both manual and conversational flows to ensure
  * consistent normalization snapshotting across the application
- * 
+ *
  * @param sessionId - The session ID containing draft normalizations
  * @param versionId - The version ID to link snapshots to
  * @returns Promise that resolves when all snapshots are created
@@ -30,18 +30,18 @@ export async function snapshotNormalizationsToVersion(
   try {
     // Get all draft normalizations (version_id = null) for this session
     const drafts = await normalizationService.getAllNormalizations(sessionId)
-    
+
     if (!drafts || drafts.length === 0) {
       generalLogger.info('No draft normalizations to snapshot', { sessionId, versionId })
       return
     }
-    
+
     generalLogger.info('Snapshotting normalizations to version', {
       sessionId,
       versionId,
       draftCount: drafts.length,
     })
-    
+
     // Create snapshot for each draft
     for (const draft of drafts) {
       await normalizationService.saveNormalization({
@@ -55,7 +55,7 @@ export async function snapshotNormalizationsToVersion(
         market_rate_source: draft.market_rate_source || undefined,
       })
     }
-    
+
     generalLogger.info('Normalization snapshots created successfully', {
       sessionId,
       versionId,

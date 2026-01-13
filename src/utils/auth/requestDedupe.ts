@@ -1,6 +1,6 @@
 /**
  * Request Deduplication
- * 
+ *
  * Prevents duplicate concurrent auth requests
  * Shares results across concurrent callers
  */
@@ -23,7 +23,7 @@ export class RequestDeduplicator {
 
   /**
    * Execute request with deduplication
-   * 
+   *
    * If a request with the same key is already in flight,
    * returns the existing promise instead of making a new request
    */
@@ -139,4 +139,3 @@ export function destroyRequestDeduplicator(): void {
     requestDeduplicator = null
   }
 }
-

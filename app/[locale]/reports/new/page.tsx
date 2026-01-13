@@ -23,7 +23,7 @@ export default async function NewReportPage({ params }: NewReportPageProps) {
     // Fallback to English
     locale = 'en'
   }
-  
+
   // Generate new report ID and redirect with locale
   const newReportId = generateReportId()
   redirect(`/${locale}/reports/${newReportId}`)

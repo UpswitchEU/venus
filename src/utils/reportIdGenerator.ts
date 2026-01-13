@@ -1,20 +1,20 @@
 /**
  * Report ID Generator Utility
  * Generate unique report IDs with collision-proof source encoding
- * 
+ *
  * This utility ensures Venus and Mercury can NEVER generate conflicting IDs
  * by encoding the source application in the ID itself.
- * 
+ *
  * ID Format: val_${timestamp}_${source}${random}
  * - Venus:   val_1234567890_v7a8b9c0d (source='v')
  * - Mercury: val_1234567890_m7a8b9c0d (source='m')
- * 
+ *
  * Collision Prevention Strategy:
  * 1. Source Encoding: First char of random part identifies source (v=Venus, m=Mercury)
  * 2. Timestamp Uniqueness: Millisecond precision reduces collision window
  * 3. Cryptographic Random: 8 chars = 36^8 = 2.8 trillion combinations
  * 4. Mathematical Proof: Different source prefixes = zero collision probability
- * 
+ *
  * Benefits:
  * - Visual Distinction: Easy to identify report source in logs/URLs
  * - Zero Collision Risk: Mathematically impossible for Venus/Mercury to collide
@@ -26,7 +26,7 @@
  * Generate unique report ID with Venus source encoding
  * Format: val_${timestamp}_v${random8chars}
  * Example: val_1729800000_v7a8b9c0d
- * 
+ *
  * The 'v' prefix guarantees this ID can NEVER conflict with Mercury-generated IDs (prefix 'm')
  */
 export const generateReportId = (): string => {
@@ -49,7 +49,7 @@ export const isValidReportId = (reportId: string): boolean => {
 /**
  * Extract source from report ID
  * Returns 'venus', 'mercury', or 'unknown' (legacy IDs without source prefix)
- * 
+ *
  * Examples:
  * - val_1234567890_v7a8b9c0d → 'venus'
  * - val_1234567890_m7a8b9c0d → 'mercury'
@@ -58,7 +58,7 @@ export const isValidReportId = (reportId: string): boolean => {
 export const getReportSource = (reportId: string): 'venus' | 'mercury' | 'unknown' => {
   const match = reportId.match(/^val_\d+_([a-z])/)
   if (!match) return 'unknown'
-  
+
   const prefix = match[1]
   if (prefix === 'v') return 'venus'
   if (prefix === 'm') return 'mercury'

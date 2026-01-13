@@ -11,11 +11,11 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { VersionAPI } from '../services/api/version/VersionAPI'
 import type {
-    CreateVersionRequest,
-    UpdateVersionRequest,
-    ValuationVersion,
-    VersionChanges,
-    VersionComparison,
+  CreateVersionRequest,
+  UpdateVersionRequest,
+  ValuationVersion,
+  VersionChanges,
+  VersionComparison,
 } from '../types/ValuationVersion'
 import { createContextLogger } from '../utils/logger'
 import { useEbitdaNormalizationStore } from './useEbitdaNormalizationStore'
@@ -32,13 +32,16 @@ export interface VersionHistoryStore {
   activeVersions: Record<string, number> // Currently selected version per report
   loading: boolean
   error: string | null
-  
+
   // ✅ NEW: Sync status tracking
-  syncStatus: Record<string, {
-    lastSyncedAt: number | null
-    isSyncing: boolean
-    syncError: string | null
-  }> // Keyed by reportId
+  syncStatus: Record<
+    string,
+    {
+      lastSyncedAt: number | null
+      isSyncing: boolean
+      syncError: string | null
+    }
+  > // Keyed by reportId
 
   // Actions
   fetchVersions: (reportId: string) => Promise<void>
@@ -159,7 +162,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
        */
       fetchVersions: async (reportId: string) => {
         set({ loading: true, error: null })
-        
+
         // Update sync status
         set((state) => ({
           syncStatus: {
@@ -300,11 +303,11 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
 
           // ✅ ENHANCEMENT: Capture normalization data from store if not provided
           let enrichedRequest = { ...request }
-          
+
           if (!enrichedRequest.normalization_data) {
             const normalizationStore = useEbitdaNormalizationStore.getState()
             const normalizationData: ValuationVersion['normalization_data'] = {}
-            
+
             // Get all years with normalizations
             Object.entries(normalizationStore.normalizations).forEach(([year, norm]) => {
               if (norm && norm.reported_ebitda !== undefined) {
@@ -312,24 +315,25 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                   reported_ebitda: norm.reported_ebitda,
                   normalized_ebitda: norm.normalized_ebitda || norm.reported_ebitda,
                   total_adjustments: norm.total_adjustments || 0,
-                  adjustments: norm.adjustments.map(adj => ({
+                  adjustments: norm.adjustments.map((adj) => ({
                     category: adj.category,
                     amount: adj.amount,
                     note: adj.note,
                   })),
-                  custom_adjustments: norm.custom_adjustments?.map(custom => ({
+                  custom_adjustments: norm.custom_adjustments?.map((custom) => ({
                     description: custom.description,
                     amount: custom.amount,
                     note: custom.note,
                   })),
                   confidence_score: norm.confidence_score || 'medium',
-                  adjustment_percentage: norm.reported_ebitda !== 0 
-                    ? (norm.total_adjustments || 0) / norm.reported_ebitda * 100 
-                    : 0,
+                  adjustment_percentage:
+                    norm.reported_ebitda !== 0
+                      ? ((norm.total_adjustments || 0) / norm.reported_ebitda) * 100
+                      : 0,
                 }
               }
             })
-            
+
             // Only add if we have normalization data
             if (Object.keys(normalizationData).length > 0) {
               enrichedRequest.normalization_data = normalizationData
@@ -411,12 +415,14 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             // Backend unavailable - create locally
             versionLogger.warn('Backend unavailable, creating local version', {
               reportId: request.reportId,
-              backendError: backendError instanceof Error ? backendError.message : String(backendError),
+              backendError:
+                backendError instanceof Error ? backendError.message : String(backendError),
             })
 
             try {
               const reportVersions = get().versions[request.reportId] || []
-              const nextVersionNumber = Math.max(0, ...reportVersions.map((v) => v.versionNumber)) + 1
+              const nextVersionNumber =
+                Math.max(0, ...reportVersions.map((v) => v.versionNumber)) + 1
 
               // Generate auto-label
               const autoLabel =
@@ -435,7 +441,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 valuationResult: request.valuationResult || null,
                 htmlReport: request.htmlReport || null,
                 infoTabHtml: request.infoTabHtml || null,
-                changesSummary: request.changesSummary || { totalChanges: 0, significantChanges: [] },
+                changesSummary: request.changesSummary || {
+                  totalChanges: 0,
+                  significantChanges: [],
+                },
                 isActive: true,
                 isPinned: false,
                 tags: request.tags || [],
@@ -470,11 +479,15 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             } catch (localError) {
               // Local version creation also failed - this is a real error
               pendingVersionCreations.delete(creationKey)
-              versionLogger.error('Failed to create version (both backend and local fallback failed)', {
-                reportId: request.reportId,
-                backendError: backendError instanceof Error ? backendError.message : String(backendError),
-                localError: localError instanceof Error ? localError.message : String(localError),
-              })
+              versionLogger.error(
+                'Failed to create version (both backend and local fallback failed)',
+                {
+                  reportId: request.reportId,
+                  backendError:
+                    backendError instanceof Error ? backendError.message : String(backendError),
+                  localError: localError instanceof Error ? localError.message : String(localError),
+                }
+              )
               throw localError
             }
           }

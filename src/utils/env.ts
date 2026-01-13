@@ -3,16 +3,16 @@
  *
  * Provides Next.js-compatible environment variable access
  * Replaces Vite's import.meta.env with Next.js process.env
- * 
+ *
  * MIGRATION NOTE: Prioritizes NEXT_PUBLIC_* over VITE_* for Next.js compatibility
  */
 
 /**
  * Get environment variable value
  * Works in both client and server contexts
- * 
+ *
  * Priority order: NEXT_PUBLIC_* > unprefixed > VITE_* (backward compat) > default
- * 
+ *
  * @param key - The environment variable key (without NEXT_PUBLIC_ or VITE_ prefix)
  * @param defaultValue - Optional default value if env var not found
  * @returns The environment variable value or undefined
@@ -48,7 +48,7 @@ export const mode = process.env.NODE_ENV || 'development'
 
 /**
  * Environment variable accessor object (compatible with import.meta.env)
- * 
+ *
  * IMPORTANT: Use NEXT_PUBLIC_* properties for new code
  * VITE_* properties are deprecated and will be removed in future versions
  */
@@ -56,7 +56,7 @@ export const env = {
   MODE: mode,
   DEV: isDev,
   PROD: isProd,
-  
+
   // ============================================================================
   // PRIMARY: NEXT_PUBLIC_* prefixed vars (Next.js standard)
   // ============================================================================
@@ -74,7 +74,7 @@ export const env = {
   NEXT_PUBLIC_ENABLE_DOCUMENT_UPLOAD: getEnv('ENABLE_DOCUMENT_UPLOAD'),
   NEXT_PUBLIC_ENABLE_AI_CONVERSATION: getEnv('ENABLE_AI_CONVERSATION'),
   NEXT_PUBLIC_DEBUG: getEnv('DEBUG'),
-  
+
   // ============================================================================
   // DEPRECATED: VITE_* prefixed vars (backward compatibility only)
   // Use NEXT_PUBLIC_* equivalents instead

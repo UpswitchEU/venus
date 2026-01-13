@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
+import { LogoutListener } from '../src/components/LogoutListener'
 import { ToastProvider } from '../src/hooks/useToast'
 import { registerServiceWorker } from '../src/utils/serviceWorkerRegistration'
-import { LogoutListener } from '../src/components/LogoutListener'
 // RUM is auto-initialized on import
 import '../src/utils/performance/rum'
 // Auth is auto-initialized on import
@@ -24,7 +24,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // TEMPORARILY DISABLED: Service worker registration
     // The service worker was causing infinite reload loops and fetch failures.
     // Re-enable after fixing the SW implementation.
-    
     // if (process.env.NODE_ENV === 'production') {
     //   registerServiceWorker({
     //     onUpdate: (registration) => {

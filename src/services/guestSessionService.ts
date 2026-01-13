@@ -111,7 +111,7 @@ class GuestSessionService {
 
       // Backend returns GuestSessionEntity directly (not wrapped in {success, data})
       const data = await response.json()
-      
+
       // Backend returns: { session_id, expires_at, created_at, ... }
       if (!data.session_id) {
         throw new Error('Invalid response from session creation: missing session_id')

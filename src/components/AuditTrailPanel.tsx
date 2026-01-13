@@ -40,18 +40,18 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
   // ✅ FIX: Deduplicate versions to prevent duplicates from appearing
   // Get versions for this report and deduplicate by versionNumber AND id to catch true duplicates
   const rawVersions = allVersions[reportId] || []
-  
+
   // First pass: deduplicate by id (exact duplicates)
-  const idMap = new Map<string, typeof rawVersions[0]>()
+  const idMap = new Map<string, (typeof rawVersions)[0]>()
   rawVersions.forEach((version) => {
     if (!idMap.has(version.id)) {
       idMap.set(version.id, version)
     }
   })
   const uniqueByIdVersions = Array.from(idMap.values())
-  
+
   // Second pass: deduplicate by versionNumber (keep latest createdAt)
-  const versionMap = new Map<number, typeof uniqueByIdVersions[0]>()
+  const versionMap = new Map<number, (typeof uniqueByIdVersions)[0]>()
   uniqueByIdVersions.forEach((version) => {
     const existing = versionMap.get(version.versionNumber)
     if (!existing) {
@@ -59,7 +59,7 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
     } else {
       const versionCreatedAt = version.createdAt ? new Date(version.createdAt).getTime() : 0
       const existingCreatedAt = existing.createdAt ? new Date(existing.createdAt).getTime() : 0
-      
+
       // Keep the version with the latest createdAt
       if (versionCreatedAt > existingCreatedAt) {
         versionMap.set(version.versionNumber, version)
@@ -69,9 +69,7 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
       }
     }
   })
-  const versions = Array.from(versionMap.values()).sort(
-    (a, b) => b.versionNumber - a.versionNumber
-  )
+  const versions = Array.from(versionMap.values()).sort((a, b) => b.versionNumber - a.versionNumber)
   const activeVersion = getActiveVersion(reportId)
 
   // Fetch versions on mount

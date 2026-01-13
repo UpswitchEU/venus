@@ -56,17 +56,19 @@ export function formatVersionLabel(version: ValuationVersion): string {
   const low = formatCurrency(result.equity_value_low)
   const high = formatCurrency(result.equity_value_high)
   const asking = formatCurrency(result.recommended_asking_price)
-  
+
   // Check if version has normalized EBITDA
-  const hasNormalizedEbitda = version.changeMetadata?.normalized_years && 
+  const hasNormalizedEbitda =
+    version.changeMetadata?.normalized_years &&
     Array.isArray(version.changeMetadata.normalized_years) &&
     version.changeMetadata.normalized_years.length > 0
-  const normalizedYearsCount = hasNormalizedEbitda && version.changeMetadata?.normalized_years 
-    ? version.changeMetadata.normalized_years.length 
-    : 0
-  
+  const normalizedYearsCount =
+    hasNormalizedEbitda && version.changeMetadata?.normalized_years
+      ? version.changeMetadata.normalized_years.length
+      : 0
+
   // Add normalization indicator if present
-  const normalizationIndicator = hasNormalizedEbitda 
+  const normalizationIndicator = hasNormalizedEbitda
     ? ` [Normalized: ${normalizedYearsCount}yr${normalizedYearsCount > 1 ? 's' : ''}]`
     : ''
 

@@ -75,8 +75,7 @@ class ManualValuationStreamService {
 
     // Use Python engine URL directly for streaming
     const pythonEngineUrl =
-      process.env.NEXT_PUBLIC_PYTHON_ENGINE_URL ||
-      'https://api.valuations.upswitch.app'
+      process.env.NEXT_PUBLIC_PYTHON_ENGINE_URL || 'https://api.valuations.upswitch.app'
 
     const streamUrl = `${pythonEngineUrl}/api/v1/valuation/calculate/stream`
 

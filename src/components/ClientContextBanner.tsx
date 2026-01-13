@@ -1,24 +1,24 @@
-'use client';
+'use client'
 
-import React, { useEffect, useState } from 'react';
-import { useClientContext } from '../stores/clientContext';
-import { X } from 'lucide-react';
+import { X } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { useClientContext } from '../stores/clientContext'
 
 /**
  * Client Context Banner
- * 
+ *
  * Displays when an accountant is acting on behalf of a client.
  * Shows client's name and avatar, with option to exit client view.
  */
 export function ClientContextBanner() {
-  const [mounted, setMounted] = useState(false);
-  const { isActingAsClient, client, clearClientContext } = useClientContext();
+  const [mounted, setMounted] = useState(false)
+  const { isActingAsClient, client, clearClientContext } = useClientContext()
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    setMounted(true)
+  }, [])
 
-  if (!mounted || !isActingAsClient || !client) return null;
+  if (!mounted || !isActingAsClient || !client) return null
 
   return (
     <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
@@ -43,12 +43,8 @@ export function ClientContextBanner() {
 
           {/* Context Info */}
           <div>
-            <p className="text-sm font-medium text-blue-900">
-              Acting as {client.fullName}
-            </p>
-            <p className="text-xs text-blue-700">
-              Reports created will belong to this client
-            </p>
+            <p className="text-sm font-medium text-blue-900">Acting as {client.fullName}</p>
+            <p className="text-xs text-blue-700">Reports created will belong to this client</p>
           </div>
         </div>
 
@@ -62,5 +58,5 @@ export function ClientContextBanner() {
         </button>
       </div>
     </div>
-  );
+  )
 }

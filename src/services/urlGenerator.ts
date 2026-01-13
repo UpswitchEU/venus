@@ -14,10 +14,10 @@ class UrlGeneratorService {
    * Get current locale from pathname or default to 'en'
    */
   private static getLocale(locale?: string): string {
-    if (locale) return locale;
-    if (typeof window === 'undefined') return 'en';
-    const match = window.location.pathname.match(/^\/(en|nl)/);
-    return (match?.[1] as 'en' | 'nl') || 'en';
+    if (locale) return locale
+    if (typeof window === 'undefined') return 'en'
+    const match = window.location.pathname.match(/^\/(en|nl)/)
+    return (match?.[1] as 'en' | 'nl') || 'en'
   }
 
   static root = (locale?: string) => `/${this.getLocale(locale)}`
@@ -38,7 +38,7 @@ class UrlGeneratorService {
     queryParams?: Record<string, string | boolean | null | undefined>,
     locale?: string
   ) => {
-    const currentLocale = this.getLocale(locale);
+    const currentLocale = this.getLocale(locale)
     const baseUrl = `/${currentLocale}/reports/${reportId}`
     if (!queryParams || Object.keys(queryParams).length === 0) {
       return baseUrl

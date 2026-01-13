@@ -1,24 +1,24 @@
 /**
  * EBITDA Normalization Modal
- * 
+ *
  * Main modal for entering EBITDA normalization adjustments
  * Displays 12 category inputs with live preview
  */
 
-import React, { useEffect, useState } from 'react';
-import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories';
-import { NormalizationAPIError } from '../../services/ebitdaNormalizationService';
-import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore';
-import { NormalizationCategory } from '../../types/ebitdaNormalization';
-import { AdjustmentAmountInput } from './AdjustmentAmountInput';
-import { NormalizationPreview } from './NormalizationPreview';
+import React, { useEffect, useState } from 'react'
+import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories'
+import { NormalizationAPIError } from '../../services/ebitdaNormalizationService'
+import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
+import { NormalizationCategory } from '../../types/ebitdaNormalization'
+import { AdjustmentAmountInput } from './AdjustmentAmountInput'
+import { NormalizationPreview } from './NormalizationPreview'
 
 interface NormalizationModalProps {
-  isOpen: boolean;
-  year: number;
-  sessionId: string;
-  onClose: () => void;
-  onSave?: () => void;
+  isOpen: boolean
+  year: number
+  sessionId: string
+  onClose: () => void
+  onSave?: () => void
 }
 
 export const NormalizationModal: React.FC<NormalizationModalProps> = ({
@@ -39,131 +39,132 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
     saveNormalization,
     getTotalAdjustments,
     getNormalizedEbitda,
-  } = useEbitdaNormalizationStore();
-  
-  const normalization = normalizations[year];
-  const suggestions = marketRateSuggestions[year] || [];
-  
-  const [expandedCategories, setExpandedCategories] = useState<Set<NormalizationCategory>>(new Set());
-  const [localAdjustments, setLocalAdjustments] = useState<Record<string, { amount: string; note: string }>>({});
-  
+  } = useEbitdaNormalizationStore()
+
+  const normalization = normalizations[year]
+  const suggestions = marketRateSuggestions[year] || []
+
+  const [expandedCategories, setExpandedCategories] = useState<Set<NormalizationCategory>>(
+    new Set()
+  )
+  const [localAdjustments, setLocalAdjustments] = useState<
+    Record<string, { amount: string; note: string }>
+  >({})
+
   useEffect(() => {
     if (normalization) {
       // Initialize local state from store
-      const adjustmentsMap: Record<string, { amount: string; note: string }> = {};
-      normalization.adjustments.forEach(adj => {
+      const adjustmentsMap: Record<string, { amount: string; note: string }> = {}
+      normalization.adjustments.forEach((adj) => {
         adjustmentsMap[adj.category] = {
           amount: adj.amount.toString(),
           note: adj.note || '',
-        };
-      });
-      setLocalAdjustments(adjustmentsMap);
+        }
+      })
+      setLocalAdjustments(adjustmentsMap)
     }
-  }, [normalization?.adjustments]);
-  
-  if (!isOpen || !normalization) return null;
-  
+  }, [normalization?.adjustments])
+
+  if (!isOpen || !normalization) return null
+
   const handleAmountChange = (category: NormalizationCategory, value: string) => {
     // Remove commas and parse
-    const cleanedValue = value.replace(/,/g, '');
-    
-    setLocalAdjustments(prev => ({
+    const cleanedValue = value.replace(/,/g, '')
+
+    setLocalAdjustments((prev) => ({
       ...prev,
       [category]: {
         amount: cleanedValue, // Store cleaned value for display
         note: prev[category]?.note || '',
       },
-    }));
-    
+    }))
+
     // Update store with parsed value
-    const numValue = parseFloat(cleanedValue) || 0;
-    updateAdjustment(year, category, numValue, localAdjustments[category]?.note);
-  };
-  
+    const numValue = parseFloat(cleanedValue) || 0
+    updateAdjustment(year, category, numValue, localAdjustments[category]?.note)
+  }
+
   const handleNoteChange = (category: NormalizationCategory, note: string) => {
-    setLocalAdjustments(prev => ({
+    setLocalAdjustments((prev) => ({
       ...prev,
       [category]: {
         amount: prev[category]?.amount || '0',
         note,
       },
-    }));
-    
-    const numValue = parseFloat(localAdjustments[category]?.amount || '0') || 0;
-    updateAdjustment(year, category, numValue, note);
-  };
-  
+    }))
+
+    const numValue = parseFloat(localAdjustments[category]?.amount || '0') || 0
+    updateAdjustment(year, category, numValue, note)
+  }
+
   const toggleCategory = (category: NormalizationCategory) => {
-    setExpandedCategories(prev => {
-      const newSet = new Set(prev);
+    setExpandedCategories((prev) => {
+      const newSet = new Set(prev)
       if (newSet.has(category)) {
-        newSet.delete(category);
+        newSet.delete(category)
       } else {
-        newSet.add(category);
+        newSet.add(category)
       }
-      return newSet;
-    });
-  };
-  
+      return newSet
+    })
+  }
+
   const handleRemoveAdjustment = (categoryId: string) => {
     // Clear the adjustment by setting it to 0
-    updateAdjustment(year, categoryId as NormalizationCategory, 0, '');
-    setLocalAdjustments(prev => ({
+    updateAdjustment(year, categoryId as NormalizationCategory, 0, '')
+    setLocalAdjustments((prev) => ({
       ...prev,
       [categoryId]: { amount: '', note: '' },
-    }));
-  };
-  
+    }))
+  }
+
   const handleRemoveCustomAdjustment = (id: string) => {
-    removeCustomAdjustment(year, id);
-  };
-  
+    removeCustomAdjustment(year, id)
+  }
+
   const handleSave = async () => {
     try {
-      await saveNormalization(sessionId, year);
+      await saveNormalization(sessionId, year)
       // Save succeeded - call callbacks and close modal
-      onSave?.();
-      onClose();
+      onSave?.()
+      onClose()
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorType = error instanceof Error ? error.constructor.name : typeof error;
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorType = error instanceof Error ? error.constructor.name : typeof error
       console.error('[Modal] Save error details', {
         error,
         errorType,
         errorMessage,
         isAPIError: error instanceof NormalizationAPIError,
-      });
-      
+      })
+
       // Check if the error is a real API error or just state update issue
       if (error instanceof NormalizationAPIError) {
         // Real API error - show error message, keep modal open
         // Error is already in store state, will be displayed
-        return;
+        return
       }
-      
+
       // Unknown error - log it but still close modal since save might have succeeded
-      console.warn('Unknown error during save, closing modal anyway', error);
-      onClose();
+      console.warn('Unknown error during save, closing modal anyway', error)
+      onClose()
     }
-  };
-  
+  }
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-BE', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(value);
-  };
-  
+    }).format(value)
+  }
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-        onClick={onClose}
-      />
-      
+      <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
+
       {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <div className="relative bg-zinc-900 rounded-lg shadow-xl border border-zinc-800 max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -171,9 +172,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
           <div className="px-6 py-4 border-b border-white/10">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-white">
-                  Normalize EBITDA for {year}
-                </h2>
+                <h2 className="text-2xl font-bold text-white">Normalize EBITDA for {year}</h2>
                 <p className="text-sm text-gray-400 mt-1">
                   Adjust reported EBITDA to reflect true earning power
                 </p>
@@ -183,25 +182,33 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                 className="text-gray-400 hover:text-gray-300 transition-colors"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
           </div>
-          
+
           {/* Content */}
           <div className="flex-1 overflow-hidden flex flex-col">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 flex-1 min-h-0">
               {/* Left: Categories - Scrollable */}
               <div className="lg:col-span-2 space-y-4 overflow-y-auto overflow-x-hidden pr-2 min-h-0">
                 {NORMALIZATION_CATEGORIES.map((categoryDef) => {
-                  const isExpanded = expandedCategories.has(categoryDef.id);
-                  const localValue = localAdjustments[categoryDef.id];
-                  const amount = localValue?.amount || '0';
-                  const note = localValue?.note || '';
-                  
+                  const isExpanded = expandedCategories.has(categoryDef.id)
+                  const localValue = localAdjustments[categoryDef.id]
+                  const amount = localValue?.amount || '0'
+                  const note = localValue?.note || ''
+
                   return (
-                    <div key={categoryDef.id} className="bg-white border border-stone-200 rounded-lg p-4">
+                    <div
+                      key={categoryDef.id}
+                      className="bg-white border border-stone-200 rounded-lg p-4"
+                    >
                       {/* Category Header */}
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -213,44 +220,60 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                               title={categoryDef.description}
                             >
                               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                <path
+                                  fillRule="evenodd"
+                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
+                                  clipRule="evenodd"
+                                />
                               </svg>
                             </button>
                           </div>
                           <p className="text-sm text-stone-500 mt-1">{categoryDef.description}</p>
-                          
+
                           {/* Expandable details */}
                           {isExpanded && (
                             <div className="mt-3 p-4 bg-white rounded-lg border border-stone-200 text-sm space-y-3">
                               <div>
-                                <p className="text-slate-ink leading-relaxed">{categoryDef.detailedDescription}</p>
+                                <p className="text-slate-ink leading-relaxed">
+                                  {categoryDef.detailedDescription}
+                                </p>
                               </div>
                               <div>
                                 <p className="font-semibold text-slate-ink mb-2">Examples:</p>
                                 <ul className="list-disc list-inside text-gray-700 space-y-1.5 ml-1">
                                   {categoryDef.examples.map((example, idx) => (
-                                    <li key={idx} className="leading-relaxed">{example}</li>
+                                    <li key={idx} className="leading-relaxed">
+                                      {example}
+                                    </li>
                                   ))}
                                 </ul>
                               </div>
-                              
+
                               {/* Visual Guidance in Learn More */}
                               <div className="pt-2 border-t border-stone-200">
                                 <p className="font-semibold text-slate-ink mb-2">When to adjust:</p>
                                 <div className="space-y-2">
                                   <div className="flex items-start gap-2">
-                                    <span className="text-moss-600 font-semibold flex-shrink-0">+ Add:</span>
-                                    <span className="text-gray-700">{categoryDef.visualGuidance.positiveScenario}</span>
+                                    <span className="text-moss-600 font-semibold flex-shrink-0">
+                                      + Add:
+                                    </span>
+                                    <span className="text-gray-700">
+                                      {categoryDef.visualGuidance.positiveScenario}
+                                    </span>
                                   </div>
                                   <div className="flex items-start gap-2">
-                                    <span className="text-rust-600 font-semibold flex-shrink-0">− Subtract:</span>
-                                    <span className="text-gray-700">{categoryDef.visualGuidance.negativeScenario}</span>
+                                    <span className="text-rust-600 font-semibold flex-shrink-0">
+                                      − Subtract:
+                                    </span>
+                                    <span className="text-gray-700">
+                                      {categoryDef.visualGuidance.negativeScenario}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
                             </div>
                           )}
-                          
+
                           <button
                             type="button"
                             onClick={() => toggleCategory(categoryDef.id)}
@@ -260,19 +283,19 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                           </button>
                         </div>
                       </div>
-                      
+
                       {/* Amount Input */}
                       <div className="mt-4">
                         <AdjustmentAmountInput
                           category={categoryDef}
                           value={parseFloat(amount) || 0}
-                          onChange={(newValue) => handleAmountChange(categoryDef.id, String(newValue))}
+                          onChange={(newValue) =>
+                            handleAmountChange(categoryDef.id, String(newValue))
+                          }
                         />
-                        <p className="text-xs text-stone-500 mt-1">
-                          {categoryDef.helpText}
-                        </p>
+                        <p className="text-xs text-stone-500 mt-1">{categoryDef.helpText}</p>
                       </div>
-                      
+
                       {/* Note Input */}
                       <div className="mt-3">
                         <label className="block text-sm font-medium text-slate-ink mb-1">
@@ -287,25 +310,35 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                         />
                       </div>
                     </div>
-                  );
+                  )
                 })}
-                
+
                 {/* Custom Adjustments Section */}
                 <div className="mt-6 pt-6 border-t-2 border-white/10">
-                  <h3 className="text-lg font-semibold text-white mb-4">
-                    Custom Adjustments
-                  </h3>
+                  <h3 className="text-lg font-semibold text-white mb-4">Custom Adjustments</h3>
                   <p className="text-sm text-gray-400 mb-4">
-                    Add your own adjustments with custom descriptions for business-specific normalizations
+                    Add your own adjustments with custom descriptions for business-specific
+                    normalizations
                   </p>
-                  
+
                   {(normalization.custom_adjustments || []).map((custom) => (
-                    <div key={custom.id} className="bg-accent-50 border border-accent-200 rounded-lg p-4 mb-3">
+                    <div
+                      key={custom.id}
+                      className="bg-accent-50 border border-accent-200 rounded-lg p-4 mb-3"
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <input
                           type="text"
                           value={custom.description}
-                          onChange={(e) => updateCustomAdjustment(year, custom.id!, e.target.value, custom.amount, custom.note)}
+                          onChange={(e) =>
+                            updateCustomAdjustment(
+                              year,
+                              custom.id!,
+                              e.target.value,
+                              custom.amount,
+                              custom.note
+                            )
+                          }
                           placeholder="Enter adjustment description (e.g., 'Seasonal adjustment for Q4')"
                           className="flex-1 mr-2 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white text-slate-ink"
                         />
@@ -315,25 +348,43 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                           className="text-rust-600 hover:text-rust-700 p-2"
                           title="Remove custom adjustment"
                         >
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <svg
+                            className="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
                           </svg>
                         </button>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500 text-sm font-medium">€</span>
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500 text-sm font-medium">
+                              €
+                            </span>
                             <input
                               type="text"
                               inputMode="numeric"
                               pattern="-?[0-9]*"
                               value={custom.amount?.toString() || '0'}
                               onChange={(e) => {
-                                const cleanedValue = e.target.value.replace(/,/g, '');
-                                const numValue = parseFloat(cleanedValue) || 0;
-                                updateCustomAdjustment(year, custom.id!, custom.description, numValue, custom.note);
+                                const cleanedValue = e.target.value.replace(/,/g, '')
+                                const numValue = parseFloat(cleanedValue) || 0
+                                updateCustomAdjustment(
+                                  year,
+                                  custom.id!,
+                                  custom.description,
+                                  numValue,
+                                  custom.note
+                                )
                               }}
                               className="w-full h-14 px-4 pt-6 pb-2 pl-8 text-base text-slate-ink bg-white border border-gray-200 rounded-xl transition-all duration-200 hover:border-primary-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 focus:outline-none placeholder:text-stone-300"
                               placeholder="0"
@@ -342,14 +393,24 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                               Amount (€)
                             </label>
                           </div>
-                          <p className="text-xs text-stone-500 mt-1">Positive adds, negative reduces</p>
+                          <p className="text-xs text-stone-500 mt-1">
+                            Positive adds, negative reduces
+                          </p>
                         </div>
                         <div>
                           <div className="relative">
                             <input
                               type="text"
                               value={custom.note || ''}
-                              onChange={(e) => updateCustomAdjustment(year, custom.id!, custom.description, custom.amount, e.target.value)}
+                              onChange={(e) =>
+                                updateCustomAdjustment(
+                                  year,
+                                  custom.id!,
+                                  custom.description,
+                                  custom.amount,
+                                  e.target.value
+                                )
+                              }
                               className="w-full h-14 px-4 pt-6 pb-2 text-base text-slate-ink bg-white border border-gray-200 rounded-xl transition-all duration-200 hover:border-primary-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 focus:outline-none placeholder:text-stone-300"
                               placeholder="Additional context..."
                             />
@@ -361,20 +422,25 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                       </div>
                     </div>
                   ))}
-                  
+
                   <button
                     type="button"
                     onClick={() => addCustomAdjustment(year)}
                     className="w-full py-3 border-2 border-dashed border-zinc-700 rounded-lg text-gray-400 hover:border-primary-500 hover:text-primary-300 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
                     </svg>
                     Add Custom Adjustment
                   </button>
                 </div>
               </div>
-              
+
               {/* Right: Preview */}
               <div className="lg:col-span-1">
                 <NormalizationPreview
@@ -390,12 +456,18 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
               </div>
             </div>
           </div>
-          
+
           {/* Footer */}
           <div className="px-6 py-4 border-t border-white/10 bg-zinc-800">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-400">
-                {normalization.adjustments.length + (normalization.custom_adjustments?.length || 0)} active adjustment{(normalization.adjustments.length + (normalization.custom_adjustments?.length || 0)) !== 1 ? 's' : ''}
+                {normalization.adjustments.length + (normalization.custom_adjustments?.length || 0)}{' '}
+                active adjustment
+                {normalization.adjustments.length +
+                  (normalization.custom_adjustments?.length || 0) !==
+                1
+                  ? 's'
+                  : ''}
                 {(normalization.custom_adjustments?.length || 0) > 0 && (
                   <span className="ml-2 text-primary-400">
                     ({normalization.custom_adjustments?.length} custom)
@@ -424,5 +496,5 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

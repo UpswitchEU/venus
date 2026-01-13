@@ -121,7 +121,7 @@ export class SessionCacheManager {
           this.cleanExpired()
           // Retry with reduced data - wrap in try-catch to handle persistent failures
           try {
-      localStorage.setItem(key, JSON.stringify(cached))
+            localStorage.setItem(key, JSON.stringify(cached))
             cacheLogger.info('Cache retry successful after cleanup', { reportId })
           } catch (retryError: any) {
             // If retry still fails, the session might be too large even after cleanup
@@ -220,12 +220,12 @@ export class SessionCacheManager {
       // This prevents stale "empty session" caches from before valuation completion
       const hasValuationResult = !!sanitized.valuationResult
       const cacheAge_minutes = Math.floor((Date.now() - parsed.cachedAt) / (60 * 1000))
-      
+
       // Note: HTML reports are not cached (too large), so we don't check for them here
       // They will be fetched from backend when needed
       if (!hasValuationResult && cacheAge_minutes > 10) {
         cacheLogger.info('Invalidating incomplete stale cache (no valuation result)', {
-          reportId, 
+          reportId,
           cacheAge_minutes,
           hasValuationResult,
         })
@@ -458,7 +458,7 @@ export class SessionCacheManager {
 
   /**
    * Warm cache for frequently accessed reports
-   * 
+   *
    * World-Class Cache Warming:
    * - Pre-loads recent reports in background
    * - Improves perceived performance
@@ -507,7 +507,7 @@ export class SessionCacheManager {
 
   /**
    * Invalidate cache for a report (mark as stale)
-   * 
+   *
    * World-Class Cache Invalidation:
    * - Marks cache as stale
    * - Forces refresh on next access
@@ -524,12 +524,12 @@ export class SessionCacheManager {
 
       try {
         const parsed: CachedSession = JSON.parse(cached)
-        
+
         // Mark as expired (force refresh)
         parsed.expiresAt = Date.now() - 1
-        
+
         localStorage.setItem(key, JSON.stringify(parsed))
-        
+
         cacheLogger.info('Cache invalidated for report', { reportId })
       } catch {
         // Corrupted cache - just delete it

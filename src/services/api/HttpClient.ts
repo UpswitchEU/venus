@@ -10,8 +10,12 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useGuestSessionStore } from '../../store/useGuestSessionStore'
 import { env } from '../../utils/env'
+import {
+  classifyError,
+  defaultShouldRetry,
+  getUserFriendlyErrorMessage,
+} from '../../utils/errorRecovery'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
-import { classifyError, getUserFriendlyErrorMessage, defaultShouldRetry } from '../../utils/errorRecovery'
 
 export interface APIRequestConfig {
   timeout?: number
@@ -63,11 +67,11 @@ export class HttpClient {
         try {
           const { useClientContext } = await import('../../stores/clientContext')
           const contextHeaders = useClientContext.getState().getContextHeaders()
-          
+
           if (Object.keys(contextHeaders).length > 0) {
             // Merge headers properly for Axios
             Object.assign(config.headers, contextHeaders)
-            
+
             if (process.env.NODE_ENV === 'development') {
               apiLogger.debug('Added client context headers to request', {
                 headers: Object.keys(contextHeaders),
@@ -84,18 +88,23 @@ export class HttpClient {
         try {
           const { useAuthStore } = await import('../../lib/auth')
           const user = useAuthStore.getState().user
-          
+
           // Check if we have client context headers (accountant acting on behalf of client)
-          const hasClientContext = config.headers?.['x-client-context-user'] || 
-                                   config.headers?.['x-client-context-accountant']
-          
+          const hasClientContext =
+            config.headers?.['x-client-context-user'] ||
+            config.headers?.['x-client-context-accountant']
+
           // If user is authenticated OR has client context, DO NOT send guest_session_id
           // This ensures accountant-client workflows ALWAYS use authenticated sessions
           if (user || hasClientContext) {
             if (hasClientContext) {
-              apiLogger.debug('Client context present - using authenticated session (accountant for client)', {
-                clientUserId: String(config.headers?.['x-client-context-user']).substring(0, 8) + '...',
-              })
+              apiLogger.debug(
+                'Client context present - using authenticated session (accountant for client)',
+                {
+                  clientUserId:
+                    String(config.headers?.['x-client-context-user']).substring(0, 8) + '...',
+                }
+              )
             } else if (user) {
               apiLogger.debug('User authenticated, skipping guest session tracking', {
                 userId: user.id.substring(0, 8) + '...',
@@ -105,7 +114,9 @@ export class HttpClient {
           }
         } catch (authError) {
           // If auth check fails, continue with guest session logic
-          apiLogger.warn('Failed to check auth state, continuing with guest session logic', { error: authError })
+          apiLogger.warn('Failed to check auth state, continuing with guest session logic', {
+            error: authError,
+          })
         }
 
         // User is NOT authenticated - use guest session tracking
@@ -144,7 +155,7 @@ export class HttpClient {
             // Also add to headers for backward compatibility (if backend supports it)
             config.headers = config.headers || {}
             config.headers['x-guest-session-id'] = sessionId
-            
+
             apiLogger.debug('Guest session ID added to request', {
               guestSessionId: sessionId.substring(0, 15) + '...',
               method: config.method,
@@ -194,7 +205,7 @@ export class HttpClient {
         const correlationId = error.config ? extractCorrelationId(error.response) : null
         const errorCategory = classifyError(error)
         const userFriendlyMessage = getUserFriendlyErrorMessage(error, errorCategory)
-        
+
         if (correlationId) {
           apiLogger.error('API request failed with correlation ID', {
             correlationId,
@@ -205,13 +216,13 @@ export class HttpClient {
             userFriendlyMessage,
           })
         }
-        
+
         // Enhance error with user-friendly message and category
         if (error instanceof Error) {
           ;(error as any).userFriendlyMessage = userFriendlyMessage
           ;(error as any).errorCategory = errorCategory
         }
-        
+
         return Promise.reject(error)
       }
     )
@@ -331,17 +342,17 @@ export class HttpClient {
   private shouldRetryError(error: any): boolean {
     // Use error classification for intelligent retry decisions
     const errorCategory = classifyError(error)
-    
+
     // Retry network and server errors
     if (errorCategory === 'network' || errorCategory === 'server') {
       return true
     }
-    
+
     // Don't retry auth or validation errors
     if (errorCategory === 'auth' || errorCategory === 'validation') {
       return false
     }
-    
+
     // Fallback to status-based check for unknown errors
     if (!error.response) {
       return true // Network error
