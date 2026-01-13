@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import React, { useEffect, useRef, useState } from 'react'
 import { RecentReportsSection } from '../../features/reports'
 import { useAuth } from '../../hooks/useAuth'
@@ -18,6 +19,7 @@ import { ALL_BUSINESS_VIDEOS } from '../../constants/videos'
 export const HomePage: React.FC = () => {
   const router = useRouter()
   const { user } = useAuth()
+  const t = useTranslations()
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState<'manual' | 'conversational'>('manual')
   const [businessCardData, setBusinessCardData] = useState<BusinessCardData | null>(null)
@@ -189,19 +191,18 @@ export const HomePage: React.FC = () => {
               {/* Hero Content */}
               <div className="space-y-3 md:space-y-4">
                 <h1 className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-tight tracking-tight text-[#F4F1EA]">
-                  Know the true value of
+                  {t('home.hero.title')}
                   <br />
-                  your life’s work.
+                  {t('home.hero.titleLine2')}
                 </h1>
                 <p className="text-lg md:text-xl text-[#F4F1EA] max-w-4xl mx-auto leading-relaxed opacity-90">
-                  Understanding business value shouldn’t cost a fortune. Get professional-grade
-                  accuracy without the friction.
+                  {t('home.hero.subtitle')}
                 </p>
               </div>
 
               {/* Action Bridge */}
               <p className="text-[#F4F1EA] text-opacity-80 text-sm md:text-base mb-1 font-medium">
-                Start by entering the business type, and discover the true value in minutes.
+                {t('home.hero.cta')}
               </p>
 
               {/* Enhanced Query Interface - Ilara Style */}
@@ -218,7 +219,7 @@ export const HomePage: React.FC = () => {
                     <textarea
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      placeholder="What type of business do you run? (e.g., 'SaaS company')"
+                      placeholder={t('home.hero.placeholder')}
                       className="textarea-seamless flex w-full rounded-md px-3 py-3 pr-24 ring-offset-background placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 resize-none text-base leading-snug placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base max-h-[200px] bg-transparent focus:bg-transparent flex-1 text-white"
                       style={{ minHeight: '80px', height: '80px' }}
                       onKeyPress={(e) => {
@@ -263,7 +264,7 @@ export const HomePage: React.FC = () => {
                         </button>
                         {/* Tooltip */}
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-900 text-[10px] text-zinc-200 rounded opacity-0 group-hover/manual:opacity-100 transition-opacity pointer-events-none whitespace-nowrap border border-zinc-700 shadow-xl">
-                          Manual Flow
+                          {t('home.flows.manual')}
                         </div>
                       </div>
 
@@ -295,7 +296,7 @@ export const HomePage: React.FC = () => {
                         </button>
                         {/* Tooltip */}
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-900 text-[10px] text-zinc-200 rounded opacity-0 group-hover/chat:opacity-100 transition-opacity pointer-events-none whitespace-nowrap border border-zinc-700 shadow-xl">
-                          Conversational AI
+                          {t('home.flows.conversational')}
                         </div>
                       </div>
                     </div>
@@ -342,7 +343,7 @@ export const HomePage: React.FC = () => {
                 {/* Trust Signal */}
                 <div className="mt-2 md:mt-3 text-center">
                   <p className="text-xs text-[#F4F1EA] text-opacity-60">
-                    Join 500+ owners and advisors · No account required to start
+                    {t('home.hero.trustSignal')}
                   </p>
                 </div>
               </div>

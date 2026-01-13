@@ -1,64 +1,664 @@
 {
   "common": {
-    "submit": "Submit",
-    "cancel": "Cancel",
-    "save": "Save",
-    "delete": "Delete",
-    "edit": "Edit",
-    "loading": "Loading...",
-    "error": "Error",
-    "success": "Success",
-    "close": "Close",
-    "open": "Open",
-    "back": "Back",
-    "next": "Next",
-    "search": "Search",
-    "filter": "Filter",
-    "sort": "Sort",
-    "clear": "Clear",
-    "apply": "Apply",
-    "reset": "Reset",
-    "required": "Required",
-    "optional": "Optional"
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "submit": "Submit",
+      "delete": "Delete",
+      "edit": "Edit",
+      "close": "Close",
+      "back": "Back",
+      "next": "Next",
+      "retry": "Retry",
+      "refresh": "Refresh",
+      "download": "Download",
+      "upload": "Upload",
+      "continue": "Continue",
+      "confirm": "Confirm",
+      "clear": "Clear",
+      "apply": "Apply",
+      "reset": "Reset",
+      "share": "Share",
+      "copy": "Copy",
+      "paste": "Paste",
+      "undo": "Undo",
+      "redo": "Redo",
+      "search": "Search",
+      "filter": "Filter",
+      "sort": "Sort",
+      "export": "Export",
+      "import": "Import",
+      "print": "Print",
+      "preview": "Preview",
+      "view": "View",
+      "startOver": "Start Over"
+    },
+    "states": {
+      "loading": "Loading...",
+      "success": "Success",
+      "error": "Error",
+      "empty": "Empty",
+      "saving": "Saving...",
+      "processing": "Processing...",
+      "calculating": "Calculating...",
+      "uploading": "Uploading...",
+      "downloading": "Downloading...",
+      "autoSaving": "Auto-saving...",
+      "autoSavingSoon": "Auto-saving soon...",
+      "saved": "Saved",
+      "savedTimeAgo": "Saved {time} ago",
+      "saveFailed": "Save failed - click to retry",
+      "syncing": "Syncing...",
+      "complete": "Complete",
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "failed": "Failed"
+    },
+    "labels": {
+      "required": "Required",
+      "optional": "Optional",
+      "recommended": "Recommended",
+      "new": "New",
+      "beta": "Beta",
+      "comingSoon": "Coming Soon",
+      "active": "Active",
+      "inactive": "Inactive",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "public": "Public",
+      "private": "Private",
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "{count}m ago",
+      "hoursAgo": "{count}h ago",
+      "daysAgo": "{count}d ago",
+      "weeksAgo": "{count}w ago",
+      "monthsAgo": "{count}mo ago"
+    },
+    "confirmation": {
+      "areYouSure": "Are you sure?",
+      "cannotBeUndone": "This action cannot be undone.",
+      "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?",
+      "confirmDelete": "Are you sure you want to delete this?"
+    }
+  },
+  "navigation": {
+    "tabs": {
+      "preview": "Preview",
+      "info": "Info",
+      "source": "Source",
+      "history": "History",
+      "comparison": "Comparison",
+      "versions": "Versions",
+      "settings": "Settings"
+    },
+    "flows": {
+      "manual": "Manual Entry",
+      "conversational": "AI Assistant",
+      "switchToManual": "Switch to Manual Entry",
+      "switchToConversational": "Switch to AI Assistant",
+      "switchingFlow": "Switching flow...",
+      "flowSwitched": "Flow switched successfully"
+    },
+    "breadcrumbs": {
+      "home": "Home",
+      "valuations": "Valuations",
+      "reports": "Reports",
+      "newValuation": "New Valuation"
+    }
+  },
+  "toolbar": {
+    "actions": {
+      "newValuation": "New Valuation",
+      "save": "Save",
+      "downloadPDF": "Download PDF",
+      "downloadReport": "Download Report",
+      "share": "Share",
+      "refresh": "Refresh",
+      "fullscreen": "Fullscreen",
+      "exitFullscreen": "Exit Fullscreen",
+      "returnTo": "Return to {app}",
+      "returnToMercury": "Return to Mercury",
+      "close": "Close",
+      "editName": "Edit Name",
+      "saveName": "Save Name",
+      "cancelEdit": "Cancel Edit"
+    },
+    "tooltips": {
+      "save": "Save valuation",
+      "download": "Download PDF report",
+      "refresh": "Start new valuation",
+      "fullscreen": "View in fullscreen",
+      "switchFlow": "Switch to {flow} mode",
+      "editName": "Click to edit name",
+      "downloading": "Generating PDF...",
+      "saveStatus": "Save status",
+      "versions": "Version history",
+      "logout": "Logout"
+    },
+    "confirmations": {
+      "newValuation": "Are you sure you want to start a new valuation? Current progress will be lost.",
+      "switchFlow": "Switching flows will save your current progress. Continue?",
+      "downloadFailed": "Failed to generate PDF. Please try again."
+    },
+    "status": {
+      "generating": "Generating report...",
+      "syncing": "Syncing changes...",
+      "offline": "Offline - changes will sync when connection is restored"
+    }
   },
   "valuation": {
     "title": "Business Valuation",
-    "calculate": "Calculate Valuation",
-    "regenerate": "Regenerate Valuation",
-    "calculateWithNormalization": "Calculate Valuation with Normalization",
-    "submitting": "Calculating...",
-    "form": {
+    "subtitle": "Professional valuation for your business",
+    "manual": {
+      "title": "Manual Valuation",
+      "description": "Enter your business details manually",
+      "emptyState": {
+        "title": "Start Your Valuation",
+        "description": "Fill out the form to calculate your business value",
+        "action": "Get Started"
+      },
+      "panels": {
+        "form": "Business Information",
+        "report": "Valuation Report",
+        "results": "Results",
+        "switchToConversational": "Try AI Assistant"
+      }
+    },
+    "conversational": {
+      "title": "AI-Powered Valuation",
+      "description": "Let our AI assistant guide you",
+      "welcome": "Hi! I'm your valuation assistant. Tell me about your business and I'll help you get an accurate valuation.",
+      "welcomeBack": "Welcome back! Let's continue where we left off.",
+      "inputPlaceholder": "Type your message here...",
+      "inputPlaceholderStart": "Tell me about your business (e.g., 'I run a restaurant')",
+      "emptyState": {
+        "title": "Start a Conversation",
+        "description": "Chat with our AI to calculate your business value",
+        "action": "Start Chatting"
+      },
+      "suggestions": {
+        "title": "You can tell me about:",
+        "businessType": "Your business type",
+        "revenue": "Your revenue",
+        "employees": "Number of employees",
+        "location": "Your location"
+      },
+      "panels": {
+        "chat": "Conversation",
+        "report": "Valuation Report",
+        "profile": "Business Profile",
+        "switchToManual": "Switch to Manual Entry"
+      },
+      "status": {
+        "thinking": "Thinking...",
+        "typing": "Typing...",
+        "generating": "Generating valuation...",
+        "analyzing": "Analyzing your business...",
+        "collecting": "Collecting data...",
+        "calculating": "Calculating value..."
+      },
+      "actions": {
+        "send": "Send",
+        "regenerate": "Regenerate",
+        "restart": "Start Over"
+      }
+    },
+    "results": {
+      "title": "Valuation Results",
+      "subtitle": "Your business valuation report",
+      "summary": "Summary",
+      "details": "Detailed Analysis",
+      "methodology": "Methodology",
+      "assumptions": "Assumptions",
+      "recommendations": "Recommendations",
+      "confidenceScore": "Confidence Score",
+      "valueRange": "Value Range",
+      "estimatedValue": "Estimated Value",
+      "lowEstimate": "Low Estimate",
+      "highEstimate": "High Estimate",
+      "medianValue": "Median Value",
+      "actions": {
+        "viewFullReport": "View Full Report",
+        "downloadPDF": "Download PDF",
+        "shareReport": "Share Report",
+        "saveReport": "Save Report",
+        "regenerate": "Regenerate",
+        "refineInputs": "Refine Inputs"
+      }
+    },
+    "calculation": {
+      "inProgress": "Calculating valuation...",
+      "complete": "Valuation complete",
+      "failed": "Calculation failed",
+      "retry": "Retry calculation"
+    }
+  },
+  "forms": {
+    "sections": {
       "basicInformation": "Basic Information",
       "financialData": "Financial Data",
       "historicalData": "Historical Data",
-      "ownershipStructure": "Ownership Structure"
+      "ownershipStructure": "Ownership Structure",
+      "businessProfile": "Business Profile",
+      "operations": "Operations",
+      "assets": "Assets & Liabilities"
     },
     "fields": {
-      "revenue": "Revenue",
-      "ebitda": "EBITDA",
-      "industry": "Industry",
-      "country": "Country",
       "businessType": "Business Type",
-      "employeeCount": "Employee Count",
-      "foundingYear": "Founding Year"
+      "businessTypeSearch": "Search for your business type...",
+      "businessTypeSelect": "Select business type",
+      "businessTypeRequired": "Please select a business type",
+      "companyName": "Company Name",
+      "companyNamePlaceholder": "Enter your company name",
+      "companyNameSearch": "Search for your company...",
+      "companyNameVerify": "Verify company details",
+      "foundingYear": "Founding Year",
+      "foundingYearPlaceholder": "YYYY",
+      "country": "Country",
+      "countrySelect": "Select a country",
+      "revenue": "Annual Revenue",
+      "revenuePlaceholder": "Enter annual revenue",
+      "revenueYear": "Revenue (Year {year})",
+      "ebitda": "EBITDA",
+      "ebitdaPlaceholder": "Enter EBITDA",
+      "ebitdaYear": "EBITDA (Year {year})",
+      "ebitdaMargin": "EBITDA Margin",
+      "netIncome": "Net Income",
+      "grossProfit": "Gross Profit",
+      "operatingExpenses": "Operating Expenses",
+      "employeeCount": "Number of Employees",
+      "employeeCountPlaceholder": "Enter number of employees",
+      "employeeCountFull": "Full-time Employees",
+      "employeeCountPart": "Part-time Employees",
+      "ownershipPercentage": "Ownership Percentage",
+      "marketShare": "Market Share",
+      "growthRate": "Growth Rate",
+      "industryCode": "Industry Code",
+      "kboNumber": "KBO Number",
+      "vatNumber": "VAT Number",
+      "legalForm": "Legal Form",
+      "address": "Address",
+      "city": "City",
+      "postalCode": "Postal Code",
+      "region": "Region",
+      "website": "Website",
+      "email": "Email",
+      "phone": "Phone Number"
     },
-    "errors": {
-      "required": "This field is required",
-      "invalid": "Invalid value",
-      "calculationFailed": "Failed to calculate valuation"
+    "validation": {
+      "required": "{field} is required",
+      "invalid": "Invalid {field}",
+      "minValue": "{field} must be at least {min}",
+      "maxValue": "{field} must not exceed {max}",
+      "minLength": "{field} must be at least {min} characters",
+      "maxLength": "{field} must not exceed {max} characters",
+      "format": "Invalid format for {field}",
+      "email": "Please enter a valid email address",
+      "phone": "Please enter a valid phone number",
+      "url": "Please enter a valid URL",
+      "number": "{field} must be a number",
+      "positiveNumber": "{field} must be a positive number",
+      "integer": "{field} must be a whole number",
+      "year": "Please enter a valid year",
+      "futureYear": "Year cannot be in the future",
+      "percentage": "{field} must be between 0 and 100",
+      "dateInvalid": "Please enter a valid date",
+      "dateFuture": "Date cannot be in the future",
+      "datePast": "Date cannot be in the past",
+      "greaterThan": "{field} must be greater than {value}",
+      "lessThan": "{field} must be less than {value}",
+      "match": "{field} must match {otherField}"
+    },
+    "placeholders": {
+      "search": "Search...",
+      "select": "Select an option",
+      "enter": "Enter {field}",
+      "optional": "(Optional)",
+      "example": "e.g., {example}"
+    },
+    "help": {
+      "businessType": "Select the category that best describes your business",
+      "revenue": "Your total annual revenue before expenses",
+      "ebitda": "Earnings Before Interest, Taxes, Depreciation, and Amortization",
+      "employeeCount": "Total number of employees (full-time equivalent)",
+      "foundingYear": "The year your business was established",
+      "kboNumber": "Your official company registration number"
+    },
+    "actions": {
+      "calculate": "Calculate Valuation",
+      "calculateWithNormalization": "Calculate with Normalization",
+      "recalculate": "Recalculate",
+      "regenerate": "Regenerate Report",
+      "saveProgress": "Save Progress",
+      "loadSaved": "Load Saved Data",
+      "clearForm": "Clear Form",
+      "resetForm": "Reset Form",
+      "fillSample": "Fill Sample Data"
+    },
+    "messages": {
+      "calculationStarted": "Valuation calculation started",
+      "calculationComplete": "Valuation complete",
+      "calculationFailed": "Calculation failed. Please try again.",
+      "savedSuccessfully": "Saved successfully",
+      "saveFailed": "Failed to save. Please try again.",
+      "validationErrors": "Please fix the errors in the form",
+      "allFieldsRequired": "All required fields must be filled",
+      "dataRestored": "Your previous data has been restored"
+    }
+  },
+  "businessProfile": {
+    "title": "Business Profile",
+    "subtitle": "Overview of your business information",
+    "sections": {
+      "overview": "Overview",
+      "financial": "Financial Information",
+      "operational": "Operational Details",
+      "market": "Market Position",
+      "registry": "Registry Information"
+    },
+    "fields": {
+      "name": "Business Name",
+      "type": "Business Type",
+      "industry": "Industry",
+      "founded": "Founded",
+      "location": "Location",
+      "size": "Company Size",
+      "status": "Status",
+      "registration": "Registration Number",
+      "legalForm": "Legal Form",
+      "vat": "VAT Number"
+    },
+    "kboLookup": {
+      "title": "Company Registry Lookup",
+      "search": "Search for your company",
+      "searching": "Searching registry...",
+      "found": "Company found",
+      "notFound": "No company found with that name",
+      "verified": "Verified",
+      "unverified": "Unverified",
+      "autoFilled": "Auto-filled from registry",
+      "verifyCompany": "Verify company details",
+      "changeCompany": "Change company",
+      "useThisCompany": "Use this company",
+      "manualEntry": "Enter manually instead"
+    },
+    "suggestions": {
+      "title": "Suggestions",
+      "basedOn": "Based on your business type",
+      "similar": "Similar businesses"
+    },
+    "empty": {
+      "title": "No business data yet",
+      "description": "Start by entering your business information",
+      "action": "Add Business Info"
     }
   },
   "reports": {
-    "title": "Valuation Reports",
-    "new": "New Report",
-    "loading": "Loading report...",
-    "error": "Failed to load report",
-    "notFound": "Report not found"
+    "title": "Valuation Report",
+    "subtitle": "Comprehensive business valuation analysis",
+    "sections": {
+      "executiveSummary": "Executive Summary",
+      "introduction": "Introduction",
+      "methodology": "Methodology",
+      "companyOverview": "Company Overview",
+      "financialAnalysis": "Financial Analysis",
+      "marketAnalysis": "Market Analysis",
+      "valuationAnalysis": "Valuation Analysis",
+      "riskAssessment": "Risk Assessment",
+      "recommendations": "Recommendations",
+      "appendices": "Appendices",
+      "assumptions": "Key Assumptions",
+      "disclaimer": "Disclaimer"
+    },
+    "actions": {
+      "download": "Download Report",
+      "downloadPDF": "Download as PDF",
+      "downloadJSON": "Download Data",
+      "share": "Share Report",
+      "print": "Print Report",
+      "email": "Email Report",
+      "export": "Export",
+      "viewVersion": "View Version",
+      "compareVersions": "Compare Versions",
+      "restoreVersion": "Restore Version"
+    },
+    "status": {
+      "generating": "Generating report...",
+      "complete": "Report complete",
+      "downloading": "Preparing download...",
+      "failed": "Report generation failed",
+      "partial": "Partial report available"
+    },
+    "metadata": {
+      "generatedOn": "Generated on",
+      "reportId": "Report ID",
+      "version": "Version",
+      "preparedFor": "Prepared for",
+      "preparedBy": "Prepared by",
+      "validUntil": "Valid until"
+    }
+  },
+  "versions": {
+    "title": "Version History",
+    "subtitle": "Track changes to your valuation",
+    "current": "Current Version",
+    "previous": "Previous Versions",
+    "version": "Version {number}",
+    "versionN": "V{number}",
+    "createdOn": "Created on {date}",
+    "createdAt": "Created at {time}",
+    "modifiedOn": "Modified on {date}",
+    "noVersions": "No version history available",
+    "loadingVersions": "Loading versions...",
+    "actions": {
+      "view": "View Version",
+      "restore": "Restore",
+      "compare": "Compare",
+      "download": "Download",
+      "delete": "Delete"
+    },
+    "comparison": {
+      "title": "Version Comparison",
+      "comparing": "Comparing versions {v1} and {v2}",
+      "changes": "Changes",
+      "noChanges": "No changes detected",
+      "fieldChanged": "{field} changed",
+      "added": "Added",
+      "removed": "Removed",
+      "modified": "Modified",
+      "unchanged": "Unchanged"
+    },
+    "restore": {
+      "title": "Restore Version",
+      "confirm": "Are you sure you want to restore version {version}?",
+      "description": "This will replace your current valuation with version {version}.",
+      "success": "Version restored successfully",
+      "failed": "Failed to restore version"
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "tryAgain": "Please try again",
+    "contactSupport": "If the problem persists, please contact support",
+    "network": {
+      "title": "Connection Error",
+      "description": "Unable to connect to server",
+      "offline": "You appear to be offline",
+      "retry": "Retry connection",
+      "checkConnection": "Please check your internet connection"
+    },
+    "validation": {
+      "title": "Validation Error",
+      "description": "Please check your inputs",
+      "fixErrors": "Please fix the errors below"
+    },
+    "calculation": {
+      "title": "Calculation Error",
+      "description": "Failed to calculate valuation",
+      "invalidData": "Invalid data provided",
+      "retry": "Retry calculation"
+    },
+    "session": {
+      "title": "Session Error",
+      "description": "Your session has expired",
+      "expired": "Session expired - please login again",
+      "notFound": "Session not found",
+      "conflict": "Session conflict detected",
+      "restore": "Restore session",
+      "startNew": "Start new session"
+    },
+    "authentication": {
+      "title": "Authentication Error",
+      "description": "Please login to continue",
+      "required": "Authentication required",
+      "failed": "Authentication failed",
+      "expired": "Your session has expired",
+      "login": "Login",
+      "logout": "Logout"
+    },
+    "notFound": {
+      "title": "Not Found",
+      "description": "The page you're looking for doesn't exist",
+      "report": "Report not found",
+      "valuation": "Valuation not found",
+      "goHome": "Go to homepage"
+    },
+    "serverError": {
+      "title": "Server Error",
+      "description": "An error occurred on our servers",
+      "code500": "Internal server error",
+      "code502": "Bad gateway",
+      "code503": "Service unavailable",
+      "code504": "Gateway timeout"
+    },
+    "rateLimit": {
+      "title": "Too Many Requests",
+      "description": "Please slow down and try again in a moment",
+      "waitTime": "Please wait {seconds} seconds"
+    }
+  },
+  "modals": {
+    "flowSwitch": {
+      "title": "Switch Flow Mode",
+      "description": "Switching between Manual and AI modes will save your current progress.",
+      "toManual": "Switch to Manual Entry",
+      "toConversational": "Switch to AI Assistant",
+      "confirm": "Switch Mode",
+      "cancel": "Stay in Current Mode",
+      "saving": "Saving progress..."
+    },
+    "regeneration": {
+      "title": "Regenerate Report",
+      "description": "Are you sure you want to regenerate this valuation report?",
+      "warning": "This will create a new version of the report.",
+      "confirm": "Regenerate",
+      "cancel": "Cancel",
+      "inProgress": "Regenerating report..."
+    },
+    "normalization": {
+      "title": "EBITDA Normalization",
+      "description": "Adjust your EBITDA for one-time expenses and income",
+      "addAdjustment": "Add Adjustment",
+      "removeAdjustment": "Remove",
+      "totalAdjustments": "Total Adjustments",
+      "normalizedEBITDA": "Normalized EBITDA",
+      "apply": "Apply",
+      "cancel": "Cancel"
+    },
+    "outOfCredits": {
+      "title": "Out of Credits",
+      "description": "You've used all your valuation credits",
+      "upgrade": "Upgrade Plan",
+      "buyCredits": "Buy More Credits",
+      "cancel": "Cancel"
+    },
+    "paywall": {
+      "title": "Premium Feature",
+      "description": "This feature is available to premium users",
+      "features": "Premium features include:",
+      "upgrade": "Upgrade Now",
+      "learnMore": "Learn More",
+      "cancel": "Maybe Later"
+    },
+    "versionComparison": {
+      "title": "Compare Versions",
+      "selectVersion": "Select version to compare",
+      "version1": "Version 1",
+      "version2": "Version 2",
+      "compare": "Compare",
+      "cancel": "Cancel"
+    },
+    "deleteConfirm": {
+      "title": "Confirm Deletion",
+      "description": "Are you sure you want to delete this?",
+      "warning": "This action cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
   },
   "language": {
     "english": "English",
     "dutch": "Nederlands",
     "selectLanguage": "Select Language",
-    "switchLanguage": "Switch Language"
+    "switchLanguage": "Switch Language",
+    "currentLanguage": "Current Language"
+  },
+  "user": {
+    "profile": "Profile",
+    "settings": "Settings",
+    "account": "Account",
+    "logout": "Logout",
+    "login": "Login",
+    "signup": "Sign Up",
+    "welcome": "Welcome, {name}",
+    "guest": "Guest User"
+  },
+  "loading": {
+    "initializing": "Initializing...",
+    "loadingApplication": "Loading application...",
+    "loadingData": "Loading data...",
+    "loadingReport": "Loading report...",
+    "loadingSession": "Loading session...",
+    "restoringSession": "Restoring session...",
+    "pleaseWait": "Please wait...",
+    "almostThere": "Almost there...",
+    "thisWontTakeLong": "This won't take long"
+  },
+  "empty": {
+    "noData": "No data available",
+    "noResults": "No results found",
+    "noReports": "No reports available",
+    "noVersions": "No versions available",
+    "noHistory": "No history available",
+    "startByCreating": "Start by creating your first {item}",
+    "tryAdjustingFilters": "Try adjusting your filters"
+  },
+  "success": {
+    "saved": "Saved successfully",
+    "updated": "Updated successfully",
+    "deleted": "Deleted successfully",
+    "created": "Created successfully",
+    "uploaded": "Uploaded successfully",
+    "downloaded": "Downloaded successfully",
+    "exported": "Exported successfully",
+    "imported": "Imported successfully",
+    "sent": "Sent successfully",
+    "shared": "Shared successfully"
+  },
+  "accessibility": {
+    "skipToContent": "Skip to content",
+    "menu": "Menu",
+    "closeMenu": "Close menu",
+    "openMenu": "Open menu",
+    "loading": "Loading",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information"
   }
 }

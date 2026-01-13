@@ -1,4 +1,5 @@
 import { AlertTriangle, Home, Save } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -29,6 +30,7 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
   hasValuationResults,
   isSaving = false,
 }) => {
+  const t = useTranslations()
   // Close modal on Escape key
   useEffect(() => {
     if (!isOpen) return
@@ -63,12 +65,12 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
 
   // Determine modal content based on state
   const showSaveOption = hasUnsavedChanges && onSaveAndExit
-  const title = showSaveOption ? 'Save and exit?' : 'Exit report?'
+  const title = showSaveOption ? t('modals.exit.titleSave') : t('modals.exit.title')
   const message = showSaveOption
-    ? 'You have unsaved changes. Would you like to save your progress before exiting?'
+    ? t('modals.exit.messageUnsaved')
     : hasValuationResults
-      ? 'Are you sure you want to exit? Your saved progress will be available when you return.'
-      : 'Are you sure you want to exit?'
+      ? t('modals.exit.messageWithResults')
+      : t('modals.exit.message')
 
   const modal = (
     <div className="fixed inset-0 z-[100000]">
@@ -105,7 +107,7 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
             <p className="text-zinc-300 leading-relaxed">{message}</p>
             {showSaveOption && (
               <p className="text-zinc-400 text-sm leading-relaxed">
-                Your report will be saved and you'll be redirected to the home page.
+                {t('modals.exit.saveNote')}
               </p>
             )}
           </div>
@@ -117,7 +119,7 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
               disabled={isSaving}
               className="px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Cancel
+              {t('modals.exit.cancel')}
             </button>
             {showSaveOption && (
               <button
@@ -125,7 +127,7 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
                 disabled={isSaving}
                 className="px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Exit without saving
+                {t('modals.exit.exitWithoutSaving')}
               </button>
             )}
             {showSaveOption ? (
@@ -137,12 +139,12 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
                 {isSaving ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Saving...
+                    {t('modals.exit.saving')}
                   </>
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    Save and exit
+                    {t('modals.exit.saveAndExit')}
                   </>
                 )}
               </button>
@@ -153,7 +155,7 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
                 className="px-4 py-2 text-sm font-medium bg-accent-600 hover:bg-accent-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Home className="w-4 h-4" />
-                Exit
+                {t('modals.exit.confirm')}
               </button>
             )}
           </div>

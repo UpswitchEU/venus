@@ -35,6 +35,27 @@ export async function middleware(request: NextRequest) {
 		return;
 	}
 
+	// Priority 1: Check for locale in URL params (from Mercury embedding)
+	const localeParam = request.nextUrl.searchParams.get('locale');
+	if (localeParam && locales.includes(localeParam as typeof locales[number])) {
+		// Set locale cookie to persist across navigation
+		const response = intlMiddleware(request);
+		if (response instanceof Response) {
+			response.cookies.set('NEXT_LOCALE', localeParam, {
+				path: '/',
+				maxAge: 60 * 60 * 24 * 365, // 1 year
+				sameSite: 'lax',
+			});
+			// Rewrite URL to include locale prefix if not already present
+			if (!pathname.startsWith(`/${localeParam}/`)) {
+				const newUrl = request.nextUrl.clone();
+				newUrl.pathname = `/${localeParam}${pathname}`;
+				newUrl.searchParams.delete('locale'); // Remove locale param after using it
+				return NextResponse.redirect(newUrl);
+			}
+		}
+	}
+
 	// Let next-intl middleware handle all routing (including locale detection)
 	// It will automatically detect locale from Accept-Language header and redirect/rewrite
 	const response = intlMiddleware(request);

@@ -6,6 +6,7 @@
  */
 
 import React from 'react'
+import { useTranslations } from 'next-intl'
 
 interface ValuationPaywallModalProps {
   isOpen: boolean
@@ -24,7 +25,13 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
   message,
   onUpgrade,
 }) => {
+  const t = useTranslations()
   if (!isOpen) return null
+  
+  const defaultMessage = t('modals.paywall.message', { 
+    limit, 
+    plural: limit === 1 ? '' : 's' 
+  })
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -36,11 +43,11 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           </div>
 
           <h2 className="text-3xl font-bold text-white mb-3">
-            Upgrade to Premium
+            {t('modals.paywall.title')}
           </h2>
 
           <p className="text-zinc-400 text-lg">
-            {message || `You've used your ${limit} free valuation${limit === 1 ? '' : 's'} this year.`}
+            {message || defaultMessage}
           </p>
         </div>
 
@@ -49,29 +56,29 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           {/* Free Tier */}
           <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Free</h3>
+              <h3 className="text-lg font-semibold text-white">{t('modals.paywall.features.free')}</h3>
               <span className="text-2xl font-bold text-zinc-400">€0</span>
             </div>
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-green-400 mt-0.5">✓</span>
-                <span className="text-zinc-400">{limit} valuation{limit === 1 ? '' : 's'}/year</span>
+                <span className="text-zinc-400">{limit} {t('modals.paywall.features.basicReport')}{limit === 1 ? '' : 's'}/year</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-400 mt-0.5">✓</span>
-                <span className="text-zinc-400">Basic report</span>
+                <span className="text-zinc-400">{t('modals.paywall.features.basicReport')}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-400 mt-0.5">✓</span>
-                <span className="text-zinc-400">Community support</span>
+                <span className="text-zinc-400">{t('modals.paywall.features.communitySupport')}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-zinc-600 mt-0.5">✗</span>
-                <span className="text-zinc-600">Full normalization</span>
+                <span className="text-zinc-600">{t('modals.paywall.features.fullNormalization')}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-zinc-600 mt-0.5">✗</span>
-                <span className="text-zinc-600">Advanced analytics</span>
+                <span className="text-zinc-600">{t('modals.paywall.features.advancedAnalytics')}</span>
               </li>
             </ul>
           </div>
@@ -80,11 +87,11 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-2 border-purple-500/50 rounded-lg p-6 relative overflow-hidden">
             {/* Recommended Badge */}
             <div className="absolute top-4 right-4 bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-              RECOMMENDED
+              {t('modals.paywall.features.recommended')}
             </div>
 
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Premium</h3>
+              <h3 className="text-lg font-semibold text-white">{t('modals.paywall.features.premium')}</h3>
               <div className="text-right">
                 <span className="text-2xl font-bold text-white">€99</span>
                 <span className="text-sm text-zinc-400">/month</span>
@@ -93,15 +100,15 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-green-400 mt-0.5">✓</span>
-                <span className="text-white font-medium">Unlimited valuations</span>
+                <span className="text-white font-medium">{t('modals.paywall.features.unlimitedValuations')}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-400 mt-0.5">✓</span>
-                <span className="text-white font-medium">Full normalization & adjustments</span>
+                <span className="text-white font-medium">{t('modals.paywall.features.fullNormalization')}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-400 mt-0.5">✓</span>
-                <span className="text-white font-medium">Advanced analytics</span>
+                <span className="text-white font-medium">{t('modals.paywall.features.advancedAnalytics')}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-400 mt-0.5">✓</span>

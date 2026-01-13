@@ -8,6 +8,7 @@
  */
 
 import React from 'react'
+import { useTranslations } from 'next-intl'
 
 export interface ChatInputFormProps {
   input: string
@@ -33,9 +34,11 @@ export const ChatInputForm: React.FC<ChatInputFormProps> = ({
   onSubmit,
   isStreaming,
   disabled = false,
-  placeholder = 'Ask about your business valuation...',
+  placeholder,
   suggestions = [],
 }) => {
+  const t = useTranslations()
+  const defaultPlaceholder = placeholder || t('conversational.chat.placeholder')
   return (
     <div className="p-4 border-t border-zinc-800">
       <form
@@ -53,7 +56,7 @@ export const ChatInputForm: React.FC<ChatInputFormProps> = ({
                 onSubmit(e)
               }
             }}
-            placeholder={placeholder}
+            placeholder={defaultPlaceholder}
             disabled={disabled || isStreaming}
             className="textarea-seamless flex w-full rounded-md px-3 py-3 ring-offset-background placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 resize-none text-base leading-snug placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base max-h-[200px] bg-transparent focus:bg-transparent flex-1 text-white border-0 border-none"
             style={{ minHeight: '80px', height: '80px' }}

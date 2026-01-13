@@ -20,6 +20,7 @@
     "test:coverage": "vitest run --coverage",
     "analyze-bundle": "ANALYZE=true next build",
     "bundle-report": "node scripts/analyze-bundle.js",
+    "i18n:check": "node scripts/check-translations.cjs",
     "deploy": "./deploy.sh",
     "deploy:vercel": "./deploy.sh vercel",
     "deploy:netlify": "./deploy.sh netlify",

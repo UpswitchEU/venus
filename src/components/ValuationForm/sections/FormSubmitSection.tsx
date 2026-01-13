@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import type { ValuationFormData } from '../../../types/valuation'
 
@@ -32,6 +33,7 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   formData,
   isRegenerationMode = false,
 }) => {
+  const t = useTranslations()
   const currentYear = Math.min(new Date().getFullYear(), 2100);
   const { hasNormalization } = useEbitdaNormalizationStore();
   
@@ -45,20 +47,20 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
 
   // Identify missing required fields for better UX
   const missingFields: string[] = []
-  if (!formData.revenue) missingFields.push('Revenue')
-  if (!formData.ebitda) missingFields.push('EBITDA')
-  if (!formData.industry) missingFields.push('Industry')
-  if (!formData.country_code) missingFields.push('Country')
+  if (!formData.revenue) missingFields.push(t('forms.fields.revenue'))
+  if (!formData.ebitda) missingFields.push(t('forms.fields.ebitda'))
+  if (!formData.industry) missingFields.push(t('forms.fields.businessType'))
+  if (!formData.country_code) missingFields.push(t('forms.fields.country'))
   
   // Determine button text based on context
   const getButtonText = () => {
     if (hasAnyNormalization) {
-      return 'Calculate Valuation with Normalization';
+      return t('forms.actions.calculateWithNormalization');
     }
     if (isRegenerationMode) {
-      return 'Regenerate Valuation';
+      return t('forms.actions.regenerate');
     }
-    return 'Calculate Valuation';
+    return t('forms.actions.calculate');
   };
 
   // Debug: Log form validation state
@@ -125,7 +127,7 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
           {isSubmitting ? (
             <>
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Calculating...</span>
+              <span>{t('common.states.calculating')}</span>
             </>
           ) : (
             <>
@@ -157,7 +159,7 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
               </svg>
             </div>
             <div className="ml-3 flex-1">
-              <h3 className="text-sm font-medium text-red-200">Error</h3>
+              <h3 className="text-sm font-medium text-red-200">{t('common.states.error')}</h3>
               <p className="mt-1 text-sm text-red-200">{error}</p>
               <div className="mt-3">
                 <button
@@ -165,7 +167,7 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
                   onClick={clearError}
                   className="text-sm font-medium text-red-300 hover:text-red-200 underline"
                 >
-                  Dismiss
+                  {t('common.actions.close')}
                 </button>
               </div>
             </div>

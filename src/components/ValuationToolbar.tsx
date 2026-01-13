@@ -15,6 +15,7 @@ import {
     Save,
     X,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import React from 'react'
 import {
     useValuationToolbarAuth,
@@ -128,16 +129,17 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     return null
   }
 
+  const t = useTranslations()
   const getSaveStatusTooltip = () => {
-    if (syncError) return 'Save failed - click to retry'
-    if (isSaving) return 'Auto-saving...'
+    if (syncError) return t('report.saveStatus.saveFailed')
+    if (isSaving) return t('report.saveStatus.saving')
     // ✅ FIX: Only show "Auto-saving soon..." when there are actual unsaved changes
-    if (hasUnsavedChanges) return 'Auto-saving soon...'
+    if (hasUnsavedChanges) return t('report.saveStatus.savingSoon')
     if (lastSaved) {
       const timeAgo = Math.floor((Date.now() - lastSaved.getTime()) / 1000 / 60)
-      if (timeAgo < 1) return 'Saved'
-      if (timeAgo < 60) return `Saved ${timeAgo}m ago`
-      return `Saved ${Math.floor(timeAgo / 60)}h ago`
+      if (timeAgo < 1) return t('report.saveStatus.saved')
+      if (timeAgo < 60) return t('report.saveStatus.savedAgo', { minutes: timeAgo })
+      return t('report.saveStatus.savedHoursAgo', { hours: Math.floor(timeAgo / 60) })
     }
     // ✅ FIX: Don't show "Saved" for new reports - return null to hide tooltip
     return null
@@ -304,7 +306,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                       <button
                         onClick={handleNameEdit}
                         className="hidden md:block font-semibold text-transparent bg-clip-text bg-gradient-to-r from-harvest-400 to-harvest-500 hover:from-harvest-300 hover:to-harvest-400 transition-all duration-200 cursor-pointer hover:scale-105 drop-shadow-[0_1px_3px_rgba(217,165,88,0.4)]"
-                        title="Click to edit valuation name"
+                        title={t('toolbar.tooltips.editName')}
                       >
                         {generatedName}
                       </button>
@@ -312,9 +314,9 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     <button
                       onClick={handleNameEdit}
                       className="md:hidden text-xs text-harvest-400 font-bold hover:text-harvest-300 transition-colors cursor-pointer"
-                      title="Click to edit valuation name"
+                      title={t('toolbar.tooltips.editName')}
                     >
-                      Valuation
+                      {t('valuation.title')}
                     </button>
                   </div>
                 </div>
@@ -327,7 +329,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                       <button
                         onClick={handleRetrySave}
                         className="flex items-center justify-center p-1 rounded hover:bg-zinc-800 transition-colors cursor-pointer"
-                        aria-label="Retry save"
+                        aria-label={t('common.actions.retry')}
                       >
                         {getSaveStatusIcon()}
                       </button>
@@ -352,7 +354,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
               {/* Center Section - Action Buttons */}
               <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1">
                 {/* Flow Toggles */}
-                <Tooltip content="Manual Input" position="bottom" className="">
+                <Tooltip content={t('navigation.flows.manual')} position="bottom" className="">
                   <button
                     onClick={() => handleFlowIconClick('manual')}
                     disabled={currentView === 'manual' || isSyncing}
@@ -369,7 +371,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     )}
                   </button>
                 </Tooltip>
-                <Tooltip content="Conversational Mode" position="bottom" className="">
+                <Tooltip content={t('navigation.flows.conversational')} position="bottom" className="">
                   <button
                     onClick={() => handleFlowIconClick('conversational')}
                     disabled={currentView === 'conversational' || isSyncing}
@@ -387,7 +389,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                   </button>
                 </Tooltip>
                 <div className="mx-2 h-6 w-px bg-zinc-700"></div>
-                <Tooltip content="Preview" position="bottom" className="">
+                <Tooltip content={t('navigation.tabs.preview')} position="bottom" className="">
                   <button
                     onClick={() => handleTabClick('preview')}
                     className={`p-2 rounded-lg transition-all duration-200 ${
@@ -399,7 +401,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     <Eye className="w-4 h-4" />
                   </button>
                 </Tooltip>
-                <Tooltip content="Valuation Info" position="bottom" className="">
+                <Tooltip content={t('navigation.tabs.info')} position="bottom" className="">
                   <button
                     onClick={() => handleTabClick('info')}
                     className={`p-2 rounded-lg transition-all duration-200 ${
@@ -411,7 +413,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     <Info className="w-4 h-4" />
                   </button>
                 </Tooltip>
-                <Tooltip content="Audit Trail" position="bottom" className="">
+                <Tooltip content={t('navigation.tabs.history')} position="bottom" className="">
                   <button
                     onClick={() => handleTabClick('history')}
                     className={`p-2 rounded-lg transition-all duration-200 ${
@@ -424,7 +426,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                   </button>
                 </Tooltip>
                 <div className="mx-2 h-6 w-px bg-zinc-700"></div>
-                <Tooltip content="Refresh" position="bottom" className="">
+                <Tooltip content={t('toolbar.tooltips.refresh')} position="bottom" className="">
                   <button
                     onClick={handleRefresh}
                     className="p-2 rounded-lg transition-all duration-200 text-gray-400 hover:text-gray-300 hover:bg-zinc-800"
@@ -433,7 +435,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     <RefreshCw className="w-4 h-4" />
                   </button>
                 </Tooltip>
-                <Tooltip content="Download PDF" position="bottom" className="">
+                <Tooltip content={t('toolbar.tooltips.download')} position="bottom" className="">
                   <button
                     onClick={handleDownload}
                     className="p-2 rounded-lg transition-all duration-200 text-gray-400 hover:text-gray-300 hover:bg-zinc-800"
@@ -446,7 +448,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     )}
                   </button>
                 </Tooltip>
-                <Tooltip content="Open Full Screen" position="bottom" className="">
+                <Tooltip content={t('toolbar.tooltips.fullscreen')} position="bottom" className="">
                   <button
                     onClick={handleFullScreen}
                     className="p-2 rounded-lg transition-all duration-200 text-gray-400 hover:text-gray-300 hover:bg-zinc-800"
@@ -458,7 +460,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                 {displayVersions.length > 0 && (
                   <>
                     <div className="mx-2 h-6 w-px bg-zinc-700"></div>
-                    <Tooltip content="Select version" position="bottom" className="">
+                    <Tooltip content={t('report.toolbar.selectVersion')} position="bottom" className="">
                       <div className="relative">
                         <select
                           value={
@@ -498,13 +500,13 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                 {isEmbedded ? (
                   /* Embedded Mode - Show Close Button */
                   <>
-                    <Tooltip content="Close and return to Mercury" position="bottom" className="">
+                    <Tooltip content={t('report.toolbar.returnToMercury')} position="bottom" className="">
                       <button
                         onClick={closeEmbedded}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium"
                       >
                         <X className="w-4 h-4" />
-                        <span className="hidden sm:inline">Close</span>
+                        <span className="hidden sm:inline">{t('report.toolbar.close')}</span>
                       </button>
                     </Tooltip>
                     <div className="h-6 w-px bg-zinc-700 mx-1"></div>
@@ -514,7 +516,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     /* Direct Access with Return URL - Show Return Button */
                     <>
                       <Tooltip
-                        content={`Return to ${sourceApp === 'mercury-accountant' ? 'Client Dashboard' : 'Mercury Dashboard'}`}
+                        content={sourceApp === 'mercury-accountant' ? t('report.toolbar.backToClient') : t('report.toolbar.backToDashboard')}
                         position="bottom"
                         className=""
                       >
@@ -524,7 +526,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                         >
                           <ArrowLeft className="w-4 h-4" />
                           <span className="hidden sm:inline">
-                            {sourceApp === 'mercury-accountant' ? 'Back to Client' : 'Back to Dashboard'}
+                            {sourceApp === 'mercury-accountant' ? t('report.toolbar.backToClient') : t('report.toolbar.backToDashboard')}
                           </span>
                         </button>
                       </Tooltip>

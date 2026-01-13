@@ -1,64 +1,664 @@
 {
   "common": {
-    "submit": "Versturen",
-    "cancel": "Annuleren",
-    "save": "Opslaan",
-    "delete": "Verwijderen",
-    "edit": "Bewerken",
-    "loading": "Laden...",
-    "error": "Fout",
-    "success": "Succes",
-    "close": "Sluiten",
-    "open": "Openen",
-    "back": "Terug",
-    "next": "Volgende",
-    "search": "Zoeken",
-    "filter": "Filteren",
-    "sort": "Sorteren",
-    "clear": "Wissen",
-    "apply": "Toepassen",
-    "reset": "Resetten",
-    "required": "Verplicht",
-    "optional": "Optioneel"
+    "actions": {
+      "save": "Opslaan",
+      "cancel": "Annuleren",
+      "submit": "Versturen",
+      "delete": "Verwijderen",
+      "edit": "Bewerken",
+      "close": "Sluiten",
+      "back": "Terug",
+      "next": "Volgende",
+      "retry": "Opnieuw proberen",
+      "refresh": "Vernieuwen",
+      "download": "Downloaden",
+      "upload": "Uploaden",
+      "continue": "Doorgaan",
+      "confirm": "Bevestigen",
+      "clear": "Wissen",
+      "apply": "Toepassen",
+      "reset": "Resetten",
+      "share": "Delen",
+      "copy": "Kopiëren",
+      "paste": "Plakken",
+      "undo": "Ongedaan maken",
+      "redo": "Opnieuw doen",
+      "search": "Zoeken",
+      "filter": "Filteren",
+      "sort": "Sorteren",
+      "export": "Exporteren",
+      "import": "Importeren",
+      "print": "Afdrukken",
+      "preview": "Voorbeeld",
+      "view": "Bekijken",
+      "startOver": "Opnieuw beginnen"
+    },
+    "states": {
+      "loading": "Laden...",
+      "success": "Succes",
+      "error": "Fout",
+      "empty": "Leeg",
+      "saving": "Opslaan...",
+      "processing": "Verwerken...",
+      "calculating": "Berekenen...",
+      "uploading": "Uploaden...",
+      "downloading": "Downloaden...",
+      "autoSaving": "Automatisch opslaan...",
+      "autoSavingSoon": "Automatisch opslaan binnenkort...",
+      "saved": "Opgeslagen",
+      "savedTimeAgo": "Opgeslagen {time} geleden",
+      "saveFailed": "Opslaan mislukt - klik om opnieuw te proberen",
+      "syncing": "Synchroniseren...",
+      "complete": "Voltooid",
+      "pending": "In behandeling",
+      "inProgress": "Bezig",
+      "failed": "Mislukt"
+    },
+    "labels": {
+      "required": "Verplicht",
+      "optional": "Optioneel",
+      "recommended": "Aanbevolen",
+      "new": "Nieuw",
+      "beta": "Beta",
+      "comingSoon": "Binnenkort",
+      "active": "Actief",
+      "inactive": "Inactief",
+      "enabled": "Ingeschakeld",
+      "disabled": "Uitgeschakeld",
+      "public": "Publiek",
+      "private": "Privé",
+      "draft": "Concept",
+      "published": "Gepubliceerd",
+      "archived": "Gearchiveerd"
+    },
+    "time": {
+      "justNow": "Zojuist",
+      "minutesAgo": "{count}m geleden",
+      "hoursAgo": "{count}u geleden",
+      "daysAgo": "{count}d geleden",
+      "weeksAgo": "{count}w geleden",
+      "monthsAgo": "{count}ma geleden"
+    },
+    "confirmation": {
+      "areYouSure": "Weet u het zeker?",
+      "cannotBeUndone": "Deze actie kan niet ongedaan worden gemaakt.",
+      "unsavedChanges": "U heeft niet-opgeslagen wijzigingen. Weet u zeker dat u wilt vertrekken?",
+      "confirmDelete": "Weet u zeker dat u dit wilt verwijderen?"
+    }
+  },
+  "navigation": {
+    "tabs": {
+      "preview": "Voorbeeld",
+      "info": "Info",
+      "source": "Bron",
+      "history": "Geschiedenis",
+      "comparison": "Vergelijking",
+      "versions": "Versies",
+      "settings": "Instellingen"
+    },
+    "flows": {
+      "manual": "Handmatige Invoer",
+      "conversational": "AI Assistent",
+      "switchToManual": "Overschakelen naar Handmatige Invoer",
+      "switchToConversational": "Overschakelen naar AI Assistent",
+      "switchingFlow": "Flow wisselen...",
+      "flowSwitched": "Flow succesvol gewisseld"
+    },
+    "breadcrumbs": {
+      "home": "Home",
+      "valuations": "Waarderingen",
+      "reports": "Rapporten",
+      "newValuation": "Nieuwe Waardering"
+    }
+  },
+  "toolbar": {
+    "actions": {
+      "newValuation": "Nieuwe Waardering",
+      "save": "Opslaan",
+      "downloadPDF": "PDF Downloaden",
+      "downloadReport": "Rapport Downloaden",
+      "share": "Delen",
+      "refresh": "Vernieuwen",
+      "fullscreen": "Volledig scherm",
+      "exitFullscreen": "Volledig scherm verlaten",
+      "returnTo": "Terug naar {app}",
+      "returnToMercury": "Terug naar Mercury",
+      "close": "Sluiten",
+      "editName": "Naam bewerken",
+      "saveName": "Naam opslaan",
+      "cancelEdit": "Bewerken annuleren"
+    },
+    "tooltips": {
+      "save": "Waardering opslaan",
+      "download": "PDF-rapport downloaden",
+      "refresh": "Nieuwe waardering starten",
+      "fullscreen": "Bekijken in volledig scherm",
+      "switchFlow": "Overschakelen naar {flow} modus",
+      "editName": "Klik om naam te bewerken",
+      "downloading": "PDF genereren...",
+      "saveStatus": "Opslaan status",
+      "versions": "Versiegeschiedenis",
+      "logout": "Uitloggen"
+    },
+    "confirmations": {
+      "newValuation": "Weet u zeker dat u een nieuwe waardering wilt starten? Huidige voortgang gaat verloren.",
+      "switchFlow": "Het wisselen van flows slaat uw huidige voortgang op. Doorgaan?",
+      "downloadFailed": "PDF genereren mislukt. Probeer het opnieuw."
+    },
+    "status": {
+      "generating": "Rapport genereren...",
+      "syncing": "Wijzigingen synchroniseren...",
+      "offline": "Offline - wijzigingen worden gesynchroniseerd wanneer de verbinding is hersteld"
+    }
   },
   "valuation": {
     "title": "Bedrijfswaardering",
-    "calculate": "Waardering Berekenen",
-    "regenerate": "Waardering Opnieuw Genereren",
-    "calculateWithNormalization": "Waardering Berekenen met Normalisatie",
-    "submitting": "Berekenen...",
-    "form": {
+    "subtitle": "Professionele waardering voor uw bedrijf",
+    "manual": {
+      "title": "Handmatige Waardering",
+      "description": "Voer uw bedrijfsgegevens handmatig in",
+      "emptyState": {
+        "title": "Start Uw Waardering",
+        "description": "Vul het formulier in om uw bedrijfswaarde te berekenen",
+        "action": "Aan de slag"
+      },
+      "panels": {
+        "form": "Bedrijfsinformatie",
+        "report": "Waarderingsrapport",
+        "results": "Resultaten",
+        "switchToConversational": "Probeer AI Assistent"
+      }
+    },
+    "conversational": {
+      "title": "AI-Gestuurde Waardering",
+      "description": "Laat onze AI-assistent u begeleiden",
+      "welcome": "Hallo! Ik ben uw waarderingsassistent. Vertel me over uw bedrijf en ik help u een nauwkeurige waardering te krijgen.",
+      "welcomeBack": "Welkom terug! Laten we doorgaan waar we gebleven waren.",
+      "inputPlaceholder": "Typ hier uw bericht...",
+      "inputPlaceholderStart": "Vertel me over uw bedrijf (bijv. 'Ik heb een restaurant')",
+      "emptyState": {
+        "title": "Start een Gesprek",
+        "description": "Chat met onze AI om uw bedrijfswaarde te berekenen",
+        "action": "Begin met Chatten"
+      },
+      "suggestions": {
+        "title": "U kunt me vertellen over:",
+        "businessType": "Uw bedrijfstype",
+        "revenue": "Uw omzet",
+        "employees": "Aantal werknemers",
+        "location": "Uw locatie"
+      },
+      "panels": {
+        "chat": "Gesprek",
+        "report": "Waarderingsrapport",
+        "profile": "Bedrijfsprofiel",
+        "switchToManual": "Overschakelen naar Handmatige Invoer"
+      },
+      "status": {
+        "thinking": "Nadenken...",
+        "typing": "Typen...",
+        "generating": "Waardering genereren...",
+        "analyzing": "Uw bedrijf analyseren...",
+        "collecting": "Gegevens verzamelen...",
+        "calculating": "Waarde berekenen..."
+      },
+      "actions": {
+        "send": "Verzenden",
+        "regenerate": "Opnieuw genereren",
+        "restart": "Opnieuw beginnen"
+      }
+    },
+    "results": {
+      "title": "Waarderingsresultaten",
+      "subtitle": "Uw bedrijfswaarderingsrapport",
+      "summary": "Samenvatting",
+      "details": "Gedetailleerde Analyse",
+      "methodology": "Methodologie",
+      "assumptions": "Veronderstellingen",
+      "recommendations": "Aanbevelingen",
+      "confidenceScore": "Betrouwbaarheidsscore",
+      "valueRange": "Waardebereik",
+      "estimatedValue": "Geschatte Waarde",
+      "lowEstimate": "Lage Schatting",
+      "highEstimate": "Hoge Schatting",
+      "medianValue": "Mediaan Waarde",
+      "actions": {
+        "viewFullReport": "Volledig Rapport Bekijken",
+        "downloadPDF": "PDF Downloaden",
+        "shareReport": "Rapport Delen",
+        "saveReport": "Rapport Opslaan",
+        "regenerate": "Opnieuw Genereren",
+        "refineInputs": "Invoer Verfijnen"
+      }
+    },
+    "calculation": {
+      "inProgress": "Waardering berekenen...",
+      "complete": "Waardering voltooid",
+      "failed": "Berekening mislukt",
+      "retry": "Berekening opnieuw proberen"
+    }
+  },
+  "forms": {
+    "sections": {
       "basicInformation": "Basisinformatie",
       "financialData": "Financiële Gegevens",
       "historicalData": "Historische Gegevens",
-      "ownershipStructure": "Eigendomsstructuur"
+      "ownershipStructure": "Eigendomsstructuur",
+      "businessProfile": "Bedrijfsprofiel",
+      "operations": "Operaties",
+      "assets": "Activa & Passiva"
     },
     "fields": {
-      "revenue": "Omzet",
-      "ebitda": "EBITDA",
-      "industry": "Industrie",
-      "country": "Land",
       "businessType": "Bedrijfstype",
+      "businessTypeSearch": "Zoek naar uw bedrijfstype...",
+      "businessTypeSelect": "Selecteer bedrijfstype",
+      "businessTypeRequired": "Selecteer een bedrijfstype",
+      "companyName": "Bedrijfsnaam",
+      "companyNamePlaceholder": "Voer uw bedrijfsnaam in",
+      "companyNameSearch": "Zoek naar uw bedrijf...",
+      "companyNameVerify": "Bedrijfsgegevens verifiëren",
+      "foundingYear": "Oprichtingsjaar",
+      "foundingYearPlaceholder": "JJJJ",
+      "country": "Land",
+      "countrySelect": "Selecteer een land",
+      "revenue": "Jaaromzet",
+      "revenuePlaceholder": "Voer jaaromzet in",
+      "revenueYear": "Omzet (Jaar {year})",
+      "ebitda": "EBITDA",
+      "ebitdaPlaceholder": "Voer EBITDA in",
+      "ebitdaYear": "EBITDA (Jaar {year})",
+      "ebitdaMargin": "EBITDA Marge",
+      "netIncome": "Netto Inkomen",
+      "grossProfit": "Bruto Winst",
+      "operatingExpenses": "Operationele Kosten",
       "employeeCount": "Aantal Werknemers",
-      "foundingYear": "Oprichtingsjaar"
+      "employeeCountPlaceholder": "Voer aantal werknemers in",
+      "employeeCountFull": "Voltijd Werknemers",
+      "employeeCountPart": "Deeltijd Werknemers",
+      "ownershipPercentage": "Eigendomspercentage",
+      "marketShare": "Marktaandeel",
+      "growthRate": "Groeipercentage",
+      "industryCode": "Industriecode",
+      "kboNumber": "KBO Nummer",
+      "vatNumber": "BTW Nummer",
+      "legalForm": "Rechtsvorm",
+      "address": "Adres",
+      "city": "Stad",
+      "postalCode": "Postcode",
+      "region": "Regio",
+      "website": "Website",
+      "email": "E-mail",
+      "phone": "Telefoonnummer"
     },
-    "errors": {
-      "required": "Dit veld is verplicht",
-      "invalid": "Ongeldige waarde",
-      "calculationFailed": "Waardering berekenen mislukt"
+    "validation": {
+      "required": "{field} is verplicht",
+      "invalid": "Ongeldige {field}",
+      "minValue": "{field} moet minstens {min} zijn",
+      "maxValue": "{field} mag niet meer zijn dan {max}",
+      "minLength": "{field} moet minstens {min} tekens zijn",
+      "maxLength": "{field} mag niet meer zijn dan {max} tekens",
+      "format": "Ongeldig formaat voor {field}",
+      "email": "Voer een geldig e-mailadres in",
+      "phone": "Voer een geldig telefoonnummer in",
+      "url": "Voer een geldige URL in",
+      "number": "{field} moet een getal zijn",
+      "positiveNumber": "{field} moet een positief getal zijn",
+      "integer": "{field} moet een geheel getal zijn",
+      "year": "Voer een geldig jaar in",
+      "futureYear": "Jaar kan niet in de toekomst liggen",
+      "percentage": "{field} moet tussen 0 en 100 zijn",
+      "dateInvalid": "Voer een geldige datum in",
+      "dateFuture": "Datum kan niet in de toekomst liggen",
+      "datePast": "Datum kan niet in het verleden liggen",
+      "greaterThan": "{field} moet groter zijn dan {value}",
+      "lessThan": "{field} moet kleiner zijn dan {value}",
+      "match": "{field} moet overeenkomen met {otherField}"
+    },
+    "placeholders": {
+      "search": "Zoeken...",
+      "select": "Selecteer een optie",
+      "enter": "Voer {field} in",
+      "optional": "(Optioneel)",
+      "example": "bijv., {example}"
+    },
+    "help": {
+      "businessType": "Selecteer de categorie die uw bedrijf het beste beschrijft",
+      "revenue": "Uw totale jaaromzet vóór uitgaven",
+      "ebitda": "Winst vóór rente, belastingen, afschrijvingen en amortisatie",
+      "employeeCount": "Totaal aantal werknemers (voltijds equivalent)",
+      "foundingYear": "Het jaar waarin uw bedrijf werd opgericht",
+      "kboNumber": "Uw officiële bedrijfsregistratienummer"
+    },
+    "actions": {
+      "calculate": "Waardering Berekenen",
+      "calculateWithNormalization": "Berekenen met Normalisatie",
+      "recalculate": "Herberekenen",
+      "regenerate": "Rapport Opnieuw Genereren",
+      "saveProgress": "Voortgang Opslaan",
+      "loadSaved": "Opgeslagen Gegevens Laden",
+      "clearForm": "Formulier Wissen",
+      "resetForm": "Formulier Resetten",
+      "fillSample": "Voorbeeldgegevens Invullen"
+    },
+    "messages": {
+      "calculationStarted": "Waarderingsberekening gestart",
+      "calculationComplete": "Waardering voltooid",
+      "calculationFailed": "Berekening mislukt. Probeer het opnieuw.",
+      "savedSuccessfully": "Succesvol opgeslagen",
+      "saveFailed": "Opslaan mislukt. Probeer het opnieuw.",
+      "validationErrors": "Los de fouten in het formulier op",
+      "allFieldsRequired": "Alle verplichte velden moeten worden ingevuld",
+      "dataRestored": "Uw eerdere gegevens zijn hersteld"
+    }
+  },
+  "businessProfile": {
+    "title": "Bedrijfsprofiel",
+    "subtitle": "Overzicht van uw bedrijfsinformatie",
+    "sections": {
+      "overview": "Overzicht",
+      "financial": "Financiële Informatie",
+      "operational": "Operationele Details",
+      "market": "Marktpositie",
+      "registry": "Register Informatie"
+    },
+    "fields": {
+      "name": "Bedrijfsnaam",
+      "type": "Bedrijfstype",
+      "industry": "Industrie",
+      "founded": "Opgericht",
+      "location": "Locatie",
+      "size": "Bedrijfsgrootte",
+      "status": "Status",
+      "registration": "Registratienummer",
+      "legalForm": "Rechtsvorm",
+      "vat": "BTW Nummer"
+    },
+    "kboLookup": {
+      "title": "Bedrijfsregister Opzoeken",
+      "search": "Zoek naar uw bedrijf",
+      "searching": "Register doorzoeken...",
+      "found": "Bedrijf gevonden",
+      "notFound": "Geen bedrijf gevonden met die naam",
+      "verified": "Geverifieerd",
+      "unverified": "Niet geverifieerd",
+      "autoFilled": "Automatisch ingevuld vanuit register",
+      "verifyCompany": "Bedrijfsgegevens verifiëren",
+      "changeCompany": "Bedrijf wijzigen",
+      "useThisCompany": "Dit bedrijf gebruiken",
+      "manualEntry": "Handmatig invoeren"
+    },
+    "suggestions": {
+      "title": "Suggesties",
+      "basedOn": "Gebaseerd op uw bedrijfstype",
+      "similar": "Vergelijkbare bedrijven"
+    },
+    "empty": {
+      "title": "Nog geen bedrijfsgegevens",
+      "description": "Begin met het invoeren van uw bedrijfsinformatie",
+      "action": "Bedrijfsinfo Toevoegen"
     }
   },
   "reports": {
-    "title": "Waarderingsrapporten",
-    "new": "Nieuw Rapport",
-    "loading": "Rapport laden...",
-    "error": "Rapport laden mislukt",
-    "notFound": "Rapport niet gevonden"
+    "title": "Waarderingsrapport",
+    "subtitle": "Uitgebreide bedrijfswaarderingsanalyse",
+    "sections": {
+      "executiveSummary": "Managementsamenvatting",
+      "introduction": "Inleiding",
+      "methodology": "Methodologie",
+      "companyOverview": "Bedrijfsoverzicht",
+      "financialAnalysis": "Financiële Analyse",
+      "marketAnalysis": "Marktanalyse",
+      "valuationAnalysis": "Waarderingsanalyse",
+      "riskAssessment": "Risicobeoordeling",
+      "recommendations": "Aanbevelingen",
+      "appendices": "Bijlagen",
+      "assumptions": "Belangrijkste Veronderstellingen",
+      "disclaimer": "Disclaimer"
+    },
+    "actions": {
+      "download": "Rapport Downloaden",
+      "downloadPDF": "Downloaden als PDF",
+      "downloadJSON": "Gegevens Downloaden",
+      "share": "Rapport Delen",
+      "print": "Rapport Afdrukken",
+      "email": "Rapport E-mailen",
+      "export": "Exporteren",
+      "viewVersion": "Versie Bekijken",
+      "compareVersions": "Versies Vergelijken",
+      "restoreVersion": "Versie Herstellen"
+    },
+    "status": {
+      "generating": "Rapport genereren...",
+      "complete": "Rapport voltooid",
+      "downloading": "Download voorbereiden...",
+      "failed": "Rapportgeneratie mislukt",
+      "partial": "Gedeeltelijk rapport beschikbaar"
+    },
+    "metadata": {
+      "generatedOn": "Gegenereerd op",
+      "reportId": "Rapport ID",
+      "version": "Versie",
+      "preparedFor": "Voorbereid voor",
+      "preparedBy": "Voorbereid door",
+      "validUntil": "Geldig tot"
+    }
+  },
+  "versions": {
+    "title": "Versiegeschiedenis",
+    "subtitle": "Volg wijzigingen aan uw waardering",
+    "current": "Huidige Versie",
+    "previous": "Vorige Versies",
+    "version": "Versie {number}",
+    "versionN": "V{number}",
+    "createdOn": "Gemaakt op {date}",
+    "createdAt": "Gemaakt om {time}",
+    "modifiedOn": "Gewijzigd op {date}",
+    "noVersions": "Geen versiegeschiedenis beschikbaar",
+    "loadingVersions": "Versies laden...",
+    "actions": {
+      "view": "Versie Bekijken",
+      "restore": "Herstellen",
+      "compare": "Vergelijken",
+      "download": "Downloaden",
+      "delete": "Verwijderen"
+    },
+    "comparison": {
+      "title": "Versievergelijking",
+      "comparing": "Versies {v1} en {v2} vergelijken",
+      "changes": "Wijzigingen",
+      "noChanges": "Geen wijzigingen gedetecteerd",
+      "fieldChanged": "{field} gewijzigd",
+      "added": "Toegevoegd",
+      "removed": "Verwijderd",
+      "modified": "Gewijzigd",
+      "unchanged": "Ongewijzigd"
+    },
+    "restore": {
+      "title": "Versie Herstellen",
+      "confirm": "Weet u zeker dat u versie {version} wilt herstellen?",
+      "description": "Dit zal uw huidige waardering vervangen door versie {version}.",
+      "success": "Versie succesvol hersteld",
+      "failed": "Versie herstellen mislukt"
+    }
+  },
+  "errors": {
+    "generic": "Er is iets misgegaan",
+    "tryAgain": "Probeer het opnieuw",
+    "contactSupport": "Als het probleem aanhoudt, neem dan contact op met support",
+    "network": {
+      "title": "Verbindingsfout",
+      "description": "Kan geen verbinding maken met de server",
+      "offline": "U lijkt offline te zijn",
+      "retry": "Verbinding opnieuw proberen",
+      "checkConnection": "Controleer uw internetverbinding"
+    },
+    "validation": {
+      "title": "Validatiefout",
+      "description": "Controleer uw invoer",
+      "fixErrors": "Los de onderstaande fouten op"
+    },
+    "calculation": {
+      "title": "Berekeningsfout",
+      "description": "Waardering berekenen mislukt",
+      "invalidData": "Ongeldige gegevens opgegeven",
+      "retry": "Berekening opnieuw proberen"
+    },
+    "session": {
+      "title": "Sessiefout",
+      "description": "Uw sessie is verlopen",
+      "expired": "Sessie verlopen - log opnieuw in",
+      "notFound": "Sessie niet gevonden",
+      "conflict": "Sessieconflict gedetecteerd",
+      "restore": "Sessie herstellen",
+      "startNew": "Nieuwe sessie starten"
+    },
+    "authentication": {
+      "title": "Authenticatiefout",
+      "description": "Log in om door te gaan",
+      "required": "Authenticatie vereist",
+      "failed": "Authenticatie mislukt",
+      "expired": "Uw sessie is verlopen",
+      "login": "Inloggen",
+      "logout": "Uitloggen"
+    },
+    "notFound": {
+      "title": "Niet Gevonden",
+      "description": "De pagina die u zoekt bestaat niet",
+      "report": "Rapport niet gevonden",
+      "valuation": "Waardering niet gevonden",
+      "goHome": "Ga naar startpagina"
+    },
+    "serverError": {
+      "title": "Serverfout",
+      "description": "Er is een fout opgetreden op onze servers",
+      "code500": "Interne serverfout",
+      "code502": "Bad gateway",
+      "code503": "Service niet beschikbaar",
+      "code504": "Gateway timeout"
+    },
+    "rateLimit": {
+      "title": "Te Veel Verzoeken",
+      "description": "Ga langzamer en probeer het over een moment opnieuw",
+      "waitTime": "Wacht {seconds} seconden"
+    }
+  },
+  "modals": {
+    "flowSwitch": {
+      "title": "Flow Modus Wisselen",
+      "description": "Het wisselen tussen Handmatige en AI modi slaat uw huidige voortgang op.",
+      "toManual": "Overschakelen naar Handmatige Invoer",
+      "toConversational": "Overschakelen naar AI Assistent",
+      "confirm": "Modus Wisselen",
+      "cancel": "In Huidige Modus Blijven",
+      "saving": "Voortgang opslaan..."
+    },
+    "regeneration": {
+      "title": "Rapport Opnieuw Genereren",
+      "description": "Weet u zeker dat u dit waarderingsrapport opnieuw wilt genereren?",
+      "warning": "Dit zal een nieuwe versie van het rapport maken.",
+      "confirm": "Opnieuw Genereren",
+      "cancel": "Annuleren",
+      "inProgress": "Rapport opnieuw genereren..."
+    },
+    "normalization": {
+      "title": "EBITDA Normalisatie",
+      "description": "Pas uw EBITDA aan voor eenmalige uitgaven en inkomsten",
+      "addAdjustment": "Aanpassing Toevoegen",
+      "removeAdjustment": "Verwijderen",
+      "totalAdjustments": "Totale Aanpassingen",
+      "normalizedEBITDA": "Genormaliseerde EBITDA",
+      "apply": "Toepassen",
+      "cancel": "Annuleren"
+    },
+    "outOfCredits": {
+      "title": "Credits Op",
+      "description": "U heeft al uw waarderingscredits gebruikt",
+      "upgrade": "Plan Upgraden",
+      "buyCredits": "Meer Credits Kopen",
+      "cancel": "Annuleren"
+    },
+    "paywall": {
+      "title": "Premium Functie",
+      "description": "Deze functie is beschikbaar voor premium gebruikers",
+      "features": "Premium functies omvatten:",
+      "upgrade": "Nu Upgraden",
+      "learnMore": "Meer Informatie",
+      "cancel": "Misschien Later"
+    },
+    "versionComparison": {
+      "title": "Versies Vergelijken",
+      "selectVersion": "Selecteer versie om te vergelijken",
+      "version1": "Versie 1",
+      "version2": "Versie 2",
+      "compare": "Vergelijken",
+      "cancel": "Annuleren"
+    },
+    "deleteConfirm": {
+      "title": "Verwijdering Bevestigen",
+      "description": "Weet u zeker dat u dit wilt verwijderen?",
+      "warning": "Deze actie kan niet ongedaan worden gemaakt.",
+      "confirm": "Verwijderen",
+      "cancel": "Annuleren"
+    }
   },
   "language": {
     "english": "English",
     "dutch": "Nederlands",
     "selectLanguage": "Selecteer Taal",
-    "switchLanguage": "Taal Wisselen"
+    "switchLanguage": "Taal Wisselen",
+    "currentLanguage": "Huidige Taal"
+  },
+  "user": {
+    "profile": "Profiel",
+    "settings": "Instellingen",
+    "account": "Account",
+    "logout": "Uitloggen",
+    "login": "Inloggen",
+    "signup": "Aanmelden",
+    "welcome": "Welkom, {name}",
+    "guest": "Gastgebruiker"
+  },
+  "loading": {
+    "initializing": "Initialiseren...",
+    "loadingApplication": "Applicatie laden...",
+    "loadingData": "Gegevens laden...",
+    "loadingReport": "Rapport laden...",
+    "loadingSession": "Sessie laden...",
+    "restoringSession": "Sessie herstellen...",
+    "pleaseWait": "Een moment geduld...",
+    "almostThere": "Bijna klaar...",
+    "thisWontTakeLong": "Dit duurt niet lang"
+  },
+  "empty": {
+    "noData": "Geen gegevens beschikbaar",
+    "noResults": "Geen resultaten gevonden",
+    "noReports": "Geen rapporten beschikbaar",
+    "noVersions": "Geen versies beschikbaar",
+    "noHistory": "Geen geschiedenis beschikbaar",
+    "startByCreating": "Begin met het maken van uw eerste {item}",
+    "tryAdjustingFilters": "Probeer uw filters aan te passen"
+  },
+  "success": {
+    "saved": "Succesvol opgeslagen",
+    "updated": "Succesvol bijgewerkt",
+    "deleted": "Succesvol verwijderd",
+    "created": "Succesvol aangemaakt",
+    "uploaded": "Succesvol geüpload",
+    "downloaded": "Succesvol gedownload",
+    "exported": "Succesvol geëxporteerd",
+    "imported": "Succesvol geïmporteerd",
+    "sent": "Succesvol verzonden",
+    "shared": "Succesvol gedeeld"
+  },
+  "accessibility": {
+    "skipToContent": "Ga naar inhoud",
+    "menu": "Menu",
+    "closeMenu": "Menu sluiten",
+    "openMenu": "Menu openen",
+    "loading": "Laden",
+    "error": "Fout",
+    "success": "Succes",
+    "warning": "Waarschuwing",
+    "info": "Informatie"
   }
 }
