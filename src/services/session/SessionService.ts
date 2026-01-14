@@ -435,6 +435,24 @@ export class SessionService {
                   throw new Error('Authentication required. Please log in to continue.')
                 }
 
+                // Database/Server errors (UUID type mismatches, SQL errors)
+                if (
+                  errorMessage.includes('uuid') ||
+                  errorMessage.includes('database') ||
+                  errorMessage.includes('42804') || // PostgreSQL type mismatch error code
+                  errorMessage.includes('42883') || // PostgreSQL operator error code
+                  errorMessage.includes('column') ||
+                  errorMessage.includes('type uuid but expression is of type text')
+                ) {
+                  logger.error('Database error during session creation', {
+                    reportId,
+                    error: errorMessage,
+                  })
+                  throw new Error(
+                    'Unable to create session due to a technical issue. Please try again or contact support if the problem persists.'
+                  )
+                }
+
                 // Network errors
                 if (
                   errorMessage.includes('Network') ||

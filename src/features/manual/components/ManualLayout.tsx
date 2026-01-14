@@ -717,14 +717,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const currentFormData = useManualFormStore.getState().formData
 
     // Check if form is empty (same logic as main restoration)
+    // ✅ FIX: Don't consider form "filled" if it only has default values
     const hasRevenue =
       currentFormData.revenue ||
       (currentFormData.current_year_data?.revenue && currentFormData.current_year_data.revenue > 0)
     const hasEbitda =
       currentFormData.ebitda ||
       (currentFormData.current_year_data?.ebitda && currentFormData.current_year_data.ebitda > 0)
+    const hasUserEnteredCompanyName = currentFormData.company_name && currentFormData.company_name.trim() !== ''
+    const hasUserSelectedBusinessType = currentFormData.business_type_id && currentFormData.business_type_id !== ''
+    const hasUserEnteredFoundingYear = currentFormData.founding_year && 
+      currentFormData.founding_year !== (new Date().getFullYear() - 5) // Not the default
+    const hasUserSelectedCountry = currentFormData.country_code && 
+      currentFormData.country_code !== 'BE' // Not the default
+    
     const formIsEmpty =
-      !currentFormData.company_name &&
+      !hasUserEnteredCompanyName &&
+      !hasUserSelectedBusinessType &&
+      !hasUserEnteredFoundingYear &&
+      !hasUserSelectedCountry &&
       !hasRevenue &&
       !hasEbitda &&
       (currentFormData.industry === 'services' || !currentFormData.industry)
