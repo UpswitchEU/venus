@@ -104,11 +104,32 @@ export function mergePrefilledQuery(partialData: any, prefilledQuery?: string | 
 export function mergeSessionFields(session: ValuationSession): ValuationSession {
   if (!session) return session
 
+  // ✅ FIX: Preserve ALL existing sessionData fields
+  // Only add/override the special fields (valuation_result, html_report, info_tab_html)
+  const existingSessionData = session.sessionData || {}
+  
   const mergedSessionData = {
-    ...(session.sessionData || {}),
+    ...existingSessionData,  // Preserve ALL business card and form data
     ...(session.valuationResult && { valuation_result: session.valuationResult }),
     ...(session.htmlReport && { html_report: session.htmlReport }),
     ...(session.infoTabHtml && { info_tab_html: session.infoTabHtml }),
+  }
+
+  // ✅ LOG: Verify business card data is preserved
+  const hasBusinessCardData = !!(
+    existingSessionData.company_name !== undefined ||
+    existingSessionData.business_type_id ||
+    existingSessionData.founding_year ||
+    existingSessionData.country_code
+  )
+  
+  if (hasBusinessCardData) {
+    console.log('[mergeSessionFields] Preserving business card data', {
+      company_name: existingSessionData.company_name,
+      business_type_id: existingSessionData.business_type_id,
+      founding_year: existingSessionData.founding_year,
+      country_code: existingSessionData.country_code,
+    })
   }
 
   return {

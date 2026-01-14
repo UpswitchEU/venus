@@ -388,6 +388,30 @@ export class SessionService {
                 const normalizedSession = normalizeSessionDates(createResponse.session)
                 const mergedSession = mergeSessionFields(normalizedSession)
 
+                // ✅ DIAGNOSTIC: Verify business card data survived merging
+                const hasBusinessCardData = !!(
+                  (mergedSession.sessionData as any)?.company_name !== undefined ||
+                  (mergedSession.sessionData as any)?.business_type_id ||
+                  (mergedSession.sessionData as any)?.founding_year ||
+                  (mergedSession.sessionData as any)?.country_code
+                )
+
+                if (hasBusinessCardData) {
+                  logger.info('Business card data preserved in session', {
+                    reportId,
+                    company_name: (mergedSession.sessionData as any)?.company_name,
+                    business_type_id: (mergedSession.sessionData as any)?.business_type_id,
+                    founding_year: (mergedSession.sessionData as any)?.founding_year,
+                    country_code: (mergedSession.sessionData as any)?.country_code,
+                  })
+                } else {
+                  logger.warn('No business card data in merged session', {
+                    reportId,
+                    hasSessionData: !!mergedSession.sessionData,
+                    sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData) : [],
+                  })
+                }
+
                 // Ensure reportId is set correctly
                 mergedSession.reportId = actualReportId
 
@@ -492,6 +516,30 @@ export class SessionService {
 
             // Merge top-level fields into sessionData (SINGLE SOURCE OF TRUTH)
             const mergedSession = mergeSessionFields(normalizedSession)
+
+            // ✅ DIAGNOSTIC: Verify business card data survived merging (existing session load)
+            const hasBusinessCardData = !!(
+              (mergedSession.sessionData as any)?.company_name !== undefined ||
+              (mergedSession.sessionData as any)?.business_type_id ||
+              (mergedSession.sessionData as any)?.founding_year ||
+              (mergedSession.sessionData as any)?.country_code
+            )
+
+            if (hasBusinessCardData) {
+              logger.info('Business card data preserved in existing session', {
+                reportId,
+                company_name: (mergedSession.sessionData as any)?.company_name,
+                business_type_id: (mergedSession.sessionData as any)?.business_type_id,
+                founding_year: (mergedSession.sessionData as any)?.founding_year,
+                country_code: (mergedSession.sessionData as any)?.country_code,
+              })
+            } else {
+              logger.warn('No business card data in existing session', {
+                reportId,
+                hasSessionData: !!mergedSession.sessionData,
+                sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData) : [],
+              })
+            }
 
             // SECURITY: Extract prefilledQuery from session data first (preferred)
             // Fallback to URL parameter for backward compatibility
@@ -712,6 +760,30 @@ export class SessionService {
         // Backend returned session data - use it
         const normalizedSession = normalizeSessionDates(response.session)
         mergedSession = mergeSessionFields(normalizedSession)
+
+        // ✅ DIAGNOSTIC: Verify business card data survived merging (save session)
+        const hasBusinessCardData = !!(
+          (mergedSession.sessionData as any)?.company_name !== undefined ||
+          (mergedSession.sessionData as any)?.business_type_id ||
+          (mergedSession.sessionData as any)?.founding_year ||
+          (mergedSession.sessionData as any)?.country_code
+        )
+
+        if (hasBusinessCardData) {
+          logger.info('Business card data preserved after save', {
+            reportId,
+            company_name: (mergedSession.sessionData as any)?.company_name,
+            business_type_id: (mergedSession.sessionData as any)?.business_type_id,
+            founding_year: (mergedSession.sessionData as any)?.founding_year,
+            country_code: (mergedSession.sessionData as any)?.country_code,
+          })
+        } else {
+          logger.warn('No business card data after save', {
+            reportId,
+            hasSessionData: !!mergedSession.sessionData,
+            sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData) : [],
+          })
+        }
       } else {
         // Backend didn't return session data (common when creating new session)
         // Clear cache and reload with retry (backend may need a moment to persist)
@@ -1084,6 +1156,30 @@ export class SessionService {
         validateSessionData(sessionResponse.session)
         const normalizedSession = normalizeSessionDates(sessionResponse.session)
         const mergedSession = mergeSessionFields(normalizedSession)
+
+        // ✅ DIAGNOSTIC: Verify business card data survived merging (background revalidation)
+        const hasBusinessCardData = !!(
+          (mergedSession.sessionData as any)?.company_name !== undefined ||
+          (mergedSession.sessionData as any)?.business_type_id ||
+          (mergedSession.sessionData as any)?.founding_year ||
+          (mergedSession.sessionData as any)?.country_code
+        )
+
+        if (hasBusinessCardData) {
+          logger.info('Business card data preserved during background revalidation', {
+            reportId,
+            company_name: (mergedSession.sessionData as any)?.company_name,
+            business_type_id: (mergedSession.sessionData as any)?.business_type_id,
+            founding_year: (mergedSession.sessionData as any)?.founding_year,
+            country_code: (mergedSession.sessionData as any)?.country_code,
+          })
+        } else {
+          logger.warn('No business card data during background revalidation', {
+            reportId,
+            hasSessionData: !!mergedSession.sessionData,
+            sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData) : [],
+          })
+        }
 
         // Update cache with fresh data
         globalSessionCache.set(reportId, mergedSession)
