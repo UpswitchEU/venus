@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import type { CompanySearchResult } from '../../services/registry/types'
 
 export interface CompanyPreviewCardProps {
@@ -19,6 +20,7 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
   onClear,
   isVerifying = false,
 }) => {
+  const t = useTranslations()
   const [justVerified, setJustVerified] = useState(false)
   const wasVerifying = useRef(false)
 
@@ -61,9 +63,9 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
           </div>
           <div>
             <p className="text-xs font-semibold text-primary-700 uppercase tracking-wider">
-              {isVerifying ? 'Verifying...' : 'Verified Company'}
+              {isVerifying ? t('forms.kboLookup.verifying') : t('forms.kboLookup.verifiedCompany')}
             </p>
-            <p className="text-sm font-medium text-gray-600">KBO/BCE Belgium</p>
+            <p className="text-sm font-medium text-gray-600">{t('forms.kboLookup.kboBelgium')}</p>
           </div>
         </div>
 
@@ -72,9 +74,9 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
           type="button"
           onClick={onClear}
           className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-100 rounded-lg transition-colors"
-          aria-label="Change company"
+          aria-label={t('forms.kboLookup.changeCompany')}
         >
-          Change Company
+          {t('forms.kboLookup.changeCompany')}
         </button>
       </div>
 
@@ -117,7 +119,7 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  {company.status}
+                  {company.status.toLowerCase() === 'active' ? t('forms.kboLookup.active') : company.status}
                 </span>
               </>
             )}

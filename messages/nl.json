@@ -254,7 +254,7 @@
       "businessTypeSelect": "Selecteer bedrijfstype",
       "businessTypeRequired": "Selecteer een bedrijfstype",
       "companyName": "Bedrijfsnaam",
-      "companyNamePlaceholder": "Voer uw bedrijfsnaam in",
+      "companyNamePlaceholder": "bijv. Acme BV",
       "companyNameSearch": "Zoek naar uw bedrijf...",
       "companyNameVerify": "Bedrijfsgegevens verifiëren",
       "foundingYear": "Oprichtingsjaar",

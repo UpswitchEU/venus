@@ -475,7 +475,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
             // Other
             comparables: sessionDataObj.comparables,
-            business_context: sessionDataObj.business_context,
+            
+            // ✅ FIX: Ensure KBO data is preserved in business_context for company preview card
+            // If KBO data exists in session but not in business_context, merge it
+            business_context: (sessionDataObj.kbo_registration || sessionDataObj.kbo_registration_number || sessionDataObj.legal_form || sessionDataObj.company_address || sessionDataObj.company_status) ? {
+              ...(sessionDataObj.business_context || {}),
+              kbo_registration: sessionDataObj.kbo_registration || sessionDataObj.kbo_registration_number,
+              kbo_registration_number: sessionDataObj.kbo_registration_number || sessionDataObj.kbo_registration,
+              legal_form: sessionDataObj.legal_form,
+              company_id: sessionDataObj.company_id,
+              company_address: sessionDataObj.company_address,
+              company_status: sessionDataObj.company_status || 'Active',
+            } : sessionDataObj.business_context,
           }
 
           // ✅ FIX: Remove undefined values but preserve empty strings and null

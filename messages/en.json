@@ -254,7 +254,7 @@
       "businessTypeSelect": "Select business type",
       "businessTypeRequired": "Please select a business type",
       "companyName": "Company Name",
-      "companyNamePlaceholder": "Enter your company name",
+      "companyNamePlaceholder": "e.g., Acme GmbH",
       "companyNameSearch": "Search for your company...",
       "companyNameVerify": "Verify company details",
       "foundingYear": "Founding Year",
