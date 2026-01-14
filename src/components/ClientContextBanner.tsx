@@ -3,6 +3,7 @@
 import { X } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import React, { useEffect, useState } from 'react'
+import { useAuth } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 
@@ -14,6 +15,7 @@ import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
  */
 export function ClientContextBanner() {
   const [mounted, setMounted] = useState(false)
+  const { isAuthenticated } = useAuth()
   const { isActingAsClient, client, clearClientContext } = useClientContext()
   const { isEmbedded, closeEmbedded } = useEmbeddedMode()
   const locale = useLocale()
@@ -23,7 +25,8 @@ export function ClientContextBanner() {
     setMounted(true)
   }, [])
 
-  if (!mounted || !isActingAsClient || !client) return null
+  // Only show banner if user is authenticated AND acting as client
+  if (!mounted || !isActingAsClient || !client || !isAuthenticated) return null
 
   const handleExitClientView = () => {
     try {

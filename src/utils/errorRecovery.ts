@@ -8,7 +8,7 @@
  * - Recovery suggestions
  */
 
-export type ErrorCategory = 'network' | 'auth' | 'validation' | 'server' | 'unknown'
+export type ErrorCategory = 'network' | 'auth' | 'validation' | 'server' | 'ratelimit' | 'unknown'
 
 export interface ErrorRecoveryOptions {
   maxRetries?: number
@@ -76,6 +76,15 @@ export function classifyError(error: unknown): ErrorCategory {
     return 'validation'
   }
 
+  // Rate limit errors (don't retry immediately)
+  if (
+    message.includes('429') ||
+    message.includes('too many requests') ||
+    message.includes('rate limit')
+  ) {
+    return 'ratelimit'
+  }
+
   // Server errors
   if (
     message.includes('500') ||
@@ -116,6 +125,8 @@ export function getUserFriendlyErrorMessage(error: unknown, category?: ErrorCate
       return 'Invalid data provided. Please check your input and try again.'
     case 'server':
       return 'The server is experiencing issues. Please try again in a moment.'
+    case 'ratelimit':
+      return 'The service is experiencing high demand. Please wait a moment and try again.'
     default:
       return error instanceof Error
         ? error.message

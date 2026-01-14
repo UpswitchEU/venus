@@ -435,6 +435,13 @@ export const useAuthStore = create<AuthState>()(
           set({ user: null, loading: false, error: null })
           clearAuthCache()
 
+          // Clear client context on logout
+          import('../stores/clientContext').then(({ useClientContext }) => {
+            useClientContext.getState().clearClientContext()
+          }).catch(() => {
+            // Non-critical
+          })
+
           // CRITICAL: Clear all promise caches to prevent stale auth state
           checkSessionPromise = null
           refreshPromise = null

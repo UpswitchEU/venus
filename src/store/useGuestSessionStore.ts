@@ -193,7 +193,7 @@ export const useGuestSessionStore = create<GuestSessionState>((set, get) => ({
     // ✅ FIX: Check if user is authenticated before creating guest session
     // Authenticated users should NOT have guest sessions
     try {
-      const { useAuthStore } = await import('./useAuthStore')
+      const { useAuthStore } = await import('../lib/auth')
       const isAuthenticated = useAuthStore.getState().user !== null
       
       if (isAuthenticated) {

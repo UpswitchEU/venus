@@ -353,6 +353,11 @@ export class HttpClient {
       return false
     }
 
+    // Don't retry rate limit errors - user should wait
+    if (errorCategory === 'ratelimit') {
+      return false
+    }
+
     // Fallback to status-based check for unknown errors
     if (!error.response) {
       return true // Network error
