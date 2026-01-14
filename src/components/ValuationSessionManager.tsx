@@ -176,11 +176,47 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             return
           }
 
+          // ✅ IMPROVED: Categorize errors and provide user-friendly messages
+          const errorMessage = err.message || 'Unknown error'
+          const isTimeout = errorMessage.includes('timeout')
+          const isNetworkError = errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('Failed to fetch')
+          const isUuidError = errorMessage.includes('uuid') || errorMessage.includes('operator does not exist')
+          const isAuthError = errorMessage.includes('401') || errorMessage.includes('Unauthorized')
+          
+          // Set user-friendly error message
+          let userFriendlyError = 'Failed to load session. Please try again.'
+          if (isTimeout) {
+            userFriendlyError = 'Session load timeout (30 seconds). Please refresh the page or try again.'
+          } else if (isNetworkError) {
+            userFriendlyError = 'Network error. Please check your connection and try again.'
+          } else if (isUuidError) {
+            userFriendlyError = 'Server error occurred. Please refresh the page or contact support.'
+            // Log UUID errors specifically for backend debugging
+            generalLogger.error('[SessionManager] UUID-related error detected', {
+              reportId,
+              error: errorMessage,
+              stack: err.stack,
+            })
+          } else if (isAuthError) {
+            userFriendlyError = 'Authentication error. Please log in again.'
+          }
+
+          // Ensure store state is reset on error
+          useSessionStore.setState({
+            isInitializing: false,
+            isLoading: false,
+            error: userFriendlyError,
+          })
+
           generalLogger.error('[SessionManager] Load failed', {
             reportId,
             flow: detectedFlow,
-            error: err.message,
-            isTimeout: err.message?.includes('timeout'),
+            error: errorMessage,
+            isTimeout,
+            isNetworkError,
+            isUuidError,
+            isAuthError,
+            userFriendlyError,
           })
         })
 

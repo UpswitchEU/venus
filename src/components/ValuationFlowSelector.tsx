@@ -166,6 +166,11 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
 
     // Render based on stage
     if (stage === 'loading') {
+      console.log('[ValuationFlowSelector] Rendering loading state with INITIALIZATION_STEPS', {
+        stepsCount: INITIALIZATION_STEPS.length,
+        isLoading,
+        hasSession: !!session,
+      })
       return <LoadingState steps={INITIALIZATION_STEPS} variant="dark" />
     }
 
