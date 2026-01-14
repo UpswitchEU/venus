@@ -214,14 +214,14 @@ export async function retryWithBackoffAndMetadata<T>(
 export const retryPresets = {
   /**
    * Session operations (create, load, switch view)
-   * - 3 retries max
-   * - 100ms initial delay
-   * - 2s max total time
+   * - 2 retries max (reduced from 3 to avoid rate limits)
+   * - 200ms initial delay (increased for better backoff)
+   * - 3s max total time (increased to allow longer waits)
    */
   session: {
-    maxRetries: 3,
-    initialDelay: 100,
-    maxDelay: 2000,
+    maxRetries: 2,
+    initialDelay: 200,
+    maxDelay: 3000,
     backoffMultiplier: 2,
   },
 
