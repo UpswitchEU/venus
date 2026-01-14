@@ -16,7 +16,7 @@ export function ClientContextBanner() {
   const [mounted, setMounted] = useState(false)
   const { isActingAsClient, client, clearClientContext } = useClientContext()
   const { isEmbedded, closeEmbedded } = useEmbeddedMode()
-  const t = useTranslations('clientContext')
+  const t = useTranslations()
 
   useEffect(() => {
     setMounted(true)
