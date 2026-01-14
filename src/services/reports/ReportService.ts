@@ -215,7 +215,8 @@ class ReportServiceImpl implements ReportService {
         process.env.NEXT_PUBLIC_BACKEND_URL ||
         process.env.NEXT_PUBLIC_API_BASE_URL ||
         'https://api.upswitch.app'
-      const url = `${baseURL}/api/billing/plan-enforcement/check?usage_type=VALUATION`
+      // ✅ FIX: Add /v2 to the API path (endpoint is at /api/v2/billing/...)
+      const url = `${baseURL}/api/v2/billing/plan-enforcement/check?usage_type=VALUATION`
 
       const response = await fetch(url, {
         method: 'GET',

@@ -186,8 +186,25 @@ export const useGuestSessionStore = create<GuestSessionState>((set, get) => ({
   /**
    * Ensure session exists (initialize if needed)
    * Safe to call multiple times - uses atomic state to prevent race conditions
+   * 
+   * ✅ FIX: Skip guest session creation for authenticated users
    */
   ensureSession: async () => {
+    // ✅ FIX: Check if user is authenticated before creating guest session
+    // Authenticated users should NOT have guest sessions
+    try {
+      const { useAuthStore } = await import('./useAuthStore')
+      const isAuthenticated = useAuthStore.getState().user !== null
+      
+      if (isAuthenticated) {
+        guestSessionLogger.debug('Skipping guest session for authenticated user')
+        return null
+      }
+    } catch (error) {
+      // If authStore import fails, continue with guest session creation
+      guestSessionLogger.warn('Failed to check auth status, continuing with guest session creation', { error })
+    }
+
     const state = get()
 
     // Sync from localStorage first
