@@ -259,8 +259,13 @@
       "companyNameVerify": "Bedrijfsgegevens verifiëren",
       "foundingYear": "Oprichtingsjaar",
       "foundingYearPlaceholder": "JJJJ",
+      "yearBusinessCommenced": "Jaar waarop de handel is begonnen",
+      "yearBusinessCommencedPlaceholder": "bijv. 2018 (eerste commerciële omzet)",
+      "yearBusinessCommencedHelp": "Start van commerciële activiteiten. Gebruikt om de track record lengte te berekenen. Bedrijven met <3 jaar geschiedenis krijgen meestal een 'Startup Risk Premium' (hogere disconteringsvoet) vanwege gebrek aan bewezen stabiliteit.",
       "country": "Land",
       "countrySelect": "Selecteer een land",
+      "primaryOperatingCountry": "Primair Operatieland",
+      "primaryOperatingCountryHelp": "Primaire economische omgeving. Bepaalt de risicovrije rente en Equity Risk Premium gebruikt in de disconteringsvoet. Voor multi-jurisdictie entiteiten, selecteer het land met >50% van de EBITDA-bijdrage.",
       "revenue": "Jaaromzet",
       "revenuePlaceholder": "Voer jaaromzet in",
       "revenueYear": "Omzet (Jaar {year})",
@@ -380,10 +385,19 @@
       "found": "Bedrijf gevonden",
       "notFound": "Geen bedrijf gevonden met die naam",
       "verified": "Geverifieerd",
+      "verifiedCompany": "Geverifieerd Bedrijf",
+      "verifying": "Verifiëren...",
       "unverified": "Niet geverifieerd",
       "autoFilled": "Automatisch ingevuld vanuit register",
+      "autoFilledFromRegistry": "Automatisch ingevuld vanuit register:",
       "verifyCompany": "Bedrijfsgegevens verifiëren",
       "changeCompany": "Bedrijf wijzigen",
+      "didYouMean": "Bedoelde u dit bedrijf?",
+      "registration": "Registratie:",
+      "type": "Type:",
+      "address": "Adres:",
+      "kboBelgium": "KBO/BCE België",
+      "active": "actief",
       "useThisCompany": "Dit bedrijf gebruiken",
       "manualEntry": "Handmatig invoeren"
     },
@@ -401,6 +415,14 @@
   "reports": {
     "title": "Waarderingsrapport",
     "subtitle": "Uitgebreide bedrijfswaarderingsanalyse",
+    "saveStatus": {
+      "saving": "Opslaan...",
+      "savingSoon": "Binnenkort automatisch opslaan...",
+      "saved": "Opgeslagen",
+      "savedAgo": "{minutes} minuten geleden opgeslagen",
+      "savedHoursAgo": "{hours} uur geleden opgeslagen",
+      "saveFailed": "Opslaan mislukt - klik om opnieuw te proberen"
+    },
     "sections": {
       "executiveSummary": "Managementsamenvatting",
       "introduction": "Inleiding",
@@ -603,7 +625,7 @@
   },
   "clientContext": {
     "actingAs": "Handelen als {name}",
-    "reportsBelongToClient": "Aangemaakte rapporten behoren toe aan deze klant",
+    "reportsBelongToClient": "Rapporten die worden aangemaakt behoren toe aan deze klant",
     "exitClientView": "Klantweergave Afsluiten"
   },
   "language": {

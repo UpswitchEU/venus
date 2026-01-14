@@ -6,6 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import { debounce } from '../../utils/debounce'
@@ -35,6 +36,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
   isVerifying = false,
   ...inputProps
 }) => {
+  const t = useTranslations()
   const [searchResults, setSearchResults] = useState<CompanySearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)

@@ -1,15 +1,12 @@
 import nextDynamic from 'next/dynamic'
+import { LoadingState } from './LoadingState'
 
 // Dynamically import the client component with no SSR
 // ssr: false means it only renders on the client, so no Suspense needed
 // Use default import to avoid "Cannot access .then on server" error
 const ValuationReportClient = nextDynamic(() => import('./ValuationReportClient'), {
   ssr: false,
-  loading: () => (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-      <div className="text-white">Loading...</div>
-    </div>
-  ),
+  loading: () => <LoadingState />,
 })
 
 interface PageProps {

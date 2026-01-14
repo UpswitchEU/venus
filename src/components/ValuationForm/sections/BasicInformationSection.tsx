@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { TARGET_COUNTRIES } from '../../../config/countries'
 import { suggestionService } from '../../../services/businessTypeSuggestionApi'
 import type { BusinessType } from '../../../services/businessTypesApi'
@@ -43,6 +44,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   businessTypesError,
   prefilledQuery,
 }) => {
+  const t = useTranslations()
   // Track which fields were auto-filled from registry
   const [autoFilledFields, setAutoFilledFields] = useState<string[]>([])
 
@@ -228,7 +230,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   return (
     <div className="space-y-6">
       <h3 className="text-xl font-semibold text-white mb-6 pb-2 border-b border-white/10 tracking-tight">
-        Basic Information
+        {t('forms.sections.basicInformation')}
       </h3>
 
       <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-6">
@@ -313,7 +315,8 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
                 }
               }
             }}
-            placeholder="Search for your business type..."
+            placeholder={t('forms.fields.businessTypeSearch')}
+            label={t('forms.fields.businessType')}
             required
             loading={businessTypesLoading}
             disabled={businessTypesLoading}
@@ -329,13 +332,13 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
         {/* MOVED AFTER BUSINESS TYPE: Enables context-aware KBO validation */}
         {/* LinkedIn pattern: Selection shows preview, save happens on calculate */}
         <CompanyNameInput
-          label="Company Name"
+          label={t('forms.fields.companyName')}
           type="text"
           name="company_name"
           value={formData.company_name || ''}
           onChange={(value) => updateFormData({ company_name: value })}
           onBlur={() => {}}
-          placeholder="e.g., Acme GmbH"
+          placeholder={t('forms.fields.companyNamePlaceholder')}
           countryCode={formData.country_code || 'BE'}
           selectedCompany={selectedCompany}
           onCompanyChange={(company) => {
@@ -375,7 +378,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span className="font-medium text-primary-900">Auto-filled from registry:</span>
+              <span className="font-medium text-primary-900">{t('forms.kboLookup.autoFilledFromRegistry')}</span>
               <span className="text-gray-600">{autoFilledFields.join(', ')}</span>
             </div>
           </div>
@@ -383,8 +386,8 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
         {/* Founding Year */}
         <CustomNumberInputField
-          label="Year Business Commenced Trading"
-          placeholder="e.g., 2018 (first commercial revenue)"
+          label={t('forms.fields.yearBusinessCommenced')}
+          placeholder={t('forms.fields.yearBusinessCommencedPlaceholder')}
           value={formData.founding_year || new Date().getFullYear() - 5}
           onChange={(e) =>
             updateFormData({
@@ -396,21 +399,21 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           min={1900}
           max={new Date().getFullYear()}
           showArrows={true}
-          helpText="Start of commercial operations. Used to calculate track record length. Companies with <3 years of history typically attract a 'Startup Risk Premium' (higher discount rate) due to lack of proven stability."
+          helpText={t('forms.fields.yearBusinessCommencedHelp')}
           required
         />
 
         {/* Country */}
         <CustomDropdown
-          label="Primary Operating Country"
-          placeholder="Select country..."
+          label={t('forms.fields.primaryOperatingCountry')}
+          placeholder={t('forms.fields.countrySelect')}
           options={TARGET_COUNTRIES.map((country) => ({
             value: country.code,
             label: `${country.flag} ${country.name} (${country.currencySymbol})`,
           }))}
           value={formData.country_code || ''}
           onChange={(value) => updateFormData({ country_code: value })}
-          helpText="Primary economic environment. Determines the Risk-Free Rate and Equity Risk Premium used in the discount rate. For multi-jurisdiction entities, select the country with >50% of EBITDA contribution."
+          helpText={t('forms.fields.primaryOperatingCountryHelp')}
           required
         />
       </div>
