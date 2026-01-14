@@ -66,7 +66,10 @@ export const BusinessTypeSuggestionsList = ({
                 )}
                 {suggestion.category && (
                   <div className="text-xs text-zinc-500 mt-1 ml-8 font-medium">
-                    {suggestion.category}
+                    {/* ✅ FIX: Handle category as either string or object */}
+                    {typeof suggestion.category === 'string'
+                      ? suggestion.category
+                      : (suggestion.category as any)?.name || (suggestion.category as any)?.title || ''}
                   </div>
                 )}
               </div>

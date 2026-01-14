@@ -111,11 +111,21 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
     const groups: { [key: string]: BusinessType[] } = {}
 
     filteredTypes.forEach((type) => {
-      const category = type.category || 'Other'
-      if (!groups[category]) {
-        groups[category] = []
+      // ✅ FIX: Handle category as either string or object (API may return category object)
+      let categoryKey: string
+      if (typeof type.category === 'string') {
+        categoryKey = type.category || 'Other'
+      } else if (type.category && typeof type.category === 'object') {
+        // Extract name from category object
+        categoryKey = (type.category as any).name || (type.category as any).title || 'Other'
+      } else {
+        categoryKey = 'Other'
       }
-      groups[category].push(type)
+      
+      if (!groups[categoryKey]) {
+        groups[categoryKey] = []
+      }
+      groups[categoryKey].push(type)
     })
 
     return groups
@@ -421,7 +431,12 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
                           d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
                         />
                       </svg>
-                      <span className="font-medium text-gray-900">{selectedType.category}</span>
+                      <span className="font-medium text-gray-900">
+                        {/* ✅ FIX: Handle category as either string or object */}
+                        {typeof selectedType.category === 'string'
+                          ? selectedType.category
+                          : (selectedType.category as any)?.name || (selectedType.category as any)?.title || ''}
+                      </span>
                     </span>
                   )}
                 </div>

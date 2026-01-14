@@ -122,15 +122,25 @@ export const MessageItem = React.memo<MessageItemProps>(
         Array.isArray(structuredSuggestions) &&
         structuredSuggestions.length > 0
       ) {
-        return structuredSuggestions.map((s, idx) => ({
-          number: s.number || idx + 1,
-          id: s.id || String(s.number || idx + 1),
-          title: s.title || '',
-          description: s.description,
-          industry: s.industry,
-          category: s.category,
-          icon: s.icon,
-        }))
+        return structuredSuggestions.map((s, idx) => {
+          // ✅ FIX: Handle category as either string or object
+          let categoryValue: string | undefined
+          if (typeof s.category === 'string') {
+            categoryValue = s.category
+          } else if (s.category && typeof s.category === 'object') {
+            categoryValue = (s.category as any)?.name || (s.category as any)?.title || undefined
+          }
+          
+          return {
+            number: s.number || idx + 1,
+            id: s.id || String(s.number || idx + 1),
+            title: s.title || '',
+            description: s.description,
+            industry: s.industry,
+            category: categoryValue,
+            icon: s.icon,
+          }
+        })
       }
 
       // Fallback: parse from clarification message text

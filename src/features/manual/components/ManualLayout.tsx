@@ -300,6 +300,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // ✅ FIX: Only check critical user-entered fields (ignore defaults like industry='services')
         // Default values don't indicate user has filled the form
         // Also check current_year_data for revenue/ebitda (form might have defaults there)
+        // ✅ FIX: Don't consider form "filled" if it only has default values (country_code='BE', founding_year=currentYear-5)
+        // These are just form defaults, not user-entered data
         const hasRevenue =
           currentFormData.revenue ||
           (currentFormData.current_year_data?.revenue &&
@@ -308,8 +310,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           currentFormData.ebitda ||
           (currentFormData.current_year_data?.ebitda &&
             currentFormData.current_year_data.ebitda > 0)
+        const hasUserEnteredCompanyName = currentFormData.company_name && currentFormData.company_name.trim() !== ''
+        const hasUserSelectedBusinessType = currentFormData.business_type_id && currentFormData.business_type_id !== ''
+        const hasUserEnteredFoundingYear = currentFormData.founding_year && 
+          currentFormData.founding_year !== (new Date().getFullYear() - 5) // Not the default
+        const hasUserSelectedCountry = currentFormData.country_code && 
+          currentFormData.country_code !== 'BE' // Not the default
+        
         formIsEmpty =
-          !currentFormData.company_name &&
+          !hasUserEnteredCompanyName &&
+          !hasUserSelectedBusinessType &&
+          !hasUserEnteredFoundingYear &&
+          !hasUserSelectedCountry &&
           !hasRevenue &&
           !hasEbitda &&
           // Check if industry is still default value (not user-entered)
@@ -318,8 +330,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // ✅ FIX: Check for session data in both flat and nested structures
         // Revenue/EBITDA might be in current_year_data.revenue or at top level
         // ✅ FIX: Check if company_name exists (even if empty string) - it's a key field
+        // ✅ FIX: Also check for business card fields (company_name, business_type_id, founding_year, country_code)
+        // These indicate business card data from Mercury that should be restored
         hasSessionData = !!(
           sessionDataObj.company_name !== undefined || // Include even if empty string
+          sessionDataObj.business_type_id || // Business type from business card
+          sessionDataObj.founding_year || // Founding year from business card
+          sessionDataObj.country_code || // Country from business card
           sessionDataObj.revenue ||
           sessionDataObj.ebitda ||
           sessionDataObj.current_year_data?.revenue ||
@@ -330,7 +347,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           reportId,
           formIsEmpty,
           hasSessionData,
+          hasBusinessCardData,
+          hasFinancialData,
           hasCompanyName: !!sessionDataObj.company_name,
+          companyName: sessionDataObj.company_name,
+          hasBusinessTypeId: !!sessionDataObj.business_type_id,
+          businessTypeId: sessionDataObj.business_type_id,
+          hasFoundingYear: !!sessionDataObj.founding_year,
+          foundingYear: sessionDataObj.founding_year,
+          hasCountryCode: !!sessionDataObj.country_code,
+          countryCode: sessionDataObj.country_code,
           hasRevenue: !!(sessionDataObj.revenue || sessionDataObj.current_year_data?.revenue),
           hasEbitda: !!(sessionDataObj.ebitda || sessionDataObj.current_year_data?.ebitda),
           willRestore: hasSessionData && formIsEmpty,
@@ -428,6 +454,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             hasCurrentYearData: !!formDataUpdate.current_year_data,
             hasCompanyName: !!formDataUpdate.company_name,
             companyName: formDataUpdate.company_name,
+            businessTypeId: formDataUpdate.business_type_id,
+            foundingYear: formDataUpdate.founding_year,
+            countryCode: formDataUpdate.country_code,
             hasBusinessDescription: !!formDataUpdate.business_description,
             hasBusinessHighlights: !!formDataUpdate.business_highlights,
             hasReasonForSelling: !!formDataUpdate.reason_for_selling,
@@ -702,12 +731,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
     const sessionDataObj = sessionData as any
     // ✅ FIX: Check if company_name exists (even if empty string) - it's a key field
-    const hasSessionData =
+    // ✅ FIX: Also check for business card fields (company_name, business_type_id, founding_year, country_code)
+    // These indicate business card data from Mercury that should be restored
+    // CRITICAL: Check for ANY business card field - even if one is missing, others should still restore
+    const hasBusinessCardData =
       sessionDataObj.company_name !== undefined || // Include even if empty string
+      sessionDataObj.business_type_id || // Business type from business card
+      sessionDataObj.founding_year || // Founding year from business card
+      sessionDataObj.country_code || // Country from business card
+      sessionDataObj.industry // Industry from business card
+    
+    const hasFinancialData =
       sessionDataObj.revenue ||
       sessionDataObj.ebitda ||
       sessionDataObj.current_year_data?.revenue ||
       sessionDataObj.current_year_data?.ebitda
+    
+    const hasSessionData = hasBusinessCardData || hasFinancialData
 
     if (hasSessionData && formIsEmpty) {
       generalLogger.info('[ManualLayout] Restoring form fields from sessionData (reactive)', {

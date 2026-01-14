@@ -323,9 +323,20 @@ function restoreFormData(
       business_context: sessionData.business_context,
     }
 
-    // Remove undefined values
+    // ✅ FIX: Remove undefined values but preserve empty strings and null for business card fields
+    // Empty strings are valid values (e.g., user cleared a field)
+    // Only remove truly undefined values
+    // CRITICAL: Preserve business card fields (company_name, business_type_id, founding_year, country_code)
+    // even if they're empty strings, as they indicate business card data from Mercury
     Object.keys(formDataUpdate).forEach((key) => {
-      if (formDataUpdate[key] === undefined) {
+      // Business card fields should be preserved even if empty string
+      const businessCardFields = ['company_name', 'business_type_id', 'founding_year', 'country_code', 'industry', 'city']
+      if (businessCardFields.includes(key)) {
+        // Only remove if truly undefined (not empty string or null)
+        if (formDataUpdate[key] === undefined) {
+          delete formDataUpdate[key]
+        }
+      } else if (formDataUpdate[key] === undefined) {
         delete formDataUpdate[key]
       }
     })

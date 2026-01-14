@@ -76,7 +76,10 @@ export const BusinessTypeConfirmationCard: React.FC<BusinessTypeConfirmationCard
                       {category && (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800/50 border border-zinc-700/50 text-xs font-medium text-zinc-300">
                           <Tag className="w-3 h-3 text-zinc-400" />
-                          {category}
+                          {/* ✅ FIX: Handle category as either string or object */}
+                          {typeof category === 'string'
+                            ? category
+                            : (category as any)?.name || (category as any)?.title || ''}
                         </div>
                       )}
                     </div>
