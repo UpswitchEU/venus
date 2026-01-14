@@ -46,11 +46,13 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
   const lastStateRef = useRef<UrlState>({})
 
   // Read initial state from URL
+  // SECURITY: prefilledQuery is read-only from URL (backward compatibility)
+  // It should not be synced back to URL - it's stored in session data instead
   const urlState: UrlState = {
     mode: (searchParams?.get('mode') as 'edit' | 'view') || undefined,
     version: searchParams?.get('version') ? parseInt(searchParams.get('version')!) : undefined,
     flow: (searchParams?.get('flow') as 'manual' | 'conversational') || undefined,
-    prefilledQuery: searchParams?.get('prefilledQuery') || undefined,
+    prefilledQuery: searchParams?.get('prefilledQuery') || undefined, // Read-only for backward compatibility
     autoSend: searchParams?.get('autoSend') === 'true',
   }
 
@@ -90,13 +92,11 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
           }
         }
 
-        if (updates.prefilledQuery !== undefined) {
-          if (updates.prefilledQuery) {
-            currentUrl.searchParams.set('prefilledQuery', updates.prefilledQuery)
-          } else {
-            currentUrl.searchParams.delete('prefilledQuery')
-          }
-        }
+        // SECURITY: Don't write prefilledQuery to URL - it's stored in session data
+        // Only read it from URL for backward compatibility
+        // if (updates.prefilledQuery !== undefined) {
+        //   // Removed - prefilledQuery should not be synced to URL
+        // }
 
         if (updates.autoSend !== undefined) {
           if (updates.autoSend) {
@@ -145,7 +145,7 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
         mode: (searchParams?.get('mode') as 'edit' | 'view') || undefined,
         version: searchParams?.get('version') ? parseInt(searchParams.get('version')!) : undefined,
         flow: (searchParams?.get('flow') as 'manual' | 'conversational') || undefined,
-        prefilledQuery: searchParams?.get('prefilledQuery') || undefined,
+        prefilledQuery: searchParams?.get('prefilledQuery') || undefined, // Read-only for backward compatibility
         autoSend: searchParams?.get('autoSend') === 'true',
       }
 

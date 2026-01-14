@@ -63,6 +63,44 @@ function clearAuthCache(): void {
 }
 
 /**
+ * SECURITY: Sanitize URL by removing sensitive query parameters
+ * Prevents data leakage in:
+ * - Browser history
+ * - HTTP Referer headers
+ * - Analytics tools
+ * - Server access logs (for future navigations)
+ * 
+ * @param paramsToRemove - Array of parameter names to remove from URL
+ */
+function sanitizeUrl(paramsToRemove: string[]): void {
+  if (typeof window === 'undefined') return
+  
+  try {
+    const url = new URL(window.location.href)
+    let modified = false
+    
+    for (const param of paramsToRemove) {
+      if (url.searchParams.has(param)) {
+        url.searchParams.delete(param)
+        modified = true
+      }
+    }
+    
+    if (modified) {
+      // Replace current URL without adding to history
+      window.history.replaceState({}, '', url.toString())
+      
+      // Log sanitization (development only)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Security] Sanitized URL parameters:', paramsToRemove)
+      }
+    }
+  } catch (error) {
+    console.error('[Security] URL sanitization failed:', error)
+  }
+}
+
+/**
  * Promise cache for in-flight auth checks - Prevents race conditions
  * Following Mercury's pattern for concurrent request deduplication
  */
@@ -510,11 +548,20 @@ async function initializeAuth(): Promise<void> {
             })
           }
           // Continue to normal auth flow - don't block user
-          // Just clean up invalid token from URL
-          const url = new URL(window.location.href)
-          url.searchParams.delete('clientToken')
-          window.history.replaceState({}, '', url.toString())
+          // SECURITY: Clean up invalid token and sensitive parameters from URL
+          sanitizeUrl(['clientToken', 'client_id', 'prefilledQuery', 'autoSend'])
         } else {
+          // SECURITY: Extract token, then IMMEDIATELY sanitize URL
+          // This prevents token from being logged in analytics/history
+          const tokenForExchange = clientToken
+          
+          // CRITICAL: Strip ALL sensitive params before exchange
+          sanitizeUrl([
+            'clientToken',      // JWT contains sensitive claims
+            'client_id',        // UUID exposure
+            'prefilledQuery',   // Business name exposure
+            'autoSend',         // Behavioral data
+          ])
           // Attempt exchange with retry logic
           let lastError: Error | null = null
           const maxRetries = 3
@@ -530,7 +577,7 @@ async function initializeAuth(): Promise<void> {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ token: clientToken }),
+                body: JSON.stringify({ token: tokenForExchange }),
                 signal: controller.signal,
               })
 
@@ -553,16 +600,14 @@ async function initializeAuth(): Promise<void> {
                 if (user) {
                   setUser(user)
 
-                  // Clean URL but preserve prefilledQuery parameter for HomePage
+                  // SECURITY: Clean URL immediately after processing sensitive parameters
+                  // Remove clientToken, client_id, and prefilledQuery from URL
                   const url = new URL(window.location.href)
                   url.searchParams.delete('clientToken')
-                  // Preserve prefilledQuery if present (used by HomePage)
-                  if (!url.searchParams.has('prefilledQuery')) {
-                    // Only clean URL completely if no prefilledQuery
-                    window.history.replaceState({}, '', url.pathname + (url.search || ''))
-                  } else {
-                    window.history.replaceState({}, '', url.toString())
-                  }
+                  url.searchParams.delete('client_id') // Remove if present (redundant)
+                  url.searchParams.delete('prefilledQuery') // Remove if present (stored in session data)
+                  // Clean URL completely - sensitive data should not remain in URL
+                  window.history.replaceState({}, '', url.pathname + (url.search || ''))
 
                   return
                 } else {
@@ -632,10 +677,12 @@ async function initializeAuth(): Promise<void> {
             // Set error in auth store for UI to display
             useAuthStore.getState().setError(errorMessage)
 
-            // Clean up invalid token from URL
+            // SECURITY: Clean up invalid token and sensitive parameters from URL
             const url = new URL(window.location.href)
             url.searchParams.delete('clientToken')
-            window.history.replaceState({}, '', url.toString())
+            url.searchParams.delete('client_id') // Remove if present
+            url.searchParams.delete('prefilledQuery') // Remove if present
+            window.history.replaceState({}, '', url.pathname + (url.search || ''))
           }
         }
       }

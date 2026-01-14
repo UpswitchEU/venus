@@ -154,24 +154,52 @@ const nextConfig = {
     unoptimized: process.env.NODE_ENV === 'development',
   },
 
-  // Configure headers for security
+  // Configure headers for security (Bank-grade security)
   async headers() {
     return [
       {
-        // Allow iframe embedding from upswitch.app (cross-subdomain) for all routes
-        source: '/(.*)',
+        // Apply security headers to all routes
+        source: '/:path*',
         headers: [
+          // SECURITY: Prevent Referrer leakage to external sites
           {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://upswitch.app https://*.upswitch.app",
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
           },
+          // SECURITY: Prevent MIME type sniffing
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
           },
+          // SECURITY: Enable XSS protection (allow iframe embedding from upswitch.app)
           {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+          // SECURITY: Content Security Policy
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https: blob:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://api.upswitch.app wss://valuation.upswitch.app",
+              "frame-ancestors 'self' https://upswitch.app https://*.upswitch.app https://admin.upswitch.app",
+              "form-action 'self'",
+              "base-uri 'self'",
+            ].join('; '),
+          },
+          // SECURITY: Permissions Policy (formerly Feature-Policy)
+          {
+            key: 'Permissions-Policy',
+            value: 'geolocation=(), microphone=(), camera=()',
+          },
+          // SECURITY: Strict Transport Security (HSTS)
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains',
           },
         ],
       },

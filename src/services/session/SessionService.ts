@@ -214,6 +214,8 @@ export class SessionService {
     const ABSOLUTE_TIMEOUT = 12000 // 12 seconds max
 
     try {
+      // SECURITY: prefilledQuery should come from session data, not URL
+      // URL parameter is only for backward compatibility
       logger.info('Loading session', { reportId, flow, prefilledQuery })
 
       // CACHE-FIRST: Check localStorage cache BEFORE backend API call
@@ -253,13 +255,27 @@ export class SessionService {
         // Validate cached session
         validateSessionData(cachedSession)
 
-        // Merge prefilledQuery if provided
-        if (prefilledQuery) {
-          const updatedPartialData = mergePrefilledQuery(cachedSession.partialData, prefilledQuery)
+        // SECURITY: Extract prefilledQuery from session data first (preferred)
+        // Fallback to URL parameter for backward compatibility
+        const sessionPrefilledQuery = (cachedSession.sessionData as any)?._prefilledQuery || 
+                                     (cachedSession.partialData as any)?._prefilledQuery ||
+                                     null
+        const effectivePrefilledQuery = sessionPrefilledQuery || prefilledQuery
+
+        // Merge prefilledQuery if provided (from session data or URL fallback)
+        if (effectivePrefilledQuery) {
+          const updatedPartialData = mergePrefilledQuery(cachedSession.partialData, effectivePrefilledQuery)
           if (updatedPartialData !== cachedSession.partialData) {
             const updatedSession = {
               ...cachedSession,
               partialData: updatedPartialData,
+            }
+            // Ensure it's also in sessionData for consistency
+            if (!(updatedSession.sessionData as any)?._prefilledQuery) {
+              updatedSession.sessionData = {
+                ...updatedSession.sessionData,
+                _prefilledQuery: effectivePrefilledQuery
+              } as any
             }
             // Update cache with merged prefilledQuery
             globalSessionCache.set(reportId, updatedSession)
@@ -457,12 +473,34 @@ export class SessionService {
             // Merge top-level fields into sessionData (SINGLE SOURCE OF TRUTH)
             const mergedSession = mergeSessionFields(normalizedSession)
 
-            // Merge prefilledQuery if provided (only if not already present)
-            if (prefilledQuery) {
+            // SECURITY: Extract prefilledQuery from session data first (preferred)
+            // Fallback to URL parameter for backward compatibility
+            const sessionPrefilledQuery = (mergedSession.sessionData as any)?._prefilledQuery || 
+                                         (mergedSession.partialData as any)?._prefilledQuery ||
+                                         null
+            const effectivePrefilledQuery = sessionPrefilledQuery || prefilledQuery
+
+            // Log deprecation warning if reading from URL (backward compatibility)
+            if (!sessionPrefilledQuery && prefilledQuery) {
+              logger.warn('[DEPRECATED] Reading prefilledQuery from URL parameter. This should be stored in session_data._prefilledQuery', {
+                reportId,
+                note: 'Migrating URL-based prefilledQuery to session data on first load'
+              })
+            }
+
+            // Merge prefilledQuery if provided (from session data or URL fallback)
+            if (effectivePrefilledQuery) {
               mergedSession.partialData = mergePrefilledQuery(
                 mergedSession.partialData,
-                prefilledQuery
+                effectivePrefilledQuery
               )
+              // Ensure it's also in sessionData for consistency
+              if (!(mergedSession.sessionData as any)?._prefilledQuery) {
+                mergedSession.sessionData = {
+                  ...mergedSession.sessionData,
+                  _prefilledQuery: effectivePrefilledQuery
+                } as any
+              }
             }
 
             // Cache for next time (includes sessionData/form fields, excludes HTML reports)
@@ -484,7 +522,8 @@ export class SessionService {
             logger.info('Session loaded from backend and cached', {
               reportId,
               currentView: mergedSession.currentView,
-              hasPrefilledQuery: !!prefilledQuery,
+              hasPrefilledQuery: !!effectivePrefilledQuery,
+              prefilledQuerySource: sessionPrefilledQuery ? 'session_data' : (prefilledQuery ? 'url' : 'none'),
               hasSessionData,
               hasFormFields,
               sessionDataKeysCount: sessionDataKeys.length,

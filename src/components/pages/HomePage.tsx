@@ -9,12 +9,19 @@ import { useAuth } from '../../hooks/useAuth'
 import { useSessionInitialization } from '../../hooks/useSessionInitialization'
 import { type BusinessCardData, businessCardService } from '../../services/businessCard'
 import UrlGeneratorService from '../../services/urlGenerator'
+import { useClientContext } from '../../stores/clientContext'
 import { useReportsStore } from '../../store/useReportsStore'
 import { ScrollToTop } from '../../utils'
 import { generalLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
 import { MinimalHeader } from '../MinimalHeader'
 import { VideoBackground } from '../VideoBackground'
+
+// Backend API URL
+const API_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  'https://api.upswitch.app'
 
 export const HomePage: React.FC = () => {
   const router = useRouter()
@@ -33,21 +40,56 @@ export const HomePage: React.FC = () => {
   // Uses Zustand store with promise caching to prevent race conditions
   useSessionInitialization()
 
+  // Get client context for headers
+  const clientContext = useClientContext()
+
   // Fetch business card if token is present from main platform
-  // Also handle prefilledQuery parameter for direct navigation from Mercury
+  // SECURITY: Fetch prefilledQuery from session data instead of URL
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
     const fromMainPlatform = params.get('from') === 'upswitch'
-    const prefilledQuery = params.get('prefilledQuery')
+    const clientToken = params.get('clientToken')
 
-    // Handle prefilledQuery parameter (e.g., from Mercury accountant flow)
-    if (prefilledQuery && !query) {
-      setQuery(prefilledQuery)
-      generalLogger.info('Query prefilled from URL parameter', {
-        prefilledQuery,
-      })
+    // SECURITY: Fetch prefilledQuery from session data (not URL)
+    // This prevents business names from appearing in browser history/logs
+    if (clientToken && !query) {
+      const fetchSessionData = async () => {
+        try {
+          // Get current session key from URL path
+          const sessionKey = window.location.pathname.split('/').pop()
+          if (!sessionKey?.startsWith('val_')) return
+
+          const response = await fetch(
+            `${API_URL}/api/v2/valuations/sessions/${sessionKey}`,
+            {
+              credentials: 'include',
+              headers: {
+                ...clientContext.getContextHeaders(), // X-Client-Context-* headers
+              },
+            }
+          )
+
+          if (response.ok) {
+            const session = await response.json()
+            // SECURITY: Retrieve prefilled data from secure server-side storage
+            const prefilledQuery = session.session_data?._prefilledQuery
+            if (prefilledQuery) {
+              setQuery(prefilledQuery)
+              generalLogger.info('Query prefilled from session data', {
+                length: prefilledQuery.length,
+              })
+            }
+          }
+        } catch (error) {
+          generalLogger.error('Failed to fetch session data', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          })
+        }
+      }
+
+      fetchSessionData()
     }
 
     if (token && fromMainPlatform) {

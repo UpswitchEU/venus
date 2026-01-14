@@ -90,11 +90,19 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       }
     }, [isLoading, isInitializing, reportId])
 
-    // Extract URL params
-    const prefilledQuery = searchParams?.get('prefilledQuery') || null
+    // Extract URL params (for backward compatibility)
+    // SECURITY: prefilledQuery should come from session data, not URL
+    // URL parameter is only for backward compatibility during migration
+    const urlPrefilledQuery = searchParams?.get('prefilledQuery') || null
     const autoSend = searchParams?.get('autoSend') === 'true'
     const flowParam = searchParams?.get('flow') as 'manual' | 'conversational' | null
     const detectedFlow = flowParam || 'manual'
+    
+    // Prioritize prefilledQuery from session data over URL parameter
+    const sessionPrefilledQuery = session 
+      ? ((session.sessionData as any)?._prefilledQuery || (session.partialData as any)?._prefilledQuery || null)
+      : null
+    const prefilledQuery = sessionPrefilledQuery || urlPrefilledQuery
 
     // ✅ FIX: Show loading until session is loaded AND initialized
     // This prevents the glitch where forms show before data is ready
@@ -140,6 +148,23 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             })
           }
           clearTimeout(timeoutId)
+          
+          // SECURITY: Clean sensitive parameters from URL after session is loaded
+          // prefilledQuery is now stored in session_data, no need to keep it in URL
+          if (typeof window !== 'undefined' && urlPrefilledQuery) {
+            const url = new URL(window.location.href)
+            if (url.searchParams.has('prefilledQuery')) {
+              url.searchParams.delete('prefilledQuery')
+              // Also clean autoSend if it was set with prefilledQuery
+              if (url.searchParams.get('autoSend') === 'true' && !url.searchParams.has('flow')) {
+                url.searchParams.delete('autoSend')
+              }
+              window.history.replaceState({}, '', url.pathname + (url.search || ''))
+              generalLogger.debug('[SessionManager] Cleaned prefilledQuery from URL after session load', {
+                reportId,
+              })
+            }
+          }
         })
         .catch((err) => {
           clearTimeout(timeoutId)
