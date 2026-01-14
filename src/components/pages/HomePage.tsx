@@ -106,8 +106,8 @@ export const HomePage: React.FC = () => {
         .then((data) => {
           setBusinessCardData(data)
 
-          // Prefill query with company name (only if not already set from prefilledQuery)
-          if (data.company_name && !prefilledQuery) {
+          // Prefill query with company name (only if query is not already set)
+          if (data.company_name && !query) {
             setQuery(data.company_name)
             generalLogger.info('Query prefilled from business card', {
               companyName: data.company_name,
