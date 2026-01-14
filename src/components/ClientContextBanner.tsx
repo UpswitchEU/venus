@@ -16,7 +16,7 @@ export function ClientContextBanner() {
   const [mounted, setMounted] = useState(false)
   const { isActingAsClient, client, clearClientContext } = useClientContext()
   const { isEmbedded, closeEmbedded } = useEmbeddedMode()
-  const t = useTranslations() // ✅ Venus pattern: no namespace
+  const t = useTranslations() // ✅ Venus pattern: NO namespace
 
   useEffect(() => {
     setMounted(true)

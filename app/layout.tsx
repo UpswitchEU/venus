@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { locales } from '../i18n'
-import { ClientContextBanner } from '../src/components/ClientContextBanner'
 import { Providers } from './providers'
 
 export function generateStaticParams() {
@@ -114,7 +113,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-zinc-950 text-white antialiased">
         <Providers>
-          <ClientContextBanner />
           {children}
         </Providers>
       </body>

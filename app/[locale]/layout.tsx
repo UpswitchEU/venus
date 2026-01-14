@@ -7,6 +7,7 @@ import type { Metadata } from 'next'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
 import { type Locale, locales } from '../../i18n'
+import { ClientContextBanner } from '../../src/components/ClientContextBanner'
 
 interface LocaleLayoutProps {
   children: React.ReactNode
@@ -148,6 +149,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
 
   return (
     <NextIntlClientProvider locale={validLocale} messages={messages}>
+      <ClientContextBanner />
       {children}
     </NextIntlClientProvider>
   )
