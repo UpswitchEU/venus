@@ -601,6 +601,11 @@
       "cancel": "Cancel"
     }
   },
+  "clientContext": {
+    "actingAs": "Acting as {name}",
+    "reportsBelongToClient": "Reports created will belong to this client",
+    "exitClientView": "Exit Client View"
+  },
   "language": {
     "english": "English",
     "dutch": "Nederlands",

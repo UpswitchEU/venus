@@ -1,8 +1,10 @@
 'use client'
 
 import { X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import React, { useEffect, useState } from 'react'
 import { useClientContext } from '../stores/clientContext'
+import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 
 /**
  * Client Context Banner
@@ -13,12 +15,24 @@ import { useClientContext } from '../stores/clientContext'
 export function ClientContextBanner() {
   const [mounted, setMounted] = useState(false)
   const { isActingAsClient, client, clearClientContext } = useClientContext()
+  const { isEmbedded, closeEmbedded } = useEmbeddedMode()
+  const t = useTranslations()
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   if (!mounted || !isActingAsClient || !client) return null
+
+  const handleExitClientView = () => {
+    // Clear client context first
+    clearClientContext()
+    
+    // If embedded in Mercury modal, close the modal
+    if (isEmbedded) {
+      closeEmbedded()
+    }
+  }
 
   return (
     <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
@@ -43,18 +57,20 @@ export function ClientContextBanner() {
 
           {/* Context Info */}
           <div>
-            <p className="text-sm font-medium text-blue-900">Acting as {client.fullName}</p>
-            <p className="text-xs text-blue-700">Reports created will belong to this client</p>
+            <p className="text-sm font-medium text-blue-900">
+              {t('clientContext.actingAs', { name: client.fullName })}
+            </p>
+            <p className="text-xs text-blue-700">{t('clientContext.reportsBelongToClient')}</p>
           </div>
         </div>
 
         {/* Exit Button */}
         <button
-          onClick={clearClientContext}
+          onClick={handleExitClientView}
           className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-700 hover:text-blue-900 hover:bg-blue-100 rounded-md transition-colors duration-200"
         >
           <X className="w-4 h-4" />
-          <span>Exit Client View</span>
+          <span>{t('clientContext.exitClientView')}</span>
         </button>
       </div>
     </div>

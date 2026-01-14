@@ -601,6 +601,11 @@
       "cancel": "Annuleren"
     }
   },
+  "clientContext": {
+    "actingAs": "Handelen als {name}",
+    "reportsBelongToClient": "Aangemaakte rapporten behoren toe aan deze klant",
+    "exitClientView": "Klantweergave Afsluiten"
+  },
   "language": {
     "english": "English",
     "dutch": "Nederlands",
