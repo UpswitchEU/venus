@@ -73,15 +73,25 @@ class BusinessTypesApiService {
   private baseUrl: string
 
   constructor() {
-    // Use the main backend API
-    this.baseUrl = 'https://api.upswitch.app'
+    // Use the main backend API (Titan)
+    // Follow Mercury's pattern: use env var with fallback
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app'
+    
+    // Normalize URL: remove /api suffix if present
+    this.baseUrl = apiBaseUrl.replace(/\/api\/?$/, '')
 
+    // Use correct Titan endpoint: /api/v2/business-types
     this.api = axios.create({
-      baseURL: `${this.baseUrl}/api/business-types`,
+      baseURL: `${this.baseUrl}/api/v2/business-types`,
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
       },
+    })
+
+    generalLogger.info('[BusinessTypesAPI] Initialized', {
+      baseUrl: this.baseUrl,
+      fullEndpoint: `${this.baseUrl}/api/v2/business-types`,
     })
   }
 

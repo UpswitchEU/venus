@@ -28,19 +28,15 @@ export class RegistryService {
   private pendingRequests: Map<string, Promise<any>>
 
   constructor(config?: Partial<RegistryServiceConfig>) {
-    // Use Node.js backend - same baseURL as backendApi for consistency
-    // This ensures we use the same route structure as conversational flow
-    this.baseURL =
-      config?.baseURL ||
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      'https://api.upswitch.app'
+    // Use local Next.js API proxy route to avoid CORS issues
+    // This proxies to Titan backend API (similar to Mercury pattern)
+    this.baseURL = config?.baseURL || ''
     this.timeout = config?.timeout || 10000
     this.cache = new RegistryCache(config?.maxCacheSize, config?.cacheTTL)
     this.pendingRequests = new Map()
 
     serviceLogger.info('RegistryService initialized', {
-      baseURL: this.baseURL,
+      baseURL: this.baseURL || '(relative paths)',
       timeout: this.timeout,
       cacheConfig: this.cache.getStats(),
     })
@@ -119,7 +115,8 @@ export class RegistryService {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
-      const response = await fetch(`${this.baseURL}/api/v1/registry/search`, {
+      // Use local Next.js proxy route (proxies to Titan /api/v1/registry/search)
+      const response = await fetch(`${this.baseURL}/api/registry/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
