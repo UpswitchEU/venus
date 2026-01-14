@@ -126,7 +126,8 @@
       "close": "Sluiten",
       "editName": "Naam bewerken",
       "saveName": "Naam opslaan",
-      "cancelEdit": "Bewerken annuleren"
+      "cancelEdit": "Bewerken annuleren",
+      "backToDashboard": "Terug naar Dashboard"
     },
     "tooltips": {
       "save": "Waardering opslaan",
@@ -354,6 +355,29 @@
       "validationErrors": "Los de fouten in het formulier op",
       "allFieldsRequired": "Alle verplichte velden moeten worden ingevuld",
       "dataRestored": "Uw eerdere gegevens zijn hersteld"
+    },
+    "kboLookup": {
+      "title": "Bedrijfsregister Opzoeken",
+      "search": "Zoek uw bedrijf",
+      "searching": "Register doorzoeken...",
+      "found": "Bedrijf gevonden",
+      "notFound": "Geen bedrijf gevonden met die naam",
+      "verified": "Geverifieerd",
+      "verifiedCompany": "Geverifieerd Bedrijf",
+      "verifying": "Verifiëren...",
+      "unverified": "Niet geverifieerd",
+      "autoFilled": "Automatisch ingevuld via register",
+      "autoFilledFromRegistry": "Automatisch ingevuld via register:",
+      "changeCompany": "Bedrijf Wijzigen",
+      "didYouMean": "Bedoelde u dit bedrijf?",
+      "registration": "Registratie:",
+      "type": "Type:",
+      "address": "Adres:",
+      "kboBelgium": "KBO/BCE België",
+      "active": "actief",
+      "verifyCompany": "Bedrijfsgegevens verifiëren",
+      "useThisCompany": "Dit bedrijf gebruiken",
+      "manualEntry": "In plaats daarvan handmatig invoeren"
     }
   },
   "businessProfile": {
@@ -412,6 +436,20 @@
       "action": "Bedrijfsinfo Toevoegen"
     }
   },
+  "report": {
+    "saveStatus": {
+      "saving": "Opslaan...",
+      "savingSoon": "Binnenkort automatisch opslaan...",
+      "saved": "Opgeslagen",
+      "savedAgo": "{minutes} minuten geleden opgeslagen",
+      "savedHoursAgo": "{hours} uur geleden opgeslagen",
+      "saveFailed": "Opslaan mislukt - klik om opnieuw te proberen"
+    },
+    "toolbar": {
+      "backToDashboard": "Terug naar Dashboard",
+      "backToClient": "Terug naar Klant"
+    }
+  },
   "reports": {
     "title": "Waarderingsrapport",
     "subtitle": "Uitgebreide bedrijfswaarderingsanalyse",
@@ -422,6 +460,10 @@
       "savedAgo": "{minutes} minuten geleden opgeslagen",
       "savedHoursAgo": "{hours} uur geleden opgeslagen",
       "saveFailed": "Opslaan mislukt - klik om opnieuw te proberen"
+    },
+    "toolbar": {
+      "backToDashboard": "Terug naar Dashboard",
+      "backToClient": "Terug naar Klant"
     },
     "sections": {
       "executiveSummary": "Managementsamenvatting",

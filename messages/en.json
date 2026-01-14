@@ -126,7 +126,8 @@
       "close": "Close",
       "editName": "Edit Name",
       "saveName": "Save Name",
-      "cancelEdit": "Cancel Edit"
+      "cancelEdit": "Cancel Edit",
+      "backToDashboard": "Back to Dashboard"
     },
     "tooltips": {
       "save": "Save valuation",
@@ -354,6 +355,29 @@
       "validationErrors": "Please fix the errors in the form",
       "allFieldsRequired": "All required fields must be filled",
       "dataRestored": "Your previous data has been restored"
+    },
+    "kboLookup": {
+      "title": "Company Registry Lookup",
+      "search": "Search for your company",
+      "searching": "Searching registry...",
+      "found": "Company found",
+      "notFound": "No company found with that name",
+      "verified": "Verified",
+      "verifiedCompany": "Verified Company",
+      "verifying": "Verifying...",
+      "unverified": "Unverified",
+      "autoFilled": "Auto-filled from registry",
+      "autoFilledFromRegistry": "Auto-filled from registry:",
+      "changeCompany": "Change Company",
+      "didYouMean": "Did you mean this company?",
+      "registration": "Registration:",
+      "type": "Type:",
+      "address": "Address:",
+      "kboBelgium": "KBO/BCE Belgium",
+      "active": "active",
+      "verifyCompany": "Verify company details",
+      "useThisCompany": "Use this company",
+      "manualEntry": "Enter manually instead"
     }
   },
   "businessProfile": {
@@ -413,6 +437,20 @@
       "action": "Add Business Info"
     }
   },
+  "report": {
+    "saveStatus": {
+      "saving": "Saving...",
+      "savingSoon": "Auto-saving soon...",
+      "saved": "Saved",
+      "savedAgo": "Saved {minutes} minutes ago",
+      "savedHoursAgo": "Saved {hours} hours ago",
+      "saveFailed": "Save failed - click to retry"
+    },
+    "toolbar": {
+      "backToDashboard": "Back to Dashboard",
+      "backToClient": "Back to Client"
+    }
+  },
   "reports": {
     "title": "Valuation Report",
     "subtitle": "Comprehensive business valuation analysis",
@@ -423,6 +461,10 @@
       "savedAgo": "Saved {minutes} minutes ago",
       "savedHoursAgo": "Saved {hours} hours ago",
       "saveFailed": "Save failed - click to retry"
+    },
+    "toolbar": {
+      "backToDashboard": "Back to Dashboard",
+      "backToClient": "Back to Client"
     },
     "sections": {
       "executiveSummary": "Executive Summary",
