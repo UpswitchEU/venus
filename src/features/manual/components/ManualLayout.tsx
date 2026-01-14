@@ -296,6 +296,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           },
         })
 
+        // ✅ ACCOUNTANT WORKFLOW FIX: Check if this is an accountant-created session
+        // These sessions ALWAYS have business card data that should be restored
+        const isAccountantSession = !!(sessionDataObj._client_context || sessionDataObj._accountant_customer_id)
+        const hasBusinessCardData = !!(
+          sessionDataObj.company_name !== undefined ||
+          sessionDataObj.business_type_id ||
+          sessionDataObj.founding_year ||
+          sessionDataObj.country_code
+        )
+        const hasFinancialData =
+          !!sessionDataObj.revenue ||
+          !!sessionDataObj.ebitda ||
+          !!sessionDataObj.current_year_data?.revenue ||
+          !!sessionDataObj.current_year_data?.ebitda
+
+        generalLogger.info('[ManualLayout] Session context check', {
+          reportId,
+          isAccountantSession,
+          hasBusinessCardData,
+          hasFinancialData,
+          hasClientContext: !!sessionDataObj._client_context,
+          clientContext: sessionDataObj._client_context,
+          hasAccountantCustomerId: !!sessionDataObj._accountant_customer_id,
+        })
+
         // Check if form is empty - be more strict to avoid overwriting user input
         // ✅ FIX: Only check critical user-entered fields (ignore defaults like industry='services')
         // Default values don't indicate user has filled the form
@@ -317,15 +342,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const hasUserSelectedCountry = currentFormData.country_code && 
           currentFormData.country_code !== 'BE' // Not the default
         
+        // ✅ ACCOUNTANT WORKFLOW FIX: If this is an accountant session with business card data,
+        // consider form "empty" even if it has defaults, so we restore business card fields
         formIsEmpty =
-          !hasUserEnteredCompanyName &&
+          (!hasUserEnteredCompanyName &&
           !hasUserSelectedBusinessType &&
           !hasUserEnteredFoundingYear &&
           !hasUserSelectedCountry &&
           !hasRevenue &&
           !hasEbitda &&
           // Check if industry is still default value (not user-entered)
-          (currentFormData.industry === 'services' || !currentFormData.industry)
+          (currentFormData.industry === 'services' || !currentFormData.industry)) ||
+          // OVERRIDE: Always restore if accountant session with business card data
+          (isAccountantSession && hasBusinessCardData)
 
         // ✅ FIX: Check for session data in both flat and nested structures
         // Revenue/EBITDA might be in current_year_data.revenue or at top level
@@ -347,6 +376,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           reportId,
           formIsEmpty,
           hasSessionData,
+          isAccountantSession,
           hasBusinessCardData,
           hasFinancialData,
           hasCompanyName: !!sessionDataObj.company_name,
@@ -360,9 +390,27 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           hasRevenue: !!(sessionDataObj.revenue || sessionDataObj.current_year_data?.revenue),
           hasEbitda: !!(sessionDataObj.ebitda || sessionDataObj.current_year_data?.ebitda),
           willRestore: hasSessionData && formIsEmpty,
+          restorationReason: hasSessionData && formIsEmpty
+            ? isAccountantSession && hasBusinessCardData
+              ? 'ACCOUNTANT_SESSION_WITH_BUSINESS_CARD'
+              : 'FORM_EMPTY_WITH_SESSION_DATA'
+            : 'SKIP_RESTORATION',
         })
 
         if (hasSessionData && formIsEmpty) {
+          // ✅ ACCOUNTANT WORKFLOW: Log prominent message when restoring business card data
+          if (isAccountantSession && hasBusinessCardData) {
+            console.log(
+              '%c🔄 RESTORING BUSINESS CARD DATA FROM MERCURY',
+              'background: #4CAF50; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;',
+              {
+                company_name: sessionDataObj.company_name,
+                business_type_id: sessionDataObj.business_type_id,
+                founding_year: sessionDataObj.founding_year,
+                country_code: sessionDataObj.country_code,
+              }
+            )
+          }
           // ✅ FIX: Get company_name from result as fallback if not in sessionData
           // The company_name might be in the valuation result but not yet synced to sessionData
           const resultCompanyName = result?.company_name
@@ -446,17 +494,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             }
           })
 
-          generalLogger.info('[ManualLayout] Restoring form data', {
+          generalLogger.info('[ManualLayout] Restoring form from session', {
             reportId,
             fieldsToRestore: Object.keys(formDataUpdate),
+            businessCardFields: {
+              company_name: formDataUpdate.company_name,
+              business_type_id: formDataUpdate.business_type_id,
+              founding_year: formDataUpdate.founding_year,
+              country_code: formDataUpdate.country_code,
+            },
             hasRevenue: !!formDataUpdate.revenue,
             hasEbitda: !!formDataUpdate.ebitda,
             hasCurrentYearData: !!formDataUpdate.current_year_data,
-            hasCompanyName: !!formDataUpdate.company_name,
-            companyName: formDataUpdate.company_name,
-            businessTypeId: formDataUpdate.business_type_id,
-            foundingYear: formDataUpdate.founding_year,
-            countryCode: formDataUpdate.country_code,
             hasBusinessDescription: !!formDataUpdate.business_description,
             hasBusinessHighlights: !!formDataUpdate.business_highlights,
             hasReasonForSelling: !!formDataUpdate.reason_for_selling,
@@ -498,6 +547,37 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           // This ensures the form component receives the updated data
           setTimeout(() => {
             const restoredFormData = useManualFormStore.getState().formData
+            
+            // ✅ ACCOUNTANT WORKFLOW: Verify business card fields were restored
+            if (isAccountantSession && hasBusinessCardData) {
+              console.log(
+                '%c✅ BUSINESS CARD DATA RESTORED',
+                'background: #2196F3; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;',
+                {
+                  company_name: {
+                    expected: formDataUpdate.company_name,
+                    actual: restoredFormData.company_name,
+                    match: restoredFormData.company_name === formDataUpdate.company_name,
+                  },
+                  business_type_id: {
+                    expected: formDataUpdate.business_type_id,
+                    actual: restoredFormData.business_type_id,
+                    match: restoredFormData.business_type_id === formDataUpdate.business_type_id,
+                  },
+                  founding_year: {
+                    expected: formDataUpdate.founding_year,
+                    actual: restoredFormData.founding_year,
+                    match: restoredFormData.founding_year === formDataUpdate.founding_year,
+                  },
+                  country_code: {
+                    expected: formDataUpdate.country_code,
+                    actual: restoredFormData.country_code,
+                    match: restoredFormData.country_code === formDataUpdate.country_code,
+                  },
+                }
+              )
+            }
+            
             generalLogger.info('[ManualLayout] Form data restored (verified)', {
               reportId,
               companyName: restoredFormData.company_name,
