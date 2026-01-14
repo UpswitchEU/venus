@@ -16,7 +16,7 @@ export function ClientContextBanner() {
   const [mounted, setMounted] = useState(false)
   const { isActingAsClient, client, clearClientContext } = useClientContext()
   const { isEmbedded, closeEmbedded } = useEmbeddedMode()
-  const t = useTranslations('clientContext')
+  const t = useTranslations() // ✅ Venus pattern: no namespace
 
   useEffect(() => {
     setMounted(true)
@@ -58,9 +58,9 @@ export function ClientContextBanner() {
           {/* Context Info */}
           <div>
             <p className="text-sm font-medium text-blue-900">
-              {t('actingAs', { name: client.fullName })}
+              {t('clientContext.actingAs', { name: client.fullName })}
             </p>
-            <p className="text-xs text-blue-700">{t('reportsBelongToClient')}</p>
+            <p className="text-xs text-blue-700">{t('clientContext.reportsBelongToClient')}</p>
           </div>
         </div>
 
@@ -70,7 +70,7 @@ export function ClientContextBanner() {
           className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-700 hover:text-blue-900 hover:bg-blue-100 rounded-md transition-colors duration-200"
         >
           <X className="w-4 h-4" />
-          <span>{t('exitClientView')}</span>
+          <span>{t('clientContext.exitClientView')}</span>
         </button>
       </div>
     </div>
