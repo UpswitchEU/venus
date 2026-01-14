@@ -281,10 +281,13 @@ export class SessionAPI extends HttpClient {
         current_step: sessionAny.current_step || 1,
         // Also send currentView at top level for DTO transformation
         currentView: currentView,
+        // If session_key is provided, include it for idempotency
+        ...(sessionAny.session_key && { session_key: sessionAny.session_key }),
       }
 
       // Backend endpoint: POST /api/v2/valuations/sessions
-      // Titan generates the session_key, we don't specify it
+      // If session_key is provided in payload, Titan will use it (for idempotency)
+      // Otherwise, Titan generates a new HMAC-signed session_key
       // Response will contain: { session_key, session_data, view_type, status, ... }
       const sessionData = await this.executeRequest<any>(
         {

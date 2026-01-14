@@ -157,7 +157,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
     // ✅ FIX: Create load promise with reportId validation
     // Capture reportId at start to detect race conditions
-    const expectedReportId = reportId
+    let expectedReportId = reportId // let - may be reassigned if URL redirects
     const loadPromise = (async () => {
       // ✅ FIX: Double-check reportId hasn't changed before setting loading state
       // This prevents race conditions when reportId changes rapidly
@@ -221,14 +221,31 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
         // ✅ FIX: Validate session reportId matches expected reportId
         // This prevents race conditions where wrong session is loaded
+        // EXCEPTION: If URL was redirected (reportId changed), accept the new session
         if (session.reportId !== expectedReportId) {
-          storeLogger.error('[Session] Loaded session reportId mismatch', {
-            expectedReportId,
-            actualReportId: session.reportId,
-          })
-          throw new Error(
-            `Session reportId mismatch: expected ${expectedReportId}, got ${session.reportId}`
-          )
+          // Check if URL was redirected to match the new session
+          const currentUrl = typeof window !== 'undefined' ? window.location.pathname : ''
+          const urlReportId = currentUrl.match(/\/reports\/([^/?]+)/)?.[1]
+          
+          if (urlReportId === session.reportId) {
+            // URL was redirected to match new session - this is OK
+            storeLogger.info('[Session] URL redirected to match new session', {
+              originalReportId: expectedReportId,
+              newReportId: session.reportId,
+            })
+            // Update expectedReportId to match the new session
+            expectedReportId = session.reportId
+          } else {
+            // Genuine mismatch - reject it
+            storeLogger.error('[Session] Loaded session reportId mismatch', {
+              expectedReportId,
+              actualReportId: session.reportId,
+              urlReportId,
+            })
+            throw new Error(
+              `Session reportId mismatch: expected ${expectedReportId}, got ${session.reportId}`
+            )
+          }
         }
 
         // ✅ FIX: Double-check reportId hasn't changed during async load

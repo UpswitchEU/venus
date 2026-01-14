@@ -331,8 +331,10 @@ export class SessionService {
                 await this.checkValuationCreationAllowed()
 
                 // Create minimal session on backend
-                // NOTE: Titan generates the session_key, we don't specify it
+                // CRITICAL: Send the requested reportId as session_key so Titan uses it
+                // This ensures the URL stays consistent and validation passes
                 const createResponse = await backendAPI.createValuationSession({
+                  session_key: reportId, // ✅ FIX: Tell Titan to use this specific key
                   currentView: flow || 'manual', // Use provided flow or default to manual
                   sessionData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as any) : {},
                   partialData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as any) : {},
