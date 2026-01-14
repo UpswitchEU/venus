@@ -277,7 +277,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-gray-900 border border-gray-800 text-white text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0">
           <div className="flex items-center justify-between mb-2">
             <span className="font-bold text-primary-400 text-xs uppercase tracking-wider">
-              Verified Company
+              {t('forms.kboLookup.verifiedCompany')}
             </span>
             {exactMatch.status === 'Active' && (
               <span className="px-1.5 py-0.5 bg-primary-500/20 text-primary-400 rounded text-[10px] font-semibold">
@@ -288,18 +288,18 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           <div className="font-serif text-base mb-3 text-white">{exactMatch.company_name}</div>
           <div className="space-y-2 text-gray-400 border-t border-gray-800 pt-2">
             <div className="flex justify-between">
-              <span>Registration:</span>
+              <span>{t('forms.kboLookup.registration')}</span>
               <span className="font-mono text-gray-300">{exactMatch.registration_number}</span>
             </div>
             {exactMatch.legal_form && (
               <div className="flex justify-between">
-                <span>Type:</span>
+                <span>{t('forms.kboLookup.type')}</span>
                 <span className="text-gray-300">{exactMatch.legal_form}</span>
               </div>
             )}
             {exactMatch.address && (
               <div className="block mt-1">
-                <span className="block mb-0.5">Address:</span>
+                <span className="block mb-0.5">{t('forms.kboLookup.address')}</span>
                 <span className="text-gray-300 leading-tight">{exactMatch.address}</span>
               </div>
             )}
@@ -329,7 +329,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200/75 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-[9999] max-h-72 overflow-y-auto transform transition-all duration-200 origin-top animate-in fade-in slide-in-from-top-2 ring-1 ring-black/5"
       >
         <div className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-white/95 border-b border-gray-100 sticky top-0 backdrop-blur-md z-10 shadow-sm">
-          Did you mean this company?
+          {t('forms.kboLookup.didYouMean')}
         </div>
         <div className="py-1">
           {searchResults.map((company, index) => {
