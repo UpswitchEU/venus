@@ -106,56 +106,96 @@ class BusinessTypesApiService {
 
   /**
    * Get all business types from API with enhanced caching
+   * Uses batched fetching like Mercury to ensure all 168+ types are loaded
    */
   async getBusinessTypes(): Promise<BusinessType[]> {
     try {
       const locale = this.getLocaleFromPathname()
 
-      // Check cache first (locale-aware cache key would be ideal, but keeping existing cache for now)
+      // CACHE INVALIDATION: Check if cached data is using old limit (50)
+      // If so, clear cache to force refetch with new limit (200)
       if (businessTypesCache.hasValidCache()) {
         const cachedData = await businessTypesCache.getBusinessTypes()
         if (cachedData) {
-          generalLogger.debug('[BusinessTypesAPI] Serving from cache', {
-            businessTypes: cachedData.businessTypes.length,
-            categories: cachedData.categories.length,
-            popularTypes: cachedData.popularTypes.length,
-          })
-          return cachedData.businessTypes
+          // If we have fewer than 100 types cached, it's likely old data with limit=50
+          if (cachedData.businessTypes.length < 100) {
+            generalLogger.warn('[BusinessTypesAPI] Cached data appears incomplete, clearing cache', {
+              cachedCount: cachedData.businessTypes.length,
+              expected: '168+',
+            })
+            await businessTypesCache.clear()
+            // Continue to API fetch below
+          } else {
+            generalLogger.debug('[BusinessTypesAPI] Serving from cache', {
+              businessTypes: cachedData.businessTypes.length,
+              categories: cachedData.categories.length,
+              popularTypes: cachedData.popularTypes.length,
+            })
+            return cachedData.businessTypes
+          }
         }
       }
 
       // Fetch from API with locale parameter
-      generalLogger.debug('[BusinessTypesAPI] Fetching from API', { locale })
-      const [typesResponse, categoriesResponse] = await Promise.all([
-        this.api.get('/types', { params: { limit: 200, locale } }),
-        this.api.get('/categories', { params: { locale } }),
-      ])
-
-      if (typesResponse.data.success && typesResponse.data.data) {
-        const businessTypes = typesResponse.data.data.business_types
-        const categories = categoriesResponse.data.success ? categoriesResponse.data.data : []
-
-        // DIAGNOSTIC: Log what we received from API
-        console.log('🔍 [BUSINESS-TYPES-API] Loaded from API', {
-          count: businessTypes?.length || 0,
-          hasMore: typesResponse.data.data.has_more,
-          total: typesResponse.data.data.total,
-          firstFive: businessTypes?.slice(0, 5).map((t: any) => t.title),
-          requestedLimit: 200,
-        })
-
-        // Cache the complete data
-        await businessTypesCache.setBusinessTypes({
-          businessTypes,
-          categories,
-          popularTypes: businessTypes.filter((bt: BusinessType) => bt.popular),
-        })
-
-        generalLogger.info('[BusinessTypesAPI] Fetched and cached', { count: businessTypes.length })
-        return businessTypes
+      // Use batched fetching like Mercury to ensure all 168+ types are loaded
+      generalLogger.debug('[BusinessTypesAPI] Fetching from API in batches', { locale })
+      
+      // Add cache buster to force fresh data (timestamp)
+      const cacheBuster = Date.now()
+      
+      // First batch: 0-100
+      const batch1Response = await this.api.get('/types', { 
+        params: { limit: 100, offset: 0, locale, _t: cacheBuster } 
+      })
+      
+      if (!batch1Response.data.success || !batch1Response.data.data) {
+        throw new Error('API returned unsuccessful response')
       }
 
-      throw new Error('API returned unsuccessful response')
+      let allBusinessTypes = [...batch1Response.data.data.business_types]
+      console.log('🔍 [BUSINESS-TYPES-API] First batch loaded', {
+        count: allBusinessTypes.length,
+        hasMore: batch1Response.data.data.has_more,
+        total: batch1Response.data.data.total,
+      })
+
+      // Second batch: 100-200 (if there are more)
+      if (batch1Response.data.data.has_more) {
+        const batch2Response = await this.api.get('/types', {
+          params: { limit: 100, offset: 100, locale, _t: cacheBuster }
+        })
+        
+        if (batch2Response.data.success && batch2Response.data.data) {
+          allBusinessTypes = [...allBusinessTypes, ...batch2Response.data.data.business_types]
+          console.log('🔍 [BUSINESS-TYPES-API] Second batch loaded', {
+            count: batch2Response.data.data.business_types.length,
+            totalNow: allBusinessTypes.length,
+          })
+        }
+      }
+
+      // Fetch categories
+      const categoriesResponse = await this.api.get('/categories', { params: { locale } })
+      const categories = categoriesResponse.data.success ? categoriesResponse.data.data : []
+
+      // DIAGNOSTIC: Log final results
+      console.log('🔍 [BUSINESS-TYPES-API] All batches complete', {
+        totalCount: allBusinessTypes.length,
+        categoriesCount: categories.length,
+        hasTitleContainingRestaurant: allBusinessTypes.some(t => 
+          t.title?.toLowerCase().includes('restaurant')
+        ),
+      })
+
+      // Cache the complete data
+      await businessTypesCache.setBusinessTypes({
+        businessTypes: allBusinessTypes,
+        categories,
+        popularTypes: allBusinessTypes.filter((bt: BusinessType) => bt.popular),
+      })
+
+      generalLogger.info('[BusinessTypesAPI] Fetched and cached', { count: allBusinessTypes.length })
+      return allBusinessTypes
     } catch (error) {
       generalLogger.error('[BusinessTypesAPI] Failed to fetch business types', { error })
 
