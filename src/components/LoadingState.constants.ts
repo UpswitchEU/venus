@@ -3,39 +3,10 @@ export interface LoadingStep {
   subtext: string
 }
 
-// Accurate loading steps based on the actual 12-step calculation process
-export const GENERATION_STEPS: LoadingStep[] = [
-  {
-    text: 'Assessing data quality...',
-    subtext: 'Evaluating completeness, validity, and consistency across 5 dimensions',
-  },
-  {
-    text: 'Validating financial metrics...',
-    subtext: 'Extracting revenue, EBITDA, and business profile data',
-  },
-  {
-    text: 'Consulting academic frameworks...',
-    subtext: 'Referencing Koller, Damodaran & IVS 2017 standards',
-  },
-  {
-    text: 'Selecting valuation methodology...',
-    subtext: 'Determining DCF vs. Market Multiples eligibility for SMEs',
-  },
-  {
-    text: 'Benchmarking against comparables...',
-    subtext: 'Analyzing industry multiples from real market transactions',
-  },
-  {
-    text: 'Calibrating SME risk factors...',
-    subtext: 'Assessing owner dependency, size discount, and liquidity',
-  },
-  {
-    text: 'Synthesizing final valuation...',
-    subtext: 'Generating Big 4-grade professional report with Belgian compliance',
-  },
-]
-
-export const INITIALIZATION_STEPS: LoadingStep[] = [
+// Unified loading steps - used for all loading states across the app
+// This provides a consistent, professional cloud-infrastructure messaging
+// that aligns with SaaS positioning and reduces cognitive load
+export const UNIFIED_LOADING_STEPS: LoadingStep[] = [
   {
     text: 'Connecting to secure cloud...',
     subtext: 'Establishing encrypted connection to Upswitch servers',
@@ -49,3 +20,8 @@ export const INITIALIZATION_STEPS: LoadingStep[] = [
     subtext: 'Setting up your secure valuation environment',
   },
 ]
+
+// Keep old exports for backwards compatibility - both now point to unified steps
+// This ensures consistent loading experience during initialization and calculation
+export const INITIALIZATION_STEPS = UNIFIED_LOADING_STEPS
+export const GENERATION_STEPS = UNIFIED_LOADING_STEPS

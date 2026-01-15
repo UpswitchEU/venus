@@ -21,10 +21,10 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
 
   useEffect(() => {
-    // Cycle through steps every 1.5 seconds for faster feel
+    // Cycle through steps every 2 seconds (6 second full cycle for 3 steps)
     const interval = setInterval(() => {
       setCurrentStepIndex((prev) => (prev + 1) % steps.length)
-    }, 1500)
+    }, 2000)
 
     // Show warning after 20 seconds
     const warningTimer = setTimeout(() => {
