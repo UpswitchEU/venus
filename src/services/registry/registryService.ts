@@ -55,8 +55,8 @@ export class RegistryService {
       throw new ValidationError('Query must be at least 2 characters long', { query, country })
     }
 
-    if (limit < 1 || limit > 50) {
-      throw new ValidationError('Limit must be between 1 and 50', { limit })
+    if (limit < 1 || limit > 200) {
+      throw new ValidationError('Limit must be between 1 and 200', { limit })
     }
 
     const cacheKey = `search:${country}:${query}:${limit}`

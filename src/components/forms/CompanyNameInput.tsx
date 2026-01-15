@@ -70,7 +70,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
 
         setIsLoading(true)
         try {
-          const response = await registryService.searchCompanies(query.trim(), country, 10)
+          const response = await registryService.searchCompanies(query.trim(), country, 200)
 
           if (response.success && response.results) {
             const results = response.results
