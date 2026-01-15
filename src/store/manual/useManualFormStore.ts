@@ -39,8 +39,9 @@ interface ManualFormStore {
   markClean: () => void
 }
 
-// Helper to get safe current year (allow up to current year, max 2100 per backend validation)
-const getSafeCurrentYear = () => Math.min(new Date().getFullYear(), 2100)
+// Helper to get safe last full year (last completed fiscal year, max 2100 per backend validation)
+// Valuations use the most recent completed fiscal year, not the current calendar year
+const getSafeCurrentYear = () => Math.min(new Date().getFullYear() - 1, 2100)
 
 const defaultFormData: ValuationFormData = {
   company_name: '', // Empty by default - user must enter company name
