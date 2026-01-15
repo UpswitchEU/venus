@@ -37,7 +37,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   formData,
   updateFormData,
 }) => {
-  const currentYear = Math.min(new Date().getFullYear(), 2100)
+  const lastFullYear = Math.min(new Date().getFullYear() - 1, 2100)
   const reportId = useSessionStore((state) => state.session?.reportId)
   const sessionId = reportId // Use reportId as sessionId
 
@@ -58,7 +58,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
       console.error('No session ID available')
       return
     }
-    const ebitdaValue = year === currentYear ? formData.ebitda : 0
+    const ebitdaValue = year === lastFullYear ? formData.ebitda : 0
     if (ebitdaValue === undefined) {
       console.warn('EBITDA value not set')
       return
@@ -77,7 +77,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   return (
     <div className="space-y-6">
       <h3 className="text-xl font-semibold text-white mb-6 pb-2 border-b border-white/10 tracking-tight">
-        Current Year Financials ({currentYear})
+        Last Full Year Financials ({lastFullYear})
       </h3>
 
       <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-6">
@@ -158,19 +158,19 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
             return (
               <>
                 {/* Conditional rendering: Normalized field vs Normal field */}
-                {hasNormalization(currentYear) &&
+                {hasNormalization(lastFullYear) &&
                 sessionId &&
                 formData.ebitda !== undefined &&
                 formData.ebitda !== null ? (
                   <NormalizedEBITDAField
                     label="EBITDA (Required)"
                     originalValue={formData.ebitda}
-                    normalizedValue={getNormalizedEbitda(currentYear)}
-                    totalAdjustments={getTotalAdjustments(currentYear)}
-                    adjustmentCount={getAdjustmentCount(currentYear)}
-                    lastUpdated={getLastUpdated(currentYear)}
-                    onEdit={() => handleOpenNormalization(currentYear)}
-                    onRemove={() => handleRemoveNormalization(currentYear)}
+                    normalizedValue={getNormalizedEbitda(lastFullYear)}
+                    totalAdjustments={getTotalAdjustments(lastFullYear)}
+                    adjustmentCount={getAdjustmentCount(lastFullYear)}
+                    lastUpdated={getLastUpdated(lastFullYear)}
+                    onEdit={() => handleOpenNormalization(lastFullYear)}
+                    onRemove={() => handleRemoveNormalization(lastFullYear)}
                     helpText={helpText}
                   />
                 ) : (
@@ -204,7 +204,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                       <div className="mt-3">
                         <button
                           type="button"
-                          onClick={() => handleOpenNormalization(currentYear)}
+                          onClick={() => handleOpenNormalization(lastFullYear)}
                           className="text-sm text-river-300 hover:text-river-100 flex items-center gap-1 transition-colors"
                         >
                           <svg
@@ -220,7 +220,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                               d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                             />
                           </svg>
-                          Normalize EBITDA for {currentYear}
+                          Normalize EBITDA for {lastFullYear}
                         </button>
                       </div>
                     )}
@@ -235,8 +235,8 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
       {/* Normalization Modal */}
       {sessionId && (
         <NormalizationModal
-          isOpen={activeYear === currentYear}
-          year={currentYear}
+          isOpen={activeYear === lastFullYear}
+          year={lastFullYear}
           sessionId={sessionId}
           onClose={() => {
             closeNormalizationModal()

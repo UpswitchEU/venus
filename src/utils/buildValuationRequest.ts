@@ -44,14 +44,15 @@ export function buildValuationRequest(
     formData = source
   }
 
-  // Normalize current year (2000-2100)
-  const currentYear = Math.min(
-    Math.max(formData.current_year_data?.year || new Date().getFullYear(), 2000),
+  // Normalize last full year (2000-2100)
+  // Valuations use the most recent completed fiscal year, not the current calendar year
+  const lastFullYear = Math.min(
+    Math.max(formData.current_year_data?.year || new Date().getFullYear() - 1, 2000),
     2100
   )
 
   // Normalize founding year (1900-2100)
-  const foundingYear = Math.min(Math.max(formData.founding_year || currentYear - 5, 1900), 2100)
+  const foundingYear = Math.min(Math.max(formData.founding_year || lastFullYear - 5, 1900), 2100)
 
   // Normalize company name
   const companyName = formData.company_name?.trim() || 'Unknown Company'
@@ -95,24 +96,24 @@ export function buildValuationRequest(
   // Get normalization store state (must be called before checking normalizations)
   const normalizationStore = useEbitdaNormalizationStore.getState()
 
-  // Check if current year EBITDA is normalized
-  const currentYearNormalization = normalizationStore.normalizations[currentYear]
+  // Check if last full year EBITDA is normalized
+  const lastFullYearNormalization = normalizationStore.normalizations[lastFullYear]
 
   // Build current_year_data with normalization support
   const currentYearData: any = {
-    year: currentYear,
+    year: lastFullYear,
     revenue: revenue,
-    ebitda: currentYearNormalization ? currentYearNormalization.normalized_ebitda : ebitda,
-    ...(currentYearNormalization && {
+    ebitda: lastFullYearNormalization ? lastFullYearNormalization.normalized_ebitda : ebitda,
+    ...(lastFullYearNormalization && {
       ebitda_normalized: true,
       ebitda_normalization_metadata: {
-        reported_ebitda: currentYearNormalization.reported_ebitda,
-        total_adjustments: currentYearNormalization.total_adjustments,
+        reported_ebitda: lastFullYearNormalization.reported_ebitda,
+        total_adjustments: lastFullYearNormalization.total_adjustments,
         adjustment_count:
-          currentYearNormalization.adjustments.length +
-          (currentYearNormalization.custom_adjustments?.length || 0),
-        confidence_score: currentYearNormalization.confidence_score,
-        has_custom_adjustments: (currentYearNormalization.custom_adjustments?.length || 0) > 0,
+          lastFullYearNormalization.adjustments.length +
+          (lastFullYearNormalization.custom_adjustments?.length || 0),
+        confidence_score: lastFullYearNormalization.confidence_score,
+        has_custom_adjustments: (lastFullYearNormalization.custom_adjustments?.length || 0) > 0,
       },
     }),
     ...(formData.current_year_data?.total_assets &&

@@ -34,14 +34,14 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   isRegenerationMode = false,
 }) => {
   const t = useTranslations()
-  const currentYear = Math.min(new Date().getFullYear(), 2100)
+  const lastFullYear = Math.min(new Date().getFullYear() - 1, 2100)
   const { hasNormalization } = useEbitdaNormalizationStore()
 
   // Check if any normalizations exist
   const hasAnyNormalization =
-    hasNormalization(currentYear) ||
-    hasNormalization(currentYear - 1) ||
-    hasNormalization(currentYear - 2)
+    hasNormalization(lastFullYear) ||
+    hasNormalization(lastFullYear - 1) ||
+    hasNormalization(lastFullYear - 2)
 
   const isFormValid =
     formData.revenue && formData.ebitda && formData.industry && formData.country_code

@@ -153,7 +153,7 @@ export const useValuationFormSubmission = (
               business_model: formData.business_model,
               founding_year: formData.founding_year,
               current_year_data: {
-                year: formData.current_year_data?.year || new Date().getFullYear(),
+                year: formData.current_year_data?.year || new Date().getFullYear() - 1,
                 revenue: formData.revenue || formData.current_year_data?.revenue || 0,
                 ebitda: formData.ebitda || formData.current_year_data?.ebitda || 0,
                 ...(formData.current_year_data?.total_assets && {
