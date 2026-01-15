@@ -46,8 +46,9 @@ export function buildValuationRequest(
 
   // Normalize last full year (2000-2100)
   // Valuations use the most recent completed fiscal year, not the current calendar year
+  // ALWAYS calculate from current date, never trust formData to fix year 2026 bug
   const lastFullYear = Math.min(
-    Math.max(formData.current_year_data?.year || new Date().getFullYear() - 1, 2000),
+    Math.max(new Date().getFullYear() - 1, 2000),
     2100
   )
 
