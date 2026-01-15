@@ -71,6 +71,12 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
 
   // Filter and rank business types by search query
   const filteredTypes = React.useMemo(() => {
+    // DIAGNOSTIC: Log business types count
+    console.log('🔍 [BUSINESS-TYPE-SEARCH] Component received', {
+      totalBusinessTypes: businessTypes.length,
+      query: query.trim(),
+    })
+
     if (!query.trim()) {
       // Show all business types when no query, popular first
       const popular = businessTypes.filter((bt) => bt.popular)

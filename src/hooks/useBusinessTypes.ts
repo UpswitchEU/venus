@@ -44,6 +44,12 @@ export function useBusinessTypes(): UseBusinessTypesState {
       const types = await businessTypesApiService.getBusinessTypes()
       const options = await businessTypesApiService.getBusinessTypeOptions()
 
+      // DIAGNOSTIC: Log what hook received
+      console.log('🔍 [BUSINESS-TYPES-HOOK] Loaded in hook', {
+        typesCount: types.length,
+        optionsCount: options.length,
+      })
+
       setBusinessTypes(types)
       setBusinessTypeOptions(options)
     } catch (err) {

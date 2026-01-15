@@ -135,6 +135,15 @@ class BusinessTypesApiService {
         const businessTypes = typesResponse.data.data.business_types
         const categories = categoriesResponse.data.success ? categoriesResponse.data.data : []
 
+        // DIAGNOSTIC: Log what we received from API
+        console.log('🔍 [BUSINESS-TYPES-API] Loaded from API', {
+          count: businessTypes?.length || 0,
+          hasMore: typesResponse.data.data.has_more,
+          total: typesResponse.data.data.total,
+          firstFive: businessTypes?.slice(0, 5).map((t: any) => t.title),
+          requestedLimit: 200,
+        })
+
         // Cache the complete data
         await businessTypesCache.setBusinessTypes({
           businessTypes,
