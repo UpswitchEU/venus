@@ -144,7 +144,7 @@ export function generateConversationFromFormData(
   // Revenue
   if (formData.revenue || formData.current_year_data?.revenue) {
     const revenue = formData.revenue || formData.current_year_data?.revenue || 0
-    const year = formData.current_year_data?.year || new Date().getFullYear()
+    const year = formData.current_year_data?.year || new Date().getFullYear() - 1
     addMessagePair(`What was your revenue in ${year}?`, `€${revenue.toLocaleString()}`, 'revenue', {
       revenue,
       year,
@@ -154,7 +154,7 @@ export function generateConversationFromFormData(
   // EBITDA
   if (formData.ebitda !== undefined || formData.current_year_data?.ebitda !== undefined) {
     const ebitda = formData.ebitda ?? formData.current_year_data?.ebitda ?? 0
-    const year = formData.current_year_data?.year || new Date().getFullYear()
+    const year = formData.current_year_data?.year || new Date().getFullYear() - 1
     addMessagePair(`What was your EBITDA in ${year}?`, `€${ebitda.toLocaleString()}`, 'ebitda', {
       ebitda,
       year,

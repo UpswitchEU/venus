@@ -72,9 +72,9 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
   // Filter and rank business types by search query
   const filteredTypes = React.useMemo(() => {
     if (!query.trim()) {
-      // Show popular types first when no query
-      const popular = businessTypes.filter((bt) => bt.popular).slice(0, 10)
-      const others = businessTypes.filter((bt) => !bt.popular).slice(0, 10)
+      // Show all business types when no query, popular first
+      const popular = businessTypes.filter((bt) => bt.popular)
+      const others = businessTypes.filter((bt) => !bt.popular)
       return [...popular, ...others]
     }
 
@@ -103,7 +103,7 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
         const bIndex = b.title.toLowerCase().indexOf(searchTerm)
         return aIndex - bIndex
       })
-      .slice(0, 20)
+      // Show all matching results (no artificial limit)
   }, [query, businessTypes])
 
   // Group filtered types by category

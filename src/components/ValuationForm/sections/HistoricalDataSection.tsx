@@ -27,6 +27,11 @@ export const HistoricalDataSection: React.FC<HistoricalDataSectionProps> = ({
   setHistoricalInputs,
   foundingYear,
 }) => {
+  // Calculate last full year (same calculation as FinancialDataSection)
+  // This ensures historical years are relative to the "Last Full Year" (2025)
+  // not the current calendar year (2026)
+  const lastFullYear = Math.min(new Date().getFullYear() - 1, 2100)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-6 pb-2 border-b border-white/10">
@@ -46,7 +51,7 @@ export const HistoricalDataSection: React.FC<HistoricalDataSectionProps> = ({
         onChange={setHistoricalInputs}
         onBlur={() => {}}
         foundingYear={foundingYear}
-        currentYear={new Date().getFullYear()}
+        currentYear={lastFullYear}
       />
     </div>
   )
