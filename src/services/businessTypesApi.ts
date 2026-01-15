@@ -123,7 +123,7 @@ class BusinessTypesApiService {
               cachedCount: cachedData.businessTypes.length,
               expected: '168+',
             })
-            await businessTypesCache.clear()
+            businessTypesCache.clearBusinessTypes()
             // Continue to API fetch below
           } else {
             generalLogger.debug('[BusinessTypesAPI] Serving from cache', {
