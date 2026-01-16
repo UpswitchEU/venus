@@ -35,6 +35,14 @@ interface ManualFormStore {
     founding_year: number
     country_code: string
     employee_count?: number
+    // Phase 1.1: Enhanced KBO registry fields
+    kbo_number?: string
+    vat_number?: string
+    city?: string
+    postal_code?: string
+    legal_form?: string
+    nace_code?: string
+    nace_description?: string
   }) => void
   markClean: () => void
 }
@@ -125,6 +133,14 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
     founding_year: number
     country_code: string
     employee_count?: number
+    // Phase 1.1: Enhanced KBO registry fields
+    kbo_number?: string
+    vat_number?: string
+    city?: string
+    postal_code?: string
+    legal_form?: string
+    nace_code?: string
+    nace_description?: string
   }) => {
     set((state) => {
       const updatedFormData = {
@@ -135,10 +151,19 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
         founding_year: businessCard.founding_year,
         country_code: businessCard.country_code,
         number_of_employees: businessCard.employee_count,
+        // Phase 1.1: Add KBO registry fields if available
+        ...(businessCard.city && { city: businessCard.city }),
+        ...(businessCard.postal_code && { postal_code: businessCard.postal_code }),
+        ...(businessCard.kbo_number && { kbo_number: businessCard.kbo_number }),
+        ...(businessCard.vat_number && { vat_number: businessCard.vat_number }),
+        ...(businessCard.legal_form && { legal_form: businessCard.legal_form }),
+        ...(businessCard.nace_code && { nace_code: businessCard.nace_code }),
+        ...(businessCard.nace_description && { nace_description: businessCard.nace_description }),
       }
 
       storeLogger.info('[Manual] Form data prefilled from business card', {
         companyName: businessCard.company_name,
+        hasKboData: !!(businessCard.kbo_number || businessCard.vat_number),
         formId: 'manual',
       })
 

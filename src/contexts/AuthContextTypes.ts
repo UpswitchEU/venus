@@ -37,6 +37,14 @@ export interface User {
   city?: string
   country?: string
   company_description?: string
+  
+  // Phase 1.1: Enhanced KBO registry fields
+  kbo_number?: string
+  vat_number?: string
+  postal_code?: string
+  legal_form?: string
+  nace_code?: string
+  nace_description?: string
 }
 
 export interface AuthContextType {
@@ -52,6 +60,14 @@ export interface AuthContextType {
     founding_year: number
     country_code: string
     employee_count?: number
+    // Phase 1.1: Enhanced KBO registry fields
+    kbo_number?: string
+    vat_number?: string
+    city?: string
+    postal_code?: string
+    legal_form?: string
+    nace_code?: string
+    nace_description?: string
   } | null
 }
 

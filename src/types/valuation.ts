@@ -81,6 +81,14 @@ export interface ValuationRequest {
   business_highlights?: string
   reason_for_selling?: string
   city?: string
+  
+  // Phase 1.1: Enhanced KBO registry fields
+  kbo_number?: string
+  vat_number?: string
+  postal_code?: string
+  legal_form?: string
+  nace_code?: string
+  nace_description?: string
 
   // NEW: PostgreSQL business type integration
   business_type_id?: string // PostgreSQL business type ID
@@ -143,6 +151,14 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   business_highlights?: string
   reason_for_selling?: string
   city?: string
+  
+  // Phase 1.1: Enhanced KBO registry fields (inherited from ValuationRequest)
+  kbo_number?: string
+  vat_number?: string
+  postal_code?: string
+  legal_form?: string
+  nace_code?: string
+  nace_description?: string
 }
 
 export interface QuickValuationRequest {

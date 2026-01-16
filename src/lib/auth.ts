@@ -827,12 +827,58 @@ function getIndustry(user: User): string {
   return businessTypeToIndustry[user.business_type?.toLowerCase() || ''] || 'services'
 }
 
+/**
+ * Infer employee count from range string
+ * Phase 1.3: Enhanced inference using typical midpoints
+ * 
+ * Maps common employee range strings to representative counts.
+ * Uses midpoints for ranges, with special handling for open-ended ranges.
+ * 
+ * @param range - Employee count range string (e.g., "10-50", "1-10", "500+")
+ * @returns Inferred employee count or undefined if cannot parse
+ */
 function parseEmployeeCount(range?: string): number | undefined {
   if (!range) return undefined
-  const match = range.match(/(\d+)-(\d+)/)
-  if (match) {
-    return Math.floor((parseInt(match[1]) + parseInt(match[2])) / 2)
+  
+  // Normalize the range string
+  const normalized = range.trim().toLowerCase()
+  
+  // Map common range formats to representative values
+  const rangeMap: Record<string, number> = {
+    '1-10': 5,
+    '10-50': 25,
+    '11-25': 18,
+    '26-50': 38,
+    '50-100': 75,
+    '51-100': 75,
+    '100-500': 250,
+    '101-500': 250,
+    '500+': 750,
+    '500-1000': 750,
+    '1000+': 1500,
   }
+  
+  // Check for exact match in map
+  if (rangeMap[normalized]) {
+    return rangeMap[normalized]
+  }
+  
+  // Try to parse as range (e.g., "10-50")
+  const match = normalized.match(/(\d+)-(\d+)/)
+  if (match) {
+    const min = parseInt(match[1])
+    const max = parseInt(match[2])
+    return Math.floor((min + max) / 2)
+  }
+  
+  // Try to parse as open-ended (e.g., "500+")
+  const openMatch = normalized.match(/(\d+)\+/)
+  if (openMatch) {
+    const min = parseInt(openMatch[1])
+    // For open-ended ranges, use 1.5x the minimum as estimate
+    return Math.floor(min * 1.5)
+  }
+  
   return undefined
 }
 
@@ -860,6 +906,14 @@ export function useAuth() {
             user.founded_year || new Date().getFullYear() - (user.years_in_operation || 5),
           country_code: user.country || 'BE',
           employee_count: parseEmployeeCount(user.employee_count_range),
+          // Phase 1.1: Enhanced KBO registry fields
+          kbo_number: user.kbo_number,
+          vat_number: user.vat_number,
+          city: user.city,
+          postal_code: user.postal_code,
+          legal_form: user.legal_form,
+          nace_code: user.nace_code,
+          nace_description: user.nace_description,
         }
       : null
 
