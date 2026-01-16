@@ -38,6 +38,27 @@ class GuestSessionService {
    * Optimized to trust localStorage when session is far from expiration
    */
   async getOrCreateSession(): Promise<string> {
+    // ✅ FIX: Check if user is authenticated before creating guest session
+    // Authenticated users should NOT have guest sessions
+    try {
+      const { useAuthStore } = await import('../lib/auth')
+      const user = useAuthStore.getState().user
+      
+      if (user) {
+        generalLogger.debug('Skipping guest session creation for authenticated user', {
+          userId: user.id.substring(0, 8) + '...',
+        })
+        throw new Error('User is authenticated - guest session not needed')
+      }
+    } catch (authError) {
+      // If auth check fails or user is authenticated, don't create guest session
+      if (authError instanceof Error && authError.message.includes('authenticated')) {
+        throw authError
+      }
+      // If authStore import fails, continue with guest session creation as fallback
+      generalLogger.warn('Failed to check auth status, continuing with guest session creation', { error: authError })
+    }
+
     // Return existing promise if session creation is in progress (prevents race conditions)
     if (this.sessionCreationPromise) {
       return this.sessionCreationPromise
