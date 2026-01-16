@@ -24,6 +24,7 @@ import { useManualFormStore } from '../store/manual'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
 import { useConversationalResultsStore } from '../store/conversational/useConversationalResultsStore'
 import { useConversationalChatStore } from '../store/conversational/useConversationalChatStore'
+import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useLoadingCoordinator } from '../store/useLoadingCoordinator'
 import { sessionService } from '../services'
@@ -158,33 +159,145 @@ export function useCompleteValuationRestoration(reportId: string | null) {
         // 4. Restore versions
         setLoading('versions', true)
         if (data.versions && data.versions.length > 0) {
-          // TODO: Implement version history store when available
-          generalLogger.info('Version history restoration not yet implemented', {
-            reportId,
-            versionsCount: data.versions.length,
-          })
+          try {
+            // Restore versions to version history store using proper Zustand setState
+            // This ensures React components subscribed to the store will re-render
+            const versionStore = useVersionHistoryStore.getState()
+            
+            // Find active version
+            const activeVersion = data.versions.find((v: any) => v.isActive)?.versionNumber || 
+                                 data.versions[data.versions.length - 1]?.versionNumber
+            
+            // Use setState to properly update Zustand store (triggers re-renders)
+            // Type assertion: data.versions is already ValuationVersion[] from backend
+            useVersionHistoryStore.setState((state) => ({
+              versions: {
+                ...state.versions,
+                [reportId]: data.versions as any, // Type assertion needed due to backend response typing
+              },
+              activeVersions: {
+                ...state.activeVersions,
+                ...(activeVersion ? { [reportId]: activeVersion } : {}),
+              },
+            }))
+            
+            generalLogger.info('Restored version history', {
+              reportId,
+              versionsCount: data.versions.length,
+              activeVersion,
+            })
+          } catch (error) {
+            generalLogger.warn('Failed to restore version history', {
+              reportId,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        } else {
+          // Try to fetch versions from backend if not in data
+          try {
+            const versionStore = useVersionHistoryStore.getState()
+            await versionStore.fetchVersions(reportId)
+            generalLogger.info('Fetched version history from backend', { reportId })
+          } catch (error) {
+            generalLogger.debug('No version history available', { reportId })
+          }
         }
         setLoading('versions', false)
 
         // 5. Restore pricing range
         setLoading('pricing', true)
         if (data.pricingRange) {
-          // TODO: Implement pricing store when available
-          generalLogger.info('Pricing range restoration not yet implemented', {
-            reportId,
-            range: data.pricingRange,
-          })
+          try {
+            // Store pricing range in session for easy access
+            // Pricing range is derived from valuation result (equity_value_low, equity_value_high, equity_value_mid)
+            const sessionStore = useSessionStore.getState()
+            if (sessionStore.session && sessionStore.session.reportId === reportId) {
+              // Store pricing range in session metadata
+              const updatedSession = {
+                ...sessionStore.session,
+                sessionData: {
+                  ...sessionStore.session.sessionData,
+                  _pricingRange: data.pricingRange,
+                },
+              }
+              sessionStore.updateSession(updatedSession)
+              
+              generalLogger.info('Restored pricing range', {
+                reportId,
+                min: data.pricingRange.min,
+                max: data.pricingRange.max,
+                suggested: data.pricingRange.suggested,
+              })
+            }
+          } catch (error) {
+            generalLogger.warn('Failed to restore pricing range', {
+              reportId,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        } else if (data.currentReport?.valuation_result) {
+          // Derive pricing range from valuation result if not explicitly provided
+          try {
+            const result = data.currentReport.valuation_result
+            if (result.equity_value_low && result.equity_value_high) {
+              const pricingRange = {
+                min: result.equity_value_low,
+                max: result.equity_value_high,
+                suggested: result.equity_value_mid || result.recommended_asking_price || 
+                          (result.equity_value_low + result.equity_value_high) / 2,
+              }
+              
+              const sessionStore = useSessionStore.getState()
+              if (sessionStore.session && sessionStore.session.reportId === reportId) {
+                const updatedSession = {
+                  ...sessionStore.session,
+                  sessionData: {
+                    ...sessionStore.session.sessionData,
+                    _pricingRange: pricingRange,
+                  },
+                }
+                sessionStore.updateSession(updatedSession)
+                
+                generalLogger.info('Derived pricing range from valuation result', {
+                  reportId,
+                  ...pricingRange,
+                })
+              }
+            }
+          } catch (error) {
+            generalLogger.debug('Could not derive pricing range', { reportId })
+          }
         }
         setLoading('pricing', false)
 
         // 6. Restore previous packages
         setLoading('packages', true)
         if (data.previousPackages && data.previousPackages.length > 0) {
-          // TODO: Implement packages store when available
-          generalLogger.info('Previous packages restoration not yet implemented', {
-            reportId,
-            packagesCount: data.previousPackages.length,
-          })
+          try {
+            // Store previous packages in session for easy access
+            // Previous packages are previous valuations for the same user/business
+            const sessionStore = useSessionStore.getState()
+            if (sessionStore.session && sessionStore.session.reportId === reportId) {
+              const updatedSession = {
+                ...sessionStore.session,
+                sessionData: {
+                  ...sessionStore.session.sessionData,
+                  _previousPackages: data.previousPackages,
+                },
+              }
+              sessionStore.updateSession(updatedSession)
+              
+              generalLogger.info('Restored previous packages', {
+                reportId,
+                packagesCount: data.previousPackages.length,
+              })
+            }
+          } catch (error) {
+            generalLogger.warn('Failed to restore previous packages', {
+              reportId,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
         }
         setLoading('packages', false)
 

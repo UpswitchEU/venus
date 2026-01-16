@@ -310,6 +310,7 @@ export class SessionService {
 
   /**
    * Load pricing range
+   * Derives pricing range from valuation result if available
    */
   private async loadPricingRange(reportId: string): Promise<{
     min: number
@@ -317,27 +318,54 @@ export class SessionService {
     suggested: number
   } | undefined> {
     try {
-      // Pricing range API not yet implemented - return undefined for now
-      // TODO: Implement when pricing range API is available
-      logger.debug('Pricing range not yet implemented', { reportId })
+      // Try to get pricing range from current report
+      const report = await this.loadCurrentReport(reportId).catch(() => undefined)
+      
+      if (report?.valuation_result) {
+        const result = report.valuation_result
+        if (result.equity_value_low && result.equity_value_high) {
+          return {
+            min: result.equity_value_low,
+            max: result.equity_value_high,
+            suggested: result.equity_value_mid || result.recommended_asking_price || 
+                       (result.equity_value_low + result.equity_value_high) / 2,
+          }
+        }
+      }
+      
+      logger.debug('No pricing range available', { reportId })
       return undefined
     } catch (error) {
-      logger.debug('No pricing range found', { reportId })
+      logger.debug('Failed to load pricing range', { reportId, error: getErrorMessage(error) })
       return undefined
     }
   }
 
   /**
    * Load previous valuation packages for user
+   * Returns previous valuations for the authenticated user
+   * 
+   * Note: This feature is not yet fully implemented on the backend.
+   * For now, returns undefined to allow restoration to work without errors.
    */
   private async loadPreviousPackages(): Promise<any[] | undefined> {
-    // Previous packages API not yet implemented - return undefined for now
-    // TODO: Implement when packages API is available
     try {
-      logger.debug('Previous packages not yet implemented')
+      // Get userId from auth store
+      const { useAuthStore } = await import('../../lib/auth')
+      const authState = useAuthStore.getState()
+      const userId = authState.user?.id
+      
+      if (!userId) {
+        logger.debug('No user ID available for previous packages')
+        return undefined
+      }
+      
+      // TODO: Implement when backend API is available
+      // For now, return undefined to allow restoration to work
+      logger.debug('Previous packages feature not yet fully implemented')
       return undefined
     } catch (error) {
-      logger.debug('No previous packages found', { error: getErrorMessage(error) })
+      logger.debug('Failed to load previous packages', { error: getErrorMessage(error) })
       return undefined
     }
   }
