@@ -300,8 +300,8 @@ export class SessionService {
     try {
       // Use VersionService to get version history
       const { versionService } = await import('../version/VersionService')
-      const versions = await versionService.getVersionHistory(reportId)
-      return versions || undefined
+      const response = await versionService.fetchVersions(reportId)
+      return response?.versions || undefined
     } catch (error) {
       logger.debug('No version history found', { reportId })
       return undefined
@@ -317,14 +317,9 @@ export class SessionService {
     suggested: number
   } | undefined> {
     try {
-      const response = await backendAPI.getPricingRange(reportId)
-      if (response?.min && response?.max) {
-        return {
-          min: response.min,
-          max: response.max,
-          suggested: response.suggested || response.mid || ((response.min + response.max) / 2),
-        }
-      }
+      // Pricing range API not yet implemented - return undefined for now
+      // TODO: Implement when pricing range API is available
+      logger.debug('Pricing range not yet implemented', { reportId })
       return undefined
     } catch (error) {
       logger.debug('No pricing range found', { reportId })
@@ -336,19 +331,11 @@ export class SessionService {
    * Load previous valuation packages for user
    */
   private async loadPreviousPackages(): Promise<any[] | undefined> {
-    // Get user ID from auth store
+    // Previous packages API not yet implemented - return undefined for now
+    // TODO: Implement when packages API is available
     try {
-      const { useAuthStore } = await import('../../lib/auth')
-      const user = useAuthStore.getState().user
-      const userId = user?.id
-      
-      if (!userId) {
-        logger.debug('No user ID available for loading previous packages')
-        return undefined
-      }
-      
-      const response = await backendAPI.getPreviousPackages(userId)
-      return response?.packages || undefined
+      logger.debug('Previous packages not yet implemented')
+      return undefined
     } catch (error) {
       logger.debug('No previous packages found', { error: getErrorMessage(error) })
       return undefined
