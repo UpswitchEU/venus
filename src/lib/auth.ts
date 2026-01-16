@@ -598,28 +598,31 @@ async function initializeAuth(): Promise<void> {
                   throw new Error('Invalid client context structure received')
                 }
 
-                // Set client context
+                // ✅ FIX: Set auth user FIRST before setting client context
+                // This ensures user is authenticated when client context is set
+                // This prevents the rehydration check from clearing context prematurely
+                const user = await checkSession()
+                if (!user) {
+                  throw new Error('Failed to authenticate after client context exchange')
+                }
+                
+                // Set user before setting client context
+                setUser(user)
+
+                // Now set client context (user is already authenticated)
                 const { useClientContext } = await import('../stores/clientContext')
                 useClientContext.getState().setClientContext(context)
 
-                // Set auth user (accountant)
-                const user = await checkSession()
-                if (user) {
-                  setUser(user)
+                // SECURITY: Clean URL immediately after processing sensitive parameters
+                // Remove clientToken, client_id, and prefilledQuery from URL
+                const url = new URL(window.location.href)
+                url.searchParams.delete('clientToken')
+                url.searchParams.delete('client_id') // Remove if present (redundant)
+                url.searchParams.delete('prefilledQuery') // Remove if present (stored in session data)
+                // Clean URL completely - sensitive data should not remain in URL
+                window.history.replaceState({}, '', url.pathname + (url.search || ''))
 
-                  // SECURITY: Clean URL immediately after processing sensitive parameters
-                  // Remove clientToken, client_id, and prefilledQuery from URL
-                  const url = new URL(window.location.href)
-                  url.searchParams.delete('clientToken')
-                  url.searchParams.delete('client_id') // Remove if present (redundant)
-                  url.searchParams.delete('prefilledQuery') // Remove if present (stored in session data)
-                  // Clean URL completely - sensitive data should not remain in URL
-                  window.history.replaceState({}, '', url.pathname + (url.search || ''))
-
-                  return
-                } else {
-                  throw new Error('Failed to authenticate after client context exchange')
-                }
+                return
               } else {
                 // Handle specific error cases
                 const errorData = await response.json().catch(() => ({}))

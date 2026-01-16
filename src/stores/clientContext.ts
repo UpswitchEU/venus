@@ -155,18 +155,31 @@ export const useClientContext = create<ClientContextState>()(
       // Custom storage with validation on rehydration
       onRehydrateStorage: () => async (state) => {
         if (state && state.isActingAsClient) {
-          // Check if user is still authenticated
+          // ✅ FIX: Wait for auth initialization to complete before checking user
+          // Auth initialization might still be in progress during rehydration
           const { useAuthStore } = await import('../lib/auth')
-          const user = useAuthStore.getState().user
           
-          if (!user) {
-            // User is not authenticated, clear client context
-            console.warn('[ClientContext] User not authenticated, clearing client context')
+          // Wait a bit for auth to initialize (max 2 seconds)
+          let user = useAuthStore.getState().user
+          let attempts = 0
+          const maxAttempts = 20 // 20 * 100ms = 2 seconds max wait
+          
+          while (!user && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+            user = useAuthStore.getState().user
+            attempts++
+          }
+          
+          // Only clear if we're sure auth is initialized and user is still not authenticated
+          // During client context exchange, user might not be set yet but will be soon
+          if (!user && attempts >= maxAttempts) {
+            // Auth initialization completed but no user found - clear context
+            console.warn('[ClientContext] User not authenticated after initialization, clearing client context')
             state.clearClientContext()
             return
           }
           
-          // Validate context structure
+          // Validate context structure (async, non-blocking)
           state.validateContext().catch((error) => {
             console.warn('[ClientContext] Rehydration validation failed', error)
           })

@@ -258,16 +258,13 @@ const PlatformPasswordProtection: React.FC<PlatformPasswordProtectionProps> = ({
     }
   }
 
-  // Show loading state
+  // ✅ FIX: Don't show loading state - let Venus's LoadingState component handle it
+  // PlatformPasswordProtection should only block if password protection is actually needed
+  // The loading check is fast (<50ms) so we can skip the loading screen
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white text-lg">Verifying access...</p>
-        </div>
-      </div>
-    )
+    // Return null during loading to avoid blocking Venus's LoadingState
+    // This prevents the duplicate "Verifying access..." screen
+    return null
   }
 
   // Show password form if not authenticated
