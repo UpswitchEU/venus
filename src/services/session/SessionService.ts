@@ -783,6 +783,19 @@ export class SessionService {
               }
             }
 
+            // ✅ FIX: Log _client_context presence for debugging
+            // Backend access check should work without headers if session has _client_context
+            const clientContext = (mergedSession.sessionData as any)?._client_context
+            if (clientContext?.client_user_id && clientContext?.accountant_user_id && clientContext?.relationship_id) {
+              logger.info('Session contains client context - backend should allow access via _client_context', {
+                reportId,
+                clientUserId: clientContext.client_user_id.substring(0, 8) + '...',
+                accountantUserId: clientContext.accountant_user_id.substring(0, 8) + '...',
+                relationshipId: clientContext.relationship_id.substring(0, 8) + '...',
+                note: 'Backend access check should work even if headers are not sent',
+              })
+            }
+
             // Cache for next time (includes sessionData/form fields, excludes HTML reports)
             // ✅ CRITICAL: Form data (sessionData) is included in cache for instant restoration
             const hasSessionData = !!mergedSession.sessionData
