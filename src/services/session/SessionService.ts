@@ -192,6 +192,160 @@ export class SessionService {
   }
 
   /**
+   * Load complete valuation data package (session + report + versions + packages)
+   * 
+   * This method provides unified data loading for restoration with zero race conditions.
+   * All related data is fetched in parallel after the session loads.
+   * 
+   * @param reportId - Report identifier
+   * @returns Complete data package or null if session not found
+   */
+  async loadCompleteValuationData(reportId: string): Promise<{
+    session: ValuationSession
+    currentReport?: {
+      html_report: string
+      info_tab_html: string
+      valuation_result: any
+    }
+    versions?: any[]
+    pricingRange?: {
+      min: number
+      max: number
+      suggested: number
+    }
+    previousPackages?: any[]
+  } | null> {
+    try {
+      logger.info('Loading complete valuation data package', { reportId })
+      
+      // 1. Load session first (required)
+      const session = await this.loadSession(reportId)
+      if (!session) {
+        logger.warn('Session not found, cannot load complete data', { reportId })
+        return null
+      }
+      
+      // 2. Parallel fetch of all related data (no race conditions)
+      const [report, versions, pricing, packages] = await Promise.all([
+        this.loadCurrentReport(reportId).catch(err => {
+          logger.warn('Failed to load current report', { reportId, error: err.message })
+          return undefined
+        }),
+        this.loadVersionHistory(reportId).catch(err => {
+          logger.warn('Failed to load version history', { reportId, error: err.message })
+          return undefined
+        }),
+        this.loadPricingRange(reportId).catch(err => {
+          logger.warn('Failed to load pricing range', { reportId, error: err.message })
+          return undefined
+        }),
+        this.loadPreviousPackages(session.userId || '').catch(err => {
+          logger.warn('Failed to load previous packages', { reportId, error: err.message })
+          return undefined
+        }),
+      ])
+      
+      logger.info('Complete valuation data loaded', {
+        reportId,
+        hasReport: !!report,
+        versionsCount: versions?.length || 0,
+        hasPricing: !!pricing,
+        packagesCount: packages?.length || 0,
+      })
+      
+      return {
+        session,
+        currentReport: report,
+        versions,
+        pricingRange: pricing,
+        previousPackages: packages,
+      }
+    } catch (error) {
+      logger.error('Failed to load complete valuation data', {
+        reportId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Load current report data
+   */
+  private async loadCurrentReport(reportId: string): Promise<{
+    html_report: string
+    info_tab_html: string
+    valuation_result: any
+  } | undefined> {
+    try {
+      const response = await backendAPI.getValuationReport(reportId)
+      if (response?.html_report) {
+        return {
+          html_report: response.html_report,
+          info_tab_html: response.info_tab_html || '',
+          valuation_result: response.valuation_result || null,
+        }
+      }
+      return undefined
+    } catch (error) {
+      logger.debug('No current report found', { reportId })
+      return undefined
+    }
+  }
+
+  /**
+   * Load version history
+   */
+  private async loadVersionHistory(reportId: string): Promise<any[] | undefined> {
+    try {
+      const response = await backendAPI.getVersionHistory(reportId)
+      return response?.versions || undefined
+    } catch (error) {
+      logger.debug('No version history found', { reportId })
+      return undefined
+    }
+  }
+
+  /**
+   * Load pricing range
+   */
+  private async loadPricingRange(reportId: string): Promise<{
+    min: number
+    max: number
+    suggested: number
+  } | undefined> {
+    try {
+      const response = await backendAPI.getPricingRange(reportId)
+      if (response?.min && response?.max) {
+        return {
+          min: response.min,
+          max: response.max,
+          suggested: response.suggested || response.mid || ((response.min + response.max) / 2),
+        }
+      }
+      return undefined
+    } catch (error) {
+      logger.debug('No pricing range found', { reportId })
+      return undefined
+    }
+  }
+
+  /**
+   * Load previous valuation packages for user
+   */
+  private async loadPreviousPackages(userId: string): Promise<any[] | undefined> {
+    if (!userId) return undefined
+    
+    try {
+      const response = await backendAPI.getPreviousPackages(userId)
+      return response?.packages || undefined
+    } catch (error) {
+      logger.debug('No previous packages found', { userId })
+      return undefined
+    }
+  }
+
+  /**
    * Load session from cache or backend
    *
    * CACHE-FIRST STRATEGY:
