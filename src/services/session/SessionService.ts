@@ -513,11 +513,35 @@ export class SessionService {
                 // Create minimal session on backend
                 // CRITICAL: Send the requested reportId as session_key so Titan uses it
                 // This ensures the URL stays consistent and validation passes
+                // ✅ FIX: Ensure guest_session_id is available if user is not authenticated
+                // This prevents "Either userId or guestSessionId must be provided" error
+                let guestSessionId: string | undefined = undefined
+                try {
+                  const { useAuthStore } = await import('../../lib/auth')
+                  const user = useAuthStore.getState().user
+                  
+                  // Only get guest session if user is NOT authenticated
+                  if (!user) {
+                    const { useGuestSessionStore } = await import('../../store/useGuestSessionStore')
+                    guestSessionId = await useGuestSessionStore.getState().ensureSession()
+                  }
+                } catch (authError) {
+                  // If auth check fails, try to get guest session anyway
+                  try {
+                    const { useGuestSessionStore } = await import('../../store/useGuestSessionStore')
+                    guestSessionId = await useGuestSessionStore.getState().ensureSession()
+                  } catch (guestError) {
+                    logger.warn('Failed to get guest session for session creation', { error: guestError })
+                  }
+                }
+
                 const createResponse = await backendAPI.createValuationSession({
                   session_key: reportId, // ✅ FIX: Tell Titan to use this specific key
                   currentView: flow || 'manual', // Use provided flow or default to manual
                   sessionData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as any) : {},
                   partialData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as any) : {},
+                  // ✅ FIX: Include guest_session_id if available (for anonymous users)
+                  ...(guestSessionId && { guest_session_id: guestSessionId }),
                 } as any)
 
                 if (!createResponse?.session) {
@@ -670,13 +694,21 @@ export class SessionService {
                   throw new Error('Network error. Please check your connection and try again.')
                 }
 
-                // Backend validation errors
-                if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
-                  logger.error('Session creation failed - validation error', {
+                // Backend validation errors (400 Bad Request) - DO NOT RETRY
+                // These are permanent errors that won't be fixed by retrying
+                if (
+                  errorMessage.includes('validation') ||
+                  errorMessage.includes('invalid') ||
+                  errorMessage.includes('Either userId or guestSessionId must be provided') ||
+                  errorMessage.includes('must be provided')
+                ) {
+                  logger.error('Session creation failed - validation error (non-retryable)', {
                     reportId,
                     error: errorMessage,
                   })
-                  throw new Error(`Invalid session data: ${errorMessage}`)
+                  // Create a ValidationError to prevent retries
+                  const validationError = new ValidationError(`Invalid session data: ${errorMessage}`)
+                  throw validationError
                 }
 
                 // Generic error

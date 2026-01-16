@@ -324,6 +324,24 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           return
         }
 
+        // ✅ FIX: Check if error is ValidationError - don't retry these
+        const { ValidationError } = await import('../types/errors')
+        const isValidationError = error instanceof ValidationError
+        
+        if (isValidationError) {
+          storeLogger.error('[Session] Validation error - stopping retries', {
+            reportId: expectedReportId,
+            error: rawMessage,
+          })
+          // Set error state and stop - don't retry validation errors
+          set({
+            error: 'Invalid session data. Please try creating a new valuation.',
+            isLoading: false,
+            isInitializing: false,
+          })
+          return // Don't throw - just stop loading
+        }
+
         // Determine user-friendly error message based on error type
         let userMessage = rawMessage
         const statusCode = (error as any).response?.status || (error as any).status

@@ -176,6 +176,32 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             return
           }
 
+          // ✅ FIX: Check if error is ValidationError - don't retry these
+          let isValidationError = false
+          try {
+            const { ValidationError } = await import('../../types/errors')
+            isValidationError = err instanceof ValidationError
+          } catch {
+            // Fallback check if import fails
+            isValidationError = err.message?.includes('Either userId or guestSessionId must be provided') ||
+                               err.message?.includes('Invalid session data') ||
+                               err.message?.includes('validation')
+          }
+          
+          if (isValidationError) {
+            generalLogger.error('[SessionManager] Validation error - stopping retries', {
+              reportId,
+              error: err.message,
+            })
+            // Set error state and stop - don't retry validation errors
+            useSessionStore.setState({
+              isInitializing: false,
+              isLoading: false,
+              error: 'Cannot create session. Please ensure you are logged in or try creating a new valuation.',
+            })
+            return // Don't continue - stop the retry loop
+          }
+
           // ✅ IMPROVED: Categorize errors and provide user-friendly messages
           const errorMessage = err.message || 'Unknown error'
           const isTimeout = errorMessage.includes('timeout')
