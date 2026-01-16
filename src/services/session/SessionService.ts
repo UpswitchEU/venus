@@ -239,7 +239,7 @@ export class SessionService {
           logger.warn('Failed to load pricing range', { reportId, error: err.message })
           return undefined
         }),
-        this.loadPreviousPackages(session.userId || '').catch(err => {
+        this.loadPreviousPackages().catch(err => {
           logger.warn('Failed to load previous packages', { reportId, error: err.message })
           return undefined
         }),
@@ -278,12 +278,12 @@ export class SessionService {
     valuation_result: any
   } | undefined> {
     try {
-      const response = await backendAPI.getValuationReport(reportId)
+      const response = await backendAPI.getReport(reportId)
       if (response?.html_report) {
         return {
           html_report: response.html_report,
           info_tab_html: response.info_tab_html || '',
-          valuation_result: response.valuation_result || null,
+          valuation_result: response || null, // The response itself is the valuation result
         }
       }
       return undefined
@@ -298,8 +298,10 @@ export class SessionService {
    */
   private async loadVersionHistory(reportId: string): Promise<any[] | undefined> {
     try {
-      const response = await backendAPI.getVersionHistory(reportId)
-      return response?.versions || undefined
+      // Use VersionService to get version history
+      const { versionService } = await import('../version/VersionService')
+      const versions = await versionService.getVersionHistory(reportId)
+      return versions || undefined
     } catch (error) {
       logger.debug('No version history found', { reportId })
       return undefined
@@ -333,14 +335,22 @@ export class SessionService {
   /**
    * Load previous valuation packages for user
    */
-  private async loadPreviousPackages(userId: string): Promise<any[] | undefined> {
-    if (!userId) return undefined
-    
+  private async loadPreviousPackages(): Promise<any[] | undefined> {
+    // Get user ID from auth store
     try {
+      const { useAuthStore } = await import('../../lib/auth')
+      const user = useAuthStore.getState().user
+      const userId = user?.id
+      
+      if (!userId) {
+        logger.debug('No user ID available for loading previous packages')
+        return undefined
+      }
+      
       const response = await backendAPI.getPreviousPackages(userId)
       return response?.packages || undefined
     } catch (error) {
-      logger.debug('No previous packages found', { userId })
+      logger.debug('No previous packages found', { error: getErrorMessage(error) })
       return undefined
     }
   }

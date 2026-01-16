@@ -24,7 +24,7 @@ import { useManualFormStore } from '../store/manual'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useLoadingCoordinator } from '../store/useLoadingCoordinator'
-import { sessionService } from '../services/session'
+import { sessionService } from '../services'
 import { generalLogger } from '../utils/logger'
 
 // Global state machine to prevent duplicate restorations
