@@ -22,6 +22,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useManualFormStore } from '../store/manual'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
+import { useConversationalResultsStore } from '../store/conversational/useConversationalResultsStore'
+import { useConversationalChatStore } from '../store/conversational/useConversationalChatStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useLoadingCoordinator } from '../store/useLoadingCoordinator'
 import { sessionService } from '../services'
@@ -64,7 +66,7 @@ export function useCompleteValuationRestoration(reportId: string | null) {
         const data = await sessionService.loadCompleteValuationData(reportId)
         setLoading('session', false)
 
-        if (!data) {
+        if (!data || !data.session) {
           generalLogger.warn('No data to restore', { reportId })
           setRestorationComplete(true)
           restorationState.set(reportId, 'complete')
@@ -85,35 +87,71 @@ export function useCompleteValuationRestoration(reportId: string | null) {
             })
           } else if (flowType === 'conversational') {
             // Restore conversational flow data
-            // TODO: Implement conversational restoration when store is available
-            generalLogger.info('Conversational flow restoration not yet implemented', { reportId })
+            const chatStore = useConversationalChatStore.getState()
+            
+            // Restore collected data from session
+            if (data.session.sessionData) {
+              chatStore.updateCollectedData(data.session.sessionData as any)
+              generalLogger.info('Restored conversational collected data', {
+                reportId,
+                fieldsCount: Object.keys(data.session.sessionData).length,
+              })
+            }
+            
+            // Note: Chat messages are typically restored separately via conversation history
+            // This restoration focuses on the collected business data
           }
         }
         setLoading('form', false)
 
-        // 3. Restore results
+        // 3. Restore results (for both manual and conversational flows)
         setLoading('results', true)
-        if (data.currentReport) {
-          const resultsStore = useManualResultsStore.getState()
+        if (data.currentReport && data.session) {
+          const flowType = data.session.currentView || 'manual'
           
-          if (data.currentReport.valuation_result) {
-            resultsStore.setResult(data.currentReport.valuation_result)
+          if (flowType === 'manual') {
+            const resultsStore = useManualResultsStore.getState()
+            
+            if (data.currentReport.valuation_result) {
+              resultsStore.setResult(data.currentReport.valuation_result)
+            }
+            
+            if (data.currentReport.html_report) {
+              resultsStore.setHtmlReport(data.currentReport.html_report)
+            }
+            
+            if (data.currentReport.info_tab_html) {
+              resultsStore.setInfoTabHtml(data.currentReport.info_tab_html)
+            }
+            
+            generalLogger.info('Restored manual valuation results', {
+              reportId,
+              hasResult: !!data.currentReport.valuation_result,
+              hasHtmlReport: !!data.currentReport.html_report,
+              hasInfoTab: !!data.currentReport.info_tab_html,
+            })
+          } else if (flowType === 'conversational') {
+            const resultsStore = useConversationalResultsStore.getState()
+            
+            if (data.currentReport.valuation_result) {
+              resultsStore.setResult(data.currentReport.valuation_result)
+            }
+            
+            if (data.currentReport.html_report) {
+              resultsStore.setHtmlReport(data.currentReport.html_report)
+            }
+            
+            if (data.currentReport.info_tab_html) {
+              resultsStore.setInfoTabHtml(data.currentReport.info_tab_html)
+            }
+            
+            generalLogger.info('Restored conversational valuation results', {
+              reportId,
+              hasResult: !!data.currentReport.valuation_result,
+              hasHtmlReport: !!data.currentReport.html_report,
+              hasInfoTab: !!data.currentReport.info_tab_html,
+            })
           }
-          
-          if (data.currentReport.html_report) {
-            resultsStore.setHtmlReport(data.currentReport.html_report)
-          }
-          
-          if (data.currentReport.info_tab_html) {
-            resultsStore.setInfoTabHtml(data.currentReport.info_tab_html)
-          }
-          
-          generalLogger.info('Restored valuation results', {
-            reportId,
-            hasResult: !!data.currentReport.valuation_result,
-            hasHtmlReport: !!data.currentReport.html_report,
-            hasInfoTab: !!data.currentReport.info_tab_html,
-          })
         }
         setLoading('results', false)
 
