@@ -17,6 +17,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
+import { useSessionDataPrefill } from '../../hooks/useSessionDataPrefill'
 import type { BusinessType } from '../../services/businessTypesApi'
 import { useManualFormStore, useManualResultsStore } from '../../store/manual'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
@@ -361,6 +362,20 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     }
   }, [formData.business_type, updateFormData])
 
+  // ============================================================================
+  // PREFILL STRATEGY: Priority-based cascade
+  // ============================================================================
+  // Priority 1: Session data from Mercury (accountant → client flow)
+  // Priority 2: Auth context (user's own business card)
+  // Priority 3: URL parameters (prefilledQuery)
+  
+  // PRE-FILL: Priority 1 - Session data from Mercury
+  // This handles the critical UX case where accountant creates client in Mercury
+  // with KBO data, then generates valuation link. Client opens Venus and sees
+  // fully prefilled form even though they're not authenticated.
+  useSessionDataPrefill()
+
+  // PRE-FILL: Priority 2 - Auth context (user's own business card)
   // Pre-fill form with business card data when authenticated
   useEffect(() => {
     generalLogger.debug('Pre-fill check', {
@@ -433,7 +448,49 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     updateFormData,
   ])
 
-  // Pre-fill business type from prefilledQuery (URL parameter)
+  // PRE-FILL: Priority 3 - NACE code to business type suggestion
+  // Auto-suggest business type from NACE code (from KBO registry)
+  // This runs after session data prefill and provides intelligent suggestions
+  const [hasProcessedNaceCode, setHasProcessedNaceCode] = useState(false)
+  useEffect(() => {
+    // Only process if:
+    // 1. NACE code exists in form data
+    // 2. Business type not already set (don't override user selection)
+    // 3. Business types are loaded
+    // 4. Haven't processed yet
+    if (
+      formData.nace_code &&
+      !formData.business_type_id &&
+      businessTypes.length > 0 &&
+      !hasProcessedNaceCode
+    ) {
+      // Try to find matching business type by NACE code
+      // Note: This assumes NACE mappings are synced to business types
+      // or we query them separately. For now, we'll use a simple approach
+      // where business_type might have nace_code field or we do a lookup
+      
+      generalLogger.info('[ValuationForm] Auto-suggesting business type from NACE', {
+        nace_code: formData.nace_code,
+      })
+
+      // For now, mark as processed
+      // TODO: Implement NACE lookup via API or include in business types data
+      // This would require either:
+      // 1. Adding nace_code to business_types table
+      // 2. Creating a separate API endpoint to lookup NACE mappings
+      // 3. Including NACE mappings in business types API response
+      
+      setHasProcessedNaceCode(true)
+      
+      // Future implementation would look like:
+      // const matchingType = businessTypes.find(bt => bt.nace_codes?.includes(formData.nace_code))
+      // if (matchingType) {
+      //   updateFormData({ business_type_id: matchingType.id, ... })
+      // }
+    }
+  }, [formData.nace_code, formData.business_type_id, businessTypes, hasProcessedNaceCode])
+
+  // PRE-FILL: Priority 4 - prefilledQuery (URL parameter)
   // This runs after restoration and business types are loaded
   const [hasProcessedPrefilledQuery, setHasProcessedPrefilledQuery] = useState(false)
   useEffect(() => {
