@@ -9,6 +9,8 @@ import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
+import { LoadingState } from './LoadingState'
+import { INITIALIZATION_STEPS } from './LoadingState.constants'
 
 // Lazy load heavy components for code splitting
 const ValuationFlowSelector = React.lazy(() =>
@@ -163,13 +165,9 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       >
         <Suspense
           fallback={
-            <div className="flex items-center justify-center h-screen bg-zinc-950">
-              <div className="text-center">
-                <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-gray-300 text-lg font-medium">Initializing valuation tool...</p>
-                <p className="text-gray-500 text-sm mt-2">This will only take a moment</p>
-              </div>
-            </div>
+            // ✅ FIX: Use same loading screen as ManualLayout (light variant, 3 steps)
+            // Remove duplicate dark loading screen
+            <LoadingState steps={INITIALIZATION_STEPS} variant="light" />
           }
         >
           <ValuationSessionManager
