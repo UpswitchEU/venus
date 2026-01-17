@@ -58,137 +58,29 @@ export class HttpClient {
 
   /**
    * Setup common request and response interceptors
+   * 
+   * BANK GRADE ARCHITECTURE:
+   * - Sequential initialization (guaranteed order)
+   * - No timeouts (guaranteed completion)
+   * - Clear ownership semantics (backend decides)
    */
   private setupInterceptors(): void {
-    // Request interceptor for guest session tracking and client context
+    // Request interceptor for owner headers (user/guest/client context)
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        // BANK GRADE FIX: Wait for client context initialization FIRST
-        // This prevents race conditions where API requests fire before client context is loaded
-        // Critical: Must wait BEFORE fetching headers to ensure they're ready
+        // CRITICAL: Wait for session initialization to complete
+        // This guarantees auth and client context are ready before ANY API call
         try {
-          const { useAuthStore, waitForClientContext } = await import('../../lib/auth')
-          
-          // CRITICAL: Wait for client context to be ready (with timeout)
-          // This ensures client context headers are available before we check for them
-          await Promise.race([
-            waitForClientContext(),
-            new Promise(resolve => setTimeout(resolve, 3000)) // 3s timeout
-          ])
-          
-          const user = useAuthStore.getState().user
-
-          // NOW fetch client context headers (after wait completes)
-          let contextHeaders: Record<string, string> = {}
-          try {
-            const { useClientContext } = await import('../../stores/clientContext')
-            contextHeaders = useClientContext.getState().getContextHeaders()
-
-            if (Object.keys(contextHeaders).length > 0) {
-              // Merge headers properly for Axios
-              Object.assign(config.headers, contextHeaders)
-
-              if (process.env.NODE_ENV === 'development') {
-                apiLogger.debug('Added client context headers to request', {
-                  headers: Object.keys(contextHeaders),
-                })
-              }
-            }
-          } catch (contextError) {
-            // Non-fatal - continue without client context
-            apiLogger.warn('Failed to add client context headers', { error: contextError })
-          }
-
-          // Check if we have client context headers (accountant acting on behalf of client)
-          // Use the freshly fetched headers, not the config object
-          const hasClientContext = Object.keys(contextHeaders).length > 0
-
-          // If user is authenticated OR has client context, DO NOT send guest_session_id
-          // This ensures accountant-client workflows ALWAYS use authenticated sessions
-          if (user || hasClientContext) {
-            if (hasClientContext) {
-              apiLogger.debug(
-                'Client context present - using authenticated session (accountant for client)',
-                {
-                  clientUserId:
-                    String(contextHeaders['x-client-context-user']).substring(0, 8) + '...',
-                }
-              )
-            } else if (user) {
-              apiLogger.debug('User authenticated, skipping guest session tracking', {
-                userId: user.id.substring(0, 8) + '...',
-              })
-            }
-            return config
-          }
-        } catch (authError) {
-          // If auth check fails, continue with guest session logic
-          // This includes timeout scenarios where client context took too long
-          apiLogger.warn('Failed to check auth state, continuing with guest session logic', {
-            error: authError,
-          })
+          const { waitForSessionReady } = await import('../../lib/sessionInitialization')
+          await waitForSessionReady()
+        } catch (error) {
+          apiLogger.error('[HttpClient] Session initialization failed', { error })
+          // Continue anyway (defensive)
         }
 
-        // User is NOT authenticated - use guest session tracking
-        const { getSessionId, ensureSession } = useGuestSessionStore.getState()
-
-        // Check synchronously first (Zustand store syncs with localStorage)
-        let sessionId = getSessionId()
-
-        // If no session exists, ensure one is created (atomic operation via Zustand)
-        // This prevents race conditions when multiple requests fire simultaneously
-        if (!sessionId) {
-          try {
-            sessionId = await ensureSession()
-          } catch (error) {
-            apiLogger.warn('Failed to ensure guest session', { error })
-            // Don't block request if session creation fails
-            return config
-          }
-        }
-
-        // Add session ID to request if we have one
-        if (sessionId) {
-          try {
-            // For GET requests: add as query parameter (no CORS preflight needed)
-            // For POST/PUT/PATCH: add to request body
-            if (config.method === 'get' || config.method === 'GET') {
-              config.params = config.params || {}
-              config.params.guest_session_id = sessionId
-            } else if (config.data) {
-              config.data = {
-                ...config.data,
-                guest_session_id: sessionId,
-              }
-            }
-
-            // Also add to headers for backward compatibility (if backend supports it)
-            config.headers = config.headers || {}
-            config.headers['x-guest-session-id'] = sessionId
-
-            apiLogger.debug('Guest session ID added to request', {
-              guestSessionId: sessionId.substring(0, 15) + '...',
-              method: config.method,
-            })
-          } catch (error) {
-            apiLogger.warn('Failed to add guest session to request', { error })
-            // Don't block request if session tracking fails
-          }
-        }
-
-        // Update session activity (safe, throttled, and circuit-breaker protected)
-        // Fire and forget - don't await to avoid blocking requests
-        // Note: Still using service for activity updates (non-critical, already throttled)
-        import('../guestSessionService')
-          .then(({ guestSessionService }) => {
-            guestSessionService.updateActivity().catch(() => {
-              // Errors are handled internally by updateActivity - this is just a safety net
-            })
-          })
-          .catch((error) => {
-            // Silently fail if module import fails - activity tracking is non-critical
-            apiLogger.debug('Failed to import guestSessionService for activity tracking', { error })
-          })
+        // Get owner headers (backend will determine ownership)
+        const ownerHeaders = await this.getOwnerHeaders()
+        Object.assign(config.headers, ownerHeaders)
 
         return config
       },
@@ -236,6 +128,79 @@ export class HttpClient {
         return Promise.reject(error)
       }
     )
+  }
+
+  /**
+   * Get owner headers for request
+   * 
+   * Priority:
+   * 1. Client context (accountant-client workflow)
+   * 2. Authenticated user
+   * 3. Guest token
+   */
+  private async getOwnerHeaders(): Promise<Record<string, string>> {
+    try {
+      // Get auth state
+      const { useAuthStore } = await import('../../lib/auth')
+      const user = useAuthStore.getState().user
+
+      // Priority 1: Client context (accountant acting on behalf of client)
+      try {
+        const { useClientContext } = await import('../../stores/clientContext')
+        const contextHeaders = useClientContext.getState().getContextHeaders()
+
+        if (Object.keys(contextHeaders).length > 0) {
+          apiLogger.debug('[HttpClient] Using client context headers', {
+            clientUserId: String(contextHeaders['x-client-context-user']).substring(0, 8) + '...',
+          })
+          return contextHeaders
+        }
+      } catch (error) {
+        // Non-fatal
+        apiLogger.warn('[HttpClient] Failed to get client context headers', { error })
+      }
+
+      // Priority 2: Authenticated user
+      if (user) {
+        apiLogger.debug('[HttpClient] Using authenticated user', {
+          userId: user.id.substring(0, 8) + '...',
+        })
+        // No headers needed - JWT in cookie handles this
+        return {}
+      }
+
+      // Priority 3: Guest token
+      const guestToken = this.getGuestToken()
+      if (guestToken) {
+        apiLogger.debug('[HttpClient] Using guest token', {
+          token: guestToken.substring(0, 20) + '...',
+        })
+        return {
+          'X-Guest-Token': guestToken,
+        }
+      }
+
+      // No owner found - backend will handle this
+      return {}
+    } catch (error) {
+      apiLogger.error('[HttpClient] Failed to get owner headers', { error })
+      return {}
+    }
+  }
+
+  /**
+   * Get guest token from localStorage
+   */
+  private getGuestToken(): string | null {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    try {
+      return localStorage.getItem('upswitch_guest_token')
+    } catch (error) {
+      return null
+    }
   }
 
   /**
