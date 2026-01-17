@@ -63,33 +63,14 @@ export class HttpClient {
     // Request interceptor for guest session tracking and client context
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        // Add client context headers if present
-        try {
-          const { useClientContext } = await import('../../stores/clientContext')
-          const contextHeaders = useClientContext.getState().getContextHeaders()
-
-          if (Object.keys(contextHeaders).length > 0) {
-            // Merge headers properly for Axios
-            Object.assign(config.headers, contextHeaders)
-
-            if (process.env.NODE_ENV === 'development') {
-              apiLogger.debug('Added client context headers to request', {
-                headers: Object.keys(contextHeaders),
-              })
-            }
-          }
-        } catch (contextError) {
-          // Non-fatal - continue without client context
-          apiLogger.warn('Failed to add client context headers', { error: contextError })
-        }
-
-        // BANK GRADE FIX: Wait for client context initialization before deciding on guest session
+        // BANK GRADE FIX: Wait for client context initialization FIRST
         // This prevents race conditions where API requests fire before client context is loaded
+        // Critical: Must wait BEFORE fetching headers to ensure they're ready
         try {
           const { useAuthStore, waitForClientContext } = await import('../../lib/auth')
           
           // CRITICAL: Wait for client context to be ready (with timeout)
-          // This ensures we don't add guest_session_id if client context is being loaded
+          // This ensures client context headers are available before we check for them
           await Promise.race([
             waitForClientContext(),
             new Promise(resolve => setTimeout(resolve, 3000)) // 3s timeout
@@ -97,10 +78,30 @@ export class HttpClient {
           
           const user = useAuthStore.getState().user
 
+          // NOW fetch client context headers (after wait completes)
+          let contextHeaders: Record<string, string> = {}
+          try {
+            const { useClientContext } = await import('../../stores/clientContext')
+            contextHeaders = useClientContext.getState().getContextHeaders()
+
+            if (Object.keys(contextHeaders).length > 0) {
+              // Merge headers properly for Axios
+              Object.assign(config.headers, contextHeaders)
+
+              if (process.env.NODE_ENV === 'development') {
+                apiLogger.debug('Added client context headers to request', {
+                  headers: Object.keys(contextHeaders),
+                })
+              }
+            }
+          } catch (contextError) {
+            // Non-fatal - continue without client context
+            apiLogger.warn('Failed to add client context headers', { error: contextError })
+          }
+
           // Check if we have client context headers (accountant acting on behalf of client)
-          const hasClientContext =
-            config.headers?.['x-client-context-user'] ||
-            config.headers?.['x-client-context-accountant']
+          // Use the freshly fetched headers, not the config object
+          const hasClientContext = Object.keys(contextHeaders).length > 0
 
           // If user is authenticated OR has client context, DO NOT send guest_session_id
           // This ensures accountant-client workflows ALWAYS use authenticated sessions
@@ -110,7 +111,7 @@ export class HttpClient {
                 'Client context present - using authenticated session (accountant for client)',
                 {
                   clientUserId:
-                    String(config.headers?.['x-client-context-user']).substring(0, 8) + '...',
+                    String(contextHeaders['x-client-context-user']).substring(0, 8) + '...',
                 }
               )
             } else if (user) {
