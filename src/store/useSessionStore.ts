@@ -262,6 +262,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         // ✅ FIX: Only mark as saved if session was explicitly updated (user saved changes)
         // Don't use calculatedAt - calculation completion != user save
         // Don't default to new Date() - new reports shouldn't show "Saved" immediately
+        
+        // ✅ DIAGNOSTIC: Verify business card data is present before storing
+        const sessionCompanyName = (session.sessionData as any)?.company_name
+        const hasCompanyName = sessionCompanyName && sessionCompanyName.trim() !== ''
+        storeLogger.info('[Session] Storing session in Zustand store', {
+          reportId,
+          hasSessionData: !!session.sessionData,
+          companyName: sessionCompanyName,
+          hasCompanyName,
+          companyNameLength: sessionCompanyName?.length || 0,
+          businessTypeId: (session.sessionData as any)?.business_type_id,
+          sessionDataKeys: session.sessionData ? Object.keys(session.sessionData).slice(0, 10) : [],
+        })
+        
         set({
           session,
           isLoading: false,
@@ -281,6 +295,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           hasInfoTabHtml: !!session.infoTabHtml,
           hasValuationResult: !!session.valuationResult,
           markedAsSaved: true,
+          // ✅ DIAGNOSTIC: Verify business card data is in stored session
+          storedCompanyName: (session.sessionData as any)?.company_name,
+          storedBusinessTypeId: (session.sessionData as any)?.business_type_id,
         })
 
         // ✅ FIX: Fallback - set isInitializing to false after delay if restoration doesn't complete it
@@ -588,7 +605,28 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       })
 
       // Save via SessionService
-      await sessionService.saveSession(state.session.reportId, state.session.sessionData || {})
+      const savedSession = await sessionService.saveSession(state.session.reportId, state.session.sessionData || {})
+
+      // ✅ FIX: Update store with the saved session (includes business card data merged after save)
+      // This ensures the store has the latest session data, including any business card data
+      // that was fetched and merged during the save/reload process
+      if (savedSession) {
+        // ✅ DIAGNOSTIC: Verify business card data is in saved session
+        const savedCompanyName = (savedSession.sessionData as any)?.company_name
+        const hasSavedCompanyName = savedCompanyName && savedCompanyName.trim() !== ''
+        storeLogger.info('[Session] Updating store with saved session', {
+          reportId: state.session.reportId,
+          hasSavedSession: !!savedSession,
+          savedCompanyName,
+          hasSavedCompanyName,
+          savedBusinessTypeId: (savedSession.sessionData as any)?.business_type_id,
+        })
+        
+        // Update session in store with the saved session (includes merged business card data)
+        set({
+          session: savedSession,
+        })
+      }
 
       storeLogger.info('[Session] Session saved successfully', {
         reportId: state.session.reportId,

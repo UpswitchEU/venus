@@ -414,10 +414,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
           // ✅ FIX: Get company_name from result as fallback if not in sessionData
           // The company_name might be in the valuation result but not yet synced to sessionData
+          // ✅ FIX: Check if sessionCompanyName is a non-empty string, not just defined
+          // Empty string should be treated as missing data
           const resultCompanyName = result?.company_name
           const sessionCompanyName = sessionDataObj.company_name
-          const companyNameToRestore =
-            sessionCompanyName !== undefined ? sessionCompanyName : resultCompanyName || undefined
+          const hasValidSessionCompanyName = sessionCompanyName && sessionCompanyName.trim() !== ''
+          const companyNameToRestore = hasValidSessionCompanyName
+            ? sessionCompanyName
+            : resultCompanyName && resultCompanyName.trim() !== ''
+            ? resultCompanyName
+            : undefined
 
           generalLogger.info('[ManualLayout] Company name restoration check', {
             reportId,

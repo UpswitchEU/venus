@@ -852,19 +852,27 @@ export class SessionService {
                     
                     // Merge business card data into session (preserve existing data)
                     if (Object.keys(businessCardData).length > 0) {
+                      // ✅ FIX: Ensure we're merging into the actual sessionData object
+                      // Create a new object to avoid reference issues
+                      const existingSessionData = mergedSession.sessionData || {}
                       mergedSession.sessionData = {
-                        ...mergedSession.sessionData,
+                        ...existingSessionData,
                         ...businessCardData,
                         // Preserve _client_context
-                        _client_context: clientContext,
+                        _client_context: clientContext || existingSessionData._client_context,
                       } as any
                       
+                      // ✅ DIAGNOSTIC: Verify merge was successful
+                      const mergedCompanyName = (mergedSession.sessionData as any)?.company_name
                       logger.info('Business card data fetched and merged into session', {
                         reportId,
                         fieldsAdded: Object.keys(businessCardData),
                         company_name: businessCardData.company_name,
+                        mergedCompanyName, // Verify it's actually in mergedSession
                         business_type_id: businessCardData.business_type_id,
                         has_kbo_data: !!(businessCardData.kbo_number || businessCardData.vat_number),
+                        sessionDataKeys: Object.keys(mergedSession.sessionData || {}),
+                        note: 'Merged data should be in mergedSession.sessionData when returned',
                       })
                     }
                   } else {
@@ -1132,6 +1140,92 @@ export class SessionService {
           (mergedSession.sessionData as any)?.founding_year ||
           (mergedSession.sessionData as any)?.country_code
         )
+
+        // ✅ FIX: If business card data is missing or company_name is empty, fetch and merge it
+        // This ensures business card data is always present after save, even if backend didn't return it
+        if (!hasCompanyName) {
+          const clientContext = (mergedSession.sessionData as any)?._client_context
+          const clientUserId = clientContext?.client_user_id
+
+          if (clientUserId) {
+            try {
+              logger.info('Fetching business card data after save (company_name empty)', {
+                reportId,
+                clientUserId: clientUserId.substring(0, 8) + '...',
+              })
+
+              const businessCardResponse = await fetch(
+                `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app'}/api/v2/business-cards/${clientUserId}`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  credentials: 'include',
+                }
+              )
+
+              if (businessCardResponse.ok) {
+                const businessCard = await businessCardResponse.json()
+
+                // Map business card data to session format
+                const businessCardData: Record<string, any> = {}
+                if (businessCard.company_name) businessCardData.company_name = businessCard.company_name
+                if (businessCard.business_type) {
+                  businessCardData.business_type_id = businessCard.business_type
+                  businessCardData.business_type = businessCard.business_type
+                }
+                if (businessCard.business_type_id && !businessCardData.business_type_id) {
+                  businessCardData.business_type_id = businessCard.business_type_id
+                }
+                if (businessCard.industry) businessCardData.industry = businessCard.industry
+                if (businessCard.location || businessCard.city) {
+                  businessCardData.location = businessCard.location || businessCard.city
+                  businessCardData.city = businessCard.city || businessCard.location
+                }
+                if (businessCard.country) {
+                  businessCardData.country = businessCard.country
+                  businessCardData.country_code = businessCard.country
+                }
+                if (businessCard.founded_year) businessCardData.founding_year = businessCard.founded_year
+                if (businessCard.company_size) businessCardData.company_size = businessCard.company_size
+                if (businessCard.company_description) {
+                  businessCardData.company_description = businessCard.company_description
+                  businessCardData.business_description = businessCard.company_description
+                }
+                // KBO registry fields
+                if (businessCard.kbo_number) businessCardData.kbo_number = businessCard.kbo_number
+                if (businessCard.vat_number) businessCardData.vat_number = businessCard.vat_number
+                if (businessCard.postal_code) businessCardData.postal_code = businessCard.postal_code
+                if (businessCard.legal_form) businessCardData.legal_form = businessCard.legal_form
+                if (businessCard.nace_code) businessCardData.nace_code = businessCard.nace_code
+                if (businessCard.nace_description) businessCardData.nace_description = businessCard.nace_description
+
+                // Merge business card data into session (preserve existing data)
+                if (Object.keys(businessCardData).length > 0) {
+                  mergedSession.sessionData = {
+                    ...mergedSession.sessionData,
+                    ...businessCardData,
+                    // Preserve _client_context
+                    _client_context: clientContext,
+                  } as any
+
+                  logger.info('Business card data fetched and merged after save', {
+                    reportId,
+                    fieldsAdded: Object.keys(businessCardData),
+                    company_name: businessCardData.company_name,
+                    business_type_id: businessCardData.business_type_id,
+                  })
+                }
+              }
+            } catch (error) {
+              logger.warn('Error fetching business card data after save (non-critical)', {
+                reportId,
+                error: error instanceof Error ? error.message : String(error),
+              })
+            }
+          }
+        }
 
         if (hasBusinessCardData && hasCompanyName) {
           logger.info('Business card data preserved after save', {
