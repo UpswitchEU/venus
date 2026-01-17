@@ -551,22 +551,46 @@ export class SessionService {
                   return null
                 }
 
-                // Titan generated a new session_key - use it as the reportId
-                const actualReportId = createResponse.reportId || createResponse.session.reportId
+                // ✅ FIX: Extract actual session_key from response FIRST
+                // Titan should return the requested session_key, but check both locations
+                const actualReportId = createResponse.reportId || 
+                                      createResponse.session?.reportId || 
+                                      createResponse.session?.session_key ||
+                                      createResponse.session_key
 
                 if (!actualReportId) {
                   logger.error('Backend did not return session_key/reportId', {
                     response: createResponse,
+                    responseKeys: Object.keys(createResponse),
+                    sessionKeys: createResponse.session ? Object.keys(createResponse.session) : [],
                   })
                   return null
                 }
 
+                logger.info('New session created successfully', {
+                  requestedReportId: reportId,
+                  actualReportId: actualReportId,
+                  currentView: createResponse.session.currentView,
+                  hasPrefilledQuery: !!prefilledQuery,
+                  sessionKeyMatches: actualReportId === reportId,
+                })
+
+                // Validate and normalize the new session
+                validateSessionData(createResponse.session)
+                const normalizedSession = normalizeSessionDates(createResponse.session)
+                const mergedSession = mergeSessionFields(normalizedSession)
+
+                // ✅ CRITICAL FIX: Always set reportId to actualReportId (even if they match)
+                // This ensures the session always has the correct reportId from Titan
+                mergedSession.reportId = actualReportId
+
                 // ⚠️ IMPORTANT: If Titan generated a different ID than what's in the URL,
-                // we need to redirect to the correct URL
+                // we need to redirect to the correct URL AND update the store
                 if (actualReportId !== reportId) {
                   logger.warn('Titan generated different session_key than requested', {
                     requestedReportId: reportId,
                     actualReportId: actualReportId,
+                    note: 'This should not happen if forcedSessionKey is working correctly',
                   })
 
                   // Update browser URL to match the actual session ID from backend
@@ -581,18 +605,6 @@ export class SessionService {
                     window.history.replaceState({}, '', url.toString())
                   }
                 }
-
-                logger.info('New session created successfully', {
-                  requestedReportId: reportId,
-                  actualReportId: actualReportId,
-                  currentView: createResponse.session.currentView,
-                  hasPrefilledQuery: !!prefilledQuery,
-                })
-
-                // Validate and normalize the new session
-                validateSessionData(createResponse.session)
-                const normalizedSession = normalizeSessionDates(createResponse.session)
-                const mergedSession = mergeSessionFields(normalizedSession)
 
                 // ✅ DIAGNOSTIC: Verify business card data survived merging
                 const hasBusinessCardData = !!(
