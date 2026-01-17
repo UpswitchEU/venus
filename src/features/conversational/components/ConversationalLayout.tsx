@@ -122,7 +122,8 @@ const ConversationalLayoutInner: React.FC<ConversationalLayoutProps> = ({
   // ✅ FIX: Show loading state until session is loaded and initialized
   // This prevents the glitch where forms show before data is ready
   if (isLoading || isInitializing || !session || session.reportId !== reportId) {
-    return <LoadingState steps={INITIALIZATION_STEPS} variant="dark" />
+    // BANK GRADE: White background with sage green loader
+    return <LoadingState steps={INITIALIZATION_STEPS} variant="light" />
   }
 
   // ✅ FIX: Show error state if session failed to load

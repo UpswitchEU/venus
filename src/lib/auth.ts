@@ -63,6 +63,30 @@ function clearAuthCache(): void {
 }
 
 /**
+ * BANK GRADE: Request Deduplication Cache
+ * Prevents parallel API calls to the same endpoint
+ * Critical for preventing race conditions in accountant → client context flow
+ */
+const requestCache = new Map<string, Promise<any>>()
+
+function getCachedRequest<T>(key: string, factory: () => Promise<T>): Promise<T> {
+  const cached = requestCache.get(key)
+  if (cached) {
+    console.log('[Auth] Reusing cached request:', key)
+    return cached as Promise<T>
+  }
+
+  const promise = factory()
+    .finally(() => {
+      // Clear from cache after completion (success or failure)
+      requestCache.delete(key)
+    })
+
+  requestCache.set(key, promise)
+  return promise
+}
+
+/**
  * SECURITY: Sanitize URL by removing sensitive query parameters
  * Prevents data leakage in:
  * - Browser history
@@ -576,19 +600,26 @@ async function initializeAuth(): Promise<void> {
 
           for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
-              // Add 5-second timeout per attempt
-              const controller = new AbortController()
-              const timeoutId = setTimeout(() => controller.abort(), 5000)
+              // BANK GRADE: Deduplicate parallel exchange-client-context requests
+              // Use token as cache key to prevent race conditions
+              const cacheKey = `exchange-client-context:${tokenForExchange.substring(0, 20)}`
+              
+              const response = await getCachedRequest(cacheKey, async () => {
+                // Add 5-second timeout per attempt
+                const controller = new AbortController()
+                const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-              const response = await fetch(`${API_URL}/api/v2/auth/exchange-client-context`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ token: tokenForExchange }),
-                signal: controller.signal,
+                const res = await fetch(`${API_URL}/api/v2/auth/exchange-client-context`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ token: tokenForExchange }),
+                  signal: controller.signal,
+                })
+
+                clearTimeout(timeoutId)
+                return res
               })
-
-              clearTimeout(timeoutId)
 
               if (response.ok) {
                 const context = await response.json()

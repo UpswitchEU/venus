@@ -171,7 +171,8 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
         isLoading,
         hasSession: !!session,
       })
-      return <LoadingState steps={INITIALIZATION_STEPS} variant="dark" />
+      // BANK GRADE: White background with sage green loader for clean, professional appearance
+      return <LoadingState steps={INITIALIZATION_STEPS} variant="light" />
     }
 
     if (error) {
