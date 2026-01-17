@@ -14,7 +14,7 @@ import type {
   UpdateValuationSessionResponse,
   ValuationSessionResponse,
 } from '../../../types/api-responses'
-import { APIError, AuthenticationError } from '../../../types/errors'
+import { APIError, AuthenticationError, ValidationError } from '../../../types/errors'
 import { convertToApplicationError } from '../../../utils/errors/errorConverter'
 import {
   isNetworkError,
@@ -489,6 +489,138 @@ export class SessionAPI extends HttpClient {
         updated: true,
       }
     } catch (error) {
+      // ✅ FIX: Handle 404 by attempting to create the session
+      // This can happen if the session was never created or was deleted
+      const axiosError = error as any
+      if (axiosError?.response?.status === 404) {
+        apiLogger.warn('Session not found during update, attempting to create', {
+          reportId,
+          note: 'Session may have been deleted or never created',
+          errorMessage: axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
+        })
+
+        try {
+          // Extract session data from updates to create new session
+          // updates.updates contains the actual update data
+          const updatesAny = updates.updates as any
+          const sessionData = updatesAny?.sessionData || updatesAny || {}
+          const currentView = updatesAny?.currentView || 'manual'
+
+          // Map frontend 'conversational' to backend 'ai-guided'
+          const backendView = currentView === 'conversational' ? 'ai-guided' : currentView
+          const mappedDataSource =
+            (sessionData as any)?.dataSource === 'conversational' ? 'ai-guided' : (sessionData as any)?.dataSource
+
+          // Create session with the update data
+          const createResponse = await this.createValuationSession(
+            {
+              reportId,
+              currentView: backendView,
+              sessionData: {
+                ...sessionData,
+                ...(mappedDataSource && { dataSource: mappedDataSource }),
+              },
+            },
+            options
+          )
+
+          if (createResponse?.session) {
+            apiLogger.info('Session created successfully after 404 on update', {
+              reportId,
+              currentView: createResponse.session.currentView,
+            })
+
+            // Map backend response back to frontend format
+            const createdSessionData = createResponse.session
+            if ((createdSessionData.currentView as string) === 'ai-guided') {
+              createdSessionData.currentView = 'conversational'
+            }
+            if ((createdSessionData as any).dataSource === 'ai-guided') {
+              (createdSessionData as any).dataSource = 'conversational'
+            }
+
+            return {
+              success: true,
+              session: createdSessionData,
+              updated: false, // Created, not updated
+            }
+          }
+        } catch (createError) {
+          // ✅ ENHANCED: Better error extraction and logging
+          const createAxiosError = createError as any
+          const createErrorMessage =
+            createAxiosError?.response?.data?.message ||
+            createAxiosError?.response?.data?.error ||
+            createAxiosError?.message ||
+            (createError instanceof Error ? createError.message : String(createError))
+          
+          const createErrorStatus = createAxiosError?.response?.status
+
+          apiLogger.error('Failed to create session after 404 on update', {
+            reportId,
+            createErrorStatus,
+            createErrorMessage,
+            createErrorType: createError?.constructor?.name,
+            hasResponse: !!createAxiosError?.response,
+            responseData: createAxiosError?.response?.data,
+          })
+
+          // ✅ FIX: If creation also returns 404, it's likely an access control issue
+          // Provide a more informative error message
+          if (createErrorStatus === 404) {
+            throw new APIError(
+              `Session ${reportId} not found and cannot be created. This may be due to access restrictions.`,
+              404,
+              undefined,
+              true,
+              {
+                originalError: error,
+                createError: createError,
+                reportId,
+              }
+            )
+          }
+
+          // ✅ FIX: If creation returns 401/403, it's an authentication/authorization issue
+          if (createErrorStatus === 401 || createErrorStatus === 403) {
+            throw new AuthenticationError(
+              `Cannot create session: ${createErrorMessage || 'Authentication or authorization failed'}`,
+              {
+                originalError: error,
+                createError: createError,
+                reportId,
+              }
+            )
+          }
+
+          // ✅ FIX: If creation returns 400, it's a validation issue
+          if (createErrorStatus === 400) {
+            throw new ValidationError(
+              `Cannot create session: ${createErrorMessage || 'Invalid session data'}`,
+              {
+                originalError: error,
+                createError: createError,
+                reportId,
+              }
+            )
+          }
+
+          // For other errors, throw a more informative error with both original and creation errors
+          throw new APIError(
+            `Failed to update or create session: ${createErrorMessage || 'Unknown error'}`,
+            createErrorStatus || 500,
+            undefined,
+            true,
+            {
+              originalError: error,
+              createError: createError,
+              reportId,
+            }
+          )
+        }
+      }
+
+      // Re-throw original error if not 404 or if creation failed
       this.handleSessionError(error, 'update session')
     }
   }

@@ -54,19 +54,42 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
   // Construct initial selected company from stored KBO data if available
   // This allows the company summary card to show when restoring a previously verified company
+  // ✅ FIX: Check both business_context AND top-level formData fields (from Mercury business card)
   const initialSelectedCompany = useMemo<CompanySearchResult | null>(() => {
     if (!formData.company_name) return null
 
-    // Check for KBO data in business_context
+    // Check for KBO data in business_context first (preferred source - from previous verification)
     const businessContext = formData.business_context as any
-    const kboRegistration =
+    let kboRegistration =
       businessContext?.kbo_registration || businessContext?.kbo_registration_number
-    const legalForm = businessContext?.legal_form
-    const companyId = businessContext?.company_id
-    const companyAddress = businessContext?.company_address || ''
-    const companyStatus = businessContext?.company_status || 'Active'
+    let legalForm = businessContext?.legal_form
+    let companyId = businessContext?.company_id
+    let companyAddress = businessContext?.company_address || ''
+    let companyStatus = businessContext?.company_status || 'Active'
 
-    // If we have KBO registration data, construct a CompanySearchResult
+    // ✅ FIX: Also check top-level formData fields (from Mercury business card prefill)
+    // When data comes from Mercury, KBO fields are at top level, not in business_context
+    if (!kboRegistration) {
+      // Check top-level kbo_number (from business card API)
+      kboRegistration = (formData as any).kbo_number || (formData as any).kbo_registration
+    }
+    if (!legalForm) {
+      legalForm = (formData as any).legal_form
+    }
+    if (!companyAddress) {
+      // Try to construct address from location/city/postal_code
+      const location = (formData as any).location || (formData as any).city
+      const postalCode = (formData as any).postal_code
+      if (location || postalCode) {
+        companyAddress = [postalCode, location].filter(Boolean).join(' ') || ''
+      }
+    }
+    // Default status to Active if not set
+    if (!companyStatus) {
+      companyStatus = 'Active'
+    }
+
+    // If we have KBO registration data (from either source), construct a CompanySearchResult
     if (kboRegistration && formData.company_name) {
       return {
         company_id: companyId || kboRegistration, // Use stored company_id or fallback to registration number
@@ -84,13 +107,27 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     }
 
     return null
-  }, [formData.company_name, formData.business_context, formData.country_code])
+  }, [
+    formData.company_name,
+    formData.business_context,
+    formData.country_code,
+    // ✅ FIX: Include top-level KBO fields in dependencies
+    // Access via formData object to ensure reactivity
+    formData,
+  ])
 
   // Background verification when restoring saved company
+  // ✅ FIX: Also set selectedCompany immediately if KBO data exists in top-level formData
+  // This ensures the preview card shows immediately when data is prefilled from Mercury
   useEffect(() => {
     const verifyRestoredCompany = async () => {
       if (initialSelectedCompany && !selectedCompany) {
-        // Show company immediately (smooth UX)
+        // ✅ FIX: Show company immediately (smooth UX) - no dropdown flash
+        generalLogger.info('[BasicInfo] Setting selectedCompany from prefilled KBO data', {
+          company_name: initialSelectedCompany.company_name,
+          registration_number: initialSelectedCompany.registration_number,
+          source: 'prefilled',
+        })
         setSelectedCompany(initialSelectedCompany)
 
         // Verify in background
@@ -141,7 +178,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     }
 
     verifyRestoredCompany()
-  }, [initialSelectedCompany, formData.country_code])
+  }, [initialSelectedCompany, selectedCompany, formData.country_code])
 
   // Save company data when selectedCompany changes
   useEffect(() => {
