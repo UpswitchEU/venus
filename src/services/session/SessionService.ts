@@ -553,10 +553,11 @@ export class SessionService {
 
                 // ✅ FIX: Extract actual session_key from response FIRST
                 // Titan should return the requested session_key, but check both locations
+                // Note: session_key might be at top level or in session object
                 const actualReportId = createResponse.reportId || 
                                       createResponse.session?.reportId || 
-                                      createResponse.session?.session_key ||
-                                      createResponse.session_key
+                                      (createResponse.session as any)?.session_key ||
+                                      (createResponse as any).session_key
 
                 if (!actualReportId) {
                   logger.error('Backend did not return session_key/reportId', {
@@ -765,6 +766,110 @@ export class SessionService {
                 hasSessionData: !!mergedSession.sessionData,
                 sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData) : [],
               })
+              
+              // ✅ FIX: Fetch business card data from database if missing (like Mercury does)
+              // Extract client_user_id from _client_context
+              const clientContext = (mergedSession.sessionData as any)?._client_context
+              const clientUserId = clientContext?.client_user_id
+              
+              if (clientUserId) {
+                try {
+                  logger.info('Fetching business card data from database for client', {
+                    reportId,
+                    clientUserId: clientUserId.substring(0, 8) + '...',
+                  })
+                  
+                  // Fetch business card from Titan API
+                  const businessCardResponse = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app'}/api/v2/business-cards/${clientUserId}`,
+                    {
+                      method: 'GET',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      credentials: 'include', // Include cookies for auth
+                    }
+                  )
+                  
+                  if (businessCardResponse.ok) {
+                    const businessCard = await businessCardResponse.json()
+                    
+                    // Map business card data to session format (same mapping as Titan's getBusinessCardPrefillData)
+                    const businessCardData: Record<string, any> = {}
+                    
+                    if (businessCard.company_name) {
+                      businessCardData.company_name = businessCard.company_name
+                    }
+                    if (businessCard.business_type) {
+                      businessCardData.business_type = businessCard.business_type
+                      businessCardData.business_type_id = businessCard.business_type
+                    }
+                    if (businessCard.industry) {
+                      businessCardData.industry = businessCard.industry
+                    }
+                    if (businessCard.location || businessCard.city) {
+                      businessCardData.location = businessCard.location || businessCard.city
+                      businessCardData.city = businessCard.city || businessCard.location
+                    }
+                    if (businessCard.country) {
+                      businessCardData.country = businessCard.country
+                      businessCardData.country_code = businessCard.country
+                    }
+                    if (businessCard.founded_year) {
+                      businessCardData.founding_year = businessCard.founded_year
+                    }
+                    if (businessCard.company_size) {
+                      businessCardData.company_size = businessCard.company_size
+                    }
+                    if (businessCard.company_description) {
+                      businessCardData.company_description = businessCard.company_description
+                      businessCardData.business_description = businessCard.company_description
+                    }
+                    // KBO registry fields
+                    if (businessCard.kbo_number) businessCardData.kbo_number = businessCard.kbo_number
+                    if (businessCard.vat_number) businessCardData.vat_number = businessCard.vat_number
+                    if (businessCard.postal_code) businessCardData.postal_code = businessCard.postal_code
+                    if (businessCard.legal_form) businessCardData.legal_form = businessCard.legal_form
+                    if (businessCard.nace_code) businessCardData.nace_code = businessCard.nace_code
+                    if (businessCard.nace_description) businessCardData.nace_description = businessCard.nace_description
+                    
+                    // Merge business card data into session (preserve existing data)
+                    if (Object.keys(businessCardData).length > 0) {
+                      mergedSession.sessionData = {
+                        ...mergedSession.sessionData,
+                        ...businessCardData,
+                        // Preserve _client_context
+                        _client_context: clientContext,
+                      } as any
+                      
+                      logger.info('Business card data fetched and merged into session', {
+                        reportId,
+                        fieldsAdded: Object.keys(businessCardData),
+                        company_name: businessCardData.company_name,
+                        business_type_id: businessCardData.business_type_id,
+                        has_kbo_data: !!(businessCardData.kbo_number || businessCardData.vat_number),
+                      })
+                    }
+                  } else {
+                    logger.warn('Failed to fetch business card from database', {
+                      reportId,
+                      status: businessCardResponse.status,
+                      statusText: businessCardResponse.statusText,
+                    })
+                  }
+                } catch (error) {
+                  logger.warn('Error fetching business card data (non-critical)', {
+                    reportId,
+                    error: error instanceof Error ? error.message : String(error),
+                    note: 'Session will continue without business card prefill',
+                  })
+                }
+              } else {
+                logger.debug('No client_user_id in _client_context, skipping business card fetch', {
+                  reportId,
+                  hasClientContext: !!clientContext,
+                })
+              }
             }
 
             // SECURITY: Extract prefilledQuery from session data first (preferred)
