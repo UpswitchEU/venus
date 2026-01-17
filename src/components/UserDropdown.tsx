@@ -155,13 +155,51 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   const handleBackToDashboard = () => {
     setIsOpen(false)
-    // Navigate to parent window dashboard
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'NAVIGATE_TO_DASHBOARD' }, '*')
+    
+    // ✅ FIX: Use same logic as ValuationToolbar - check returnUrl and construct proper Mercury URL
+    const returnUrl = typeof window !== 'undefined' 
+      ? sessionStorage.getItem('upswitch_return_url')
+      : null
+    const sourceApp = typeof window !== 'undefined'
+      ? sessionStorage.getItem('upswitch_source')
+      : null
+    
+    const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+    
+    let targetUrl: string
+    
+    if (returnUrl) {
+      if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
+        const url = new URL(returnUrl)
+        if (url.origin.includes('upswitch.app')) {
+          targetUrl = returnUrl
+        } else {
+          const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+          targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
+        }
+      } else {
+        targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
+      }
     } else {
-      // Fallback: open in same window
-      window.open('https://upswitch.app/my-business', '_blank')
+      // No return URL - try parent window message first, then fallback
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'NAVIGATE_TO_DASHBOARD' }, '*')
+        return
+      }
+      
+      // Fallback: determine dashboard based on source or default
+      const currentLocale = typeof window !== 'undefined'
+        ? window.location.pathname.match(/\/(en|nl)\//)?.[1] || 'en'
+        : 'en'
+      
+      if (sourceApp === 'mercury-accountant') {
+        targetUrl = `${mercuryUrl}/${currentLocale}/accountant/dashboard`
+      } else {
+        targetUrl = `${mercuryUrl}/${currentLocale}/my-business/overview`
+      }
     }
+    
+    window.location.href = targetUrl
   }
 
   const handleAccountSettings = () => {
@@ -212,6 +250,8 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     // Check for return URL (Mercury integration - direct access with return URL)
     if (typeof window !== 'undefined') {
       const returnUrl = sessionStorage.getItem('upswitch_return_url')
+      const sourceApp = sessionStorage.getItem('upswitch_source')
+      
       if (returnUrl) {
         generalLogger.info('[UserDropdown] Return URL found, redirecting to Mercury', {
           returnUrl,
@@ -247,8 +287,25 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             generalLogger.warn('[UserDropdown] Failed to broadcast before return:', error)
           }
         }
+        
+        // ✅ FIX: Construct full Mercury URL from returnUrl
+        const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+        let targetUrl: string
+        
+        if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
+          const url = new URL(returnUrl)
+          if (url.origin.includes('upswitch.app')) {
+            targetUrl = returnUrl
+          } else {
+            const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+            targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
+          }
+        } else {
+          targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
+        }
+        
         // Navigate back to Mercury
-        window.location.href = returnUrl
+        window.location.href = targetUrl
         return
       }
     }
@@ -319,11 +376,30 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       // Check for return URL (Mercury integration - direct access with return URL)
       if (typeof window !== 'undefined') {
         const returnUrl = sessionStorage.getItem('upswitch_return_url')
+        const sourceApp = sessionStorage.getItem('upswitch_source')
+        
         if (returnUrl) {
           generalLogger.info('[UserDropdown] Return URL found, redirecting to Mercury', {
             returnUrl,
           })
-          window.location.href = returnUrl
+          
+          // ✅ FIX: Construct full Mercury URL from returnUrl
+          const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+          let targetUrl: string
+          
+          if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
+            const url = new URL(returnUrl)
+            if (url.origin.includes('upswitch.app')) {
+              targetUrl = returnUrl
+            } else {
+              const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+              targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
+            }
+          } else {
+            targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
+          }
+          
+          window.location.href = targetUrl
           return
         }
       }
@@ -349,8 +425,26 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       // Check for return URL even on error
       if (typeof window !== 'undefined') {
         const returnUrl = sessionStorage.getItem('upswitch_return_url')
+        const sourceApp = sessionStorage.getItem('upswitch_source')
+        
         if (returnUrl) {
-          window.location.href = returnUrl
+          // ✅ FIX: Construct full Mercury URL from returnUrl
+          const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+          let targetUrl: string
+          
+          if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
+            const url = new URL(returnUrl)
+            if (url.origin.includes('upswitch.app')) {
+              targetUrl = returnUrl
+            } else {
+              const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+              targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
+            }
+          } else {
+            targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
+          }
+          
+          window.location.href = targetUrl
           return
         }
       }

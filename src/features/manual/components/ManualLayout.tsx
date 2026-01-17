@@ -621,13 +621,40 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             }
           }, 100)
         } else if (hasSessionData && !formIsEmpty) {
-          generalLogger.warn('[ManualLayout] Skipping form restoration - form already has data', {
-            reportId,
-            formHasCompanyName: !!currentFormData.company_name,
-            formHasRevenue: !!currentFormData.revenue,
-            formHasEbitda: !!currentFormData.ebitda,
-            formHasIndustry: !!currentFormData.industry,
-          })
+          // ✅ FIX: Even if form has some data, restore missing critical fields (company_name, business_type_id)
+          // These are essential business card fields that should always be restored if missing
+          const missingCriticalFields: Partial<any> = {}
+          
+          if (!hasUserEnteredCompanyName && sessionDataObj.company_name) {
+            missingCriticalFields.company_name = sessionDataObj.company_name
+          }
+          if (!hasUserSelectedBusinessType && sessionDataObj.business_type_id) {
+            missingCriticalFields.business_type_id = sessionDataObj.business_type_id
+          }
+          if (!hasUserEnteredFoundingYear && sessionDataObj.founding_year) {
+            missingCriticalFields.founding_year = sessionDataObj.founding_year
+          }
+          if (!hasUserSelectedCountry && sessionDataObj.country_code) {
+            missingCriticalFields.country_code = sessionDataObj.country_code
+          }
+          
+          if (Object.keys(missingCriticalFields).length > 0) {
+            updateFormData(missingCriticalFields)
+            generalLogger.info('[ManualLayout] Restored missing critical fields', {
+              reportId,
+              restoredFields: Object.keys(missingCriticalFields),
+              company_name: missingCriticalFields.company_name,
+              business_type_id: missingCriticalFields.business_type_id,
+            })
+          } else {
+            generalLogger.warn('[ManualLayout] Skipping form restoration - form already has data', {
+              reportId,
+              formHasCompanyName: !!currentFormData.company_name,
+              formHasRevenue: !!currentFormData.revenue,
+              formHasEbitda: !!currentFormData.ebitda,
+              formHasIndustry: !!currentFormData.industry,
+            })
+          }
         } else if (!hasSessionData) {
           // ✅ FIX: Downgrade to DEBUG - this is expected for NEW reports (no session data yet)
           generalLogger.debug(

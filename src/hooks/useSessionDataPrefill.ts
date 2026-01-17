@@ -75,18 +75,31 @@ export function useSessionDataPrefill() {
       return
     }
 
-    // Check if form is already filled (don't override user input)
-    if (formData.company_name && formData.company_name.trim() !== '') {
-      generalLogger.debug('[useSessionDataPrefill] Form already filled, skipping prefill')
+    // ✅ FIX: Check if critical fields are missing, not just company_name
+    // Even if form has some data (like industry), we should prefill missing critical fields
+    const hasCompanyName = formData.company_name && formData.company_name.trim() !== ''
+    const hasBusinessTypeId = formData.business_type_id && formData.business_type_id !== ''
+    
+    // Only skip if BOTH critical fields are filled (user has entered data)
+    if (hasCompanyName && hasBusinessTypeId) {
+      generalLogger.debug('[useSessionDataPrefill] Form already filled, skipping prefill', {
+        hasCompanyName,
+        hasBusinessTypeId,
+      })
       return
     }
 
     // Build updates object with all available fields from merged data
     const updates: Partial<ValuationFormData> = {}
 
+    // ✅ FIX: Always prefill critical fields if they're missing, even if form has other data
     // Basic company information
-    if (mergedData.company_name) updates.company_name = mergedData.company_name
-    if (mergedData.business_type_id) updates.business_type_id = mergedData.business_type_id
+    if (mergedData.company_name && !hasCompanyName) {
+      updates.company_name = mergedData.company_name
+    }
+    if (mergedData.business_type_id && !hasBusinessTypeId) {
+      updates.business_type_id = mergedData.business_type_id
+    }
     if (mergedData.business_type && !updates.business_type_id) {
       // Fallback: use business_type if business_type_id not available
       updates.business_type_id = mergedData.business_type
@@ -137,5 +150,5 @@ export function useSessionDataPrefill() {
         },
       })
     }
-  }, [sessionData, formData.company_name, updateFormData])
+  }, [sessionData, formData.company_name, formData.business_type_id, updateFormData])
 }

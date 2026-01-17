@@ -237,43 +237,79 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   }, [])
 
   const handleReturnToMercury = () => {
-    if (returnUrl) {
-      // Broadcast report update before leaving
-      if (reportId) {
-        try {
-          const session = useSessionStore.getState().session
-          const event = new CustomEvent('upswitch-report-updated', {
-            detail: {
+    // Broadcast report update before leaving
+    if (reportId) {
+      try {
+        const session = useSessionStore.getState().session
+        const event = new CustomEvent('upswitch-report-updated', {
+          detail: {
+            reportId,
+            reportName: session?.name,
+            updatedAt: session?.updatedAt || new Date(),
+            source: 'valuation.upswitch.app',
+          },
+        })
+        window.dispatchEvent(event)
+
+        // Also try BroadcastChannel if available
+        if (typeof BroadcastChannel !== 'undefined') {
+          const channel = new BroadcastChannel('upswitch-report-sync')
+          channel.postMessage({
+            type: 'upswitch-report-updated',
+            data: {
               reportId,
               reportName: session?.name,
               updatedAt: session?.updatedAt || new Date(),
-              source: 'valuation.upswitch.app',
             },
+            source: 'valuation.upswitch.app',
           })
-          window.dispatchEvent(event)
-
-          // Also try BroadcastChannel if available
-          if (typeof BroadcastChannel !== 'undefined') {
-            const channel = new BroadcastChannel('upswitch-report-sync')
-            channel.postMessage({
-              type: 'upswitch-report-updated',
-              data: {
-                reportId,
-                reportName: session?.name,
-                updatedAt: session?.updatedAt || new Date(),
-              },
-              source: 'valuation.upswitch.app',
-            })
-            channel.close()
-          }
-        } catch (error) {
-          console.warn('[Toolbar] Failed to broadcast before return:', error)
+          channel.close()
         }
+      } catch (error) {
+        console.warn('[Toolbar] Failed to broadcast before return:', error)
       }
-
-      // Navigate back to Mercury
-      window.location.href = returnUrl
     }
+
+    // ✅ FIX: Construct full Mercury URL from returnUrl
+    // Return URL from Mercury is relative (e.g., /nl/accountant/clients/...)
+    // We need to construct full URL using Mercury domain (upswitch.app, not valuation.upswitch.app)
+    const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+    
+    let targetUrl: string
+    
+    if (returnUrl) {
+      if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
+        // Already a full URL - use as-is if it's from upswitch.app domain
+        const url = new URL(returnUrl)
+        if (url.origin.includes('upswitch.app')) {
+          targetUrl = returnUrl
+        } else {
+          // Different domain - fall back to dashboard
+          const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+          targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
+        }
+      } else {
+        // Relative URL - construct full URL using Mercury domain
+        targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
+      }
+    } else {
+      // No return URL - fall back to dashboard based on user role
+      // Try to get locale from current URL or default to 'en'
+      const currentLocale = typeof window !== 'undefined' 
+        ? window.location.pathname.match(/\/(en|nl)\//)?.[1] || 'en'
+        : 'en'
+      
+      // Determine dashboard based on source app or default to accountant dashboard
+      if (sourceApp === 'mercury-accountant') {
+        targetUrl = `${mercuryUrl}/${currentLocale}/accountant/dashboard`
+      } else {
+        // Default to seller dashboard or home
+        targetUrl = `${mercuryUrl}/${currentLocale}/my-business/overview`
+      }
+    }
+
+    // Navigate back to Mercury
+    window.location.href = targetUrl
   }
 
   return (
