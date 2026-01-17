@@ -608,14 +608,18 @@ export class SessionService {
                 }
 
                 // ✅ DIAGNOSTIC: Verify business card data survived merging
+                // ✅ FIX: Check if company_name is actually filled (not empty string)
+                // Empty string means business card data is incomplete and should be fetched
+                const companyName = (mergedSession.sessionData as any)?.company_name
+                const hasCompanyName = companyName && companyName.trim() !== ''
                 const hasBusinessCardData = !!(
-                  (mergedSession.sessionData as any)?.company_name !== undefined ||
+                  hasCompanyName ||
                   (mergedSession.sessionData as any)?.business_type_id ||
                   (mergedSession.sessionData as any)?.founding_year ||
                   (mergedSession.sessionData as any)?.country_code
                 )
 
-                if (hasBusinessCardData) {
+                if (hasBusinessCardData && hasCompanyName) {
                   logger.info('Business card data preserved in session', {
                     reportId,
                     company_name: (mergedSession.sessionData as any)?.company_name,
@@ -624,9 +628,11 @@ export class SessionService {
                     country_code: (mergedSession.sessionData as any)?.country_code,
                   })
                 } else {
-                  logger.warn('No business card data in merged session', {
+                  logger.warn('No business card data in merged session (or company_name is empty)', {
                     reportId,
                     hasSessionData: !!mergedSession.sessionData,
+                    hasCompanyName,
+                    companyName,
                     sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData) : [],
                   })
                 }
@@ -745,14 +751,18 @@ export class SessionService {
             const mergedSession = mergeSessionFields(normalizedSession)
 
             // ✅ DIAGNOSTIC: Verify business card data survived merging (existing session load)
+            // ✅ FIX: Check if company_name is actually filled (not empty string)
+            // Empty string means business card data is incomplete and should be fetched
+            const companyName = (mergedSession.sessionData as any)?.company_name
+            const hasCompanyName = companyName && companyName.trim() !== ''
             const hasBusinessCardData = !!(
-              (mergedSession.sessionData as any)?.company_name !== undefined ||
+              hasCompanyName ||
               (mergedSession.sessionData as any)?.business_type_id ||
               (mergedSession.sessionData as any)?.founding_year ||
               (mergedSession.sessionData as any)?.country_code
             )
 
-            if (hasBusinessCardData) {
+            if (hasBusinessCardData && hasCompanyName) {
               logger.info('Business card data preserved in existing session', {
                 reportId,
                 company_name: (mergedSession.sessionData as any)?.company_name,
@@ -761,9 +771,11 @@ export class SessionService {
                 country_code: (mergedSession.sessionData as any)?.country_code,
               })
             } else {
-              logger.warn('No business card data in existing session', {
+              logger.warn('No business card data in existing session (or company_name is empty)', {
                 reportId,
                 hasSessionData: !!mergedSession.sessionData,
+                hasCompanyName,
+                companyName,
                 sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData) : [],
               })
               
@@ -1111,14 +1123,17 @@ export class SessionService {
         mergedSession = mergeSessionFields(normalizedSession)
 
         // ✅ DIAGNOSTIC: Verify business card data survived merging (save session)
+        // ✅ FIX: Check if company_name is actually filled (not empty string)
+        const companyName = (mergedSession.sessionData as any)?.company_name
+        const hasCompanyName = companyName && companyName.trim() !== ''
         const hasBusinessCardData = !!(
-          (mergedSession.sessionData as any)?.company_name !== undefined ||
+          hasCompanyName ||
           (mergedSession.sessionData as any)?.business_type_id ||
           (mergedSession.sessionData as any)?.founding_year ||
           (mergedSession.sessionData as any)?.country_code
         )
 
-        if (hasBusinessCardData) {
+        if (hasBusinessCardData && hasCompanyName) {
           logger.info('Business card data preserved after save', {
             reportId,
             company_name: (mergedSession.sessionData as any)?.company_name,
@@ -1507,14 +1522,17 @@ export class SessionService {
         const mergedSession = mergeSessionFields(normalizedSession)
 
         // ✅ DIAGNOSTIC: Verify business card data survived merging (background revalidation)
+        // ✅ FIX: Check if company_name is actually filled (not empty string)
+        const companyName = (mergedSession.sessionData as any)?.company_name
+        const hasCompanyName = companyName && companyName.trim() !== ''
         const hasBusinessCardData = !!(
-          (mergedSession.sessionData as any)?.company_name !== undefined ||
+          hasCompanyName ||
           (mergedSession.sessionData as any)?.business_type_id ||
           (mergedSession.sessionData as any)?.founding_year ||
           (mergedSession.sessionData as any)?.country_code
         )
 
-        if (hasBusinessCardData) {
+        if (hasBusinessCardData && hasCompanyName) {
           logger.info('Business card data preserved during background revalidation', {
             reportId,
             company_name: (mergedSession.sessionData as any)?.company_name,
