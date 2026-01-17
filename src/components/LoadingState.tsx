@@ -1,3 +1,5 @@
+'use client'
+
 import { Loader2, Check, Clock, AlertTriangle } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { GENERATION_STEPS, type LoadingStep } from './LoadingState.constants'

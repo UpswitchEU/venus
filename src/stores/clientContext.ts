@@ -161,23 +161,19 @@ export const useClientContext = create<ClientContextState>()(
           
           // Subscribe to auth state changes to validate context when user is authenticated
           // This approach is non-blocking and handles the accountant → client context flow gracefully
-          const unsubscribe = useAuthStore.subscribe(
-            (authState) => authState.user,
-            (user) => {
-              if (user && state.isActingAsClient) {
-                // User authenticated - validate context structure
-                console.log('[ClientContext] Auth confirmed, validating context')
-                state.validateContext().catch((error) => {
-                  console.warn('[ClientContext] Validation failed after auth', error)
-                  // Only clear on validation failure, not auth timing
-                  state.clearClientContext()
-                })
-                // Unsubscribe after first validation
-                unsubscribe()
-              }
-            },
-            { fireImmediately: true }
-          )
+          const unsubscribe = useAuthStore.subscribe((authState) => {
+            if (authState.user && state.isActingAsClient) {
+              // User authenticated - validate context structure
+              console.log('[ClientContext] Auth confirmed, validating context')
+              state.validateContext().catch((error) => {
+                console.warn('[ClientContext] Validation failed after auth', error)
+                // Only clear on validation failure, not auth timing
+                state.clearClientContext()
+              })
+              // Unsubscribe after first validation
+              unsubscribe()
+            }
+          })
           
           // Note: We no longer clear context based on timeouts
           // Context will persist until explicitly invalidated by:

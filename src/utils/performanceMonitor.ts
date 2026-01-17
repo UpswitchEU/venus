@@ -112,7 +112,40 @@ class PerformanceMonitor {
   clear(): void {
     this.metrics = [];
   }
+
+  /**
+   * Measure operation (alias for trackOperation for backward compatibility)
+   * Supports both old API (4 args) and new API (3 args)
+   */
+  async measure<T>(
+    operation: string,
+    fn: () => Promise<T>,
+    thresholdOrMetadata?: number | Record<string, any>,
+    metadata?: Record<string, any>
+  ): Promise<T> {
+    // Handle both API signatures
+    const actualMetadata = typeof thresholdOrMetadata === 'object' 
+      ? thresholdOrMetadata 
+      : metadata;
+    
+    return this.trackOperation(operation, fn, actualMetadata);
+  }
 }
 
 // Export singleton instance
 export const performanceMonitor = new PerformanceMonitor();
+
+// Backward compatibility aliases
+export const globalPerformanceMonitor = performanceMonitor;
+
+// Performance thresholds for monitoring
+export const performanceThresholds = {
+  slow: 1000, // 1 second
+  warning: 500, // 500ms
+  fast: 100, // 100ms
+  // Operation-specific thresholds
+  sessionCreate: 3000, // 3 seconds
+  sessionLoad: 2000, // 2 seconds
+  sessionSave: 1000, // 1 second
+  apiCall: 5000, // 5 seconds
+};
