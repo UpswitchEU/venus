@@ -81,7 +81,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
     <div
       className={
         containerClassName ||
-        `flex flex-col items-center w-full h-full max-w-lg mx-auto text-center ${baseContainer} ${
+        `flex flex-col items-center w-full min-h-screen text-center ${baseContainer} ${
           isDark ? 'bg-zinc-950' : 'bg-white'
         }`
       }
