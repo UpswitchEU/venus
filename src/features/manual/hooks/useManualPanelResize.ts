@@ -32,23 +32,31 @@ export interface UseManualPanelResizeReturn {
  */
 export const useManualPanelResize = (): UseManualPanelResizeReturn => {
   // Panel width state - load from localStorage or use default (30% matches pre-merge UI)
+  // ✅ FIX: Ensure default is always 30% (left panel smaller), not 50%
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
     try {
       const saved = localStorage.getItem('upswitch-panel-width')
       if (saved) {
         const parsed = parseFloat(saved)
+        // ✅ FIX: Only use saved value if it's within valid range AND not 50% (which indicates a bug)
+        // If saved value is 50%, reset to default 30%
         if (
           !isNaN(parsed) &&
           parsed >= PANEL_CONSTRAINTS.MIN_WIDTH &&
-          parsed <= PANEL_CONSTRAINTS.MAX_WIDTH
+          parsed <= PANEL_CONSTRAINTS.MAX_WIDTH &&
+          parsed !== 50 // Reset 50% to default (indicates previous bug)
         ) {
           return parsed
+        }
+        // If saved value is 50%, clear it and use default
+        if (parsed === 50) {
+          localStorage.removeItem('upswitch-panel-width')
         }
       }
     } catch (error) {
       // Ignore localStorage errors
     }
-    return PANEL_CONSTRAINTS.DEFAULT_WIDTH // 30% default
+    return PANEL_CONSTRAINTS.DEFAULT_WIDTH // 30% default (left panel smaller)
   })
   const [isMobile, setIsMobile] = useState(false)
   const [mobileActivePanel, setMobileActivePanel] = useState<'form' | 'preview'>('form')

@@ -285,6 +285,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
         // ✅ FIX: Fallback - set isInitializing to false after delay if restoration doesn't complete it
         // This ensures initialization completes even if restoration doesn't run
+        // ✅ CRITICAL: Reduced timeout to 1 second since restoration should be fast
         setTimeout(() => {
           const currentState = get()
           // Only set to false if still initializing and session matches (prevents race conditions)
@@ -294,7 +295,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
               reportId: expectedReportId,
             })
           }
-        }, 2000) // 2 second fallback - restoration should complete faster
+        }, 1000) // 1 second fallback - restoration should complete faster
       } catch (error) {
         const rawMessage = error instanceof Error ? error.message : 'Failed to load session'
 

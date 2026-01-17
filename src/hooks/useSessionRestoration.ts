@@ -102,6 +102,10 @@ export function useSessionRestoration() {
       generalLogger.debug('Skipping restoration - NEW report (empty sessionData)', {
         reportId,
       })
+      // ✅ CRITICAL FIX: Mark initialization as complete even when skipping restoration
+      // This prevents infinite loading state for new reports
+      useSessionStore.getState().completeInitialization()
+      generalLogger.debug('[SessionRestoration] Initialization marked as complete (skipped restoration)', { reportId })
       // Mark as restored to prevent re-checking
       restoredReports.current.add(reportId)
       return

@@ -39,8 +39,25 @@ export function useSessionDataPrefill() {
   const hasPrefilledRef = useRef(false)
 
   useEffect(() => {
-    // Skip if no session data or already prefilled
-    if (!sessionData || hasPrefilledRef.current) {
+    // Skip if no session data
+    if (!sessionData) {
+      return
+    }
+    
+    // ✅ FIX: Reset hasPrefilledRef if sessionData changes significantly
+    // This allows re-prefill if business card data arrives later
+    const hasCompanyNameInSession = !!(sessionData.company_name || sessionData._businessInfo?.company_name)
+    if (hasCompanyNameInSession && hasPrefilledRef.current && !formData.company_name?.trim()) {
+      // Business card data arrived but wasn't prefilled - reset flag to allow prefill
+      generalLogger.debug('[useSessionDataPrefill] Resetting prefill flag - business card data available but form empty', {
+        hasSessionCompanyName: hasCompanyNameInSession,
+        formCompanyName: formData.company_name,
+      })
+      hasPrefilledRef.current = false
+    }
+    
+    // Skip if already prefilled (unless we just reset the flag above)
+    if (hasPrefilledRef.current) {
       return
     }
 
@@ -65,6 +82,20 @@ export function useSessionDataPrefill() {
       mergedData.founding_year ||
       mergedData.founded_year
     )
+
+    // ✅ DEBUG: Log what we found in sessionData
+    generalLogger.debug('[useSessionDataPrefill] Checking sessionData for business card fields', {
+      hasBusinessCardData,
+      hasTopLevelCompanyName: !!topLevelData.company_name,
+      topLevelCompanyName: topLevelData.company_name,
+      hasBusinessInfoCompanyName: !!businessInfo.company_name,
+      businessInfoCompanyName: businessInfo.company_name,
+      mergedDataCompanyName: mergedData.company_name,
+      mergedDataBusinessTypeId: mergedData.business_type_id,
+      sessionDataKeys: Object.keys(sessionData).slice(0, 10),
+      topLevelKeys: Object.keys(topLevelData).filter(k => !k.startsWith('_')).slice(0, 10),
+      businessInfoKeys: Object.keys(businessInfo).slice(0, 10),
+    })
 
     if (!hasBusinessCardData) {
       generalLogger.debug('[useSessionDataPrefill] No business card data in sessionData', {
@@ -94,8 +125,21 @@ export function useSessionDataPrefill() {
 
     // ✅ FIX: Always prefill critical fields if they're missing, even if form has other data
     // Basic company information
-    if (mergedData.company_name && !hasCompanyName) {
-      updates.company_name = mergedData.company_name
+    // ✅ CRITICAL FIX: Check mergedData.company_name exists and is not empty before prefilling
+    if (mergedData.company_name && mergedData.company_name.trim() !== '' && !hasCompanyName) {
+      updates.company_name = mergedData.company_name.trim()
+      generalLogger.debug('[useSessionDataPrefill] Will prefill company_name', {
+        company_name: mergedData.company_name,
+        hasCompanyName,
+        mergedDataKeys: Object.keys(mergedData),
+      })
+    } else {
+      generalLogger.debug('[useSessionDataPrefill] Skipping company_name prefill', {
+        hasMergedDataCompanyName: !!mergedData.company_name,
+        mergedDataCompanyName: mergedData.company_name,
+        hasCompanyName,
+        formCompanyName: formData.company_name,
+      })
     }
     if (mergedData.business_type_id && !hasBusinessTypeId) {
       updates.business_type_id = mergedData.business_type_id
