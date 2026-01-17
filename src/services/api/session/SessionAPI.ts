@@ -169,8 +169,42 @@ export class SessionAPI extends HttpClient {
         sessionData.currentView = 'conversational'
       }
 
-      // Also check session_data for currentView
-      if (sessionData.session_data?.currentView) {
+      // ✅ CRITICAL FIX: Extract session_data from backend response and map to sessionData/partialData
+      // Backend returns: { session_data: {...}, ... }
+      // Frontend expects: { sessionData: {...}, partialData: {...}, ... }
+      if (sessionData.session_data && typeof sessionData.session_data === 'object') {
+        // Extract session_data and use it for both sessionData and partialData
+        // sessionData is the complete merged data, partialData is for incremental updates
+        const backendSessionData = sessionData.session_data
+        
+        // Map session_data to sessionData (complete data)
+        if (!sessionData.sessionData) {
+          sessionData.sessionData = backendSessionData
+        } else {
+          // Merge backend session_data into existing sessionData
+          sessionData.sessionData = {
+            ...backendSessionData,
+            ...sessionData.sessionData, // Frontend data takes precedence
+          }
+        }
+        
+        // Map session_data to partialData (incremental updates)
+        if (!sessionData.partialData) {
+          sessionData.partialData = backendSessionData
+        } else {
+          // Merge backend session_data into existing partialData
+          sessionData.partialData = {
+            ...backendSessionData,
+            ...sessionData.partialData, // Frontend data takes precedence
+          }
+        }
+        
+        // Also check session_data for currentView
+        if (backendSessionData.currentView) {
+          sessionData.currentView = backendSessionData.currentView
+        }
+      } else if (sessionData.session_data?.currentView) {
+        // Fallback: check nested session_data for currentView
         sessionData.currentView = sessionData.session_data.currentView
       }
 
@@ -183,11 +217,17 @@ export class SessionAPI extends HttpClient {
         sessionData.dataSource = 'conversational'
       }
 
-      // DIAGNOSTIC: Log what we're returning
+      // ✅ DIAGNOSTIC: Log what we're returning (including sessionData/partialData mapping)
       console.log('[SessionAPI] GET returning session:', {
         reportId,
         hasSession: !!sessionData,
         sessionKeys: sessionData ? Object.keys(sessionData) : [],
+        hasSessionData: !!sessionData.sessionData,
+        sessionDataKeys: sessionData.sessionData ? Object.keys(sessionData.sessionData) : [],
+        hasPartialData: !!sessionData.partialData,
+        partialDataKeys: sessionData.partialData ? Object.keys(sessionData.partialData) : [],
+        hasBackendSessionData: !!sessionData.session_data,
+        backendSessionDataKeys: sessionData.session_data ? Object.keys(sessionData.session_data) : [],
         hasHtmlReport: !!(sessionData as any)?.htmlReport,
         htmlReportLength: (sessionData as any)?.htmlReport?.length || 0,
         hasInfoTabHtml: !!(sessionData as any)?.infoTabHtml,

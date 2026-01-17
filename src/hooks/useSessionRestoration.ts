@@ -208,6 +208,11 @@ export function useSessionRestoration() {
             sessionData.html_report ||
             sessionData.info_tab_html)
 
+        // ✅ CRITICAL FIX: Mark initialization as complete after restoration
+        // This allows the loading state to transition to data-entry
+        useSessionStore.getState().completeInitialization()
+        generalLogger.debug('[SessionRestoration] Initialization marked as complete', { reportId })
+
         // ✅ FIX: Check if we're in initialization phase (prevents toasts during initial load)
         const isInitializing = useSessionStore.getState().isInitializing
 
@@ -228,6 +233,11 @@ export function useSessionRestoration() {
           error: errorMessage,
           reportId,
         })
+
+        // ✅ FIX: Still mark initialization as complete even on error
+        // This prevents infinite loading state
+        useSessionStore.getState().completeInitialization()
+        generalLogger.debug('[SessionRestoration] Initialization marked as complete (after error)', { reportId })
 
         // Update progress with error
         updateProgress('error', undefined, errorMessage)

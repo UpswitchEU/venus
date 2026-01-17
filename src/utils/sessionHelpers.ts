@@ -145,12 +145,19 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
  * @returns Session with Date objects
  */
 export function normalizeSessionDates(session: any): ValuationSession {
-  return {
+  // ✅ CRITICAL FIX: Ensure sessionData and partialData are preserved
+  // Backend may return session_data which needs to be mapped to sessionData/partialData
+  const normalized: ValuationSession = {
     ...session,
     createdAt: new Date(session.createdAt),
     updatedAt: new Date(session.updatedAt),
     completedAt: session.completedAt ? new Date(session.completedAt) : undefined,
+    // ✅ FIX: Preserve sessionData and partialData if they exist
+    sessionData: session.sessionData || session.session_data || {},
+    partialData: session.partialData || session.session_data || {},
   }
+  
+  return normalized
 }
 
 /**

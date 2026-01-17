@@ -800,9 +800,14 @@ export class SessionService {
                     if (businessCard.company_name) {
                       businessCardData.company_name = businessCard.company_name
                     }
+                    // Handle business_type - backend returns UUID string
                     if (businessCard.business_type) {
-                      businessCardData.business_type = businessCard.business_type
                       businessCardData.business_type_id = businessCard.business_type
+                      businessCardData.business_type = businessCard.business_type
+                    }
+                    // Also check business_type_id directly (in case backend uses this field name)
+                    if (businessCard.business_type_id && !businessCardData.business_type_id) {
+                      businessCardData.business_type_id = businessCard.business_type_id
                     }
                     if (businessCard.industry) {
                       businessCardData.industry = businessCard.industry
