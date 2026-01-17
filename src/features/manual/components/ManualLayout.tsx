@@ -639,7 +639,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
           
           if (Object.keys(missingCriticalFields).length > 0) {
-            updateFormData(missingCriticalFields)
+            const { updateFormData: updateFormDataFn } = useManualFormStore.getState()
+            updateFormDataFn(missingCriticalFields)
             generalLogger.info('[ManualLayout] Restored missing critical fields', {
               reportId,
               restoredFields: Object.keys(missingCriticalFields),
