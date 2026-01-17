@@ -44,16 +44,34 @@ export function useSessionDataPrefill() {
       return
     }
 
-    // Check if sessionData has business card fields from Mercury
+    // ✅ BANK GRADE FIX: Check both top-level fields AND _businessInfo
+    // Sessions created via generateValuationLink store data under _businessInfo
+    // Sessions created via regular create endpoint store data at top level
+    const businessInfo = sessionData._businessInfo || {}
+    const topLevelData = sessionData
+
+    // Merge both sources, with top-level taking precedence
+    const mergedData = {
+      ...businessInfo,
+      ...topLevelData, // Top-level overrides _businessInfo
+    }
+
+    // Check if merged data has business card fields from Mercury
     const hasBusinessCardData = !!(
-      sessionData.company_name ||
-      sessionData.business_type_id ||
-      sessionData.kbo_number ||
-      sessionData.founding_year
+      mergedData.company_name ||
+      mergedData.business_type_id ||
+      mergedData.business_type ||
+      mergedData.kbo_number ||
+      mergedData.founding_year ||
+      mergedData.founded_year
     )
 
     if (!hasBusinessCardData) {
-      generalLogger.debug('[useSessionDataPrefill] No business card data in sessionData')
+      generalLogger.debug('[useSessionDataPrefill] No business card data in sessionData', {
+        hasTopLevel: !!topLevelData.company_name,
+        hasBusinessInfo: !!businessInfo.company_name,
+        keys: Object.keys(sessionData),
+      })
       return
     }
 
@@ -63,29 +81,45 @@ export function useSessionDataPrefill() {
       return
     }
 
-    // Build updates object with all available fields
+    // Build updates object with all available fields from merged data
     const updates: Partial<ValuationFormData> = {}
 
     // Basic company information
-    if (sessionData.company_name) updates.company_name = sessionData.company_name
-    if (sessionData.business_type_id) updates.business_type_id = sessionData.business_type_id
-    if (sessionData.founding_year) updates.founding_year = sessionData.founding_year
-    if (sessionData.country_code) updates.country_code = sessionData.country_code
-    if (sessionData.city) updates.city = sessionData.city
-    if (sessionData.postal_code) updates.postal_code = sessionData.postal_code
-    if (sessionData.number_of_employees)
-      updates.number_of_employees = sessionData.number_of_employees
-    if (sessionData.business_description)
-      updates.business_description = sessionData.business_description
-    if (sessionData.industry) updates.industry = sessionData.industry
-    if (sessionData.business_model) updates.business_model = sessionData.business_model
+    if (mergedData.company_name) updates.company_name = mergedData.company_name
+    if (mergedData.business_type_id) updates.business_type_id = mergedData.business_type_id
+    if (mergedData.business_type && !updates.business_type_id) {
+      // Fallback: use business_type if business_type_id not available
+      updates.business_type_id = mergedData.business_type
+    }
+    if (mergedData.founding_year) updates.founding_year = mergedData.founding_year
+    if (mergedData.founded_year && !updates.founding_year) {
+      // Fallback: use founded_year if founding_year not available
+      updates.founding_year = mergedData.founded_year
+    }
+    if (mergedData.country_code) updates.country_code = mergedData.country_code
+    if (mergedData.country && !updates.country_code) {
+      // Fallback: use country if country_code not available
+      updates.country_code = mergedData.country
+    }
+    if (mergedData.city) updates.city = mergedData.city
+    if (mergedData.postal_code) updates.postal_code = mergedData.postal_code
+    if (mergedData.number_of_employees)
+      updates.number_of_employees = mergedData.number_of_employees
+    if (mergedData.employee_count && !updates.number_of_employees) {
+      // Fallback: use employee_count if number_of_employees not available
+      updates.number_of_employees = mergedData.employee_count
+    }
+    if (mergedData.business_description)
+      updates.business_description = mergedData.business_description
+    if (mergedData.industry) updates.industry = mergedData.industry
+    if (mergedData.business_model) updates.business_model = mergedData.business_model
 
     // KBO registry fields (Phase 1.1 enhancement)
-    if (sessionData.kbo_number) updates.kbo_number = sessionData.kbo_number
-    if (sessionData.vat_number) updates.vat_number = sessionData.vat_number
-    if (sessionData.legal_form) updates.legal_form = sessionData.legal_form
-    if (sessionData.nace_code) updates.nace_code = sessionData.nace_code
-    if (sessionData.nace_description) updates.nace_description = sessionData.nace_description
+    if (mergedData.kbo_number) updates.kbo_number = mergedData.kbo_number
+    if (mergedData.vat_number) updates.vat_number = mergedData.vat_number
+    if (mergedData.legal_form) updates.legal_form = mergedData.legal_form
+    if (mergedData.nace_code) updates.nace_code = mergedData.nace_code
+    if (mergedData.nace_description) updates.nace_description = mergedData.nace_description
 
     // Apply updates if we have any
     if (Object.keys(updates).length > 0) {
@@ -94,9 +128,13 @@ export function useSessionDataPrefill() {
 
       generalLogger.info('[useSessionDataPrefill] Form prefilled from Mercury session data', {
         fields: Object.keys(updates),
-        source: 'mercury_session_data',
+        source: businessInfo.company_name ? '_businessInfo' : 'top_level',
         company_name: updates.company_name,
         has_kbo_data: !!(updates.kbo_number || updates.vat_number),
+        data_source: {
+          from_business_info: Object.keys(businessInfo).length,
+          from_top_level: Object.keys(topLevelData).filter(k => !k.startsWith('_')).length,
+        },
       })
     }
   }, [sessionData, formData.company_name, updateFormData])

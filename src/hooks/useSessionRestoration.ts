@@ -278,38 +278,58 @@ function restoreFormData(
   updateFormData: (data: Partial<any>) => void
 ) {
   try {
+    // ✅ BANK GRADE FIX: Check both top-level fields AND _businessInfo
+    // Sessions created via generateValuationLink store data under _businessInfo
+    // Sessions created via regular create endpoint store data at top level
+    const businessInfo = sessionData._businessInfo || {}
+    const topLevelData = sessionData
+    
+    // Merge both sources, with top-level taking precedence
+    const mergedData = {
+      ...businessInfo,
+      ...topLevelData, // Top-level overrides _businessInfo
+    }
+    
     // Convert session data to form data format - COMPLETE FIELD MAPPING
-    const sessionDataAny = sessionData as any
+    const sessionDataAny = mergedData as any
     const formDataUpdate: Partial<any> = {
       // Basic company information
-      company_name: sessionData.company_name,
-      country_code: sessionData.country_code,
-      industry: sessionData.industry,
-      business_model: sessionData.business_model,
-      founding_year: sessionData.founding_year,
+      company_name: mergedData.company_name,
+      country_code: mergedData.country_code || mergedData.country,
+      industry: mergedData.industry,
+      business_model: mergedData.business_model,
+      founding_year: mergedData.founding_year || mergedData.founded_year,
 
       // Business details
-      business_type: sessionData.business_type,
-      business_type_id: sessionData.business_type_id,
-      business_structure: sessionDataAny.business_structure || sessionData.business_type,
-      business_description: sessionData.business_description,
-      business_highlights: sessionData.business_highlights,
-      reason_for_selling: sessionData.reason_for_selling,
+      business_type: mergedData.business_type,
+      business_type_id: mergedData.business_type_id,
+      business_structure: sessionDataAny.business_structure || mergedData.business_type,
+      business_description: mergedData.business_description,
+      business_highlights: mergedData.business_highlights,
+      reason_for_selling: mergedData.reason_for_selling,
 
       // Location
-      city: sessionData.city,
+      city: mergedData.city,
+      postal_code: mergedData.postal_code,
 
       // Financials (handle both nested and flat structures)
-      revenue: sessionData.current_year_data?.revenue || sessionDataAny.revenue,
-      ebitda: sessionData.current_year_data?.ebitda || sessionDataAny.ebitda,
-      current_year_data: sessionData.current_year_data,
-      historical_years_data: sessionData.historical_years_data,
-      recurring_revenue_percentage: sessionData.recurring_revenue_percentage,
+      revenue: mergedData.current_year_data?.revenue || sessionDataAny.revenue,
+      ebitda: mergedData.current_year_data?.ebitda || sessionDataAny.ebitda,
+      current_year_data: mergedData.current_year_data,
+      historical_years_data: mergedData.historical_years_data,
+      recurring_revenue_percentage: mergedData.recurring_revenue_percentage,
 
       // Ownership
-      number_of_employees: sessionData.number_of_employees,
-      number_of_owners: sessionData.number_of_owners,
-      shares_for_sale: sessionData.shares_for_sale,
+      number_of_employees: mergedData.number_of_employees || mergedData.employee_count,
+      number_of_owners: mergedData.number_of_owners,
+      shares_for_sale: mergedData.shares_for_sale,
+
+      // KBO registry fields
+      kbo_number: mergedData.kbo_number,
+      vat_number: mergedData.vat_number,
+      legal_form: mergedData.legal_form,
+      nace_code: mergedData.nace_code,
+      nace_description: mergedData.nace_description,
 
       // Owner profiling
       owner_role: sessionDataAny.owner_role,
@@ -319,8 +339,8 @@ function restoreFormData(
       provide_historical_data: sessionDataAny.provide_historical_data,
 
       // Other
-      comparables: sessionData.comparables,
-      business_context: sessionData.business_context,
+      comparables: mergedData.comparables,
+      business_context: mergedData.business_context,
     }
 
     // ✅ FIX: Remove undefined values but preserve empty strings and null for business card fields
