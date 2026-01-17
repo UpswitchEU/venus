@@ -256,6 +256,17 @@ export class SessionAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<CreateValuationSessionResponse> {
     try {
+      // BANK GRADE FIX: Log timing information for race condition detection
+      const { useClientContext } = await import('../../../stores/clientContext')
+      const context = useClientContext.getState()
+      
+      apiLogger.info('[SessionAPI] Creating session', {
+        hasClientContext: context.isActingAsClient,
+        clientContextHeaders: Object.keys(context.getContextHeaders()).length,
+        timestamp: Date.now(),
+        note: 'Timing information for race condition detection'
+      })
+
       // Handle both CreateValuationSessionRequest and ValuationSession types
       const sessionAny = session as any
 

@@ -142,6 +142,31 @@ let refreshPromise: Promise<boolean> | null = null
 let initPromise: Promise<void> | null = null
 
 /**
+ * BANK GRADE FIX: Client Context Initialization Tracking
+ * Prevents race conditions where API requests fire before client context is loaded
+ * Following Stripe/Klarna patterns for initialization gates
+ */
+let clientContextInitialized = false
+let clientContextPromise: Promise<void> | null = null
+
+/**
+ * Check if client context initialization is complete
+ * Used by HTTP interceptor to determine if guest session tracking is needed
+ */
+export function isClientContextReady(): boolean {
+  return clientContextInitialized
+}
+
+/**
+ * Wait for client context initialization to complete
+ * Returns immediately if no client context is being loaded
+ * Used by HTTP interceptor to prevent race conditions
+ */
+export function waitForClientContext(): Promise<void> {
+  return clientContextPromise || Promise.resolve()
+}
+
+/**
  * Auth state interface
  */
 interface AuthState {
@@ -582,130 +607,153 @@ async function initializeAuth(): Promise<void> {
           // SECURITY: Clean up invalid token and sensitive parameters from URL
           sanitizeUrl(['clientToken', 'client_id', 'prefilledQuery', 'autoSend'])
         } else {
-          // SECURITY: Extract token, then IMMEDIATELY sanitize URL
-          // This prevents token from being logged in analytics/history
-          const tokenForExchange = clientToken
-          
-          // CRITICAL: Strip ALL sensitive params before exchange
-          sanitizeUrl([
-            'clientToken',      // JWT contains sensitive claims
-            'client_id',        // UUID exposure
-            'prefilledQuery',   // Business name exposure
-            'autoSend',         // Behavioral data
-          ])
-          // Attempt exchange with retry logic
-          let lastError: Error | null = null
-          const maxRetries = 3
-          const baseDelay = 500 // 500ms base delay
-
-          for (let attempt = 0; attempt < maxRetries; attempt++) {
+          // BANK GRADE FIX: Wrap client context exchange in promise for race condition prevention
+          // This allows HTTP interceptor to wait for initialization before adding guest_session_id
+          clientContextPromise = (async () => {
             try {
-              // BANK GRADE: Deduplicate parallel exchange-client-context requests
-              // Use token as cache key to prevent race conditions
-              const cacheKey = `exchange-client-context:${tokenForExchange.substring(0, 20)}`
+              // SECURITY: Extract token, then IMMEDIATELY sanitize URL
+              // This prevents token from being logged in analytics/history
+              const tokenForExchange = clientToken
               
-              const response = await getCachedRequest(cacheKey, async () => {
-                // Add 5-second timeout per attempt
-                const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), 5000)
+              // CRITICAL: Strip ALL sensitive params before exchange
+              sanitizeUrl([
+                'clientToken',      // JWT contains sensitive claims
+                'client_id',        // UUID exposure
+                'prefilledQuery',   // Business name exposure
+                'autoSend',         // Behavioral data
+              ])
+              // Attempt exchange with retry logic
+              let lastError: Error | null = null
+              const maxRetries = 3
+              const baseDelay = 500 // 500ms base delay
 
-                const res = await fetch(`${API_URL}/api/v2/auth/exchange-client-context`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({ token: tokenForExchange }),
-                  signal: controller.signal,
-                })
+              for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                  // BANK GRADE: Deduplicate parallel exchange-client-context requests
+                  // Use token as cache key to prevent race conditions
+                  const cacheKey = `exchange-client-context:${tokenForExchange.substring(0, 20)}`
+                  
+                  const response = await getCachedRequest(cacheKey, async () => {
+                    // Add 5-second timeout per attempt
+                    const controller = new AbortController()
+                    const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-                clearTimeout(timeoutId)
-                return res
-              })
+                    const res = await fetch(`${API_URL}/api/v2/auth/exchange-client-context`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ token: tokenForExchange }),
+                      signal: controller.signal,
+                    })
 
-              if (response.ok) {
-                const context = await response.json()
+                    clearTimeout(timeoutId)
+                    return res
+                  })
 
-                // Validate context structure
-                if (!context.accountantUser || !context.clientUser || !context.relationship) {
-                  throw new Error('Invalid client context structure received')
+                  if (response.ok) {
+                    const context = await response.json()
+
+                    // Validate context structure
+                    if (!context.accountantUser || !context.clientUser || !context.relationship) {
+                      throw new Error('Invalid client context structure received')
+                    }
+
+                    // ✅ FIX: Set auth user FIRST before setting client context
+                    // This ensures user is authenticated when client context is set
+                    // This prevents the rehydration check from clearing context prematurely
+                    const user = await checkSession()
+                    if (!user) {
+                      throw new Error('Failed to authenticate after client context exchange')
+                    }
+                    
+                    // Set user before setting client context
+                    setUser(user)
+
+                    // Now set client context (user is already authenticated)
+                    const { useClientContext } = await import('../stores/clientContext')
+                    useClientContext.getState().setClientContext(context)
+
+                    // SECURITY: Clean URL immediately after processing sensitive parameters
+                    // Remove clientToken, client_id, and prefilledQuery from URL
+                    const url = new URL(window.location.href)
+                    url.searchParams.delete('clientToken')
+                    url.searchParams.delete('client_id') // Remove if present (redundant)
+                    url.searchParams.delete('prefilledQuery') // Remove if present (stored in session data)
+                    // Clean URL completely - sensitive data should not remain in URL
+                    window.history.replaceState({}, '', url.pathname + (url.search || ''))
+
+                    // BANK GRADE FIX: Mark initialization as complete
+                    clientContextInitialized = true
+
+                    return
+                  } else {
+                    // Handle specific error cases
+                    const errorData = await response.json().catch(() => ({}))
+                    const status = response.status
+
+                    if (status === 401 || status === 403) {
+                      // Token expired or invalid - don't retry
+                      throw new Error(
+                        errorData.message ||
+                          'Client context token expired or invalid. Please try creating a new valuation.'
+                      )
+                    } else if (status >= 500 && attempt < maxRetries - 1) {
+                      // Server error - retry with exponential backoff
+                      const delay = baseDelay * Math.pow(2, attempt)
+                      await new Promise((resolve) => setTimeout(resolve, delay))
+                      continue
+                    } else {
+                      throw new Error(
+                        errorData.message || `Failed to exchange client context token (${status})`
+                      )
+                    }
+                  }
+                } catch (error) {
+                  lastError = error instanceof Error ? error : new Error(String(error))
+
+                  // Don't retry on validation errors or auth errors
+                  if (
+                    lastError.message.includes('expired') ||
+                    lastError.message.includes('invalid') ||
+                    lastError.message.includes('Invalid client context')
+                  ) {
+                    break
+                  }
+
+                  // Retry on network errors or server errors
+                  if (attempt < maxRetries - 1) {
+                    const delay = baseDelay * Math.pow(2, attempt)
+                    // Silent - only log in development
+                    if (process.env.NODE_ENV === 'development') {
+                      console.warn(`[Auth] Client context exchange failed, retrying in ${delay}ms...`, {
+                        attempt: attempt + 1,
+                        maxRetries,
+                        error: lastError.message,
+                      })
+                    }
+                    await new Promise((resolve) => setTimeout(resolve, delay))
+                  }
                 }
+              }
 
-                // ✅ FIX: Set auth user FIRST before setting client context
-                // This ensures user is authenticated when client context is set
-                // This prevents the rehydration check from clearing context prematurely
-                const user = await checkSession()
-                if (!user) {
-                  throw new Error('Failed to authenticate after client context exchange')
-                }
-                
-                // Set user before setting client context
-                setUser(user)
-
-                // Now set client context (user is already authenticated)
-                const { useClientContext } = await import('../stores/clientContext')
-                useClientContext.getState().setClientContext(context)
-
-                // SECURITY: Clean URL immediately after processing sensitive parameters
-                // Remove clientToken, client_id, and prefilledQuery from URL
-                const url = new URL(window.location.href)
-                url.searchParams.delete('clientToken')
-                url.searchParams.delete('client_id') // Remove if present (redundant)
-                url.searchParams.delete('prefilledQuery') // Remove if present (stored in session data)
-                // Clean URL completely - sensitive data should not remain in URL
-                window.history.replaceState({}, '', url.pathname + (url.search || ''))
-
-                return
-              } else {
-                // Handle specific error cases
-                const errorData = await response.json().catch(() => ({}))
-                const status = response.status
-
-                if (status === 401 || status === 403) {
-                  // Token expired or invalid - don't retry
-                  throw new Error(
-                    errorData.message ||
-                      'Client context token expired or invalid. Please try creating a new valuation.'
-                  )
-                } else if (status >= 500 && attempt < maxRetries - 1) {
-                  // Server error - retry with exponential backoff
-                  const delay = baseDelay * Math.pow(2, attempt)
-                  await new Promise((resolve) => setTimeout(resolve, delay))
-                  continue
-                } else {
-                  throw new Error(
-                    errorData.message || `Failed to exchange client context token (${status})`
-                  )
-                }
+              // If we got here, all retries failed
+              if (lastError) {
+                throw lastError
               }
             } catch (error) {
-              lastError = error instanceof Error ? error : new Error(String(error))
-
-              // Don't retry on validation errors or auth errors
-              if (
-                lastError.message.includes('expired') ||
-                lastError.message.includes('invalid') ||
-                lastError.message.includes('Invalid client context')
-              ) {
-                break
-              }
-
-              // Retry on network errors or server errors
-              if (attempt < maxRetries - 1) {
-                const delay = baseDelay * Math.pow(2, attempt)
-                // Silent - only log in development
-                if (process.env.NODE_ENV === 'development') {
-                  console.warn(`[Auth] Client context exchange failed, retrying in ${delay}ms...`, {
-                    attempt: attempt + 1,
-                    maxRetries,
-                    error: lastError.message,
-                  })
-                }
-                await new Promise((resolve) => setTimeout(resolve, delay))
-              }
+              // BANK GRADE FIX: Mark as failed (not initialized)
+              clientContextInitialized = false
+              throw error
             }
-          }
-
-          // If we get here, all retries failed
-          if (lastError) {
+          })()
+          
+          // BANK GRADE FIX: Await the client context exchange before proceeding
+          // This ensures client context is fully loaded before any API requests are made
+          try {
+            await clientContextPromise
+          } catch (error) {
+            // Client context exchange failed - log and continue to normal auth flow
+            const lastError = error instanceof Error ? error : new Error(String(error))
             console.error('[Auth] Client context exchange failed after retries:', lastError)
 
             // Show user-friendly error message

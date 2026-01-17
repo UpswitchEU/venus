@@ -83,10 +83,18 @@ export class HttpClient {
           apiLogger.warn('Failed to add client context headers', { error: contextError })
         }
 
-        // CRITICAL: Check if user is authenticated OR has client context
-        // Only send guest_session_id for truly anonymous users
+        // BANK GRADE FIX: Wait for client context initialization before deciding on guest session
+        // This prevents race conditions where API requests fire before client context is loaded
         try {
-          const { useAuthStore } = await import('../../lib/auth')
+          const { useAuthStore, waitForClientContext } = await import('../../lib/auth')
+          
+          // CRITICAL: Wait for client context to be ready (with timeout)
+          // This ensures we don't add guest_session_id if client context is being loaded
+          await Promise.race([
+            waitForClientContext(),
+            new Promise(resolve => setTimeout(resolve, 3000)) // 3s timeout
+          ])
+          
           const user = useAuthStore.getState().user
 
           // Check if we have client context headers (accountant acting on behalf of client)
@@ -114,6 +122,7 @@ export class HttpClient {
           }
         } catch (authError) {
           // If auth check fails, continue with guest session logic
+          // This includes timeout scenarios where client context took too long
           apiLogger.warn('Failed to check auth state, continuing with guest session logic', {
             error: authError,
           })
