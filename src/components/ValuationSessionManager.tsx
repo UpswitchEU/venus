@@ -177,16 +177,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           }
 
           // ✅ FIX: Check if error is ValidationError - don't retry these
-          let isValidationError = false
-          try {
-            const { ValidationError } = await import('../../types/errors')
-            isValidationError = err instanceof ValidationError
-          } catch {
-            // Fallback check if import fails
-            isValidationError = err.message?.includes('Either userId or guestSessionId must be provided') ||
-                               err.message?.includes('Invalid session data') ||
-                               err.message?.includes('validation')
-          }
+          // Use synchronous check instead of async import in catch handler
+          const isValidationError = 
+            err.message?.includes('Either userId or guestSessionId must be provided') ||
+            err.message?.includes('Invalid session data') ||
+            err.message?.includes('validation') ||
+            err.message?.includes('ValidationError') ||
+            (err as any)?.name === 'ValidationError'
           
           if (isValidationError) {
             generalLogger.error('[SessionManager] Validation error - stopping retries', {

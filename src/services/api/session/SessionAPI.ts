@@ -281,14 +281,14 @@ export class SessionAPI extends HttpClient {
       // the backend should extract userId from req.user (JWT token), so we don't need guest_session_id
       let guestSessionId: string | undefined = undefined
       try {
-        const { useAuthStore } = await import('../../lib/auth')
+        const { useAuthStore } = await import('../../../lib/auth')
         const user = useAuthStore.getState().user
         
         // Only get guest session if user is NOT authenticated
         // If user IS authenticated, backend will extract userId from JWT token (req.user)
         if (!user) {
           try {
-            const { useGuestSessionStore } = await import('../../store/useGuestSessionStore')
+            const { useGuestSessionStore } = await import('../../../store/useGuestSessionStore')
             // Use ensureSession to create one if it doesn't exist
             guestSessionId = await useGuestSessionStore.getState().ensureSession() || undefined
           } catch (guestError) {
@@ -301,7 +301,7 @@ export class SessionAPI extends HttpClient {
       } catch (authError) {
         // If auth check fails, try to get guest session as fallback
         try {
-          const { useGuestSessionStore } = await import('../../store/useGuestSessionStore')
+          const { useGuestSessionStore } = await import('../../../store/useGuestSessionStore')
           guestSessionId = await useGuestSessionStore.getState().ensureSession() || undefined
         } catch (guestError) {
           // Silently continue - guest_session_id is optional if user is authenticated

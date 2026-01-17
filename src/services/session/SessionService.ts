@@ -523,13 +523,15 @@ export class SessionService {
                   // Only get guest session if user is NOT authenticated
                   if (!user) {
                     const { useGuestSessionStore } = await import('../../store/useGuestSessionStore')
-                    guestSessionId = await useGuestSessionStore.getState().ensureSession()
+                    const sessionId = await useGuestSessionStore.getState().ensureSession()
+                    guestSessionId = sessionId || undefined
                   }
                 } catch (authError) {
                   // If auth check fails, try to get guest session anyway
                   try {
                     const { useGuestSessionStore } = await import('../../store/useGuestSessionStore')
-                    guestSessionId = await useGuestSessionStore.getState().ensureSession()
+                    const sessionId = await useGuestSessionStore.getState().ensureSession()
+                    guestSessionId = sessionId || undefined
                   } catch (guestError) {
                     logger.warn('Failed to get guest session for session creation', { error: guestError })
                   }
