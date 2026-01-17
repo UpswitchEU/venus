@@ -859,7 +859,7 @@ export class SessionService {
                         ...existingSessionData,
                         ...businessCardData,
                         // Preserve _client_context
-                        _client_context: clientContext || existingSessionData._client_context,
+                        _client_context: clientContext || (existingSessionData as any)?._client_context,
                       } as any
                       
                       // ✅ DIAGNOSTIC: Verify merge was successful
