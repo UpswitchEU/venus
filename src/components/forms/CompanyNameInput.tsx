@@ -274,7 +274,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         </svg>
 
         {/* Tooltip on hover - Kept dark for high contrast overlay */}
-        <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-gray-900 border border-gray-800 text-white text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0">
+        <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-gray-900 border border-gray-800 text-white text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[10000] transform translate-y-2 group-hover:translate-y-0" style={{ zIndex: 10000 }}>
           <div className="flex items-center justify-between mb-2">
             <span className="font-bold text-primary-400 text-xs uppercase tracking-wider">
               {t('forms.kboLookup.verifiedCompany')}

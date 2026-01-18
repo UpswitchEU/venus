@@ -306,7 +306,8 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
       {isOpen && !loading && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-96 overflow-y-auto transform transition-all duration-200 origin-top animate-in fade-in slide-in-from-top-2 ring-1 ring-black/5"
+          className="absolute z-[10000] w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-96 overflow-y-auto transform transition-all duration-200 origin-top animate-in fade-in slide-in-from-top-2 ring-1 ring-black/5"
+          style={{ zIndex: 10000 }}
         >
           {filteredTypes.length > 0 ? (
             <>

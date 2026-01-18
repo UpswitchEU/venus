@@ -119,7 +119,7 @@ export const FuzzySearchFieldRenderer: React.FC<FieldRendererProps> = ({
 
         {/* Search Results Dropdown */}
         {isOpen && query.trim() && searchResults.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-zinc-800 border border-zinc-600 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+          <div className="absolute z-[10000] w-full mt-1 bg-zinc-800 border border-zinc-600 rounded-lg shadow-lg max-h-64 overflow-y-auto" style={{ zIndex: 10000 }}>
             {searchResults.map(({ option }) => (
               <button
                 key={option.value}
@@ -143,7 +143,7 @@ export const FuzzySearchFieldRenderer: React.FC<FieldRendererProps> = ({
 
         {/* No results */}
         {isOpen && query.trim() && searchResults.length === 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-zinc-800 border border-zinc-600 rounded-lg shadow-lg p-4 text-center">
+          <div className="absolute z-[10000] w-full mt-1 bg-zinc-800 border border-zinc-600 rounded-lg shadow-lg p-4 text-center" style={{ zIndex: 10000 }}>
             <p className="text-zinc-400 text-sm">No matches found for "{query}"</p>
             <button
               onClick={() => handleSelect(query)}
