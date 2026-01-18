@@ -454,12 +454,70 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   /**
    * Update entire session object
+   * 
+   * If no session exists but updates include reportId and required fields, creates a new session.
+   * This allows BootstrapSync to create minimal sessions for new reports.
    */
   updateSession: (updates: Partial<ValuationSession>) => {
     set((state) => {
+      // ✅ FIX: Allow creating session if updates include reportId and required fields (BootstrapSync case)
+      // This fixes the "Cannot update: no active session" warning when creating minimal sessions
       if (!state.session) {
-        storeLogger.warn('[Session] Cannot update: no active session')
-        return state
+        if (updates.reportId && updates.currentView && updates.dataSource && updates.createdAt && updates.updatedAt) {
+          // Creating a new session from updates (e.g., BootstrapSync minimal session)
+          // Ensure all required fields are present
+          const newSession: ValuationSession = {
+            reportId: updates.reportId,
+            currentView: updates.currentView,
+            dataSource: updates.dataSource,
+            createdAt: updates.createdAt,
+            updatedAt: updates.updatedAt,
+            partialData: updates.partialData || {},
+            sessionData: updates.sessionData,
+            name: updates.name,
+            completedAt: updates.completedAt,
+            lastSyncedAt: updates.lastSyncedAt,
+            calculatedAt: updates.calculatedAt,
+            completeness: updates.completeness,
+            valuationResult: updates.valuationResult,
+            htmlReport: updates.htmlReport,
+            infoTabHtml: updates.infoTabHtml,
+          }
+          
+          storeLogger.debug('[Session] Creating new session from updates', {
+            reportId: newSession.reportId,
+            hasSessionData: !!newSession.sessionData,
+            isBootstrapCreated: !!(newSession.sessionData as any)?._bootstrapCreated,
+          })
+          
+          // Update cache for new session
+          try {
+            const { globalSessionCache } = require('../utils/sessionCacheManager')
+            const { htmlReport, infoTabHtml, ...sessionWithoutHtml } = newSession
+            globalSessionCache.set(newSession.reportId, sessionWithoutHtml)
+          } catch (cacheError) {
+            storeLogger.error('[Session] Failed to cache new session', {
+              reportId: newSession.reportId,
+              error: cacheError instanceof Error ? cacheError.message : String(cacheError),
+            })
+          }
+          
+          return {
+            ...state,
+            session: newSession,
+            hasUnsavedChanges: false, // New sessions haven't been saved yet
+          }
+        } else {
+          // No session and missing required fields - can't create
+          storeLogger.warn('[Session] Cannot update: no active session and missing required fields', {
+            hasReportId: !!updates.reportId,
+            hasCurrentView: !!updates.currentView,
+            hasDataSource: !!updates.dataSource,
+            hasCreatedAt: !!updates.createdAt,
+            hasUpdatedAt: !!updates.updatedAt,
+          })
+          return state
+        }
       }
 
       const updatedSession = {

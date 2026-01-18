@@ -235,37 +235,38 @@ export function BootstrapProvider({
         (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('clientToken'));
       
       if (hasClientToken) {
-        // Wait for client context to be initialized (set by exchange-client-context)
-        const checkClientContext = async () => {
-          let attempts = 0;
-          const maxAttempts = 20; // Wait up to 2 seconds (20 * 100ms)
-          
-          while (attempts < maxAttempts) {
-            try {
-              const { useClientContext } = await import('../../stores/clientContext');
-              const clientContextState = useClientContext.getState();
-              
-              if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
-                console.log('[BootstrapProvider] Client context ready, starting bootstrap', {
-                  clientUserId: clientContextState.client.id.substring(0, 8) + '...',
-                });
-                runBootstrap();
-                return;
-              }
-            } catch (error) {
-              console.warn('[BootstrapProvider] Failed to check client context', error);
-            }
+        // ✅ SENIOR CTO FIX: Wait for client context promise instead of polling
+        // This eliminates race conditions by using the actual promise from auth.ts
+        // No polling, no timeouts - pure promise-based synchronization
+        const waitForClientContext = async () => {
+          try {
+            // Import waitForClientContext from auth.ts - uses the actual promise
+            const { waitForClientContext } = await import('../auth');
+            await waitForClientContext();
             
-            attempts++;
-            await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+            // Verify context is actually set before proceeding
+            const { useClientContext } = await import('../../stores/clientContext');
+            const clientContextState = useClientContext.getState();
+            
+            if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
+              console.log('[BootstrapProvider] Client context ready, starting bootstrap', {
+                clientUserId: clientContextState.client.id.substring(0, 8) + '...',
+              });
+              runBootstrap();
+            } else {
+              // Context exchange completed but context not set - start bootstrap anyway
+              // Titan bootstrap will handle clientToken from request body
+              console.warn('[BootstrapProvider] Client context exchange completed but context not in store, starting bootstrap');
+              runBootstrap();
+            }
+          } catch (error) {
+            // Context exchange failed - start bootstrap anyway (Titan will handle clientToken)
+            console.warn('[BootstrapProvider] Client context exchange failed, starting bootstrap anyway', error);
+            runBootstrap();
           }
-          
-          // Timeout - start bootstrap anyway (Titan will handle clientToken)
-          console.warn('[BootstrapProvider] Client context timeout, starting bootstrap anyway');
-          runBootstrap();
         };
         
-        checkClientContext();
+        waitForClientContext();
       } else {
         // No client token - start bootstrap immediately
         runBootstrap();

@@ -346,41 +346,42 @@ export class SessionBootstrapService {
 
       // ✅ CRITICAL FIX: Add client context headers for accountant flow
       // These headers are required for Titan to identify the client and accountant
-      // The client context should already be resolved by exchange-client-context before bootstrap
-      if (hints.hasClientToken || context.clientToken) {
-        try {
-          // Try to get client context from store (set by exchange-client-context)
-          const { useClientContext } = await import('../../stores/clientContext');
-          const clientContextState = useClientContext.getState();
-          
-          if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
-            // ✅ CRITICAL FIX: Use correct header names expected by Titan bootstrap controller
-            // Bootstrap controller expects: X-Client-User-Id, X-Accountant-User-Id, X-Relationship-Id
-            headers['X-Client-User-Id'] = clientContextState.client.id;
-            headers['X-Accountant-User-Id'] = clientContextState.accountant.id;
-            if (clientContextState.relationshipId) {
-              headers['X-Relationship-Id'] = clientContextState.relationshipId;
-            }
-            
-            this.logger.info('[Bootstrap] Added client context headers', {
-              clientUserId: clientContextState.client.id.substring(0, 8) + '...',
-              accountantUserId: clientContextState.accountant.id.substring(0, 8) + '...',
-              relationshipId: clientContextState.relationshipId?.substring(0, 8) + '...' || 'none',
-            });
-          } else {
-            this.logger.warn('[Bootstrap] Client token present but client context not in store yet', {
-              hasClientToken: hints.hasClientToken,
-              isActingAsClient: clientContextState.isActingAsClient,
-              hasClient: !!clientContextState.client,
-              hasAccountant: !!clientContextState.accountant,
-              hasRelationshipId: !!clientContextState.relationshipId,
-            });
+      // ALWAYS check the store for client context, not just when clientToken is present
+      // This allows accountant flows to work even when URL doesn't have clientToken
+      try {
+        // Try to get client context from store (set by exchange-client-context or BootstrapSync)
+        const { useClientContext } = await import('../../stores/clientContext');
+        const clientContextState = useClientContext.getState();
+        
+        if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
+          // ✅ CRITICAL FIX: Use correct header names expected by Titan bootstrap controller
+          // Bootstrap controller expects: X-Client-User-Id, X-Accountant-User-Id, X-Relationship-Id
+          headers['X-Client-User-Id'] = clientContextState.client.id;
+          headers['X-Accountant-User-Id'] = clientContextState.accountant.id;
+          if (clientContextState.relationshipId) {
+            headers['X-Relationship-Id'] = clientContextState.relationshipId;
           }
-        } catch (error) {
-          this.logger.warn('[Bootstrap] Failed to get client context headers (non-critical)', {
-            error: error instanceof Error ? error.message : String(error),
+          
+          this.logger.info('[Bootstrap] Added client context headers from store', {
+            clientUserId: clientContextState.client.id.substring(0, 8) + '...',
+            accountantUserId: clientContextState.accountant.id.substring(0, 8) + '...',
+            relationshipId: clientContextState.relationshipId?.substring(0, 8) + '...' || 'none',
+            hasClientToken: hints.hasClientToken || !!context.clientToken,
+          });
+        } else if (hints.hasClientToken || context.clientToken) {
+          // Only warn if clientToken was present but context not in store
+          this.logger.warn('[Bootstrap] Client token present but client context not in store yet', {
+            hasClientToken: hints.hasClientToken,
+            isActingAsClient: clientContextState.isActingAsClient,
+            hasClient: !!clientContextState.client,
+            hasAccountant: !!clientContextState.accountant,
+            hasRelationshipId: !!clientContextState.relationshipId,
           });
         }
+      } catch (error) {
+        this.logger.warn('[Bootstrap] Failed to get client context headers (non-critical)', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
 
       // ✅ CRITICAL: Add timeout to prevent hanging
