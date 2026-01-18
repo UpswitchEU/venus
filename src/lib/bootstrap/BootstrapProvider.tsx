@@ -221,6 +221,7 @@ export function BootstrapProvider({
 
   // Auto-bootstrap on mount if no initial state
   // CRITICAL: Only run once, ignoring subsequent renders
+  // ✅ FIX: Wait for client context to be ready if clientToken is present
   useEffect(() => {
     // Skip if already started or has initial state
     if (bootstrapStartedRef.current || initialState) {
@@ -228,7 +229,47 @@ export function BootstrapProvider({
     }
     
     if (autoBootstrap) {
-      runBootstrap();
+      // ✅ CRITICAL FIX: If clientToken is present, wait for client context to be initialized
+      // This ensures bootstrap has access to client context headers
+      const hasClientToken = context?.clientToken || 
+        (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('clientToken'));
+      
+      if (hasClientToken) {
+        // Wait for client context to be initialized (set by exchange-client-context)
+        const checkClientContext = async () => {
+          let attempts = 0;
+          const maxAttempts = 20; // Wait up to 2 seconds (20 * 100ms)
+          
+          while (attempts < maxAttempts) {
+            try {
+              const { useClientContext } = await import('../stores/clientContext');
+              const clientContextState = useClientContext.getState();
+              
+              if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
+                console.log('[BootstrapProvider] Client context ready, starting bootstrap', {
+                  clientUserId: clientContextState.client.id.substring(0, 8) + '...',
+                });
+                runBootstrap();
+                return;
+              }
+            } catch (error) {
+              console.warn('[BootstrapProvider] Failed to check client context', error);
+            }
+            
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+          }
+          
+          // Timeout - start bootstrap anyway (Titan will handle clientToken)
+          console.warn('[BootstrapProvider] Client context timeout, starting bootstrap anyway');
+          runBootstrap();
+        };
+        
+        checkClientContext();
+      } else {
+        // No client token - start bootstrap immediately
+        runBootstrap();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps = run only on mount

@@ -330,28 +330,74 @@ export class SessionBootstrapService {
         headers['X-Guest-Session-Id'] = context.guestSessionId;
       }
 
-      // Call Venus proxy route (which forwards to Titan)
-      const response = await fetch('/api/bootstrap', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Bootstrap API failed (${response.status})`);
+      // ✅ CRITICAL FIX: Add client context headers for accountant flow
+      // These headers are required for Titan to identify the client and accountant
+      // The client context should already be resolved by exchange-client-context before bootstrap
+      if (hints.hasClientToken || context.clientToken) {
+        try {
+          // Try to get client context from store (set by exchange-client-context)
+          const { useClientContext } = await import('../../stores/clientContext');
+          const clientContextState = useClientContext.getState();
+          
+          if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
+            headers['X-Client-User-Id'] = clientContextState.client.id;
+            headers['X-Accountant-User-Id'] = clientContextState.accountant.id;
+            
+            this.logger.info('[Bootstrap] Added client context headers', {
+              clientUserId: clientContextState.client.id.substring(0, 8) + '...',
+              accountantUserId: clientContextState.accountant.id.substring(0, 8) + '...',
+            });
+          } else {
+            this.logger.warn('[Bootstrap] Client token present but client context not in store yet', {
+              hasClientToken: hints.hasClientToken,
+              isActingAsClient: clientContextState.isActingAsClient,
+              hasClient: !!clientContextState.client,
+              hasAccountant: !!clientContextState.accountant,
+            });
+          }
+        } catch (error) {
+          this.logger.warn('[Bootstrap] Failed to get client context headers (non-critical)', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
 
-      const data = await response.json();
+      // ✅ CRITICAL: Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      if (!data.success || !data.data) {
-        throw new Error(data.error || 'Bootstrap returned no data');
-      }
+      try {
+        // Call Venus proxy route (which forwards to Titan)
+        const response = await fetch('/api/bootstrap', {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
 
-      // Transform Titan response to SessionBootstrapState
-      const { identity, report, prefill, ui } = data.data;
+        clearTimeout(timeoutId);
 
-      const state: SessionBootstrapState = {
+        if (!response.ok) {
+          const errorText = await response.text();
+          this.logger.error('[Bootstrap] Bootstrap API failed', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText.substring(0, 200),
+          });
+          throw new Error(`Bootstrap API failed (${response.status}): ${errorText.substring(0, 100)}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.success || !data.data) {
+          throw new Error(data.error || 'Bootstrap returned no data');
+        }
+
+        // Transform Titan response to SessionBootstrapState
+        const { identity, report, prefill, ui } = data.data;
+
+        const state: SessionBootstrapState = {
         identity: {
           type: identity.type,
           userId: identity.userId,
@@ -393,19 +439,26 @@ export class SessionBootstrapService {
           returnUrl: context.returnUrl,
           sourceApp: context.sourceApp,
         },
-        bootstrapVersion: BOOTSTRAP_VERSION,
-        bootstrappedAt: new Date(),
-        bootstrapDurationMs: data.bootstrapDurationMs || (performance.now() - startTime),
-      };
+          bootstrapVersion: BOOTSTRAP_VERSION,
+          bootstrappedAt: new Date(),
+          bootstrapDurationMs: data.bootstrapDurationMs || (performance.now() - startTime),
+        };
 
-      this.logger.info('[Bootstrap] Titan API bootstrap complete', {
-        durationMs: state.bootstrapDurationMs,
-        identityType: state.identity.type,
-        reportMode: state.report.mode,
-        prefillConfidence: state.prefillData.confidence.toFixed(2),
-      });
+        this.logger.info('[Bootstrap] Titan API bootstrap complete', {
+          durationMs: state.bootstrapDurationMs,
+          identityType: state.identity.type,
+          reportMode: state.report.mode,
+          prefillConfidence: state.prefillData.confidence.toFixed(2),
+        });
 
-      return state;
+        return state;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Bootstrap request timed out after 30 seconds');
+        }
+        throw fetchError;
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn('[Bootstrap] Titan API failed, falling back to client-side', {
