@@ -153,10 +153,15 @@ function applyPrefillToForm(
   logger.debug('applyPrefillToForm called', {
     hasCompanyInfo: !!companyInfo,
     companyInfoCompanyName: companyInfo?.companyName?.substring(0, 30),
+    companyInfoCompanyNameType: typeof companyInfo?.companyName,
+    companyInfoCompanyNameIsEmpty: companyInfo?.companyName === '',
+    companyInfoKeys: companyInfo ? Object.keys(companyInfo).slice(0, 10) : [],
     hasKboData: !!kboData,
     kboDataCompanyName: kboData?.companyName?.substring(0, 30),
     hasBusinessType: !!businessType,
     sources: prefillData.sources,
+    prefillConfidence: prefillData.confidence,
+    fieldsPopulated: prefillData.fieldsPopulated.slice(0, 10),
   });
   
   // Collect ALL data to apply in a single update for consistency
