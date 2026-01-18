@@ -242,7 +242,7 @@ export function BootstrapProvider({
           
           while (attempts < maxAttempts) {
             try {
-              const { useClientContext } = await import('../stores/clientContext');
+              const { useClientContext } = await import('../../stores/clientContext');
               const clientContextState = useClientContext.getState();
               
               if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
