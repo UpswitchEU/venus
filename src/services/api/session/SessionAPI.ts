@@ -597,9 +597,11 @@ export class SessionAPI extends HttpClient {
           if (createErrorStatus === 400) {
             throw new ValidationError(
               `Cannot create session: ${createErrorMessage || 'Invalid session data'}`,
+              undefined, // field
+              undefined, // value
               {
-                originalError: error,
-                createError: createError,
+                originalError: String(error),
+                createError: String(createError),
                 reportId,
               }
             )

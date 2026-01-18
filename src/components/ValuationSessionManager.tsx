@@ -4,11 +4,16 @@
  * Cursor-style session management with optimistic rendering.
  * Single Responsibility: Load session and provide to children.
  *
+ * WORLD CLASS: Integrates with bootstrap system for unified initialization.
+ * If bootstrap has already resolved the session, this component uses that
+ * data instead of making redundant API calls.
+ *
  * Simplifications:
  * - No stage state machine (just isLoading boolean)
  * - No complex guards (promise cache handles duplicates)
  * - No deadline timers (optimistic rendering handles delays)
  * - Simple error recovery
+ * - Bootstrap integration for zero-latency session access
  *
  * @module components/ValuationSessionManager
  */
@@ -17,6 +22,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { useCallback, useEffect, useState } from 'react'
+import { useBootstrapSafe } from '../lib/bootstrap'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationSession } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
@@ -54,6 +60,14 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
   ({ reportId, children }) => {
     const searchParams = useSearchParams()
     const router = useRouter()
+
+    // WORLD CLASS: Bootstrap integration - check if bootstrap has already loaded session
+    const bootstrap = useBootstrapSafe()
+    const isBootstrapping = bootstrap?.isBootstrapping ?? false
+    const bootstrapReportId = bootstrap?.report.reportId
+    const bootstrapHasSession = bootstrap && 
+      bootstrap.report.mode === 'existing' && 
+      bootstrap.report.reportId === reportId
 
     // ROOT CAUSE FIX: Subscribe to specific values, not entire store
     // This component needs session for stage detection, but we can optimize
@@ -105,16 +119,35 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const prefilledQuery = sessionPrefilledQuery || urlPrefilledQuery
 
     // ✅ FIX: Show loading until session is loaded AND initialized
-    // This prevents the glitch where forms show before data is ready
+    // WORLD CLASS: Also consider bootstrap state for stage calculation
+    // If bootstrap is still running, we're loading. If bootstrap failed but
+    // session store has data, continue with session store data.
     const stage: Stage =
-      isLoading || isInitializing || !session || session.reportId !== reportId
+      isBootstrapping || isLoading || isInitializing || !session || session.reportId !== reportId
         ? 'loading'
         : 'data-entry'
 
     // ✅ FIX: Load session when reportId changes (promise cache prevents duplicates)
+    // WORLD CLASS: Skip loading if bootstrap already has this session
     // Add cleanup to prevent state updates after unmount
     // Add 30-second timeout with error handling
     useEffect(() => {
+      // Skip session loading if bootstrap is in progress or has this session
+      if (isBootstrapping) {
+        generalLogger.debug('[SessionManager] Waiting for bootstrap to complete', { reportId })
+        return
+      }
+
+      // If bootstrap already resolved this session, session store should be synced
+      // by useBootstrapSync hook - we can skip redundant API call
+      if (bootstrapHasSession && session?.reportId === reportId) {
+        generalLogger.debug('[SessionManager] Session already loaded via bootstrap', {
+          reportId,
+          bootstrapReportId,
+        })
+        return
+      }
+
       let isMounted = true
       let timeoutId: NodeJS.Timeout
 
@@ -122,6 +155,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         reportId,
         flow: detectedFlow,
         prefilledQuery,
+        bootstrapHasSession,
       })
 
       // Create timeout promise that also resets store state
@@ -248,7 +282,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         clearTimeout(timeoutId)
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reportId, detectedFlow, prefilledQuery]) // loadSession is stable - don't include in deps
+    }, [reportId, detectedFlow, prefilledQuery, isBootstrapping, bootstrapHasSession, session?.reportId]) // loadSession is stable - don't include in deps
 
     // Retry: Clear error and reload
     const handleRetry = useCallback(() => {

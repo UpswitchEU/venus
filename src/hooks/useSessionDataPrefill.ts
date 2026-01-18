@@ -10,10 +10,15 @@
  * Critical for accountant → client flow where client opens Venus
  * through Mercury-generated link with pre-populated business data.
  * 
+ * NOTE: This hook works alongside useBootstrapPrefill. If bootstrap
+ * has already prefilled the form, this hook will detect that and skip
+ * redundant prefilling.
+ * 
  * @module hooks/useSessionDataPrefill
  */
 
 import { useEffect, useRef } from 'react'
+import { useBootstrapSafe } from '../lib/bootstrap'
 import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
@@ -37,8 +42,19 @@ export function useSessionDataPrefill() {
   const sessionData = useSessionStore((state) => state.session?.sessionData) as any
   const { updateFormData, formData } = useManualFormStore()
   const hasPrefilledRef = useRef(false)
+  const bootstrap = useBootstrapSafe()
 
   useEffect(() => {
+    // Skip if bootstrap has already prefilled (world-class bootstrap system takes precedence)
+    if (bootstrap && bootstrap.hasPrefilledData && bootstrap.prefillData.confidence > 0.2) {
+      generalLogger.debug('[useSessionDataPrefill] Skipping - bootstrap already prefilled', {
+        confidence: bootstrap.prefillData.confidence.toFixed(2),
+        fields: bootstrap.prefillData.fieldsPopulated.length,
+      })
+      hasPrefilledRef.current = true
+      return
+    }
+
     // Skip if no session data
     if (!sessionData) {
       return

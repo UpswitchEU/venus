@@ -17,6 +17,7 @@ import { ValuationToolbar } from '../../../components/ValuationToolbar'
 import { shouldEnableSessionRestoration } from '../../../config/features'
 import { MOBILE_BREAKPOINT } from '../../../constants/panelConstants'
 import { useAuth } from '../../../hooks/useAuth'
+import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { useConversationalToolbar } from '../../../hooks/useConversationalToolbar'
 import { usePanelResize } from '../../../hooks/usePanelResize'
 import { useReportIdTracking } from '../../../hooks/useReportIdTracking'
@@ -98,6 +99,10 @@ const ConversationalLayoutInner: React.FC<ConversationalLayoutProps> = ({
   initialMode = 'edit',
 }) => {
   const { user } = useAuth()
+  
+  // WORLD CLASS: Sync bootstrap state with stores for unified initialization
+  useBootstrapSync()
+  
   const state = useConversationState()
   const actions = useConversationActions()
   const { showToast } = useToast()

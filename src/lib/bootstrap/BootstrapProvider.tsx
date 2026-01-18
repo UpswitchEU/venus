@@ -1,0 +1,314 @@
+'use client';
+
+/**
+ * Bootstrap Provider
+ * 
+ * React context provider for bootstrap state hydration.
+ * Provides the complete bootstrap state to all child components.
+ * 
+ * @module lib/bootstrap/BootstrapProvider
+ */
+
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import type {
+  BootstrapContext,
+  FlowType,
+  IdentityState,
+  PrefillData,
+  ReportState,
+  SessionBootstrapState,
+  UIHints,
+} from './types';
+import {
+  BOOTSTRAP_VERSION,
+  DEFAULT_BOOTSTRAP_STATE,
+  DEFAULT_IDENTITY,
+  DEFAULT_PREFILL,
+  DEFAULT_REPORT,
+  DEFAULT_UI_HINTS,
+} from './types';
+import { bootstrapService } from './SessionBootstrapService';
+import { parseUrlToContext } from './utils';
+import { setBootstrapState } from '../sessionInitialization';
+
+// ============================================================================
+// Context Types
+// ============================================================================
+
+interface BootstrapContextValue {
+  // State
+  state: SessionBootstrapState;
+  isBootstrapping: boolean;
+  bootstrapError: string | null;
+
+  // Derived state for convenience
+  identity: IdentityState;
+  report: ReportState;
+  prefillData: PrefillData;
+  ui: UIHints;
+
+  // Convenience booleans
+  isGuest: boolean;
+  isAuthenticated: boolean;
+  isAccountantFlow: boolean;
+  isNewReport: boolean;
+  isExistingReport: boolean;
+  hasPrefilledData: boolean;
+
+  // Actions
+  refreshBootstrap: () => Promise<void>;
+  updateIdentity: (identity: Partial<IdentityState>) => void;
+  updateReport: (report: Partial<ReportState>) => void;
+  updatePrefillData: (prefillData: Partial<PrefillData>) => void;
+  updateUIHints: (ui: Partial<UIHints>) => void;
+}
+
+// ============================================================================
+// Context Creation
+// ============================================================================
+
+const BootstrapContext = createContext<BootstrapContextValue | null>(null);
+
+// ============================================================================
+// Provider Props
+// ============================================================================
+
+interface BootstrapProviderProps {
+  children: React.ReactNode;
+  /** Initial state from server-side bootstrap (optional) */
+  initialState?: SessionBootstrapState;
+  /** Bootstrap context for client-side bootstrap (optional) */
+  context?: BootstrapContext;
+  /** Whether to auto-bootstrap on mount if no initial state */
+  autoBootstrap?: boolean;
+  /** Bootstrap method: 'titan' uses server API, 'client' uses client-side resolvers */
+  method?: 'titan' | 'client';
+  /** Callback when bootstrap completes */
+  onBootstrapComplete?: (state: SessionBootstrapState) => void;
+  /** Callback when bootstrap fails */
+  onBootstrapError?: (error: string) => void;
+}
+
+// ============================================================================
+// Provider Component
+// ============================================================================
+
+export function BootstrapProvider({
+  children,
+  initialState,
+  context,
+  autoBootstrap = true,
+  method = 'titan', // Default to Titan API for optimal performance
+  onBootstrapComplete,
+  onBootstrapError,
+}: BootstrapProviderProps) {
+  // State
+  const [state, setState] = useState<SessionBootstrapState>(
+    initialState || DEFAULT_BOOTSTRAP_STATE
+  );
+  const [isBootstrapping, setIsBootstrapping] = useState(!initialState && autoBootstrap);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+
+  // Bootstrap function
+  const runBootstrap = useCallback(async () => {
+    setIsBootstrapping(true);
+    setBootstrapError(null);
+
+    const startTime = performance.now();
+
+    try {
+      const bootstrapContext = context || parseUrlToContext(
+        typeof window !== 'undefined' ? window.location.href : '/'
+      );
+
+      // Choose bootstrap method
+      let result: SessionBootstrapState;
+      if (method === 'titan') {
+        // Use Titan API for single-request bootstrap (optimal performance)
+        result = await bootstrapService.bootstrapViaTitan(bootstrapContext);
+      } else {
+        // Use client-side resolvers (fallback)
+        result = await bootstrapService.bootstrap(bootstrapContext);
+      }
+
+      setState(result);
+      
+      // Sync with SessionInitializer for backward compatibility
+      setBootstrapState(result);
+      
+      onBootstrapComplete?.(result);
+
+      console.log('[BootstrapProvider] Bootstrap complete', {
+        method,
+        identityType: result.identity.type,
+        reportMode: result.report.mode,
+        prefillConfidence: result.prefillData.confidence.toFixed(2),
+        durationMs: result.bootstrapDurationMs,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setBootstrapError(errorMessage);
+      onBootstrapError?.(errorMessage);
+
+      console.error('[BootstrapProvider] Bootstrap failed:', errorMessage);
+    } finally {
+      setIsBootstrapping(false);
+    }
+  }, [context, method, onBootstrapComplete, onBootstrapError]);
+
+  // Auto-bootstrap on mount if no initial state
+  useEffect(() => {
+    if (!initialState && autoBootstrap) {
+      runBootstrap();
+    }
+  }, [initialState, autoBootstrap, runBootstrap]);
+
+  // Update functions
+  const updateIdentity = useCallback((identity: Partial<IdentityState>) => {
+    setState((prev) => ({
+      ...prev,
+      identity: { ...prev.identity, ...identity },
+    }));
+  }, []);
+
+  const updateReport = useCallback((report: Partial<ReportState>) => {
+    setState((prev) => ({
+      ...prev,
+      report: { ...prev.report, ...report },
+    }));
+  }, []);
+
+  const updatePrefillData = useCallback((prefillData: Partial<PrefillData>) => {
+    setState((prev) => ({
+      ...prev,
+      prefillData: { ...prev.prefillData, ...prefillData },
+    }));
+  }, []);
+
+  const updateUIHints = useCallback((ui: Partial<UIHints>) => {
+    setState((prev) => ({
+      ...prev,
+      ui: { ...prev.ui, ...ui },
+    }));
+  }, []);
+
+  // Context value with memoization
+  const value = useMemo<BootstrapContextValue>(() => ({
+    // State
+    state,
+    isBootstrapping,
+    bootstrapError,
+
+    // Derived state
+    identity: state.identity,
+    report: state.report,
+    prefillData: state.prefillData,
+    ui: state.ui,
+
+    // Convenience booleans
+    isGuest: state.identity.type === 'guest',
+    isAuthenticated: state.identity.type === 'authenticated',
+    isAccountantFlow: state.identity.type === 'accountant_for_client',
+    isNewReport: state.report.mode === 'new',
+    isExistingReport: state.report.mode === 'existing',
+    hasPrefilledData: state.prefillData.confidence > 0.1,
+
+    // Actions
+    refreshBootstrap: runBootstrap,
+    updateIdentity,
+    updateReport,
+    updatePrefillData,
+    updateUIHints,
+  }), [
+    state,
+    isBootstrapping,
+    bootstrapError,
+    runBootstrap,
+    updateIdentity,
+    updateReport,
+    updatePrefillData,
+    updateUIHints,
+  ]);
+
+  return (
+    <BootstrapContext.Provider value={value}>
+      {children}
+    </BootstrapContext.Provider>
+  );
+}
+
+// ============================================================================
+// Hooks
+// ============================================================================
+
+/**
+ * Use bootstrap context - throws if not within provider
+ */
+export function useBootstrap(): BootstrapContextValue {
+  const context = useContext(BootstrapContext);
+  if (!context) {
+    throw new Error('useBootstrap must be used within a BootstrapProvider');
+  }
+  return context;
+}
+
+/**
+ * Use bootstrap context - returns null if not within provider (safe version)
+ */
+export function useBootstrapSafe(): BootstrapContextValue | null {
+  return useContext(BootstrapContext);
+}
+
+/**
+ * Use identity from bootstrap
+ */
+export function useBootstrapIdentity(): IdentityState {
+  const { identity } = useBootstrap();
+  return identity;
+}
+
+/**
+ * Use report from bootstrap
+ */
+export function useBootstrapReport(): ReportState {
+  const { report } = useBootstrap();
+  return report;
+}
+
+/**
+ * Use prefill data from bootstrap
+ */
+export function useBootstrapPrefill(): PrefillData {
+  const { prefillData } = useBootstrap();
+  return prefillData;
+}
+
+/**
+ * Use UI hints from bootstrap
+ */
+export function useBootstrapUI(): UIHints {
+  const { ui } = useBootstrap();
+  return ui;
+}
+
+/**
+ * Check if bootstrap is complete
+ */
+export function useIsBootstrapComplete(): boolean {
+  const context = useBootstrapSafe();
+  if (!context) return false;
+  return !context.isBootstrapping && !context.bootstrapError;
+}
+
+// ============================================================================
+// Default Export
+// ============================================================================
+
+export default BootstrapProvider;

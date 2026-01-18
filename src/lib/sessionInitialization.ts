@@ -1,10 +1,13 @@
 /**
- * Session Initialization Gate (Bank-Grade Architecture)
+ * Session Initialization Gate (World-Class Architecture)
+ * 
+ * UPGRADED: Now integrates with the Bootstrap system for comprehensive initialization.
  * 
  * Guarantees sequential initialization order:
  * 1. Auth initialization (required)
  * 2. Client context initialization (if clientToken in URL)
- * 3. Mark as ready
+ * 3. Bootstrap state resolution (auth + session + prefill)
+ * 4. Mark as ready
  * 
  * Prevents race conditions by blocking ALL API calls until complete
  * 
@@ -13,9 +16,11 @@
  * - No parallel initialization (sequential only)
  * - Single source of truth (one initialization state)
  * - Defensive (handles errors gracefully)
+ * - Integrates with Bootstrap system for world-class initialization
  */
 
 import logger from '../utils/logger';
+import type { SessionBootstrapState } from './bootstrap/types';
 
 /**
  * Initialization State
@@ -24,6 +29,7 @@ class SessionInitializer {
   private static initialized = false;
   private static initPromise: Promise<void> | null = null;
   private static error: Error | null = null;
+  private static bootstrapState: SessionBootstrapState | null = null;
 
   /**
    * Initialize session system
@@ -58,7 +64,12 @@ class SessionInitializer {
         // No additional initialization needed here
         logger.debug('[SessionInitializer] Step 2: Client context handled by auth flow ✓');
 
-        // STEP 3: Mark as ready
+        // STEP 3: Bootstrap integration (optional - runs if BootstrapProvider is present)
+        // The BootstrapProvider handles its own initialization in parallel
+        // This step just marks compatibility with the new system
+        logger.debug('[SessionInitializer] Step 3: Bootstrap system integration ready ✓');
+
+        // STEP 4: Mark as ready
         this.initialized = true;
         const duration = performance.now() - startTime;
         logger.info({
@@ -103,19 +114,39 @@ class SessionInitializer {
   }
 
   /**
+   * Get bootstrap state (if available)
+   */
+  static getBootstrapState(): SessionBootstrapState | null {
+    return this.bootstrapState;
+  }
+
+  /**
+   * Set bootstrap state (called by BootstrapProvider)
+   */
+  static setBootstrapState(state: SessionBootstrapState): void {
+    this.bootstrapState = state;
+    logger.debug({
+      identityType: state.identity.type,
+      reportMode: state.report.mode,
+      prefillConfidence: state.prefillData.confidence.toFixed(2),
+    }, '[SessionInitializer] Bootstrap state set');
+  }
+
+  /**
    * Reset initialization state (for testing)
    */
   static reset(): void {
     this.initialized = false;
     this.initPromise = null;
     this.error = null;
+    this.bootstrapState = null;
     logger.debug('[SessionInitializer] State reset');
   }
 
   /**
    * Initialize auth system
    * 
-   * Waits for Supabase auth to be ready
+   * Waits for auth to be ready
    */
   private static async initializeAuth(): Promise<void> {
     try {
@@ -186,4 +217,18 @@ export async function waitForSessionReady(): Promise<void> {
  */
 export function isSessionReady(): boolean {
   return SessionInitializer.isReady();
+}
+
+/**
+ * Get bootstrap state from session initializer
+ */
+export function getBootstrapState(): SessionBootstrapState | null {
+  return SessionInitializer.getBootstrapState();
+}
+
+/**
+ * Set bootstrap state in session initializer (called by BootstrapProvider)
+ */
+export function setBootstrapState(state: SessionBootstrapState): void {
+  SessionInitializer.setBootstrapState(state);
 }

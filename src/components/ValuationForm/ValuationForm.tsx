@@ -15,6 +15,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { useBootstrapPrefill } from '../../hooks/useBootstrapPrefill'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
 import { useSessionDataPrefill } from '../../hooks/useSessionDataPrefill'
@@ -369,10 +370,18 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // Priority 2: Auth context (user's own business card)
   // Priority 3: URL parameters (prefilledQuery)
   
+  // PRE-FILL: Priority 0 - Bootstrap prefill (World-class initialization)
+  // This runs first and applies data from the bootstrap system which resolves
+  // auth, session, and prefill data BEFORE UI renders. This is the most
+  // comprehensive prefill as it aggregates from all sources: KBO, user profile,
+  // session data, and Mercury business card.
+  const { prefillConfidence } = useBootstrapPrefill()
+  
   // PRE-FILL: Priority 1 - Session data from Mercury
   // This handles the critical UX case where accountant creates client in Mercury
   // with KBO data, then generates valuation link. Client opens Venus and sees
   // fully prefilled form even though they're not authenticated.
+  // Note: Bootstrap prefill should already handle this, but kept for backward compatibility
   useSessionDataPrefill()
 
   // PRE-FILL: Priority 2 - Auth context (user's own business card)

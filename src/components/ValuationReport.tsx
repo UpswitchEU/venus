@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import React, { Suspense, useEffect } from 'react'
+import { useBootstrapSync } from '../hooks/useBootstrapSync'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { useUrlState } from '../hooks/useUrlState'
 import { reportService } from '../services'
@@ -55,6 +56,10 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     urlParams = {},
   }) => {
     const router = useRouter()
+
+    // Bootstrap sync - syncs bootstrap state with existing stores
+    // This ensures auth, session, and prefill data are available in stores
+    const { isSynced: isBootstrapSynced } = useBootstrapSync()
 
     // Embedded mode detection for iframe integration
     const { isEmbedded } = useEmbeddedMode()

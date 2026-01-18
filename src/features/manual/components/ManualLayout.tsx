@@ -18,6 +18,7 @@ import { ValuationForm } from '../../../components/ValuationForm'
 import { ValuationToolbar } from '../../../components/ValuationToolbar'
 import { shouldEnableSessionRestoration } from '../../../config/features'
 import { useAuth } from '../../../hooks/useAuth'
+import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { useToast } from '../../../hooks/useToast'
 import {
   useValuationToolbarFullscreen,
@@ -99,6 +100,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   })
 
   const { user } = useAuth()
+  
+  // WORLD CLASS: Sync bootstrap state with stores for unified initialization
+  useBootstrapSync()
+  
   const { isCalculating, error, result, setResult } = useManualResultsStore()
   // CRITICAL FIX: Don't subscribe to formData or updateFormData - they cause re-renders on every form change
   // We only need updateFormData inside the restoration effect, accessed via getState()
