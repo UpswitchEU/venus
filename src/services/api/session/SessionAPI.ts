@@ -360,14 +360,20 @@ export class SessionAPI extends HttpClient {
         }
       }
 
+      // ✅ CRITICAL FIX: Use reportId as session_key if session_key is not provided
+      // This ensures idempotency - if a reportId exists, use it as the session_key
+      // This prevents duplicate sessions when creating sessions with a known reportId
+      const sessionKey = sessionAny.session_key || sessionAny.reportId
+
       const backendSession = {
         session_data: sessionDataPayload,
         view_type: viewType,
         current_step: sessionAny.current_step || 1,
         // Also send currentView at top level for DTO transformation
         currentView: currentView,
-        // If session_key is provided, include it for idempotency
-        ...(sessionAny.session_key && { session_key: sessionAny.session_key }),
+        // ✅ CRITICAL FIX: Always include session_key if available (from session_key or reportId)
+        // This ensures idempotency and prevents duplicate sessions
+        ...(sessionKey && { session_key: sessionKey }),
         // ✅ FIX: Include guest_session_id if available (for anonymous users)
         ...(guestSessionId && { guest_session_id: guestSessionId }),
       }
@@ -500,26 +506,58 @@ export class SessionAPI extends HttpClient {
         })
 
         try {
-          // Extract session data from updates to create new session
-          // updates.updates contains the actual update data
+          // ✅ CRITICAL FIX: Get full session from store, not just from updates
+          // This ensures we have all necessary fields (reportId, currentView, sessionData, etc.)
+          // when creating a session after a 404
+          let sessionFromStore: any = null
+          try {
+            const { useSessionStore } = await import('../../../store/useSessionStore')
+            const storeState = useSessionStore.getState()
+            if (storeState.session && storeState.session.reportId === reportId) {
+              sessionFromStore = storeState.session
+              apiLogger.debug('Retrieved full session from store for creation', {
+                reportId,
+                hasSessionData: !!sessionFromStore.sessionData,
+                currentView: sessionFromStore.currentView,
+                dataSource: sessionFromStore.dataSource,
+              })
+            }
+          } catch (storeError) {
+            apiLogger.warn('Failed to get session from store (non-critical)', {
+              error: storeError instanceof Error ? storeError.message : String(storeError),
+            })
+          }
+
+          // Extract session data from updates or fallback to store session
           const updatesAny = updates.updates as any
-          const sessionData = updatesAny?.sessionData || updatesAny || {}
-          const currentView = updatesAny?.currentView || 'manual'
+          const sessionData = sessionFromStore?.sessionData || updatesAny?.sessionData || updatesAny || {}
+          const currentView = sessionFromStore?.currentView || updatesAny?.currentView || 'manual'
+          const dataSource = sessionFromStore?.dataSource || updatesAny?.dataSource || 'manual'
 
           // Map frontend 'conversational' to backend 'ai-guided'
           const backendView = currentView === 'conversational' ? 'ai-guided' : currentView
           const mappedDataSource =
-            (sessionData as any)?.dataSource === 'conversational' ? 'ai-guided' : (sessionData as any)?.dataSource
+            dataSource === 'conversational' ? 'ai-guided' : dataSource
 
-          // Create session with the update data
+          // ✅ FIX: Ensure sessionData includes _client_context if present in store session
+          const finalSessionData = {
+            ...sessionData,
+            ...(mappedDataSource && { dataSource: mappedDataSource }),
+            // Preserve _client_context from store session if present
+            ...(sessionFromStore?.sessionData?._client_context && {
+              _client_context: sessionFromStore.sessionData._client_context,
+            }),
+          }
+
+          // ✅ CRITICAL FIX: Pass session_key (not reportId) for idempotency
+          // The backend uses session_key to ensure the session is created with the correct ID
+          // This prevents duplicate sessions when multiple concurrent requests try to create the same session
           const createResponse = await this.createValuationSession(
             {
-              reportId,
+              session_key: reportId, // Backend expects session_key for idempotency
+              reportId, // Also include reportId for compatibility
               currentView: backendView,
-              sessionData: {
-                ...sessionData,
-                ...(mappedDataSource && { dataSource: mappedDataSource }),
-              },
+              sessionData: finalSessionData,
             },
             options
           )

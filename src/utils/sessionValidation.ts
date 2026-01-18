@@ -72,21 +72,58 @@ export function validateSessionData(session: any): asserts session is ValuationS
   }
 
   // Validate timestamps (auto-fix corrupted dates)
+  // ✅ CRITICAL FIX: Ensure dates are always valid Date objects or ISO strings
   if (session.createdAt) {
     try {
-      const date = new Date(session.createdAt)
+      // Handle both Date objects and ISO strings
+      const date = session.createdAt instanceof Date 
+        ? session.createdAt 
+        : new Date(session.createdAt)
+      
       if (isNaN(date.getTime())) {
         validationLogger.warn('Invalid createdAt timestamp, resetting', {
           reportId: session.reportId,
           createdAt: session.createdAt,
+          createdAtType: typeof session.createdAt,
         })
         session.createdAt = new Date()
+      } else {
+        // ✅ FIX: Normalize to Date object (not ISO string) for consistency
+        // ISO strings will be serialized correctly when sent to backend
+        session.createdAt = date
       }
     } catch {
+      validationLogger.warn('Error parsing createdAt timestamp, resetting', {
+        reportId: session.reportId,
+        createdAt: session.createdAt,
+      })
       session.createdAt = new Date()
     }
   } else {
     session.createdAt = new Date()
+  }
+
+  // ✅ FIX: Also validate updatedAt
+  if (session.updatedAt) {
+    try {
+      const date = session.updatedAt instanceof Date 
+        ? session.updatedAt 
+        : new Date(session.updatedAt)
+      
+      if (isNaN(date.getTime())) {
+        validationLogger.warn('Invalid updatedAt timestamp, resetting', {
+          reportId: session.reportId,
+          updatedAt: session.updatedAt,
+        })
+        session.updatedAt = new Date()
+      } else {
+        session.updatedAt = date
+      }
+    } catch {
+      session.updatedAt = new Date()
+    }
+  } else {
+    session.updatedAt = new Date()
   }
 
   validationLogger.info('Session validation passed', {

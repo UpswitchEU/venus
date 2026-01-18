@@ -147,11 +147,25 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
 export function normalizeSessionDates(session: any): ValuationSession {
   // ✅ CRITICAL FIX: Ensure sessionData and partialData are preserved
   // Backend may return session_data which needs to be mapped to sessionData/partialData
+  // ✅ FIX: Robust date parsing with fallback for invalid dates
+  const parseDate = (dateValue: any): Date => {
+    if (!dateValue) return new Date()
+    if (dateValue instanceof Date) {
+      return isNaN(dateValue.getTime()) ? new Date() : dateValue
+    }
+    try {
+      const parsed = new Date(dateValue)
+      return isNaN(parsed.getTime()) ? new Date() : parsed
+    } catch {
+      return new Date()
+    }
+  }
+
   const normalized: ValuationSession = {
     ...session,
-    createdAt: new Date(session.createdAt),
-    updatedAt: new Date(session.updatedAt),
-    completedAt: session.completedAt ? new Date(session.completedAt) : undefined,
+    createdAt: parseDate(session.createdAt),
+    updatedAt: parseDate(session.updatedAt),
+    completedAt: session.completedAt ? parseDate(session.completedAt) : undefined,
     // ✅ FIX: Preserve sessionData and partialData if they exist
     sessionData: session.sessionData || session.session_data || {},
     partialData: session.partialData || session.session_data || {},
