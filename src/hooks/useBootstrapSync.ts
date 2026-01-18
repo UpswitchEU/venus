@@ -169,51 +169,19 @@ function syncSession(state: SessionBootstrapState): void {
         }
       }
     } else if (report.mode === 'new') {
-      // WORLD CLASS: Create optimistic session from bootstrap data
-      // This gives UI immediate access to prefill data without waiting for API
-      const optimisticSession = {
-        reportId: report.reportId,
-        status: report.status || 'draft',
-        currentView: 'manual' as const,
-        currentStep: report.currentStep || 1,
-        sessionData: {
-          _bootstrapCreated: true,
-          _bootstrapConfidence: prefillData.confidence,
-          ...(prefillData.companyInfo && {
-            company_name: prefillData.companyInfo.companyName,
-            kbo_number: prefillData.companyInfo.kboNumber,
-            vat_number: prefillData.companyInfo.vatNumber,
-            country_code: prefillData.companyInfo.countryCode,
-            founding_year: prefillData.companyInfo.foundingYear,
-            city: prefillData.companyInfo.city,
-            postal_code: prefillData.companyInfo.postalCode,
-            legal_form: prefillData.companyInfo.legalForm,
-          }),
-          ...(prefillData.financials && {
-            revenue: prefillData.financials.revenue,
-            ebitda: prefillData.financials.ebitda,
-            number_of_employees: prefillData.financials.employeeCount,
-          }),
-          ...(prefillData.businessType && {
-            business_type_id: prefillData.businessType.id,
-            industry: prefillData.businessType.industry,
-          }),
-        },
-        createdAt: report.createdAt?.toISOString() || new Date().toISOString(),
-        updatedAt: report.updatedAt?.toISOString() || new Date().toISOString(),
-        userId: identity.userId,
-        guestSessionId: identity.guestSessionId,
-      };
-
-      // Set optimistic session using updateSession - will be replaced when API returns
-      // Note: updateSession merges with existing, but if session is null, we need to 
-      // set it directly. The session store will handle the merge when loadSession completes.
-      useSessionStore.setState({ 
-        session: optimisticSession as any,
-        isInitializing: false, // Mark as not initializing since we have bootstrap data
-      });
-      
-      logger.info('Created optimistic session from bootstrap', {
+      // CRITICAL: Do NOT create optimistic sessions for new reports
+      // 
+      // Previous implementation caused race conditions:
+      // 1. useBootstrapSync runs in child component (ValuationReport)
+      // 2. Creates optimistic session with bootstrap's reportId
+      // 3. loadSession runs later in parent (ValuationSessionManager)
+      // 4. If bootstrap returned wrong reportId, session gets created with wrong ID
+      //
+      // The normal loadSession flow handles new session creation correctly.
+      // Bootstrap's prefill data will be applied by useBootstrapPrefill hook instead.
+      //
+      // Commenting out optimistic session creation to fix the race condition:
+      logger.debug('New report - skipping optimistic session, letting loadSession handle it', {
         reportId: report.reportId.substring(0, 20),
         prefillConfidence: prefillData.confidence.toFixed(2),
         hasCompanyName: !!prefillData.companyInfo?.companyName,

@@ -15,6 +15,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type {
@@ -116,8 +117,24 @@ export function BootstrapProvider({
   const [isBootstrapping, setIsBootstrapping] = useState(!initialState && autoBootstrap);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
+  // CRITICAL FIX: Prevent duplicate bootstrap calls using refs
+  // This prevents issues with React Strict Mode double-mounting and
+  // prevents race conditions when context changes mid-bootstrap
+  const bootstrapStartedRef = useRef(false);
+  const bootstrapCompletedRef = useRef(false);
+  const contextReportIdRef = useRef(context?.reportId);
+
   // Bootstrap function
   const runBootstrap = useCallback(async () => {
+    // CRITICAL: Guard against duplicate calls
+    if (bootstrapStartedRef.current) {
+      console.log('[BootstrapProvider] Bootstrap already started, skipping duplicate call', {
+        reportId: context?.reportId?.substring(0, 20),
+      });
+      return;
+    }
+    
+    bootstrapStartedRef.current = true;
     setIsBootstrapping(true);
     setBootstrapError(null);
 
@@ -127,6 +144,12 @@ export function BootstrapProvider({
       const bootstrapContext = context || parseUrlToContext(
         typeof window !== 'undefined' ? window.location.href : '/'
       );
+
+      // CRITICAL: Log the reportId being sent to bootstrap
+      console.log('[BootstrapProvider] Starting bootstrap', {
+        contextReportId: bootstrapContext.reportId?.substring(0, 20) || 'none',
+        method,
+      });
 
       // Choose bootstrap method
       let result: SessionBootstrapState;
@@ -138,7 +161,39 @@ export function BootstrapProvider({
         result = await bootstrapService.bootstrap(bootstrapContext);
       }
 
+      // CRITICAL VALIDATION: Ensure bootstrap returned the correct reportId
+      // If we requested a specific reportId and got a different one, that's a bug
+      const requestedId = bootstrapContext.reportId?.trim();
+      const returnedId = result.report.reportId?.trim();
+      
+      if (requestedId && requestedId !== returnedId) {
+        // This is a critical bug that can cause data to be saved to wrong report!
+        console.error(
+          '%c⚠️ CRITICAL: Bootstrap returned different reportId than requested!',
+          'background: #ff0000; color: white; font-weight: bold; padding: 4px 8px;',
+          {
+            requested: requestedId.substring(0, 30),
+            returned: returnedId?.substring(0, 30),
+            mode: result.report.mode,
+          }
+        );
+        
+        // ALWAYS override with the requested reportId when there's a mismatch
+        result = {
+          ...result,
+          report: {
+            ...result.report,
+            reportId: requestedId,
+          },
+        };
+        
+        console.log('[BootstrapProvider] Overrode reportId to match URL', {
+          finalReportId: requestedId.substring(0, 30),
+        });
+      }
+
       setState(result);
+      bootstrapCompletedRef.current = true;
       
       // Sync with SessionInitializer for backward compatibility
       setBootstrapState(result);
@@ -147,6 +202,7 @@ export function BootstrapProvider({
 
       console.log('[BootstrapProvider] Bootstrap complete', {
         method,
+        reportId: result.report.reportId.substring(0, 20),
         identityType: result.identity.type,
         reportMode: result.report.mode,
         prefillConfidence: result.prefillData.confidence.toFixed(2),
@@ -164,11 +220,18 @@ export function BootstrapProvider({
   }, [context, method, onBootstrapComplete, onBootstrapError]);
 
   // Auto-bootstrap on mount if no initial state
+  // CRITICAL: Only run once, ignoring subsequent renders
   useEffect(() => {
-    if (!initialState && autoBootstrap) {
+    // Skip if already started or has initial state
+    if (bootstrapStartedRef.current || initialState) {
+      return;
+    }
+    
+    if (autoBootstrap) {
       runBootstrap();
     }
-  }, [initialState, autoBootstrap, runBootstrap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps = run only on mount
 
   // Update functions
   const updateIdentity = useCallback((identity: Partial<IdentityState>) => {

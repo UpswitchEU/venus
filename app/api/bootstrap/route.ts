@@ -55,10 +55,14 @@ export async function POST(request: NextRequest) {
       titanHeaders['X-Accountant-User-Id'] = accountantUserId;
     }
 
-    // Log request
+    // CRITICAL LOGGING: Log the exact reportId to trace ID mismatch issues
     console.log('[Bootstrap Route] Proxying to Titan', {
       url: `${TITAN_API_URL}/api/v2/valuations/bootstrap`,
-      hasBody: !!body,
+      reportId: body.reportId?.substring(0, 30) || 'NONE',
+      reportIdLength: body.reportId?.length || 0,
+      reportIdType: typeof body.reportId,
+      hasBody: !!body && Object.keys(body).length > 0,
+      bodyKeys: Object.keys(body || {}),
       hasCookies: !!cookieHeader,
       hasGuestSessionId: !!guestSessionId,
     });

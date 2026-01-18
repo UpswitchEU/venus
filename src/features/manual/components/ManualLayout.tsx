@@ -18,6 +18,7 @@ import { ValuationForm } from '../../../components/ValuationForm'
 import { ValuationToolbar } from '../../../components/ValuationToolbar'
 import { shouldEnableSessionRestoration } from '../../../config/features'
 import { useAuth } from '../../../hooks/useAuth'
+import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { useToast } from '../../../hooks/useToast'
 import {
@@ -103,6 +104,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   
   // WORLD CLASS: Sync bootstrap state with stores for unified initialization
   useBootstrapSync()
+  
+  // WORLD CLASS: Apply bootstrap prefill data BEFORE form renders
+  // This uses useLayoutEffect to ensure form fields are populated synchronously
+  // before the browser paints, preventing visual "jumps"
+  const { hasPrefilled: bootstrapPrefillApplied } = useBootstrapPrefill()
   
   const { isCalculating, error, result, setResult } = useManualResultsStore()
   // CRITICAL FIX: Don't subscribe to formData or updateFormData - they cause re-renders on every form change

@@ -299,8 +299,11 @@ export class SessionBootstrapService {
 
     try {
       // Build request body
+      // CRITICAL: Ensure reportId is always sent if present (not empty string)
+      const validReportId = context.reportId?.trim() || undefined;
+      
       const requestBody = {
-        reportId: context.reportId,
+        reportId: validReportId,
         clientToken: context.clientToken,
         prefilledQuery: context.prefilledQuery,
         guestSessionId: context.guestSessionId,
@@ -309,6 +312,13 @@ export class SessionBootstrapService {
         version: context.version,
         locale: context.locale,
       };
+
+      // CRITICAL LOGGING: Log exactly what we're sending to debug ID mismatch
+      this.logger.info('[Bootstrap] Sending to Titan API', {
+        reportIdFromContext: context.reportId?.substring(0, 25) || 'none',
+        reportIdInRequest: validReportId?.substring(0, 25) || 'none',
+        reportIdLength: validReportId?.length || 0,
+      });
 
       // Build headers
       const headers: Record<string, string> = {

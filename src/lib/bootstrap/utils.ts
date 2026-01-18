@@ -14,12 +14,17 @@ import type { BootstrapContext, BootstrapHints, FlowType } from './types';
 export function parseBootstrapHints(context: BootstrapContext): BootstrapHints {
   const { reportId, clientToken, guestSessionId, prefilledQuery, flow, mode, locale, embedded } = context;
   
-  // Determine if this is a new report (no existing report ID or a fresh one)
-  const isNewReport = !reportId || reportId.startsWith('val_') && isRecentReportId(reportId);
+  // CRITICAL FIX: If we have a reportId from the URL, it's NEVER a new report
+  // The isRecentReportId check was causing issues where valid URL report IDs
+  // were treated as "new" and regenerated
+  const hasValidReportId = !!reportId && reportId.startsWith('val_');
+  
+  // Only consider it a new report if there's NO report ID at all
+  const isNewReport = !hasValidReportId;
   
   return {
     hasClientToken: !!clientToken && clientToken.length > 20,
-    hasReportId: !!reportId && reportId.startsWith('val_'),
+    hasReportId: hasValidReportId,
     hasGuestSessionId: !!guestSessionId && guestSessionId.length > 0,
     hasPrefilledQuery: !!prefilledQuery && prefilledQuery.length > 0,
     isNewReport,
@@ -32,9 +37,10 @@ export function parseBootstrapHints(context: BootstrapContext): BootstrapHints {
 
 /**
  * Check if a report ID was created recently (within last minute)
- * New reports have timestamps close to now
+ * NOTE: This function is kept for potential future use but is no longer
+ * used in parseBootstrapHints to prevent treating valid URL report IDs as new
  */
-function isRecentReportId(reportId: string): boolean {
+export function isRecentReportId(reportId: string): boolean {
   try {
     // Format: val_{timestamp}_{source}{random}
     const match = reportId.match(/^val_(\d+)_/);
