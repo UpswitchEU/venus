@@ -97,7 +97,7 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-zinc-900 rounded-lg shadow-lg border border-zinc-800 z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-48 bg-zinc-900 rounded-lg shadow-lg border border-zinc-800 z-[10000] overflow-hidden" style={{ zIndex: 10000 }}>
           <div className="py-1">
             {languages.map((lang) => (
               <button

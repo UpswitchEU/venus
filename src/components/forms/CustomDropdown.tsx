@@ -295,7 +295,7 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
 
         {/* Dropdown Options */}
         {isOpen && (
-          <div className="relative z-[9999] mt-2 w-full">
+          <div className="relative z-[10000] mt-2 w-full" style={{ zIndex: 10000 }}>
             <div
               className="absolute w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-auto transform transition-all duration-200 origin-top animate-in fade-in slide-in-from-top-2 ring-1 ring-primary-500/10"
               role="listbox"

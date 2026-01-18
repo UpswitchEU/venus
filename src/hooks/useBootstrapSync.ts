@@ -18,6 +18,7 @@ import { useBootstrapSafe } from '../lib/bootstrap';
 import type { SessionBootstrapState } from '../lib/bootstrap/types';
 import { useAuthStore } from '../lib/auth';
 import { useSessionStore } from '../store/useSessionStore';
+import type { ValuationSession } from '../types/valuation';
 import { useManualFormStore } from '../store/manual/useManualFormStore';
 import { useClientContext } from '../stores/clientContext';
 import { createContextLogger } from '../utils/logger';
@@ -175,7 +176,7 @@ function syncSession(state: SessionBootstrapState): void {
       // We mark it with _bootstrapCreated: true to indicate it hasn't been saved yet
       if (!storeHasSession) {
         const now = new Date();
-        const minimalSession = {
+        const minimalSession: Partial<ValuationSession> = {
           reportId: report.reportId,
           currentView: 'manual' as const,
           dataSource: 'manual' as const,
@@ -185,7 +186,7 @@ function syncSession(state: SessionBootstrapState): void {
           sessionData: {
             _bootstrapCreated: true, // Flag to indicate this is a bootstrap-created session
             _bootstrapPrefill: true, // Flag to indicate prefill data is available
-          },
+          } as any, // Cast to any since these are internal flags not part of ValuationRequest
         };
         
         sessionStore.updateSession(minimalSession);

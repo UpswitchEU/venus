@@ -149,8 +149,9 @@ export const InfoIcon: React.FC<InfoIconProps> = ({
           id="info-tooltip"
           ref={tooltipRef}
           role="tooltip"
-          className={`absolute z-50 px-3 py-2 text-sm text-white bg-slate-ink rounded-lg shadow-lg transition-opacity duration-200 ${positionClasses[position]}`}
+          className={`absolute z-[10000] px-3 py-2 text-sm text-white bg-slate-ink rounded-lg shadow-lg transition-opacity duration-200 ${positionClasses[position]}`}
           style={{
+            zIndex: 10000,
             maxWidth: `${maxWidth}px`,
             width: 'max-content',
             minWidth: '200px',

@@ -92,11 +92,12 @@ export const Tooltip: React.FC<TooltipProps> = ({
       {isVisible && (
         <div
           ref={tooltipRef}
-          className={`absolute z-50 px-3 py-2 text-sm text-white bg-gray-900 
+          className={`absolute z-[10000] px-3 py-2 text-sm text-white bg-gray-900 
             rounded-lg shadow-lg whitespace-nowrap transition-opacity duration-200
             ${position === 'top' ? 'bottom-full mb-2 left-1/2 -translate-x-1/2' : ''}
             ${position === 'bottom' ? 'top-full mt-2 left-1/2 -translate-x-1/2' : ''}
           `}
+          style={{ zIndex: 10000 }}
         >
           {content}
           <div

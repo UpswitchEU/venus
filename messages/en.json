@@ -127,7 +127,7 @@
       "editName": "Edit Name",
       "saveName": "Save Name",
       "cancelEdit": "Cancel Edit",
-      "backToDashboard": "Back to Dashboard"
+      "continueToDashboard": "Continue to Dashboard"
     },
     "tooltips": {
       "save": "Save valuation",
@@ -447,7 +447,7 @@
       "saveFailed": "Save failed - click to retry"
     },
     "toolbar": {
-      "backToDashboard": "Back to Dashboard",
+      "continueToDashboard": "Continue to Dashboard",
       "backToClient": "Back to Client",
       "selectVersion": "Select version"
     }
@@ -464,7 +464,7 @@
       "saveFailed": "Save failed - click to retry"
     },
     "toolbar": {
-      "backToDashboard": "Back to Dashboard",
+      "continueToDashboard": "Continue to Dashboard",
       "backToClient": "Back to Client"
     },
     "sections": {

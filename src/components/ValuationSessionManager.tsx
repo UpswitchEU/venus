@@ -65,7 +65,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const bootstrap = useBootstrapSafe()
     const isBootstrapping = bootstrap?.isBootstrapping ?? false
     const bootstrapReportId = bootstrap?.report.reportId
-    const bootstrapComplete = bootstrap?.bootstrapComplete ?? false
+    // Bootstrap is complete when isBootstrapping is false and there's no error
+    const bootstrapComplete = bootstrap && !isBootstrapping && !bootstrap.bootstrapError
     const bootstrapHasExistingSession = bootstrap && 
       bootstrap.report.mode === 'existing' && 
       bootstrap.report.reportId === reportId
@@ -75,6 +76,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       bootstrapComplete &&
       bootstrap.report.mode === 'new' && 
       bootstrap.report.reportId === reportId
+    // Alias for logging
+    const bootstrapHasSession = bootstrapHasExistingSession || bootstrapHasNewReport
 
     // ROOT CAUSE FIX: Subscribe to specific values, not entire store
     // This component needs session for stage detection, but we can optimize

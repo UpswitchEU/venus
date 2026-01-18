@@ -589,7 +589,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   }, [user, menuItems.length, isOnReportPage, pathname])
 
   return (
-    <div ref={dropdownRef} className="relative" style={{ zIndex: 99999 }}>
+    <div ref={dropdownRef} className="relative" style={{ zIndex: 10001, position: 'relative' }}>
       {/* Avatar Button */}
       <button
         ref={buttonRef}
@@ -598,7 +598,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         aria-label={user ? `${displayName} - Account Menu` : 'Guest - Account Menu'}
         aria-expanded={isOpen}
         aria-haspopup="true"
-        style={{ position: 'relative', zIndex: 101 }}
+        style={{ position: 'relative', zIndex: 10001 }}
       >
         {user ? (
           <>
@@ -626,18 +626,20 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-[99998]"
+            className="fixed inset-0 z-[10000]"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
+            style={{ zIndex: 10000 }}
           />
 
           {/* Dropdown */}
           {/* ✅ FIX: Use very high z-index to ensure dropdown appears above report content */}
           <div
-            className="fixed w-56 bg-zinc-900 rounded-lg shadow-lg border border-zinc-800 py-2 z-[99999]"
+            className="fixed w-56 bg-zinc-900 rounded-lg shadow-lg border border-zinc-800 py-2 z-[10001]"
             style={{
               top: `${dropdownPosition.top}px`, // Dynamic position
               right: `${dropdownPosition.right}px`, // Dynamic position
+              zIndex: 10001,
             }}
           >
             {/* User Profile Header */}

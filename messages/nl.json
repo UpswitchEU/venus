@@ -127,7 +127,7 @@
       "editName": "Naam bewerken",
       "saveName": "Naam opslaan",
       "cancelEdit": "Bewerken annuleren",
-      "backToDashboard": "Terug naar Dashboard"
+      "continueToDashboard": "Doorgaan naar Dashboard"
     },
     "tooltips": {
       "save": "Waardering opslaan",
@@ -446,7 +446,7 @@
       "saveFailed": "Opslaan mislukt - klik om opnieuw te proberen"
     },
     "toolbar": {
-      "backToDashboard": "Terug naar Dashboard",
+      "continueToDashboard": "Doorgaan naar Dashboard",
       "backToClient": "Terug naar Klant"
     }
   },
@@ -462,7 +462,7 @@
       "saveFailed": "Opslaan mislukt - klik om opnieuw te proberen"
     },
     "toolbar": {
-      "backToDashboard": "Terug naar Dashboard",
+      "continueToDashboard": "Doorgaan naar Dashboard",
       "backToClient": "Terug naar Klant"
     },
     "sections": {
