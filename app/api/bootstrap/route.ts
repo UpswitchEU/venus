@@ -28,10 +28,20 @@ export async function POST(request: NextRequest) {
     // Forward cookies for authentication
     const cookieHeader = request.headers.get('cookie') || '';
 
-    // Get guest session ID from header if present
+    // Get guest session ID and client context headers if present
+    // ✅ CRITICAL: Support both header formats for compatibility
+    // Venus HttpClient sends: X-Client-Context-User, X-Client-Context-Accountant, X-Client-Context-Relationship
+    // Bootstrap expects: X-Client-User-Id, X-Accountant-User-Id, X-Relationship-Id
     const guestSessionId = request.headers.get('x-guest-session-id');
-    const clientUserId = request.headers.get('x-client-user-id');
-    const accountantUserId = request.headers.get('x-accountant-user-id');
+    const clientUserId = 
+      request.headers.get('x-client-user-id') || 
+      request.headers.get('x-client-context-user');
+    const accountantUserId = 
+      request.headers.get('x-accountant-user-id') || 
+      request.headers.get('x-client-context-accountant');
+    const relationshipId = 
+      request.headers.get('x-relationship-id') || 
+      request.headers.get('x-client-context-relationship');
 
     // Build headers for Titan request
     const titanHeaders: Record<string, string> = {
@@ -47,12 +57,17 @@ export async function POST(request: NextRequest) {
       titanHeaders['X-Guest-Session-Id'] = guestSessionId;
     }
 
+    // ✅ CRITICAL: Forward client context headers for accountant-client flow
     if (clientUserId) {
       titanHeaders['X-Client-User-Id'] = clientUserId;
     }
 
     if (accountantUserId) {
       titanHeaders['X-Accountant-User-Id'] = accountantUserId;
+    }
+
+    if (relationshipId) {
+      titanHeaders['X-Relationship-Id'] = relationshipId;
     }
 
     // CRITICAL LOGGING: Log the exact reportId to trace ID mismatch issues

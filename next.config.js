@@ -4,8 +4,9 @@ const withNextIntl = createNextIntlPlugin('./i18n.ts');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Temporarily enable detailed errors to debug iframe SSR issue
-  productionBrowserSourceMaps: true,
+  // ✅ WORLD CLASS: Disable source maps in production for optimal bundle size
+  // Source maps are only needed for debugging - disable in production for better performance
+  productionBrowserSourceMaps: process.env.NODE_ENV === 'development',
   
   // Disable React error overlay in production
   reactStrictMode: true,

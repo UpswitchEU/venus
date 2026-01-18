@@ -302,16 +302,30 @@ export class SessionBootstrapService {
       // CRITICAL: Ensure reportId is always sent if present (not empty string)
       const validReportId = context.reportId?.trim() || undefined;
       
+      // ✅ CRITICAL FIX: Only include mode if it's a valid value ('edit' or 'view')
+      // The Zod schema on the backend only accepts these two values, so invalid values cause 400 errors
+      // Mercury may send mode=accountant in the URL, but we should NOT send this to Titan
+      const validMode = context.mode === 'edit' || context.mode === 'view' ? context.mode : undefined;
+      
       const requestBody = {
         reportId: validReportId,
         clientToken: context.clientToken,
         prefilledQuery: context.prefilledQuery,
         guestSessionId: context.guestSessionId,
         flow: context.flow,
-        mode: context.mode,
+        // ✅ CRITICAL: Only include mode if it's valid - omit entirely if invalid (don't send mode=accountant)
+        ...(validMode && { mode: validMode }),
         version: context.version,
         locale: context.locale,
       };
+      
+      // ✅ DEBUG LOGGING: Log mode filtering to trace issues
+      if (context.mode && !validMode) {
+        this.logger.warn('[Bootstrap] Filtered out invalid mode value', {
+          invalidMode: context.mode,
+          note: 'Only "edit" or "view" are valid - mode will be omitted from request',
+        });
+      }
 
       // CRITICAL LOGGING: Log exactly what we're sending to debug ID mismatch
       this.logger.info('[Bootstrap] Sending to Titan API', {
@@ -340,12 +354,18 @@ export class SessionBootstrapService {
           const clientContextState = useClientContext.getState();
           
           if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
+            // ✅ CRITICAL FIX: Use correct header names expected by Titan bootstrap controller
+            // Bootstrap controller expects: X-Client-User-Id, X-Accountant-User-Id, X-Relationship-Id
             headers['X-Client-User-Id'] = clientContextState.client.id;
             headers['X-Accountant-User-Id'] = clientContextState.accountant.id;
+            if (clientContextState.relationshipId) {
+              headers['X-Relationship-Id'] = clientContextState.relationshipId;
+            }
             
             this.logger.info('[Bootstrap] Added client context headers', {
               clientUserId: clientContextState.client.id.substring(0, 8) + '...',
               accountantUserId: clientContextState.accountant.id.substring(0, 8) + '...',
+              relationshipId: clientContextState.relationshipId?.substring(0, 8) + '...' || 'none',
             });
           } else {
             this.logger.warn('[Bootstrap] Client token present but client context not in store yet', {
@@ -353,6 +373,7 @@ export class SessionBootstrapService {
               isActingAsClient: clientContextState.isActingAsClient,
               hasClient: !!clientContextState.client,
               hasAccountant: !!clientContextState.accountant,
+              hasRelationshipId: !!clientContextState.relationshipId,
             });
           }
         } catch (error) {

@@ -288,7 +288,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId;
       }
 
-      const response = await fetch(`${API_URL}/api/v2/users/${userId}/business-card`, {
+      // ✅ CRITICAL FIX: Use correct endpoint - /api/v2/business-cards/:userId instead of /api/v2/users/:userId/business-card
+      const response = await fetch(`${API_URL}/api/v2/business-cards/${userId}`, {
         method: 'GET',
         credentials: 'include',
         headers,

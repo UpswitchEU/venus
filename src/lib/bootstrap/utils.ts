@@ -110,7 +110,9 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
       prefilledQuery: params.get('prefilledQuery') || undefined,
       guestSessionId: params.get('guestSessionId') || undefined,
       flow: (params.get('flow') as FlowType) || undefined,
-      mode: (params.get('mode') as 'edit' | 'view') || undefined,
+      // ✅ CRITICAL FIX: Only accept valid mode values ('edit' or 'view')
+      // Invalid values from URL params (like 'accountant') will be filtered out
+      mode: (['edit', 'view'].includes(params.get('mode') || '') ? params.get('mode') as 'edit' | 'view' : undefined),
       version: params.get('version') ? parseInt(params.get('version')!, 10) : undefined,
       locale,
       embedded: params.get('embedded') === 'true',
