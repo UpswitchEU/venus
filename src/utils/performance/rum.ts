@@ -114,7 +114,7 @@ export class RUMManager {
     // Check if we should sample this user
     const sampleRate = this.config.sampleRate ?? 1
     if (Math.random() > sampleRate) {
-      generalLogger.info('[RUM] User not sampled, skipping RUM collection')
+      generalLogger.debug('[RUM] User not sampled, skipping RUM collection')
       return
     }
 
@@ -136,7 +136,7 @@ export class RUMManager {
     // Collect resource timing
     this.collectResourceTiming()
 
-    generalLogger.info('[RUM] Initialized successfully')
+    generalLogger.debug('[RUM] Initialized successfully')
   }
 
   /**
@@ -449,7 +449,7 @@ export class RUMManager {
       this.config.onWebVitalsMetric(metric)
     }
 
-    generalLogger.info('[RUM] Web Vitals metric collected', {
+    generalLogger.debug('[RUM] Web Vitals metric collected', {
       name: metric.name,
       value: Math.round(metric.value),
       rating: metric.rating,

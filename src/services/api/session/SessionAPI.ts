@@ -525,7 +525,7 @@ export class SessionAPI extends HttpClient {
           )
 
           if (createResponse?.session) {
-            apiLogger.info('Session created successfully after 404 on update', {
+            apiLogger.debug('Session created successfully after 404 on update', {
               reportId,
               currentView: createResponse.session.currentView,
             })

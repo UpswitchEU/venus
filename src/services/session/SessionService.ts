@@ -122,12 +122,12 @@ export class SessionService {
 
         if (!result.allowed) {
           // User has hit their valuation limit - throw specific error
-          logger.info('Valuation creation blocked by plan enforcement', {
-            current: result.current,
-            limit: result.limit,
-            reason: result.reason,
-            message: result.message,
-          })
+        logger.warn('Valuation creation blocked by plan enforcement', {
+          current: result.current,
+          limit: result.limit,
+          reason: result.reason,
+          message: result.message,
+        })
 
           // Create specific PaywallError (not generic ApplicationError)
           const error = new ApplicationError(
@@ -150,7 +150,7 @@ export class SessionService {
           throw error
         }
 
-        logger.info('Valuation limit check passed', {
+        logger.debug('Valuation limit check passed', {
           current: result.current,
           limit: result.limit,
           checkTime_ms: checkTime.toFixed(2),
@@ -216,7 +216,7 @@ export class SessionService {
     previousPackages?: any[]
   } | null> {
     try {
-      logger.info('Loading complete valuation data package', { reportId })
+      logger.debug('Loading complete valuation data package', { reportId })
       
       // 1. Load session first (required)
       const session = await this.loadSession(reportId)
@@ -245,7 +245,7 @@ export class SessionService {
         }),
       ])
       
-      logger.info('Complete valuation data loaded', {
+      logger.debug('Complete valuation data loaded', {
         reportId,
         hasReport: !!report,
         versionsCount: versions?.length || 0,
@@ -396,7 +396,7 @@ export class SessionService {
     try {
       // SECURITY: prefilledQuery should come from session data, not URL
       // URL parameter is only for backward compatibility
-      logger.info('Loading session', { reportId, flow, prefilledQuery })
+      logger.debug('Loading session', { reportId, flow, prefilledQuery })
 
       // CACHE-FIRST: Check localStorage cache BEFORE backend API call
       const cachedSession = globalSessionCache.get(reportId)
@@ -421,7 +421,7 @@ export class SessionService {
             (sessionData.current_year_data as any)?.ebitda ||
             sessionData.current_year_data)
 
-        logger.info('Session loaded from cache (instant)', {
+        logger.debug('Session loaded from cache (instant)', {
           reportId,
           loadTime_ms: loadTime.toFixed(2),
           cacheAge_minutes,
@@ -500,7 +500,7 @@ export class SessionService {
 
             if (!sessionResponse?.session) {
               // Session doesn't exist - create it automatically
-              logger.info('Session not found, creating new session', {
+              logger.debug('Session not found, creating new session', {
                 requestedReportId: reportId,
                 flow,
               })
@@ -568,7 +568,7 @@ export class SessionService {
                   return null
                 }
 
-                logger.info('New session created successfully', {
+                logger.debug('New session created successfully', {
                   requestedReportId: reportId,
                   actualReportId: actualReportId,
                   currentView: createResponse.session.currentView,
@@ -598,7 +598,7 @@ export class SessionService {
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href)
                     url.pathname = url.pathname.replace(reportId, actualReportId)
-                    logger.info('Redirecting to correct session URL', {
+                    logger.debug('Redirecting to correct session URL', {
                       from: reportId,
                       to: actualReportId,
                       newUrl: url.toString(),
@@ -620,7 +620,7 @@ export class SessionService {
                 )
 
                 if (hasBusinessCardData && hasCompanyName) {
-                  logger.info('Business card data preserved in session', {
+                  logger.debug('Business card data preserved in session', {
                     reportId,
                     company_name: (mergedSession.sessionData as any)?.company_name,
                     business_type_id: (mergedSession.sessionData as any)?.business_type_id,
@@ -628,7 +628,7 @@ export class SessionService {
                     country_code: (mergedSession.sessionData as any)?.country_code,
                   })
                 } else {
-                  logger.warn('No business card data in merged session (or company_name is empty)', {
+                  logger.debug('No business card data in merged session (or company_name is empty)', {
                     reportId,
                     hasSessionData: !!mergedSession.sessionData,
                     hasCompanyName,
@@ -648,6 +648,102 @@ export class SessionService {
                   )
                 }
 
+                // ✅ CRITICAL FIX: Fetch business card data immediately after session creation
+                // This ensures business card data is available before the session is returned
+                const clientContext = (mergedSession.sessionData as any)?._client_context
+                const clientUserId = clientContext?.client_user_id
+                // Reuse companyName and hasCompanyName from above (already declared)
+
+                if (!hasCompanyName && clientUserId) {
+                  try {
+                    logger.debug('Fetching business card data immediately after session creation', {
+                      reportId: actualReportId,
+                      clientUserId: clientUserId.substring(0, 8) + '...',
+                    })
+
+                    const businessCardResponse = await fetch(
+                      `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app'}/api/v2/business-cards/${clientUserId}`,
+                      {
+                        method: 'GET',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        credentials: 'include',
+                      }
+                    )
+
+                    if (businessCardResponse.ok) {
+                      const businessCard = await businessCardResponse.json()
+
+                      // Map business card data to session format
+                      const businessCardData: Record<string, any> = {}
+                      if (businessCard.company_name) businessCardData.company_name = businessCard.company_name
+                      if (businessCard.business_type) {
+                        businessCardData.business_type_id = businessCard.business_type
+                        businessCardData.business_type = businessCard.business_type
+                      }
+                      if (businessCard.business_type_id && !businessCardData.business_type_id) {
+                        businessCardData.business_type_id = businessCard.business_type_id
+                      }
+                      if (businessCard.industry) businessCardData.industry = businessCard.industry
+                      if (businessCard.location || businessCard.city) {
+                        businessCardData.location = businessCard.location || businessCard.city
+                        businessCardData.city = businessCard.city || businessCard.location
+                      }
+                      if (businessCard.country) {
+                        businessCardData.country = businessCard.country
+                        businessCardData.country_code = businessCard.country
+                      }
+                      if (businessCard.founded_year) businessCardData.founding_year = businessCard.founded_year
+                      if (businessCard.company_size) businessCardData.company_size = businessCard.company_size
+                      if (businessCard.company_description) {
+                        businessCardData.company_description = businessCard.company_description
+                        businessCardData.business_description = businessCard.company_description
+                      }
+                      // KBO registry fields
+                      if (businessCard.kbo_number) businessCardData.kbo_number = businessCard.kbo_number
+                      if (businessCard.vat_number) businessCardData.vat_number = businessCard.vat_number
+                      if (businessCard.postal_code) businessCardData.postal_code = businessCard.postal_code
+                      if (businessCard.legal_form) businessCardData.legal_form = businessCard.legal_form
+                      if (businessCard.nace_code) businessCardData.nace_code = businessCard.nace_code
+                      if (businessCard.nace_description) businessCardData.nace_description = businessCard.nace_description
+
+                      // Merge business card data into session
+                      if (Object.keys(businessCardData).length > 0) {
+                        const existingSessionData = mergedSession.sessionData || {}
+                        mergedSession.sessionData = {
+                          ...existingSessionData,
+                          ...businessCardData,
+                          _client_context: clientContext || (existingSessionData as any)?._client_context,
+                        } as any
+
+                        // ✅ FIX: Also update partialData with business card data
+                        mergedSession.partialData = {
+                          ...(mergedSession.partialData || {}),
+                          ...businessCardData,
+                        }
+
+                        logger.debug('Business card data fetched and merged immediately after session creation', {
+                          reportId: actualReportId,
+                          fieldsAdded: Object.keys(businessCardData),
+                          company_name: businessCardData.company_name,
+                          business_type_id: businessCardData.business_type_id,
+                        })
+                      }
+                    }
+                  } catch (error) {
+                    logger.debug('Error fetching business card data immediately after creation (non-critical)', {
+                      reportId: actualReportId,
+                      error: error instanceof Error ? error.message : String(error),
+                    })
+                  }
+                }
+
+                // ✅ FIX: Ensure partialData is initialized from sessionData if missing
+                if (!mergedSession.partialData || Object.keys(mergedSession.partialData).length === 0) {
+                  mergedSession.partialData = mergedSession.sessionData ? { ...mergedSession.sessionData } : {}
+                }
+
                 // Cache the new session with the actual reportId
                 globalSessionCache.set(actualReportId, mergedSession)
 
@@ -663,7 +759,7 @@ export class SessionService {
                   errorMessage.includes('limit') ||
                   errorMessage.includes('plan')
                 ) {
-                  logger.info('Session creation blocked by plan enforcement', {
+                  logger.warn('Session creation blocked by plan enforcement', {
                     reportId,
                     error: errorMessage,
                   })
@@ -763,7 +859,7 @@ export class SessionService {
             )
 
             if (hasBusinessCardData && hasCompanyName) {
-              logger.info('Business card data preserved in existing session', {
+              logger.debug('Business card data preserved in existing session', {
                 reportId,
                 company_name: (mergedSession.sessionData as any)?.company_name,
                 business_type_id: (mergedSession.sessionData as any)?.business_type_id,
@@ -771,7 +867,7 @@ export class SessionService {
                 country_code: (mergedSession.sessionData as any)?.country_code,
               })
             } else {
-              logger.warn('No business card data in existing session (or company_name is empty)', {
+              logger.debug('No business card data in existing session (or company_name is empty)', {
                 reportId,
                 hasSessionData: !!mergedSession.sessionData,
                 hasCompanyName,
@@ -786,7 +882,7 @@ export class SessionService {
               
               if (clientUserId) {
                 try {
-                  logger.info('Fetching business card data from database for client', {
+                  logger.debug('Fetching business card data from database for client', {
                     reportId,
                     clientUserId: clientUserId.substring(0, 8) + '...',
                   })
@@ -864,7 +960,7 @@ export class SessionService {
                       
                       // ✅ DIAGNOSTIC: Verify merge was successful
                       const mergedCompanyName = (mergedSession.sessionData as any)?.company_name
-                      logger.info('Business card data fetched and merged into session', {
+                      logger.debug('Business card data fetched and merged into session', {
                         reportId,
                         fieldsAdded: Object.keys(businessCardData),
                         company_name: businessCardData.company_name,
@@ -931,7 +1027,7 @@ export class SessionService {
             // Backend access check should work without headers if session has _client_context
             const clientContext = (mergedSession.sessionData as any)?._client_context
             if (clientContext?.client_user_id && clientContext?.accountant_user_id && clientContext?.relationship_id) {
-              logger.info('Session contains client context - backend should allow access via _client_context', {
+              logger.debug('Session contains client context - backend should allow access via _client_context', {
                 reportId,
                 clientUserId: clientContext.client_user_id.substring(0, 8) + '...',
                 accountantUserId: clientContext.accountant_user_id.substring(0, 8) + '...',
@@ -956,7 +1052,7 @@ export class SessionService {
 
             globalSessionCache.set(reportId, mergedSession)
 
-            logger.info('Session loaded from backend and cached', {
+            logger.debug('Session loaded from backend and cached', {
               reportId,
               currentView: mergedSession.currentView,
               hasPrefilledQuery: !!effectivePrefilledQuery,
@@ -1017,7 +1113,7 @@ export class SessionService {
       const duration = performance.now() - startTime
 
       if (session) {
-        logger.info('Session loaded successfully', {
+        logger.debug('Session loaded successfully', {
           reportId,
           duration_ms: duration.toFixed(2),
           fromCache: false,
@@ -1035,7 +1131,7 @@ export class SessionService {
 
       // Use instanceof checks for specific error handling
       if (error instanceof NotFoundError) {
-        logger.info('Session not found - returning null', {
+        logger.debug('Session not found - returning null', {
           reportId,
           resourceType: error.resourceType,
           duration_ms: duration.toFixed(2),
@@ -1091,14 +1187,14 @@ export class SessionService {
       const { pendingAssetSaves } = await import('../report/ReportService')
       const pendingSave = pendingAssetSaves.get(reportId)
       if (pendingSave) {
-        logger.info('Waiting for pending asset save before reloading session', {
+        logger.debug('Waiting for pending asset save before reloading session', {
           reportId,
           note: 'Preventing race condition - asset save must complete before session reload',
         })
         await pendingSave
       }
 
-      logger.info('Saving session', {
+      logger.debug('Saving session', {
         reportId,
         updateKeys: Object.keys(updates),
       })
@@ -1149,7 +1245,7 @@ export class SessionService {
 
           if (clientUserId) {
             try {
-              logger.info('Fetching business card data after save (company_name empty)', {
+              logger.debug('Fetching business card data after save (company_name empty)', {
                 reportId,
                 clientUserId: clientUserId.substring(0, 8) + '...',
               })
@@ -1210,7 +1306,7 @@ export class SessionService {
                     _client_context: clientContext,
                   } as any
 
-                  logger.info('Business card data fetched and merged after save', {
+                  logger.debug('Business card data fetched and merged after save', {
                     reportId,
                     fieldsAdded: Object.keys(businessCardData),
                     company_name: businessCardData.company_name,
@@ -1228,7 +1324,7 @@ export class SessionService {
         }
 
         if (hasBusinessCardData && hasCompanyName) {
-          logger.info('Business card data preserved after save', {
+          logger.debug('Business card data preserved after save', {
             reportId,
             company_name: (mergedSession.sessionData as any)?.company_name,
             business_type_id: (mergedSession.sessionData as any)?.business_type_id,
@@ -1275,7 +1371,7 @@ export class SessionService {
 
           reloadedSession = await this.loadSession(reportId)
           if (reloadedSession) {
-            logger.info('Session reloaded successfully after save', {
+            logger.debug('Session reloaded successfully after save', {
               reportId,
               attempt: attempt + 1,
               totalRetries: maxRetries,
@@ -1323,7 +1419,7 @@ export class SessionService {
 
       const duration = performance.now() - startTime
 
-      logger.info('Session saved successfully', {
+      logger.debug('Session saved successfully', {
         reportId,
         duration_ms: duration.toFixed(2),
       })
@@ -1400,7 +1496,7 @@ export class SessionService {
     const startTime = performance.now()
 
     try {
-      logger.info('Saving complete session', {
+      logger.debug('Saving complete session', {
         reportId,
         hasFormData: !!data.formData,
         hasResult: !!data.valuationResult,
@@ -1453,7 +1549,7 @@ export class SessionService {
           infoTabHtml: data.infoTabHtml,
         })
 
-        logger.info('Valuation result saved', {
+        logger.debug('Valuation result saved', {
           reportId,
           hasHtmlReport: !!data.htmlReport,
           hasInfoTab: !!data.infoTabHtml,
@@ -1475,7 +1571,7 @@ export class SessionService {
           // Cache the fresh session with all valuation data
           globalSessionCache.set(reportId, freshSession)
 
-          logger.info('Cache updated with fresh valuation data', {
+          logger.debug('Cache updated with fresh valuation data', {
             reportId,
             hasHtmlReport: !!freshSession.htmlReport,
             hasInfoTabHtml: !!freshSession.infoTabHtml,
@@ -1529,7 +1625,7 @@ export class SessionService {
               : undefined,
           })
 
-          logger.info('Report update broadcasted to Mercury', { reportId })
+          logger.debug('Report update broadcasted to Mercury', { reportId })
         } catch (broadcastError) {
           // Non-critical - don't fail the save if broadcast fails
           logger.warn('Failed to broadcast report update', {
@@ -1541,7 +1637,7 @@ export class SessionService {
 
       const duration = performance.now() - startTime
 
-      logger.info('Complete session saved successfully', {
+      logger.debug('Complete session saved successfully', {
         reportId,
         duration_ms: duration.toFixed(2),
       })
@@ -1627,7 +1723,7 @@ export class SessionService {
         )
 
         if (hasBusinessCardData && hasCompanyName) {
-          logger.info('Business card data preserved during background revalidation', {
+          logger.debug('Business card data preserved during background revalidation', {
             reportId,
             company_name: (mergedSession.sessionData as any)?.company_name,
             business_type_id: (mergedSession.sessionData as any)?.business_type_id,
@@ -1645,7 +1741,7 @@ export class SessionService {
         // Update cache with fresh data
         globalSessionCache.set(reportId, mergedSession)
 
-        logger.info('Cache revalidated in background', {
+        logger.debug('Cache revalidated in background', {
           reportId,
           hasHtmlReport: !!mergedSession.htmlReport,
           hasInfoTabHtml: !!mergedSession.infoTabHtml,

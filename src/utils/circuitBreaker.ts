@@ -87,7 +87,7 @@ export class CircuitBreaker {
     this.successThreshold = options.successThreshold ?? 2
     this.name = options.name ?? 'CircuitBreaker'
 
-    storeLogger.info('Circuit breaker initialized', {
+    storeLogger.debug('Circuit breaker initialized', {
       name: this.name,
       failureThreshold: this.failureThreshold,
       resetTimeout: this.resetTimeout,

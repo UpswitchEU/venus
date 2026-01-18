@@ -172,7 +172,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       set({ isLoading: true, error: null, isInitializing: true }) // ✅ NEW: Mark as initializing
 
       try {
-        storeLogger.info('[Session] Loading session', {
+        storeLogger.debug('[Session] Loading session', {
           reportId: expectedReportId,
           flow,
           prefilledQuery,
@@ -287,7 +287,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           // This ensures forms don't render until restoration completes
         })
 
-        storeLogger.info('[Session] Session loaded successfully', {
+        storeLogger.debug('[Session] Session loaded successfully', {
           reportId,
           currentView: session.currentView,
           hasSessionData: !!session.sessionData,
@@ -598,7 +598,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ isSaving: true, error: null })
 
     try {
-      storeLogger.info('[Session] Saving session', {
+      storeLogger.debug('[Session] Saving session', {
         reportId: state.session.reportId,
         reason,
         hadUnsavedChanges: hadUnsavedChangesBeforeSave,
@@ -614,7 +614,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         // ✅ DIAGNOSTIC: Verify business card data is in saved session
         const savedCompanyName = (savedSession.sessionData as any)?.company_name
         const hasSavedCompanyName = savedCompanyName && savedCompanyName.trim() !== ''
-        storeLogger.info('[Session] Updating store with saved session', {
+        storeLogger.debug('[Session] Updating store with saved session', {
           reportId: state.session.reportId,
           hasSavedSession: !!savedSession,
           savedCompanyName,

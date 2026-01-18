@@ -57,14 +57,15 @@ export function validateSessionData(session: any): asserts session is ValuationS
 
   // Initialize missing data objects (auto-fix instead of throwing)
   if (!session.partialData) {
-    validationLogger.warn('Session missing partialData, initializing empty', {
+    validationLogger.debug('Session missing partialData, initializing from session_data', {
       reportId: session.reportId,
     })
-    session.partialData = {}
+    // ✅ FIX: Initialize partialData from session_data if available
+    session.partialData = session.sessionData ? { ...session.sessionData } : {}
   }
 
   if (!session.sessionData) {
-    validationLogger.warn('Session missing sessionData, initializing empty', {
+    validationLogger.debug('Session missing sessionData, initializing empty', {
       reportId: session.reportId,
     })
     session.sessionData = {}
