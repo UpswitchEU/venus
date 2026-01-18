@@ -266,6 +266,36 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       let hasSessionData = false
       let formIsEmpty = true
 
+      // WORLD CLASS: Skip restoration if bootstrap has already prefilled the form
+      // Bootstrap prefill runs synchronously before render, so if form has meaningful data,
+      // we should NOT overwrite it with session restoration
+      // Check for bootstrap prefill indicators: company_name + other bootstrap fields
+      const hasCompanyName = currentFormData.company_name && currentFormData.company_name.trim() !== '';
+      const hasBootstrapFields = !!(currentFormData.kbo_number || 
+                                    currentFormData.business_type_id || 
+                                    currentFormData.founding_year ||
+                                    currentFormData.vat_number ||
+                                    currentFormData.legal_form);
+      const hasBootstrapPrefill = hasCompanyName && (hasBootstrapFields || bootstrapPrefillApplied);
+      
+      if (hasBootstrapPrefill) {
+        generalLogger.info('[ManualLayout] Skipping restoration - bootstrap already prefilled form', {
+          reportId,
+          bootstrapPrefilled: bootstrapPrefillApplied,
+          hasCompanyName,
+          hasBootstrapFields,
+          companyName: currentFormData.company_name?.substring(0, 30),
+          hasKboNumber: !!currentFormData.kbo_number,
+          hasBusinessTypeId: !!currentFormData.business_type_id,
+          hasFoundingYear: !!currentFormData.founding_year,
+          hasVatNumber: !!currentFormData.vat_number,
+          hasLegalForm: !!currentFormData.legal_form,
+          formDataKeys: Object.keys(currentFormData).filter(k => currentFormData[k as keyof typeof currentFormData]),
+        });
+        restorationRef.current.lastRestoredReportId = reportId;
+        return;
+      }
+
       // CRITICAL: Only restore if form is truly empty (no user input yet)
       // This prevents overwriting user input during active editing
       // Be very strict - only restore if form has NO meaningful data
@@ -816,7 +846,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       restorationRef.current.isRestoring = false
     }
-  }, [reportId]) // ONLY depend on reportId prop - this ensures effect only runs when navigating to a new report
+  }, [reportId, bootstrapPrefillApplied]) // Include bootstrapPrefillApplied to skip restoration if bootstrap already prefilled
 
   // ✅ FIX: Subscribe to session to detect when HTML reports are added
   // This handles the case where HTML reports are loaded after initial restoration

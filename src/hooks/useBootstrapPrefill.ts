@@ -45,11 +45,21 @@ export function useBootstrapPrefill(): {
   useLayoutEffect(() => {
     // Skip if no bootstrap context
     if (!bootstrap) {
+      logger.debug('Bootstrap context not available yet');
       return;
     }
     
     // Skip if still bootstrapping
     if (bootstrap.isBootstrapping) {
+      logger.debug('Bootstrap still in progress, waiting...');
+      return;
+    }
+    
+    // Skip if bootstrap failed
+    if (bootstrap.bootstrapError) {
+      logger.warn('Bootstrap failed, skipping prefill', {
+        error: bootstrap.bootstrapError,
+      });
       return;
     }
     
@@ -84,6 +94,9 @@ export function useBootstrapPrefill(): {
     // Apply prefill data to form SYNCHRONOUSLY
     applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard);
     
+    // Verify form data was actually set (read immediately after update)
+    const formDataAfterPrefill = formStore.getState().formData;
+    
     // Mark as prefilled globally and locally
     globalPrefillApplied = true;
     globalPrefillReportId = currentReportId;
@@ -97,6 +110,14 @@ export function useBootstrapPrefill(): {
       fieldsRemaining: prefillData.fieldsRemaining.length,
       hasKboData: !!prefillData.kboData,
       companyName: prefillData.companyInfo?.companyName?.substring(0, 20),
+      // Verify form data was set
+      formDataAfterPrefill: {
+        company_name: formDataAfterPrefill.company_name?.substring(0, 30),
+        hasKboNumber: !!formDataAfterPrefill.kbo_number,
+        hasBusinessTypeId: !!formDataAfterPrefill.business_type_id,
+        hasFoundingYear: !!formDataAfterPrefill.founding_year,
+        hasBusinessContext: !!formDataAfterPrefill.business_context,
+      },
     });
   }, [bootstrap, formStore]);
   
@@ -128,12 +149,29 @@ function applyPrefillToForm(
 ): void {
   const { companyInfo, financials, businessType, kboData } = prefillData;
   
+  // CRITICAL LOGGING: Log what we received from bootstrap
+  logger.debug('applyPrefillToForm called', {
+    hasCompanyInfo: !!companyInfo,
+    companyInfoCompanyName: companyInfo?.companyName?.substring(0, 30),
+    hasKboData: !!kboData,
+    kboDataCompanyName: kboData?.companyName?.substring(0, 30),
+    hasBusinessType: !!businessType,
+    sources: prefillData.sources,
+  });
+  
   // Collect ALL data to apply in a single update for consistency
   const allData: Record<string, any> = {};
   
-  // 1. Apply company info
+  // 1. Apply company info (priority: companyInfo > kboData)
   if (companyInfo) {
-    if (companyInfo.companyName) allData.company_name = companyInfo.companyName;
+    // CRITICAL FIX: Only set company_name if it's a non-empty string
+    // Empty strings mean "no data available" and should be ignored
+    if (companyInfo.companyName && companyInfo.companyName.trim() !== '') {
+      allData.company_name = companyInfo.companyName;
+      logger.debug('Set company_name from companyInfo', {
+        company_name: companyInfo.companyName.substring(0, 30),
+      });
+    }
     if (companyInfo.countryCode) allData.country_code = companyInfo.countryCode;
     if (companyInfo.foundingYear) allData.founding_year = companyInfo.foundingYear;
     if (companyInfo.city) allData.city = companyInfo.city;
@@ -157,7 +195,13 @@ function applyPrefillToForm(
     if (kboData.postalCode && !allData.postal_code) allData.postal_code = kboData.postalCode;
     if (kboData.naceCode && !allData.nace_code) allData.nace_code = kboData.naceCode;
     if (kboData.naceDescription && !allData.nace_description) allData.nace_description = kboData.naceDescription;
-    if (kboData.companyName && !allData.company_name) allData.company_name = kboData.companyName;
+    // CRITICAL FIX: Only use kboData.companyName if it's non-empty and we don't already have one
+    if (kboData.companyName && kboData.companyName.trim() !== '' && !allData.company_name) {
+      allData.company_name = kboData.companyName;
+      logger.debug('Set company_name from kboData', {
+        company_name: kboData.companyName.substring(0, 30),
+      });
+    }
     if (kboData.countryCode && !allData.country_code) allData.country_code = kboData.countryCode;
     
     // Store KBO verification status in business_context for the preview card
@@ -186,11 +230,32 @@ function applyPrefillToForm(
     if (businessType.category) allData.subIndustry = businessType.category;
   }
   
-  // Apply all data in a single update
+  // CRITICAL: Ensure company_name is set from either companyInfo or kboData
+  // This is the most important field and must be set
+  // Only use non-empty strings - empty strings mean "no data available"
+  if (!allData.company_name || allData.company_name.trim() === '') {
+    // Try to get company name from kboData if companyInfo doesn't have it
+    if (kboData?.companyName && kboData.companyName.trim() !== '') {
+      allData.company_name = kboData.companyName;
+      logger.debug('Using company_name from kboData (fallback)', {
+        company_name: kboData.companyName.substring(0, 30),
+      });
+    } else {
+      logger.warn('No company_name available from bootstrap prefill', {
+        hasCompanyInfo: !!companyInfo,
+        companyInfoCompanyName: companyInfo?.companyName,
+        hasKboData: !!kboData,
+        kboDataCompanyName: kboData?.companyName,
+      });
+    }
+  }
+  
+  // Apply all data in a single update FIRST
   if (Object.keys(allData).length > 0) {
     logger.debug('Applying prefill data to form', {
       fieldsCount: Object.keys(allData).length,
       fields: Object.keys(allData),
+      company_name: allData.company_name?.substring(0, 30),
       hasKboNumber: !!allData.kbo_number,
       hasBusinessContext: !!allData.business_context,
     });
@@ -200,9 +265,26 @@ function applyPrefillToForm(
   
   // ALSO use prefillFromBusinessCard for industry/business_model mapping
   // This ensures proper mapping of business type to industry codes
-  if (companyInfo?.companyName) {
-    const businessCard = buildBusinessCard(companyInfo, financials, businessType);
+  // CRITICAL: Only call if we have a non-empty company name to avoid overwriting with empty value
+  const finalCompanyName = allData.company_name || companyInfo?.companyName || kboData?.companyName;
+  if (finalCompanyName && finalCompanyName.trim() !== '') {
+    // Build business card with the final company name (from allData if set)
+    const businessCard = buildBusinessCard(
+      { ...companyInfo, companyName: finalCompanyName } as CompanyInfo,
+      financials,
+      businessType
+    );
     prefillFromBusinessCard(businessCard);
+    logger.debug('Called prefillFromBusinessCard', {
+      company_name: finalCompanyName.substring(0, 30),
+    });
+  } else {
+    logger.warn('Skipping prefillFromBusinessCard - no company name available', {
+      hasCompanyInfo: !!companyInfo,
+      hasKboData: !!kboData,
+      companyInfoCompanyName: companyInfo?.companyName?.substring(0, 20),
+      kboDataCompanyName: kboData?.companyName?.substring(0, 20),
+    });
   }
 }
 
