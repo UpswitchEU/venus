@@ -65,8 +65,15 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const bootstrap = useBootstrapSafe()
     const isBootstrapping = bootstrap?.isBootstrapping ?? false
     const bootstrapReportId = bootstrap?.report.reportId
-    const bootstrapHasSession = bootstrap && 
+    const bootstrapComplete = bootstrap?.bootstrapComplete ?? false
+    const bootstrapHasExistingSession = bootstrap && 
       bootstrap.report.mode === 'existing' && 
+      bootstrap.report.reportId === reportId
+    // CRITICAL FIX: For new reports, bootstrap provides the reportId but session doesn't exist yet
+    // Skip loading to avoid 404 errors - session will be created lazily on first save
+    const bootstrapHasNewReport = bootstrap && 
+      bootstrapComplete &&
+      bootstrap.report.mode === 'new' && 
       bootstrap.report.reportId === reportId
 
     // ROOT CAUSE FIX: Subscribe to specific values, not entire store
@@ -140,11 +147,26 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
       // If bootstrap already resolved this session, session store should be synced
       // by useBootstrapSync hook - we can skip redundant API call
-      if (bootstrapHasSession && session?.reportId === reportId) {
+      if (bootstrapHasExistingSession && session?.reportId === reportId) {
         generalLogger.debug('[SessionManager] Session already loaded via bootstrap', {
           reportId,
           bootstrapReportId,
         })
+        return
+      }
+
+      // CRITICAL FIX: For new reports, bootstrap provides the reportId but session doesn't exist yet
+      // Skip loading to avoid 404 errors - session will be created lazily on first save
+      // The prefill data is already applied by useBootstrapPrefill hook
+      if (bootstrapHasNewReport) {
+        generalLogger.debug('[SessionManager] New report from bootstrap - skipping load, session will be created on first save', {
+          reportId,
+          bootstrapReportId,
+          bootstrapMode: bootstrap?.report.mode,
+        })
+        // Mark initialization as complete since bootstrap has provided all necessary data
+        // The session will be created automatically when the user first saves
+        useSessionStore.getState().completeInitialization()
         return
       }
 

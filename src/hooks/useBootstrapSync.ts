@@ -169,23 +169,38 @@ function syncSession(state: SessionBootstrapState): void {
         }
       }
     } else if (report.mode === 'new') {
-      // CRITICAL: Do NOT create optimistic sessions for new reports
-      // 
-      // Previous implementation caused race conditions:
-      // 1. useBootstrapSync runs in child component (ValuationReport)
-      // 2. Creates optimistic session with bootstrap's reportId
-      // 3. loadSession runs later in parent (ValuationSessionManager)
-      // 4. If bootstrap returned wrong reportId, session gets created with wrong ID
-      //
-      // The normal loadSession flow handles new session creation correctly.
-      // Bootstrap's prefill data will be applied by useBootstrapPrefill hook instead.
-      //
-      // Commenting out optimistic session creation to fix the race condition:
-      logger.debug('New report - skipping optimistic session, letting loadSession handle it', {
-        reportId: report.reportId.substring(0, 20),
-        prefillConfidence: prefillData.confidence.toFixed(2),
-        hasCompanyName: !!prefillData.companyInfo?.companyName,
-      });
+      // CRITICAL FIX: Create minimal session for new reports so form can render
+      // This avoids 404 errors when SessionManager tries to load a non-existent session
+      // The session will be created on the backend when the user first saves
+      // We mark it with _bootstrapCreated: true to indicate it hasn't been saved yet
+      if (!storeHasSession) {
+        const now = new Date();
+        const minimalSession = {
+          reportId: report.reportId,
+          currentView: 'manual' as const,
+          dataSource: 'manual' as const,
+          createdAt: now,
+          updatedAt: now,
+          partialData: {},
+          sessionData: {
+            _bootstrapCreated: true, // Flag to indicate this is a bootstrap-created session
+            _bootstrapPrefill: true, // Flag to indicate prefill data is available
+          },
+        };
+        
+        sessionStore.updateSession(minimalSession);
+        
+        logger.info('Created minimal session for new report from bootstrap', {
+          reportId: report.reportId.substring(0, 20),
+          prefillConfidence: prefillData.confidence.toFixed(2),
+          hasCompanyName: !!prefillData.companyInfo?.companyName,
+          note: 'Session will be created on backend when user first saves',
+        });
+      } else {
+        logger.debug('New report - session already exists in store', {
+          reportId: report.reportId.substring(0, 20),
+        });
+      }
     } else {
       logger.debug('Bootstrap has existing report but store is empty, waiting for API load', {
         bootstrapReportId: report.reportId.substring(0, 20),

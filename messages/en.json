@@ -448,7 +448,8 @@
     },
     "toolbar": {
       "backToDashboard": "Back to Dashboard",
-      "backToClient": "Back to Client"
+      "backToClient": "Back to Client",
+      "selectVersion": "Select version"
     }
   },
   "reports": {
