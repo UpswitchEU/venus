@@ -188,6 +188,25 @@ function applyPrefillToForm(
     if (companyInfo.vatNumber) allData.vat_number = companyInfo.vatNumber;
     if (companyInfo.naceCode) allData.nace_code = companyInfo.naceCode;
     if (companyInfo.naceDescription) allData.nace_description = companyInfo.naceDescription;
+    
+    // CRITICAL FIX: Set business_context from companyInfo if it has KBO data
+    // This ensures the KBO confirmation box shows even when data comes from companyInfo (not kboData)
+    if (companyInfo.kboNumber) {
+      allData.business_context = {
+        ...(allData.business_context || {}), // Preserve existing business_context if any
+        kbo_registration: companyInfo.kboNumber,
+        kbo_registration_number: companyInfo.kboNumber,
+        legal_form: companyInfo.legalForm || allData.business_context?.legal_form,
+        company_id: companyInfo.kboNumber, // Use KBO number as company ID
+        company_address: [companyInfo.postalCode, companyInfo.city].filter(Boolean).join(' ') || allData.business_context?.company_address,
+        company_status: 'Active',
+        kbo_verified: true, // Flag that KBO was verified
+      };
+      logger.debug('Set business_context from companyInfo KBO data', {
+        kbo_registration: companyInfo.kboNumber,
+        legal_form: companyInfo.legalForm,
+      });
+    }
   }
   
   // 2. Apply KBO data (may have additional fields not in companyInfo)
@@ -210,14 +229,21 @@ function applyPrefillToForm(
     if (kboData.countryCode && !allData.country_code) allData.country_code = kboData.countryCode;
     
     // Store KBO verification status in business_context for the preview card
+    // CRITICAL FIX: Merge with existing business_context if it was set from companyInfo
     allData.business_context = {
-      kbo_registration: kboData.kboNumber,
-      kbo_registration_number: kboData.kboNumber,
-      legal_form: kboData.legalForm,
-      company_status: kboData.status || 'Active',
-      company_address: [kboData.postalCode, kboData.city].filter(Boolean).join(' '),
+      ...(allData.business_context || {}), // Preserve existing business_context
+      kbo_registration: kboData.kboNumber || allData.business_context?.kbo_registration,
+      kbo_registration_number: kboData.kboNumber || allData.business_context?.kbo_registration_number,
+      legal_form: kboData.legalForm || allData.business_context?.legal_form,
+      company_id: kboData.kboNumber || allData.business_context?.company_id,
+      company_status: kboData.status || allData.business_context?.company_status || 'Active',
+      company_address: [kboData.postalCode, kboData.city].filter(Boolean).join(' ') || allData.business_context?.company_address,
       kbo_verified: true, // Flag that KBO was verified
     };
+    logger.debug('Set business_context from kboData', {
+      kbo_registration: kboData.kboNumber,
+      legal_form: kboData.legalForm,
+    });
   }
   
   // 3. Apply financials
@@ -262,7 +288,13 @@ function applyPrefillToForm(
       fields: Object.keys(allData),
       company_name: allData.company_name?.substring(0, 30),
       hasKboNumber: !!allData.kbo_number,
+      kboNumber: allData.kbo_number,
       hasBusinessContext: !!allData.business_context,
+      businessContextKboRegistration: allData.business_context?.kbo_registration,
+      businessContextKboRegistrationNumber: allData.business_context?.kbo_registration_number,
+      businessContextLegalForm: allData.business_context?.legal_form,
+      businessContextKboVerified: allData.business_context?.kbo_verified,
+      businessContextCompanyId: allData.business_context?.company_id,
     });
     
     updateFormData(allData);
