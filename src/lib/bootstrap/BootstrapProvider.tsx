@@ -229,25 +229,51 @@ export function BootstrapProvider({
     }
     
     if (autoBootstrap) {
-      // ✅ CRITICAL FIX: If clientToken is present, wait for client context to be initialized
+      // ✅ CRITICAL FIX: If clientToken is present in URL, wait for client context to be initialized
       // This ensures bootstrap has access to client context headers
-      const hasClientToken = context?.clientToken || 
-        (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('clientToken'));
+      // NOTE: We only wait if clientToken is in URL, not if it's in localStorage (existing session)
+      const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const hasClientTokenInUrl = context?.clientToken || urlParams?.get('clientToken');
       
-      if (hasClientToken) {
-        // ✅ SENIOR CTO FIX: Wait for client context promise instead of polling
-        // This eliminates race conditions by using the actual promise from auth.ts
-        // No polling, no timeouts - pure promise-based synchronization
+      if (hasClientTokenInUrl) {
+        // ✅ CRITICAL FIX: Wait for client context with timeout to prevent infinite hanging
+        // If client context exchange takes too long, proceed anyway - Titan bootstrap can handle clientToken
         const waitForClientContext = async () => {
           try {
             // Import waitForClientContext from auth.ts - uses the actual promise
             const { waitForClientContext } = await import('../auth');
-            await waitForClientContext();
+            
+            // ✅ FIX: Add timeout to prevent infinite waiting
+            // If client context exchange hangs, proceed after 5 seconds
+            const timeoutPromise = new Promise<void>((resolve) => {
+              setTimeout(() => {
+                console.warn('[BootstrapProvider] Client context wait timeout (5s), proceeding with bootstrap');
+                resolve();
+              }, 5000); // 5 second timeout - increased from 3s
+            });
+            
+            // Race between client context promise and timeout
+            await Promise.race([
+              waitForClientContext().catch((error) => {
+                // If promise rejects, log but don't throw - we'll proceed anyway
+                console.warn('[BootstrapProvider] Client context promise rejected, proceeding', error);
+              }),
+              timeoutPromise,
+            ]);
             
             // Verify context is actually set before proceeding
             const { useClientContext } = await import('../../stores/clientContext');
             const clientContextState = useClientContext.getState();
-            
+
+            console.log('[BootstrapProvider] Checking client context state after wait', {
+              isActingAsClient: clientContextState.isActingAsClient,
+              hasClient: !!clientContextState.client,
+              hasAccountant: !!clientContextState.accountant,
+              hasRelationshipId: !!clientContextState.relationshipId,
+              clientId: clientContextState.client?.id?.substring(0, 8) + '...' || 'none',
+              accountantId: clientContextState.accountant?.id?.substring(0, 8) + '...' || 'none',
+            });
+
             if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
               console.log('[BootstrapProvider] Client context ready, starting bootstrap', {
                 clientUserId: clientContextState.client.id.substring(0, 8) + '...',
@@ -256,7 +282,11 @@ export function BootstrapProvider({
             } else {
               // Context exchange completed but context not set - start bootstrap anyway
               // Titan bootstrap will handle clientToken from request body
-              console.warn('[BootstrapProvider] Client context exchange completed but context not in store, starting bootstrap');
+              console.warn('[BootstrapProvider] Client context exchange completed but context not fully established, starting bootstrap anyway', {
+                reason: !clientContextState.isActingAsClient ? 'not acting as client' :
+                       !clientContextState.client ? 'missing client' :
+                       !clientContextState.accountant ? 'missing accountant' : 'unknown',
+              });
               runBootstrap();
             }
           } catch (error) {

@@ -105,7 +105,12 @@ export const useClientContext = create<ClientContextState>()(
 
         // Validate context structure
         if (!state.accountant?.id || !state.client?.id || !state.relationshipId) {
-          console.warn('[ClientContext] Invalid context structure, clearing')
+          console.warn('[ClientContext] Invalid context structure, clearing', {
+            hasAccountant: !!state.accountant?.id,
+            hasClient: !!state.client?.id,
+            hasRelationshipId: !!state.relationshipId,
+            contextAge: state.lastValidatedAt ? Date.now() - state.lastValidatedAt : 'never',
+          })
           get().clearClientContext()
           return false
         }
@@ -161,15 +166,24 @@ export const useClientContext = create<ClientContextState>()(
           
           // Subscribe to auth state changes to validate context when user is authenticated
           // This approach is non-blocking and handles the accountant → client context flow gracefully
-          const unsubscribe = useAuthStore.subscribe((authState) => {
+          const unsubscribe = useAuthStore.subscribe(async (authState) => {
             if (authState.user && state.isActingAsClient) {
-              // User authenticated - validate context structure
-              console.log('[ClientContext] Auth confirmed, validating context')
-              state.validateContext().catch((error) => {
-                console.warn('[ClientContext] Validation failed after auth', error)
+              // User authenticated - wait for client context exchange to complete before validating
+              // This prevents race condition where validation runs before context is fully established
+              try {
+                const { waitForClientContext } = await import('../lib/auth')
+                await waitForClientContext()
+                console.log('[ClientContext] Auth confirmed and context exchange complete, validating context')
+                const isValid = await state.validateContext()
+                if (!isValid) {
+                  console.warn('[ClientContext] Validation failed after auth')
+                  state.clearClientContext()
+                }
+              } catch (error) {
+                console.warn('[ClientContext] Validation or context exchange failed after auth', error)
                 // Only clear on validation failure, not auth timing
                 state.clearClientContext()
-              })
+              }
               // Unsubscribe after first validation
               unsubscribe()
             }
