@@ -1,31 +1,112 @@
 /**
  * Formatting Utilities
  *
- * Utilities for formatting currency, numbers, and version labels
+ * Utilities for formatting currency, numbers, and version labels.
+ * Updated to support bank-grade decimal precision from API.
  *
  * @module utils/formatters
  */
 
 import type { ValuationVersion } from '../types/ValuationVersion'
+import { type DecimalInput, parseDecimal, toNumber } from './decimal'
+
+/**
+ * Input type for formatting functions.
+ * Supports both new string format (bank-grade precision) and legacy number format.
+ */
+export type FormattableValue = DecimalInput
 
 /**
  * Format currency with M/K suffixes
- * @example formatCurrency(2400000) => "€2.4M"
- * @example formatCurrency(450000) => "€450K"
- * @example formatCurrency(5000) => "€5K"
- * @example formatCurrency(undefined) => "N/A"
+ * Supports both string (new API format) and number (legacy format) inputs.
+ *
+ * @param value - The value to format (string, number, Decimal, null, or undefined)
+ * @returns Formatted currency string
+ *
+ * @example
+ * formatCurrency("2400000")    // "€2.4M"
+ * formatCurrency(2400000)      // "€2.4M"
+ * formatCurrency("450000")     // "€450K"
+ * formatCurrency("5000")       // "€5K"
+ * formatCurrency(undefined)    // "N/A"
  */
-export function formatCurrency(value: number | undefined | null): string {
-  if (value === undefined || value === null || isNaN(value)) {
+export function formatCurrency(value: FormattableValue): string {
+  if (value === undefined || value === null) {
     return 'N/A'
   }
 
-  if (value >= 1000000) {
-    return `€${(value / 1000000).toFixed(1)}M`
-  } else if (value >= 1000) {
-    return `€${(value / 1000).toFixed(0)}K`
+  // Parse to Decimal for precision, then convert to number for formatting
+  const decimal = parseDecimal(value)
+  const numValue = toNumber(decimal)
+
+  // Check for NaN
+  if (Number.isNaN(numValue)) {
+    return 'N/A'
   }
-  return `€${value.toFixed(0)}`
+
+  if (numValue >= 1000000) {
+    return `€${(numValue / 1000000).toFixed(1)}M`
+  }
+  if (numValue >= 1000) {
+    return `€${(numValue / 1000).toFixed(0)}K`
+  }
+  return `€${numValue.toFixed(0)}`
+}
+
+/**
+ * Format a value as percentage
+ * Supports both string (new API format) and number (legacy format) inputs.
+ *
+ * @param value - The value (0-1 or 0-100, as string or number)
+ * @param decimals - Number of decimal places (default: 1)
+ * @returns Formatted percentage string
+ *
+ * @example
+ * formatPercentage("0.85")     // "85.0%"
+ * formatPercentage(0.85)       // "85.0%"
+ * formatPercentage("85")       // "85.0%"
+ * formatPercentage(null)       // "0%"
+ */
+export function formatPercentage(value: FormattableValue, decimals = 1): string {
+  if (value === undefined || value === null) {
+    return '0%'
+  }
+
+  // Parse to Decimal for precision, then convert to number
+  const decimal = parseDecimal(value)
+  const numValue = toNumber(decimal)
+
+  // If value is between -1 and 1, assume it's a decimal (0.85 = 85%)
+  const percentValue = numValue >= -1 && numValue <= 1 ? numValue * 100 : numValue
+  return `${percentValue.toFixed(decimals)}%`
+}
+
+/**
+ * Format a value with thousand separators
+ * Supports both string (new API format) and number (legacy format) inputs.
+ *
+ * @param value - The value to format (string, number, Decimal, null, or undefined)
+ * @param decimals - Number of decimal places (default: 0)
+ * @returns Formatted number string
+ *
+ * @example
+ * formatNumber("1234567.89")   // "1.234.568"
+ * formatNumber(1234567.89)     // "1.234.568"
+ * formatNumber("1234567.89", 2) // "1.234.567,89"
+ */
+export function formatNumber(value: FormattableValue, decimals = 0): string {
+  if (value === undefined || value === null) {
+    return '0'
+  }
+
+  // Parse to Decimal for precision, then convert to number for formatting
+  const decimal = parseDecimal(value)
+  const numValue = toNumber(decimal)
+
+  return new Intl.NumberFormat('nl-NL', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(numValue)
 }
 
 /**
@@ -53,6 +134,7 @@ export function formatVersionLabel(version: ValuationVersion): string {
     return 'Pending calculation'
   }
 
+  // Use formatCurrency which now handles both string and number inputs
   const low = formatCurrency(result.equity_value_low)
   const high = formatCurrency(result.equity_value_high)
   const asking = formatCurrency(result.recommended_asking_price)

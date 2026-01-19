@@ -31,6 +31,22 @@ export function isNumber(value: unknown): value is number {
 }
 
 /**
+ * Check if value is an ApiNumeric (string or number) from the API.
+ * The Python backend now sends Decimal values as strings for bank-grade precision.
+ */
+export function isApiNumeric(value: unknown): value is string | number {
+  if (typeof value === 'number' && !isNaN(value)) {
+    return true
+  }
+  if (typeof value === 'string') {
+    // Check if it's a valid numeric string
+    const parsed = parseFloat(value)
+    return !isNaN(parsed)
+  }
+  return false
+}
+
+/**
  * Check if value is a boolean
  */
 export function isBoolean(value: unknown): value is boolean {
@@ -94,10 +110,11 @@ export function isValuationResponse(value: unknown): value is ValuationResponse 
   if (!hasProperties(value, required)) return false
 
   // Validate types
+  // BANK-GRADE: Accept both string and number for precision values from API
   if (!isString(value.valuation_id)) return false
-  if (!isNumber(value.equity_value_mid)) return false
+  if (!isApiNumeric(value.equity_value_mid)) return false
   if (!isString(value.methodology)) return false
-  if (!isNumber(value.confidence_score)) return false
+  if (!isApiNumeric(value.confidence_score)) return false
 
   return true
 }

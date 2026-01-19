@@ -33,6 +33,7 @@
     "@tailwindcss/forms": "^0.5.10",
     "@types/dompurify": "^3.0.5",
     "axios": "^1.6.8",
+    "decimal.js": "^10.4.3",
     "dompurify": "^3.3.0",
     "eventsource": "^4.0.0",
     "framer-motion": "^12.23.12",

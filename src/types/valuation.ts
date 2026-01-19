@@ -1,5 +1,22 @@
 // Valuation Engine API Types
 
+// =============================================================================
+// DECIMAL PRECISION TYPES
+// =============================================================================
+
+/**
+ * Numeric value from API - may be string (new bank-grade format) or number (legacy format).
+ *
+ * The Python backend now serializes Decimal values as strings to preserve full precision.
+ * Use parseDecimal() from utils/decimal to convert to Decimal for calculations.
+ * Use formatCurrency() or formatNumber() from utils/formatters for display.
+ *
+ * @example
+ * // New format (string): "1234567.89"
+ * // Legacy format (number): 1234567.89
+ */
+export type ApiNumeric = string | number
+
 // Enums matching backend
 export enum IndustryCode {
   TECHNOLOGY = 'technology',
@@ -674,17 +691,23 @@ export interface ValuationResponse {
   valuation_date?: string
   creditsRemaining?: number // Added for backend credit synchronization
 
-  // Final results
-  equity_value_low: number
-  equity_value_mid: number
-  equity_value_high: number
+  // Final results - API returns as string for bank-grade precision
+  /** Equity value (low estimate) - API returns as string for precision */
+  equity_value_low: ApiNumeric
+  /** Equity value (mid estimate) - API returns as string for precision */
+  equity_value_mid: ApiNumeric
+  /** Equity value (high estimate) - API returns as string for precision */
+  equity_value_high: ApiNumeric
   range_methodology?: 'multiple_dispersion' | 'confidence_spread' // Methodology used for range calculation
-  recommended_asking_price: number
+  /** Recommended asking price - API returns as string for precision */
+  recommended_asking_price: ApiNumeric
 
-  // Confidence (multiple formats for compatibility)
-  confidence_score: number
+  // Confidence (multiple formats for compatibility) - API returns as string for precision
+  /** Confidence score (0-1) - API returns as string for precision */
+  confidence_score: ApiNumeric
   overall_confidence: string
-  confidence?: number // Alias for confidence_score
+  /** Alias for confidence_score - API returns as string for precision */
+  confidence?: ApiNumeric // Alias for confidence_score
 
   // Validation warnings (from backend sanity checks)
   validation_warnings?: ValidationWarning[]
@@ -723,7 +746,8 @@ export interface ValuationResponse {
     key_risks: string[]
     recommendations: string[]
   }
-  owner_dependency_adjustment?: number
+  /** Owner dependency adjustment - API returns as string for precision */
+  owner_dependency_adjustment?: ApiNumeric
 
   // Methodology
   primary_method?: string
@@ -731,9 +755,11 @@ export interface ValuationResponse {
   methodology_notes?: string
   valuation_summary?: string
 
-  // Weights
-  dcf_weight: number
-  multiples_weight: number
+  // Weights - API returns as string for precision
+  /** DCF methodology weight - API returns as string for precision */
+  dcf_weight: ApiNumeric
+  /** Multiples methodology weight - API returns as string for precision */
+  multiples_weight: ApiNumeric
 
   // DCF Valuation (detailed breakdown from API)
   dcf_valuation?: {
