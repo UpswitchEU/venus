@@ -46,6 +46,10 @@ interface ManualLayoutProps {
   initialVersion?: number
   /** Initial mode (edit/view) */
   initialMode?: 'edit' | 'view'
+  /** Initial tab to display (for Mercury integration - 'info' shows breakdown) */
+  initialTab?: 'preview' | 'info' | 'history'
+  /** URL action parameter (e.g., 'download' to trigger PDF download on load) */
+  urlAction?: string
 }
 
 /**
@@ -60,6 +64,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   onComplete,
   initialVersion,
   initialMode = 'edit',
+  initialTab = 'preview',
+  urlAction,
 }) => {
   // EMERGENCY: Render loop detector to prevent tab freeze
   const renderCountRef = useRef(0)
@@ -1195,6 +1201,29 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     handleOpenFullscreen: handleHookOpenFullscreen,
     handleCloseFullscreen: handleHookCloseFullscreen,
   } = useValuationToolbarFullscreen()
+
+  // ✅ Mercury Integration: Set initial tab from URL parameter (e.g., tab=info for "View Breakdown")
+  const hasInitialTabBeenSet = React.useRef(false)
+  useEffect(() => {
+    if (!hasInitialTabBeenSet.current && initialTab && initialTab !== 'preview') {
+      console.log('[ManualLayout] Setting initial tab from URL:', initialTab)
+      handleHookTabChange(initialTab)
+      hasInitialTabBeenSet.current = true
+    }
+  }, [initialTab, handleHookTabChange])
+
+  // ✅ Mercury Integration: Handle URL action parameter (e.g., action=download for PDF download)
+  const hasActionBeenTriggered = React.useRef(false)
+  useEffect(() => {
+    if (!hasActionBeenTriggered.current && urlAction === 'download' && result) {
+      console.log('[ManualLayout] Triggering PDF download from URL action')
+      hasActionBeenTriggered.current = true
+      // Small delay to ensure the UI is ready
+      setTimeout(() => {
+        handleDownload()
+      }, 500)
+    }
+  }, [urlAction, result, handleDownload])
 
   // Handle valuation completion when result changes
   useEffect(() => {

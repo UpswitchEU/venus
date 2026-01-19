@@ -37,6 +37,10 @@ const ValuationSessionManager = React.lazy(() =>
  * - Supports version selection
  * - Always editable by default (M&A requirement)
  * - World-class URL state management
+ *
+ * URL Action Parameters (for Mercury integration):
+ * - action=download: Trigger PDF download after report loads
+ * - tab=info: Start with info tab instead of preview
  */
 interface ValuationReportProps {
   reportId: string
@@ -44,7 +48,7 @@ interface ValuationReportProps {
   initialMode?: 'edit' | 'view'
   /** Initial version number to load */
   initialVersion?: number
-  /** URL parameters for context (clientToken, return_url, etc.) */
+  /** URL parameters for context (clientToken, return_url, action, tab, etc.) */
   urlParams?: Record<string, string | undefined>
 }
 
@@ -56,6 +60,19 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     urlParams = {},
   }) => {
     const router = useRouter()
+
+    // Extract URL action and tab parameters (for Mercury integration)
+    const urlAction = urlParams.action || undefined
+    const initialTab = React.useMemo(() => {
+      // Check tab query param first
+      if (urlParams.tab === 'info') return 'info' as const
+      if (urlParams.tab === 'history') return 'history' as const
+      // Check URL hash for #info-tab
+      if (typeof window !== 'undefined' && window.location.hash === '#info-tab') {
+        return 'info' as const
+      }
+      return 'preview' as const
+    }, [urlParams.tab])
 
     // Bootstrap sync - syncs bootstrap state with existing stores
     // This ensures auth, session, and prefill data are available in stores
@@ -205,6 +222,8 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                 onRetry={onRetry}
                 onStartOver={onStartOver}
                 reportId={reportId}
+                initialTab={initialTab}
+                urlAction={urlAction}
               />
             )}
           </ValuationSessionManager>

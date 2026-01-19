@@ -49,6 +49,10 @@ interface ValuationFlowSelectorProps {
   onStartOver?: () => void
   /** Report ID for optimistic rendering (when session not loaded yet) */
   reportId: string
+  /** Initial tab to display (for Mercury integration - 'info' shows breakdown) */
+  initialTab?: 'preview' | 'info' | 'history'
+  /** URL action parameter (e.g., 'download' to trigger PDF download) */
+  urlAction?: string
 }
 
 // Lazy load unified flow component (Next.js compatible)
@@ -143,6 +147,8 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     onRetry,
     onStartOver,
     reportId,
+    initialTab = 'preview',
+    urlAction,
   }) => {
     // Debug logging to understand rendering
     useEffect(() => {
@@ -259,6 +265,8 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 autoSend={autoSend}
                 initialMode={initialMode}
                 initialVersion={initialVersion}
+                initialTab={initialTab}
+                urlAction={urlAction}
               />
             </Suspense>
           </div>

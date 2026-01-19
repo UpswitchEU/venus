@@ -29,6 +29,10 @@ interface ValuationFlowProps {
   initialMode?: 'edit' | 'view'
   /** Initial version number to load */
   initialVersion?: number
+  /** Initial tab to display (for Mercury integration) */
+  initialTab?: 'preview' | 'info' | 'history'
+  /** URL action parameter (e.g., 'download' to trigger PDF download) */
+  urlAction?: string
 }
 
 // Lazy load flow components
@@ -58,6 +62,8 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   autoSend = false,
   initialMode,
   initialVersion,
+  initialTab = 'preview',
+  urlAction,
 }) => {
   if (flowType === 'conversational') {
     return (
@@ -75,6 +81,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   }
 
   // Manual flow - render 2-panel layout with form and report preview
+  // Pass initialTab and urlAction for Mercury integration (View Breakdown, Download PDF)
   return (
     <Suspense fallback={<LoadingState steps={GENERATION_STEPS} variant="dark" />}>
       <ManualLayout
@@ -82,6 +89,8 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
         onComplete={onComplete}
         initialVersion={initialVersion}
         initialMode={initialMode}
+        initialTab={initialTab}
+        urlAction={urlAction}
       />
     </Suspense>
   )

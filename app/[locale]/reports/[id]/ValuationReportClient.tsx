@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { ValuationReport } from '../../../../src/components/ValuationReport'
 import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
 import { BootstrapProvider, type BootstrapContext, type FlowType } from '../../../../src/lib/bootstrap'
@@ -12,6 +12,13 @@ interface ValuationReportClientProps {
   initialVersion?: number
   urlParams: Record<string, string>
 }
+
+/**
+ * Supported URL action parameters:
+ * - action=download: Trigger PDF download after report loads
+ * - tab=info: Open the info tab instead of preview (for "View Breakdown")
+ * - #info-tab: Alternative hash-based tab selection
+ */
 
 /**
  * ValuationReportClient - Client Component Wrapper
