@@ -1,7 +1,9 @@
 /**
  * Recalculate Confirmation Popup
  *
- * Confirms creation of new valuation version with normalized EBITDA
+ * Confirms creation of new valuation version when:
+ * - User has normalized EBITDA values
+ * - User has made changes to form data on an existing valuation
  */
 
 import React from 'react'
@@ -12,6 +14,10 @@ interface RecalculateConfirmationPopupProps {
   onConfirm: () => void
   onCancel: () => void
   isCreating: boolean
+  /** Whether form data has changed (not just normalizations) */
+  hasFormChanges?: boolean
+  /** Whether normalizations have been added */
+  hasNormalizations?: boolean
 }
 
 export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopupProps> = ({
@@ -20,10 +26,38 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
   onConfirm,
   onCancel,
   isCreating,
+  hasFormChanges = false,
+  hasNormalizations = true, // Default to true for backward compatibility
 }) => {
   if (!isOpen) return null
 
   const nextVersion = currentVersion + 1
+
+  // Determine the description based on what changed
+  const getDescription = () => {
+    if (hasFormChanges && hasNormalizations) {
+      return (
+        <>
+          You've made changes to your business data and EBITDA normalizations. This will create
+          valuation version <strong>v{nextVersion}</strong> with your updated data.
+        </>
+      )
+    }
+    if (hasFormChanges) {
+      return (
+        <>
+          You've made changes to your business data. This will create valuation version{' '}
+          <strong>v{nextVersion}</strong> with your updated inputs.
+        </>
+      )
+    }
+    return (
+      <>
+        You've normalized EBITDA values. This will create valuation version{' '}
+        <strong>v{nextVersion}</strong> with the normalized EBITDA.
+      </>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -60,10 +94,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
             Create New Valuation Version?
           </h3>
 
-          <p className="text-gray-600 mb-4 text-center">
-            You've normalized EBITDA values. This will create valuation version{' '}
-            <strong>v{nextVersion}</strong> with the normalized EBITDA.
-          </p>
+          <p className="text-gray-600 mb-4 text-center">{getDescription()}</p>
 
           {/* Info Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -82,7 +113,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
                   />
                 </svg>
                 <span>
-                  Version <strong>v{nextVersion}</strong> will be created
+                  Version <strong>v{nextVersion}</strong> will be created with all your changes
                 </span>
               </li>
               <li className="flex items-start">
@@ -97,7 +128,13 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
                     clipRule="evenodd"
                   />
                 </svg>
-                <span>Normalized EBITDA will be used in calculations</span>
+                <span>
+                  {hasNormalizations && hasFormChanges
+                    ? 'Updated data and normalized EBITDA will be used'
+                    : hasNormalizations
+                    ? 'Normalized EBITDA will be used in calculations'
+                    : 'Updated business data will be used in calculations'}
+                </span>
               </li>
               <li className="flex items-start">
                 <svg
@@ -127,7 +164,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
                     clipRule="evenodd"
                   />
                 </svg>
-                <span>You can compare versions side-by-side</span>
+                <span>You can compare versions side-by-side in version history</span>
               </li>
             </ul>
           </div>

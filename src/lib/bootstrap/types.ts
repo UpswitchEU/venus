@@ -53,6 +53,15 @@ export interface ReportState {
   mode: ReportMode;
   reportId: string;
   hasExistingData: boolean;
+  /**
+   * Indicates if there's a completed valuation result (OUTPUT data).
+   * Different from hasExistingData which includes INPUT data (form fields).
+   * 
+   * Use this to determine loading step messaging:
+   * - hasValuationResult = true → "Restoring valuation package"
+   * - hasValuationResult = false → "Initializing" (even if hasExistingData is true)
+   */
+  hasValuationResult?: boolean;
   version?: number;
   status: ReportStatus;
   createdAt?: Date;
@@ -300,6 +309,7 @@ export const DEFAULT_REPORT: ReportState = {
   mode: 'new',
   reportId: '',
   hasExistingData: false,
+  hasValuationResult: false,
   status: 'draft',
 };
 

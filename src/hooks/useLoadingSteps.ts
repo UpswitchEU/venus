@@ -26,9 +26,17 @@ export function useLoadingSteps(): LoadingStep[] {
   const bootstrap = useBootstrapSafe()
   
   return useMemo(() => {
-    // If bootstrap is available and report mode is 'existing', use restoration steps
-    // Otherwise, default to initialization steps (for new reports or when bootstrap isn't ready yet)
-    const isExistingReport = bootstrap?.report.mode === 'existing'
-    return isExistingReport ? RESTORATION_STEPS : INITIALIZATION_STEPS
-  }, [bootstrap?.report.mode])
+    // Only show restoration steps if there's a completed valuation (OUTPUT data)
+    // 
+    // Distinction:
+    // - hasExistingData = true if ANY data exists (company_name, revenue, etc.) = INPUT data
+    // - hasValuationResult = true if valuation OUTPUT exists (valuation result, HTML report)
+    // 
+    // Loading step logic:
+    // - New report (no session) → "Initializing workspace"
+    // - Draft (session with form data, no valuation) → "Loading your draft" (use INITIALIZATION)
+    // - Complete (session with valuation output) → "Restoring valuation package" (use RESTORATION)
+    const hasValuationOutput = bootstrap?.report.hasValuationResult === true
+    return hasValuationOutput ? RESTORATION_STEPS : INITIALIZATION_STEPS
+  }, [bootstrap?.report.hasValuationResult])
 }

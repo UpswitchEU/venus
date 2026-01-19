@@ -60,6 +60,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
             mode: 'new',
             reportId: newReportId,
             hasExistingData: false,
+            hasValuationResult: false,
             status: 'draft',
           },
           source: 'generated',
@@ -72,13 +73,65 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       
       if (sessionResult.success && sessionResult.data) {
         const session = sessionResult.data;
-        
+
+        // ✅ CRITICAL FIX: If session is completed but has no report_id, auto-create report
+        // This handles cases where valuation completed but report creation failed (e.g., null constraint bug)
+        if (session.status === 'completed' && !session.report_id && this.hasExistingData(session)) {
+          this.logger.info('[SessionResolver] Session completed but no report exists - auto-creating report', {
+            sessionKey: session.session_key.substring(0, 20) + '...',
+            status: session.status,
+            hasExistingData: this.hasExistingData(session),
+          });
+
+          try {
+            // Create report from session data
+            const reportCreationResult = await this.createReportFromSession(session, identity);
+            if (reportCreationResult.success && reportCreationResult.data) {
+              const report = reportCreationResult.data;
+
+              this.logger.info('[SessionResolver] Report auto-created successfully', {
+                sessionKey: session.session_key.substring(0, 20) + '...',
+                reportId: report.id.substring(0, 8) + '...',
+              });
+
+              return {
+                success: true,
+                data: {
+                  mode: 'existing',
+                  reportId: report.id, // Use the actual report ID, not session key
+                  hasExistingData: true,
+                  hasValuationResult: true, // Completed reports have valuation output
+                  version: context.version,
+                  status: 'completed',
+                  createdAt: new Date(report.created_at),
+                  updatedAt: new Date(report.updated_at),
+                  completedAt: new Date(report.completed_at),
+                  currentStep: 5, // Completed reports are at step 5
+                },
+                source: 'titan_auto_created',
+                durationMs: performance.now() - startTime,
+              };
+            } else {
+              this.logger.warn('[SessionResolver] Failed to auto-create report, falling back to session mode', {
+                sessionKey: session.session_key.substring(0, 20) + '...',
+                error: reportCreationResult.error,
+              });
+            }
+          } catch (error) {
+            this.logger.error('[SessionResolver] Error auto-creating report', {
+              sessionKey: session.session_key.substring(0, 20) + '...',
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+
         return {
           success: true,
           data: {
             mode: 'existing',
             reportId: session.session_key,
             hasExistingData: this.hasExistingData(session),
+            hasValuationResult: this.hasValuationResult(session),
             version: context.version,
             status: this.mapStatus(session.status),
             createdAt: new Date(session.created_at),
@@ -103,6 +156,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
           mode: 'new',
           reportId: context.reportId,
           hasExistingData: false,
+          hasValuationResult: false,
           status: 'draft',
         },
         source: 'new_with_id',
@@ -195,12 +249,13 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
   }
 
   /**
-   * Check if session has meaningful existing data
+   * Check if session has meaningful existing data (INPUT or OUTPUT)
+   * Returns true if any form field or valuation result exists
    */
   private hasExistingData(session: SessionData): boolean {
     const sessionData = session.session_data || {};
     
-    // Check for key fields that indicate meaningful data
+    // Check for key fields that indicate meaningful data (INPUT or OUTPUT)
     const meaningfulFields = [
       'company_name',
       'business_type_id',
@@ -226,6 +281,160 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
     }
 
     return false;
+  }
+
+  /**
+   * Check if session has completed valuation OUTPUT data
+   * This is more specific than hasExistingData - only returns true if there's
+   * an actual valuation_result (the completed valuation package)
+   * 
+   * Use this for loading step messaging:
+   * - hasValuationResult = true → Show "Restoring valuation package"
+   * - hasValuationResult = false → Show "Initializing" (even if form data exists)
+   */
+  private hasValuationResult(session: SessionData): boolean {
+    const sessionData = session.session_data || {};
+    const valuationResult = sessionData.valuation_result as Record<string, unknown> | undefined;
+    
+    // Check if valuation_result exists and is meaningful
+    if (valuationResult && typeof valuationResult === 'object') {
+      // Check for key output fields that indicate a completed valuation
+      const hasOutputData = !!(
+        valuationResult.valuation_min ||
+        valuationResult.valuation_midpoint ||
+        valuationResult.valuation_max ||
+        valuationResult.html_report ||
+        valuationResult.equity_value_low ||
+        valuationResult.equity_value_mid ||
+        valuationResult.equity_value_high
+      );
+      return hasOutputData;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Create report from completed session
+   */
+  private async createReportFromSession(
+    session: SessionData,
+    identity?: IdentityState
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      };
+
+      // Add guest session ID header if guest
+      if (identity?.type === 'guest' && identity.guestSessionId) {
+        headers['X-Guest-Session-Id'] = identity.guestSessionId;
+      }
+
+      // Add client context headers if accountant flow
+      if (identity?.type === 'accountant_for_client' && identity.clientContext) {
+        headers['X-Client-User-Id'] = identity.clientContext.clientUserId;
+        headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId;
+      }
+
+      // Extract relationship ID from session data if available
+      const sessionData = session.session_data as any;
+      let relationshipId: string | undefined;
+
+      if (sessionData?._client_context?.relationship_id) {
+        relationshipId = sessionData._client_context.relationship_id;
+      }
+
+      const requestBody = {
+        session_key: session.session_key,
+        relationship_id: relationshipId,
+      };
+
+      const response = await fetch(
+        `${API_URL}/api/v2/valuations/sessions/${session.session_key}/create-report`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers,
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      if (response.status === 409) {
+        // Report already exists - fetch it
+        const existingReport = await this.fetchExistingReport(session.session_key, identity);
+        if (existingReport.success && existingReport.data) {
+          return { success: true, data: existingReport.data };
+        }
+        return { success: false, error: 'Report already exists but could not be fetched' };
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          error: errorData.message || `Failed to create report (${response.status})`,
+        };
+      }
+
+      const data = await response.json();
+      return { success: true, data: data.data || data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error',
+      };
+    }
+  }
+
+  /**
+   * Fetch existing report by session key
+   */
+  private async fetchExistingReport(
+    sessionKey: string,
+    identity?: IdentityState
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+      };
+
+      // Add guest session ID header if guest
+      if (identity?.type === 'guest' && identity.guestSessionId) {
+        headers['X-Guest-Session-Id'] = identity.guestSessionId;
+      }
+
+      // Add client context headers if accountant flow
+      if (identity?.type === 'accountant_for_client' && identity.clientContext) {
+        headers['X-Client-User-Id'] = identity.clientContext.clientUserId;
+        headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId;
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/v2/valuations/reports/by-session/${sessionKey}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers,
+        }
+      );
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `Failed to fetch existing report (${response.status})`,
+        };
+      }
+
+      const data = await response.json();
+      return { success: true, data: data.data || data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error',
+      };
+    }
   }
 
   /**

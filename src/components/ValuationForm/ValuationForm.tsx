@@ -607,6 +607,34 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const currentVersion = reportId ? getLatestVersion(reportId) : null
   const currentVersionNumber = currentVersion?.versionNumber || 0
 
+  // Check if user has an existing completed valuation (version >= 1)
+  // This is used to determine if we should show the "Create New Version" popup
+  const hasExistingValuation = currentVersionNumber >= 1
+
+  // Check if form data has changed from the last version
+  // This compares the current form data with the version's form data
+  const hasFormChanges = useMemo(() => {
+    if (!currentVersion?.formData) return false
+    const versionFormData = currentVersion.formData as any
+    
+    // Compare key fields that affect valuation
+    const changedFields = []
+    if (formData.company_name !== versionFormData.company_name) changedFields.push('company_name')
+    if (formData.revenue !== versionFormData.revenue) changedFields.push('revenue')
+    if (formData.ebitda !== versionFormData.ebitda) changedFields.push('ebitda')
+    if (formData.industry !== versionFormData.industry) changedFields.push('industry')
+    if (formData.founding_year !== versionFormData.founding_year) changedFields.push('founding_year')
+    if (formData.number_of_employees !== versionFormData.number_of_employees) changedFields.push('employees')
+    if (formData.number_of_owners !== versionFormData.number_of_owners) changedFields.push('owners')
+    
+    return changedFields.length > 0
+  }, [currentVersion?.formData, formData])
+
+  // Should show confirmation popup when:
+  // 1. User has an existing valuation (version >= 1) AND (form changed OR normalizations added)
+  // 2. OR just normalizations exist (backward compatibility)
+  const shouldShowVersionConfirmation = hasExistingValuation && (hasFormChanges || hasAnyNormalization)
+
   // Memoize prefilledQuery to prevent render loops
   // ROOT CAUSE FIX: Read session state via getState(), not as subscription
   const prefilledQueryValue = useMemo(() => {
@@ -633,14 +661,21 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     clearApiErrorFromStore()
   }, [setEmployeeCountError, clearApiErrorFromStore])
 
-  // Handle form submission with normalization check
+  // Handle form submission with version confirmation check
   const handleFormSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
 
-      // Check if normalizations exist and user hasn't confirmed yet
-      if (hasAnyNormalization && !showNormalizationConfirmation) {
-        generalLogger.info('Normalizations detected, showing confirmation popup')
+      // Check if we should show the "Create New Version" confirmation popup
+      // This triggers when:
+      // 1. User has an existing valuation AND (form changed OR normalizations added)
+      if (shouldShowVersionConfirmation && !showNormalizationConfirmation) {
+        generalLogger.info('Changes detected on existing valuation, showing version confirmation popup', {
+          hasExistingValuation,
+          hasFormChanges,
+          hasAnyNormalization,
+          currentVersionNumber,
+        })
         setPendingSubmitEvent(e)
         setShowNormalizationConfirmation(true)
         return
@@ -651,6 +686,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         hasHandleSubmit: !!handleSubmit,
         isSubmitting,
         hasNormalization: hasAnyNormalization,
+        hasFormChanges,
+        willCreateNewVersion: shouldShowVersionConfirmation,
       })
       try {
         clearAllErrors()
@@ -662,7 +699,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         setCalculating(false)
       }
     },
-    [hasAnyNormalization, showNormalizationConfirmation, handleSubmit, isSubmitting, clearAllErrors]
+    [shouldShowVersionConfirmation, showNormalizationConfirmation, hasExistingValuation, hasFormChanges, hasAnyNormalization, currentVersionNumber, handleSubmit, isSubmitting, clearAllErrors]
   )
 
   // Handle confirmation of normalization
@@ -710,7 +747,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         />
       </form>
 
-      {/* Normalization Confirmation Popup */}
+      {/* Version Confirmation Popup - Shows when creating a new version */}
       <RecalculateConfirmationPopup
         isOpen={showNormalizationConfirmation}
         currentVersion={currentVersionNumber}
@@ -720,6 +757,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
           setPendingSubmitEvent(null)
         }}
         isCreating={isSubmitting}
+        hasFormChanges={hasFormChanges}
+        hasNormalizations={hasAnyNormalization}
       />
     </>
   )
