@@ -84,7 +84,6 @@ export const RESTORATION_STEPS: LoadingStep[] = [
 export const INITIALIZATION_STEPS = ACCESS_VERIFICATION_STEPS // Use access steps for initialization
 export const GENERATION_STEPS = UNIFIED_LOADING_STEPS
 
-// ✅ WORLD CLASS: Export loading step constants for Mercury to use
+// ✅ WORLD CLASS: LoadingStep interface is already exported above (line 1)
 // This ensures consistent loading steps across Mercury and Venus
-// Mercury can import these to match Venus loading experience exactly
-export type { LoadingStep }
+// Mercury can import LoadingStep interface to match Venus loading experience exactly
