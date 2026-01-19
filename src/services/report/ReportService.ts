@@ -139,14 +139,47 @@ export class ReportService {
       const { SessionAPI } = await import('../api/session/SessionAPI')
       const sessionAPI = new SessionAPI()
 
+      // ✅ CRITICAL FIX: Ensure _client_context is included in sessionData for accountant-client workflows
+      // This ensures backend can properly link the valuation to accountant_customers
+      let sessionDataWithContext = assets.sessionData || {}
+      try {
+        const { useClientContext } = await import('../../stores/clientContext')
+        const clientContext = useClientContext.getState()
+        
+        if (clientContext.isActingAsClient && clientContext.client && clientContext.accountant && clientContext.relationshipId) {
+          sessionDataWithContext = {
+            ...sessionDataWithContext,
+            _client_context: {
+              client_user_id: clientContext.client.id,
+              accountant_user_id: clientContext.accountant.id,
+              relationship_id: clientContext.relationshipId,
+            },
+          }
+          
+          logger.debug('[ReportService] Including client context in save payload', {
+            reportId,
+            clientUserId: clientContext.client.id.substring(0, 8) + '...',
+            accountantUserId: clientContext.accountant.id.substring(0, 8) + '...',
+            relationshipId: clientContext.relationshipId.substring(0, 8) + '...',
+          })
+        }
+      } catch (error) {
+        // Non-critical: Log but continue if client context check fails
+        logger.warn('[ReportService] Failed to get client context for save (non-critical)', {
+          reportId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+
       console.log('[ReportService] DIAGNOSTIC: About to call sessionAPI.saveValuationResult', {
         reportId,
+        hasClientContext: !!(sessionDataWithContext as any)?._client_context,
       })
 
       // Save complete package to backend in single API call
       const putResultStartTime = performance.now()
       await sessionAPI.saveValuationResult(reportId, {
-        sessionData: assets.sessionData, // ✅ NEW: Send input data
+        sessionData: sessionDataWithContext, // ✅ FIX: Include _client_context if available
         valuationResult: assets.valuationResult,
         htmlReport: assets.htmlReport,
         infoTabHtml: assets.infoTabHtml,
