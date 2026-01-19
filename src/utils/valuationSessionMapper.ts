@@ -5,6 +5,7 @@
  */
 
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
+import { toNumber } from './decimal'
 
 export interface BusinessInfo {
   name: string
@@ -226,18 +227,19 @@ export function extractValuationAmount(session: ValuationSession): number | null
   }
 
   // Try equity_value_mid first (most common)
-  if (valuationResult.equity_value_mid) {
-    return valuationResult.equity_value_mid
+  // BANK-GRADE: Use toNumber to handle string decimals from API
+  if (valuationResult.equity_value_mid !== null && valuationResult.equity_value_mid !== undefined) {
+    return toNumber(valuationResult.equity_value_mid)
   }
 
   // Fallback to recommended_asking_price
-  if (valuationResult.recommended_asking_price) {
-    return valuationResult.recommended_asking_price
+  if (valuationResult.recommended_asking_price !== null && valuationResult.recommended_asking_price !== undefined) {
+    return toNumber(valuationResult.recommended_asking_price)
   }
 
   // Fallback to equity_value_high
-  if (valuationResult.equity_value_high) {
-    return valuationResult.equity_value_high
+  if (valuationResult.equity_value_high !== null && valuationResult.equity_value_high !== undefined) {
+    return toNumber(valuationResult.equity_value_high)
   }
 
   return null
