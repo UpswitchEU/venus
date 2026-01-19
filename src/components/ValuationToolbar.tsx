@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   Check,
   Download,
   Edit3,
@@ -57,6 +58,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   const lastSaved = useSessionStore((state) => state.lastSaved)
   const hasUnsavedChanges = useSessionStore((state) => state.hasUnsavedChanges)
   const syncError = useSessionStore((state) => state.error)
+  const valuationResult = useSessionStore((state) => state.session?.valuationResult)
 
   // Flow detection from session
   const isManualFlow = currentView === 'manual'
@@ -235,6 +237,20 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
       setSourceApp(storedSourceApp)
     }
   }, [])
+
+  // Check if valuation result has price data available
+  // Button should only appear when price is available
+  const hasValuationPrice = React.useMemo(() => {
+    if (!valuationResult) return false
+    
+    const result = valuationResult as any
+    return !!(
+      result.equity_value_mid ||
+      result.recommended_asking_price ||
+      result.equity_value_low ||
+      result.equity_value_high
+    )
+  }, [valuationResult])
 
   const handleReturnToMercury = () => {
     // Broadcast report update before leaving
@@ -560,8 +576,9 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     <div className="h-6 w-px bg-zinc-700 mx-1"></div>
                   </>
                 ) : (
-                  returnUrl && (
+                  returnUrl && hasValuationPrice && (
                     /* Direct Access with Return URL - Show Return Button */
+                    /* Only show when valuation result with price is available */
                     <>
                       <Tooltip
                         content={
@@ -576,12 +593,12 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                           onClick={handleReturnToMercury}
                           className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium"
                         >
-                          <ArrowLeft className="w-4 h-4" />
                           <span className="hidden sm:inline">
                             {sourceApp === 'mercury-accountant'
                               ? t('report.toolbar.backToClient')
                               : t('report.toolbar.continueToDashboard')}
                           </span>
+                          <ArrowRight className="w-4 h-4" />
                         </button>
                       </Tooltip>
                       <div className="h-6 w-px bg-zinc-700 mx-1"></div>
