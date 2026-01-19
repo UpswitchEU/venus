@@ -195,7 +195,7 @@ function syncSession(state: SessionBootstrapState): void {
           reportId: report.reportId.substring(0, 20),
           prefillConfidence: prefillData.confidence.toFixed(2),
           hasCompanyName: !!prefillData.companyInfo?.companyName,
-          note: 'Session will be created on backend when user first saves',
+          note: 'Session will be created on backend when user first saves (via saveSession with _bootstrapCreated flag)',
         });
       } else {
         logger.debug('New report - session already exists in store', {

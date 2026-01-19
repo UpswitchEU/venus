@@ -1199,25 +1199,79 @@ export class SessionService {
         updateKeys: Object.keys(updates),
       })
 
+      // ✅ CLEAN ARCHITECTURE: Check if session needs creation vs update
+      // BootstrapSync creates minimal sessions with _bootstrapCreated flag
+      // If flag exists, use CREATE (idempotent via session_key)
+      // If flag doesn't exist, use UPDATE (session already exists)
+      const { useSessionStore } = await import('../../store/useSessionStore')
+      const storeState = useSessionStore.getState()
+      const currentSession = storeState.session
+      const isBootstrapCreated = !!(currentSession?.sessionData as any)?._bootstrapCreated
+
       // Convert ValuationRequest updates to sessionData format for backend
       // Backend expects sessionData structure, not raw ValuationRequest
       // Extract currentView if present (needed for session creation)
       const updatesAny = updates as any
 
       // Extract currentView separately (it's a top-level session property, not part of sessionData)
-      const currentView = updatesAny.currentView
+      const currentView = updatesAny.currentView || currentSession?.currentView || 'manual'
 
       // sessionData should contain the actual form data (everything except currentView)
       const { currentView: _, ...sessionDataWithoutView } = updatesAny
       const sessionData = updatesAny.sessionData || sessionDataWithoutView
 
-      const sessionUpdates: Partial<ValuationSession> = {
-        sessionData: sessionData as any,
-        ...(currentView && { currentView }),
-      }
+      let response: any
 
-      // Update backend
-      const response = await backendAPI.updateValuationSession(reportId, sessionUpdates)
+      if (isBootstrapCreated) {
+        // ✅ CREATE path: Session was created by bootstrap but not yet persisted
+        // Use CREATE with session_key for idempotency (backend handles concurrent requests)
+        logger.debug('Creating session (bootstrap-created, first save)', {
+          reportId,
+          hasSessionData: !!sessionData,
+        })
+
+        // Merge current session data with updates
+        const mergedSessionData = {
+          ...(currentSession?.sessionData || {}),
+          ...sessionData,
+          // Remove _bootstrapCreated flag after creation
+          _bootstrapCreated: undefined,
+        }
+
+        response = await backendAPI.createValuationSession({
+          session_key: reportId, // Use reportId as session_key for idempotency
+          reportId,
+          currentView,
+          sessionData: mergedSessionData,
+        } as any) // Type assertion needed because session_key is not in ValuationSession type
+
+        // ✅ Remove _bootstrapCreated flag from store after successful creation
+        if (response?.session) {
+          const { useSessionStore } = await import('../../store/useSessionStore')
+          const storeState = useSessionStore.getState()
+          const currentStoreSession = storeState.session
+          if (currentStoreSession?.reportId === reportId) {
+            const updatedSessionData = {
+              ...(currentStoreSession.sessionData as any || {}),
+              _bootstrapCreated: undefined,
+            }
+            storeState.updateSession({
+              sessionData: updatedSessionData as any,
+            })
+            logger.debug('Removed _bootstrapCreated flag after successful creation', {
+              reportId,
+            })
+          }
+        }
+      } else {
+        // ✅ UPDATE path: Session already exists in backend
+        const sessionUpdates: Partial<ValuationSession> = {
+          sessionData: sessionData as any,
+          ...(currentView && { currentView }),
+        }
+
+        response = await backendAPI.updateValuationSession(reportId, sessionUpdates)
+      }
 
       let mergedSession: ValuationSession
 

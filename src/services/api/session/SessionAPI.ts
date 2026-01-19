@@ -25,46 +25,18 @@ import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 export class SessionAPI extends HttpClient {
-  // Request deduplication cache
-  private static requestCache = new Map<string, Promise<any>>()
-  private static cacheTimestamps = new Map<string, number>()
-  private static readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
-
   /**
-   * Get valuation session data with request deduplication and caching
+   * Get valuation session data
+   * 
+   * ✅ CLEAN ARCHITECTURE: Removed request deduplication cache
+   * Backend handles idempotency for CREATE requests via ON CONFLICT
+   * GET requests are naturally idempotent, no deduplication needed
    */
   async getValuationSession(
     reportId: string,
     options?: APIRequestConfig
   ): Promise<ValuationSessionResponse | null> {
-    // Check cache first
-    const cacheKey = `session-${reportId}`
-    const cachedTimestamp = SessionAPI.cacheTimestamps.get(cacheKey)
-
-    if (cachedTimestamp && Date.now() - cachedTimestamp < SessionAPI.CACHE_TTL) {
-      const cachedPromise = SessionAPI.requestCache.get(cacheKey)
-      if (cachedPromise) {
-        apiLogger.debug('Returning cached session request', { reportId })
-        return cachedPromise
-      }
-    }
-
-    // Create new request with retry logic
-    const requestPromise = this.getValuationSessionWithRetry(reportId, options)
-
-    // Cache the promise
-    SessionAPI.requestCache.set(cacheKey, requestPromise)
-    SessionAPI.cacheTimestamps.set(cacheKey, Date.now())
-
-    // Clean up cache after completion
-    requestPromise.finally(() => {
-      setTimeout(() => {
-        SessionAPI.requestCache.delete(cacheKey)
-        SessionAPI.cacheTimestamps.delete(cacheKey)
-      }, SessionAPI.CACHE_TTL)
-    })
-
-    return requestPromise
+    return this.getValuationSessionWithRetry(reportId, options)
   }
 
   /**
@@ -495,172 +467,19 @@ export class SessionAPI extends HttpClient {
         updated: true,
       }
     } catch (error) {
-      // ✅ FIX: Handle 404 by attempting to create the session
-      // This can happen if the session was never created or was deleted
+      // ✅ CLEAN ARCHITECTURE: Sessions are always created during bootstrap
+      // A 404 here means the session was deleted or there's a real error
+      // No fallback logic - treat 404 as a real error
       const axiosError = error as any
       if (axiosError?.response?.status === 404) {
-        apiLogger.warn('Session not found during update, attempting to create', {
+        apiLogger.error('Session not found during update - this should not happen after bootstrap', {
           reportId,
-          note: 'Session may have been deleted or never created',
+          note: 'Sessions are created during bootstrap. A 404 indicates the session was deleted or there is a synchronization issue.',
           errorMessage: axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
         })
-
-        try {
-          // ✅ CRITICAL FIX: Get full session from store, not just from updates
-          // This ensures we have all necessary fields (reportId, currentView, sessionData, etc.)
-          // when creating a session after a 404
-          let sessionFromStore: any = null
-          try {
-            const { useSessionStore } = await import('../../../store/useSessionStore')
-            const storeState = useSessionStore.getState()
-            if (storeState.session && storeState.session.reportId === reportId) {
-              sessionFromStore = storeState.session
-              apiLogger.debug('Retrieved full session from store for creation', {
-                reportId,
-                hasSessionData: !!sessionFromStore.sessionData,
-                currentView: sessionFromStore.currentView,
-                dataSource: sessionFromStore.dataSource,
-              })
-            }
-          } catch (storeError) {
-            apiLogger.warn('Failed to get session from store (non-critical)', {
-              error: storeError instanceof Error ? storeError.message : String(storeError),
-            })
-          }
-
-          // Extract session data from updates or fallback to store session
-          const updatesAny = updates.updates as any
-          const sessionData = sessionFromStore?.sessionData || updatesAny?.sessionData || updatesAny || {}
-          const currentView = sessionFromStore?.currentView || updatesAny?.currentView || 'manual'
-          const dataSource = sessionFromStore?.dataSource || updatesAny?.dataSource || 'manual'
-
-          // Map frontend 'conversational' to backend 'ai-guided'
-          const backendView = currentView === 'conversational' ? 'ai-guided' : currentView
-          const mappedDataSource =
-            dataSource === 'conversational' ? 'ai-guided' : dataSource
-
-          // ✅ FIX: Ensure sessionData includes _client_context if present in store session
-          const finalSessionData = {
-            ...sessionData,
-            ...(mappedDataSource && { dataSource: mappedDataSource }),
-            // Preserve _client_context from store session if present
-            ...(sessionFromStore?.sessionData?._client_context && {
-              _client_context: sessionFromStore.sessionData._client_context,
-            }),
-          }
-
-          // ✅ CRITICAL FIX: Pass session_key (not reportId) for idempotency
-          // The backend uses session_key to ensure the session is created with the correct ID
-          // This prevents duplicate sessions when multiple concurrent requests try to create the same session
-          const createResponse = await this.createValuationSession(
-            {
-              session_key: reportId, // Backend expects session_key for idempotency
-              reportId, // Also include reportId for compatibility
-              currentView: backendView,
-              sessionData: finalSessionData,
-            },
-            options
-          )
-
-          if (createResponse?.session) {
-            apiLogger.debug('Session created successfully after 404 on update', {
-              reportId,
-              currentView: createResponse.session.currentView,
-            })
-
-            // Map backend response back to frontend format
-            const createdSessionData = createResponse.session
-            if ((createdSessionData.currentView as string) === 'ai-guided') {
-              createdSessionData.currentView = 'conversational'
-            }
-            if ((createdSessionData as any).dataSource === 'ai-guided') {
-              (createdSessionData as any).dataSource = 'conversational'
-            }
-
-            return {
-              success: true,
-              session: createdSessionData,
-              updated: false, // Created, not updated
-            }
-          }
-        } catch (createError) {
-          // ✅ ENHANCED: Better error extraction and logging
-          const createAxiosError = createError as any
-          const createErrorMessage =
-            createAxiosError?.response?.data?.message ||
-            createAxiosError?.response?.data?.error ||
-            createAxiosError?.message ||
-            (createError instanceof Error ? createError.message : String(createError))
-          
-          const createErrorStatus = createAxiosError?.response?.status
-
-          apiLogger.error('Failed to create session after 404 on update', {
-            reportId,
-            createErrorStatus,
-            createErrorMessage,
-            createErrorType: createError?.constructor?.name,
-            hasResponse: !!createAxiosError?.response,
-            responseData: createAxiosError?.response?.data,
-          })
-
-          // ✅ FIX: If creation also returns 404, it's likely an access control issue
-          // Provide a more informative error message
-          if (createErrorStatus === 404) {
-            throw new APIError(
-              `Session ${reportId} not found and cannot be created. This may be due to access restrictions.`,
-              404,
-              undefined,
-              true,
-              {
-                originalError: error,
-                createError: createError,
-                reportId,
-              }
-            )
-          }
-
-          // ✅ FIX: If creation returns 401/403, it's an authentication/authorization issue
-          if (createErrorStatus === 401 || createErrorStatus === 403) {
-            throw new AuthenticationError(
-              `Cannot create session: ${createErrorMessage || 'Authentication or authorization failed'}`,
-              {
-                originalError: error,
-                createError: createError,
-                reportId,
-              }
-            )
-          }
-
-          // ✅ FIX: If creation returns 400, it's a validation issue
-          if (createErrorStatus === 400) {
-            throw new ValidationError(
-              `Cannot create session: ${createErrorMessage || 'Invalid session data'}`,
-              undefined, // field
-              undefined, // value
-              {
-                originalError: String(error),
-                createError: String(createError),
-                reportId,
-              }
-            )
-          }
-
-          // For other errors, throw a more informative error with both original and creation errors
-          throw new APIError(
-            `Failed to update or create session: ${createErrorMessage || 'Unknown error'}`,
-            createErrorStatus || 500,
-            undefined,
-            true,
-            {
-              originalError: error,
-              createError: createError,
-              reportId,
-            }
-          )
-        }
       }
-
-      // Re-throw original error if not 404 or if creation failed
+      
+      // Re-throw error - let error handlers deal with it
       this.handleSessionError(error, 'update session')
     }
   }
