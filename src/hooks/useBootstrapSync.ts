@@ -176,6 +176,55 @@ function syncSession(state: SessionBootstrapState): void {
       // We mark it with _bootstrapCreated: true to indicate it hasn't been saved yet
       if (!storeHasSession) {
         const now = new Date();
+        
+        // ✅ CRITICAL: Include prefill data in sessionData so it survives session creation
+        // This ensures prefill data is available when session is created on first save
+        const sessionData: Record<string, any> = {
+          _bootstrapCreated: true, // Flag to indicate this is a bootstrap-created session
+          _bootstrapPrefill: prefillData.confidence > 0, // Flag to indicate prefill data is available
+        }
+        
+        // Include prefill data if available
+        if (prefillData.companyInfo?.companyName) {
+          sessionData.company_name = prefillData.companyInfo.companyName
+        }
+        if (prefillData.companyInfo?.countryCode) {
+          sessionData.country_code = prefillData.companyInfo.countryCode
+        }
+        if (prefillData.companyInfo?.foundingYear) {
+          sessionData.founding_year = prefillData.companyInfo.foundingYear
+        }
+        if (prefillData.companyInfo?.kboNumber) {
+          sessionData.kbo_number = prefillData.companyInfo.kboNumber
+        }
+        if (prefillData.companyInfo?.vatNumber) {
+          sessionData.vat_number = prefillData.companyInfo.vatNumber
+        }
+        if (prefillData.companyInfo?.legalForm) {
+          sessionData.legal_form = prefillData.companyInfo.legalForm
+        }
+        if (prefillData.companyInfo?.city) {
+          sessionData.city = prefillData.companyInfo.city
+        }
+        if (prefillData.companyInfo?.postalCode) {
+          sessionData.postal_code = prefillData.companyInfo.postalCode
+        }
+        if (prefillData.businessType?.id) {
+          sessionData.business_type_id = prefillData.businessType.id
+        }
+        if (prefillData.businessType?.industry) {
+          sessionData.industry = prefillData.businessType.industry
+        }
+        if (prefillData.financials?.revenue) {
+          sessionData.revenue = prefillData.financials.revenue
+        }
+        if (prefillData.financials?.ebitda) {
+          sessionData.ebitda = prefillData.financials.ebitda
+        }
+        if (prefillData.financials?.employeeCount) {
+          sessionData.employee_count = prefillData.financials.employeeCount
+        }
+        
         const minimalSession: Partial<ValuationSession> = {
           reportId: report.reportId,
           currentView: 'manual' as const,
@@ -183,10 +232,7 @@ function syncSession(state: SessionBootstrapState): void {
           createdAt: now,
           updatedAt: now,
           partialData: {},
-          sessionData: {
-            _bootstrapCreated: true, // Flag to indicate this is a bootstrap-created session
-            _bootstrapPrefill: true, // Flag to indicate prefill data is available
-          } as any, // Cast to any since these are internal flags not part of ValuationRequest
+          sessionData: sessionData as any, // Cast to any since these are internal flags not part of ValuationRequest
         };
         
         sessionStore.updateSession(minimalSession);
@@ -195,6 +241,7 @@ function syncSession(state: SessionBootstrapState): void {
           reportId: report.reportId.substring(0, 20),
           prefillConfidence: prefillData.confidence.toFixed(2),
           hasCompanyName: !!prefillData.companyInfo?.companyName,
+          prefillFieldsCount: Object.keys(sessionData).length - 2, // Exclude _bootstrapCreated and _bootstrapPrefill flags
           note: 'Session will be created on backend when user first saves (via saveSession with _bootstrapCreated flag)',
         });
       } else {

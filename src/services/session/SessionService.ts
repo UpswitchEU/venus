@@ -499,10 +499,37 @@ export class SessionService {
             })
 
             if (!sessionResponse?.session) {
-              // Session doesn't exist - create it automatically
+              // ✅ CRITICAL: Only create session if bootstrap indicates it's a new report
+              // Don't create session for deleted reports (404 on existing reportId)
+              // This prevents "restoration" of deleted reports
+              let isNewReport = false
+              try {
+                const { useBootstrapSafe } = await import('../../lib/bootstrap')
+                const bootstrap = useBootstrapSafe()
+                isNewReport = bootstrap?.report?.mode === 'new' && bootstrap?.report?.reportId === reportId
+              } catch (bootstrapError) {
+                // If bootstrap check fails, assume it's a new report (defensive)
+                logger.warn('Failed to check bootstrap state, assuming new report', {
+                  reportId,
+                  error: bootstrapError instanceof Error ? bootstrapError.message : String(bootstrapError),
+                })
+                isNewReport = true
+              }
+
+              if (!isNewReport) {
+                // 404 on existing reportId means report was deleted, don't create new session
+                logger.warn('Session not found and not a new report - may have been deleted', {
+                  reportId,
+                  note: 'Not creating new session to avoid restoring deleted reports',
+                })
+                return null
+              }
+
+              // Session doesn't exist and it's a new report - create it automatically
               logger.debug('Session not found, creating new session', {
                 requestedReportId: reportId,
                 flow,
+                isNewReport: true,
               })
 
               try {
@@ -1231,11 +1258,38 @@ export class SessionService {
         })
 
         // Merge current session data with updates
-        const mergedSessionData = {
+        let mergedSessionData = {
           ...(currentSession?.sessionData || {}),
           ...sessionData,
           // Remove _bootstrapCreated flag after creation
           _bootstrapCreated: undefined,
+        }
+
+        // ✅ CRITICAL: Preserve _client_context if client context exists in store
+        // This ensures accountant-client sessions are created with proper context
+        try {
+          const { useClientContext } = await import('../../stores/clientContext')
+          const clientContext = useClientContext.getState()
+          
+          if (clientContext.isActingAsClient && clientContext.client && clientContext.accountant && clientContext.relationshipId) {
+            mergedSessionData._client_context = {
+              client_user_id: clientContext.client.id,
+              accountant_user_id: clientContext.accountant.id,
+              relationship_id: clientContext.relationshipId,
+            }
+            
+            logger.debug('Including client context in session creation', {
+              reportId,
+              clientUserId: clientContext.client.id.substring(0, 8) + '...',
+              accountantUserId: clientContext.accountant.id.substring(0, 8) + '...',
+            })
+          }
+        } catch (error) {
+          // Non-critical: Log but continue if client context check fails
+          logger.warn('Failed to get client context for session creation (non-critical)', {
+            reportId,
+            error: error instanceof Error ? error.message : String(error),
+          })
         }
 
         response = await backendAPI.createValuationSession({
