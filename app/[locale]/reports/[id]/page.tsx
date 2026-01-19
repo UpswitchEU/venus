@@ -5,10 +5,11 @@ import { ACCESS_VERIFICATION_STEPS } from '../../../../src/components/LoadingSta
 // Dynamically import the client component with no SSR
 // ssr: false means it only renders on the client, so no Suspense needed
 // Use default import to avoid "Cannot access .then on server" error
-// BANK GRADE: Show proper loading state with sage green and progress
+// ✅ WORLD CLASS: Remove loading fallback - let root component handle unified loading
+// This eliminates duplicate loading states and ensures smooth transitions
 const ValuationReportClient = nextDynamic(() => import('./ValuationReportClient'), {
   ssr: false,
-  loading: () => <LoadingState steps={ACCESS_VERIFICATION_STEPS} variant="light" />,
+  loading: () => null, // Instant - loading handled by root component
 })
 
 interface PageProps {

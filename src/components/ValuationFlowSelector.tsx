@@ -11,10 +11,10 @@
 
 // Dynamic imports using React.lazy for code splitting (Next.js compatible)
 import React, { lazy, Suspense, useEffect, useMemo } from 'react'
+import { useLoadingSteps } from '../hooks/useLoadingSteps'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
 import { LoadingState } from './LoadingState'
-import { INITIALIZATION_STEPS } from './LoadingState.constants'
 
 /**
  * Valuation flow stage types
@@ -150,6 +150,11 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     initialTab = 'preview',
     urlAction,
   }) => {
+    // ✅ WORLD CLASS: Loading handled upstream by ValuationSessionManager
+    // This component only renders when ValuationSessionManager stage is 'data-entry' (session is ready)
+    // Loading steps are kept here only for safety fallback when stage is 'loading' (should never happen in normal flow)
+    const loadingSteps = useLoadingSteps()
+
     // Debug logging to understand rendering
     useEffect(() => {
       console.log('[ValuationFlowSelector] Render', {
@@ -157,8 +162,9 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
         hasSession: !!session,
         sessionReportId: session?.reportId,
         sessionCurrentView: session?.currentView,
+        loadingStepsType: loadingSteps[0]?.text.includes('Restoring') ? 'restoration' : 'initialization',
       })
-    }, [stage, session])
+    }, [stage, session, loadingSteps])
 
     // Memoize flow type calculation
     const flowType = useMemo(() => {
@@ -172,13 +178,10 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
 
     // Render based on stage
     if (stage === 'loading') {
-      console.log('[ValuationFlowSelector] Rendering loading state with INITIALIZATION_STEPS', {
-        stepsCount: INITIALIZATION_STEPS.length,
-        isLoading,
-        hasSession: !!session,
-      })
-      // BANK GRADE: White background with sage green loader for clean, professional appearance
-      return <LoadingState steps={INITIALIZATION_STEPS} variant="light" />
+      // ✅ WORLD CLASS: Loading handled by ValuationSessionManager
+      // This should not normally render - ValuationSessionManager shows loading state before rendering children
+      // This is a safety fallback only
+      return <LoadingState steps={loadingSteps} variant="light" />
     }
 
     if (error) {
@@ -221,15 +224,9 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     }
 
     if (stage === 'data-entry') {
-      // ✅ FIX: Additional safety checks - ensure session is fully ready
-      // The stage calculation should handle this, but this is a final guard
-      // Check both isLoading and isInitializing to prevent premature rendering
-      const isInitializing = useSessionStore.getState().isInitializing
-      if (isLoading || isInitializing || !session || session.reportId !== reportId) {
-        // ✅ FIX: Use same loading screen as ManualLayout (light variant, 3 steps)
-        // Remove duplicate dark loading screen
-        return <LoadingState steps={INITIALIZATION_STEPS} variant="light" />
-      }
+      // ✅ WORLD CLASS: Loading is handled upstream by ValuationSessionManager
+      // This component should only render when stage is 'data-entry' (session is ready)
+      // No need for duplicate loading checks here - parent handles all loading states
 
       // Use reportId from props (always available) or validated session
       const effectiveReportId = session?.reportId || reportId
@@ -251,11 +248,9 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
           {/* Smooth fade-in animation when component mounts */}
           <div key={flowKey} className="absolute inset-0 animate-in fade-in duration-200 ease-out">
             <Suspense
-              fallback={
-                // ✅ FIX: Use same loading screen as ManualLayout (light variant, 3 steps)
-                // Remove duplicate dark loading screen
-                <LoadingState steps={INITIALIZATION_STEPS} variant="light" />
-              }
+              fallback={null}
+              // ✅ WORLD CLASS: Remove Suspense fallback - loading handled upstream by ValuationSessionManager
+              // This eliminates duplicate loading states and ensures single unified loading experience
             >
               <ValuationFlow
                 reportId={effectiveReportId}
@@ -275,8 +270,9 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     }
 
     // Fallback - should not normally reach here
-    // ✅ FIX: Use light variant for consistency (remove dark loading screen)
-    return <LoadingState steps={INITIALIZATION_STEPS} variant="light" />
+    // ✅ FIX: Use light variant for consistency
+    // Different steps for new vs existing reports
+    return <LoadingState steps={loadingSteps} variant="light" />
   },
   // Custom comparison: Always re-render if stage changes (critical for UI updates)
   (prevProps, nextProps) => {

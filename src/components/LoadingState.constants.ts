@@ -4,7 +4,14 @@ export interface LoadingStep {
   estimatedMs?: number // Estimated duration in milliseconds
 }
 
-// Access verification steps - specifically for accountant client context loading
+/**
+ * Access verification steps - used for new report initialization
+ * 
+ * These steps are shown when bootstrap detects a new report (mode: 'new').
+ * They guide users through the initial setup process for creating a new valuation.
+ * 
+ * @see useLoadingSteps - Hook that automatically selects between RESTORATION_STEPS and INITIALIZATION_STEPS
+ */
 export const ACCESS_VERIFICATION_STEPS: LoadingStep[] = [
   {
     text: 'Validating access',
@@ -44,7 +51,40 @@ export const UNIFIED_LOADING_STEPS: LoadingStep[] = [
   },
 ]
 
+/**
+ * Restoration steps - used when loading existing reports from database
+ * 
+ * These steps are shown when bootstrap detects an existing report (mode: 'existing').
+ * They provide clear visual feedback that the system is restoring saved data rather than
+ * creating a new session. This differentiation improves user experience by setting
+ * appropriate expectations.
+ * 
+ * @see useLoadingSteps - Hook that automatically selects between RESTORATION_STEPS and INITIALIZATION_STEPS
+ */
+export const RESTORATION_STEPS: LoadingStep[] = [
+  {
+    text: 'Restoring session',
+    subtext: 'Loading your saved data...',
+    estimatedMs: 800,
+  },
+  {
+    text: 'Restoring form data',
+    subtext: 'Recovering your inputs...',
+    estimatedMs: 600,
+  },
+  {
+    text: 'Loading valuation results',
+    subtext: 'Preparing your report...',
+    estimatedMs: 1000,
+  },
+]
+
 // Keep old exports for backwards compatibility - both now point to unified steps
 // This ensures consistent loading experience during initialization and calculation
 export const INITIALIZATION_STEPS = ACCESS_VERIFICATION_STEPS // Use access steps for initialization
 export const GENERATION_STEPS = UNIFIED_LOADING_STEPS
+
+// ✅ WORLD CLASS: Export loading step constants for Mercury to use
+// This ensures consistent loading steps across Mercury and Venus
+// Mercury can import these to match Venus loading experience exactly
+export type { LoadingStep }

@@ -10,8 +10,8 @@ import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
+import { useLoadingSteps } from '../hooks/useLoadingSteps'
 import { LoadingState } from './LoadingState'
-import { INITIALIZATION_STEPS } from './LoadingState.constants'
 
 // Lazy load heavy components for code splitting
 const ValuationFlowSelector = React.lazy(() =>
@@ -78,6 +78,10 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     // This ensures auth, session, and prefill data are available in stores
     const { isSynced: isBootstrapSynced } = useBootstrapSync()
 
+    // ✅ WORLD CLASS: Use centralized hook to determine loading steps based on bootstrap mode
+    // Automatically selects RESTORATION_STEPS for existing reports, INITIALIZATION_STEPS for new reports
+    const loadingSteps = useLoadingSteps()
+
     // Embedded mode detection for iframe integration
     const { isEmbedded } = useEmbeddedMode()
 
@@ -87,7 +91,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       onStateChange: (state) => {
         // URL changed via browser navigation - component will re-render with new props
         // The ValuationFlowSelector will handle the state change
-        generalLogger.debug('[ValuationReport] URL state changed', {
+        console.log('[ValuationReport] URL state changed', {
           reportId,
           mode: state.mode,
           version: state.version,
@@ -181,16 +185,61 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       }
     }, [])
 
+    // ✅ WORLD CLASS: Signal Mercury when Venus is fully loaded and ready
+    // This allows Mercury to hide the VenusTransitionLoader overlay smoothly
+    // We signal when session is ready (stage === 'data-entry'), not just bootstrap synced
+    useEffect(() => {
+      if (typeof window === 'undefined') return
+
+      // Check if we're coming from Mercury
+      const sourceApp = urlParams.source || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('source') : null)
+      const isFromMercury = sourceApp === 'mercury'
+
+      if (!isFromMercury) return
+
+      // Signal readiness function
+      const signalReady = () => {
+        const venusUrl = process.env.NEXT_PUBLIC_VENUS_URL || 'https://valuation.upswitch.app'
+        const venusOrigin = new URL(venusUrl).origin
+
+        // If embedded (iframe), use postMessage
+        if (window.parent !== window) {
+          window.parent.postMessage(
+            {
+              type: 'venus-ready',
+              reportId,
+              timestamp: Date.now(),
+            },
+            venusOrigin
+          )
+          console.log('[ValuationReport] Signaled Mercury via postMessage', { reportId })
+        } else {
+          // Same-window navigation - update URL hash
+          // Use replaceState to avoid adding to browser history
+          if (window.location.hash !== '#ready' && window.location.hash !== '#venus-ready') {
+            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#venus-ready`)
+            console.log('[ValuationReport] Signaled Mercury via URL hash', { reportId })
+          }
+        }
+      }
+
+      // Signal after bootstrap sync completes AND a small delay to ensure session is ready
+      // The ValuationSessionManager will have loaded the session by this point
+      if (isBootstrapSynced) {
+        // Small delay to ensure ValuationSessionManager has finished loading session
+        const timeoutId = setTimeout(signalReady, 800)
+        return () => clearTimeout(timeoutId)
+      }
+    }, [isBootstrapSynced, reportId, urlParams.source])
+
     return (
       <div
         className={`flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 ${isEmbedded ? 'embedded-mode' : ''}`}
       >
         <Suspense
-          fallback={
-            // ✅ FIX: Use same loading screen as ManualLayout (light variant, 3 steps)
-            // Remove duplicate dark loading screen
-            <LoadingState steps={INITIALIZATION_STEPS} variant="light" />
-          }
+          fallback={null}
+          // ✅ WORLD CLASS: Remove Suspense fallback - loading handled by ValuationSessionManager
+          // This eliminates duplicate loading states and ensures single unified loading experience
         >
           <ValuationSessionManager
             reportId={reportId}

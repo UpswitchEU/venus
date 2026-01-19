@@ -11,7 +11,7 @@ import React, { Suspense, useEffect, useRef } from 'react'
 import { AssetInspector } from '../../../components/debug/AssetInspector'
 import { FullScreenModal } from '../../../components/FullScreenModal'
 import { LoadingState } from '../../../components/LoadingState'
-import { INITIALIZATION_STEPS } from '../../../components/LoadingState.constants'
+import { useLoadingSteps } from '../../../hooks/useLoadingSteps'
 import { ResizableDivider } from '../../../components/ResizableDivider'
 import { InputFieldsSkeleton } from '../../../components/skeletons'
 import { ValuationForm } from '../../../components/ValuationForm'
@@ -121,17 +121,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // We only need updateFormData inside the restoration effect, accessed via getState()
   const { showToast } = useToast()
 
-  // ✅ CRITICAL: Loading guards - prevent rendering until session is ready
+  // ✅ WORLD CLASS: Loading is handled upstream by ValuationSessionManager
+  // This component only renders when ValuationSessionManager stage is 'data-entry' (session is ready)
+  // These checks are safety guards that should never trigger in normal flow
+  // ValuationSessionManager ensures session is ready before rendering ValuationFlow
   const isLoading = useSessionStore((state) => state.isLoading)
   const isInitializing = useSessionStore((state) => state.isInitializing)
   const session = useSessionStore((state) => state.session)
   const sessionError = useSessionStore((state) => state.error)
 
-  // ✅ FIX: Show loading state until session is loaded and initialized
-  // This prevents the glitch where forms show before data is ready
+  // ✅ WORLD CLASS: Use centralized hook to determine loading steps based on bootstrap mode
+  // Automatically selects RESTORATION_STEPS for existing reports, INITIALIZATION_STEPS for new reports
+  const loadingSteps = useLoadingSteps()
+
+  // ✅ SAFETY GUARD: Show loading state if session is not ready (should never happen in normal flow)
+  // ValuationSessionManager handles all loading states upstream - this is a defensive check only
   if (isLoading || isInitializing || !session || session.reportId !== reportId) {
     // BANK GRADE: White background with sage green loader
-    return <LoadingState steps={INITIALIZATION_STEPS} variant="light" />
+    // Different steps for new vs existing reports (handled by useLoadingSteps hook)
+    return <LoadingState steps={loadingSteps} variant="light" />
   }
 
   // ✅ FIX: Show error state if session failed to load

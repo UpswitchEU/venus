@@ -7,9 +7,7 @@
 
 'use client'
 
-import React, { lazy, Suspense } from 'react'
-import { LoadingState } from '../../../components/LoadingState'
-import { GENERATION_STEPS } from '../../../components/LoadingState.constants'
+import React, { lazy } from 'react'
 import type { ValuationResponse } from '../../../types/valuation'
 
 export type ValuationFlowType = 'manual' | 'conversational'
@@ -65,33 +63,33 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   initialTab = 'preview',
   urlAction,
 }) => {
+  // ✅ WORLD CLASS: Loading handled upstream - components render immediately when this function is called
+  // Suspense fallbacks removed to eliminate duplicate loading states
+  // Single unified loading experience handled by ValuationSessionManager
+
   if (flowType === 'conversational') {
     return (
-      <Suspense fallback={<LoadingState steps={GENERATION_STEPS} variant="dark" />}>
-        <ConversationalLayout
-          reportId={reportId}
-          onComplete={onComplete}
-          initialQuery={initialQuery}
-          autoSend={autoSend}
-          initialVersion={initialVersion}
-          initialMode={initialMode}
-        />
-      </Suspense>
+      <ConversationalLayout
+        reportId={reportId}
+        onComplete={onComplete}
+        initialQuery={initialQuery}
+        autoSend={autoSend}
+        initialVersion={initialVersion}
+        initialMode={initialMode}
+      />
     )
   }
 
   // Manual flow - render 2-panel layout with form and report preview
   // Pass initialTab and urlAction for Mercury integration (View Breakdown, Download PDF)
   return (
-    <Suspense fallback={<LoadingState steps={GENERATION_STEPS} variant="dark" />}>
-      <ManualLayout
-        reportId={reportId}
-        onComplete={onComplete}
-        initialVersion={initialVersion}
-        initialMode={initialMode}
-        initialTab={initialTab}
-        urlAction={urlAction}
-      />
-    </Suspense>
+    <ManualLayout
+      reportId={reportId}
+      onComplete={onComplete}
+      initialVersion={initialVersion}
+      initialMode={initialMode}
+      initialTab={initialTab}
+      urlAction={urlAction}
+    />
   )
 }

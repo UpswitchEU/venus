@@ -110,6 +110,15 @@ export function BootstrapProvider({
   onBootstrapComplete,
   onBootstrapError,
 }: BootstrapProviderProps) {
+  // ✅ WORLD CLASS: Detect if coming from Mercury to optimize loading flow
+  const isFromMercury = React.useMemo(() => {
+    if (context?.sourceApp === 'mercury') return true
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      return urlParams.get('source') === 'mercury'
+    }
+    return false
+  }, [context?.sourceApp])
   // State
   const [state, setState] = useState<SessionBootstrapState>(
     initialState || DEFAULT_BOOTSTRAP_STATE
@@ -126,6 +135,14 @@ export function BootstrapProvider({
 
   // Bootstrap function
   const runBootstrap = useCallback(async () => {
+    // ✅ WORLD CLASS: When from Mercury, ensure unified loading experience
+    // Bootstrap will handle all initialization, and ValuationSessionManager will show single loading state
+    if (isFromMercury) {
+      console.log('[BootstrapProvider] Detected Mercury source - optimizing for unified loading', {
+        reportId: context?.reportId,
+      })
+    }
+
     // CRITICAL: Guard against duplicate calls
     if (bootstrapStartedRef.current) {
       console.log('[BootstrapProvider] Bootstrap already started, skipping duplicate call', {
@@ -217,7 +234,7 @@ export function BootstrapProvider({
     } finally {
       setIsBootstrapping(false);
     }
-  }, [context, method, onBootstrapComplete, onBootstrapError]);
+  }, [context, method, onBootstrapComplete, onBootstrapError, isFromMercury]);
 
   // Auto-bootstrap on mount if no initial state
   // CRITICAL: Only run once, ignoring subsequent renders
