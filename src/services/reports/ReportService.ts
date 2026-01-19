@@ -122,16 +122,27 @@ class ReportServiceImpl implements ReportService {
             : {}),
         }
 
+        // ✅ FIX: Map flow_type to currentView correctly
+        // flow_type values: 'manual', 'conversational', 'api'
+        // currentView values: 'manual', 'conversational'
+        const mapFlowTypeToCurrentView = (flowType: string | null | undefined, currentView?: string): 'manual' | 'conversational' => {
+          if (flowType === 'conversational' || currentView === 'conversational' || currentView === 'ai-guided') {
+            return 'conversational';
+          }
+          return 'manual';
+        };
+        
+        const mapFlowTypeToDataSource = (flowType: string | null | undefined, dataSource?: string): 'manual' | 'conversational' | 'mixed' => {
+          if (flowType === 'conversational' || dataSource === 'conversational' || dataSource === 'ai-guided') {
+            return 'conversational';
+          }
+          return 'manual';
+        };
+        
         return {
           reportId: report.id || report.report_id,
-          currentView:
-            report.flow_type === 'ai-guided' || report.current_view === 'ai-guided'
-              ? 'conversational'
-              : 'manual',
-          dataSource:
-            report.flow_type === 'ai-guided' || report.data_source === 'ai-guided'
-              ? 'conversational'
-              : 'manual',
+          currentView: mapFlowTypeToCurrentView(report.flow_type, report.current_view),
+          dataSource: mapFlowTypeToDataSource(report.flow_type, report.data_source),
           name: report.name || undefined, // Custom valuation name
           createdAt: report.created_at ? new Date(report.created_at) : new Date(),
           updatedAt: report.updated_at ? new Date(report.updated_at) : new Date(),
