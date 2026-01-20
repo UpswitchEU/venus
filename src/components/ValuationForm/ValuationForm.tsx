@@ -402,7 +402,9 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
           : 'not available',
       })
 
-      // First, use standard prefill
+      // ✅ FIX: prefillFromBusinessCard now uses requestAnimationFrame internally
+      // No need for setTimeout wrapper - the function itself handles deferral to prevent React error #185
+      // Call directly - deferral is handled internally
       prefillFromBusinessCard(businessCard)
 
       // Then, try to match business_type_id if available

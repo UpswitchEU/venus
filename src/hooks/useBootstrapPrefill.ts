@@ -311,8 +311,8 @@ function applyPrefillToForm(
   // ALSO use prefillFromBusinessCard for industry/business_model mapping
   // This ensures proper mapping of business type to industry codes
   // CRITICAL: Only call if we have a non-empty company name to avoid overwriting with empty value
-  // ✅ FIX: prefillFromBusinessCard is already deferred by setTimeout in useLayoutEffect
-  // No need for additional setTimeout here
+  // ✅ FIX: prefillFromBusinessCard now uses requestAnimationFrame internally to prevent React error #185
+  // No need for additional setTimeout here - the function itself handles deferral
   const finalCompanyName = allData.company_name || companyInfo?.companyName || kboData?.companyName;
   if (finalCompanyName && finalCompanyName.trim() !== '') {
     // Build business card with the final company name (from allData if set)
@@ -321,7 +321,7 @@ function applyPrefillToForm(
       financials,
       businessType
     );
-    // Call directly - already deferred by queueMicrotask wrapper
+    // Call directly - prefillFromBusinessCard now handles deferral internally
     prefillFromBusinessCard(businessCard);
     logger.debug('Called prefillFromBusinessCard', {
       company_name: finalCompanyName.substring(0, 30),

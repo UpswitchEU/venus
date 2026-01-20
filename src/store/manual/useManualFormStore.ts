@@ -17,6 +17,10 @@ import { create } from 'zustand'
 import type { ValuationFormData } from '../../types/valuation'
 import { storeLogger } from '../../utils/logger'
 
+// ✅ FIX: Guard to prevent multiple simultaneous calls to prefillFromBusinessCard
+// This prevents React error #185 when multiple hooks call it simultaneously
+let prefillInProgress = false
+
 interface ManualFormStore {
   // Form state
   formData: ValuationFormData
@@ -126,6 +130,7 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
   },
 
   // Pre-fill form data with business card data (atomic)
+  // ✅ FIX: Add guard to prevent multiple simultaneous calls (React error #185)
   prefillFromBusinessCard: (businessCard: {
     company_name: string
     industry: string
@@ -142,35 +147,56 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
     nace_code?: string
     nace_description?: string
   }) => {
-    set((state) => {
-      const updatedFormData = {
-        ...state.formData,
-        company_name: businessCard.company_name,
-        industry: businessCard.industry,
-        business_model: businessCard.business_model,
-        founding_year: businessCard.founding_year,
-        country_code: businessCard.country_code,
-        number_of_employees: businessCard.employee_count,
-        // Phase 1.1: Add KBO registry fields if available
-        ...(businessCard.city && { city: businessCard.city }),
-        ...(businessCard.postal_code && { postal_code: businessCard.postal_code }),
-        ...(businessCard.kbo_number && { kbo_number: businessCard.kbo_number }),
-        ...(businessCard.vat_number && { vat_number: businessCard.vat_number }),
-        ...(businessCard.legal_form && { legal_form: businessCard.legal_form }),
-        ...(businessCard.nace_code && { nace_code: businessCard.nace_code }),
-        ...(businessCard.nace_description && { nace_description: businessCard.nace_description }),
-      }
-
-      storeLogger.info('[Manual] Form data prefilled from business card', {
+    // ✅ FIX: Guard against multiple simultaneous calls
+    if (prefillInProgress) {
+      storeLogger.debug('[Manual] Prefill already in progress, skipping duplicate call', {
         companyName: businessCard.company_name,
-        hasKboData: !!(businessCard.kbo_number || businessCard.vat_number),
-        formId: 'manual',
       })
+      return
+    }
 
-      return {
-        ...state,
-        formData: updatedFormData,
-        isDirty: true,
+    prefillInProgress = true
+
+    // ✅ FIX: Use requestAnimationFrame to ensure we're not in render phase
+    // This prevents React error #185 by ensuring state updates happen after render
+    requestAnimationFrame(() => {
+      try {
+        set((state) => {
+          const updatedFormData = {
+            ...state.formData,
+            company_name: businessCard.company_name,
+            industry: businessCard.industry,
+            business_model: businessCard.business_model,
+            founding_year: businessCard.founding_year,
+            country_code: businessCard.country_code,
+            number_of_employees: businessCard.employee_count,
+            // Phase 1.1: Add KBO registry fields if available
+            ...(businessCard.city && { city: businessCard.city }),
+            ...(businessCard.postal_code && { postal_code: businessCard.postal_code }),
+            ...(businessCard.kbo_number && { kbo_number: businessCard.kbo_number }),
+            ...(businessCard.vat_number && { vat_number: businessCard.vat_number }),
+            ...(businessCard.legal_form && { legal_form: businessCard.legal_form }),
+            ...(businessCard.nace_code && { nace_code: businessCard.nace_code }),
+            ...(businessCard.nace_description && { nace_description: businessCard.nace_description }),
+          }
+
+          storeLogger.info('[Manual] Form data prefilled from business card', {
+            companyName: businessCard.company_name,
+            hasKboData: !!(businessCard.kbo_number || businessCard.vat_number),
+            formId: 'manual',
+          })
+
+          return {
+            ...state,
+            formData: updatedFormData,
+            isDirty: true,
+          }
+        })
+      } finally {
+        // Reset guard after a short delay to allow the update to complete
+        setTimeout(() => {
+          prefillInProgress = false
+        }, 100)
       }
     })
   },
