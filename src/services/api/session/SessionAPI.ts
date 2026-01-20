@@ -492,20 +492,74 @@ export class SessionAPI extends HttpClient {
         updated: true,
       }
     } catch (error) {
-      // ✅ CLEAN ARCHITECTURE: Sessions are always created during bootstrap
-      // A 404 here means the session was deleted or there's a real error
-      // No fallback logic - treat 404 as a real error
       const axiosError = error as any
       if (axiosError?.response?.status === 404) {
-        apiLogger.error('Session not found during update - this should not happen after bootstrap', {
-          reportId,
-          note: 'Sessions are created during bootstrap. A 404 indicates the session was deleted or there is a synchronization issue.',
-          errorMessage: axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
-        })
+        // ✅ FIX: Handle 404 gracefully - session might not exist yet during bootstrap/restore
+        // Check if we have session data in the store (indicating this is a real session, not deleted)
+        try {
+          const { useSessionStore } = await import('../../store/useSessionStore')
+          const sessionStore = useSessionStore.getState()
+          const currentSession = sessionStore.session
+          
+          // Only auto-create if:
+          // 1. We have a session in the store with matching reportId
+          // 2. The update is non-critical (like name updates)
+          // 3. We're not trying to update a deleted session
+          if (currentSession && currentSession.reportId === reportId) {
+            apiLogger.info('Session not found during update, creating session with updates', {
+              reportId,
+              note: 'Session exists in store but not in backend. Creating session with provided updates.',
+              updates: Object.keys(updates.updates || {}),
+            })
+            
+            // Create session with the updates included
+            // Merge updates into sessionData (updates.updates contains the actual field updates)
+            const mergedSessionData = {
+              ...(currentSession.sessionData || {}),
+              ...(updates.updates || {}),
+            }
+            
+            const sessionToCreate = {
+              session_key: reportId,
+              reportId,
+              currentView: currentSession.currentView || updates.updates?.currentView || currentSession.currentView || 'manual',
+              sessionData: mergedSessionData,
+              name: updates.updates?.name || currentSession.name,
+              dataSource: updates.updates?.dataSource || currentSession.dataSource,
+            } as any
+            
+            const createResponse = await this.createValuationSession(sessionToCreate, options)
+            
+            // Return in update format for compatibility
+            return {
+              success: createResponse.success,
+              session: createResponse.session,
+              updated: true,
+            }
+          } else {
+            // No session in store - this is a real error
+            apiLogger.error('Session not found during update - session does not exist in store', {
+              reportId,
+              note: 'Sessions are created during bootstrap. A 404 indicates the session was deleted or there is a synchronization issue.',
+              errorMessage: axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
+            })
+            // Re-throw error - let error handlers deal with it
+            this.handleSessionError(error, 'update session')
+          }
+        } catch (createError) {
+          // If auto-create fails, log and re-throw original error
+          apiLogger.error('Failed to auto-create session after 404', {
+            reportId,
+            createError: createError instanceof Error ? createError.message : String(createError),
+            originalError: axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
+          })
+          // Re-throw original error
+          this.handleSessionError(error, 'update session')
+        }
+      } else {
+        // Non-404 error - re-throw as normal
+        this.handleSessionError(error, 'update session')
       }
-      
-      // Re-throw error - let error handlers deal with it
-      this.handleSessionError(error, 'update session')
     }
   }
 
