@@ -63,6 +63,24 @@ export function useBootstrapPrefill(): {
       return;
     }
     
+    // ✅ WORLD-CLASS FIX: Skip prefill for existing reports with data
+    // When viewing an existing completed report, we should NOT prefill the form
+    // The report data is already available - prefilling would overwrite it
+    if (bootstrap.report.mode === 'existing' && bootstrap.report.hasExistingData) {
+      logger.info('Skipping prefill - viewing existing report with data', {
+        reportId: bootstrap.report.reportId?.substring(0, 20),
+        mode: bootstrap.report.mode,
+        hasExistingData: bootstrap.report.hasExistingData,
+        status: bootstrap.report.status,
+      });
+      // Mark as prefilled to prevent other hooks from trying
+      globalPrefillApplied = true;
+      globalPrefillReportId = bootstrap.report.reportId;
+      hasPrefilledRef.current = true;
+      setHasPrefilled(true);
+      return;
+    }
+    
     // Get current report ID to track which report we've prefilled
     const currentReportId = bootstrap.report.reportId;
     

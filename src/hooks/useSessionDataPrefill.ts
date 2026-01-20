@@ -45,6 +45,19 @@ export function useSessionDataPrefill() {
   const bootstrap = useBootstrapSafe()
 
   useEffect(() => {
+    // ✅ WORLD-CLASS FIX: Skip prefill for existing reports with data
+    // When viewing a completed report, we should NOT prefill the form
+    // The report data is already available - prefilling would overwrite it
+    if (bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData) {
+      generalLogger.info('[useSessionDataPrefill] Skipping - viewing existing report with data', {
+        reportMode: bootstrap.report.mode,
+        hasExistingData: bootstrap.report.hasExistingData,
+        hasValuationResult: bootstrap.report.hasValuationResult,
+      })
+      hasPrefilledRef.current = true
+      return
+    }
+
     // Skip if bootstrap has already prefilled (world-class bootstrap system takes precedence)
     if (bootstrap && bootstrap.hasPrefilledData && bootstrap.prefillData.confidence > 0.2) {
       generalLogger.debug('[useSessionDataPrefill] Skipping - bootstrap already prefilled', {
@@ -210,5 +223,5 @@ export function useSessionDataPrefill() {
         },
       })
     }
-  }, [sessionData, formData.company_name, formData.business_type_id, updateFormData])
+  }, [sessionData, formData.company_name, formData.business_type_id, updateFormData, bootstrap?.report?.mode, bootstrap?.report?.hasExistingData, bootstrap?.report?.hasValuationResult, bootstrap?.hasPrefilledData, bootstrap?.prefillData?.confidence])
 }

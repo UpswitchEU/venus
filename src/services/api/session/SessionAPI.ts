@@ -497,7 +497,7 @@ export class SessionAPI extends HttpClient {
         // ✅ FIX: Handle 404 gracefully - session might not exist yet during bootstrap/restore
         // Check if we have session data in the store (indicating this is a real session, not deleted)
         try {
-          const { useSessionStore } = await import('../../store/useSessionStore')
+          const { useSessionStore } = await import('../../../store/useSessionStore')
           const sessionStore = useSessionStore.getState()
           const currentSession = sessionStore.session
           

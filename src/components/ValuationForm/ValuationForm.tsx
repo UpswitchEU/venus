@@ -15,6 +15,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { useBootstrapSafe } from '../../lib/bootstrap'
 import { useBootstrapPrefill } from '../../hooks/useBootstrapPrefill'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
@@ -377,6 +378,10 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // session data, and Mercury business card.
   const { prefillConfidence } = useBootstrapPrefill()
   
+  // ✅ WORLD-CLASS: Get bootstrap state to check if viewing existing report
+  const bootstrap = useBootstrapSafe()
+  const isViewingExistingReport = bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
+  
   // PRE-FILL: Priority 1 - Session data from Mercury
   // This handles the critical UX case where accountant creates client in Mercury
   // with KBO data, then generates valuation link. Client opens Venus and sees
@@ -387,6 +392,16 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // PRE-FILL: Priority 2 - Auth context (user's own business card)
   // Pre-fill form with business card data when authenticated
   useEffect(() => {
+    // ✅ WORLD-CLASS FIX: Skip prefill for existing reports with data
+    // When viewing a completed report, don't prefill - show the existing data
+    if (isViewingExistingReport) {
+      generalLogger.info('Skipping business card prefill - viewing existing report', {
+        reportMode: bootstrap?.report?.mode,
+        hasExistingData: bootstrap?.report?.hasExistingData,
+      })
+      return
+    }
+    
     generalLogger.debug('Pre-fill check', {
       isAuthenticated,
       hasBusinessCard: !!businessCard,
@@ -457,6 +472,9 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     prefillFromBusinessCard,
     businessTypes,
     updateFormData,
+    isViewingExistingReport,
+    bootstrap?.report?.mode,
+    bootstrap?.report?.hasExistingData,
   ])
 
   // PRE-FILL: Priority 3 - NACE code to business type suggestion
