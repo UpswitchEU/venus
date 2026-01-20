@@ -54,6 +54,7 @@ interface BootstrapContextValue {
   report: ReportState;
   prefillData: PrefillData;
   ui: UIHints;
+  creditStatus?: SessionBootstrapState['creditStatus']; // Credit status from bootstrap state
 
   // Convenience booleans
   isGuest: boolean;
@@ -209,6 +210,25 @@ export function BootstrapProvider({
         });
       }
 
+      // ✅ CREDIT CHECK: Check if credits are insufficient
+      if (result.creditStatus && !result.creditStatus.allowed) {
+        const creditError = result.creditStatus.message || 'Insufficient credits to create valuation';
+        setBootstrapError(creditError);
+        onBootstrapError?.(creditError);
+        
+        console.error('[BootstrapProvider] Credit check failed - preventing Venus from opening', {
+          message: creditError,
+          upgradePath: result.creditStatus.upgrade_path,
+          creditsRemaining: result.creditStatus.credits_remaining,
+        });
+        
+        // Still set state so UI can display credit error
+        setState(result);
+        bootstrapCompletedRef.current = true;
+        setBootstrapState(result);
+        return;
+      }
+
       setState(result);
       bootstrapCompletedRef.current = true;
       
@@ -224,6 +244,10 @@ export function BootstrapProvider({
         reportMode: result.report.mode,
         prefillConfidence: result.prefillData.confidence.toFixed(2),
         durationMs: result.bootstrapDurationMs,
+        creditStatus: result.creditStatus ? {
+          allowed: result.creditStatus.allowed,
+          creditsRemaining: result.creditStatus.credits_remaining,
+        } : 'not checked',
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -363,6 +387,7 @@ export function BootstrapProvider({
     report: state.report,
     prefillData: state.prefillData,
     ui: state.ui,
+    creditStatus: state.creditStatus, // Credit status from bootstrap state
 
     // Convenience booleans
     isGuest: state.identity.type === 'guest',

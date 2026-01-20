@@ -303,6 +303,7 @@ function applyPrefillToForm(
   // ALSO use prefillFromBusinessCard for industry/business_model mapping
   // This ensures proper mapping of business type to industry codes
   // CRITICAL: Only call if we have a non-empty company name to avoid overwriting with empty value
+  // ✅ FIX: Defer prefillFromBusinessCard to prevent React error #185 (updating component during render)
   const finalCompanyName = allData.company_name || companyInfo?.companyName || kboData?.companyName;
   if (finalCompanyName && finalCompanyName.trim() !== '') {
     // Build business card with the final company name (from allData if set)
@@ -311,10 +312,13 @@ function applyPrefillToForm(
       financials,
       businessType
     );
-    prefillFromBusinessCard(businessCard);
-    logger.debug('Called prefillFromBusinessCard', {
-      company_name: finalCompanyName.substring(0, 30),
-    });
+    // Defer state update to next tick to avoid React error #185
+    setTimeout(() => {
+      prefillFromBusinessCard(businessCard);
+      logger.debug('Called prefillFromBusinessCard (deferred)', {
+        company_name: finalCompanyName.substring(0, 30),
+      });
+    }, 0);
   } else {
     logger.warn('Skipping prefillFromBusinessCard - no company name available', {
       hasCompanyInfo: !!companyInfo,

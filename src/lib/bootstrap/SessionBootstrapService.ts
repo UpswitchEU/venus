@@ -412,12 +412,70 @@ export class SessionBootstrapService {
 
         const data = await response.json();
 
-        if (!data.success || !data.data) {
+        // ✅ CREDIT CHECK: Handle credit errors gracefully
+        if (!data.success) {
+          // Check if this is a credit error
+          if (data.data?.creditStatus && !data.data.creditStatus.allowed) {
+            // Credit check failed - return state with credit error
+            const { identity, report, prefill, ui, creditStatus } = data.data;
+            return {
+              identity: identity ? {
+                type: identity.type,
+                userId: identity.userId,
+                guestSessionId: identity.guestSessionId,
+                clientContext: identity.clientContext,
+                email: identity.email,
+                firstName: identity.firstName,
+                lastName: identity.lastName,
+              } : DEFAULT_IDENTITY,
+              report: report ? {
+                mode: report.mode,
+                reportId: report.reportId || context.reportId || generateReportId(),
+                hasExistingData: report.hasExistingData || false,
+                version: report.version,
+                status: report.status || 'active',
+                createdAt: report.createdAt ? new Date(report.createdAt) : undefined,
+                updatedAt: report.updatedAt ? new Date(report.updatedAt) : undefined,
+                completedAt: report.completedAt ? new Date(report.completedAt) : undefined,
+                currentStep: report.currentStep,
+              } : DEFAULT_REPORT,
+              prefillData: prefill ? {
+                sources: prefill.sources || [],
+                companyInfo: prefill.companyInfo,
+                financials: prefill.financials,
+                businessType: prefill.businessType,
+                kboData: prefill.kboData,
+                confidence: prefill.confidence || 0,
+                fieldsPopulated: prefill.fieldsPopulated || [],
+                fieldsRemaining: prefill.fieldsRemaining || [],
+              } : DEFAULT_PREFILL,
+              ui: ui ? {
+                showWelcomeBack: ui.showWelcomeBack || false,
+                resumableSession: ui.resumableSession || false,
+                suggestedFlow: ui.suggestedFlow || 'manual',
+                prefilledFieldCount: ui.prefilledFieldCount || 0,
+                totalFieldCount: ui.totalFieldCount || 0,
+                showKboVerification: ui.showKboVerification || false,
+                showAccountantBanner: ui.showAccountantBanner || false,
+                returnUrl: ui.returnUrl,
+                sourceApp: ui.sourceApp,
+              } : DEFAULT_UI_HINTS,
+              creditStatus: creditStatus, // Include credit status
+              bootstrapVersion: BOOTSTRAP_VERSION,
+              bootstrappedAt: new Date(),
+              bootstrapDurationMs: performance.now() - startTime,
+            };
+          }
+          // Other errors - throw as before
           throw new Error(data.error || 'Bootstrap returned no data');
         }
 
+        if (!data.data) {
+          throw new Error('Bootstrap returned no data');
+        }
+
         // Transform Titan response to SessionBootstrapState
-        const { identity, report, prefill, ui } = data.data;
+        const { identity, report, prefill, ui, creditStatus } = data.data;
 
         const state: SessionBootstrapState = {
         identity: {
@@ -461,10 +519,11 @@ export class SessionBootstrapService {
           returnUrl: context.returnUrl,
           sourceApp: context.sourceApp,
         },
-          bootstrapVersion: BOOTSTRAP_VERSION,
-          bootstrappedAt: new Date(),
-          bootstrapDurationMs: data.bootstrapDurationMs || (performance.now() - startTime),
-        };
+        creditStatus: creditStatus, // Include credit status if present
+        bootstrapVersion: BOOTSTRAP_VERSION,
+        bootstrappedAt: new Date(),
+        bootstrapDurationMs: data.bootstrapDurationMs || (performance.now() - startTime),
+      };
 
         this.logger.info('[Bootstrap] Titan API bootstrap complete', {
           durationMs: state.bootstrapDurationMs,

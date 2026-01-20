@@ -91,6 +91,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const paywallData = useSessionStore((state) => state.paywallData)
     const clearPaywall = useSessionStore((state) => state.clearPaywall)
 
+    // ✅ CREDIT CHECK: Check bootstrap credit status
+    const bootstrapCreditStatus = bootstrap?.creditStatus
+    const showCreditError = bootstrapCreditStatus && !bootstrapCreditStatus.allowed
+
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)
 
@@ -346,20 +350,42 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         })}
 
         {/* ⭐ PLAN ENFORCEMENT: Paywall Modal */}
-        <ValuationPaywallModal
-          isOpen={!!paywallData}
-          onClose={() => {
-            clearPaywall()
-            router.push('/') // Redirect to homepage
-          }}
-          current={paywallData?.current || 0}
-          limit={paywallData?.limit || 1}
-          message={paywallData?.message}
-          onUpgrade={() => {
-            // Redirect to Mercury pricing page (full URL for cross-app navigation)
-            window.location.href = 'https://app.upswitch.be/pricing'
-          }}
-        />
+        {/* Show credit error from bootstrap if credits insufficient */}
+        {showCreditError && (
+          <ValuationPaywallModal
+            isOpen={true}
+            onClose={() => {
+              router.push('/') // Redirect to homepage
+            }}
+            current={bootstrapCreditStatus.credits_remaining}
+            limit={bootstrapCreditStatus.credits_limit}
+            message={bootstrapCreditStatus.message || 
+              (bootstrapCreditStatus.upgrade_path === 'accountant_pro'
+                ? 'Pro plan required to create valuations for clients. Please upgrade to Pro to continue.'
+                : 'Insufficient credits to create valuation. Upgrade to Premium for unlimited valuations.')}
+            onUpgrade={() => {
+              // Redirect to Mercury pricing page (full URL for cross-app navigation)
+              window.location.href = 'https://app.upswitch.be/pricing'
+            }}
+          />
+        )}
+        {/* Show paywall from session store (for other credit errors) */}
+        {!showCreditError && (
+          <ValuationPaywallModal
+            isOpen={!!paywallData}
+            onClose={() => {
+              clearPaywall()
+              router.push('/') // Redirect to homepage
+            }}
+            current={paywallData?.current || 0}
+            limit={paywallData?.limit || 1}
+            message={paywallData?.message}
+            onUpgrade={() => {
+              // Redirect to Mercury pricing page (full URL for cross-app navigation)
+              window.location.href = 'https://app.upswitch.be/pricing'
+            }}
+          />
+        )}
       </>
     )
   }

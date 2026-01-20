@@ -168,6 +168,15 @@ export interface UIHints {
   sourceApp?: string;
 }
 
+export interface CreditStatus {
+  allowed: boolean;
+  credits_remaining: number;
+  credits_limit: number;
+  requires_upgrade: boolean;
+  message?: string;
+  upgrade_path?: 'accountant_pro' | 'client_premium';
+}
+
 // ============================================================================
 // Main Bootstrap State
 // ============================================================================
@@ -184,6 +193,9 @@ export interface SessionBootstrapState {
   
   // UI Hints
   ui: UIHints;
+  
+  // Credit Status (optional - only present if credit check was performed)
+  creditStatus?: CreditStatus;
   
   // Metadata
   bootstrapVersion: string;
