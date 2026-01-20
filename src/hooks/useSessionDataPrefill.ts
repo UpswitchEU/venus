@@ -1,18 +1,17 @@
 /**
  * useSessionDataPrefill Hook
  *
- * Prefill form from session data (Mercury → Venus flow)
+ * @deprecated This hook is deprecated. Use useBootstrapPrefill instead.
  * 
- * This runs BEFORE auth-based prefill and handles the case where
- * business card data comes from Mercury via sessionData, not from
- * the authenticated user's profile.
+ * Bootstrap is now the SINGLE SOURCE OF TRUTH for all prefill data.
+ * This hook is kept for backward compatibility but will always skip
+ * when bootstrap has prefilled (which is the default behavior).
  * 
- * Critical for accountant → client flow where client opens Venus
- * through Mercury-generated link with pre-populated business data.
- * 
- * NOTE: This hook works alongside useBootstrapPrefill. If bootstrap
- * has already prefilled the form, this hook will detect that and skip
- * redundant prefilling.
+ * The bootstrap system aggregates all prefill sources:
+ * - KBO registry data
+ * - User profile (business card)
+ * - Session data from Mercury
+ * - Client context for accountant flows
  * 
  * @module hooks/useSessionDataPrefill
  */
@@ -58,8 +57,9 @@ export function useSessionDataPrefill() {
       return
     }
 
-    // Skip if bootstrap has already prefilled (world-class bootstrap system takes precedence)
-    if (bootstrap && bootstrap.hasPrefilledData && bootstrap.prefillData.confidence > 0.2) {
+    // Skip if bootstrap has already prefilled with meaningful data
+    // Bootstrap is the primary source - only use session data as fallback
+    if (bootstrap && !bootstrap.isBootstrapping && bootstrap.hasPrefilledData && bootstrap.prefillData.confidence > 0.1) {
       generalLogger.debug('[useSessionDataPrefill] Skipping - bootstrap already prefilled', {
         confidence: bootstrap.prefillData.confidence.toFixed(2),
         fields: bootstrap.prefillData.fieldsPopulated.length,

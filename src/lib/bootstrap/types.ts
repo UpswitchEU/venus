@@ -211,6 +211,7 @@ export interface BootstrapContext {
   url: string;
   reportId?: string;
   clientToken?: string;
+  clientId?: string; // ✅ FIX: Client relationship ID for accountant flow when no clientToken
   prefilledQuery?: string;
   guestSessionId?: string;
   flow?: FlowType;

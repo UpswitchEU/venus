@@ -9,13 +9,23 @@
 
 import { useMemo } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
-import { INITIALIZATION_STEPS, RESTORATION_STEPS, type LoadingStep } from '../components/LoadingState.constants'
+import {
+  INITIALIZATION_STEPS,
+  RESTORATION_STEPS,
+  DRAFT_RESTORATION_STEPS,
+  type LoadingStep,
+} from '../components/LoadingState.constants'
 
 /**
  * Hook to determine loading steps based on bootstrap report mode
- * 
- * @returns Loading steps array - RESTORATION_STEPS for existing reports, INITIALIZATION_STEPS for new reports
- * 
+ *
+ * WORLD-CLASS: Provides clear, distinct loading states for different scenarios:
+ * - New report → "Initializing workspace..." (INITIALIZATION_STEPS)
+ * - Draft (in-progress) → "Restoring draft..." (DRAFT_RESTORATION_STEPS)
+ * - Completed report → "Restoring valuation..." (RESTORATION_STEPS)
+ *
+ * @returns Loading steps array appropriate for the current bootstrap state
+ *
  * @example
  * ```tsx
  * const loadingSteps = useLoadingSteps()
@@ -24,19 +34,40 @@ import { INITIALIZATION_STEPS, RESTORATION_STEPS, type LoadingStep } from '../co
  */
 export function useLoadingSteps(): LoadingStep[] {
   const bootstrap = useBootstrapSafe()
-  
+
   return useMemo(() => {
-    // Only show restoration steps if there's a completed valuation (OUTPUT data)
-    // 
-    // Distinction:
-    // - hasExistingData = true if ANY data exists (company_name, revenue, etc.) = INPUT data
-    // - hasValuationResult = true if valuation OUTPUT exists (valuation result, HTML report)
-    // 
     // Loading step logic:
-    // - New report (no session) → "Initializing workspace"
-    // - Draft (session with form data, no valuation) → "Loading your draft" (use INITIALIZATION)
-    // - Complete (session with valuation output) → "Restoring valuation package" (use RESTORATION)
-    const hasValuationOutput = bootstrap?.report.hasValuationResult === true
-    return hasValuationOutput ? RESTORATION_STEPS : INITIALIZATION_STEPS
-  }, [bootstrap?.report.hasValuationResult])
+    //
+    // 1. mode: 'new' (no session) → INITIALIZATION_STEPS
+    //    "Validating access", "Creating session", "Loading valuation engine"
+    //
+    // 2. mode: 'existing' + !hasValuationResult → DRAFT_RESTORATION_STEPS
+    //    "Restoring draft", "Recovering form data", "Preparing workspace"
+    //
+    // 3. mode: 'existing' + hasValuationResult → RESTORATION_STEPS
+    //    "Restoring valuation", "Preparing results", "Finalizing report"
+
+    // Not bootstrapped yet - show initialization steps
+    if (!bootstrap?.report) {
+      return INITIALIZATION_STEPS
+    }
+
+    // New report - show initialization steps
+    if (bootstrap.report.mode === 'new') {
+      return INITIALIZATION_STEPS
+    }
+
+    // Existing report with completed valuation - show restoration steps
+    if (bootstrap.report.hasValuationResult) {
+      return RESTORATION_STEPS
+    }
+
+    // Existing draft (has data but no valuation result) - show draft steps
+    if (bootstrap.report.hasExistingData) {
+      return DRAFT_RESTORATION_STEPS
+    }
+
+    // Fallback to initialization steps
+    return INITIALIZATION_STEPS
+  }, [bootstrap?.report])
 }

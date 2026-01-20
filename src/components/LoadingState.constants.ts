@@ -52,30 +52,52 @@ export const UNIFIED_LOADING_STEPS: LoadingStep[] = [
 ]
 
 /**
- * Restoration steps - used when loading existing reports from database
+ * Restoration steps - used when loading existing reports with valuation results
  * 
- * These steps are shown when bootstrap detects an existing report (mode: 'existing').
- * They provide clear visual feedback that the system is restoring saved data rather than
- * creating a new session. This differentiation improves user experience by setting
- * appropriate expectations.
+ * These steps are shown when bootstrap detects a COMPLETED report (mode: 'existing' + hasValuationResult).
+ * They provide clear visual feedback that the system is restoring a completed valuation.
  * 
- * @see useLoadingSteps - Hook that automatically selects between RESTORATION_STEPS and INITIALIZATION_STEPS
+ * @see useLoadingSteps - Hook that automatically selects the appropriate steps
  */
 export const RESTORATION_STEPS: LoadingStep[] = [
   {
-    text: 'Restoring session',
-    subtext: 'Loading your saved data...',
+    text: 'Restoring valuation',
+    subtext: 'Loading your completed report...',
     estimatedMs: 800,
   },
   {
-    text: 'Restoring form data',
-    subtext: 'Recovering your inputs...',
+    text: 'Preparing results',
+    subtext: 'Reconstructing valuation breakdown...',
     estimatedMs: 600,
   },
   {
-    text: 'Loading valuation results',
-    subtext: 'Preparing your report...',
-    estimatedMs: 1000,
+    text: 'Finalizing report',
+    subtext: 'Preparing your report for viewing...',
+    estimatedMs: 500,
+  },
+]
+
+/**
+ * Draft restoration steps - used when loading in-progress reports without valuation results
+ * 
+ * These steps are shown when bootstrap detects a DRAFT report (mode: 'existing' + hasExistingData + !hasValuationResult).
+ * They provide clear visual feedback that the system is restoring an in-progress valuation.
+ */
+export const DRAFT_RESTORATION_STEPS: LoadingStep[] = [
+  {
+    text: 'Restoring draft',
+    subtext: 'Loading your saved progress...',
+    estimatedMs: 600,
+  },
+  {
+    text: 'Recovering form data',
+    subtext: 'Restoring your inputs...',
+    estimatedMs: 600,
+  },
+  {
+    text: 'Preparing workspace',
+    subtext: 'Setting up where you left off...',
+    estimatedMs: 400,
   },
 ]
 

@@ -382,90 +382,70 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const bootstrap = useBootstrapSafe()
   const isViewingExistingReport = bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
   
-  // PRE-FILL: Priority 1 - Session data from Mercury
-  // This handles the critical UX case where accountant creates client in Mercury
-  // with KBO data, then generates valuation link. Client opens Venus and sees
-  // fully prefilled form even though they're not authenticated.
-  // Note: Bootstrap prefill should already handle this, but kept for backward compatibility
+  // ✅ WORLD-CLASS ARCHITECTURE: Bootstrap is the SINGLE SOURCE OF TRUTH
+  // useSessionDataPrefill is deprecated - it will skip when bootstrap is available
   useSessionDataPrefill()
 
-  // PRE-FILL: Priority 2 - Auth context (user's own business card)
-  // Pre-fill form with business card data when authenticated
+  // PRE-FILL: Business card (ONLY if bootstrap hasn't already prefilled)
+  // Bootstrap aggregates all prefill sources including user profile, so this is a fallback
   useEffect(() => {
-    // ✅ WORLD-CLASS FIX: Skip prefill for existing reports with data
-    // When viewing a completed report, don't prefill - show the existing data
-    if (isViewingExistingReport) {
-      generalLogger.info('Skipping business card prefill - viewing existing report', {
-        reportMode: bootstrap?.report?.mode,
-        hasExistingData: bootstrap?.report?.hasExistingData,
+    // ✅ WORLD-CLASS FIX: Skip if bootstrap has already prefilled
+    // Bootstrap is the single source of truth for all prefill data
+    if (prefillConfidence > 0.1) {
+      generalLogger.debug('Skipping business card prefill - bootstrap already prefilled', {
+        prefillConfidence: prefillConfidence.toFixed(2),
       })
       return
     }
     
-    generalLogger.debug('Pre-fill check', {
-      isAuthenticated,
-      hasBusinessCard: !!businessCard,
-      hasPrefilledOnce,
-      businessCard,
+    // Skip prefill for existing reports with data
+    if (isViewingExistingReport) {
+      generalLogger.debug('Skipping business card prefill - viewing existing report')
+      return
+    }
+    
+    // Skip if no business card or already prefilled
+    if (!isAuthenticated || !businessCard || hasPrefilledOnce || businessTypes.length === 0) {
+      return
+    }
+
+    generalLogger.info('Pre-filling form with business card data (bootstrap fallback)', {
+      company_name: businessCard.company_name?.substring(0, 20),
     })
 
-    if (isAuthenticated && businessCard && !hasPrefilledOnce && businessTypes.length > 0) {
-      generalLogger.info('Pre-filling form with business card data', {
-        ...businessCard,
-        employee_count: businessCard.employee_count
-          ? `${businessCard.employee_count} employees`
-          : 'not available',
-      })
+    // ✅ FIX: prefillFromBusinessCard now uses requestAnimationFrame internally
+    prefillFromBusinessCard(businessCard)
 
-      // ✅ FIX: prefillFromBusinessCard now uses requestAnimationFrame internally
-      // No need for setTimeout wrapper - the function itself handles deferral to prevent React error #185
-      // Call directly - deferral is handled internally
-      prefillFromBusinessCard(businessCard)
-
-      // Then, try to match business_type_id if available
-      if ((businessCard as any).business_type_id) {
-        const matchingType = businessTypes.find(
-          (bt) => bt.id === (businessCard as any).business_type_id
-        )
-
-        if (matchingType) {
-          generalLogger.info('Found matching business type from profile', {
-            id: matchingType.id,
-            title: matchingType.title,
-          })
-
-          updateFormData({
-            business_type_id: matchingType.id,
-            business_model: matchingType.id,
-            industry:
-              matchingType.industry || matchingType.industryMapping || businessCard.industry,
-            subIndustry: matchingType.category,
-          })
-        }
-      } else if (businessCard.industry) {
-        // Fallback: Try to find matching business type by industry
-        const matchingType = businessTypes.find(
-          (bt) =>
-            bt.industry === businessCard.industry || bt.industryMapping === businessCard.industry
-        )
-
-        if (matchingType) {
-          generalLogger.info('Found matching business type by industry', {
-            id: matchingType.id,
-            title: matchingType.title,
-            industry: businessCard.industry,
-          })
-
-          updateFormData({
-            business_type_id: matchingType.id,
-            business_model: matchingType.id,
-          })
-        }
+    // Match business_type_id if available
+    if ((businessCard as any).business_type_id) {
+      const matchingType = businessTypes.find(
+        (bt) => bt.id === (businessCard as any).business_type_id
+      )
+      if (matchingType) {
+        updateFormData({
+          business_type_id: matchingType.id,
+          business_model: matchingType.id,
+          industry:
+            matchingType.industry || matchingType.industryMapping || businessCard.industry,
+          subIndustry: matchingType.category,
+        })
       }
-
-      setHasPrefilledOnce(true)
+    } else if (businessCard.industry) {
+      const matchingType = businessTypes.find(
+        (bt) =>
+          bt.industry === businessCard.industry || bt.industryMapping === businessCard.industry
+      )
+      if (matchingType) {
+        updateFormData({
+          business_type_id: matchingType.id,
+          business_model: matchingType.id,
+        })
+      }
     }
+
+    setHasPrefilledOnce(true)
   }, [
+    prefillConfidence,
     isAuthenticated,
     businessCard,
     hasPrefilledOnce,

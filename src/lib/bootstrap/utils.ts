@@ -107,6 +107,7 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
       url,
       reportId,
       clientToken: params.get('clientToken') || undefined,
+      clientId: params.get('clientId') || undefined, // ✅ FIX: Extract clientId for accountant flow
       prefilledQuery: params.get('prefilledQuery') || undefined,
       guestSessionId: params.get('guestSessionId') || undefined,
       flow: (params.get('flow') as FlowType) || undefined,

@@ -249,10 +249,27 @@ function syncSession(state: SessionBootstrapState): void {
           reportId: report.reportId.substring(0, 20),
         });
       }
-    } else {
-      logger.debug('Bootstrap has existing report but store is empty, waiting for API load', {
-        bootstrapReportId: report.reportId.substring(0, 20),
-        mode: report.mode,
+    } else if (report.mode === 'existing') {
+      // ✅ WORLD-CLASS FIX: For existing reports, trigger session load
+      // Bootstrap tells us the report exists, now we need to load the full session data
+      // (form fields, valuation result, HTML reports) from the backend
+      logger.info('Triggering session load for existing report', {
+        reportId: report.reportId.substring(0, 20),
+        hasExistingData: report.hasExistingData,
+        hasValuationResult: report.hasValuationResult,
+      });
+      
+      // Load the full session data from backend
+      // This will populate form fields, valuation result, and HTML reports
+      sessionStore.loadSession(
+        report.reportId,
+        'manual', // Default to manual flow - will be updated from session data
+        undefined // No prefilled query for existing reports
+      ).catch((error) => {
+        logger.error('Failed to load session for existing report', {
+          reportId: report.reportId.substring(0, 20),
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
     }
 

@@ -310,6 +310,7 @@ export class SessionBootstrapService {
       const requestBody = {
         reportId: validReportId,
         clientToken: context.clientToken,
+        clientId: context.clientId, // ✅ FIX: Pass clientId for accountant flow verification
         prefilledQuery: context.prefilledQuery,
         guestSessionId: context.guestSessionId,
         flow: context.flow,
