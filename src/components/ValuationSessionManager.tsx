@@ -92,8 +92,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const clearPaywall = useSessionStore((state) => state.clearPaywall)
 
     // ✅ CREDIT CHECK: Check bootstrap credit status
+    // WORLD-CLASS: Don't show premium modal for guest users
     const bootstrapCreditStatus = bootstrap?.creditStatus
-    const showCreditError = bootstrapCreditStatus && !bootstrapCreditStatus.allowed
+    const isGuest = bootstrap?.identity?.type === 'guest'
+    const showCreditError = bootstrapCreditStatus && !bootstrapCreditStatus.allowed && !isGuest
 
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)

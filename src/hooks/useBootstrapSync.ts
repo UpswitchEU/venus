@@ -242,7 +242,10 @@ function syncSession(state: SessionBootstrapState): void {
           prefillConfidence: prefillData.confidence.toFixed(2),
           hasCompanyName: !!prefillData.companyInfo?.companyName,
           prefillFieldsCount: Object.keys(sessionData).length - 2, // Exclude _bootstrapCreated and _bootstrapPrefill flags
-          note: 'Session will be created on backend when user first saves (via saveSession with _bootstrapCreated flag)',
+          identityType: identity.type,
+          note: identity.type === 'guest' 
+            ? 'Guest session - will be created on backend when user first saves (via saveSession with _bootstrapCreated flag)'
+            : 'Session will be created on backend when user first saves (via saveSession with _bootstrapCreated flag)',
         });
       } else {
         logger.debug('New report - session already exists in store', {

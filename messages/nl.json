@@ -642,11 +642,9 @@
       "cancel": "Annuleren"
     },
     "paywall": {
-      "title": "Premium Functie",
-      "description": "Deze functie is beschikbaar voor premium gebruikers",
-      "features": "Premium functies omvatten:",
-      "upgrade": "Nu Upgraden",
-      "learnMore": "Meer Informatie",
+      "title": "Upgrade naar Premium",
+      "message": "Upgrade naar Premium voor onbeperkte waarderingen",
+      "upgrade": "Upgrade naar Premium",
       "cancel": "Misschien Later"
     },
     "versionComparison": {

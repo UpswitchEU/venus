@@ -169,14 +169,16 @@ export class HttpClient {
         return {}
       }
 
-      // Priority 3: Guest token
-      const guestToken = this.getGuestToken()
-      if (guestToken) {
-        apiLogger.debug('[HttpClient] Using guest token', {
-          token: guestToken.substring(0, 20) + '...',
+      // Priority 3: Guest session ID
+      // ✅ TWIN ENGINE ARCHITECTURE: Use guest session ID (not token)
+      // Titan expects x-guest-session-id header, not X-Guest-Token
+      const guestSessionId = this.getGuestSessionId()
+      if (guestSessionId) {
+        apiLogger.debug('[HttpClient] Using guest session ID', {
+          sessionId: guestSessionId.substring(0, 20) + '...',
         })
         return {
-          'X-Guest-Token': guestToken,
+          'x-guest-session-id': guestSessionId, // ✅ FIX: Use lowercase header name that Titan expects
         }
       }
 
@@ -189,15 +191,21 @@ export class HttpClient {
   }
 
   /**
-   * Get guest token from localStorage
+   * Get guest session ID from localStorage
+   * 
+   * ✅ TWIN ENGINE ARCHITECTURE: Use guest session ID (not token)
+   * This matches Titan's expectation of x-guest-session-id header
+   * Uses the same localStorage key as useGuestSessionStore for consistency
    */
-  private getGuestToken(): string | null {
+  private getGuestSessionId(): string | null {
     if (typeof window === 'undefined') {
       return null
     }
 
     try {
-      return localStorage.getItem('upswitch_guest_token')
+      // ✅ FIX: Use correct localStorage key that matches useGuestSessionStore
+      // This ensures consistency across the application
+      return localStorage.getItem('upswitch_guest_session_id')
     } catch (error) {
       return null
     }

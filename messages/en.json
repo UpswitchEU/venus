@@ -644,11 +644,9 @@
       "cancel": "Cancel"
     },
     "paywall": {
-      "title": "Premium Feature",
-      "description": "This feature is available to premium users",
-      "features": "Premium features include:",
-      "upgrade": "Upgrade Now",
-      "learnMore": "Learn More",
+      "title": "Upgrade to Premium",
+      "message": "Upgrade to Premium for unlimited valuations",
+      "upgrade": "Upgrade to Premium",
       "cancel": "Maybe Later"
     },
     "versionComparison": {

@@ -210,8 +210,10 @@ export function BootstrapProvider({
         });
       }
 
-      // ✅ CREDIT CHECK: Check if credits are insufficient
-      if (result.creditStatus && !result.creditStatus.allowed) {
+      // ✅ CREDIT CHECK: Check if credits are insufficient (AUTH ONLY)
+      // Guest users have unlimited sandbox access - never block them
+      const isGuest = result.identity.type === 'guest';
+      if (!isGuest && result.creditStatus && !result.creditStatus.allowed) {
         const creditError = result.creditStatus.message || 'Insufficient credits to create valuation';
         setBootstrapError(creditError);
         onBootstrapError?.(creditError);
@@ -220,6 +222,7 @@ export function BootstrapProvider({
           message: creditError,
           upgradePath: result.creditStatus.upgrade_path,
           creditsRemaining: result.creditStatus.credits_remaining,
+          note: 'Guest users are excluded from credit blocking (unlimited sandbox access)',
         });
         
         // Still set state so UI can display credit error
@@ -234,6 +237,20 @@ export function BootstrapProvider({
       
       // Sync with SessionInitializer for backward compatibility
       setBootstrapState(result);
+      
+      // ✅ TWIN ENGINE: Set session engine based on identity
+      try {
+        const { useSessionStore } = await import('../../store/useSessionStore');
+        useSessionStore.getState().setEngine(result.identity);
+        console.log('[BootstrapProvider] Session engine set', {
+          identityType: result.identity.type,
+          engineType: result.identity.type === 'guest' ? 'GuestSessionEngine' : 'AuthenticatedSessionEngine',
+        });
+      } catch (engineError) {
+        console.error('[BootstrapProvider] Failed to set session engine', {
+          error: engineError instanceof Error ? engineError.message : String(engineError),
+        });
+      }
       
       onBootstrapComplete?.(result);
 
@@ -346,12 +363,40 @@ export function BootstrapProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps = run only on mount
 
+  // ✅ TWIN ENGINE: Update engine when identity changes
+  useEffect(() => {
+    if (state.identity && state.identity.type) {
+      try {
+        const { useSessionStore } = require('../../store/useSessionStore');
+        useSessionStore.getState().setEngine(state.identity);
+      } catch (error) {
+        console.error('[BootstrapProvider] Failed to set session engine on identity change', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }, [state.identity.type, state.identity.userId, state.identity.guestSessionId]);
+
   // Update functions
   const updateIdentity = useCallback((identity: Partial<IdentityState>) => {
-    setState((prev) => ({
-      ...prev,
-      identity: { ...prev.identity, ...identity },
-    }));
+    setState((prev) => {
+      const updatedIdentity = { ...prev.identity, ...identity };
+      
+      // ✅ TWIN ENGINE: Update engine when identity changes
+      try {
+        const { useSessionStore } = require('../../store/useSessionStore');
+        useSessionStore.getState().setEngine(updatedIdentity);
+      } catch (error) {
+        console.error('[BootstrapProvider] Failed to set session engine on identity update', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      
+      return {
+        ...prev,
+        identity: updatedIdentity,
+      };
+    });
   }, []);
 
   const updateReport = useCallback((report: Partial<ReportState>) => {

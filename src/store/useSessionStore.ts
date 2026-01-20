@@ -1,14 +1,14 @@
 /**
  * Unified Session Store (Cursor-Style Simplicity)
  *
- * Single source of truth for both manual and conversational flows.
- * Replaces useManualSessionStore + useConversationalSessionStore.
+ * Twin Engine Architecture: Routes to GuestSessionEngine or AuthenticatedSessionEngine
+ * based on bootstrap identity. Zero mixing of guest/auth logic.
  *
  * Key Features:
  * - Promise cache prevents duplicate loads
  * - Atomic state updates
  * - Simple API (loadSession, updateSession, clearSession)
- * - No orchestration, no asset stores
+ * - Engine abstraction (guest vs auth)
  * - Optimistic rendering support
  *
  * @module store/useSessionStore
@@ -16,9 +16,11 @@
 
 import { create } from 'zustand'
 import type { RestorationProgress } from '../hooks/useRestorationProgress'
-import { sessionService } from '../services'
 import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
+import type { ISessionEngine } from '../services/session/SessionEngine'
+import { createSessionEngine } from '../services/session/SessionEngineFactory'
+import type { IdentityState } from '../lib/bootstrap/types'
 
 interface SessionStore {
   // State
@@ -49,7 +51,11 @@ interface SessionStore {
     message: string
   } | null
 
+  // ✅ TWIN ENGINE: Engine instance (created based on identity)
+  engine: ISessionEngine | null
+
   // Actions
+  setEngine: (identity: IdentityState) => void // Set engine based on identity
   loadSession: (
     reportId: string,
     flow?: 'manual' | 'conversational',
@@ -92,6 +98,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   isInitializing: true, // ✅ NEW: Start in initializing state
   restorationProgress: null, // ✅ NEW: Restoration progress tracking
   paywallData: null, // ⭐ PLAN ENFORCEMENT: Paywall state
+  engine: null, // ✅ TWIN ENGINE: Engine instance (set via setEngine)
+
+  /**
+   * Set engine based on identity
+   * Called from BootstrapProvider when identity is resolved
+   */
+  setEngine: (identity: IdentityState) => {
+    const engine = createSessionEngine(identity)
+    set({ engine })
+    storeLogger.debug('[Session] Engine set', {
+      identityType: identity.type,
+      engineType: identity.type === 'guest' ? 'GuestSessionEngine' : 'AuthenticatedSessionEngine',
+    })
+  },
 
   /**
    * Load session from backend/cache
@@ -178,8 +198,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           prefilledQuery,
         })
 
-        // Load from SessionService (handles cache, backend, merging, auto-creation)
-        const session = await sessionService.loadSession(expectedReportId, flow, prefilledQuery)
+        // ✅ TWIN ENGINE: Load from engine (routes to Guest or Auth engine)
+        const state = get()
+        if (!state.engine) {
+          throw new Error('Session engine not initialized. Call setEngine() first.')
+        }
+        
+        const session = await state.engine.loadSession(expectedReportId, flow, prefilledQuery)
 
         if (!session) {
           // Session not found and couldn't be auto-created
@@ -455,194 +480,74 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   /**
    * Update entire session object
    * 
-   * If no session exists but updates include reportId and required fields, creates a new session.
-   * This allows BootstrapSync to create minimal sessions for new reports.
+   * ✅ TWIN ENGINE: Delegates to engine (Guest or Auth)
    */
   updateSession: (updates: Partial<ValuationSession>) => {
-    set((state) => {
-      // ✅ FIX: Allow creating session if updates include reportId and required fields (BootstrapSync case)
-      // This fixes the "Cannot update: no active session" warning when creating minimal sessions
-      if (!state.session) {
-        if (updates.reportId && updates.currentView && updates.dataSource && updates.createdAt && updates.updatedAt) {
-          // Creating a new session from updates (e.g., BootstrapSync minimal session)
-          // Ensure all required fields are present
-          const newSession: ValuationSession = {
-            reportId: updates.reportId,
-            currentView: updates.currentView,
-            dataSource: updates.dataSource,
-            createdAt: updates.createdAt,
-            updatedAt: updates.updatedAt,
-            partialData: updates.partialData || {},
-            sessionData: updates.sessionData,
-            name: updates.name,
-            completedAt: updates.completedAt,
-            lastSyncedAt: updates.lastSyncedAt,
-            calculatedAt: updates.calculatedAt,
-            completeness: updates.completeness,
-            valuationResult: updates.valuationResult,
-            htmlReport: updates.htmlReport,
-            infoTabHtml: updates.infoTabHtml,
-          }
-          
-          storeLogger.debug('[Session] Creating new session from updates', {
-            reportId: newSession.reportId,
-            hasSessionData: !!newSession.sessionData,
-            isBootstrapCreated: !!(newSession.sessionData as any)?._bootstrapCreated,
-          })
-          
-          // Update cache for new session
-          try {
-            const { globalSessionCache } = require('../utils/sessionCacheManager')
-            const { htmlReport, infoTabHtml, ...sessionWithoutHtml } = newSession
-            globalSessionCache.set(newSession.reportId, sessionWithoutHtml)
-          } catch (cacheError) {
-            storeLogger.error('[Session] Failed to cache new session', {
-              reportId: newSession.reportId,
-              error: cacheError instanceof Error ? cacheError.message : String(cacheError),
-            })
-          }
-          
-          return {
-            ...state,
-            session: newSession,
-            hasUnsavedChanges: false, // New sessions haven't been saved yet
-          }
-        } else {
-          // No session and missing required fields - can't create
-          storeLogger.warn('[Session] Cannot update: no active session and missing required fields', {
-            hasReportId: !!updates.reportId,
-            hasCurrentView: !!updates.currentView,
-            hasDataSource: !!updates.dataSource,
-            hasCreatedAt: !!updates.createdAt,
-            hasUpdatedAt: !!updates.updatedAt,
-          })
-          return state
-        }
-      }
+    const state = get()
+    if (!state.engine) {
+      storeLogger.warn('[Session] Cannot update - engine not initialized')
+      return
+    }
 
-      const updatedSession = {
-        ...state.session,
-        ...updates,
-      }
+    // Delegate to engine
+    state.engine.updateSession(updates)
 
-      storeLogger.debug('[Session] Session updated', {
-        reportId: state.session.reportId,
-        fieldsUpdated: Object.keys(updates).length,
-      })
-
-      // ✅ CRITICAL: Update localStorage cache immediately (Cursor/ChatGPT pattern)
-      // This ensures page refresh loads the updated session with all assets
-      // ✅ FIX: Exclude HTML reports before caching to prevent quota exceeded errors
-      try {
-        const { globalSessionCache } = require('../utils/sessionCacheManager')
-
-        storeLogger.debug('[Session] Starting optimistic cache update', {
-          reportId: state.session.reportId,
-          updateKeys: Object.keys(updates),
-          hasHtmlReportInUpdate: !!updates.htmlReport,
-          hasInfoTabHtmlInUpdate: !!updates.infoTabHtml,
-        })
-
-        // Exclude HTML reports before caching (they're too large for localStorage)
-        // HTML reports are fetched from backend on demand when needed
-        const { htmlReport, infoTabHtml, ...sessionWithoutHtml } = updatedSession
-        globalSessionCache.set(state.session.reportId, sessionWithoutHtml)
-
-        storeLogger.info('[Session] Cache updated optimistically (SUCCESS)', {
-          reportId: state.session.reportId,
-          fieldsUpdated: Object.keys(updates).length,
-          hasHtmlReport: !!updatedSession.htmlReport,
-          htmlReportLength: updatedSession.htmlReport?.length || 0,
-          hasInfoTabHtml: !!updatedSession.infoTabHtml,
-          infoTabHtmlLength: updatedSession.infoTabHtml?.length || 0,
-          hasValuationResult: !!updatedSession.valuationResult,
-          hasSessionData: !!updatedSession.sessionData,
-        })
-      } catch (cacheError) {
-        storeLogger.error('[Session] Failed to update cache optimistically', {
-          reportId: state.session.reportId,
-          error: cacheError instanceof Error ? cacheError.message : String(cacheError),
-          stack: cacheError instanceof Error ? cacheError.stack : undefined,
-        })
-      }
-
-      return {
-        ...state,
+    // Update local state from engine
+    const updatedSession = state.engine.getSession()
+    if (updatedSession) {
+      set({
         session: updatedSession,
         hasUnsavedChanges: true,
-      }
-    })
+      })
+    }
   },
 
   /**
    * Update session data (form fields)
-   * Async for compatibility with hooks expecting Promise<void>
+   * ✅ TWIN ENGINE: Delegates to engine
    */
   updateSessionData: async (data: Partial<any>) => {
-    set((state) => {
-      if (!state.session) {
-        storeLogger.warn('[Session] Cannot update data: no active session')
-        return state
-      }
+    const state = get()
+    if (!state.engine) {
+      storeLogger.warn('[Session] Cannot update data - engine not initialized')
+      return
+    }
 
-      // ✅ FIX: Check if data actually changed before marking as unsaved
-      // This prevents restoration from triggering "unsaved changes"
-      const currentSessionData = state.session.sessionData || ({} as any)
-      const dataAny = data as any
-      const dataChanged = Object.keys(data).some((key) => {
-        const newValue = dataAny[key]
-        const oldValue = (currentSessionData as any)[key]
+    if (!state.session) {
+      storeLogger.warn('[Session] Cannot update data: no active session')
+      return
+    }
 
-        // Deep comparison for nested objects
-        if (
-          typeof newValue === 'object' &&
-          typeof oldValue === 'object' &&
-          newValue !== null &&
-          oldValue !== null
-        ) {
-          return JSON.stringify(newValue) !== JSON.stringify(oldValue)
-        }
+    // Delegate to engine
+    state.engine.updateSession({
+      sessionData: {
+        ...(state.session.sessionData || {}),
+        ...data,
+      },
+    })
 
-        return newValue !== oldValue
-      })
-
-      // If data hasn't changed, don't mark as unsaved
-      if (!dataChanged) {
-        storeLogger.debug('[Session] Session data unchanged, skipping update', {
-          reportId: state.session.reportId,
-          fieldsChecked: Object.keys(data).length,
-        })
-        return state
-      }
-
-      const updatedSession = {
-        ...state.session,
-        sessionData: {
-          ...state.session.sessionData,
-          ...data,
-        },
-      }
-
-      storeLogger.debug('[Session] Session data updated', {
-        reportId: state.session.reportId,
-        fieldsUpdated: Object.keys(data).length,
-        dataChanged: true,
-      })
-
-      return {
-        ...state,
+    // Update local state from engine
+    const updatedSession = state.engine.getSession()
+    if (updatedSession) {
+      set({
         session: updatedSession,
         hasUnsavedChanges: true,
-      }
-    })
+      })
+    }
   },
 
   /**
    * Save session to backend
+   * ✅ TWIN ENGINE: Delegates to engine (Guest or Auth)
    * @param reason - Reason for save: 'user' (explicit user action), 'autosave' (debounced form sync), 'system' (restoration/system-triggered)
    */
   saveSession: async (reason: 'user' | 'autosave' | 'system' = 'autosave') => {
     const state = get()
+
+    if (!state.engine) {
+      storeLogger.warn('[Session] Cannot save - engine not initialized')
+      return
+    }
 
     if (!state.session) {
       storeLogger.warn('[Session] Cannot save: no active session')
@@ -662,8 +567,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         hadUnsavedChanges: hadUnsavedChangesBeforeSave,
       })
 
-      // Save via SessionService
-      const savedSession = await sessionService.saveSession(state.session.reportId, state.session.sessionData || {})
+      // ✅ TWIN ENGINE: Delegate to engine
+      await state.engine.saveSession(reason)
+
+      // Update local state from engine
+      const savedSession = state.engine.getSession()
 
       // ✅ FIX: Update store with the saved session (includes business card data merged after save)
       // This ensures the store has the latest session data, including any business card data
@@ -709,6 +617,28 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save session'
+      
+      // ✅ WORLD-CLASS FIX: Don't crash UI for non-critical errors
+      // Rate limits (429) and network errors are transient - don't show error screen
+      const isRateLimit = message.includes('429') || message.includes('rate limit') || message.includes('too many requests')
+      const isNetworkError = message.includes('network') || message.includes('timeout') || message.includes('ECONNREFUSED')
+      const isNonCritical = isRateLimit || isNetworkError
+      
+      if (isNonCritical) {
+        storeLogger.warn('[Session] Non-critical save error (will retry automatically)', {
+          reportId: state.session.reportId,
+          error: message,
+          reason,
+          note: 'Rate limit or network error - update will be retried on next change',
+        })
+        
+        // Don't set error state for non-critical errors - just mark as not saving
+        set({
+          isSaving: false,
+          error: null, // Don't show error for transient issues
+        })
+        return // Exit early - don't show error UI
+      }
 
       storeLogger.error('[Session] Save failed', {
         reportId: state.session.reportId,
@@ -727,6 +657,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   /**
    * Clear session state
+   * ✅ TWIN ENGINE: Delegates to engine
    */
   clearSession: () => {
     const state = get()
@@ -734,6 +665,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     storeLogger.info('[Session] Clearing session', {
       reportId: state.session?.reportId,
     })
+
+    // Delegate to engine
+    if (state.engine) {
+      state.engine.clearSession()
+    }
 
     set({
       session: null,
@@ -766,18 +702,26 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   /**
    * Get current report ID
+   * ✅ TWIN ENGINE: Delegates to engine
    */
   getReportId: () => {
-    const { session } = get()
-    return session?.reportId || null
+    const state = get()
+    if (state.engine) {
+      return state.engine.getReportId()
+    }
+    return state.session?.reportId || null
   },
 
   /**
    * Get session data
+   * ✅ TWIN ENGINE: Delegates to engine
    */
   getSessionData: () => {
-    const { session } = get()
-    return session?.sessionData || null
+    const state = get()
+    if (state.engine) {
+      return state.engine.getSessionData()
+    }
+    return state.session?.sessionData || null
   },
 
   /**
