@@ -91,34 +91,40 @@ export function useBootstrapPrefill(): {
     // Get form store actions directly to avoid stale closures
     const { updateFormData, prefillFromBusinessCard } = formStore.getState();
     
-    // Apply prefill data to form SYNCHRONOUSLY
-    applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard);
-    
-    // Verify form data was actually set (read immediately after update)
-    const formDataAfterPrefill = formStore.getState().formData;
-    
-    // Mark as prefilled globally and locally
-    globalPrefillApplied = true;
-    globalPrefillReportId = currentReportId;
-    hasPrefilledRef.current = true;
-    setHasPrefilled(true);
-    
-    logger.info('Applied bootstrap prefill to form (synchronous)', {
-      sources: prefillData.sources,
-      confidence: prefillData.confidence.toFixed(2),
-      fieldsPopulated: prefillData.fieldsPopulated.length,
-      fieldsRemaining: prefillData.fieldsRemaining.length,
-      hasKboData: !!prefillData.kboData,
-      companyName: prefillData.companyInfo?.companyName?.substring(0, 20),
-      // Verify form data was set
-      formDataAfterPrefill: {
-        company_name: formDataAfterPrefill.company_name?.substring(0, 30),
-        hasKboNumber: !!formDataAfterPrefill.kbo_number,
-        hasBusinessTypeId: !!formDataAfterPrefill.business_type_id,
-        hasFoundingYear: !!formDataAfterPrefill.founding_year,
-        hasBusinessContext: !!formDataAfterPrefill.business_context,
-      },
-    });
+    // ✅ FIX: Defer ALL state updates to prevent React error #185
+    // React error #185 occurs when updating state during render
+    // useLayoutEffect runs synchronously during commit phase, so we defer to next event loop tick
+    // This ensures state updates happen after render completes
+    setTimeout(() => {
+      // Apply prefill data to form AFTER render completes
+      applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard);
+      
+      // Verify form data was actually set (read after update)
+      const formDataAfterPrefill = formStore.getState().formData;
+      
+      // Mark as prefilled globally and locally
+      globalPrefillApplied = true;
+      globalPrefillReportId = currentReportId;
+      hasPrefilledRef.current = true;
+      setHasPrefilled(true);
+      
+      logger.info('Applied bootstrap prefill to form (deferred)', {
+        sources: prefillData.sources,
+        confidence: prefillData.confidence.toFixed(2),
+        fieldsPopulated: prefillData.fieldsPopulated.length,
+        fieldsRemaining: prefillData.fieldsRemaining.length,
+        hasKboData: !!prefillData.kboData,
+        companyName: prefillData.companyInfo?.companyName?.substring(0, 20),
+        // Verify form data was set
+        formDataAfterPrefill: {
+          company_name: formDataAfterPrefill.company_name?.substring(0, 30),
+          hasKboNumber: !!formDataAfterPrefill.kbo_number,
+          hasBusinessTypeId: !!formDataAfterPrefill.business_type_id,
+          hasFoundingYear: !!formDataAfterPrefill.founding_year,
+          hasBusinessContext: !!formDataAfterPrefill.business_context,
+        },
+      });
+    }, 0);
   }, [bootstrap, formStore]);
   
   return {
@@ -297,13 +303,16 @@ function applyPrefillToForm(
       businessContextCompanyId: allData.business_context?.company_id,
     });
     
+    // ✅ FIX: updateFormData is already deferred by queueMicrotask in useLayoutEffect
+    // No need for additional deferral here
     updateFormData(allData);
   }
   
   // ALSO use prefillFromBusinessCard for industry/business_model mapping
   // This ensures proper mapping of business type to industry codes
   // CRITICAL: Only call if we have a non-empty company name to avoid overwriting with empty value
-  // ✅ FIX: Defer prefillFromBusinessCard to prevent React error #185 (updating component during render)
+  // ✅ FIX: prefillFromBusinessCard is already deferred by setTimeout in useLayoutEffect
+  // No need for additional setTimeout here
   const finalCompanyName = allData.company_name || companyInfo?.companyName || kboData?.companyName;
   if (finalCompanyName && finalCompanyName.trim() !== '') {
     // Build business card with the final company name (from allData if set)
@@ -312,13 +321,11 @@ function applyPrefillToForm(
       financials,
       businessType
     );
-    // Defer state update to next tick to avoid React error #185
-    setTimeout(() => {
-      prefillFromBusinessCard(businessCard);
-      logger.debug('Called prefillFromBusinessCard (deferred)', {
-        company_name: finalCompanyName.substring(0, 30),
-      });
-    }, 0);
+    // Call directly - already deferred by queueMicrotask wrapper
+    prefillFromBusinessCard(businessCard);
+    logger.debug('Called prefillFromBusinessCard', {
+      company_name: finalCompanyName.substring(0, 30),
+    });
   } else {
     logger.warn('Skipping prefillFromBusinessCard - no company name available', {
       hasCompanyInfo: !!companyInfo,
