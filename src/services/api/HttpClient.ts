@@ -4,6 +4,11 @@
  * Single Responsibility: HTTP client setup, interceptors, and request management
  * Shared foundation for all API services
  *
+ * BANK-GRADE ARCHITECTURE:
+ * - Correlation ID propagation for distributed tracing
+ * - Idempotency key support for safe retries
+ * - Request fingerprinting for deduplication
+ *
  * @module services/api/HttpClient
  */
 
@@ -17,9 +22,34 @@ import {
 } from '../../utils/errorRecovery'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
 
+// BANK-GRADE: Client version for API compatibility tracking
+const CLIENT_VERSION = '2.0.0'
+
+/**
+ * Generate a correlation ID for request tracing across services
+ * Format: cid_{timestamp}_{random} for easy identification
+ */
+function generateCorrelationId(): string {
+  const timestamp = Date.now().toString(36)
+  const random = crypto.randomUUID().split('-')[0]
+  return `cid_${timestamp}_${random}`
+}
+
+/**
+ * Generate an idempotency key for safe retries
+ * Format: idem_{timestamp}_{random}
+ */
+function generateIdempotencyKey(): string {
+  return `idem_${Date.now().toString(36)}_${crypto.randomUUID().split('-')[0]}`
+}
+
 export interface APIRequestConfig {
   timeout?: number
   signal?: AbortSignal
+  /** Idempotency key for safe retries (auto-generated if not provided for POST/PUT/PATCH) */
+  idempotencyKey?: string
+  /** Skip idempotency key generation */
+  skipIdempotency?: boolean
   retry?: {
     maxRetries?: number
     initialDelay?: number
@@ -60,6 +90,8 @@ export class HttpClient {
    * Setup common request and response interceptors
    * 
    * BANK GRADE ARCHITECTURE:
+   * - Correlation ID propagation for distributed tracing
+   * - Idempotency keys for safe retries
    * - Sequential initialization (guaranteed order)
    * - No timeouts (guaranteed completion)
    * - Clear ownership semantics (backend decides)
@@ -78,9 +110,36 @@ export class HttpClient {
           // Continue anyway (defensive)
         }
 
+        // BANK-GRADE: Add correlation ID for distributed tracing
+        const correlationId = generateCorrelationId()
+        config.headers['X-Correlation-ID'] = correlationId
+        config.headers['X-Request-ID'] = `req_${Date.now()}`
+        config.headers['X-Client-Version'] = CLIENT_VERSION
+        
+        // Store correlation ID for logging
+        ;(config as any)._correlationId = correlationId
+
+        // BANK-GRADE: Add idempotency key for mutating requests
+        const method = config.method?.toUpperCase()
+        const isMutatingRequest = method === 'POST' || method === 'PUT' || method === 'PATCH'
+        const customConfig = (config as any)._customConfig as APIRequestConfig | undefined
+        
+        if (isMutatingRequest && !customConfig?.skipIdempotency) {
+          const idempotencyKey = customConfig?.idempotencyKey || generateIdempotencyKey()
+          config.headers['X-Idempotency-Key'] = idempotencyKey
+          ;(config as any)._idempotencyKey = idempotencyKey
+        }
+
         // Get owner headers (backend will determine ownership)
         const ownerHeaders = await this.getOwnerHeaders()
         Object.assign(config.headers, ownerHeaders)
+
+        apiLogger.debug('[HttpClient] Request headers configured', {
+          correlationId,
+          method,
+          url: config.url,
+          hasIdempotencyKey: !!config.headers['X-Idempotency-Key'],
+        })
 
         return config
       },
@@ -90,37 +149,49 @@ export class HttpClient {
     // Response interceptor for correlation ID extraction and logging
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
-        // Extract correlation ID from response headers
-        const correlationId = extractCorrelationId(response)
+        // Extract correlation ID from response headers (server may echo it back)
+        const serverCorrelationId = extractCorrelationId(response)
+        const clientCorrelationId = (response.config as any)?._correlationId
+        const correlationId = serverCorrelationId || clientCorrelationId
+        
         if (correlationId) {
           setCorrelationFromResponse(response)
-          apiLogger.debug('Correlation ID extracted from response', {
+          apiLogger.debug('[HttpClient] Request completed', {
             correlationId,
             url: response.config.url,
+            method: response.config.method?.toUpperCase(),
             status: response.status,
+            durationMs: Date.now() - parseInt((response.config as any)?._requestStartTime || '0'),
           })
         }
         return response
       },
       (error) => {
         // Handle response errors with correlation ID and error classification
-        const correlationId = error.config ? extractCorrelationId(error.response) : null
+        const serverCorrelationId = error.response ? extractCorrelationId(error.response) : null
+        const clientCorrelationId = (error.config as any)?._correlationId
+        const correlationId = serverCorrelationId || clientCorrelationId
+        const idempotencyKey = (error.config as any)?._idempotencyKey
         const errorCategory = classifyError(error)
         const userFriendlyMessage = getUserFriendlyErrorMessage(error, errorCategory)
 
-        if (correlationId) {
-          apiLogger.error('API request failed with correlation ID', {
-            correlationId,
-            url: error.config?.url,
-            status: error.response?.status,
-            error: error.message,
-            errorCategory,
-            userFriendlyMessage,
-          })
-        }
+        // BANK-GRADE: Always log with correlation ID for traceability
+        apiLogger.error('[HttpClient] Request failed', {
+          correlationId: correlationId || 'unknown',
+          idempotencyKey: idempotencyKey || 'none',
+          url: error.config?.url,
+          method: error.config?.method?.toUpperCase(),
+          status: error.response?.status,
+          error: error.message,
+          errorCategory,
+          userFriendlyMessage,
+          serverError: error.response?.data?.error || error.response?.data?.message,
+        })
 
-        // Enhance error with user-friendly message and category
+        // Enhance error with correlation ID for upstream handling
         if (error instanceof Error) {
+          ;(error as any).correlationId = correlationId
+          ;(error as any).idempotencyKey = idempotencyKey
           ;(error as any).userFriendlyMessage = userFriendlyMessage
           ;(error as any).errorCategory = errorCategory
         }
@@ -375,7 +446,11 @@ export class HttpClient {
     options?: APIRequestConfig
   ): Promise<T> {
     const timeout = options?.timeout || 30000 // Default 30 seconds for faster failure detection
-    const correlationId = Math.random().toString(36).substring(2, 15)
+    const correlationId = generateCorrelationId()
+    
+    // BANK-GRADE: Attach custom config for interceptor access
+    ;(config as any)._customConfig = options
+    ;(config as any)._requestStartTime = Date.now().toString()
 
     // Check for duplicate request
     if (this.activeRequests.has(correlationId)) {
