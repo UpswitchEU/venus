@@ -78,6 +78,15 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       bootstrap.report.reportId === reportId
     // Alias for logging
     const bootstrapHasSession = bootstrapHasExistingSession || bootstrapHasNewReport
+    
+    // ✅ FIX: Detect mismatch where URL has reportId but bootstrap says "new"
+    // This indicates session wasn't found - likely auth race condition or access issue
+    const bootstrapMismatch = bootstrap && 
+      bootstrapComplete &&
+      bootstrap.report.mode === 'new' && 
+      reportId && 
+      reportId.startsWith('val_') && // Looks like a valid existing reportId
+      !reportId.includes('_temp') // Not a temporary ID
 
     // ROOT CAUSE FIX: Subscribe to `status` directly, not computed getters
     // Zustand subscriptions don't trigger re-renders with getters - must subscribe to actual state
@@ -120,6 +129,36 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         setShowTimeoutWarning(false)
       }
     }, [status, reportId]) // Subscribe to status directly for proper reactivity
+
+    // ✅ FIX: Handle bootstrap mismatch - session not found for existing reportId
+    // This can happen due to auth race conditions or permission issues
+    // Trigger a retry after a short delay to give auth time to stabilize
+    const [hasRetriedBootstrap, setHasRetriedBootstrap] = useState(false)
+    
+    useEffect(() => {
+      if (bootstrapMismatch && !hasRetriedBootstrap && bootstrap?.refreshBootstrap) {
+        generalLogger.warn('[SessionManager] Bootstrap returned new for existing reportId - retrying', {
+          reportId,
+          bootstrapMode: bootstrap.report.mode,
+          bootstrapReportId: bootstrap.report.reportId,
+        })
+        
+        // Wait a bit for auth to fully stabilize, then retry bootstrap
+        const retryTimer = setTimeout(async () => {
+          setHasRetriedBootstrap(true)
+          try {
+            await bootstrap.refreshBootstrap()
+          } catch (err) {
+            generalLogger.error('[SessionManager] Bootstrap retry failed', {
+              reportId,
+              error: err instanceof Error ? err.message : String(err),
+            })
+          }
+        }, 1000)
+        
+        return () => clearTimeout(retryTimer)
+      }
+    }, [bootstrapMismatch, hasRetriedBootstrap, bootstrap, reportId])
 
     // Extract URL params (for backward compatibility)
     // SECURITY: prefilledQuery should come from session data, not URL

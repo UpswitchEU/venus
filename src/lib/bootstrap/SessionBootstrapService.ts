@@ -584,6 +584,88 @@ export class SessionBootstrapService {
         bootstrapDurationMs: data.bootstrapDurationMs || (performance.now() - startTime),
       };
 
+      // ✅ FIX: Retry if session was expected but not found
+      // This handles race condition where auth token was stale during first request
+      if (state.report.mode === 'new' && context.reportId && context.reportId.startsWith('val_')) {
+        this.logger.warn(`[Bootstrap:${traceId}] Session not found for existing reportId - retrying once`, {
+          reportId: context.reportId.substring(0, 25),
+          mode: state.report.mode,
+        });
+        
+        // Wait for auth to fully stabilize
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // Retry the request
+        const retryResponse = await this.makeBootstrapRequest(requestBody, headers, `${traceId}-retry`);
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          
+          if (retryData.success && retryData.data) {
+            const { identity: retryIdentity, report: retryReport, prefill: retryPrefill, ui: retryUi, creditStatus: retryCreditStatus } = retryData.data;
+            
+            // If retry found the session, use that instead
+            if (retryReport.mode === 'existing') {
+              this.logger.info(`[Bootstrap:${traceId}] Retry found existing session`, {
+                reportId: retryReport.reportId?.substring(0, 25),
+              });
+              
+              const retryState: SessionBootstrapState = {
+                identity: {
+                  type: retryIdentity.type,
+                  userId: retryIdentity.userId,
+                  clientContext: retryIdentity.clientContext,
+                  email: retryIdentity.email,
+                  firstName: retryIdentity.firstName,
+                  lastName: retryIdentity.lastName,
+                },
+                report: {
+                  mode: retryReport.mode,
+                  reportId: retryReport.reportId,
+                  hasExistingData: retryReport.hasExistingData,
+                  version: retryReport.version,
+                  status: retryReport.status,
+                  createdAt: retryReport.createdAt ? new Date(retryReport.createdAt) : undefined,
+                  updatedAt: retryReport.updatedAt ? new Date(retryReport.updatedAt) : undefined,
+                  completedAt: retryReport.completedAt ? new Date(retryReport.completedAt) : undefined,
+                  currentStep: retryReport.currentStep,
+                },
+                prefillData: {
+                  sources: retryPrefill?.sources || [],
+                  companyInfo: retryPrefill?.companyInfo,
+                  financials: retryPrefill?.financials,
+                  businessType: retryPrefill?.businessType,
+                  kboData: retryPrefill?.kboData,
+                  confidence: retryPrefill?.confidence || 0,
+                  fieldsPopulated: retryPrefill?.fieldsPopulated || [],
+                  fieldsRemaining: retryPrefill?.fieldsRemaining || [],
+                },
+                ui: {
+                  showWelcomeBack: retryUi?.showWelcomeBack || false,
+                  resumableSession: retryUi?.resumableSession || false,
+                  suggestedFlow: retryUi?.suggestedFlow || 'manual',
+                  prefilledFieldCount: retryUi?.prefilledFieldCount || 0,
+                  totalFieldCount: retryUi?.totalFieldCount || 0,
+                  showKboVerification: retryUi?.showKboVerification || false,
+                  showAccountantBanner: retryUi?.showAccountantBanner || false,
+                  returnUrl: context.returnUrl,
+                  sourceApp: context.sourceApp,
+                },
+                creditStatus: retryCreditStatus,
+                bootstrapVersion: BOOTSTRAP_VERSION,
+                bootstrappedAt: new Date(),
+                bootstrapDurationMs: performance.now() - startTime,
+              };
+              
+              return retryState;
+            }
+          }
+        }
+        
+        // Retry didn't help - continue with original 'new' response
+        this.logger.warn(`[Bootstrap:${traceId}] Retry still returned 'new' mode - session may not exist or access denied`);
+      }
+
       this.logger.info(`[Bootstrap:${traceId}] Titan API bootstrap complete`, {
         durationMs: state.bootstrapDurationMs,
         identityType: state.identity.type,

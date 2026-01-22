@@ -18,6 +18,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { useAuthStore } from '../auth';
 import type {
   BootstrapContext,
   FlowType,
@@ -155,6 +156,20 @@ export function BootstrapProvider({
         reportId: context?.reportId?.substring(0, 20),
       });
       return;
+    }
+    
+    // ✅ FIX: Double-check auth is stable before proceeding
+    // This handles edge cases where runBootstrap is called directly
+    const authState = useAuthStore.getState();
+    if (authState.loading) {
+      console.log('[BootstrapProvider] Auth still loading, waiting 500ms before bootstrap');
+      await new Promise(r => setTimeout(r, 500));
+      
+      // Check again after waiting
+      const updatedAuthState = useAuthStore.getState();
+      if (updatedAuthState.loading) {
+        console.warn('[BootstrapProvider] Auth still loading after wait, proceeding anyway');
+      }
     }
     
     bootstrapStartedRef.current = true;
@@ -296,6 +311,10 @@ export function BootstrapProvider({
     }
   }, [context, method, onBootstrapComplete, onBootstrapError, isFromMercury]);
 
+  // Subscribe to auth state for stability check
+  const authLoading = useAuthStore((s) => s.loading);
+  const authError = useAuthStore((s) => s.error);
+  
   // Auto-bootstrap on mount if no initial state
   // BANK GRADE: AuthGate ensures auth and client context are ready BEFORE this runs
   // We can now trust that client context is in the store (if applicable)
@@ -305,12 +324,27 @@ export function BootstrapProvider({
       return;
     }
     
+    // ✅ FIX: Wait for auth to be stable before running bootstrap
+    // This prevents race condition where bootstrap runs with stale/expired token
+    if (authLoading) {
+      console.log('[BootstrapProvider] Waiting for auth to stabilize before bootstrap');
+      return; // Will re-run when authLoading changes
+    }
+    
     if (autoBootstrap) {
-      // BANK GRADE: AuthGate ensures auth and client context are ready before this runs
-      runBootstrap();
+      // Small delay to ensure token refresh has propagated
+      // This handles the edge case where authLoading just became false
+      // but the new token hasn't been applied to all pending requests yet
+      const stabilityDelay = setTimeout(() => {
+        if (!bootstrapStartedRef.current) {
+          runBootstrap();
+        }
+      }, 100);
+      
+      return () => clearTimeout(stabilityDelay);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps = run only on mount
+  }, [authLoading]); // Re-run when auth loading state changes
 
   // AUTH-FIRST: Update engine when identity changes
   useEffect(() => {
