@@ -93,6 +93,14 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
         currentUrl,
       });
 
+      // WORLD-CLASS FIX: Redirect IMMEDIATELY instead of just throwing error
+      // The throw below gets caught by our own catch block, so we must redirect first
+      // This ensures user is redirected before any error handling interferes
+      if (typeof window !== 'undefined') {
+        window.location.href = redirectUrl;
+      }
+
+      // Still throw for SSR/non-browser contexts (will be caught, but that's OK)
       throw new AuthenticationRequiredError(
         'Please sign in to access valuation features',
         redirectUrl
