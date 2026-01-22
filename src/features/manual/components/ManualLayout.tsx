@@ -125,10 +125,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // This component only renders when ValuationSessionManager stage is 'data-entry' (session is ready)
   // These checks are safety guards that should never trigger in normal flow
   // ValuationSessionManager ensures session is ready before rendering ValuationFlow
-  const isLoading = useSessionStore((state) => state.isLoading)
-  const isInitializing = useSessionStore((state) => state.isInitializing)
+  // ROOT CAUSE FIX: Subscribe to `status` directly, not computed getters
+  // Zustand subscriptions don't trigger re-renders with getters - must subscribe to actual state
+  const status = useSessionStore((state) => state.status)
+  const isLoading = status === 'loading'
+  const isInitializing = status === 'idle' || status === 'loading'
   const session = useSessionStore((state) => state.session)
-  const sessionError = useSessionStore((state) => state.error)
+  const sessionError = useSessionStore((state) => state.errorMessage)
 
   // ✅ WORLD CLASS: Use centralized hook to determine loading steps based on bootstrap mode
   // Automatically selects RESTORATION_STEPS for existing reports, INITIALIZATION_STEPS for new reports

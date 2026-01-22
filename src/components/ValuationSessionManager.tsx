@@ -79,11 +79,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // Alias for logging
     const bootstrapHasSession = bootstrapHasExistingSession || bootstrapHasNewReport
 
-    // ROOT CAUSE FIX: Subscribe to specific values, not entire store
-    // This component needs session for stage detection, but we can optimize
-    const isLoading = useSessionStore((state) => state.isLoading)
-    const isInitializing = useSessionStore((state) => state.isInitializing)
-    const error = useSessionStore((state) => state.error)
+    // ROOT CAUSE FIX: Subscribe to `status` directly, not computed getters
+    // Zustand subscriptions don't trigger re-renders with getters - must subscribe to actual state
+    const status = useSessionStore((state) => state.status)
+    const isLoading = status === 'loading'
+    const isInitializing = status === 'idle' || status === 'loading'
+    const error = useSessionStore((state) => state.errorMessage)
     const loadSession = useSessionStore((state) => state.loadSession)
     const clearSession = useSessionStore((state) => state.clearSession)
 
@@ -108,6 +109,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           setShowTimeoutWarning(true)
           generalLogger.warn('[SessionManager] Loading taking longer than expected', {
             reportId,
+            status,
             isLoading,
             isInitializing,
           })
@@ -117,7 +119,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       } else {
         setShowTimeoutWarning(false)
       }
-    }, [isLoading, isInitializing, reportId])
+    }, [status, reportId]) // Subscribe to status directly for proper reactivity
 
     // Extract URL params (for backward compatibility)
     // SECURITY: prefilledQuery should come from session data, not URL
