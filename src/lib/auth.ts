@@ -853,6 +853,59 @@ async function initializeAuth(): Promise<void> {
         if (user) {
           trackAuthSuccess(user.id, 'cookie')
           authMetrics.recordSuccess()
+          
+          // ========================================================================
+          // STEP 2.5: Fetch client context for accountant viewing existing report
+          // ========================================================================
+          // When mode=accountant and clientId are present (but no clientToken),
+          // we need to fetch the client context using the authenticated session.
+          // This happens when an accountant clicks on an existing valuation in Mercury.
+          const mode = params.get('mode')
+          const clientIdParam = params.get('clientId')
+          
+          if (mode === 'accountant' && clientIdParam && user.role === 'accountant') {
+            console.log(`[Auth:${traceId}] Accountant mode with clientId - fetching client context`)
+            
+            // Initialize deferred promise for client context
+            initClientContextPromise()
+            
+            try {
+              const response = await fetch(`${API_URL}/api/v2/auth/get-client-context`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ clientId: clientIdParam }),
+              })
+              
+              if (response.ok) {
+                const context = await response.json()
+                
+                // Validate context structure
+                if (!context.accountantUser || !context.clientUser || !context.relationship) {
+                  throw new Error('Invalid client context structure received')
+                }
+                
+                // Set client context in store
+                const { useClientContext } = await import('../stores/clientContext')
+                useClientContext.getState().setClientContext(context)
+                
+                console.log(`[Auth:${traceId}] Client context established via clientId`)
+                resolveClientContext()
+              } else {
+                const errorData = await response.json().catch(() => ({}))
+                throw new Error(errorData.message || `Failed to fetch client context (${response.status})`)
+              }
+            } catch (error) {
+              console.error(`[Auth:${traceId}] Failed to fetch client context:`, error)
+              // Don't block auth - user is authenticated, just missing client context
+              // AuthGate will show an appropriate error
+              rejectClientContext(error instanceof Error ? error : new Error(String(error)))
+              
+              const errorMessage = error instanceof Error ? error.message : 'Failed to establish client context'
+              useAuthStore.getState().setError(errorMessage)
+            }
+          }
+          
           return
         }
       }
