@@ -271,6 +271,22 @@ export function BootstrapProvider({
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check if this is an authentication error that requires redirect
+      if (error instanceof AuthenticationRequiredError) {
+        console.log('[BootstrapProvider] Authentication required - redirecting to login', {
+          redirectUrl: error.redirectUrl,
+          currentUrl: typeof window !== 'undefined' ? window.location.pathname : 'unknown',
+        });
+        
+        // Immediate redirect - no error state, no loading state
+        if (typeof window !== 'undefined') {
+          window.location.href = error.redirectUrl;
+        }
+        return; // Stop execution - redirect is happening
+      }
+      
+      // Handle other errors normally
       setBootstrapError(errorMessage);
       onBootstrapError?.(errorMessage);
 
