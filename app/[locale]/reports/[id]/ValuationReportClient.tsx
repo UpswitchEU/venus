@@ -1,9 +1,12 @@
 'use client'
 
-import { useMemo, useEffect, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import { ValuationReport } from '../../../../src/components/ValuationReport'
 import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
 import { BootstrapProvider, type BootstrapContext, type FlowType } from '../../../../src/lib/bootstrap'
+import { AuthGate } from '../../../../src/components/AuthGate'
+import { LoadingState } from '../../../../src/components/LoadingState'
+import { ACCESS_VERIFICATION_STEPS } from '../../../../src/components/LoadingState.constants'
 
 interface ValuationReportClientProps {
   reportId: string
@@ -26,13 +29,20 @@ interface ValuationReportClientProps {
  * This Client Component receives fully serialized props from the Server Component parent.
  * It handles all client-side rendering and state management.
  *
+ * BANK GRADE: Uses AuthGate to ensure auth and client context are ready
+ * BEFORE BootstrapProvider runs. This eliminates the race condition where
+ * bootstrap starts before client context exchange completes.
+ * 
+ * Flow:
+ * 1. AuthGate waits for auth + client context exchange (if clientToken present)
+ * 2. Only after AuthGate passes does BootstrapProvider start
+ * 3. BootstrapProvider can now trust that client context is in the store
+ * 4. Session created with proper accountant-client ownership
+ *
  * WORLD CLASS: Uses BootstrapProvider for unified session initialization
  * - Resolves auth, session, and prefill data BEFORE UI renders
  * - Single source of truth for all initialization state
  * - Zero visual jumps from data prefilling
- *
- * BANK GRADE: Wrapped with ErrorBoundary for maximum resilience
- * Prevents full page crashes and provides graceful error recovery
  *
  * Benefits of this pattern:
  * - Clean Server/Client boundary
@@ -41,6 +51,7 @@ interface ValuationReportClientProps {
  * - Works consistently across all locales
  * - Graceful error handling
  * - World-class initialization with bootstrap system
+ * - No race conditions between auth and bootstrap
  */
 export default function ValuationReportClient({
   reportId,
@@ -49,54 +60,52 @@ export default function ValuationReportClient({
   initialVersion,
   urlParams,
 }: ValuationReportClientProps) {
+  // Detect if this is an accountant flow (has clientToken or clientId)
+  const hasClientToken = useMemo(() => {
+    return !!urlParams.clientToken || !!urlParams.clientId
+  }, [urlParams.clientToken, urlParams.clientId])
+
   // Build bootstrap context from URL params
-  const bootstrapContext = useMemo<BootstrapContext>(() => ({
-    url: typeof window !== 'undefined' ? window.location.href : '',
-    reportId,
-    clientToken: urlParams.clientToken,
-    prefilledQuery: urlParams.prefilledQuery,
-    guestSessionId: urlParams.guestSessionId,
-    flow: (urlParams.flow as FlowType) || undefined,
-    mode: initialMode,
-    version: initialVersion,
-    locale,
-    embedded: urlParams.embedded === 'true',
-    returnUrl: urlParams.return_url,
-    sourceApp: urlParams.source,
-  }), [reportId, locale, initialMode, initialVersion, urlParams])
+  const bootstrapContext = useMemo<BootstrapContext>(() => {
+    return {
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      reportId,
+      clientToken: urlParams.clientToken,
+      clientId: urlParams.clientId,
+      prefilledQuery: urlParams.prefilledQuery,
+      flow: (urlParams.flow as FlowType) || undefined,
+      mode: initialMode,
+      version: initialVersion,
+      locale,
+      embedded: urlParams.embedded === 'true',
+      returnUrl: urlParams.return_url,
+      sourceApp: urlParams.source,
+    }
+  }, [reportId, locale, initialMode, initialVersion, urlParams, hasClientToken])
 
   return (
-    <ErrorBoundary
-      onError={(error, errorInfo) => {
-        console.error('[ValuationReport] Error caught by boundary:', error, errorInfo)
-        // In production, send to error tracking service
-        if (process.env.NODE_ENV === 'production') {
-          // TODO: Send to Sentry or similar
-        }
-      }}
-    >
-      <BootstrapProvider
-        context={bootstrapContext}
-        autoBootstrap={true}
-        onBootstrapComplete={(state) => {
-          console.log('[ValuationReportClient] Bootstrap complete', {
-            identityType: state.identity.type,
-            reportMode: state.report.mode,
-            prefillConfidence: state.prefillData.confidence.toFixed(2),
-            durationMs: state.bootstrapDurationMs,
-          })
-        }}
-        onBootstrapError={(error) => {
-          console.error('[ValuationReportClient] Bootstrap failed:', error)
-        }}
+    <ErrorBoundary>
+      {/* 
+        BANK GRADE: AuthGate ensures auth and client context are ready
+        BEFORE BootstrapProvider runs. This eliminates race conditions.
+      */}
+      <AuthGate
+        hasClientToken={hasClientToken}
+        returnUrl={urlParams.return_url}
+        loadingComponent={<LoadingState steps={ACCESS_VERIFICATION_STEPS} />}
       >
-        <ValuationReport
-          reportId={reportId}
-          initialMode={initialMode}
-          initialVersion={initialVersion}
-          urlParams={urlParams}
-        />
-      </BootstrapProvider>
+        <BootstrapProvider
+          context={bootstrapContext}
+          autoBootstrap={true}
+        >
+          <ValuationReport
+            reportId={reportId}
+            initialMode={initialMode}
+            initialVersion={initialVersion}
+            urlParams={urlParams}
+          />
+        </BootstrapProvider>
+      </AuthGate>
     </ErrorBoundary>
   )
 }

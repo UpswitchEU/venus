@@ -1,7 +1,7 @@
 'use client'
 
-import { Loader2, Check, Clock, AlertTriangle } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import { Loader2, Check, Clock, AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { GENERATION_STEPS, type LoadingStep } from './LoadingState.constants'
 
 interface LoadingStateProps {
@@ -11,6 +11,8 @@ interface LoadingStateProps {
   compact?: boolean // tighter vertical spacing (for preview panels)
   containerClassName?: string // optional override for outer container spacing
   onTimeout?: () => void // Callback when timeout is reached
+  onRetry?: () => void // Callback when user clicks retry button
+  returnUrl?: string // URL to return to if user wants to go back
 }
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
@@ -20,15 +22,45 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   compact = false,
   containerClassName,
   onTimeout,
+  onRetry,
+  returnUrl,
 }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
+  const [showRetryOptions, setShowRetryOptions] = useState(false)
   const [elapsedTime, setElapsedTime] = useState(0)
 
   const isDark = variant === 'dark'
   const totalEstimatedTime = steps.reduce((acc, step) => acc + (step.estimatedMs || 2000), 0)
-  const WARNING_THRESHOLD = 20000 // 20 seconds
-  const TIMEOUT_THRESHOLD = 30000 // 30 seconds
+  const WARNING_THRESHOLD = 15000 // 15 seconds - show warning
+  const RETRY_THRESHOLD = 25000 // 25 seconds - show retry button
+  const TIMEOUT_THRESHOLD = 45000 // 45 seconds - trigger timeout callback (increased from 30s)
+
+  // Handle retry button click
+  const handleRetry = useCallback(() => {
+    if (onRetry) {
+      onRetry()
+    } else {
+      // Default behavior: reload the page
+      window.location.reload()
+    }
+  }, [onRetry])
+
+  // Handle return button click
+  const handleReturn = useCallback(() => {
+    if (returnUrl) {
+      window.location.href = returnUrl
+    } else {
+      // Try to get stored return URL from sessionStorage
+      const storedReturnUrl = sessionStorage.getItem('upswitch_return_url')
+      if (storedReturnUrl) {
+        window.location.href = storedReturnUrl
+      } else {
+        // Default: go to dashboard
+        window.location.href = '/'
+      }
+    }
+  }, [returnUrl])
 
   useEffect(() => {
     const startTime = Date.now()
@@ -38,12 +70,17 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       const elapsed = Date.now() - startTime
       setElapsedTime(elapsed)
 
-      // Show warning at 20 seconds
+      // Show warning at 15 seconds
       if (elapsed >= WARNING_THRESHOLD && !showTimeoutWarning) {
         setShowTimeoutWarning(true)
       }
 
-      // Timeout at 30 seconds
+      // Show retry options at 25 seconds
+      if (elapsed >= RETRY_THRESHOLD && !showRetryOptions) {
+        setShowRetryOptions(true)
+      }
+
+      // Timeout at 45 seconds
       if (elapsed >= TIMEOUT_THRESHOLD) {
         clearInterval(timeInterval)
         clearInterval(stepInterval)
@@ -67,7 +104,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       clearInterval(timeInterval)
       clearInterval(stepInterval)
     }
-  }, [steps.length, showTimeoutWarning, onTimeout])
+  }, [steps.length, showTimeoutWarning, showRetryOptions, onTimeout])
 
   const currentStep = steps[currentStepIndex]
   const progress = Math.min(95, (elapsedTime / totalEstimatedTime) * 100)
@@ -172,7 +209,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       </div>
 
       {/* Warning Message */}
-      {showTimeoutWarning && (
+      {showTimeoutWarning && !showRetryOptions && (
         <div
           className={`mt-6 flex items-start gap-2 p-3 rounded-lg max-w-md ${
             isDark
@@ -187,11 +224,63 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
           />
           <div className="text-left">
             <p className={`text-xs font-medium ${isDark ? 'text-amber-400' : 'text-amber-800'}`}>
-              Still loading...
+              Taking longer than expected...
             </p>
             <p className={`text-xs mt-1 ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
-              If this persists, please check your internet connection or try refreshing.
+              Please wait a moment while we complete the setup.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Retry Options - shown after extended wait */}
+      {showRetryOptions && (
+        <div
+          className={`mt-6 p-4 rounded-lg max-w-md ${
+            isDark
+              ? 'bg-zinc-800/50 border border-zinc-700'
+              : 'bg-gray-50 border border-gray-200'
+          }`}
+        >
+          <div className="flex items-start gap-2 mb-4">
+            <AlertTriangle
+              className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                isDark ? 'text-amber-400' : 'text-amber-600'
+              }`}
+            />
+            <div className="text-left">
+              <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                This is taking longer than usual
+              </p>
+              <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                There might be a connection issue. You can try again or return to the dashboard.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={handleRetry}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isDark
+                  ? 'bg-primary-600 text-white hover:bg-primary-700'
+                  : 'bg-primary-600 text-white hover:bg-primary-700'
+              }`}
+            >
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </button>
+            <button
+              onClick={handleReturn}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isDark
+                  ? 'bg-zinc-700 text-white hover:bg-zinc-600'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Go Back
+            </button>
           </div>
         </div>
       )}

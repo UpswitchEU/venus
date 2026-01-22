@@ -148,55 +148,24 @@ export const useClientContext = create<ClientContextState>()(
           return {} as Record<string, string>
         }
 
+        // BANK GRADE: Standardized header names matching SessionBootstrapService and FlowRouter
+        // FlowRouter accepts both naming conventions, but we use the canonical names for consistency
         return {
-          'X-Client-Context-User': state.client.id,
-          'X-Client-Context-Accountant': state.accountant.id,
-          'X-Client-Context-Relationship': state.relationshipId,
+          'X-Client-User-Id': state.client.id,
+          'X-Accountant-User-Id': state.accountant.id,
+          'X-Relationship-Id': state.relationshipId,
         }
       },
     }),
     {
       name: 'client-context',
-      // Custom storage with validation on rehydration
-      onRehydrateStorage: () => async (state) => {
-        if (state && state.isActingAsClient) {
-          // ✅ BANK GRADE FIX: Subscribe to auth changes instead of aggressive polling
-          // This eliminates race conditions where context is cleared prematurely
-          const { useAuthStore } = await import('../lib/auth')
-          
-          // Subscribe to auth state changes to validate context when user is authenticated
-          // This approach is non-blocking and handles the accountant → client context flow gracefully
-          const unsubscribe = useAuthStore.subscribe(async (authState) => {
-            if (authState.user && state.isActingAsClient) {
-              // User authenticated - wait for client context exchange to complete before validating
-              // This prevents race condition where validation runs before context is fully established
-              try {
-                const { waitForClientContext } = await import('../lib/auth')
-                await waitForClientContext()
-                console.log('[ClientContext] Auth confirmed and context exchange complete, validating context')
-                const isValid = await state.validateContext()
-                if (!isValid) {
-                  console.warn('[ClientContext] Validation failed after auth')
-                  state.clearClientContext()
-                }
-              } catch (error) {
-                console.warn('[ClientContext] Validation or context exchange failed after auth', error)
-                // Only clear on validation failure, not auth timing
-                state.clearClientContext()
-              }
-              // Unsubscribe after first validation
-              unsubscribe()
-            }
-          })
-          
-          // Note: We no longer clear context based on timeouts
-          // Context will persist until explicitly invalidated by:
-          // 1. Validation failure (invalid structure)
-          // 2. Token expiration (24h TTL)
-          // 3. Manual logout
-          // This prevents the "User not authenticated" premature clearing issue
-        }
-      },
+      // BANK GRADE: Simplified rehydration - no complex async logic
+      // AuthGate now handles the orchestration of auth → context → bootstrap
+      // Context validation happens via:
+      // 1. validateContext() called by components when needed
+      // 2. TTL expiration check (24h)
+      // 3. Manual logout clears context
+      // No auth subscriptions needed - AuthGate ensures proper sequencing
     }
   )
 )

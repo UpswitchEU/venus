@@ -5,7 +5,10 @@ import { AlertTriangle } from 'lucide-react'
 
 interface ErrorBoundaryProps {
   children: ReactNode
+  /** Static fallback component */
   fallback?: ReactNode
+  /** Render prop fallback - receives error for dynamic error display */
+  fallbackRender?: (props: { error: Error; errorInfo: ErrorInfo | null; reset: () => void }) => ReactNode
   onError?: (error: Error, errorInfo: ErrorInfo) => void
 }
 
@@ -61,8 +64,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   render(): ReactNode {
-    if (this.state.hasError) {
-      // Use custom fallback if provided
+    if (this.state.hasError && this.state.error) {
+      // Use render prop fallback if provided (allows passing error to fallback)
+      if (this.props.fallbackRender) {
+        return this.props.fallbackRender({
+          error: this.state.error,
+          errorInfo: this.state.errorInfo,
+          reset: this.handleReset,
+        })
+      }
+
+      // Use static fallback if provided
       if (this.props.fallback) {
         return this.props.fallback
       }

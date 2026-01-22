@@ -34,6 +34,7 @@ import {
   DEFAULT_UI_HINTS,
 } from './types';
 import { generateReportId, parseBootstrapHints, parseUrlToContext, truncateForLog } from './utils';
+import { getInitTraceId } from '../auth';
 
 interface BootstrapOptions {
   /** Timeout for bootstrap process in ms */
@@ -45,7 +46,7 @@ interface BootstrapOptions {
 }
 
 const DEFAULT_OPTIONS: BootstrapOptions = {
-  timeout: 5000,
+  timeout: 15000, // Increased from 5s to 15s for more reliability
   skipAuth: false,
   useCache: true,
 };
@@ -280,6 +281,87 @@ export class SessionBootstrapService {
   }
 
   /**
+   * Wait for auth to be ready before making bootstrap API call
+   * This prevents race conditions where bootstrap runs before token refresh completes
+   */
+  private async waitForAuth(maxWaitMs: number): Promise<boolean> {
+    const { useAuthStore } = await import('../auth');
+    const start = Date.now();
+    
+    while (Date.now() - start < maxWaitMs) {
+      const { loading, user, error } = useAuthStore.getState();
+      if (!loading && (user || error)) {
+        return true;
+      }
+      await new Promise(r => setTimeout(r, 100));
+    }
+    
+    return false;
+  }
+
+  /**
+   * Make bootstrap API request with retry logic for 401 errors
+   * Handles race condition where token refresh may not have completed
+   */
+  private async makeBootstrapRequest(
+    requestBody: Record<string, unknown>,
+    headers: Record<string, string>,
+    traceId: string
+  ): Promise<Response> {
+    const maxRetries = 3;
+    const baseDelay = 500; // 500ms initial delay
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      try {
+        const response = await fetch('/api/bootstrap', {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        // Handle 401 specifically - auth token may still be refreshing
+        if (response.status === 401 && attempt < maxRetries - 1) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          this.logger.warn(`[Bootstrap:${traceId}] 401 on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`, {
+            note: 'Auth token may still be refreshing',
+          });
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        
+        return response;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Bootstrap request timed out after 30 seconds');
+        }
+        
+        // Retry network errors on non-final attempts
+        if (attempt < maxRetries - 1) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          this.logger.warn(`[Bootstrap:${traceId}] Network error on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        
+        throw fetchError;
+      }
+    }
+    
+    // Should not reach here, but TypeScript needs this
+    throw new Error('Bootstrap failed after all retries');
+  }
+
+  /**
    * Bootstrap via Titan API endpoint (single-request optimization)
    * 
    * This method uses the Titan bootstrap endpoint which performs all
@@ -293,8 +375,21 @@ export class SessionBootstrapService {
   ): Promise<SessionBootstrapState> {
     const startTime = performance.now();
     const hints = parseBootstrapHints(context);
+    const traceId = getInitTraceId() || 'unknown';
+
+    this.logger.info(`[Bootstrap:${traceId}] Starting Titan API bootstrap`, {
+      reportId: context.reportId?.substring(0, 20) || 'new',
+      hasClientToken: hints.hasClientToken,
+    });
 
     try {
+      // BANK GRADE: Wait for auth to be ready before making API call
+      // This prevents race conditions where bootstrap runs before token refresh completes
+      const authReady = await this.waitForAuth(5000);
+      if (!authReady) {
+        this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after 5s timeout, proceeding anyway`);
+      }
+
       // Build request body
       // CRITICAL: Ensure reportId is always sent if present (not empty string)
       const validReportId = context.reportId?.trim() || undefined;
@@ -337,38 +432,24 @@ export class SessionBootstrapService {
         'Accept': 'application/json',
       };
 
-      // Add client context headers for accountant flow
-      // These headers are required for Titan to identify the client and accountant
-      // ALWAYS check the store for client context, not just when clientToken is present
-      // This allows accountant flows to work even when URL doesn't have clientToken
+      // BANK GRADE: Add client context headers using the store's getContextHeaders()
+      // This uses standardized header names: X-Client-User-Id, X-Accountant-User-Id, X-Relationship-Id
+      // AuthGate ensures client context is in the store BEFORE bootstrap runs
       try {
-        // Try to get client context from store (set by exchange-client-context or BootstrapSync)
         const { useClientContext } = await import('../../stores/clientContext');
-        const clientContextState = useClientContext.getState();
+        const contextHeaders = useClientContext.getState().getContextHeaders();
         
-        if (clientContextState.isActingAsClient && clientContextState.client && clientContextState.accountant) {
-          // ✅ CRITICAL FIX: Use correct header names expected by Titan bootstrap controller
-          // Bootstrap controller expects: X-Client-User-Id, X-Accountant-User-Id, X-Relationship-Id
-          headers['X-Client-User-Id'] = clientContextState.client.id;
-          headers['X-Accountant-User-Id'] = clientContextState.accountant.id;
-          if (clientContextState.relationshipId) {
-            headers['X-Relationship-Id'] = clientContextState.relationshipId;
-          }
+        if (Object.keys(contextHeaders).length > 0) {
+          Object.assign(headers, contextHeaders);
           
           this.logger.info('[Bootstrap] Added client context headers from store', {
-            clientUserId: clientContextState.client.id.substring(0, 8) + '...',
-            accountantUserId: clientContextState.accountant.id.substring(0, 8) + '...',
-            relationshipId: clientContextState.relationshipId?.substring(0, 8) + '...' || 'none',
+            headerCount: Object.keys(contextHeaders).length,
             hasClientToken: hints.hasClientToken || !!context.clientToken,
           });
         } else if (hints.hasClientToken || context.clientToken) {
           // Only warn if clientToken was present but context not in store
-          this.logger.warn('[Bootstrap] Client token present but client context not in store yet', {
-            hasClientToken: hints.hasClientToken,
-            isActingAsClient: clientContextState.isActingAsClient,
-            hasClient: !!clientContextState.client,
-            hasAccountant: !!clientContextState.accountant,
-            hasRelationshipId: !!clientContextState.relationshipId,
+          this.logger.warn('[Bootstrap] Client token present but client context not in store', {
+            note: 'AuthGate should have ensured context is ready before bootstrap',
           });
         }
       } catch (error) {
@@ -377,33 +458,20 @@ export class SessionBootstrapService {
         });
       }
 
-      // ✅ CRITICAL: Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      // BANK GRADE: Make request with retry logic for 401 errors
+      const response = await this.makeBootstrapRequest(requestBody, headers, traceId);
 
-      try {
-        // Call Venus proxy route (which forwards to Titan)
-        const response = await fetch('/api/bootstrap', {
-          method: 'POST',
-          headers,
-          credentials: 'include',
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.logger.error('[Bootstrap] Bootstrap API failed', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText.substring(0, 200),
         });
+        throw new Error(`Bootstrap API failed (${response.status}): ${errorText.substring(0, 100)}`);
+      }
 
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          this.logger.error('[Bootstrap] Bootstrap API failed', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorText.substring(0, 200),
-          });
-          throw new Error(`Bootstrap API failed (${response.status}): ${errorText.substring(0, 100)}`);
-        }
-
-        const data = await response.json();
+      const data = await response.json();
 
         // ✅ CREDIT CHECK: Handle credit errors gracefully
         if (!data.success) {
@@ -516,21 +584,13 @@ export class SessionBootstrapService {
         bootstrapDurationMs: data.bootstrapDurationMs || (performance.now() - startTime),
       };
 
-        this.logger.info('[Bootstrap] Titan API bootstrap complete', {
-          durationMs: state.bootstrapDurationMs,
-          identityType: state.identity.type,
-          reportMode: state.report.mode,
-          prefillConfidence: state.prefillData.confidence.toFixed(2),
-        });
+      this.logger.info(`[Bootstrap:${traceId}] Titan API bootstrap complete`, {
+        durationMs: state.bootstrapDurationMs,
+        identityType: state.identity.type,
+        reportMode: state.report.mode,
+      });
 
-        return state;
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          throw new Error('Bootstrap request timed out after 30 seconds');
-        }
-        throw fetchError;
-      }
+      return state;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn('[Bootstrap] Titan API failed, falling back to client-side', {

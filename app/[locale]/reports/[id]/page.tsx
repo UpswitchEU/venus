@@ -1,15 +1,18 @@
 import nextDynamic from 'next/dynamic'
+import { Suspense } from 'react'
 import { LoadingState } from '../../../../src/components/LoadingState'
 import { ACCESS_VERIFICATION_STEPS } from '../../../../src/components/LoadingState.constants'
+import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
+import { ErrorFallback } from './ErrorFallback'
 
 // Dynamically import the client component with no SSR
 // ssr: false means it only renders on the client, so no Suspense needed
 // Use default import to avoid "Cannot access .then on server" error
-// ✅ WORLD CLASS: Remove loading fallback - let root component handle unified loading
-// This eliminates duplicate loading states and ensures smooth transitions
+// ✅ FIX: Show loading state instead of null to prevent blank page
+// This ensures users see feedback while the component loads
 const ValuationReportClient = nextDynamic(() => import('./ValuationReportClient'), {
   ssr: false,
-  loading: () => null, // Instant - loading handled by root component
+  loading: () => <LoadingState steps={ACCESS_VERIFICATION_STEPS} />, // Show loading instead of null
 })
 
 interface PageProps {
@@ -98,5 +101,32 @@ export default async function Page({ params, searchParams }: PageProps) {
     clientProps.initialVersion = version
   }
 
-  return <ValuationReportClient {...clientProps} />
+  // ✅ FIX: Add debug logging to track component loading
+  console.log('[Page] Rendering ValuationReportClient', {
+    reportId: id,
+    locale,
+    mode,
+    urlParams,
+    hasClientId: !!urlParams.clientId,
+  })
+
+  // BANK GRADE: Wrap in ErrorBoundary and Suspense for graceful error handling
+  // Use fallbackRender to pass error details to ErrorFallback for better messaging
+  return (
+    <ErrorBoundary
+      fallbackRender={({ error }) => (
+        <ErrorFallback 
+          returnUrl={urlParams.return_url} 
+          error={error}
+        />
+      )}
+      onError={(error, errorInfo) => {
+        console.error('[Page] Error caught by boundary:', error, errorInfo)
+      }}
+    >
+      <Suspense fallback={<LoadingState steps={ACCESS_VERIFICATION_STEPS} />}>
+        <ValuationReportClient {...clientProps} />
+      </Suspense>
+    </ErrorBoundary>
+  )
 }

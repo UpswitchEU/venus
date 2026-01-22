@@ -142,12 +142,57 @@ let refreshPromise: Promise<boolean> | null = null
 let initPromise: Promise<void> | null = null
 
 /**
- * BANK GRADE FIX: Client Context Initialization Tracking
- * Prevents race conditions where API requests fire before client context is loaded
- * Following Stripe/Klarna patterns for initialization gates
+ * BANK GRADE: Client Context Initialization Tracking
+ * Uses deferred promise pattern to prevent race conditions where API requests
+ * fire before client context is loaded.
+ * 
+ * Key improvement: waitForClientContext() now checks if clientToken is in URL
+ * and creates a promise that will be resolved when exchange completes.
+ * This prevents the race where waitForClientContext() returns Promise.resolve()
+ * before initializeAuth() has set clientContextPromise.
  */
 let clientContextInitialized = false
 let clientContextPromise: Promise<void> | null = null
+let clientContextResolver: (() => void) | null = null
+let clientContextRejecter: ((error: Error) => void) | null = null
+
+/**
+ * Initialize the client context promise (deferred pattern)
+ * Called when we detect clientToken in URL to ensure promise exists before any waits
+ */
+function initClientContextPromise(): Promise<void> {
+  if (!clientContextPromise) {
+    clientContextPromise = new Promise<void>((resolve, reject) => {
+      clientContextResolver = resolve
+      clientContextRejecter = reject
+    })
+  }
+  return clientContextPromise
+}
+
+/**
+ * Resolve the client context promise (called on successful exchange)
+ */
+function resolveClientContext(): void {
+  clientContextInitialized = true
+  if (clientContextResolver) {
+    clientContextResolver()
+    clientContextResolver = null
+    clientContextRejecter = null
+  }
+}
+
+/**
+ * Reject the client context promise (called on failed exchange)
+ */
+function rejectClientContext(error: Error): void {
+  clientContextInitialized = false
+  if (clientContextRejecter) {
+    clientContextRejecter(error)
+    clientContextResolver = null
+    clientContextRejecter = null
+  }
+}
 
 /**
  * Check if client context initialization is complete
@@ -159,11 +204,35 @@ export function isClientContextReady(): boolean {
 
 /**
  * Wait for client context initialization to complete
- * Returns immediately if no client context is being loaded
- * Used by HTTP interceptor to prevent race conditions
+ * 
+ * BANK GRADE: Uses deferred promise pattern to ensure this never returns
+ * prematurely. If clientToken is in URL, this creates/returns a promise
+ * that will be resolved when the exchange completes.
+ * 
+ * @returns Promise that resolves when client context is ready (or immediately if not needed)
  */
 export function waitForClientContext(): Promise<void> {
-  return clientContextPromise || Promise.resolve()
+  // If already initialized, return immediately
+  if (clientContextInitialized) {
+    return Promise.resolve()
+  }
+  
+  // If promise already exists, return it
+  if (clientContextPromise) {
+    return clientContextPromise
+  }
+  
+  // Check if we're expecting client context (clientToken in URL)
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('clientToken')) {
+      // Create deferred promise that will be resolved by initializeAuth
+      return initClientContextPromise()
+    }
+  }
+  
+  // No client context expected - return resolved immediately
+  return Promise.resolve()
 }
 
 /**
@@ -505,6 +574,25 @@ export const useAuthStore = create<AuthState>()(
 )
 
 /**
+ * BANK GRADE: Generate trace ID for unified logging across initialization flow
+ * Format: init_{timestamp}_{random}
+ */
+function generateTraceId(): string {
+  return `init_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+}
+
+// Current trace ID - exported for use by AuthGate and Bootstrap
+let currentTraceId: string | null = null
+
+/**
+ * Get the current initialization trace ID
+ * Returns null if no initialization is in progress
+ */
+export function getInitTraceId(): string | null {
+  return currentTraceId
+}
+
+/**
  * Initialize authentication
  * Called once on app load
  * Prevents race conditions by deduplicating concurrent initialization calls
@@ -516,10 +604,14 @@ async function initializeAuth(): Promise<void> {
     return initPromise
   }
 
+  // BANK GRADE: Generate trace ID for this initialization flow
+  currentTraceId = generateTraceId()
+  const traceId = currentTraceId
+
   initPromise = (async () => {
     const { setLoading, checkSession, exchangeToken, setUser } = useAuthStore.getState()
 
-    // Minimal logging (errors only)
+    console.log(`[Auth:${traceId}] Starting initialization flow`)
 
     try {
       setLoading(true)
@@ -556,21 +648,25 @@ async function initializeAuth(): Promise<void> {
       }
 
       if (clientToken) {
+        console.log(`[Auth:${traceId}] Client token detected - starting context exchange`)
+        
+        // BANK GRADE: Initialize deferred promise IMMEDIATELY when clientToken detected
+        // This ensures waitForClientContext() always has a promise to wait for
+        initClientContextPromise()
+        
         // Validate token format before attempting exchange
         if (clientToken.length < 20 || !/^[A-Za-z0-9._-]+$/.test(clientToken)) {
-          // Silent - only log in development
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[Auth] Invalid client token format:', {
-              length: clientToken.length,
-              preview: clientToken.substring(0, 10) + '...',
-            })
-          }
+          console.warn(`[Auth:${traceId}] Invalid client token format - skipping exchange`)
           // Continue to normal auth flow - don't block user
           // SECURITY: Clean up invalid token and sensitive parameters from URL
           sanitizeUrl(['clientToken', 'client_id', 'prefilledQuery', 'autoSend'])
+          // BANK GRADE: Resolve promise since invalid token = no client context expected
+          resolveClientContext()
         } else {
-          // BANK GRADE FIX: Wrap client context exchange in promise for race condition prevention
-          clientContextPromise = (async () => {
+          // BANK GRADE: Execute client context exchange
+          // Using IIFE to run async code, but resolving/rejecting the DEFERRED promise
+          // (not creating a new promise - initClientContextPromise already did that)
+          ;(async () => {
             try {
               // SECURITY: Extract token, then IMMEDIATELY sanitize URL
               // This prevents token from being logged in analytics/history
@@ -643,8 +739,9 @@ async function initializeAuth(): Promise<void> {
                     // Clean URL completely - sensitive data should not remain in URL
                     window.history.replaceState({}, '', url.pathname + (url.search || ''))
 
-                    // BANK GRADE FIX: Mark initialization as complete
-                    clientContextInitialized = true
+                    // BANK GRADE: Mark initialization as complete using deferred promise pattern
+                    console.log(`[Auth:${traceId}] Client context exchange successful`)
+                    resolveClientContext()
 
                     return
                   } else {
@@ -702,8 +799,8 @@ async function initializeAuth(): Promise<void> {
                 throw lastError
               }
             } catch (error) {
-              // BANK GRADE FIX: Mark as failed (not initialized)
-              clientContextInitialized = false
+              // BANK GRADE: Mark as failed using deferred promise pattern
+              rejectClientContext(error instanceof Error ? error : new Error(String(error)))
               throw error
             }
           })()
@@ -715,7 +812,7 @@ async function initializeAuth(): Promise<void> {
           } catch (error) {
             // Client context exchange failed - log and continue to normal auth flow
             const lastError = error instanceof Error ? error : new Error(String(error))
-            console.error('[Auth] Client context exchange failed after retries:', lastError)
+            console.error(`[Auth:${traceId}] Client context exchange failed:`, lastError.message)
 
             // Show user-friendly error message
             const errorMessage = lastError.message.includes('expired')
@@ -790,7 +887,7 @@ async function initializeAuth(): Promise<void> {
       setUser(null)
       // Note: Not recording as success - user needs to authenticate
     } catch (error) {
-      console.error('[Auth] Initialization failed:', error)
+      console.error(`[Auth:${traceId}] Initialization failed:`, error)
       logAuthError('Auth initialization failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
       })
@@ -802,9 +899,11 @@ async function initializeAuth(): Promise<void> {
       // AUTH-FIRST: Clear user on error - BootstrapProvider will redirect to login
       setUser(null)
     } finally {
+      console.log(`[Auth:${traceId}] Initialization complete - loading=false`)
       setLoading(false)
       // CRITICAL: Clear promise cache after completion
       initPromise = null
+      // Keep traceId for AuthGate to use
     }
   })()
 
