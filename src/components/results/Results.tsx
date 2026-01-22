@@ -30,12 +30,13 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   // ROOT CAUSE FIX: Only subscribe to primitive values, not entire session object
   const isLoading = useSessionStore((state) => state.isLoading)
   const error = useSessionStore((state) => state.error)
+  
+  // BANK-GRADE FIX: Subscribe to session htmlReport to update when session loads
+  // Previous approach used getState() which doesn't trigger re-renders
+  const sessionHtmlReport = useSessionStore((state) => state.session?.htmlReport)
 
-  // ROOT CAUSE FIX: Read session data via useMemo to avoid subscription
-  const htmlReport = React.useMemo(() => {
-    const currentSession = useSessionStore.getState().session
-    return currentSession?.htmlReport || result?.html_report
-  }, [result?.html_report])
+  // Use session htmlReport if available, fallback to result prop
+  const htmlReport = sessionHtmlReport || result?.html_report
 
   // Verification logging: Track when result changes
   useEffect(() => {

@@ -522,6 +522,14 @@ export const useAuthStore = create<AuthState>()(
             // Non-critical
           })
 
+          // BANK-GRADE: Reset session engine singleton on logout
+          // This ensures fresh engine state on next login
+          import('../services/session/SessionEngineFactory').then(({ resetSessionEngine }) => {
+            resetSessionEngine()
+          }).catch(() => {
+            // Non-critical
+          })
+
           // CRITICAL: Clear all promise caches to prevent stale auth state
           checkSessionPromise = null
           refreshPromise = null
