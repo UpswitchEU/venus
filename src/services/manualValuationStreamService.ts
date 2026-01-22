@@ -36,7 +36,8 @@ class ManualValuationStreamService {
     { controller: AbortController; reader?: ReadableStreamDefaultReader }
   > = new Map()
   private streamTimeouts: Map<string, NodeJS.Timeout> = new Map()
-  private readonly DEFAULT_TIMEOUT = 90000 // 90 seconds
+  // BANK-GRADE: Cascading Timeout Chain - Venus (85s) > Titan (80s) > ValuationIQ (70s)
+  private readonly DEFAULT_TIMEOUT = 85000 // 85 seconds (cascade)
 
   /**
    * Generate request fingerprint for deduplication

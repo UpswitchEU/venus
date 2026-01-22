@@ -31,7 +31,11 @@ class ValuationAPI {
         process.env.NEXT_PUBLIC_BACKEND_URL ||
         process.env.NEXT_PUBLIC_API_BASE_URL ||
         'https://api.upswitch.app',
-      timeout: 90000, // 90 seconds - allows for Python processing (60-70s) + buffer
+      // BANK-GRADE: Cascading Timeout Chain
+      // Venus (85s) > Titan (80s) > ValuationIQ (70s)
+      // This ensures proper error propagation - ValuationIQ times out first,
+      // Titan catches and logs it, Venus receives structured error before its timeout
+      timeout: 85000, // 85 seconds - part of cascading timeout chain
       headers: {
         'Content-Type': 'application/json',
       },

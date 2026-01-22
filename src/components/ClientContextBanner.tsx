@@ -33,19 +33,49 @@ export function ClientContextBanner() {
       // Clear client context first
       clearClientContext()
       
-      // If embedded in Mercury modal, close the modal (sends message to parent)
+      // BANK-GRADE: Always try to close embedded mode first
+      // The closeEmbedded() function now always sends postMessage to parent,
+      // which handles both true embedded mode and edge cases where detection failed
+      console.log('[ClientContextBanner] Closing embedded session, isEmbedded:', isEmbedded)
+      closeEmbedded()
+      
+      // If embedded in Mercury modal, the modal will close and we're done
       if (isEmbedded) {
-        console.log('[ClientContextBanner] Embedded mode detected, closing modal')
-        closeEmbedded()
+        console.log('[ClientContextBanner] Embedded mode detected, modal should close')
+        // Give the parent a moment to receive the message and close
+        // If we're truly embedded, the modal will close before navigation happens
+        setTimeout(() => {
+          // If we're still here after 500ms, we might not be embedded - navigate
+          console.log('[ClientContextBanner] Fallback: navigating to Mercury')
+          navigateToMercury()
+        }, 500)
         return
       }
 
       // If not embedded, navigate back to accountant dashboard in Mercury
-      if (typeof window === 'undefined') {
-        console.warn('[ClientContextBanner] window is undefined, cannot navigate')
-        return
+      navigateToMercury()
+    } catch (error) {
+      console.error('[ClientContextBanner] Error in handleExitClientView:', error)
+      // Fallback: try to navigate to Mercury home page
+      try {
+        const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+        window.location.href = `${mercuryUrl}/en/accountant/dashboard`
+      } catch (fallbackError) {
+        console.error('[ClientContextBanner] Fallback navigation also failed:', fallbackError)
       }
+    }
+  }
 
+  /**
+   * Navigate back to Mercury (accountant dashboard or return URL)
+   */
+  const navigateToMercury = () => {
+    if (typeof window === 'undefined') {
+      console.warn('[ClientContextBanner] window is undefined, cannot navigate')
+      return
+    }
+
+    try {
       // Check for return URL first (set when Venus is opened from Mercury)
       let returnUrl: string | null = null
       try {
@@ -127,8 +157,8 @@ export function ClientContextBanner() {
       console.log('[ClientContextBanner] Navigating to fallback URL:', fallbackUrl)
       window.location.href = fallbackUrl
     } catch (error) {
-      console.error('[ClientContextBanner] Error in handleExitClientView:', error)
-      // Fallback: try to navigate to Mercury home page
+      console.error('[ClientContextBanner] Error in navigateToMercury:', error)
+      // Last resort fallback
       try {
         const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
         window.location.href = `${mercuryUrl}/en/accountant/dashboard`

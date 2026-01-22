@@ -19,6 +19,21 @@ import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
+/**
+ * BANK-GRADE TIMEOUT CHAIN
+ * 
+ * Timeouts must be configured in decreasing order:
+ * - Venus (Frontend) → 120s (longest, waits for Titan)
+ * - Titan (API) → 100s (waits for ValuationIQ)  
+ * - ValuationIQ (Python) → 90s (shortest, actual calculation)
+ * 
+ * This ensures proper timeout cascading:
+ * - If ValuationIQ times out at 90s, Titan catches it
+ * - If Titan times out at 100s, Venus catches it
+ * - Venus never times out before backend completes
+ */
+const VALUATION_TIMEOUT_MS = 120000 // 120 seconds for complex calculations
+
 export class ValuationAPI extends HttpClient {
   /**
    * Calculate manual valuation (traditional form-based)
@@ -65,6 +80,7 @@ export class ValuationAPI extends HttpClient {
         } as any,
         {
           ...options,
+          timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
           retry: {
             maxRetries: 2,
             initialDelay: 1000,
@@ -96,7 +112,10 @@ export class ValuationAPI extends HttpClient {
           },
           headers: {},
         } as any,
-        options
+        {
+          ...options,
+          timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
+        }
       )
     } catch (error) {
       this.handleValuationError(error, 'AI-guided valuation')
@@ -122,7 +141,10 @@ export class ValuationAPI extends HttpClient {
           },
           headers: {},
         } as any,
-        options
+        {
+          ...options,
+          timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
+        }
       )
     } catch (error) {
       this.handleValuationError(error, 'instant valuation')
@@ -187,6 +209,7 @@ export class ValuationAPI extends HttpClient {
         } as any,
         {
           ...options,
+          timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
           retry: {
             maxRetries: 3,
             initialDelay: 1000,
