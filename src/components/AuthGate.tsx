@@ -168,6 +168,8 @@ export function AuthGate({
   const [state, setState] = useState<AuthGateState>('checking')
   const [error, setError] = useState<string | null>(null)
   const [isReady, setIsReady] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const maxRetries = 2 // Maximum number of automatic retries for transient errors
 
   // Auth state from store
   const authLoading = useAuthStore((s) => s.loading)
@@ -182,6 +184,7 @@ export function AuthGate({
     setState('checking')
     setError(null)
     setIsReady(false)
+    setRetryCount(0) // Reset retry count on manual retry
     // Force a page reload to retry auth from scratch
     window.location.reload()
   }, [])
@@ -192,7 +195,18 @@ export function AuthGate({
   useEffect(() => {
     let mounted = true
     let timeoutId: NodeJS.Timeout | null = null
+    let maxTimeoutId: NodeJS.Timeout | null = null
     const traceId = getInitTraceId() || 'unknown'
+
+    // ✅ FIX: Set maximum timeout to prevent infinite loading
+    maxTimeoutId = setTimeout(() => {
+      if (mounted && state === 'checking') {
+        console.error(`[AuthGate:${traceId}] Max timeout exceeded while checking auth`)
+        setState('error')
+        setError('Authentication check timed out. Please refresh the page.')
+        onAuthError?.('Authentication timeout')
+      }
+    }, 30000) // 30 second maximum
 
     function checkAuth() {
       // Step 1: Wait for auth to complete
@@ -203,7 +217,32 @@ export function AuthGate({
       }
 
       // Step 2: Check for auth errors
+      // ✅ FIX: For transient 401 errors, retry automatically before showing error
       if (authError) {
+        const isTransient401 = authError.includes('401') || 
+                               authError.toLowerCase().includes('expired') ||
+                               authError.toLowerCase().includes('unauthorized')
+        
+        if (isTransient401 && retryCount < maxRetries) {
+          console.log(`[AuthGate:${traceId}] Transient auth error - retrying (${retryCount + 1}/${maxRetries})`, {
+            error: authError,
+          })
+          
+          // Wait a moment for token refresh to complete, then re-check
+          setTimeout(() => {
+            if (mounted) {
+              setRetryCount(prev => prev + 1)
+              // Clear the error and re-check auth state
+              const currentState = useAuthStore.getState()
+              if (!currentState.error && !currentState.loading) {
+                // Error cleared, re-run checkAuth
+                checkAuth()
+              }
+            }
+          }, 1000)
+          return
+        }
+        
         console.log(`[AuthGate:${traceId}] Auth error detected: ${authError}`)
         if (mounted) {
           setState('error')
@@ -273,8 +312,9 @@ export function AuthGate({
     return () => {
       mounted = false
       if (timeoutId) clearTimeout(timeoutId)
+      if (maxTimeoutId) clearTimeout(maxTimeoutId)
     }
-  }, [authLoading, authError, needsClientContext, onAuthReady, onAuthError])
+  }, [authLoading, authError, needsClientContext, onAuthReady, onAuthError, retryCount, state])
 
   // Render based on state
   if (state === 'error' && error) {

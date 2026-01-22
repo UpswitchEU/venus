@@ -160,6 +160,29 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       }
     }, [bootstrapMismatch, hasRetriedBootstrap, bootstrap, reportId])
 
+    // ✅ FIX: Maximum loading timeout - force error state after 30 seconds
+    // This prevents users from being stuck forever on a loading screen
+    useEffect(() => {
+      if (stage === 'loading') {
+        const maxLoadingTimer = setTimeout(() => {
+          generalLogger.error('[SessionManager] Max loading time exceeded', { 
+            reportId,
+            status,
+            isBootstrapping,
+            hasSession: !!session,
+          })
+          
+          // Force error state via session store
+          useSessionStore.setState({
+            status: 'error',
+            errorMessage: 'Loading took too long. Please try refreshing the page.',
+          })
+        }, 30000) // 30 second maximum
+        
+        return () => clearTimeout(maxLoadingTimer)
+      }
+    }, [stage, reportId, status, isBootstrapping, session])
+
     // Extract URL params (for backward compatibility)
     // SECURITY: prefilledQuery should come from session data, not URL
     // URL parameter is only for backward compatibility during migration
