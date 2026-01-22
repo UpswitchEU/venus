@@ -22,7 +22,9 @@ export interface BootstrapStatus {
   bootstrapDurationMs: number;
   
   // Identity status
+  // AUTH-FIRST: 'guest' type is deprecated - kept for backward compatibility
   identityType: 'guest' | 'authenticated' | 'accountant_for_client' | 'unknown';
+  /** @deprecated AUTH-FIRST: Guest mode is no longer supported. Always returns false. */
   isGuest: boolean;
   isAuthenticated: boolean;
   isAccountantFlow: boolean;
@@ -70,8 +72,9 @@ export function useBootstrapStatus(): BootstrapStatus {
         bootstrapError: null,
         bootstrapDurationMs: 0,
         
-        identityType: authStore.user ? 'authenticated' : 'guest',
-        isGuest: !authStore.user,
+        // AUTH-FIRST: Default to 'authenticated' or 'unknown' - guest is deprecated
+        identityType: authStore.user ? 'authenticated' : 'unknown',
+        isGuest: false, // AUTH-FIRST: Always false
         isAuthenticated: !!authStore.user,
         isAccountantFlow: false,
         userId: authStore.user?.id || null,
@@ -100,8 +103,8 @@ export function useBootstrapStatus(): BootstrapStatus {
     const { identity, report, prefillData, ui } = state;
 
     // Check legacy store sync - ensure boolean results
+    // AUTH-FIRST: 'guest' type is deprecated, check for authenticated or accountant_for_client
     const authStoreSynced: boolean = 
-      identity.type === 'guest' || 
       !!(identity.userId && authStore.user?.id === identity.userId);
     
     const sessionStoreSynced: boolean = 
@@ -121,8 +124,8 @@ export function useBootstrapStatus(): BootstrapStatus {
       bootstrapDurationMs: state.bootstrapDurationMs,
       
       identityType: identity.type,
-      isGuest: identity.type === 'guest',
-      isAuthenticated: identity.type === 'authenticated',
+      isGuest: false, // AUTH-FIRST: Always false - guest mode deprecated
+      isAuthenticated: identity.type === 'authenticated' || identity.type === 'accountant_for_client',
       isAccountantFlow: identity.type === 'accountant_for_client',
       userId: identity.userId || null,
       

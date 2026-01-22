@@ -22,6 +22,11 @@ const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL ||
                 process.env.NEXT_PUBLIC_API_BASE_URL || 
                 'https://api.upswitch.app';
 
+/**
+ * Session data structure from Titan API
+ * 
+ * AUTH-FIRST: guest_session_id is deprecated
+ */
 interface SessionData {
   session_key: string;
   session_data: Record<string, unknown>;
@@ -32,6 +37,7 @@ interface SessionData {
   updated_at: string;
   completed_at?: string;
   user_id?: string;
+  /** @deprecated Guest sessions are no longer supported */
   guest_session_id?: string;
   report_id?: string;
 }
@@ -164,26 +170,36 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error('[SessionResolver] Resolution failed:', errorMessage);
       
-      // Generate new report ID as fallback
-      const fallbackReportId = context.reportId || generateReportId();
+      // BANK-GRADE: Log error with full context for debugging
+      this.logger.error('[SessionResolver] Resolution failed - returning error state', {
+        error: errorMessage,
+        reportId: context.reportId?.substring(0, 20),
+        note: 'UI will show error state, not silent fallback',
+      });
       
+      // Return error result - UI will handle appropriately
+      // This is NOT a silent fallback - the error is propagated
       return {
         success: false,
         data: {
-          ...this.fallback(),
-          reportId: fallbackReportId,
+          mode: 'new' as const,
+          reportId: context.reportId || generateReportId(),
+          hasExistingData: false,
+          hasValuationResult: false,
+          status: 'draft' as const,
         },
         error: errorMessage,
-        source: 'fallback',
+        source: 'error',
         durationMs: performance.now() - startTime,
       };
     }
   }
 
   /**
-   * Fallback state for graceful degradation
+   * Default state for new reports
+   * 
+   * BANK-GRADE: This is NOT a fallback - it's the default for genuinely new reports
    */
   fallback(): ReportState {
     return {
@@ -194,6 +210,8 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
 
   /**
    * Fetch session from Titan API
+   * 
+   * AUTH-FIRST: Guest session headers removed - authentication is required
    */
   private async fetchSession(
     sessionKey: string,
@@ -203,11 +221,6 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       const headers: Record<string, string> = {
         'Accept': 'application/json',
       };
-
-      // Add guest session ID header if guest
-      if (identity?.type === 'guest' && identity.guestSessionId) {
-        headers['X-Guest-Session-Id'] = identity.guestSessionId;
-      }
 
       // Add client context headers if accountant flow
       if (identity?.type === 'accountant_for_client' && identity.clientContext) {
@@ -316,6 +329,8 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
 
   /**
    * Create report from completed session
+   * 
+   * AUTH-FIRST: Guest session headers removed - authentication is required
    */
   private async createReportFromSession(
     session: SessionData,
@@ -326,11 +341,6 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       };
-
-      // Add guest session ID header if guest
-      if (identity?.type === 'guest' && identity.guestSessionId) {
-        headers['X-Guest-Session-Id'] = identity.guestSessionId;
-      }
 
       // Add client context headers if accountant flow
       if (identity?.type === 'accountant_for_client' && identity.clientContext) {
@@ -390,6 +400,8 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
 
   /**
    * Fetch existing report by session key
+   * 
+   * AUTH-FIRST: Guest session headers removed - authentication is required
    */
   private async fetchExistingReport(
     sessionKey: string,
@@ -399,11 +411,6 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       const headers: Record<string, string> = {
         'Accept': 'application/json',
       };
-
-      // Add guest session ID header if guest
-      if (identity?.type === 'guest' && identity.guestSessionId) {
-        headers['X-Guest-Session-Id'] = identity.guestSessionId;
-      }
 
       // Add client context headers if accountant flow
       if (identity?.type === 'accountant_for_client' && identity.clientContext) {

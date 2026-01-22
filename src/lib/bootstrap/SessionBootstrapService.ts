@@ -128,7 +128,6 @@ export class SessionBootstrapService {
     this.logger.info('[Bootstrap] Starting bootstrap', {
       reportId: context.reportId ? truncateForLog(context.reportId) : 'new',
       hasClientToken: hints.hasClientToken,
-      hasGuestSessionId: hints.hasGuestSessionId,
       isEmbedded: hints.isEmbedded,
     });
 
@@ -253,7 +252,7 @@ export class SessionBootstrapService {
     return {
       identity: {
         ...DEFAULT_IDENTITY,
-        guestSessionId: context.guestSessionId,
+        // AUTH-FIRST: guestSessionId removed
       },
       report: {
         ...DEFAULT_REPORT,
@@ -275,10 +274,10 @@ export class SessionBootstrapService {
    * Generate cache key for deduplication
    */
   private getCacheKey(context: BootstrapContext): string {
+    // AUTH-FIRST: guestSessionId removed from cache key
     return [
       context.reportId || 'new',
       context.clientToken?.substring(0, 10) || 'no-token',
-      context.guestSessionId?.substring(0, 10) || 'no-guest',
     ].join(':');
   }
 
@@ -307,14 +306,14 @@ export class SessionBootstrapService {
       // Mercury may send mode=accountant in the URL, but we should NOT send this to Titan
       const validMode = context.mode === 'edit' || context.mode === 'view' ? context.mode : undefined;
       
+      // AUTH-FIRST: guestSessionId removed from request body
       const requestBody = {
         reportId: validReportId,
         clientToken: context.clientToken,
-        clientId: context.clientId, // ✅ FIX: Pass clientId for accountant flow verification
+        clientId: context.clientId, // Pass clientId for accountant flow verification
         prefilledQuery: context.prefilledQuery,
-        guestSessionId: context.guestSessionId,
         flow: context.flow,
-        // ✅ CRITICAL: Only include mode if it's valid - omit entirely if invalid (don't send mode=accountant)
+        // CRITICAL: Only include mode if it's valid - omit entirely if invalid (don't send mode=accountant)
         ...(validMode && { mode: validMode }),
         version: context.version,
         locale: context.locale,
@@ -341,11 +340,9 @@ export class SessionBootstrapService {
         'Accept': 'application/json',
       };
 
-      if (context.guestSessionId) {
-        headers['X-Guest-Session-Id'] = context.guestSessionId;
-      }
+      // AUTH-FIRST: X-Guest-Session-Id header removed
 
-      // ✅ CRITICAL FIX: Add client context headers for accountant flow
+      // Add client context headers for accountant flow
       // These headers are required for Titan to identify the client and accountant
       // ALWAYS check the store for client context, not just when clientToken is present
       // This allows accountant flows to work even when URL doesn't have clientToken
@@ -423,7 +420,7 @@ export class SessionBootstrapService {
               identity: identity ? {
                 type: identity.type,
                 userId: identity.userId,
-                guestSessionId: identity.guestSessionId,
+                // AUTH-FIRST: guestSessionId removed
                 clientContext: identity.clientContext,
                 email: identity.email,
                 firstName: identity.firstName,
@@ -482,7 +479,7 @@ export class SessionBootstrapService {
         identity: {
           type: identity.type,
           userId: identity.userId,
-          guestSessionId: identity.guestSessionId,
+          // AUTH-FIRST: guestSessionId removed
           clientContext: identity.clientContext,
           email: identity.email,
           firstName: identity.firstName,

@@ -12,7 +12,8 @@ import type { BootstrapContext, BootstrapHints, FlowType } from './types';
  * Parse URL and context into bootstrap hints
  */
 export function parseBootstrapHints(context: BootstrapContext): BootstrapHints {
-  const { reportId, clientToken, guestSessionId, prefilledQuery, flow, mode, locale, embedded } = context;
+  const { reportId, clientToken, prefilledQuery, flow, mode, locale, embedded } = context;
+  // AUTH-FIRST: guestSessionId removed - authentication required
   
   // CRITICAL FIX: If we have a reportId from the URL, it's NEVER a new report
   // The isRecentReportId check was causing issues where valid URL report IDs
@@ -25,7 +26,6 @@ export function parseBootstrapHints(context: BootstrapContext): BootstrapHints {
   return {
     hasClientToken: !!clientToken && clientToken.length > 20,
     hasReportId: hasValidReportId,
-    hasGuestSessionId: !!guestSessionId && guestSessionId.length > 0,
     hasPrefilledQuery: !!prefilledQuery && prefilledQuery.length > 0,
     isNewReport,
     isEmbedded: !!embedded,
@@ -107,11 +107,11 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
       url,
       reportId,
       clientToken: params.get('clientToken') || undefined,
-      clientId: params.get('clientId') || undefined, // ✅ FIX: Extract clientId for accountant flow
+      clientId: params.get('clientId') || undefined, // Extract clientId for accountant flow
       prefilledQuery: params.get('prefilledQuery') || undefined,
-      guestSessionId: params.get('guestSessionId') || undefined,
+      // AUTH-FIRST: guestSessionId removed - authentication required
       flow: (params.get('flow') as FlowType) || undefined,
-      // ✅ CRITICAL FIX: Only accept valid mode values ('edit' or 'view')
+      // CRITICAL FIX: Only accept valid mode values ('edit' or 'view')
       // Invalid values from URL params (like 'accountant') will be filtered out
       mode: (['edit', 'view'].includes(params.get('mode') || '') ? params.get('mode') as 'edit' | 'view' : undefined),
       version: params.get('version') ? parseInt(params.get('version')!, 10) : undefined,

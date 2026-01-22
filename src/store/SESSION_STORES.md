@@ -1,6 +1,10 @@
 # Venus Session Stores Architecture
 
-This document explains the relationship between the three session-related stores in Venus and when to use each one.
+This document explains the relationship between the session-related stores in Venus and when to use each one.
+
+## AUTH-FIRST Architecture
+
+**Important:** Guest sessions have been removed. All users must authenticate before accessing valuation features. Session initialization is handled by `BootstrapProvider`.
 
 ## Overview
 
@@ -10,7 +14,6 @@ Venus uses a multi-store architecture for session management to handle different
 |-------|---------|-------|
 | `useSessionStore` | Main valuation session state | Per-report session data |
 | `useUnifiedSessionStore` | Simplified session API (newer) | Backend session sync |
-| `useGuestSessionStore` | Guest/anonymous session tracking | Cross-session identity |
 
 ---
 
@@ -128,67 +131,13 @@ interface SessionStore {
 
 ---
 
-### 3. `useGuestSessionStore` (Identity Layer)
-
-**File**: `useGuestSessionStore.ts`
-
-**Purpose**: Tracks guest session identity for anonymous users. This is **not** the valuation session - it's the user's anonymous identity.
-
-**When to Use**:
-- Getting the guest_session_id for API calls
-- Initializing anonymous user sessions
-- Clearing session on logout
-
-**Key Features**:
-- Automatic initialization on page load
-- Promise caching prevents duplicate init requests
-- Syncs with localStorage
-- Skips creation for authenticated users
-
-**Example Usage**:
-
-```typescript
-import { useGuestSessionStore } from '../store/useGuestSessionStore'
-
-function MyComponent() {
-  const { ensureSession, getSessionId, clearSession } = useGuestSessionStore()
-  
-  useEffect(() => {
-    // Ensure guest session exists (for anonymous users only)
-    ensureSession()
-  }, [])
-  
-  // Get session ID synchronously (for interceptors)
-  const guestId = getSessionId()
-}
-```
-
-**State Shape**:
-```typescript
-interface GuestSessionState {
-  sessionId: string | null
-  expiresAt: string | null
-  isInitialized: boolean
-  isInitializing: boolean
-  initializationPromise: Promise<string | null> | null
-  
-  initializeSession: () => Promise<string | null>
-  getSessionId: () => string | null
-  clearSession: () => void
-  ensureSession: () => Promise<string | null>
-}
-```
-
-**Important**: This store tracks the **user's identity**, not the valuation session. A guest user can create multiple valuation sessions, all linked to their `guest_session_id`.
-
----
-
 ## How They Work Together
 
 ```mermaid
 graph TD
-    subgraph Identity Layer
-        GS[useGuestSessionStore]
+    subgraph Bootstrap
+        BP[BootstrapProvider]
+        AR[AuthResolver]
     end
     
     subgraph Session Layer
@@ -206,7 +155,8 @@ graph TD
         T[Titan API]
     end
     
-    GS -->|guest_session_id| T
+    BP -->|resolves identity| AR
+    AR -->|auth required| T
     SS -->|CRUD operations| T
     US -->|CRUD operations| T
     
@@ -218,16 +168,10 @@ graph TD
 ### Flow for Different User Types
 
 #### Authenticated User (Seller/Accountant)
-1. Auth cookies sent with all requests
-2. `useGuestSessionStore` skipped (returns null)
+1. `BootstrapProvider` resolves authentication via `AuthResolver`
+2. Auth cookies sent with all requests
 3. `useSessionStore` loads session by reportId
 4. Session owned by `user_id`
-
-#### Guest User
-1. `useGuestSessionStore.ensureSession()` creates guest ID
-2. `guest_session_id` sent as header with all requests
-3. `useSessionStore` loads session by reportId
-4. Session owned by `guest_session_id`
 
 #### Accountant for Client (Mercury Flow)
 1. `clientToken` exchanged for client context
@@ -242,12 +186,11 @@ graph TD
 ### DO:
 - Use `useSessionStore` for all valuation session operations
 - Subscribe to specific values, not the entire store
-- Use `useGuestSessionStore` only for getting guest_session_id
 - Check `isInitializing` before showing forms
+- Let `BootstrapProvider` handle authentication and session initialization
 
 ### DON'T:
 - Mix `useSessionStore` and `useUnifiedSessionStore` in the same component
-- Create new guest sessions for authenticated users
 - Store UI state in session stores (use local state instead)
 - Subscribe to entire store object (causes excessive re-renders)
 
@@ -280,18 +223,19 @@ Currently, `useSessionStore` is the primary store. Future work may consolidate t
 1. Check if bootstrap completed (`useBootstrap().isBootstrapping`)
 2. Check for errors in `useSessionStore().error`
 3. Verify reportId matches session in store
+4. Ensure user is authenticated (auth-first architecture)
 
 ### Duplicate API calls
 1. Ensure components subscribe to specific values
 2. Check that promise cache is working (logs show "reusing promise")
 3. Verify `BootstrapSync` isn't triggering redundant loads
 
-### Guest session issues
-1. Check `localStorage` for `upswitch_guest_session_id`
-2. Verify `ensureSession()` completes before API calls
-3. Check if user became authenticated (guest session should be skipped)
+### Authentication issues
+1. Check if `BootstrapProvider` completed initialization
+2. Verify auth cookies are being sent with requests
+3. Check `AuthResolver` logs for authentication failures
 
 ---
 
 **Last Updated**: January 2026
-**Architecture Version**: 2.0 (Bootstrap-based)
+**Architecture Version**: 3.0 (Auth-First Bootstrap)

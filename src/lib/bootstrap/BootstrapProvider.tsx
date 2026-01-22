@@ -34,10 +34,12 @@ import {
   DEFAULT_PREFILL,
   DEFAULT_REPORT,
   DEFAULT_UI_HINTS,
+  REQUIRE_AUTH_FOR_VALUATION,
 } from './types';
 import { bootstrapService } from './SessionBootstrapService';
 import { parseUrlToContext } from './utils';
 import { setBootstrapState } from '../sessionInitialization';
+import { AuthenticationRequiredError } from './resolvers/AuthResolver';
 
 // ============================================================================
 // Context Types
@@ -57,8 +59,11 @@ interface BootstrapContextValue {
   creditStatus?: SessionBootstrapState['creditStatus']; // Credit status from bootstrap state
 
   // Convenience booleans
+  /** @deprecated Guest flow is no longer supported - always returns false */
   isGuest: boolean;
   isAuthenticated: boolean;
+  /** Whether authentication is required (always true in auth-first architecture) */
+  requiresAuth: boolean;
   isAccountantFlow: boolean;
   isNewReport: boolean;
   isExistingReport: boolean;
@@ -210,10 +215,9 @@ export function BootstrapProvider({
         });
       }
 
-      // ✅ CREDIT CHECK: Check if credits are insufficient (AUTH ONLY)
-      // Guest users have unlimited sandbox access - never block them
-      const isGuest = result.identity.type === 'guest';
-      if (!isGuest && result.creditStatus && !result.creditStatus.allowed) {
+      // ✅ CREDIT CHECK: Check if credits are insufficient
+      // AUTH-FIRST: All users are authenticated, so credit checks always apply
+      if (result.creditStatus && !result.creditStatus.allowed) {
         const creditError = result.creditStatus.message || 'Insufficient credits to create valuation';
         setBootstrapError(creditError);
         onBootstrapError?.(creditError);
@@ -222,7 +226,6 @@ export function BootstrapProvider({
           message: creditError,
           upgradePath: result.creditStatus.upgrade_path,
           creditsRemaining: result.creditStatus.credits_remaining,
-          note: 'Guest users are excluded from credit blocking (unlimited sandbox access)',
         });
         
         // Still set state so UI can display credit error
@@ -238,13 +241,13 @@ export function BootstrapProvider({
       // Sync with SessionInitializer for backward compatibility
       setBootstrapState(result);
       
-      // ✅ TWIN ENGINE: Set session engine based on identity
+      // AUTH-FIRST: Set session engine for authenticated users
       try {
         const { useSessionStore } = await import('../../store/useSessionStore');
         useSessionStore.getState().setEngine(result.identity);
         console.log('[BootstrapProvider] Session engine set', {
           identityType: result.identity.type,
-          engineType: result.identity.type === 'guest' ? 'GuestSessionEngine' : 'AuthenticatedSessionEngine',
+          engineType: 'AuthenticatedSessionEngine',
         });
       } catch (engineError) {
         console.error('[BootstrapProvider] Failed to set session engine', {
@@ -363,7 +366,7 @@ export function BootstrapProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps = run only on mount
 
-  // ✅ TWIN ENGINE: Update engine when identity changes
+  // AUTH-FIRST: Update engine when identity changes
   useEffect(() => {
     if (state.identity && state.identity.type) {
       try {
@@ -375,14 +378,14 @@ export function BootstrapProvider({
         });
       }
     }
-  }, [state.identity.type, state.identity.userId, state.identity.guestSessionId]);
+  }, [state.identity.type, state.identity.userId]);
 
   // Update functions
   const updateIdentity = useCallback((identity: Partial<IdentityState>) => {
     setState((prev) => {
       const updatedIdentity = { ...prev.identity, ...identity };
       
-      // ✅ TWIN ENGINE: Update engine when identity changes
+      // AUTH-FIRST: Update engine when identity changes
       try {
         const { useSessionStore } = require('../../store/useSessionStore');
         useSessionStore.getState().setEngine(updatedIdentity);
@@ -435,8 +438,10 @@ export function BootstrapProvider({
     creditStatus: state.creditStatus, // Credit status from bootstrap state
 
     // Convenience booleans
-    isGuest: state.identity.type === 'guest',
-    isAuthenticated: state.identity.type === 'authenticated',
+    /** @deprecated Guest flow is no longer supported - always returns false */
+    isGuest: false,
+    isAuthenticated: state.identity.type === 'authenticated' || state.identity.type === 'accountant_for_client',
+    requiresAuth: REQUIRE_AUTH_FOR_VALUATION,
     isAccountantFlow: state.identity.type === 'accountant_for_client',
     isNewReport: state.report.mode === 'new',
     isExistingReport: state.report.mode === 'existing',

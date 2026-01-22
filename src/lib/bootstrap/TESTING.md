@@ -4,49 +4,24 @@
 
 The world-class bootstrap system resolves all initialization state (auth, session, prefill) in a single request before the UI renders. This eliminates race conditions and visual jumps.
 
+**AUTH-FIRST ARCHITECTURE**: All users must authenticate before accessing valuation features. Guest flow has been removed.
+
 ## Test Scenarios
 
-### 1. Guest User - New Report
+### 1. Unauthenticated User - Redirect to Login
 
 **Steps:**
 1. Open Venus in incognito: `https://valuation.upswitch.app/en/reports/new`
-2. Observe loading state (should be brief, ~150ms)
-3. Form should render with empty fields
+2. Observe redirect to login page
 
 **Expected:**
-- Bootstrap resolves with `identity.type = 'guest'`
-- New report ID is generated
-- No prefill data (confidence = 0)
-- Conversational flow may be suggested
-
-**Console logs to verify:**
-```
-[BootstrapProvider] Bootstrap complete {
-  identityType: 'guest',
-  reportMode: 'new',
-  prefillConfidence: '0.00',
-  durationMs: ~150
-}
-```
+- User is redirected to `/auth/login?redirect=/en/reports/new`
+- After login, user returns to the original URL
+- BETA_MODE: New users automatically receive 90-day premium access
 
 ---
 
-### 2. Guest User - With KBO Prefill
-
-**Steps:**
-1. Open: `https://valuation.upswitch.app/en/reports/new?prefilledQuery=Upswitch`
-2. Observe loading state
-3. Check if company name is prefilled
-
-**Expected:**
-- Bootstrap includes KBO lookup
-- `prefillData.sources` includes `'kbo'`
-- Company name, KBO number, VAT, city, etc. are prefilled
-- UI hint: `showKboVerification = true`
-
----
-
-### 3. Authenticated User - New Report
+### 2. Authenticated User - New Report
 
 **Steps:**
 1. Log in to Venus
@@ -58,6 +33,23 @@ The world-class bootstrap system resolves all initialization state (auth, sessio
 - `identity.userId` is set
 - If user has profile data, `prefillData.sources` includes `'user_profile'`
 - Form fields prefilled from profile
+- BETA_MODE: User has premium access for 90 days
+
+---
+
+### 3. Authenticated User - With KBO Prefill
+
+**Steps:**
+1. Log in to Venus
+2. Open: `https://valuation.upswitch.app/en/reports/new?prefilledQuery=Upswitch`
+3. Observe loading state
+4. Check if company name is prefilled
+
+**Expected:**
+- Bootstrap includes KBO lookup
+- `prefillData.sources` includes `'kbo'`
+- Company name, KBO number, VAT, city, etc. are prefilled
+- UI hint: `showKboVerification = true`
 
 ---
 
@@ -78,7 +70,7 @@ The world-class bootstrap system resolves all initialization state (auth, sessio
 
 ---
 
-### 5. Accountant-for-Client Flow
+### 5. Accountant-for-Client Flow (Pro Plan)
 
 **Steps:**
 1. Log in as accountant in Mercury
@@ -95,7 +87,7 @@ The world-class bootstrap system resolves all initialization state (auth, sessio
 
 ---
 
-### 6. Session Restoration (Manual Flow)
+### 6. Session Restoration (Manual Flow) - Authenticated
 
 **Steps:**
 1. Start a new valuation, fill some fields
@@ -109,7 +101,7 @@ The world-class bootstrap system resolves all initialization state (auth, sessio
 
 ---
 
-### 7. Session Restoration (Conversational Flow)
+### 7. Session Restoration (Conversational Flow) - Authenticated
 
 **Steps:**
 1. Start conversational valuation
@@ -216,9 +208,9 @@ This is slower (~400-800ms) but still functional.
 
 ## Sign-Off Checklist
 
-- [ ] Guest user new report works
-- [ ] Guest user with KBO prefill works
+- [ ] Unauthenticated user is redirected to login
 - [ ] Authenticated user new report works
+- [ ] Authenticated user with KBO prefill works
 - [ ] Authenticated user existing report works
 - [ ] Accountant-for-client flow works
 - [ ] Manual flow restoration works
@@ -226,3 +218,4 @@ This is slower (~400-800ms) but still functional.
 - [ ] Bootstrap duration < 200ms
 - [ ] No visual layout shifts
 - [ ] Fallback works when API fails
+- [ ] BETA_MODE grants premium to new signups

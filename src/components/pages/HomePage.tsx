@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { ALL_BUSINESS_VIDEOS } from '../../constants/videos'
 import { RecentReportsSection } from '../../features/reports'
 import { useAuth } from '../../hooks/useAuth'
-import { useSessionInitialization } from '../../hooks/useSessionInitialization'
+// AUTH-FIRST: useSessionInitialization removed - session init handled by BootstrapProvider
 import { type BusinessCardData, businessCardService } from '../../services/businessCard'
 import UrlGeneratorService from '../../services/urlGenerator'
 import { useClientContext } from '../../stores/clientContext'
@@ -36,9 +36,8 @@ export const HomePage: React.FC = () => {
   // Reports store
   const { reports, loading: reportsLoading, fetchReports, deleteReport } = useReportsStore()
 
-  // Ensure guest session is initialized on home page (works for both guest and authenticated users)
-  // Uses Zustand store with promise caching to prevent race conditions
-  useSessionInitialization()
+  // AUTH-FIRST: Session initialization handled by BootstrapProvider
+  // No guest session initialization needed - all users must authenticate
 
   // Get client context for headers
   const clientContext = useClientContext()

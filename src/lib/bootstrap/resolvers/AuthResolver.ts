@@ -1,8 +1,12 @@
 /**
  * Auth Resolver
  * 
- * Resolves identity state: guest, authenticated, or accountant-for-client.
- * Uses cookie-based auth with Titan API for verification.
+ * AUTH-FIRST ARCHITECTURE: Resolves identity state for authenticated users only.
+ * Guest flow has been removed - users must authenticate before accessing valuation features.
+ * 
+ * Supported identity types:
+ * - 'authenticated': Regular logged-in user
+ * - 'accountant_for_client': Accountant acting on behalf of a client
  * 
  * @module lib/bootstrap/resolvers/AuthResolver
  */
@@ -15,8 +19,21 @@ import type {
   IdentityState,
   ResolverResult,
 } from '../types';
-import { DEFAULT_IDENTITY } from '../types';
+import { DEFAULT_IDENTITY, REQUIRE_AUTH_FOR_VALUATION } from '../types';
 import { truncateForLog } from '../utils';
+
+/**
+ * Error thrown when authentication is required but user is not authenticated
+ */
+export class AuthenticationRequiredError extends Error {
+  constructor(
+    message: string = 'Authentication required to access valuation features',
+    public readonly redirectUrl: string = '/auth/login'
+  ) {
+    super(message);
+    this.name = 'AuthenticationRequiredError';
+  }
+}
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
                 process.env.NEXT_PUBLIC_API_BASE_URL || 
@@ -61,39 +78,46 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
         };
       }
 
-      // Priority 3: Guest mode (with optional guest session ID)
-      const guestIdentity: IdentityState = {
-        type: 'guest',
-        guestSessionId: context.guestSessionId || this.getOrCreateGuestSessionId(),
-      };
+      // AUTH-FIRST: No guest fallback - require authentication
+      // Build redirect URL to return user to current page after login
+      const currentUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/reports/new';
+      const redirectUrl = `/auth/login?redirect=${encodeURIComponent(currentUrl)}`;
+      
+      this.logger.warn('[AuthResolver] Authentication required - no guest fallback', {
+        authRequired: REQUIRE_AUTH_FOR_VALUATION,
+        redirectUrl,
+      });
 
-      return {
-        success: true,
-        data: guestIdentity,
-        source: 'guest',
-        durationMs: performance.now() - startTime,
-      };
+      throw new AuthenticationRequiredError(
+        'Please sign in to access valuation features',
+        redirectUrl
+      );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error('[AuthResolver] Resolution failed:', errorMessage);
+      
+      // BANK-GRADE: Log error with full context
+      this.logger.error('[AuthResolver] Resolution failed - returning error state', {
+        error: errorMessage,
+        note: 'UI will redirect to login',
+      });
       
       return {
         success: false,
         data: this.fallback(),
         error: errorMessage,
-        source: 'fallback',
+        source: 'error',
         durationMs: performance.now() - startTime,
       };
     }
   }
 
   /**
-   * Fallback identity for graceful degradation
+   * Default identity state for errors
+   * AUTH-FIRST: Returns unauthenticated state that triggers login redirect
    */
   fallback(): IdentityState {
     return {
       ...DEFAULT_IDENTITY,
-      guestSessionId: this.getOrCreateGuestSessionId(),
     };
   }
 
@@ -264,35 +288,6 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
     }
   }
 
-  /**
-   * Get or create guest session ID
-   */
-  private getOrCreateGuestSessionId(): string {
-    if (typeof window === 'undefined') {
-      // Server-side: generate new ID
-      return this.generateGuestSessionId();
-    }
-
-    // Client-side: check localStorage
-    const storageKey = 'upswitch_guest_session_id';
-    let guestSessionId = localStorage.getItem(storageKey);
-
-    if (!guestSessionId) {
-      guestSessionId = this.generateGuestSessionId();
-      localStorage.setItem(storageKey, guestSessionId);
-    }
-
-    return guestSessionId;
-  }
-
-  /**
-   * Generate unique guest session ID
-   */
-  private generateGuestSessionId(): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 15);
-    return `guest_${timestamp}_${random}`;
-  }
 }
 
 // Export singleton instance

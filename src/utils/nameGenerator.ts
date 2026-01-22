@@ -2,43 +2,26 @@
  * Professional Valuation Report Name Generator
  * Generates simple, professional names like "Valuation Report #123"
  * Based on Ilara Mercury's straightforward naming approach
+ * 
+ * AUTH-FIRST: All users are authenticated. Guest report numbering removed.
  */
 export class NameGenerator {
+  /** @deprecated AUTH-FIRST: Guest sessions no longer supported */
   private static readonly GUEST_REPORT_COUNT_KEY = 'upswitch_guest_report_count'
 
   /**
-   * Get and increment the sequential report number for guest users
+   * @deprecated AUTH-FIRST: Guest sessions no longer supported. Use generateValuationName instead.
    */
   private static getNextGuestReportNumber(): number {
-    try {
-      const stored = localStorage.getItem(this.GUEST_REPORT_COUNT_KEY)
-      const currentCount = stored ? parseInt(stored, 10) : 0
-      const nextCount = currentCount + 1
-      localStorage.setItem(this.GUEST_REPORT_COUNT_KEY, nextCount.toString())
-      return nextCount
-    } catch (error) {
-      // Fallback if localStorage is not available
-      console.warn('Failed to access localStorage for report count:', error)
-      return 1
-    }
+    return Date.now() % 1000
   }
 
   /**
    * Generate a unique valuation report name based on a seed
-   * For guest users, uses sequential numbering starting from 1
+   * AUTH-FIRST: All users are authenticated, using hash-based numbering
    */
   static generateValuationName(seedSource?: string): string {
-    // For guest users, use sequential numbering starting from 1
-    // Check if we're in a guest context (no authenticated user)
-    const isGuest =
-      !localStorage.getItem('upswitch_user_id') && !localStorage.getItem('upswitch_auth_token')
-
-    if (isGuest) {
-      const reportNumber = this.getNextGuestReportNumber()
-      return `Valuation Report #${reportNumber}`
-    }
-
-    // For authenticated users, generate a unique number from seed
+    // AUTH-FIRST: Generate a unique number from seed for all authenticated users
     let hashSum = 0
     const seed = seedSource || Date.now().toString()
 

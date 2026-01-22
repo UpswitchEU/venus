@@ -1,14 +1,19 @@
 /**
  * Authenticated Session Engine
  * 
- * Twin Engine Architecture: Full backend integration for authenticated users
+ * AUTH-FIRST Architecture: The only session engine used.
+ * All users must authenticate before accessing session features.
  * 
  * Features:
- * - Backend session persistence
+ * - Backend session persistence via Titan API
  * - Auto-save on changes
  * - Versions support
- * - Accountant-client workflows
- * - All current features
+ * - Accountant-for-client workflows (session owned by client)
+ * - Data prefill from KBO, user profile, and existing sessions
+ * 
+ * Supported Identity Types:
+ * - 'authenticated': Regular logged-in user owns the session
+ * - 'accountant_for_client': Client owns session, accountant acts on behalf
  * 
  * @module services/session/engines/AuthenticatedSessionEngine
  */

@@ -1,7 +1,8 @@
 /**
  * SessionBootstrapService Tests
  * 
- * Tests for the world-class bootstrap system.
+ * AUTH-FIRST ARCHITECTURE: All tests assume authenticated users.
+ * Guest flow has been removed from the platform.
  * 
  * @module lib/bootstrap/__tests__/SessionBootstrapService
  */
@@ -36,15 +37,16 @@ describe('SessionBootstrapService', () => {
   });
 
   describe('bootstrap', () => {
-    it('should return guest identity when no auth context', async () => {
+    // AUTH-FIRST: Guest identity test removed - all users must authenticate
+    it('should return authenticated identity for new user', async () => {
       const context: BootstrapContext = {
         reportId: 'val_123456789_vabc123',
         locale: 'en',
       };
 
       mockAuthResolver.resolve.mockResolvedValue({
-        type: 'guest',
-        guestSessionId: 'guest_123',
+        type: 'authenticated',
+        userId: 'user-new-123',
       });
 
       mockSessionResolver.resolve.mockResolvedValue({
@@ -63,7 +65,7 @@ describe('SessionBootstrapService', () => {
 
       const result = await service.bootstrap(context);
 
-      expect(result.identity.type).toBe('guest');
+      expect(result.identity.type).toBe('authenticated');
       expect(result.report.mode).toBe('new');
       expect(result.prefillData.confidence).toBe(0);
     });
@@ -188,7 +190,8 @@ describe('SessionBootstrapService', () => {
       };
 
       mockAuthResolver.resolve.mockResolvedValue({
-        type: 'guest',
+        type: 'authenticated',
+        userId: 'user-low-confidence',
       });
 
       mockSessionResolver.resolve.mockResolvedValue({
@@ -217,7 +220,8 @@ describe('SessionBootstrapService', () => {
       };
 
       mockAuthResolver.resolve.mockResolvedValue({
-        type: 'guest',
+        type: 'authenticated',
+        userId: 'user-kbo-lookup',
       });
 
       mockSessionResolver.resolve.mockResolvedValue({
@@ -259,7 +263,7 @@ describe('SessionBootstrapService', () => {
       };
 
       mockAuthResolver.resolve.mockImplementation(
-        () => new Promise(resolve => setTimeout(() => resolve({ type: 'guest' }), 100))
+        () => new Promise(resolve => setTimeout(() => resolve({ type: 'authenticated', userId: 'user-dedup' }), 100))
       );
 
       mockSessionResolver.resolve.mockResolvedValue({
@@ -296,7 +300,7 @@ describe('SessionBootstrapService', () => {
         locale: 'en',
       };
 
-      mockAuthResolver.resolve.mockResolvedValue({ type: 'guest' });
+      mockAuthResolver.resolve.mockResolvedValue({ type: 'authenticated', userId: 'user-timing' });
       mockSessionResolver.resolve.mockResolvedValue({
         mode: 'new',
         reportId: 'val_timing_123',

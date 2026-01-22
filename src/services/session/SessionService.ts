@@ -850,10 +850,12 @@ export class SessionService {
 
                 // Backend validation errors (400 Bad Request) - DO NOT RETRY
                 // These are permanent errors that won't be fixed by retrying
+                // AUTH-FIRST: userId is always required (guest sessions removed)
                 if (
                   errorMessage.includes('validation') ||
                   errorMessage.includes('invalid') ||
-                  errorMessage.includes('Either userId or guestSessionId must be provided') ||
+                  errorMessage.includes('userId must be provided') ||
+                  errorMessage.includes('Authentication required') ||
                   errorMessage.includes('must be provided')
                 ) {
                   logger.error('Session creation failed - validation error (non-retryable)', {

@@ -260,9 +260,8 @@ export class SessionAPI extends HttpClient {
   /**
    * Create new valuation session
    *
-   * ✅ TWIN ENGINE ARCHITECTURE: Used by BOTH engines
-   * - Guest: Called from GuestSessionEngine.saveSession() (explicit save only)
-   * - Auth: Called from AuthenticatedSessionEngine via SessionService (auto-create on load)
+   * AUTH-FIRST ARCHITECTURE: Only used by AuthenticatedSessionEngine.
+   * All users must be authenticated before accessing session features.
    *
    * Handles both CreateValuationSessionRequest and ValuationSession types.
    * Maps frontend 'conversational' to backend 'ai-guided' for both currentView and dataSource.
@@ -272,7 +271,7 @@ export class SessionAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<CreateValuationSessionResponse> {
     try {
-      // BANK GRADE FIX: Log timing information for race condition detection
+      // Log timing information for race condition detection
       const { useClientContext } = await import('../../../stores/clientContext')
       const context = useClientContext.getState()
       
@@ -302,63 +301,11 @@ export class SessionAPI extends HttpClient {
         ...(sessionAny.dataSource && { dataSource: sessionAny.dataSource }),
       }
 
-      // ✅ CRITICAL: Check client context first - if it exists, don't use guest session
-      // Backend will reject requests with both client context and guest_session_id
-      let guestSessionId: string | undefined = undefined
-      try {
-        const { useClientContext } = await import('../../../stores/clientContext')
-        const clientContext = useClientContext.getState()
-        
-        // If client context exists, don't use guest session (backend will reject it)
-        if (clientContext.isActingAsClient && clientContext.client && clientContext.accountant) {
-          apiLogger.debug('[SessionAPI] Client context exists, skipping guest session', {
-            clientUserId: clientContext.client.id.substring(0, 8) + '...',
-            accountantUserId: clientContext.accountant.id.substring(0, 8) + '...',
-          })
-          guestSessionId = undefined
-        } else {
-          // Only get guest session if no client context
-          const { useAuthStore } = await import('../../../lib/auth')
-          const user = useAuthStore.getState().user
-          
-          // Only get guest session if user is NOT authenticated
-          // If user IS authenticated, backend will extract userId from JWT token (req.user)
-          if (!user) {
-            try {
-              const { useGuestSessionStore } = await import('../../../store/useGuestSessionStore')
-              // Use ensureSession to create one if it doesn't exist
-              guestSessionId = await useGuestSessionStore.getState().ensureSession() || undefined
-            } catch (guestError) {
-              // If guest session creation fails, continue without it
-              // Backend will return validation error which we'll handle
-              apiLogger.warn('Failed to get guest session for session creation', { error: guestError })
-            }
-          }
-          // If user IS authenticated, don't set guestSessionId - backend will use userId from JWT
-        }
-      } catch (contextError) {
-        // If client context check fails, fallback to guest session logic
-        try {
-          const { useAuthStore } = await import('../../../lib/auth')
-          const user = useAuthStore.getState().user
-          
-          if (!user) {
-            try {
-              const { useGuestSessionStore } = await import('../../../store/useGuestSessionStore')
-              guestSessionId = await useGuestSessionStore.getState().ensureSession() || undefined
-            } catch (guestError) {
-              // Silently continue - guest_session_id is optional if user is authenticated
-              apiLogger.debug('Could not determine auth state or get guest session', { contextError, guestError })
-            }
-          }
-        } catch (authError) {
-          apiLogger.debug('Could not determine auth state or get guest session', { contextError, authError })
-        }
-      }
+      // AUTH-FIRST: Guest session handling removed - authentication is required
+      // Backend will extract userId from JWT token (req.user)
 
-      // ✅ CRITICAL FIX: Use reportId as session_key if session_key is not provided
+      // Use reportId as session_key if session_key is not provided
       // This ensures idempotency - if a reportId exists, use it as the session_key
-      // This prevents duplicate sessions when creating sessions with a known reportId
       const sessionKey = sessionAny.session_key || sessionAny.reportId
 
       const backendSession = {
@@ -367,11 +314,8 @@ export class SessionAPI extends HttpClient {
         current_step: sessionAny.current_step || 1,
         // Also send currentView at top level for DTO transformation
         currentView: currentView,
-        // ✅ CRITICAL FIX: Always include session_key if available (from session_key or reportId)
-        // This ensures idempotency and prevents duplicate sessions
+        // Always include session_key if available (from session_key or reportId)
         ...(sessionKey && { session_key: sessionKey }),
-        // ✅ FIX: Include guest_session_id if available (for anonymous users)
-        ...(guestSessionId && { guest_session_id: guestSessionId }),
       }
 
       // ✅ VERIFICATION: HttpClient interceptor automatically adds client context headers via getOwnerHeaders()

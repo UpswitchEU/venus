@@ -1,14 +1,14 @@
 /**
  * Unified Session Store (Cursor-Style Simplicity)
  *
- * Twin Engine Architecture: Routes to GuestSessionEngine or AuthenticatedSessionEngine
- * based on bootstrap identity. Zero mixing of guest/auth logic.
+ * AUTH-FIRST Twin Engine Architecture: Uses AuthenticatedSessionEngine only.
+ * All users must be authenticated before accessing session features.
  *
  * Key Features:
  * - Promise cache prevents duplicate loads
  * - Atomic state updates
  * - Simple API (loadSession, updateSession, clearSession)
- * - Engine abstraction (guest vs auth)
+ * - AuthenticatedSessionEngine for all users
  * - Optimistic rendering support
  *
  * @module store/useSessionStore
@@ -103,13 +103,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   /**
    * Set engine based on identity
    * Called from BootstrapProvider when identity is resolved
+   * 
+   * AUTH-FIRST: Always creates AuthenticatedSessionEngine
    */
   setEngine: (identity: IdentityState) => {
     const engine = createSessionEngine(identity)
     set({ engine })
     storeLogger.debug('[Session] Engine set', {
       identityType: identity.type,
-      engineType: identity.type === 'guest' ? 'GuestSessionEngine' : 'AuthenticatedSessionEngine',
+      engineType: 'AuthenticatedSessionEngine',
     })
   },
 

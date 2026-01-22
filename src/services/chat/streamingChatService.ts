@@ -1,5 +1,5 @@
 import { chatLogger } from '../../utils/logger'
-import { guestSessionService } from '../guestSessionService'
+// AUTH-FIRST: guestSessionService removed - authentication is required
 
 /**
  * StreamEvent - Type-safe interface for SSE events from the backend
@@ -124,22 +124,11 @@ export class StreamingChatService {
         userId,
       })
 
-      // Get guest session ID if user is a guest
-      let guestSessionId: string | null = null
-      if (!userId) {
-        try {
-          guestSessionId = await guestSessionService.getOrCreateSession()
-        } catch (error) {
-          chatLogger.warn('Failed to get guest session ID', { error })
-          // Continue without guest session ID - not critical
-        }
-      }
-
+      // AUTH-FIRST: Guest session handling removed - authentication required
       const requestBody = {
         session_id: sessionId,
         user_input: sanitizedInput,
         user_id: userId,
-        guest_session_id: guestSessionId, // Add guest session ID for guest users
       }
 
       const url = `${this.baseURL}/api/v1/intelligent-conversation/stream`

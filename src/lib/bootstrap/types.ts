@@ -29,12 +29,22 @@ export interface ClientContext {
 // Identity Types
 // ============================================================================
 
-export type IdentityType = 'guest' | 'authenticated' | 'accountant_for_client';
+/**
+ * AUTH-FIRST ARCHITECTURE: Guest flow has been removed.
+ * All users must authenticate before accessing valuation features.
+ * 
+ * @deprecated 'guest' type is no longer supported - kept for backward compatibility during migration
+ */
+export type IdentityType = 'authenticated' | 'accountant_for_client';
 
+/**
+ * Identity state
+ * 
+ * AUTH-FIRST: Only authenticated users are supported
+ */
 export interface IdentityState {
   type: IdentityType;
   userId?: string;
-  guestSessionId?: string;
   clientContext?: ClientContext;
   email?: string;
   firstName?: string;
@@ -207,13 +217,17 @@ export interface SessionBootstrapState {
 // Bootstrap Context (input to bootstrap process)
 // ============================================================================
 
+/**
+ * Bootstrap context (input to bootstrap process)
+ * 
+ * AUTH-FIRST: guestSessionId removed - authentication required
+ */
 export interface BootstrapContext {
   url: string;
   reportId?: string;
   clientToken?: string;
-  clientId?: string; // ✅ FIX: Client relationship ID for accountant flow when no clientToken
+  clientId?: string; // Client relationship ID for accountant flow when no clientToken
   prefilledQuery?: string;
-  guestSessionId?: string;
   flow?: FlowType;
   mode?: 'edit' | 'view';
   version?: number;
@@ -224,10 +238,14 @@ export interface BootstrapContext {
   cookies?: string;
 }
 
+/**
+ * Bootstrap hints
+ * 
+ * AUTH-FIRST: hasGuestSessionId removed - authentication required
+ */
 export interface BootstrapHints {
   hasClientToken: boolean;
   hasReportId: boolean;
-  hasGuestSessionId: boolean;
   hasPrefilledQuery: boolean;
   isNewReport: boolean;
   isEmbedded: boolean;
@@ -257,11 +275,15 @@ export interface BootstrapResolver<T> {
 // API Request/Response Types
 // ============================================================================
 
+/**
+ * Bootstrap API request
+ * 
+ * AUTH-FIRST: guestSessionId removed - authentication required
+ */
 export interface BootstrapRequest {
   reportId?: string;
   clientToken?: string;
   prefilledQuery?: string;
-  guestSessionId?: string;
   flow?: FlowType;
   mode?: 'edit' | 'view';
   version?: number;
@@ -312,10 +334,16 @@ export type BootstrapErrorCode = typeof BootstrapErrorCodes[keyof typeof Bootstr
 // Constants
 // ============================================================================
 
-export const BOOTSTRAP_VERSION = '1.0.0';
+export const BOOTSTRAP_VERSION = '2.0.0';
+
+/**
+ * AUTH-FIRST: Authentication is now required for all valuation operations.
+ * Guest flow has been removed to simplify architecture and improve data quality.
+ */
+export const REQUIRE_AUTH_FOR_VALUATION = true;
 
 export const DEFAULT_IDENTITY: IdentityState = {
-  type: 'guest',
+  type: 'authenticated',
 };
 
 export const DEFAULT_REPORT: ReportState = {

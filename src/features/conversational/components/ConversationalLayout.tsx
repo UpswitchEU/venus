@@ -23,7 +23,7 @@ import { usePanelResize } from '../../../hooks/usePanelResize'
 import { useReportIdTracking } from '../../../hooks/useReportIdTracking'
 import { useToast } from '../../../hooks/useToast'
 import { conversationAPI } from '../../../services/api/conversation/ConversationAPI'
-import { guestCreditService } from '../../../services/guestCreditService'
+// AUTH-FIRST: guestCreditService removed - authentication is required
 import {
   useConversationalChatStore,
   useConversationalResultsStore,
@@ -731,10 +731,7 @@ const ConversationalLayoutInner: React.FC<ConversationalLayoutProps> = ({
         // Mark as saved in unified store
         useSessionStore.getState().markSaved()
 
-        // Update frontend credit count for guests
-        if (!user && (result as any).creditsRemaining !== undefined) {
-          guestCreditService.setCredits((result as any).creditsRemaining)
-        }
+        // AUTH-FIRST: Guest credit tracking removed - backend handles credits
       } catch (error) {
         chatLogger.error('[Conversational] Completion handler failed', {
           error: error instanceof Error ? error.message : String(error),
@@ -745,8 +742,8 @@ const ConversationalLayoutInner: React.FC<ConversationalLayoutProps> = ({
     [actions, onComplete, user, setResult]
   )
 
-  // Credit guard state
-  const hasCredits = user ? true : guestCreditService.hasCredits()
+  // AUTH-FIRST: All users are authenticated - backend handles credit checks
+  const hasCredits = true
 
   // Determine generating state (from API store or conversation context)
   const isGeneratingState = isCalculating || state.isGenerating

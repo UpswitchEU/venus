@@ -9,12 +9,13 @@
 
 import type {
   ConversationStatusResponse,
-  GuestMigrationResponse,
 } from '../../../types/api-responses'
 import { APIError } from '../../../types/errors'
 import type { Message } from '../../../types/message'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
+
+// AUTH-FIRST: GuestMigrationResponse type deprecated
 
 export class UtilityAPI extends HttpClient {
   /**
@@ -41,31 +42,16 @@ export class UtilityAPI extends HttpClient {
   }
 
   /**
-   * Migrate guest data to authenticated account
+   * @deprecated Guest migration removed - authentication is required
+   * AUTH-FIRST: Guest sessions are no longer supported
    */
   async migrateGuestData(
-    guestSessionId: string,
-    userId: string,
-    options?: APIRequestConfig
-  ): Promise<GuestMigrationResponse> {
-    try {
-      return await this.executeRequest<GuestMigrationResponse>(
-        {
-          method: 'POST',
-          url: '/api/v2/guest/migrate',
-          data: { guest_session_id: guestSessionId, user_id: userId }, // Backend expects snake_case
-          headers: {},
-        } as any,
-        options
-      )
-    } catch (error) {
-      apiLogger.error('Guest data migration failed', { error, guestSessionId, userId })
-      const axiosError = error as any
-      const statusCode = axiosError?.response?.status
-      throw new APIError('Failed to migrate guest data', statusCode, undefined, true, {
-        originalError: error,
-      })
-    }
+    _guestSessionId: string,
+    _userId: string,
+    _options?: APIRequestConfig
+  ): Promise<{ success: boolean }> {
+    apiLogger.warn('[UtilityAPI] migrateGuestData is deprecated - guest sessions are no longer supported')
+    return { success: false }
   }
 
   /**

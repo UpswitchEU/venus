@@ -163,20 +163,25 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error('[PrefillResolver] Resolution failed:', errorMessage);
+      
+      // BANK-GRADE: Log error - prefill failures are non-critical
+      this.logger.warn('[PrefillResolver] Resolution failed - continuing without prefill', {
+        error: errorMessage,
+      });
       
       return {
         success: false,
         data: this.fallback(),
         error: errorMessage,
-        source: 'fallback',
+        source: 'error',
         durationMs: performance.now() - startTime,
       };
     }
   }
 
   /**
-   * Fallback for graceful degradation
+   * Default empty prefill state
+   * BANK-GRADE: Prefill failures are non-critical - form still works
    */
   fallback(): PrefillData {
     return DEFAULT_PREFILL;

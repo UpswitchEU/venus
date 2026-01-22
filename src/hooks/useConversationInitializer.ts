@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { guestSessionService } from '../services/guestSessionService'
+// AUTH-FIRST: guestSessionService removed - authentication is required
 import { useConversationStore } from '../store/useConversationStore'
 import type { Message } from '../types/message'
 import { chatLogger } from '../utils/logger'
@@ -177,17 +177,7 @@ export const useConversationInitializer = (
         }, 10000) // 10 second timeout
 
         try {
-          // Get guest session ID if user is a guest
-          let guestSessionId: string | null = null
-          if (!userId) {
-            try {
-              guestSessionId = await guestSessionService.getOrCreateSession()
-            } catch (error) {
-              chatLogger.warn('Failed to get guest session ID', { error })
-              // Continue without guest session ID - not critical
-            }
-          }
-
+          // AUTH-FIRST: All users are authenticated via cookies
           // Call backend to get intelligent first question
           const response = await fetch(`${API_BASE_URL}/api/v1/intelligent-conversation/start`, {
             method: 'POST',
@@ -198,7 +188,7 @@ export const useConversationInitializer = (
             },
             body: JSON.stringify({
               user_id: userId || null,
-              guest_session_id: guestSessionId, // Add guest session ID for guest users
+              // AUTH-FIRST: guest_session_id removed - authentication is required
               // Python backend generates session_id - don't send it
               business_context: userId
                 ? {

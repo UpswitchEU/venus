@@ -13,7 +13,7 @@
  */
 
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
-import { useGuestSessionStore } from '../../store/useGuestSessionStore'
+// AUTH-FIRST: useGuestSessionStore removed - guest sessions are no longer supported
 import { env } from '../../utils/env'
 import {
   classifyError,
@@ -204,17 +204,14 @@ export class HttpClient {
   /**
    * Get owner headers for request
    * 
+   * AUTH-FIRST: Guest session support removed.
+   * 
    * Priority:
    * 1. Client context (accountant-client workflow)
-   * 2. Authenticated user
-   * 3. Guest token
+   * 2. Authenticated user (JWT in cookie)
    */
   private async getOwnerHeaders(): Promise<Record<string, string>> {
     try {
-      // Get auth state
-      const { useAuthStore } = await import('../../lib/auth')
-      const user = useAuthStore.getState().user
-
       // Priority 1: Client context (accountant acting on behalf of client)
       try {
         const { useClientContext } = await import('../../stores/clientContext')
@@ -231,54 +228,12 @@ export class HttpClient {
         apiLogger.warn('[HttpClient] Failed to get client context headers', { error })
       }
 
-      // Priority 2: Authenticated user
-      if (user) {
-        apiLogger.debug('[HttpClient] Using authenticated user', {
-          userId: user.id.substring(0, 8) + '...',
-        })
-        // No headers needed - JWT in cookie handles this
-        return {}
-      }
-
-      // Priority 3: Guest session ID
-      // ✅ TWIN ENGINE ARCHITECTURE: Use guest session ID (not token)
-      // Titan expects x-guest-session-id header, not X-Guest-Token
-      const guestSessionId = this.getGuestSessionId()
-      if (guestSessionId) {
-        apiLogger.debug('[HttpClient] Using guest session ID', {
-          sessionId: guestSessionId.substring(0, 20) + '...',
-        })
-        return {
-          'x-guest-session-id': guestSessionId, // ✅ FIX: Use lowercase header name that Titan expects
-        }
-      }
-
-      // No owner found - backend will handle this
+      // Priority 2: Authenticated user - JWT in cookie handles auth
+      // No additional headers needed
       return {}
     } catch (error) {
       apiLogger.error('[HttpClient] Failed to get owner headers', { error })
       return {}
-    }
-  }
-
-  /**
-   * Get guest session ID from localStorage
-   * 
-   * ✅ TWIN ENGINE ARCHITECTURE: Use guest session ID (not token)
-   * This matches Titan's expectation of x-guest-session-id header
-   * Uses the same localStorage key as useGuestSessionStore for consistency
-   */
-  private getGuestSessionId(): string | null {
-    if (typeof window === 'undefined') {
-      return null
-    }
-
-    try {
-      // ✅ FIX: Use correct localStorage key that matches useGuestSessionStore
-      // This ensures consistency across the application
-      return localStorage.getItem('upswitch_guest_session_id')
-    } catch (error) {
-      return null
     }
   }
 

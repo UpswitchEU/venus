@@ -8,10 +8,10 @@
  * - No over-engineering
  * - Race condition prevention via promise caching
  *
- * Flow:
+ * AUTH-FIRST Flow:
  * 1. Check cookie (sync) → If exists, verify with backend
  * 2. Check token in URL → Exchange for cookie
- * 3. Guest mode → Continue without auth
+ * 3. No auth → Redirect to login (guest mode no longer supported)
  *
  * @module lib/auth
  */
@@ -327,17 +327,15 @@ export const useAuthStore = create<AuthState>()(
                   })
                 }
               } else {
-                // Refresh failed - clear auth state gracefully
-                logAuthError('Token refresh failed, falling back to guest mode', {})
+                // AUTH-FIRST: Refresh failed - authentication required
+                logAuthError('Token refresh failed - authentication required', {})
               }
 
-              // Refresh failed or retry failed - user is not authenticated
-              // Graceful fallback: clear user but don't show error (allows guest mode)
+              // AUTH-FIRST: Refresh failed or retry failed - user needs to re-authenticate
+              // Clear auth state and return null (BootstrapProvider will redirect to login)
               get().setUser(null)
               clearAuthCache()
 
-              // Only set error if it's not a normal expiration (401 is expected when not logged in)
-              // Don't show error for guest users
               return null
             }
 
@@ -351,44 +349,7 @@ export const useAuthStore = create<AuthState>()(
                 trackAuthSuccess(user.id, 'cookie')
                 authMetrics.recordSuccess()
 
-                // CRITICAL: Check if we need to migrate guest data
-                // This handles case where user navigates directly to subdomain while already logged in
-                // Only migrate if there's actually a guest session AND user wasn't previously authenticated
-                try {
-                  const { useGuestSessionStore } = await import('../store/useGuestSessionStore')
-                  const { getSessionId, clearSession } = useGuestSessionStore.getState()
-                  const guestSessionId = getSessionId()
-                  const previousUser = useAuthStore.getState().user
-
-                  // Only migrate if:
-                  // 1. There's a guest session ID
-                  // 2. User is authenticated
-                  // 3. User wasn't previously authenticated (this is a new login, not a session refresh)
-                  if (guestSessionId && user.id && (!previousUser || previousUser.id !== user.id)) {
-                    try {
-                      const { backendAPI } = await import('../services/backendApi')
-                      await backendAPI.migrateGuestData(guestSessionId, user.id)
-                      clearSession()
-                    } catch (migrationError) {
-                      // Migration failed - clear guest session anyway to prevent retries
-                      clearSession()
-                      // Log but don't throw - migration is non-critical
-                      if (process.env.NODE_ENV === 'development') {
-                        console.warn('[Auth] Guest migration failed (non-fatal):', migrationError)
-                      }
-                    }
-                  } else if (guestSessionId && previousUser?.id === user.id) {
-                    // User was already authenticated - clear any stale guest session
-                    clearSession()
-                  }
-                } catch (migrationError) {
-                  // Non-fatal - don't block authentication
-                  // Only log in development to avoid console noise
-                  if (process.env.NODE_ENV === 'development') {
-                    console.warn('[Auth] Guest migration check failed (non-fatal):', migrationError)
-                  }
-                }
-
+                // AUTH-FIRST: Guest migration no longer needed
                 // Cache successful auth result (like Mercury)
                 setAuthCache(user)
 
@@ -411,7 +372,8 @@ export const useAuthStore = create<AuthState>()(
               }
             }
 
-            // No active session - not an error, just guest mode
+            // AUTH-FIRST: No active session - user needs to authenticate
+            // BootstrapProvider will redirect to login
             get().setUser(null)
             clearAuthCache() // Clear cache when no user
             return null
@@ -803,40 +765,7 @@ async function initializeAuth(): Promise<void> {
           if (user) {
             trackAuthSuccess(user.id, 'token')
             authMetrics.recordSuccess()
-
-            // CRITICAL: Migrate guest data to authenticated user
-            try {
-              const { useGuestSessionStore } = await import('../store/useGuestSessionStore')
-              const { getSessionId, clearSession } = useGuestSessionStore.getState()
-              const guestSessionId = getSessionId()
-
-              if (guestSessionId && user.id) {
-                // Call migration API
-                const { backendAPI } = await import('../services/backendApi')
-                try {
-                  await backendAPI.migrateGuestData(guestSessionId, user.id)
-
-                  // Refresh reports list to show migrated reports
-                  const { useReportsStore } = await import('../store/useReportsStore')
-                  useReportsStore.getState().fetchReports(user.id)
-                } catch (error) {
-                  // Migration failed - guest session will be cleared in finally block
-                  // Log but don't fail login - migration is non-critical
-                  if (process.env.NODE_ENV === 'development') {
-                    console.warn('[Auth] Guest migration failed (non-fatal):', error)
-                  }
-                } finally {
-                  // Always clear guest session after attempting migration (success or failure)
-                  // This prevents retry loops when migration fails
-                  clearSession()
-                }
-              }
-            } catch (migrationError) {
-              // Log but don't fail login - migration is non-critical
-              if (process.env.NODE_ENV === 'development') {
-                console.warn('[Auth] Guest migration check failed (non-fatal):', migrationError)
-              }
-            }
+            // AUTH-FIRST: Guest migration no longer needed
           }
         } catch (tokenError) {
           console.error('[Auth] Token exchange failed:', tokenError)
@@ -856,11 +785,11 @@ async function initializeAuth(): Promise<void> {
       }
 
       // ========================================================================
-      // STEP 4: Guest mode (Still functional!)
+      // STEP 4: AUTH-FIRST - No authentication found
       // ========================================================================
-
+      // BootstrapProvider will handle redirect to login
       setUser(null)
-      authMetrics.recordSuccess() // Guest mode is a valid state
+      // Note: Not recording as success - user needs to authenticate
     } catch (error) {
       console.error('[Auth] Initialization failed:', error)
       logAuthError('Auth initialization failed', {
@@ -871,7 +800,8 @@ async function initializeAuth(): Promise<void> {
       })
       authMetrics.recordFailure()
 
-      setUser(null) // Continue as guest on error
+      // AUTH-FIRST: Clear user on error - BootstrapProvider will redirect to login
+      setUser(null)
     } finally {
       setLoading(false)
       // CRITICAL: Clear promise cache after completion

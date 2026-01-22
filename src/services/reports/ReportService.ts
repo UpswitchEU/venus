@@ -1,6 +1,7 @@
 /**
  * Report Service
  *
+ * AUTH-FIRST: All users must be authenticated before accessing reports.
  * Single Responsibility: Manage report lifecycle (CRUD operations)
  * Dependency Inversion: Depends on API abstraction
  */
@@ -9,7 +10,7 @@ import type { ValuationRequest, ValuationSession } from '../../types/valuation'
 import { createContextLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
 import { backendAPI } from '../backendApi'
-import { guestSessionService } from '../guestSessionService'
+// AUTH-FIRST: guestSessionService removed - authentication is required
 
 const reportLogger = createContextLogger('ReportService')
 
@@ -48,7 +49,8 @@ export interface ReportService {
 
 class ReportServiceImpl implements ReportService {
   /**
-   * List recent reports for the current user/guest
+   * List recent reports for the current user
+   * AUTH-FIRST: Requires authentication
    * Uses existing GET /api/reports endpoint
    */
   async listRecentReports(options: ListReportsOptions = {}): Promise<ValuationSession[]> {
@@ -56,7 +58,7 @@ class ReportServiceImpl implements ReportService {
 
     try {
       reportLogger.info('Fetching recent reports', {
-        userId: userId ? userId.substring(0, 8) + '...' : 'guest',
+        userId: userId ? userId.substring(0, 8) + '...' : 'none',
         limit,
         offset,
         status,
@@ -65,25 +67,9 @@ class ReportServiceImpl implements ReportService {
       // Use local API proxy route which forwards to Titan with cookies
       const url = `/api/reports?limit=${limit}&offset=${offset}`
 
-      // Get guest session ID if user is a guest
+      // AUTH-FIRST: Guest session handling removed - authentication required
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
-      }
-
-      // Add guest session ID header for guest users
-      if (!userId || userId === 'guest') {
-        try {
-          const guestSessionId = guestSessionService.getGuestSessionId()
-          if (guestSessionId) {
-            headers['x-guest-session-id'] = guestSessionId
-            reportLogger.debug('Added guest session ID to request', {
-              guestSessionId: guestSessionId.substring(0, 15) + '...',
-            })
-          }
-        } catch (error) {
-          reportLogger.warn('Failed to get guest session ID', { error })
-          // Continue without guest session ID - backend will return empty
-        }
       }
 
       const response = await fetch(url, {
@@ -492,6 +478,7 @@ class ReportServiceImpl implements ReportService {
 
   /**
    * Delete report
+   * AUTH-FIRST: Requires authentication
    * Uses local proxy route DELETE /api/reports/:reportId
    */
   async deleteReport(reportId: string): Promise<void> {
@@ -501,24 +488,9 @@ class ReportServiceImpl implements ReportService {
       // Use local API proxy route which forwards to Titan with cookies
       const url = `/api/reports/${reportId}`
 
-      // Get guest session ID header for guest users
+      // AUTH-FIRST: Guest session handling removed - authentication required
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
-      }
-
-      // Add guest session ID header for guest users
-      try {
-        const guestSessionId = guestSessionService.getGuestSessionId()
-        if (guestSessionId) {
-          headers['x-guest-session-id'] = guestSessionId
-          reportLogger.debug('Added guest session ID to delete request', {
-            guestSessionId: guestSessionId.substring(0, 15) + '...',
-            reportId,
-          })
-        }
-      } catch (error) {
-        reportLogger.warn('Failed to get guest session ID for delete', { error })
-        // Continue without guest session ID - backend will check auth
       }
 
       const response = await fetch(url, {

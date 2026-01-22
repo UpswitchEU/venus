@@ -1,14 +1,15 @@
 /**
  * useCreditGuard Hook
  *
- * Manages credit checking and blocking for guest users.
- * Prevents access to features when credits are exhausted.
+ * AUTH-FIRST ARCHITECTURE: Simplified credit guard for authenticated users.
+ * Guest flow has been removed - all users must authenticate.
+ * Credit enforcement is now handled by the backend via CreditEnforcementGuard.
  *
  * @module features/auth/hooks/useCreditGuard
  */
 
-import { useCallback, useEffect, useState } from 'react'
-import { guestCreditService } from '../../../services/guestCreditService'
+import { useCallback, useState } from 'react'
+// AUTH-FIRST: guestCreditService removed - authentication is required
 import { chatLogger } from '../../../utils/logger'
 
 interface UseCreditGuardOptions {
@@ -28,11 +29,9 @@ interface UseCreditGuardReturn {
 /**
  * Hook for managing credit-based access control
  *
- * Features:
- * - Checks credits on mount for guest users
- * - Provides blocking state for UI
- * - Manages out-of-credits modal display
- * - Authenticated users bypass credit checks
+ * AUTH-FIRST: All users are authenticated.
+ * Credit enforcement is handled by backend CreditEnforcementGuard.
+ * This hook now simply returns that authenticated users have credits.
  *
  * @param options Configuration options
  * @returns Credit state and control functions
@@ -41,56 +40,31 @@ export function useCreditGuard({
   isAuthenticated,
   onOutOfCredits,
 }: UseCreditGuardOptions): UseCreditGuardReturn {
-  const [hasCredits, setHasCredits] = useState(true)
-  const [creditsRemaining, setCreditsRemaining] = useState(0)
-  const [isBlocked, setIsBlocked] = useState(false)
   const [showOutOfCreditsModal, setShowOutOfCreditsModal] = useState(false)
 
   /**
    * Check if user has credits
+   * AUTH-FIRST: Always returns true - backend handles enforcement
    */
   const checkCredits = useCallback((): boolean => {
-    if (isAuthenticated) {
-      // Authenticated users have unlimited credits
-      return true
-    }
-
-    const credits = guestCreditService.hasCredits()
-    const remaining = guestCreditService.getCreditsRemaining()
-
-    setHasCredits(credits)
-    setCreditsRemaining(remaining)
-
-    return credits
-  }, [isAuthenticated])
-
-  /**
-   * Check credits on mount for guest users
-   */
-  useEffect(() => {
     if (!isAuthenticated) {
-      const credits = checkCredits()
-
-      if (!credits) {
-        chatLogger.warn('Guest user out of credits - blocking conversation')
-        setShowOutOfCreditsModal(true)
-        setIsBlocked(true)
-
-        if (onOutOfCredits) {
-          onOutOfCredits()
-        }
+      // AUTH-FIRST: This should not happen - user should be redirected to login
+      chatLogger.warn('[useCreditGuard] User not authenticated - should be redirected')
+      if (onOutOfCredits) {
+        onOutOfCredits()
       }
-    } else {
-      // Authenticated users always have access
-      setHasCredits(true)
-      setIsBlocked(false)
+      return false
     }
-  }, [isAuthenticated, checkCredits, onOutOfCredits])
+    // Credit enforcement is handled by backend
+    return true
+  }, [isAuthenticated, onOutOfCredits])
 
+  // AUTH-FIRST: Authenticated users always have access
+  // Backend CreditEnforcementGuard handles actual credit checks
   return {
-    hasCredits,
-    creditsRemaining,
-    isBlocked,
+    hasCredits: isAuthenticated,
+    creditsRemaining: isAuthenticated ? Infinity : 0,
+    isBlocked: !isAuthenticated,
     checkCredits,
     showOutOfCreditsModal,
     setShowOutOfCreditsModal,

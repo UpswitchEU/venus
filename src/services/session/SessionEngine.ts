@@ -1,11 +1,8 @@
 /**
  * Session Engine Abstraction
  * 
- * Twin Engine Architecture: Two completely separate engines
- * - GuestSessionEngine: localStorage-only sandbox, no backend until explicit save
- * - AuthenticatedSessionEngine: Full backend integration with all features
- * 
- * Zero mixing of guest/auth logic - early routing based on bootstrap identity.
+ * AUTH-FIRST Architecture: Only AuthenticatedSessionEngine is used.
+ * All users must authenticate before accessing session features.
  * 
  * @module services/session/SessionEngine
  */
@@ -17,17 +14,13 @@ export type FlowType = 'manual' | 'conversational'
 /**
  * Session Engine Interface
  * 
- * All session operations are abstracted through this interface.
- * Engines implement this interface differently:
- * - Guest: localStorage-only, no backend calls
- * - Auth: Full backend integration
+ * AUTH-FIRST: All session operations require authentication.
+ * Implemented by AuthenticatedSessionEngine with full backend integration.
  */
 export interface ISessionEngine {
   /**
    * Load session by reportId
-   * 
-   * Guest: Reads from localStorage, creates new if doesn't exist
-   * Auth: Calls backend API
+   * Calls backend API to fetch or create session
    */
   loadSession(
     reportId: string,
@@ -37,25 +30,19 @@ export interface ISessionEngine {
 
   /**
    * Update session data
-   * 
-   * Guest: Updates localStorage only
-   * Auth: Updates backend + local state
+   * Updates backend + local state
    */
   updateSession(updates: Partial<ValuationSession>): void
 
   /**
    * Save session to backend
-   * 
-   * Guest: ONLY method that calls backend (explicit user action)
-   * Auth: Backend persistence (may be auto-save)
+   * Backend persistence (auto-save or explicit user action)
    */
   saveSession(reason?: 'user' | 'autosave' | 'system'): Promise<void>
 
   /**
    * Clear session
-   * 
-   * Guest: Clears localStorage
-   * Auth: Clears backend + local state
+   * Clears backend + local state
    */
   clearSession(): void
 

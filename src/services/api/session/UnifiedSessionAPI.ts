@@ -183,24 +183,12 @@ export class UnifiedSessionAPI extends HttpClient {
     }
   }
 
-  /**
-   * Migrate guest sessions to authenticated user
-   * 
-   * Called after user authenticates
-   */
-  async migrateGuestSessions(): Promise<void> {
-    apiLogger.info('[UnifiedSessionAPI] Migrating guest sessions to user');
-
-    try {
-      await this.client.post('/api/v2/sessions/migrate');
-
-      apiLogger.info('[UnifiedSessionAPI] Guest sessions migrated successfully');
-    } catch (error) {
-      apiLogger.error('[UnifiedSessionAPI] Failed to migrate guest sessions', { error });
-      // Non-fatal - user can continue
-    }
-  }
+  // AUTH-FIRST: Guest session migration removed - guest sessions are no longer supported
 }
+
+/**
+ * @deprecated Guest session migration removed - authentication is required
+ */
 
 /**
  * Export singleton instance

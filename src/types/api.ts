@@ -97,6 +97,7 @@ export interface DeleteValuationSessionResponse {
  */
 export interface CreditCheckRequest {
   userId?: string
+  /** @deprecated AUTH-FIRST: Guest sessions are no longer supported */
   guestSessionId?: string
 }
 
@@ -106,6 +107,7 @@ export interface CreditCheckRequest {
 export interface CreditCheckResponse {
   hasCredits: boolean
   creditsRemaining: number
+  /** @deprecated AUTH-FIRST: Always false - guest mode is no longer supported */
   isGuest: boolean
   message?: string
 }
@@ -115,6 +117,7 @@ export interface CreditCheckResponse {
  */
 export interface UseCreditRequest {
   userId?: string
+  /** @deprecated AUTH-FIRST: Guest sessions are no longer supported */
   guestSessionId?: string
   valuationId?: string
 }
@@ -130,7 +133,8 @@ export interface UseCreditResponse {
 }
 
 /**
- * Guest session request
+ * @deprecated AUTH-FIRST: Guest sessions are no longer supported.
+ * Kept for backward compatibility.
  */
 export interface GuestSessionRequest {
   userAgent?: string
@@ -139,7 +143,8 @@ export interface GuestSessionRequest {
 }
 
 /**
- * Guest session response
+ * @deprecated AUTH-FIRST: Guest sessions are no longer supported.
+ * Kept for backward compatibility.
  */
 export interface GuestSessionResponse {
   sessionId: string
@@ -167,6 +172,7 @@ export interface ReportMetadata {
  */
 export interface ReportListRequest {
   userId?: string
+  /** @deprecated AUTH-FIRST: Guest sessions are no longer supported */
   guestSessionId?: string
   limit?: number
   offset?: number
