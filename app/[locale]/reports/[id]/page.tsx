@@ -1,9 +1,6 @@
 import nextDynamic from 'next/dynamic'
-import { Suspense } from 'react'
 import { LoadingState } from '../../../../src/components/LoadingState'
 import { ACCESS_VERIFICATION_STEPS } from '../../../../src/components/LoadingState.constants'
-import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
-import { ErrorFallback } from './ErrorFallback'
 
 // Dynamically import the client component with no SSR
 // ssr: false means it only renders on the client, so no Suspense needed
@@ -110,23 +107,8 @@ export default async function Page({ params, searchParams }: PageProps) {
     hasClientId: !!urlParams.clientId,
   })
 
-  // BANK GRADE: Wrap in ErrorBoundary and Suspense for graceful error handling
-  // Use fallbackRender to pass error details to ErrorFallback for better messaging
-  return (
-    <ErrorBoundary
-      fallbackRender={({ error }) => (
-        <ErrorFallback 
-          returnUrl={urlParams.return_url} 
-          error={error}
-        />
-      )}
-      onError={(error, errorInfo) => {
-        console.error('[Page] Error caught by boundary:', error, errorInfo)
-      }}
-    >
-      <Suspense fallback={<LoadingState steps={ACCESS_VERIFICATION_STEPS} />}>
-        <ValuationReportClient {...clientProps} />
-      </Suspense>
-    </ErrorBoundary>
-  )
+  // Dynamic import handles loading state via `loading` option
+  // Route-level error.tsx handles Server Component errors
+  // Client-side ErrorBoundary inside ValuationReportClient handles client errors
+  return <ValuationReportClient {...clientProps} />
 }
