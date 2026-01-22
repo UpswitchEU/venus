@@ -208,14 +208,6 @@ class BackendAPI {
     return this.utilityAPI.health()
   }
 
-  /**
-   * @deprecated Guest migration removed - authentication is required
-   */
-  async migrateGuestData(_guestSessionId: string, _userId: string): Promise<{ success: boolean }> {
-    console.warn('[BackendAPI] migrateGuestData is deprecated - guest sessions are no longer supported')
-    return { success: false }
-  }
-
   async getConversationStatus(sessionId: string): Promise<ConversationStatusResponse> {
     return this.utilityAPI.getConversationStatus(sessionId)
   }

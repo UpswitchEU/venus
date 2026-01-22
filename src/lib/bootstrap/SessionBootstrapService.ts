@@ -252,7 +252,6 @@ export class SessionBootstrapService {
     return {
       identity: {
         ...DEFAULT_IDENTITY,
-        // AUTH-FIRST: guestSessionId removed
       },
       report: {
         ...DEFAULT_REPORT,
@@ -274,7 +273,6 @@ export class SessionBootstrapService {
    * Generate cache key for deduplication
    */
   private getCacheKey(context: BootstrapContext): string {
-    // AUTH-FIRST: guestSessionId removed from cache key
     return [
       context.reportId || 'new',
       context.clientToken?.substring(0, 10) || 'no-token',
@@ -306,7 +304,6 @@ export class SessionBootstrapService {
       // Mercury may send mode=accountant in the URL, but we should NOT send this to Titan
       const validMode = context.mode === 'edit' || context.mode === 'view' ? context.mode : undefined;
       
-      // AUTH-FIRST: guestSessionId removed from request body
       const requestBody = {
         reportId: validReportId,
         clientToken: context.clientToken,
@@ -339,8 +336,6 @@ export class SessionBootstrapService {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
-
-      // AUTH-FIRST: X-Guest-Session-Id header removed
 
       // Add client context headers for accountant flow
       // These headers are required for Titan to identify the client and accountant
@@ -420,7 +415,6 @@ export class SessionBootstrapService {
               identity: identity ? {
                 type: identity.type,
                 userId: identity.userId,
-                // AUTH-FIRST: guestSessionId removed
                 clientContext: identity.clientContext,
                 email: identity.email,
                 firstName: identity.firstName,
@@ -479,7 +473,6 @@ export class SessionBootstrapService {
         identity: {
           type: identity.type,
           userId: identity.userId,
-          // AUTH-FIRST: guestSessionId removed
           clientContext: identity.clientContext,
           email: identity.email,
           firstName: identity.firstName,

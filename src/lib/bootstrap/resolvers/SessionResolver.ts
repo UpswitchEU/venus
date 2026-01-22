@@ -24,8 +24,6 @@ const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL ||
 
 /**
  * Session data structure from Titan API
- * 
- * AUTH-FIRST: guest_session_id is deprecated
  */
 interface SessionData {
   session_key: string;
@@ -37,8 +35,6 @@ interface SessionData {
   updated_at: string;
   completed_at?: string;
   user_id?: string;
-  /** @deprecated Guest sessions are no longer supported */
-  guest_session_id?: string;
   report_id?: string;
 }
 

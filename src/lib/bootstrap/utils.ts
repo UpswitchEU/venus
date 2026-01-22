@@ -13,7 +13,6 @@ import type { BootstrapContext, BootstrapHints, FlowType } from './types';
  */
 export function parseBootstrapHints(context: BootstrapContext): BootstrapHints {
   const { reportId, clientToken, prefilledQuery, flow, mode, locale, embedded } = context;
-  // AUTH-FIRST: guestSessionId removed - authentication required
   
   // CRITICAL FIX: If we have a reportId from the URL, it's NEVER a new report
   // The isRecentReportId check was causing issues where valid URL report IDs
@@ -107,9 +106,8 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
       url,
       reportId,
       clientToken: params.get('clientToken') || undefined,
-      clientId: params.get('clientId') || undefined, // Extract clientId for accountant flow
+      clientId: params.get('clientId') || undefined,
       prefilledQuery: params.get('prefilledQuery') || undefined,
-      // AUTH-FIRST: guestSessionId removed - authentication required
       flow: (params.get('flow') as FlowType) || undefined,
       // CRITICAL FIX: Only accept valid mode values ('edit' or 'view')
       // Invalid values from URL params (like 'accountant') will be filtered out

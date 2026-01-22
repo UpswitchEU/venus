@@ -651,7 +651,6 @@ export class SessionService {
                   currentView: flow || 'manual', // Use provided flow or default to manual
                   sessionData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as any) : {},
                   partialData: prefilledQuery ? ({ _prefilledQuery: prefilledQuery } as any) : {},
-                  // Note: guest_session_id not needed - all callers are authenticated
                 } as any)
 
                 if (!createResponse?.session) {

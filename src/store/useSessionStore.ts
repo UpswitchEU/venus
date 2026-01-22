@@ -1,15 +1,14 @@
 /**
- * Unified Session Store (Cursor-Style Simplicity)
+ * Unified Session Store
  *
- * AUTH-FIRST Twin Engine Architecture: Uses AuthenticatedSessionEngine only.
- * All users must be authenticated before accessing session features.
+ * Bank-grade state machine architecture for session management.
+ * Uses explicit states: IDLE -> LOADING -> LOADED | ERROR
  *
  * Key Features:
+ * - Explicit state machine (no boolean flags)
  * - Promise cache prevents duplicate loads
  * - Atomic state updates
  * - Simple API (loadSession, updateSession, clearSession)
- * - AuthenticatedSessionEngine for all users
- * - Optimistic rendering support
  *
  * @module store/useSessionStore
  */
@@ -22,52 +21,58 @@ import type { ISessionEngine } from '../services/session/SessionEngine'
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
 import type { IdentityState } from '../lib/bootstrap/types'
 
+/**
+ * Explicit session states (bank-grade state machine)
+ */
+export type SessionStatus = 'idle' | 'loading' | 'loaded' | 'error'
+
 interface SessionStore {
-  // State
+  // Core state (explicit state machine)
   session: ValuationSession | null
+  status: SessionStatus
+  errorMessage: string | null
+
+  // Computed properties for backward compatibility
   isLoading: boolean
   error: string | null
+  isInitializing: boolean
 
   // Save state (M&A workflow)
   isSaving: boolean
   lastSaved: Date | null
   hasUnsavedChanges: boolean
 
-  // ✅ NEW: Initialization tracking to suppress toasts during setup
-  isInitializing: boolean
-
-  // ✅ NEW: Restoration progress tracking
+  // Restoration progress tracking
   restorationProgress: RestorationProgress | null
 
-  // ✅ NEW: Callback for save success notifications
+  // Callbacks
   onSaveSuccess?: () => void
-  // ✅ NEW: Callback for asset save success notifications (when valuation assets are saved)
   onAssetSaveSuccess?: () => void
 
-  // ⭐ PLAN ENFORCEMENT: Paywall state
+  // Paywall state
   paywallData: {
     current: number
     limit: number
     message: string
   } | null
 
-  // ✅ TWIN ENGINE: Engine instance (created based on identity)
+  // Engine instance
   engine: ISessionEngine | null
 
   // Actions
-  setEngine: (identity: IdentityState) => void // Set engine based on identity
+  setEngine: (identity: IdentityState) => void
   loadSession: (
     reportId: string,
     flow?: 'manual' | 'conversational',
     prefilledQuery?: string | null
   ) => Promise<void>
   updateSession: (updates: Partial<ValuationSession>) => void
-  updateSessionData: (data: Partial<any>) => Promise<void> // Async for hook compatibility
+  updateSessionData: (data: Partial<any>) => Promise<void>
   saveSession: (reason?: 'user' | 'autosave' | 'system') => Promise<void>
   clearSession: () => void
-  completeInitialization: () => void // ✅ NEW: Mark initialization as complete
+  completeInitialization: () => void
 
-  // ⭐ PLAN ENFORCEMENT: Paywall actions
+  // Paywall actions
   clearPaywall: () => void
 
   // Helpers
@@ -84,27 +89,34 @@ const loadingPromises = new Map<string, Promise<void>>()
  * Unified Session Store
  *
  * Handles both manual and conversational flows with single store.
+ * Uses explicit state machine for predictable behavior.
  */
 export const useSessionStore = create<SessionStore>((set, get) => ({
-  // Initial state
-  onSaveSuccess: undefined,
-  onAssetSaveSuccess: undefined,
+  // Initial state (explicit state machine)
   session: null,
-  isLoading: false,
-  error: null,
+  status: 'idle' as SessionStatus,
+  errorMessage: null,
+  
+  // Computed properties for backward compatibility
+  get isLoading() { return get().status === 'loading' },
+  get error() { return get().errorMessage },
+  get isInitializing() { return get().status === 'idle' || get().status === 'loading' },
+  
+  // Save state
   isSaving: false,
   lastSaved: null,
   hasUnsavedChanges: false,
-  isInitializing: true, // ✅ NEW: Start in initializing state
-  restorationProgress: null, // ✅ NEW: Restoration progress tracking
-  paywallData: null, // ⭐ PLAN ENFORCEMENT: Paywall state
-  engine: null, // ✅ TWIN ENGINE: Engine instance (set via setEngine)
+  
+  // Other state
+  restorationProgress: null,
+  paywallData: null,
+  engine: null,
+  onSaveSuccess: undefined,
+  onAssetSaveSuccess: undefined,
 
   /**
    * Set engine based on identity
    * Called from BootstrapProvider when identity is resolved
-   * 
-   * AUTH-FIRST: Always creates AuthenticatedSessionEngine
    */
   setEngine: (identity: IdentityState) => {
     const engine = createSessionEngine(identity)
@@ -118,12 +130,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   /**
    * Load session from backend/cache
    *
-   * Features:
-   * - Promise cache prevents duplicate calls
-   * - Atomic state updates
-   * - Error handling with clear messages
-   * - Auto-creates session if not found (for new reports)
-   * - Merges prefilledQuery into partialData if provided
+   * State Machine Transitions:
+   * - IDLE/ERROR -> LOADING -> LOADED (success) or ERROR (failure)
+   * - Promise cache prevents duplicate concurrent loads
    */
   loadSession: async (
     reportId: string,
@@ -132,338 +141,92 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   ) => {
     const state = get()
 
-    // ✅ FIX: GUARD 1: Already loaded for this reportId (verify exact match)
-    // This prevents unnecessary reloads and ensures session matches reportId
-    if (state.session?.reportId === reportId && !state.error && !state.isLoading) {
+    // STATE CHECK: Already loaded for this reportId
+    if (state.status === 'loaded' && state.session?.reportId === reportId) {
       storeLogger.debug('[Session] Already loaded, skipping', { reportId })
       return
     }
 
-    // ✅ FIX: GUARD 2: Clear stale session if reportId doesn't match
-    // This prevents race conditions where old session data shows during new load
-    if (state.session && state.session.reportId !== reportId) {
-      storeLogger.debug('[Session] Clearing stale session before loading new one', {
-        oldReportId: state.session.reportId,
-        newReportId: reportId,
-      })
-      set({ session: null, error: null })
-    }
-
-    // ✅ FIX: GUARD 3: Already loading (promise cache) - reuse existing promise
-    // This prevents concurrent loads for the same reportId
+    // PROMISE CACHE: Reuse existing load promise
     if (loadingPromises.has(reportId)) {
-      storeLogger.debug('[Session] Already loading, reusing promise', { reportId })
-      try {
-        await loadingPromises.get(reportId)
-        // ✅ FIX: Verify loaded session matches reportId after promise resolves
-        // This handles race conditions where promise resolves with wrong session
-        const finalState = get()
-        if (finalState.session?.reportId === reportId) {
-          return
-        } else {
-          storeLogger.warn('[Session] Promise resolved but session mismatch, reloading', {
-            expectedReportId: reportId,
-            actualReportId: finalState.session?.reportId,
-          })
-          // Fall through to load again
-        }
-      } catch (error) {
-        // If promise rejected, fall through to retry load
-        storeLogger.debug('[Session] Cached promise rejected, retrying load', {
-          reportId,
-          error: error instanceof Error ? error.message : String(error),
-        })
-        // Fall through to load again
-      }
+      storeLogger.debug('[Session] Reusing existing load promise', { reportId })
+      await loadingPromises.get(reportId)
+      return
     }
 
-    // ✅ FIX: Create load promise with reportId validation
-    // Capture reportId at start to detect race conditions
-    let expectedReportId = reportId // let - may be reassigned if URL redirects
+    // STATE TRANSITION: -> LOADING
     const loadPromise = (async () => {
-      // ✅ FIX: Double-check reportId hasn't changed before setting loading state
-      // This prevents race conditions when reportId changes rapidly
-      const currentState = get()
-      if (currentState.session?.reportId === expectedReportId && !currentState.error) {
-        storeLogger.debug('[Session] ReportId already loaded during promise creation', {
-          reportId: expectedReportId,
-        })
-        return
-      }
-
-      set({ isLoading: true, error: null, isInitializing: true }) // ✅ NEW: Mark as initializing
+      set({ 
+        status: 'loading' as SessionStatus, 
+        errorMessage: null,
+        session: state.session?.reportId !== reportId ? null : state.session,
+      })
 
       try {
-        storeLogger.debug('[Session] Loading session', {
-          reportId: expectedReportId,
-          flow,
-          prefilledQuery,
-        })
+        storeLogger.debug('[Session] Loading session', { reportId, flow })
 
-        // ✅ TWIN ENGINE: Load from engine (routes to Guest or Auth engine)
-        const state = get()
-        if (!state.engine) {
+        const currentState = get()
+        if (!currentState.engine) {
           throw new Error('Session engine not initialized. Call setEngine() first.')
         }
         
-        const session = await state.engine.loadSession(expectedReportId, flow, prefilledQuery)
+        const session = await currentState.engine.loadSession(reportId, flow, prefilledQuery)
 
         if (!session) {
-          // Session not found and couldn't be auto-created
-          storeLogger.warn('[Session] Session not found', { expectedReportId })
-
-          // Only redirect if we're viewing a specific report page
-          // Don't redirect if we're already on home page to avoid infinite loops
-          if (typeof window !== 'undefined') {
-            const currentPath = window.location.pathname
-
-            // Only redirect if we're on a report detail page (contains /reports/)
-            // This prevents redirect loops on home page
-            if (currentPath.includes('/reports/')) {
-              const localeMatch = currentPath.match(/^\/(en|nl)/)
-              const locale = localeMatch ? localeMatch[1] : 'en'
-
-              storeLogger.info('[Session] Redirecting from report page to home', {
-                from: currentPath,
-                to: `/${locale}`,
-              })
-
-              // Redirect to home page to create new session
-              window.location.href = `/${locale}`
-              return
-            } else {
-              // We're already on home page or another page - don't redirect
-              // Just set error state and let the page handle it
-              storeLogger.warn(
-                '[Session] Not found but already on home page, setting error state',
-                {
-                  currentPath,
-                }
-              )
-            }
-          }
-
-          throw new Error(`Session not found: ${expectedReportId}`)
+          throw new Error(`Session not found: ${reportId}`)
         }
 
-        // ✅ FIX: Validate session reportId matches expected reportId
-        // This prevents race conditions where wrong session is loaded
-        // EXCEPTION: If URL was redirected (reportId changed), accept the new session
-        if (session.reportId !== expectedReportId) {
-          // Check if URL was redirected to match the new session
-          const currentUrl = typeof window !== 'undefined' ? window.location.pathname : ''
-          const urlReportId = currentUrl.match(/\/reports\/([^/?]+)/)?.[1]
-          
-          if (urlReportId === session.reportId) {
-            // URL was redirected to match new session - this is OK
-            storeLogger.info('[Session] URL redirected to match new session', {
-              originalReportId: expectedReportId,
-              newReportId: session.reportId,
-            })
-            // Update expectedReportId to match the new session
-            expectedReportId = session.reportId
-          } else {
-            // Genuine mismatch - reject it
-            storeLogger.error('[Session] Loaded session reportId mismatch', {
-              expectedReportId,
-              actualReportId: session.reportId,
-              urlReportId,
-            })
-            throw new Error(
-              `Session reportId mismatch: expected ${expectedReportId}, got ${session.reportId}`
-            )
-          }
-        }
-
-        // ✅ FIX: Double-check reportId hasn't changed during async load
-        // If reportId changed, don't update state (prevents stale data)
-        const finalState = get()
-        if (finalState.session?.reportId !== expectedReportId && finalState.session) {
-          storeLogger.warn('[Session] ReportId changed during load, discarding result', {
-            expectedReportId,
-            currentReportId: finalState.session.reportId,
-          })
-          return // Don't update state if reportId changed
-        }
-
-        // ✅ FIX: Only mark as saved if session was explicitly updated (user saved changes)
-        // Don't use calculatedAt - calculation completion != user save
-        // Don't default to new Date() - new reports shouldn't show "Saved" immediately
-        
-        // ✅ DIAGNOSTIC: Verify business card data is present before storing
-        const sessionCompanyName = (session.sessionData as any)?.company_name
-        const hasCompanyName = sessionCompanyName && sessionCompanyName.trim() !== ''
-        storeLogger.info('[Session] Storing session in Zustand store', {
-          reportId,
+        // STATE TRANSITION: -> LOADED
+        storeLogger.info('[Session] Loaded successfully', {
+          reportId: session.reportId,
           hasSessionData: !!session.sessionData,
-          companyName: sessionCompanyName,
-          hasCompanyName,
-          companyNameLength: sessionCompanyName?.length || 0,
-          businessTypeId: (session.sessionData as any)?.business_type_id,
-          sessionDataKeys: session.sessionData ? Object.keys(session.sessionData).slice(0, 10) : [],
         })
         
         set({
           session,
-          isLoading: false,
-          error: null,
+          status: 'loaded' as SessionStatus,
+          errorMessage: null,
           hasUnsavedChanges: false,
-          lastSaved: session.updatedAt || null, // Only set if user explicitly saved
+          lastSaved: session.updatedAt || null,
           isSaving: false,
-          // ✅ FIX: Keep isInitializing true - will be set to false by completeInitialization after restoration
-          // This ensures forms don't render until restoration completes
         })
-
-        storeLogger.debug('[Session] Session loaded successfully', {
-          reportId,
-          currentView: session.currentView,
-          hasSessionData: !!session.sessionData,
-          hasHtmlReport: !!session.htmlReport,
-          hasInfoTabHtml: !!session.infoTabHtml,
-          hasValuationResult: !!session.valuationResult,
-          markedAsSaved: true,
-          // ✅ DIAGNOSTIC: Verify business card data is in stored session
-          storedCompanyName: (session.sessionData as any)?.company_name,
-          storedBusinessTypeId: (session.sessionData as any)?.business_type_id,
-        })
-
-        // ✅ FIX: Fallback - set isInitializing to false after delay if restoration doesn't complete it
-        // This ensures initialization completes even if restoration doesn't run
-        // ✅ CRITICAL: Reduced timeout to 1 second since restoration should be fast
-        setTimeout(() => {
-          const currentState = get()
-          // Only set to false if still initializing and session matches (prevents race conditions)
-          if (currentState.isInitializing && currentState.session?.reportId === expectedReportId) {
-            set({ isInitializing: false })
-            storeLogger.debug('[Session] Initialization complete (fallback timeout)', {
-              reportId: expectedReportId,
-            })
-          }
-        }, 1000) // 1 second fallback - restoration should complete faster
       } catch (error) {
         const rawMessage = error instanceof Error ? error.message : 'Failed to load session'
 
-        // ⭐ PLAN ENFORCEMENT: Handle paywall errors separately
+        // Handle paywall errors separately
         const isPaywallError = (error as any).isPaywallError === true
 
         if (isPaywallError) {
-          storeLogger.info('[Session] Load blocked by plan enforcement (paywall)', {
-            reportId: expectedReportId,
-            current: (error as any).current,
-            limit: (error as any).limit,
-          })
-
-          // Set paywall state (separate from generic error)
+          storeLogger.info('[Session] Load blocked by paywall', { reportId })
           set({
-            isLoading: false,
-            error: null, // Don't set generic error for paywall
-            isInitializing: false,
+            status: 'idle' as SessionStatus,
+            errorMessage: null,
             paywallData: {
               current: (error as any).current || 0,
               limit: (error as any).limit || 1,
               message: rawMessage,
             },
           })
-
-          // Don't re-throw paywall errors (handled by UI via paywallData)
           return
         }
 
-        // ✅ FIX: Check if error is ValidationError - don't retry these
-        const { ValidationError } = await import('../types/errors')
-        const isValidationError = error instanceof ValidationError
-        
-        if (isValidationError) {
-          storeLogger.error('[Session] Validation error - stopping retries', {
-            reportId: expectedReportId,
-            error: rawMessage,
-          })
-          // Set error state and stop - don't retry validation errors
-          set({
-            error: 'Invalid session data. Please try creating a new valuation.',
-            isLoading: false,
-            isInitializing: false,
-          })
-          return // Don't throw - just stop loading
-        }
-
-        // Determine user-friendly error message based on error type
-        let userMessage = rawMessage
-        const statusCode = (error as any).response?.status || (error as any).status
-
-        if (rawMessage.includes('timeout') || rawMessage.includes('Timeout')) {
-          userMessage = 'Connection timed out. Please check your internet connection and try again.'
-        } else if (statusCode === 401 || statusCode === 403) {
-          userMessage = 'Authentication failed. Please reload the page or contact support.'
-        } else if (statusCode === 404) {
-          // Session not found (404) - only redirect if we're on a report page
-          storeLogger.warn('[Session] Session not found (404)', { expectedReportId })
-
-          if (typeof window !== 'undefined') {
-            const currentPath = window.location.pathname
-
-            // Only redirect if we're on a report detail page
-            if (currentPath.includes('/reports/')) {
-              const localeMatch = currentPath.match(/^\/(en|nl)/)
-              const locale = localeMatch ? localeMatch[1] : 'en'
-
-              storeLogger.info('[Session] Redirecting from report page to home (404)', {
-                from: currentPath,
-                to: `/${locale}`,
-              })
-
-              window.location.href = `/${locale}`
-              return
-            } else {
-              // Already on home page - just show error
-              storeLogger.warn('[Session] 404 but already on home page, showing error', {
-                currentPath,
-              })
-            }
-          }
-
-          userMessage = 'Session not found. Please start a new valuation.'
-        } else if (statusCode === 500 || statusCode >= 500) {
-          userMessage = 'Server error. Our team has been notified. Please try again later.'
-        } else if (rawMessage.includes('Network') || rawMessage.includes('fetch')) {
-          userMessage = 'Network error. Please check your connection and try again.'
-        }
-
-        // Generic error handling
-        storeLogger.error('[Session] Load failed', {
-          reportId: expectedReportId,
-          error: rawMessage,
-          statusCode,
-          userMessage,
-        })
-
-        // ✅ FIX: Only update error state if reportId hasn't changed during load
-        // This prevents overwriting state for a different reportId
-        const errorState = get()
-        if (errorState.session?.reportId !== expectedReportId && errorState.session) {
-          storeLogger.warn('[Session] ReportId changed during error, not updating error state', {
-            expectedReportId,
-            currentReportId: errorState.session.reportId,
-          })
-          return // Don't update error state if reportId changed
-        }
-
+        // STATE TRANSITION: -> ERROR
+        storeLogger.error('[Session] Load failed', { reportId, error: rawMessage })
         set({
-          error: userMessage,
-          isLoading: false,
-          isInitializing: false,
+          status: 'error' as SessionStatus,
+          errorMessage: rawMessage,
         })
 
-        throw error
-      } finally {
-        // ✅ CRITICAL FIX: Always reset isInitializing, even if error is thrown
-        // This prevents infinite loading state when errors occur
-        const finalState = get()
-        if (finalState.isInitializing && finalState.session?.reportId === expectedReportId) {
-          storeLogger.debug('[Session] Ensuring isInitializing reset in finally block', {
-            reportId: expectedReportId,
-          })
-          set({ isInitializing: false })
+        // Handle 404 - redirect if on report page
+        const statusCode = (error as any).response?.status || (error as any).status
+        if (statusCode === 404 && typeof window !== 'undefined') {
+          const currentPath = window.location.pathname
+          if (currentPath.includes('/reports/')) {
+            const localeMatch = currentPath.match(/^\/(en|nl)/)
+            const locale = localeMatch ? localeMatch[1] : 'en'
+            window.location.href = `/${locale}`
+            return
+          }
         }
       }
     })()
@@ -675,22 +438,24 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
     set({
       session: null,
-      isLoading: false,
+      status: 'idle' as SessionStatus,
+      errorMessage: null,
       isSaving: false,
-      error: null,
       lastSaved: null,
       hasUnsavedChanges: false,
-      isInitializing: true, // ✅ NEW: Reset to initializing state
     })
   },
 
   /**
-   * Mark initialization as complete
-   * This allows toasts to show for subsequent saves/loads
+   * Mark initialization as complete (transition to loaded state)
    */
   completeInitialization: () => {
-    set({ isInitializing: false })
-    storeLogger.debug('[Session] Initialization complete - toasts enabled')
+    const state = get()
+    // Only transition if we have a session loaded
+    if (state.session) {
+      set({ status: 'loaded' as SessionStatus })
+      storeLogger.debug('[Session] Initialization complete')
+    }
   },
 
   /**

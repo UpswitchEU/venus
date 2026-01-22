@@ -42,19 +42,6 @@ export class UtilityAPI extends HttpClient {
   }
 
   /**
-   * @deprecated Guest migration removed - authentication is required
-   * AUTH-FIRST: Guest sessions are no longer supported
-   */
-  async migrateGuestData(
-    _guestSessionId: string,
-    _userId: string,
-    _options?: APIRequestConfig
-  ): Promise<{ success: boolean }> {
-    apiLogger.warn('[UtilityAPI] migrateGuestData is deprecated - guest sessions are no longer supported')
-    return { success: false }
-  }
-
-  /**
    * Get conversation status (for resuming conversations)
    */
   async getConversationStatus(

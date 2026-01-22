@@ -240,10 +240,9 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             return
           }
 
-          // ✅ FIX: Check if error is ValidationError - don't retry these
-          // Use synchronous check instead of async import in catch handler
+          // Check if error is ValidationError - don't retry these
           const isValidationError = 
-            err.message?.includes('Either userId or guestSessionId must be provided') ||
+            err.message?.includes('Authentication required') ||
             err.message?.includes('Invalid session data') ||
             err.message?.includes('validation') ||
             err.message?.includes('ValidationError') ||

@@ -570,7 +570,6 @@ async function initializeAuth(): Promise<void> {
           sanitizeUrl(['clientToken', 'client_id', 'prefilledQuery', 'autoSend'])
         } else {
           // BANK GRADE FIX: Wrap client context exchange in promise for race condition prevention
-          // This allows HTTP interceptor to wait for initialization before adding guest_session_id
           clientContextPromise = (async () => {
             try {
               // SECURITY: Extract token, then IMMEDIATELY sanitize URL

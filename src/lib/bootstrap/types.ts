@@ -219,8 +219,6 @@ export interface SessionBootstrapState {
 
 /**
  * Bootstrap context (input to bootstrap process)
- * 
- * AUTH-FIRST: guestSessionId removed - authentication required
  */
 export interface BootstrapContext {
   url: string;
@@ -240,8 +238,6 @@ export interface BootstrapContext {
 
 /**
  * Bootstrap hints
- * 
- * AUTH-FIRST: hasGuestSessionId removed - authentication required
  */
 export interface BootstrapHints {
   hasClientToken: boolean;
@@ -277,8 +273,6 @@ export interface BootstrapResolver<T> {
 
 /**
  * Bootstrap API request
- * 
- * AUTH-FIRST: guestSessionId removed - authentication required
  */
 export interface BootstrapRequest {
   reportId?: string;

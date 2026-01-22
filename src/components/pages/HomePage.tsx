@@ -128,8 +128,7 @@ export const HomePage: React.FC = () => {
 
   // Fetch recent reports on mount and when user changes
   useEffect(() => {
-    // Pass userId for authenticated users, undefined for guests
-    // Backend will use cookies for auth or guest_session_id header for guests
+    // Backend uses JWT cookie for authentication
     fetchReports(user?.id)
   }, [fetchReports, user?.id])
 

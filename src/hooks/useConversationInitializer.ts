@@ -188,8 +188,6 @@ export const useConversationInitializer = (
             },
             body: JSON.stringify({
               user_id: userId || null,
-              // AUTH-FIRST: guest_session_id removed - authentication is required
-              // Python backend generates session_id - don't send it
               business_context: userId
                 ? {
                     company_name: callbacks.user?.company_name,
