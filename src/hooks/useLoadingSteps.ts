@@ -17,6 +17,30 @@ import {
 } from '../components/LoadingState.constants'
 
 /**
+ * Detect if URL indicates an existing report (before bootstrap completes)
+ * This provides immediate visual feedback while bootstrap is processing
+ */
+function detectExistingReportFromUrl(): boolean {
+  if (typeof window === 'undefined') return false
+  
+  const pathname = window.location.pathname
+  
+  // Check for report UUID in URL path: /reports/{uuid} or /en/reports/{uuid}
+  // UUID format: 8-4-4-4-12 hex characters
+  const uuidPattern = /\/reports\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
+  if (uuidPattern.test(pathname)) {
+    return true
+  }
+  
+  // Check for session key in URL path: /reports/val_xxx
+  if (/\/reports\/val_[a-z0-9]+/i.test(pathname)) {
+    return true
+  }
+  
+  return false
+}
+
+/**
  * Hook to determine loading steps based on bootstrap report mode
  *
  * WORLD-CLASS: Provides clear, distinct loading states for different scenarios:
@@ -47,8 +71,13 @@ export function useLoadingSteps(): LoadingStep[] {
     // 3. mode: 'existing' + hasValuationResult → RESTORATION_STEPS
     //    "Restoring valuation", "Preparing results", "Finalizing report"
 
-    // Not bootstrapped yet - show initialization steps
+    // ✅ WORLD CLASS: Detect existing report from URL BEFORE bootstrap completes
+    // This provides immediate visual feedback that we're restoring, not creating
     if (!bootstrap?.report) {
+      // Check URL for existing report indicators
+      if (detectExistingReportFromUrl()) {
+        return RESTORATION_STEPS
+      }
       return INITIALIZATION_STEPS
     }
 
