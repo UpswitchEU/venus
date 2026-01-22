@@ -40,8 +40,8 @@ const logger = createContextLogger('SessionService')
  * Centralized helper to avoid redundant code across loadSession/saveSession.
  * Only fetches if company_name is missing and clientUserId is available.
  * 
- * NOTE: Business card data SHOULD come from bootstrap. This is a fallback
- * for edge cases where bootstrap didn't provide the data.
+ * Business card data should come from bootstrap. This is only called
+ * when bootstrap explicitly indicates missing data.
  * 
  * @param clientUserId - The client's user ID to fetch business card for
  * @returns Business card data object or null if fetch fails
@@ -538,12 +538,8 @@ export class SessionService {
         // Validate cached session
         validateSessionData(cachedSession)
 
-        // SECURITY: Extract prefilledQuery from session data first (preferred)
-        // Fallback to URL parameter for backward compatibility
-        const sessionPrefilledQuery = (cachedSession.sessionData as any)?._prefilledQuery || 
-                                     (cachedSession.partialData as any)?._prefilledQuery ||
-                                     null
-        const effectivePrefilledQuery = sessionPrefilledQuery || prefilledQuery
+        // Extract prefilledQuery from session data (single source)
+        const effectivePrefilledQuery = (cachedSession.sessionData as any)?._prefilledQuery || prefilledQuery
 
         // Merge prefilledQuery if provided (from session data or URL fallback)
         if (effectivePrefilledQuery) {

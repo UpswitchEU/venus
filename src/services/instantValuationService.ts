@@ -1,14 +1,28 @@
 /**
- * Instant Valuation Service
- *
- * Handles the instant (AI-guided) valuation flow through the backend
- * to ensure proper credit management and flow differentiation
+ * @deprecated Use ValuationService from services/valuation/ValuationService instead
+ * 
+ * This service is deprecated in favor of the unified ValuationService.
+ * It will be removed in a future version.
+ * 
+ * Migration:
+ * ```typescript
+ * // Before
+ * import { instantValuationService } from './instantValuationService'
+ * const result = await instantValuationService.processInstantValuation(data)
+ * 
+ * // After
+ * import { valuationService } from './valuation/ValuationService'
+ * const result = await valuationService.calculate(data, { flowType: 'instant' })
+ * ```
  */
 
 import { backendAPI } from '../services/backendApi'
 import type { ValuationRequest, ValuationResponse } from '../types/valuation'
 import { serviceLogger } from '../utils/logger'
 
+/**
+ * @deprecated Use ValuationService instead
+ */
 class InstantValuationService {
   /**
    * Process instant valuation through backend (with credit checks)

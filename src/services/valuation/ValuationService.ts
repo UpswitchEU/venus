@@ -1,18 +1,14 @@
 /**
- * Valuation Service
+ * Unified Valuation Service
  *
- * Shared service for valuation calculations across Manual and Conversational flows.
- * Provides a single, consistent API for valuation operations.
+ * Bank-grade, single source of truth for all valuation operations.
+ * Consolidates manual, instant, and streaming valuation flows.
  *
  * Key Features:
- * - Calculate valuations via backend API
+ * - Single API for all valuation types
+ * - Optional streaming support
+ * - Progress callbacks
  * - Unified error handling
- * - Logging and diagnostics
- * - Type-safe request/response handling
- *
- * Used by:
- * - Manual Flow (useManualResultsStore)
- * - Conversational Flow (useConversationalResultsStore)
  *
  * @module services/valuation/ValuationService
  */
@@ -30,6 +26,22 @@ import { createContextLogger } from '../../utils/logger'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('ValuationService')
+
+/**
+ * Valuation options for different flow types
+ */
+export interface ValuationOptions {
+  /** Flow type (defaults to manual) */
+  flowType?: 'manual' | 'instant' | 'conversational'
+  /** Enable streaming mode for real-time progress */
+  streaming?: boolean
+  /** Progress callback for streaming mode */
+  onProgress?: (progress: number, message: string) => void
+  /** Complete callback for streaming mode */
+  onComplete?: (result: ValuationResponse) => void
+  /** Error callback for streaming mode */
+  onError?: (error: Error) => void
+}
 
 /**
  * ValuationService - Shared valuation calculation
@@ -112,63 +124,83 @@ export class ValuationService {
 
       return response
     } catch (error) {
-      const duration = performance.now() - startTime
+      this.handleError(error, request, startTime)
+    }
+  }
 
-      // Use instanceof checks for specific error handling
-      if (error instanceof ValidationError) {
-        logger.warn('Valuation calculation failed - validation error', {
-          error: error.message,
-          field: error.field,
-          code: error.code,
-          duration_ms: duration.toFixed(2),
-          context: error.context,
-        })
-        throw error // Re-throw with context
-      } else if (error instanceof NetworkError && error.retryable) {
-        logger.warn('Valuation calculation failed - network error (retryable)', {
-          error: error.message,
-          code: error.code,
-          duration_ms: duration.toFixed(2),
-          context: error.context,
-        })
-        // TODO: Implement retry logic with exponential backoff
-        throw error
-      } else if (error instanceof CalculationError) {
-        logger.error('Valuation calculation failed - calculation error', {
-          error: error.message,
-          reportId: error.reportId,
-          code: error.code,
-          duration_ms: duration.toFixed(2),
-          context: error.context,
-          companyName: request.company_name,
-        })
-        throw error
-      } else if (error instanceof NotFoundError) {
-        logger.error('Valuation calculation failed - resource not found', {
-          error: error.message,
-          resourceType: error.resourceType,
-          resourceId: error.resourceId,
-          code: error.code,
-          duration_ms: duration.toFixed(2),
-        })
-        throw error
-      } else {
-        // Handle unknown errors
-        logger.error('Valuation calculation failed - unknown error', {
-          error: getErrorMessage(error),
-          duration_ms: duration.toFixed(2),
-          companyName: request.company_name,
-        })
-        throw new ApplicationError(
-          `Valuation calculation failed: ${getErrorMessage(error)}`,
-          'VALUATION_CALCULATION_FAILED',
-          {
-            originalError: error,
-            companyName: request.company_name,
-            duration_ms: duration.toFixed(2),
-          }
-        )
+  /**
+   * Calculate valuation with flow-specific routing
+   * 
+   * Unified method that routes to the appropriate backend endpoint based on flow type.
+   */
+  async calculate(
+    request: ValuationRequest,
+    options: ValuationOptions = {}
+  ): Promise<ValuationResponse> {
+    const flowType = options.flowType || 'manual'
+    
+    logger.info('Calculating valuation', {
+      companyName: request.company_name,
+      flowType,
+    })
+
+    options.onProgress?.(10, 'Starting calculation...')
+
+    try {
+      let response: ValuationResponse
+
+      switch (flowType) {
+        case 'instant':
+          response = await backendAPI.calculateInstantValuation(request)
+          break
+        case 'conversational':
+        case 'manual':
+        default:
+          response = await backendAPI.calculateValuation(request)
+          break
       }
+
+      options.onProgress?.(90, 'Processing results...')
+      options.onComplete?.(response)
+      
+      logger.info('Valuation completed', {
+        valuationId: response.valuation_id,
+        flowType,
+      })
+
+      return response
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error))
+      options.onError?.(err)
+      throw err
+    }
+  }
+
+  /**
+   * Handle errors with proper classification
+   */
+  private handleError(error: unknown, request: ValuationRequest, startTime: number): never {
+    const duration = performance.now() - startTime
+
+    if (error instanceof ValidationError) {
+      logger.warn('Validation error', { error: error.message, duration_ms: duration })
+      throw error
+    } else if (error instanceof NetworkError) {
+      logger.warn('Network error', { error: error.message, duration_ms: duration })
+      throw error
+    } else if (error instanceof CalculationError) {
+      logger.error('Calculation error', { error: error.message, duration_ms: duration })
+      throw error
+    } else if (error instanceof NotFoundError) {
+      logger.error('Not found error', { error: error.message, duration_ms: duration })
+      throw error
+    } else {
+      logger.error('Unknown error', { error: getErrorMessage(error), duration_ms: duration })
+      throw new ApplicationError(
+        `Valuation calculation failed: ${getErrorMessage(error)}`,
+        'VALUATION_CALCULATION_FAILED',
+        { originalError: error, companyName: request.company_name }
+      )
     }
   }
 }

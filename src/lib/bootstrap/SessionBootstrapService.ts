@@ -4,10 +4,10 @@
  * World-class initialization service that resolves ALL state before UI renders.
  * Orchestrates parallel resolution of auth, session, and prefill data.
  * 
- * Following patterns from:
- * - Stripe: Single request for complete context
- * - Klarna: Graceful degradation with fallbacks
- * - Linear: Optimistic UI with server verification
+ * Bank-grade session bootstrap:
+ * - Single request for complete context
+ * - Explicit error states (no silent fallbacks)
+ * - Clear state machine transitions
  * 
  * @module lib/bootstrap/SessionBootstrapService
  */

@@ -1,8 +1,19 @@
 /**
- * Valuation Service Implementation
- *
- * Concrete implementation of IValuationService interface.
- * Provides valuation calculation functionality with DIP compliance.
+ * @deprecated Use ValuationService from services/valuation/ValuationService instead
+ * 
+ * This service is deprecated in favor of the unified ValuationService.
+ * It will be removed in a future version.
+ * 
+ * Migration:
+ * ```typescript
+ * // Before
+ * import { valuationService } from './features/valuation/services/valuationService'
+ * const result = await valuationService.calculateValuation(data)
+ * 
+ * // After
+ * import { valuationService } from './services/valuation/ValuationService'
+ * const result = await valuationService.calculate(data)
+ * ```
  */
 
 import { manualValuationStreamService } from '../../../services/manualValuationStreamService'
@@ -11,10 +22,7 @@ import { generalLogger } from '../../../utils/logger'
 import { IValuationService } from './interfaces'
 
 /**
- * Valuation Service Implementation
- *
- * Provides concrete implementation of valuation calculations.
- * Follows Single Responsibility Principle - only handles valuation logic.
+ * @deprecated Use services/valuation/ValuationService instead
  */
 export class ValuationService implements IValuationService {
   /**
