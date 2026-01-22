@@ -316,7 +316,8 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
         : 'en'
       
       // Determine dashboard based on source app or default to accountant dashboard
-      if (sourceApp === 'mercury-accountant') {
+      // ✅ FIX: Mercury sends 'mercury' as source, not 'mercury-accountant'
+      if (sourceApp?.includes('mercury')) {
         targetUrl = `${mercuryUrl}/${currentLocale}/accountant/dashboard`
       } else {
         // Default to seller dashboard or home
@@ -404,47 +405,50 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
               </div>
 
               {/* Center Section - Action Buttons */}
-              <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1">
-                {/* Flow Toggles */}
-                <Tooltip content={t('navigation.flows.manual')} position="bottom" className="">
-                  <button
-                    onClick={() => handleFlowIconClick('manual')}
-                    disabled={currentView === 'manual' || isSyncing}
-                    className={`p-2 rounded-lg transition-all duration-200 ${
-                      currentView === 'manual'
-                        ? 'bg-zinc-700 text-white'
-                        : 'text-gray-400 hover:text-gray-300 hover:bg-zinc-800'
-                    } ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+              {/* ✅ UX: Hide on very small screens to prioritize CTA */}
+              <div className="absolute left-1/2 transform -translate-x-1/2 hidden sm:flex items-center gap-1">
+                {/* Flow Toggles - Hidden on mobile, shown on md+ */}
+                <div className="hidden md:flex items-center gap-1">
+                  <Tooltip content={t('navigation.flows.manual')} position="bottom" className="">
+                    <button
+                      onClick={() => handleFlowIconClick('manual')}
+                      disabled={currentView === 'manual' || isSyncing}
+                      className={`p-2 rounded-lg transition-all duration-200 ${
+                        currentView === 'manual'
+                          ? 'bg-zinc-700 text-white'
+                          : 'text-gray-400 hover:text-gray-300 hover:bg-zinc-800'
+                      } ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {isSyncing && currentView !== 'manual' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Edit3 className="w-4 h-4" />
+                      )}
+                    </button>
+                  </Tooltip>
+                  <Tooltip
+                    content={t('navigation.flows.conversational')}
+                    position="bottom"
+                    className=""
                   >
-                    {isSyncing && currentView !== 'manual' ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Edit3 className="w-4 h-4" />
-                    )}
-                  </button>
-                </Tooltip>
-                <Tooltip
-                  content={t('navigation.flows.conversational')}
-                  position="bottom"
-                  className=""
-                >
-                  <button
-                    onClick={() => handleFlowIconClick('conversational')}
-                    disabled={currentView === 'conversational' || isSyncing}
-                    className={`p-2 rounded-lg transition-all duration-200 ${
-                      currentView === 'conversational'
-                        ? 'bg-zinc-700 text-white'
-                        : 'text-gray-400 hover:text-gray-300 hover:bg-zinc-800'
-                    } ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {isSyncing && currentView !== 'conversational' ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <MessageSquare className="w-4 h-4" />
-                    )}
-                  </button>
-                </Tooltip>
-                <div className="mx-2 h-6 w-px bg-zinc-700"></div>
+                    <button
+                      onClick={() => handleFlowIconClick('conversational')}
+                      disabled={currentView === 'conversational' || isSyncing}
+                      className={`p-2 rounded-lg transition-all duration-200 ${
+                        currentView === 'conversational'
+                          ? 'bg-zinc-700 text-white'
+                          : 'text-gray-400 hover:text-gray-300 hover:bg-zinc-800'
+                      } ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {isSyncing && currentView !== 'conversational' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <MessageSquare className="w-4 h-4" />
+                      )}
+                    </button>
+                  </Tooltip>
+                  <div className="mx-2 h-6 w-px bg-zinc-700"></div>
+                </div>
                 <Tooltip content={t('navigation.tabs.preview')} position="bottom" className="">
                   <button
                     onClick={() => handleTabClick('preview')}
@@ -482,15 +486,19 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                   </button>
                 </Tooltip>
                 <div className="mx-2 h-6 w-px bg-zinc-700"></div>
-                <Tooltip content={t('toolbar.tooltips.refresh')} position="bottom" className="">
-                  <button
-                    onClick={handleRefresh}
-                    className="p-2 rounded-lg transition-all duration-200 text-gray-400 hover:text-gray-300 hover:bg-zinc-800"
-                    disabled={isGenerating}
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
-                </Tooltip>
+                {/* Refresh - Hidden on mobile */}
+                <div className="hidden lg:block">
+                  <Tooltip content={t('toolbar.tooltips.refresh')} position="bottom" className="">
+                    <button
+                      onClick={handleRefresh}
+                      className="p-2 rounded-lg transition-all duration-200 text-gray-400 hover:text-gray-300 hover:bg-zinc-800"
+                      disabled={isGenerating}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
+                </div>
+                {/* Download - Always visible (important action) */}
                 <Tooltip content={t('toolbar.tooltips.download')} position="bottom" className="">
                   <button
                     onClick={handleDownload}
@@ -504,17 +512,21 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     )}
                   </button>
                 </Tooltip>
-                <Tooltip content={t('toolbar.tooltips.fullscreen')} position="bottom" className="">
-                  <button
-                    onClick={handleFullScreen}
-                    className="p-2 rounded-lg transition-all duration-200 text-gray-400 hover:text-gray-300 hover:bg-zinc-800"
-                  >
-                    <Maximize className="w-4 h-4" />
-                  </button>
-                </Tooltip>
+                {/* Fullscreen - Hidden on mobile */}
+                <div className="hidden lg:block">
+                  <Tooltip content={t('toolbar.tooltips.fullscreen')} position="bottom" className="">
+                    <button
+                      onClick={handleFullScreen}
+                      className="p-2 rounded-lg transition-all duration-200 text-gray-400 hover:text-gray-300 hover:bg-zinc-800"
+                    >
+                      <Maximize className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
+                </div>
                 {/* Version Selector (M&A Workflow) - Shows valuation values */}
+                {/* Hidden on mobile - shown on lg+ screens */}
                 {displayVersions.length > 0 && (
-                  <>
+                  <div className="hidden lg:flex items-center">
                     <div className="mx-2 h-6 w-px bg-zinc-700"></div>
                     <Tooltip
                       content={t('report.toolbar.selectVersion')}
@@ -551,7 +563,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                         <GitBranch className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                       </div>
                     </Tooltip>
-                  </>
+                  </div>
                 )}
               </div>
 
@@ -576,13 +588,14 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     <div className="h-6 w-px bg-zinc-700 mx-1"></div>
                   </>
                 ) : (
-                  returnUrl && hasValuationPrice && (
-                    /* Direct Access with Return URL - Show Return Button */
-                    /* Only show when valuation result with price is available */
+                  returnUrl && (
+                    /* Direct Access with Return URL - Always show Return Button */
+                    /* ✅ FIX: Don't require hasValuationPrice - user should always be able to return */
+                    /* Style is more prominent when valuation is complete */
                     <>
                       <Tooltip
                         content={
-                          sourceApp === 'mercury-accountant'
+                          sourceApp?.includes('mercury')
                             ? t('report.toolbar.backToClient')
                             : t('report.toolbar.continueToDashboard')
                         }
@@ -591,14 +604,22 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                       >
                         <button
                           onClick={handleReturnToMercury}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium"
+                          className={`group flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 text-sm font-semibold ${
+                            hasValuationPrice
+                              ? 'bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 hover:scale-105 ring-2 ring-primary-400/20'
+                              : 'bg-zinc-700 hover:bg-zinc-600 text-gray-200 hover:text-white'
+                          }`}
                         >
-                          <span className="hidden sm:inline">
-                            {sourceApp === 'mercury-accountant'
+                          {hasValuationPrice && (
+                            <Check className="w-4 h-4 flex-shrink-0" />
+                          )}
+                          {/* ✅ UX: Always show text - this is the primary CTA */}
+                          <span className="whitespace-nowrap">
+                            {sourceApp?.includes('mercury')
                               ? t('report.toolbar.backToClient')
                               : t('report.toolbar.continueToDashboard')}
                           </span>
-                          <ArrowRight className="w-4 h-4" />
+                          <ArrowRight className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${hasValuationPrice ? 'group-hover:translate-x-1' : ''}`} />
                         </button>
                       </Tooltip>
                       <div className="h-6 w-px bg-zinc-700 mx-1"></div>

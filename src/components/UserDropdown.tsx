@@ -192,7 +192,8 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         ? window.location.pathname.match(/\/(en|nl)\//)?.[1] || 'en'
         : 'en'
       
-      if (sourceApp === 'mercury-accountant') {
+      // ✅ FIX: Mercury sends 'mercury' as source, not 'mercury-accountant'
+      if (sourceApp?.includes('mercury')) {
         targetUrl = `${mercuryUrl}/${currentLocale}/accountant/dashboard`
       } else {
         targetUrl = `${mercuryUrl}/${currentLocale}/my-business/overview`

@@ -64,10 +64,33 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
   /**
    * Update session (backend + local state)
+   * 
+   * BOOTSTRAP FIX: Handles the case where session is being set for the first time
+   * during bootstrap flow (when no loadSession was called because it's a new report).
    */
   updateSession(updates: Partial<ValuationSession>): void {
+    // Handle case where session is being set for the first time (bootstrap flow)
     if (!this.currentSession) {
-      generalLogger.warn('[AuthenticatedSessionEngine] Cannot update - no current session')
+      if (updates.reportId) {
+        // Bootstrap is setting initial session - accept it
+        this.currentSession = {
+          reportId: updates.reportId,
+          currentView: updates.currentView || 'manual',
+          dataSource: updates.dataSource || 'manual',
+          createdAt: updates.createdAt || new Date(),
+          updatedAt: new Date(),
+          sessionData: updates.sessionData || {},
+          partialData: updates.partialData || {},
+        } as ValuationSession
+        
+        generalLogger.debug('[AuthenticatedSessionEngine] Session initialized from updates (bootstrap flow)', {
+          reportId: updates.reportId,
+          hasSessionData: !!updates.sessionData,
+        })
+        return
+      }
+      
+      generalLogger.warn('[AuthenticatedSessionEngine] Cannot update - no current session and no reportId in updates')
       return
     }
 
