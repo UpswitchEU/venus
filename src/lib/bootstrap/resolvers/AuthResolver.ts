@@ -67,6 +67,20 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
         this.logger.warn('[AuthResolver] Client token exchange failed, trying cookie auth');
       }
 
+      // Priority 1.5: Check if client context already exists in store
+      // This handles the case where auth.ts restored context from report's accountant_customer_id
+      // when an accountant returns to an existing report page (no clientToken in URL)
+      const existingContextResult = await this.checkExistingClientContext();
+      if (existingContextResult.success) {
+        this.logger.info('[AuthResolver] Using existing client context from store');
+        return {
+          success: true,
+          data: existingContextResult.data,
+          source: 'existing_store',
+          durationMs: performance.now() - startTime,
+        };
+      }
+
       // Priority 2: Cookie-based auth
       const cookieResult = await this.resolveCookieAuth();
       if (cookieResult.success && cookieResult.data.type === 'authenticated') {
@@ -298,6 +312,82 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       return response.ok;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Check if client context already exists in store
+   * 
+   * This handles the case where auth.ts has already restored client context
+   * from the report's accountant_customer_id (when returning to an existing report).
+   * By checking the store, we ensure bootstrap picks up the context regardless
+   * of timing between auth.ts and bootstrap initialization.
+   */
+  private async checkExistingClientContext(): Promise<ResolverResult<IdentityState>> {
+    const startTime = performance.now();
+
+    try {
+      // Dynamic import to avoid circular dependencies
+      const { useClientContext } = await import('../../../stores/clientContext');
+      const contextState = useClientContext.getState();
+
+      // Check if we have a valid client context set
+      if (contextState.isActingAsClient && contextState.client && contextState.accountant) {
+        this.logger.info('[AuthResolver] Found existing client context in store', {
+          clientId: truncateForLog(contextState.client.id),
+          accountantId: truncateForLog(contextState.accountant.id),
+        });
+
+        // Build ClientContext from store state
+        const clientContext: ClientContext = {
+          clientUserId: contextState.client.id,
+          clientEmail: contextState.client.email || '',
+          clientCompanyName: contextState.client.fullName,
+          accountantUserId: contextState.accountant.id,
+          accountantEmail: contextState.accountant.email || '',
+          relationshipId: contextState.relationshipId || '',
+          permissions: {
+            canCreateValuations: true,
+            canViewReports: true,
+            canEditReports: true,
+          },
+        };
+
+        // Build identity state
+        const identity: IdentityState = {
+          type: 'accountant_for_client',
+          userId: contextState.client.id, // Session owned by client
+          clientContext,
+          email: contextState.accountant.email,
+        };
+
+        return {
+          success: true,
+          data: identity,
+          source: 'existing_store',
+          durationMs: performance.now() - startTime,
+        };
+      }
+
+      // No existing context found
+      return {
+        success: false,
+        data: this.fallback(),
+        error: 'No existing client context in store',
+        durationMs: performance.now() - startTime,
+      };
+    } catch (error) {
+      // If store access fails, just return false (will fall through to cookie auth)
+      this.logger.debug('[AuthResolver] Failed to check existing client context', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return {
+        success: false,
+        data: this.fallback(),
+        error: error instanceof Error ? error.message : 'Store access failed',
+        durationMs: performance.now() - startTime,
+      };
     }
   }
 

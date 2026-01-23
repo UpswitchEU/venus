@@ -9,6 +9,7 @@
 
 import React, { Suspense, useEffect, useRef } from 'react'
 import { AssetInspector } from '../../../components/debug/AssetInspector'
+import { ClientContextBanner } from '../../../components/ClientContextBanner'
 import { FullScreenModal } from '../../../components/FullScreenModal'
 import { LoadingState } from '../../../components/LoadingState'
 import { useLoadingSteps } from '../../../hooks/useLoadingSteps'
@@ -1251,6 +1252,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* Client Context Banner - Shows when accountant is acting on behalf of client */}
+      <ClientContextBanner />
+
       {/* Toolbar (Save Status integrated inside toolbar) */}
       <ValuationToolbar
         onRefresh={handleRefresh}
