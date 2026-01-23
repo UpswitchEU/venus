@@ -129,10 +129,21 @@ function DefaultErrorState({
         </div>
         <h1 className="text-2xl font-bold text-white mb-4">Authentication Failed</h1>
         <p className="text-gray-400 mb-6">{error}</p>
-        <div className="flex gap-3 justify-center">
+        <div className="flex gap-3 justify-center flex-wrap">
+          <button
+            onClick={() => {
+              const currentUrl = window.location.href
+              const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+              const locale = window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+              window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Log In
+          </button>
           <button
             onClick={onRetry}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
           >
             Try Again
           </button>
@@ -221,7 +232,11 @@ export function AuthGate({
       if (authError) {
         const isTransient401 = authError.includes('401') || 
                                authError.toLowerCase().includes('expired') ||
-                               authError.toLowerCase().includes('unauthorized')
+                               authError.toLowerCase().includes('unauthorized') ||
+                               authError.toLowerCase().includes('authentication required') ||
+                               authError.toLowerCase().includes('required') ||
+                               authError.toLowerCase().includes('not authenticated') ||
+                               authError.toLowerCase().includes('no refresh token')
         
         if (isTransient401 && retryCount < maxRetries) {
           console.log(`[AuthGate:${traceId}] Transient auth error - retrying (${retryCount + 1}/${maxRetries})`, {
@@ -245,7 +260,7 @@ export function AuthGate({
         
         // AUTH-FIRST: If auth error and no user, redirect to login instead of showing error
         const currentUser = useAuthStore.getState().user
-        if (!currentUser && isTransient401) {
+        if (!currentUser) {
           // Build redirect URL to return user to current page after login
           const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://valuation.upswitch.app/reports/new'
           const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
