@@ -574,6 +574,31 @@ export class SessionService {
           })
         }
 
+        // ✅ CRITICAL FIX: If cache is missing HTML reports but has a completed valuation,
+        // trigger immediate background fetch. This handles the case where HTML reports are
+        // excluded from localStorage cache (to save space) but exist in the backend.
+        // Without this, users would see a blank report panel until the 5-minute stale threshold.
+        if (!cachedSession.htmlReport && !cachedSession.infoTabHtml) {
+          const sessionData = cachedSession.sessionData as any
+          const hasValuationResult = sessionData?.valuation_result || cachedSession.valuationResult
+          
+          if (hasValuationResult) {
+            // Session has a completed valuation but no HTML reports in cache
+            // This likely means HTML reports exist in backend but were excluded from cache
+            logger.debug('Cache missing HTML reports for completed valuation, fetching immediately', { 
+              reportId,
+              hasValuationResult: true,
+              cacheAge_minutes,
+            })
+            this.revalidateInBackground(reportId).catch((err) => {
+              logger.warn('Background HTML fetch failed', { 
+                reportId, 
+                error: err instanceof Error ? err.message : String(err),
+              })
+            })
+          }
+        }
+
         return cachedSession
       }
 
@@ -1656,6 +1681,42 @@ export class SessionService {
           hasHtmlReport: !!mergedSession.htmlReport,
           hasInfoTabHtml: !!mergedSession.infoTabHtml,
         })
+
+        // ✅ CRITICAL FIX: Also update session store to trigger reactive UI updates
+        // Without this, the HTML reports fetched in background won't appear in the UI
+        // until the user navigates away and back
+        try {
+          const { useSessionStore } = await import('../../store/useSessionStore')
+          const currentStoreSession = useSessionStore.getState().session
+          
+          // Only update if the store still has the same reportId
+          if (currentStoreSession?.reportId === reportId) {
+            // Update the session with the revalidated HTML reports
+            useSessionStore.getState().updateSession({
+              htmlReport: mergedSession.htmlReport,
+              infoTabHtml: mergedSession.infoTabHtml,
+              valuationResult: mergedSession.valuationResult,
+              // Also update sessionData with merged fields
+              sessionData: mergedSession.sessionData,
+            })
+            logger.info('Session store updated with revalidated HTML reports', {
+              reportId,
+              hasHtmlReport: !!mergedSession.htmlReport,
+              hasInfoTabHtml: !!mergedSession.infoTabHtml,
+            })
+          } else {
+            logger.debug('Skipping store update - reportId changed during revalidation', {
+              revalidatedReportId: reportId,
+              currentStoreReportId: currentStoreSession?.reportId,
+            })
+          }
+        } catch (storeError) {
+          // Non-critical error - cache is still updated
+          logger.warn('Failed to update session store after revalidation', {
+            reportId,
+            error: storeError instanceof Error ? storeError.message : String(storeError),
+          })
+        }
       } else {
         logger.debug('Session not found during revalidation', { reportId })
       }
