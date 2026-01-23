@@ -748,10 +748,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       // Restore results - CRITICAL FIX: Merge HTML reports from session into result object
       // ✅ CRITICAL FIX: Check BOTH top-level session fields AND sessionData for valuation result
       // The data may be stored in either location depending on how the session was loaded/merged
+      // ✅ NAMING FIX: Backend uses camelCase (valuationResult), so check BOTH camelCase and snake_case
       const sessionDataForResults = currentSession.sessionData as any
-      const valuationResult = currentSession.valuationResult || sessionDataForResults?.valuation_result
-      const htmlReport = currentSession.htmlReport || sessionDataForResults?.html_report
-      const infoTabHtml = currentSession.infoTabHtml || sessionDataForResults?.info_tab_html
+      const valuationResult = currentSession.valuationResult || 
+        sessionDataForResults?.valuationResult ||   // camelCase (backend sets this)
+        sessionDataForResults?.valuation_result     // snake_case (legacy fallback)
+      const htmlReport = currentSession.htmlReport || 
+        sessionDataForResults?.htmlReport ||        // camelCase (backend sets this)
+        sessionDataForResults?.html_report          // snake_case (legacy fallback)
+      const infoTabHtml = currentSession.infoTabHtml || 
+        sessionDataForResults?.infoTabHtml ||       // camelCase (backend sets this)
+        sessionDataForResults?.info_tab_html        // snake_case (legacy fallback)
       
       if (valuationResult) {
         const currentResult = useManualResultsStore.getState().result
@@ -882,14 +889,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // This handles the case where HTML reports are loaded after initial restoration
   // (e.g., after PUT /result completes and session is reloaded)
   // ✅ CRITICAL FIX: Check BOTH top-level session fields AND sessionData as fallback
+  // ✅ NAMING FIX: Backend uses camelCase, so check BOTH camelCase and snake_case
   const sessionHtmlReport = useSessionStore((state) => 
-    state.session?.htmlReport || (state.session?.sessionData as any)?.html_report
+    state.session?.htmlReport || 
+    (state.session?.sessionData as any)?.htmlReport ||      // camelCase (backend sets this)
+    (state.session?.sessionData as any)?.html_report        // snake_case (legacy fallback)
   )
   const sessionInfoTabHtml = useSessionStore((state) => 
-    state.session?.infoTabHtml || (state.session?.sessionData as any)?.info_tab_html
+    state.session?.infoTabHtml || 
+    (state.session?.sessionData as any)?.infoTabHtml ||     // camelCase (backend sets this)
+    (state.session?.sessionData as any)?.info_tab_html      // snake_case (legacy fallback)
   )
   const sessionValuationResult = useSessionStore((state) => 
-    state.session?.valuationResult || (state.session?.sessionData as any)?.valuation_result
+    state.session?.valuationResult || 
+    (state.session?.sessionData as any)?.valuationResult || // camelCase (backend sets this)
+    (state.session?.sessionData as any)?.valuation_result   // snake_case (legacy fallback)
   )
 
   // ✅ FIX: Subscribe to sessionData to detect when form fields are loaded
