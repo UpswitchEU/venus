@@ -284,14 +284,23 @@ export function AuthGate({
       const currentUser = useAuthStore.getState().user
       
       if (!currentUser) {
-        // Give a moment for auth redirect to happen
-        timeoutId = setTimeout(() => {
-          if (mounted && !useAuthStore.getState().user) {
-            setState('error')
-            setError('Authentication required. Please log in to continue.')
-            onAuthError?.('Authentication required')
-          }
-        }, 1000)
+        // AUTH-FIRST: Redirect to Mercury login when no user is found
+        // Build redirect URL to return user to current page after login
+        const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://valuation.upswitch.app/reports/new'
+        const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+        const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
+        // Mercury expects 'returnUrl' parameter (not 'redirect')
+        const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+        
+        console.log(`[AuthGate:${traceId}] No user found - redirecting to Mercury login`, {
+          redirectUrl,
+          currentUrl,
+        })
+        
+        // Immediate redirect - no error state, no loading state
+        if (typeof window !== 'undefined') {
+          window.location.href = redirectUrl
+        }
         return
       }
 
