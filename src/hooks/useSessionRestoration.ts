@@ -1,17 +1,23 @@
 /**
  * useSessionRestoration Hook
  *
- * Single Responsibility: Automatically restore form data, results, and versions from session
- * Uses Zustand stores for simple and robust state management
- *
- * This hook watches the session store and automatically:
- * 1. Restores form data to form store when session loads
- * 2. Restores valuation results to results store when session loads
- * 3. Fetches version history when session loads
- * 4. Handles report changes smoothly
- *
- * Restoration Order: session -> form -> results -> versions
- *
+ * @deprecated This hook is DEPRECATED and will be removed in a future version.
+ * 
+ * Session restoration is now handled centrally by SessionRestorationService,
+ * which is automatically invoked when useSessionStore.loadSession() is called.
+ * 
+ * The centralized restoration service provides:
+ * - Atomic hydration of ALL stores (form, results, versions, EBITDA normalizations)
+ * - Idempotent restoration (safe to call multiple times)
+ * - No race conditions (single source of truth)
+ * - Complete asset restoration for existing sessions
+ * 
+ * Migration: Remove usage of this hook. The session store will automatically
+ * restore all data when the session is loaded.
+ * 
+ * @see SessionRestorationService - The centralized replacement
+ * @see useSessionStore.loadSession - Entry point for session loading
+ * 
  * @module hooks/useSessionRestoration
  */
 
@@ -41,10 +47,18 @@ import { useToast } from './useToast'
  * SIMPLIFIED: Single restoration per reportId - no complex flag management.
  */
 /**
- * NOTE: This hook is deprecated. Use flow-specific restoration in layouts instead.
- * Kept for backwards compatibility but should be removed in future.
+ * @deprecated See module-level deprecation notice above.
  */
 export function useSessionRestoration() {
+  // DEPRECATION WARNING: Log warning on first use
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(
+      '[DEPRECATED] useSessionRestoration is deprecated. ' +
+      'Session restoration is now handled centrally by SessionRestorationService. ' +
+      'Remove this hook usage - restoration happens automatically via useSessionStore.loadSession().'
+    )
+  }
+  
   // ROOT CAUSE FIX: Only subscribe to reportId, not entire session object
   const reportId = useSessionStore((state) => state.session?.reportId)
   const { updateFormData } = useManualFormStore()

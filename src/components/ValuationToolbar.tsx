@@ -68,7 +68,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     versions: storeVersions,
     getActiveVersion,
     setActiveVersion,
-    fetchVersions,
+    // NOTE: fetchVersions removed - now handled by SessionRestorationService
   } = useVersionHistoryStore()
 
   // ✅ FIX: Deduplicate versions when combining props and store versions
@@ -103,14 +103,9 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
       }
     })
 
-  // Fetch versions if we have a reportId but no versions
-  React.useEffect(() => {
-    if (reportId && !displayVersions.length) {
-      fetchVersions(reportId).catch(() => {
-        // Silently fail - versions are optional
-      })
-    }
-  }, [reportId, displayVersions.length, fetchVersions])
+  // NOTE: Version fetching is now handled by SessionRestorationService
+  // when the session is loaded. No need to fetch here - versions will be
+  // in the store once the session is fully restored.
 
   // Save status icon (minimalist - just icon with tooltip)
   const getSaveStatusIcon = () => {

@@ -4,13 +4,16 @@
  * ROOT CAUSE FIX: Removed session object dependency to prevent render loops
  *
  * Single Responsibility - Sync form changes TO session (one direction only)
- * Restoration is handled by useSessionRestoration hook.
+ * Restoration is handled centrally by SessionRestorationService.
  * This hook ONLY syncs form changes to session store (debounced).
  *
  * Key Changes:
  * - No longer subscribes to session object (prevents re-renders)
  * - Reads session state internally via getState() when needed
  * - Only subscribes to formData changes
+ *
+ * @see SessionRestorationService - Centralized restoration service
+ * @see useSessionStore.loadSession - Entry point for session loading with restoration
  *
  * @module hooks/useFormSessionSync
  */
@@ -32,7 +35,7 @@ interface UseFormSessionSyncOptions {
  *
  * ROOT CAUSE FIX: Reads session state internally to prevent component re-renders
  * Only subscribes to formData changes, not session changes
- * Restoration (session → form) is handled by useSessionRestoration hook
+ * Restoration (session → form) is handled centrally by SessionRestorationService
  */
 export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOptions) => {
   // Helper to check if form data matches session data (prevent unnecessary syncs)

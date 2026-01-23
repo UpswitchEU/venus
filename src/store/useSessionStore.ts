@@ -20,6 +20,7 @@ import { storeLogger } from '../utils/logger'
 import type { ISessionEngine } from '../services/session/SessionEngine'
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
 import type { IdentityState } from '../lib/bootstrap/types'
+import { SessionRestorationService } from '../services/session/SessionRestorationService'
 
 /**
  * Explicit session states (bank-grade state machine)
@@ -133,6 +134,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
    * State Machine Transitions:
    * - IDLE/ERROR -> LOADING -> LOADED (success) or ERROR (failure)
    * - Promise cache prevents duplicate concurrent loads
+   * 
+   * Session Types:
+   * - NEW SESSION: No existing data, show "Initializing" state
+   * - EXISTING SESSION: Has data, show "Restoring" state, hydrate all stores
    */
   loadSession: async (
     reportId: string,
@@ -175,12 +180,53 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         if (!session) {
           throw new Error(`Session not found: ${reportId}`)
         }
+        
+        // ✅ WORLD-CLASS: Detect new vs existing session
+        // Cast to any since backend sessionData can have various shapes (snake_case, camelCase, nested)
+        const sessionData = (session.sessionData || {}) as any
+        const sessionAny = session as any
+        const hasExistingValuationResult = !!(
+          sessionData.valuationResult || 
+          sessionData.valuation_result ||
+          sessionAny.latestValuation ||
+          sessionAny.latest_valuation
+        )
+        const hasExistingFormData = !!(
+          sessionData.formData || 
+          sessionData.form_data || 
+          sessionData.companyName || 
+          sessionData.company_name
+        )
+        const isExistingSession = hasExistingValuationResult || hasExistingFormData
 
         // STATE TRANSITION: -> LOADED
         storeLogger.info('[Session] Loaded successfully', {
           reportId: session.reportId,
           hasSessionData: !!session.sessionData,
+          isExistingSession,
+          hasExistingValuationResult,
+          hasExistingFormData,
         })
+        
+        // ✅ WORLD-CLASS: Trigger centralized restoration
+        // For EXISTING sessions: Hydrate ALL stores (form, results, versions, normalizations)
+        // For NEW sessions: Skip restoration (nothing to restore)
+        if (isExistingSession) {
+          storeLogger.debug('[Session] Existing session detected - triggering full restoration', { reportId })
+          const restorationResult = await SessionRestorationService.restore(session.reportId, session)
+          
+          storeLogger.debug('[Session] Restoration complete', {
+            reportId: session.reportId,
+            success: restorationResult.success,
+            restoredFormFields: restorationResult.restoredFormFields,
+            restoredValuationResult: restorationResult.restoredValuationResult,
+            restoredHtmlReport: restorationResult.restoredHtmlReport,
+            restoredVersionHistory: restorationResult.restoredVersionHistory,
+            restoredEbitdaNormalizations: restorationResult.restoredEbitdaNormalizations,
+          })
+        } else {
+          storeLogger.debug('[Session] New session detected - skipping restoration', { reportId })
+        }
         
         set({
           session,

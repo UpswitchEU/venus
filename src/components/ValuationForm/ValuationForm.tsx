@@ -267,7 +267,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
   // Use form session sync hook for syncing form changes to session
   // ROOT CAUSE FIX: Pass reportId instead of session object to prevent re-renders
-  // Note: Restoration is handled by useSessionRestoration in ManualLayout
+  // Note: Restoration is handled centrally by SessionRestorationService via useSessionStore.loadSession()
   useFormSessionSync({
     reportId,
     formData,

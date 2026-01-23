@@ -31,8 +31,8 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
     versions: allVersions,
     getActiveVersion,
     setActiveVersion,
-    fetchVersions,
     loading,
+    // NOTE: fetchVersions removed - now handled by SessionRestorationService
   } = useVersionHistoryStore()
 
   const [selectedVersionNumber, setSelectedVersionNumber] = useState<number | null>(null)
@@ -72,14 +72,9 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
   const versions = Array.from(versionMap.values()).sort((a, b) => b.versionNumber - a.versionNumber)
   const activeVersion = getActiveVersion(reportId)
 
-  // Fetch versions on mount
-  useEffect(() => {
-    if (reportId && versions.length === 0 && !loading) {
-      fetchVersions(reportId).catch((error) => {
-        console.error('Failed to fetch versions:', error)
-      })
-    }
-  }, [reportId, versions.length, loading, fetchVersions])
+  // NOTE: Version fetching is now handled by SessionRestorationService
+  // when the session is loaded. No need to fetch here - versions will be
+  // in the store once the session is fully restored.
 
   // Auto-select latest version when versions load
   useEffect(() => {

@@ -14,7 +14,6 @@ import { LoadingState } from '../../../components/LoadingState'
 import { useLoadingSteps } from '../../../hooks/useLoadingSteps'
 import { ResizableDivider } from '../../../components/ResizableDivider'
 import { ValuationToolbar } from '../../../components/ValuationToolbar'
-import { shouldEnableSessionRestoration } from '../../../config/features'
 import { MOBILE_BREAKPOINT } from '../../../constants/panelConstants'
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
@@ -214,195 +213,20 @@ const ConversationalLayoutInner: React.FC<ConversationalLayoutProps> = ({
     }
   }, [showToast])
 
-  // NEW: Asset orchestrator for progressive loading
-  // Asset orchestration removed - data loaded directly from session store
-  // Session loads via SessionManager, data populates reactively
-
-  // Restore results from session when reportId changes (new session loaded)
-  // ROOT CAUSE FIX: Only depend on reportId prop, not reactive session?.reportId
-  const lastRestoredReportIdRef = useRef<string | null>(null)
-  useEffect(() => {
-    // Only restore once per reportId (when new report loads)
-    if (lastRestoredReportIdRef.current === reportId) {
-      return
-    }
-
-    // Check feature flag before restoring
-    if (!shouldEnableSessionRestoration()) {
-      chatLogger.info('[Conversational] Session restoration disabled by feature flag', { reportId })
-      lastRestoredReportIdRef.current = reportId
-      return
-    }
-
-    // Read session state inside effect (only when reportId prop changes)
-    const currentSession = useSessionStore.getState().session
-    if (!currentSession || currentSession.reportId !== reportId) {
-      return
-    }
-
-    // Update tracked reportId
-    lastRestoredReportIdRef.current = reportId
-
-    // Restore results - CRITICAL FIX: Merge HTML reports from session into result object
-    // ✅ CRITICAL FIX: Check BOTH top-level session fields AND sessionData for valuation result
-    // The data may be stored in either location depending on how the session was loaded/merged
-    // ✅ NAMING FIX: Backend uses camelCase (valuationResult), so check BOTH camelCase and snake_case
-    const sessionDataForResults = currentSession.sessionData as any
-    const valuationResult = currentSession.valuationResult || 
-      sessionDataForResults?.valuationResult ||   // camelCase (backend sets this)
-      sessionDataForResults?.valuation_result     // snake_case (legacy fallback)
-    const htmlReport = currentSession.htmlReport || 
-      sessionDataForResults?.htmlReport ||        // camelCase (backend sets this)
-      sessionDataForResults?.html_report          // snake_case (legacy fallback)
-    const infoTabHtml = currentSession.infoTabHtml || 
-      sessionDataForResults?.infoTabHtml ||       // camelCase (backend sets this)
-      sessionDataForResults?.info_tab_html        // snake_case (legacy fallback)
-    
-    if (valuationResult) {
-      const currentResult = useConversationalResultsStore.getState().result
-      const shouldRestoreResult =
-        !currentResult || currentResult.valuation_id !== valuationResult.valuation_id
-      const resultMissingHtml =
-        currentResult && !currentResult.html_report && !!htmlReport
-      const resultMissingInfoTab =
-        currentResult && !currentResult.info_tab_html && !!infoTabHtml
-
-      // ✅ FIX: Restore if result doesn't exist, has different ID, OR is missing HTML reports
-      if (shouldRestoreResult || resultMissingHtml || resultMissingInfoTab) {
-        chatLogger.info('[Conversational] Restoring result with HTML assets', {
-          reportId,
-          shouldRestoreResult,
-          resultMissingHtml,
-          resultMissingInfoTab,
-          hasHtmlReport: !!htmlReport,
-          hasInfoTabHtml: !!infoTabHtml,
-          htmlReportLength: htmlReport?.length || 0,
-          infoTabHtmlLength: infoTabHtml?.length || 0,
-          source: currentSession.valuationResult ? 'top-level' : 'sessionData',
-        })
-
-        // Merge HTML reports from session into result object (they're stored separately in DB)
-        const resultWithHtml = {
-          ...(currentResult || valuationResult),
-          ...valuationResult, // Ensure we have latest valuation result
-          html_report:
-            htmlReport ||
-            currentResult?.html_report ||
-            valuationResult.html_report,
-          info_tab_html:
-            infoTabHtml ||
-            currentResult?.info_tab_html ||
-            valuationResult.info_tab_html,
-        }
-
-        setResult(resultWithHtml as any)
-
-        // Verify restoration was successful
-        const restoredResult = useConversationalResultsStore.getState().result
-        if (restoredResult && !restoredResult.html_report && htmlReport) {
-          chatLogger.error(
-            '[Conversational] RESTORATION FAILED: html_report missing after setResult',
-            {
-              reportId,
-              valuationId: restoredResult.valuation_id,
-              sessionHadHtmlReport: !!htmlReport,
-            }
-          )
-        } else if (restoredResult?.html_report) {
-          chatLogger.info('[Conversational] RESTORATION SUCCESS: HTML report restored', {
-            reportId,
-            valuationId: restoredResult.valuation_id,
-            htmlReportLength: restoredResult.html_report.length,
-            infoTabHtmlLength: restoredResult.info_tab_html?.length || 0,
-          })
-        }
-      }
-    }
-  }, [reportId, setResult]) // Only depend on reportId prop, not session?.reportId or result
-
-  // ✅ FIX: Subscribe to session to detect when HTML reports are added
-  // This handles the case where HTML reports are loaded after initial restoration
-  // (e.g., after PUT /result completes and session is reloaded)
-  // ✅ CRITICAL FIX: Check BOTH top-level session fields AND sessionData as fallback
-  // ✅ NAMING FIX: Backend uses camelCase, so check BOTH camelCase and snake_case
-  const sessionHtmlReport = useSessionStore((state) => 
-    state.session?.htmlReport || 
-    (state.session?.sessionData as any)?.htmlReport ||      // camelCase (backend sets this)
-    (state.session?.sessionData as any)?.html_report        // snake_case (legacy fallback)
-  )
-  const sessionInfoTabHtml = useSessionStore((state) => 
-    state.session?.infoTabHtml || 
-    (state.session?.sessionData as any)?.infoTabHtml ||     // camelCase (backend sets this)
-    (state.session?.sessionData as any)?.info_tab_html      // snake_case (legacy fallback)
-  )
-  const sessionValuationResult = useSessionStore((state) => 
-    state.session?.valuationResult || 
-    (state.session?.sessionData as any)?.valuationResult || // camelCase (backend sets this)
-    (state.session?.sessionData as any)?.valuation_result   // snake_case (legacy fallback)
-  )
-
-  // ✅ FIX: Separate effect to restore HTML reports when they're added to session
-  useEffect(() => {
-    if (!reportId) return
-
-    const currentSession = useSessionStore.getState().session
-    if (!currentSession || currentSession.reportId !== reportId) {
-      return
-    }
-
-    // Check if session has HTML reports but result doesn't
-    const hasHtmlReportInSession = !!sessionHtmlReport
-    const hasInfoTabHtmlInSession = !!sessionInfoTabHtml
-    const currentResult = useConversationalResultsStore.getState().result
-
-    if (!hasHtmlReportInSession && !hasInfoTabHtmlInSession) {
-      return // No HTML reports to restore
-    }
-
-    // Check if result is missing HTML reports
-    const resultMissingHtml = currentResult && !currentResult.html_report && hasHtmlReportInSession
-    const resultMissingInfoTab =
-      currentResult && !currentResult.info_tab_html && hasInfoTabHtmlInSession
-
-    if (resultMissingHtml || resultMissingInfoTab) {
-      chatLogger.info('[Conversational] HTML reports detected in session, restoring to result', {
-        reportId,
-        hasHtmlReportInSession,
-        hasInfoTabHtmlInSession,
-        resultMissingHtml,
-        resultMissingInfoTab,
-        hasExistingResult: !!currentResult,
-      })
-
-      // Merge HTML reports into existing result
-      if (currentResult) {
-        const resultWithHtml = {
-          ...currentResult,
-          html_report: sessionHtmlReport || currentResult.html_report,
-          info_tab_html: sessionInfoTabHtml || currentResult.info_tab_html,
-        }
-        setResult(resultWithHtml as any)
-        chatLogger.info('[Conversational] HTML reports restored to existing result', {
-          reportId,
-          htmlReportLength: resultWithHtml.html_report?.length || 0,
-          infoTabHtmlLength: resultWithHtml.info_tab_html?.length || 0,
-        })
-      } else if (sessionValuationResult) {
-        // No result yet, but we have valuation result - restore it with HTML
-        const resultWithHtml = {
-          ...sessionValuationResult,
-          html_report: sessionHtmlReport || sessionValuationResult.html_report,
-          info_tab_html: sessionInfoTabHtml || sessionValuationResult.info_tab_html,
-        }
-        setResult(resultWithHtml as any)
-        chatLogger.info('[Conversational] HTML reports restored with valuation result', {
-          reportId,
-          htmlReportLength: resultWithHtml.html_report?.length || 0,
-          infoTabHtmlLength: resultWithHtml.info_tab_html?.length || 0,
-        })
-      }
-    }
-  }, [reportId, sessionHtmlReport, sessionInfoTabHtml, sessionValuationResult, setResult])
+  // ✅ WORLD-CLASS ARCHITECTURE: Session restoration is now handled centrally by SessionRestorationService
+  // The restoration happens atomically in useSessionStore.loadSession() after session is fetched
+  // This component only renders - it does NOT restore valuation results/HTML
+  // 
+  // Previous restoration code removed:
+  // - Result restoration useEffect (valuation results, HTML reports)
+  // - HTML report subscription useEffect
+  //
+  // All restoration is now handled by:
+  // 1. SessionRestorationService.restore() - called from useSessionStore.loadSession()
+  // 2. SessionNormalizer - handles all naming conversions (camelCase/snake_case)
+  // 3. Atomic store hydration - all stores updated synchronously
+  //
+  // Conversation-specific restoration (chat messages) is still handled by useConversationRestoration hook below
 
   // Restore conversation from Python backend
   // FIX: Use refs to stabilize callbacks and prevent infinite loops

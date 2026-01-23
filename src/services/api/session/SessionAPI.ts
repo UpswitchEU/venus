@@ -23,6 +23,7 @@ import {
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
+import { normalizeSessionData } from '../../session/SessionNormalizer'
 
 export class SessionAPI extends HttpClient {
   /**
@@ -189,28 +190,47 @@ export class SessionAPI extends HttpClient {
         sessionData.dataSource = 'conversational'
       }
 
+      // ✅ WORLD-CLASS: Normalize session data at API boundary
+      // This is the SINGLE place where we convert backend naming to frontend naming
+      const normalized = normalizeSessionData(sessionData)
+      
+      // Promote normalized fields to top level for easy access
+      // This ensures consistent access patterns throughout the app
+      const enrichedSessionData = {
+        ...sessionData,
+        // Promote key fields from normalized data to top level
+        valuationResult: normalized.valuationResult,
+        htmlReport: normalized.htmlReport,
+        infoTabHtml: normalized.infoTabHtml,
+        // Keep the normalized form data accessible
+        _normalizedFormData: normalized.formData,
+        // Mark as normalized so consumers know they can trust field names
+        _isNormalized: true,
+      }
+      
       // ✅ DIAGNOSTIC: Log what we're returning (including sessionData/partialData mapping)
       console.log('[SessionAPI] GET returning session:', {
         reportId,
-        hasSession: !!sessionData,
-        sessionKeys: sessionData ? Object.keys(sessionData) : [],
-        hasSessionData: !!sessionData.sessionData,
-        sessionDataKeys: sessionData.sessionData ? Object.keys(sessionData.sessionData) : [],
-        hasPartialData: !!sessionData.partialData,
-        partialDataKeys: sessionData.partialData ? Object.keys(sessionData.partialData) : [],
-        hasBackendSessionData: !!sessionData.session_data,
-        backendSessionDataKeys: sessionData.session_data ? Object.keys(sessionData.session_data) : [],
-        hasHtmlReport: !!(sessionData as any)?.htmlReport,
-        htmlReportLength: (sessionData as any)?.htmlReport?.length || 0,
-        hasInfoTabHtml: !!(sessionData as any)?.infoTabHtml,
-        infoTabHtmlLength: (sessionData as any)?.infoTabHtml?.length || 0,
-        hasValuationResult: !!(sessionData as any)?.valuationResult,
+        hasSession: !!enrichedSessionData,
+        sessionKeys: enrichedSessionData ? Object.keys(enrichedSessionData) : [],
+        hasSessionData: !!enrichedSessionData.sessionData,
+        sessionDataKeys: enrichedSessionData.sessionData ? Object.keys(enrichedSessionData.sessionData) : [],
+        hasPartialData: !!enrichedSessionData.partialData,
+        partialDataKeys: enrichedSessionData.partialData ? Object.keys(enrichedSessionData.partialData) : [],
+        hasBackendSessionData: !!enrichedSessionData.session_data,
+        backendSessionDataKeys: enrichedSessionData.session_data ? Object.keys(enrichedSessionData.session_data) : [],
+        hasHtmlReport: !!enrichedSessionData.htmlReport,
+        htmlReportLength: enrichedSessionData.htmlReport?.length || 0,
+        hasInfoTabHtml: !!enrichedSessionData.infoTabHtml,
+        infoTabHtmlLength: enrichedSessionData.infoTabHtml?.length || 0,
+        hasValuationResult: !!enrichedSessionData.valuationResult,
+        isNormalized: enrichedSessionData._isNormalized,
       })
 
       // Return in expected format
       return {
         success,
-        session: sessionData,
+        session: enrichedSessionData,
       }
     } catch (error) {
       // Retry logic with exponential backoff

@@ -1,20 +1,22 @@
 /**
  * Complete Valuation Restoration Hook
  * 
- * Unified restoration hook that replaces multiple competing restoration hooks.
- * Provides coordinated data loading with zero race conditions.
+ * @deprecated This hook is DEPRECATED and will be removed in a future version.
  * 
- * Features:
- * - Single coordinated fetch for all valuation data
- * - Proper sequencing (session → form → results → versions → packages)
- * - Support for both manual and conversational flows
- * - Loading state coordination
- * - Request deduplication
+ * Session restoration is now handled centrally by SessionRestorationService,
+ * which is automatically invoked when useSessionStore.loadSession() is called.
  * 
- * Usage:
- * ```tsx
- * const { isRestoring, restorationComplete } = useCompleteValuationRestoration(reportId)
- * ```
+ * The centralized restoration service provides:
+ * - Atomic hydration of ALL stores (form, results, versions, EBITDA normalizations)
+ * - Idempotent restoration (safe to call multiple times)
+ * - No race conditions (single source of truth)
+ * - Complete asset restoration for existing sessions
+ * 
+ * Migration: Remove usage of this hook. The session store will automatically
+ * restore all data when the session is loaded.
+ * 
+ * @see SessionRestorationService - The centralized replacement
+ * @see useSessionStore.loadSession - Entry point for session loading
  * 
  * @module hooks/useCompleteValuationRestoration
  */
@@ -33,7 +35,19 @@ import { generalLogger } from '../utils/logger'
 // Global state machine to prevent duplicate restorations
 const restorationState = new Map<string, 'idle' | 'loading' | 'complete'>()
 
+/**
+ * @deprecated See module-level deprecation notice above.
+ */
 export function useCompleteValuationRestoration(reportId: string | null) {
+  // DEPRECATION WARNING: Log warning on first use
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(
+      '[DEPRECATED] useCompleteValuationRestoration is deprecated. ' +
+      'Session restoration is now handled centrally by SessionRestorationService. ' +
+      'Remove this hook usage - restoration happens automatically via useSessionStore.loadSession().'
+    )
+  }
+  
   const [isRestoring, setIsRestoring] = useState(false)
   const [restorationComplete, setRestorationComplete] = useState(false)
   const hasAttemptedRef = useRef(false)
