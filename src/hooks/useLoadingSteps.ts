@@ -4,10 +4,13 @@
  * World-class hook for determining the appropriate loading steps based on bootstrap mode.
  * Provides consistent loading state differentiation between new report creation and existing report restoration.
  * 
+ * PERFORMANCE FIX: Loading steps are now "locked" once determined to prevent flickering
+ * when bootstrap mode transitions during loading.
+ * 
  * @module hooks/useLoadingSteps
  */
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
 import {
   INITIALIZATION_STEPS,
@@ -47,6 +50,11 @@ function detectExistingReportFromUrl(): boolean {
  * - New report → "Initializing workspace..." (INITIALIZATION_STEPS)
  * - Draft (in-progress) → "Restoring draft..." (DRAFT_RESTORATION_STEPS)
  * - Completed report → "Restoring valuation..." (RESTORATION_STEPS)
+ * 
+ * PERFORMANCE FIX: Loading steps are "locked" based on URL detection to prevent
+ * flickering when bootstrap mode transitions. Once we detect an existing report
+ * from the URL, we show restoration steps and don't change even if bootstrap
+ * temporarily returns 'new' mode due to race conditions.
  *
  * @returns Loading steps array appropriate for the current bootstrap state
  *
@@ -58,7 +66,19 @@ function detectExistingReportFromUrl(): boolean {
  */
 export function useLoadingSteps(): LoadingStep[] {
   const bootstrap = useBootstrapSafe()
+  
+  // PURE INITIALIZATION: Detect URL pattern once on mount using lazy useState
+  // This runs only once and avoids mutations inside useMemo
+  const [urlIndicatesExisting] = useState(() => detectExistingReportFromUrl())
+  
+  // PURE INITIALIZATION: Lock initial steps based on URL detection
+  // This ensures consistent loading message from first render
+  const [initialSteps] = useState<LoadingStep[]>(() => 
+    urlIndicatesExisting ? RESTORATION_STEPS : INITIALIZATION_STEPS
+  )
 
+  // Pure computation based on bootstrap state
+  // No mutations - useMemo is now side-effect free
   return useMemo(() => {
     // Loading step logic:
     //
@@ -71,13 +91,34 @@ export function useLoadingSteps(): LoadingStep[] {
     // 3. mode: 'existing' + hasValuationResult → RESTORATION_STEPS
     //    "Restoring valuation", "Preparing results", "Finalizing report"
 
-    // ✅ WORLD CLASS: Detect existing report from URL BEFORE bootstrap completes
-    // This provides immediate visual feedback that we're restoring, not creating
-    if (!bootstrap?.report) {
-      // Check URL for existing report indicators
-      if (detectExistingReportFromUrl()) {
+    // If URL indicated existing report, use locked steps until bootstrap confirms
+    // This prevents flickering if bootstrap temporarily returns 'new' mode
+    if (urlIndicatesExisting) {
+      // Bootstrap hasn't loaded yet - use initial locked steps
+      if (!bootstrap?.report) {
+        return initialSteps
+      }
+      
+      // Bootstrap says 'new' but URL says existing - keep showing restoration
+      // This handles race conditions where session lookup temporarily fails
+      if (bootstrap.report.mode === 'new') {
+        return initialSteps
+      }
+      
+      // Bootstrap confirms existing - refine based on report state
+      if (bootstrap.report.mode === 'existing') {
+        if (bootstrap.report.hasValuationResult) {
+          return RESTORATION_STEPS
+        }
+        if (bootstrap.report.hasExistingData) {
+          return DRAFT_RESTORATION_STEPS
+        }
         return RESTORATION_STEPS
       }
+    }
+
+    // URL indicates new report flow
+    if (!bootstrap?.report) {
       return INITIALIZATION_STEPS
     }
 
@@ -96,7 +137,7 @@ export function useLoadingSteps(): LoadingStep[] {
       return DRAFT_RESTORATION_STEPS
     }
 
-    // Fallback to initialization steps
-    return INITIALIZATION_STEPS
-  }, [bootstrap?.report])
+    // Fallback based on URL detection
+    return urlIndicatesExisting ? RESTORATION_STEPS : INITIALIZATION_STEPS
+  }, [bootstrap?.report, urlIndicatesExisting, initialSteps])
 }

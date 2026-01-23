@@ -103,8 +103,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // ✅ CREDIT CHECK: Check bootstrap credit status
     // AUTH-FIRST: All users are authenticated, show premium modal when credits exhausted
+    // CRITICAL FIX: Only show credit error for NEW reports, not existing ones
+    // If URL has val_xxx format, user is viewing an existing report - never block viewing
     const bootstrapCreditStatus = bootstrap?.creditStatus
-    const showCreditError = bootstrapCreditStatus && !bootstrapCreditStatus.allowed
+    const urlIndicatesExistingReport = reportId?.startsWith('val_') ?? false
+    const showCreditError = bootstrapCreditStatus && 
+      !bootstrapCreditStatus.allowed && 
+      !urlIndicatesExistingReport // Don't block viewing existing reports
 
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)

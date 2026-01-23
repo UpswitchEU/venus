@@ -46,7 +46,7 @@ interface BootstrapOptions {
 }
 
 const DEFAULT_OPTIONS: BootstrapOptions = {
-  timeout: 15000, // Increased from 5s to 15s for more reliability
+  timeout: 10000, // Reduced from 15s - auth wait optimization makes this safer
   skipAuth: false,
   useCache: true,
 };
@@ -351,18 +351,40 @@ export class SessionBootstrapService {
 
   /**
    * Wait for auth to be ready before making bootstrap API call
-   * This prevents race conditions where bootstrap runs before token refresh completes
+   * 
+   * PERFORMANCE OPTIMIZATION:
+   * - Reduced max wait from 5s to 1s for faster page loads
+   * - Skip wait entirely if auth already loaded or we have a valid token cookie
+   * - Poll interval reduced from 100ms to 50ms for faster response
    */
   private async waitForAuth(maxWaitMs: number): Promise<boolean> {
     const { useAuthStore } = await import('../auth');
     const start = Date.now();
     
+    // OPTIMIZATION: Check if auth is already ready (common case)
+    const initialState = useAuthStore.getState();
+    if (!initialState.loading && (initialState.user || initialState.error)) {
+      return true;
+    }
+    
+    // OPTIMIZATION: Check for existing token cookie - if present, skip wait
+    // The API call will use the cookie for auth, no need to wait for store
+    if (typeof document !== 'undefined') {
+      const hasTokenCookie = document.cookie.includes('upswitch_access_token') || 
+                             document.cookie.includes('sb-') // Supabase tokens
+      if (hasTokenCookie) {
+        this.logger.debug('[Bootstrap] Token cookie found, skipping auth wait');
+        return true;
+      }
+    }
+    
+    // Poll with shorter interval for faster response
     while (Date.now() - start < maxWaitMs) {
       const { loading, user, error } = useAuthStore.getState();
       if (!loading && (user || error)) {
         return true;
       }
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 50)); // Reduced from 100ms
     }
     
     return false;
@@ -452,11 +474,11 @@ export class SessionBootstrapService {
     });
 
     try {
-      // BANK GRADE: Wait for auth to be ready before making API call
-      // This prevents race conditions where bootstrap runs before token refresh completes
-      const authReady = await this.waitForAuth(5000);
+      // PERFORMANCE: Reduced auth wait from 5s to 1s for faster page loads
+      // The optimized waitForAuth now skips wait if token cookie exists
+      const authReady = await this.waitForAuth(1000);
       if (!authReady) {
-        this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after 5s timeout, proceeding anyway`);
+        this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after 1s timeout, proceeding anyway`);
       }
 
       // Build request body
