@@ -38,6 +38,11 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   private loadingPromise: Promise<ValuationSession | null> | null = null
   private loadingReportId: string | null = null
   private pendingUpdates: Partial<ValuationSession>[] = []
+  
+  // ✅ RACE CONDITION FIX: Track ongoing save operations to prevent concurrent saves
+  // Multiple hooks can trigger saves simultaneously, causing data loss when they race
+  private savePromise: Promise<void> | null = null
+  private savePending: boolean = false
 
   /**
    * Load session from backend
@@ -186,6 +191,10 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    * Save session to backend
    * 
    * BANK-GRADE: Waits for pending load before saving, if applicable.
+   * 
+   * ✅ RACE CONDITION FIX: Debounces and deduplicates concurrent saves.
+   * If a save is already in progress, queues a follow-up save with the latest data.
+   * This prevents multiple concurrent PATCH requests that can cause data loss.
    */
   async saveSession(reason: 'user' | 'autosave' | 'system' = 'autosave'): Promise<void> {
     // If we're loading, wait for it to complete first
@@ -202,6 +211,64 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
       return
     }
 
+    // ✅ RACE CONDITION FIX: If a save is already in progress, mark pending and wait
+    // This ensures we don't send concurrent PATCH requests that race
+    if (this.savePromise) {
+      this.savePending = true
+      generalLogger.debug('[AuthenticatedSessionEngine] Save already in progress, queuing', {
+        reportId: this.currentSession.reportId,
+        reason,
+      })
+      
+      // Wait for current save to complete
+      try {
+        await this.savePromise
+      } catch {
+        // Ignore errors from the previous save, we'll try again
+      }
+      
+      // If another save was triggered while we were waiting, exit and let that one handle it
+      // This prevents an avalanche of queued saves
+      if (this.savePending && this.savePromise) {
+        generalLogger.debug('[AuthenticatedSessionEngine] Another save is handling the queue', {
+          reportId: this.currentSession?.reportId,
+        })
+        return
+      }
+    }
+    
+    // Clear pending flag since we're about to save
+    this.savePending = false
+
+    try {
+      // Create the save promise
+      this.savePromise = this.executeSave(reason)
+      await this.savePromise
+    } finally {
+      this.savePromise = null
+      
+      // If more saves were queued while we were saving, trigger another save
+      if (this.savePending && this.currentSession) {
+        this.savePending = false
+        generalLogger.debug('[AuthenticatedSessionEngine] Processing queued save', {
+          reportId: this.currentSession.reportId,
+        })
+        // Don't await - let it run in the background
+        this.saveSession('autosave').catch(err => {
+          generalLogger.error('[AuthenticatedSessionEngine] Queued save failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+        })
+      }
+    }
+  }
+  
+  /**
+   * Execute the actual save operation (internal)
+   */
+  private async executeSave(reason: 'user' | 'autosave' | 'system'): Promise<void> {
+    if (!this.currentSession) return
+    
     try {
       // Prepare updates from current session
       const updates = {
@@ -226,7 +293,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
       }
     } catch (error) {
       generalLogger.error('[AuthenticatedSessionEngine] Failed to save session', {
-        reportId: this.currentSession.reportId,
+        reportId: this.currentSession?.reportId,
         reason,
         error: error instanceof Error ? error.message : String(error),
       })

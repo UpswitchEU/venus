@@ -218,7 +218,17 @@ export class SessionCacheManager {
       // Note: HTML reports are excluded from cache, so we check valuationResult instead
       // If session has no valuation result but cache is old (>10 min), invalidate it
       // This prevents stale "empty session" caches from before valuation completion
-      const hasValuationResult = !!sanitized.valuationResult
+      // 
+      // ✅ BANK-GRADE FIX: Check ALL possible locations for valuation result
+      // The sanitizeSessionData function only preserves sessionData, not top-level valuationResult
+      // So we need to check inside sessionData for the valuation result
+      const sessionData = sanitized.sessionData as any || {}
+      const hasValuationResult = !!(
+        sanitized.valuationResult ||                    // Top-level (might not exist after sanitize)
+        sessionData.valuation_result ||                 // snake_case in sessionData
+        sessionData.valuationResult ||                  // camelCase in sessionData
+        sessionData._valuationResult                    // Titan-injected field
+      )
       const cacheAge_minutes = Math.floor((Date.now() - parsed.cachedAt) / (60 * 1000))
 
       // Note: HTML reports are not cached (too large), so we don't check for them here
@@ -228,6 +238,7 @@ export class SessionCacheManager {
           reportId,
           cacheAge_minutes,
           hasValuationResult,
+          sessionDataKeys: Object.keys(sessionData).slice(0, 10),
         })
         this.delete(reportId)
         return null

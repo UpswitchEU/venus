@@ -21,7 +21,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationSession } from '../types/valuation'
@@ -109,6 +109,17 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)
 
+    // ✅ RACE CONDITION FIX: Track if we've already initiated loading for this reportId
+    // This prevents multiple concurrent loads when dependencies change rapidly
+    const loadingInitiatedRef = useRef<string | null>(null)
+    const bootstrapRetryRef = useRef(false)
+    
+    // Reset refs when reportId changes (component reused for different report)
+    useEffect(() => {
+      loadingInitiatedRef.current = null
+      bootstrapRetryRef.current = false
+    }, [reportId])
+
     // ✅ TIMEOUT WARNING: Show warning after 10 seconds of loading
     const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
 
@@ -133,19 +144,20 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // ✅ FIX: Handle bootstrap mismatch - session not found for existing reportId
     // This can happen due to auth race conditions or permission issues
     // Trigger a retry after a short delay to give auth time to stabilize
-    const [hasRetriedBootstrap, setHasRetriedBootstrap] = useState(false)
-    
+    // ✅ RACE CONDITION FIX: Use ref instead of state to prevent re-render loops
     useEffect(() => {
-      if (bootstrapMismatch && !hasRetriedBootstrap && bootstrap?.refreshBootstrap) {
+      if (bootstrapMismatch && !bootstrapRetryRef.current && bootstrap?.refreshBootstrap) {
         generalLogger.warn('[SessionManager] Bootstrap returned new for existing reportId - retrying', {
           reportId,
           bootstrapMode: bootstrap.report.mode,
           bootstrapReportId: bootstrap.report.reportId,
         })
         
+        // Mark retry as initiated immediately to prevent duplicate retries
+        bootstrapRetryRef.current = true
+        
         // Wait a bit for auth to fully stabilize, then retry bootstrap
         const retryTimer = setTimeout(async () => {
-          setHasRetriedBootstrap(true)
           try {
             await bootstrap.refreshBootstrap()
           } catch (err) {
@@ -158,7 +170,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         
         return () => clearTimeout(retryTimer)
       }
-    }, [bootstrapMismatch, hasRetriedBootstrap, bootstrap, reportId])
+    }, [bootstrapMismatch, bootstrap, reportId])
 
     // Extract URL params (for backward compatibility)
     // SECURITY: prefilledQuery should come from session data, not URL
@@ -210,8 +222,9 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // WORLD CLASS: Skip loading if bootstrap already has this session
     // Add cleanup to prevent state updates after unmount
     // Add 30-second timeout with error handling
+    // ✅ RACE CONDITION FIX: Use ref to prevent duplicate loads when dependencies change rapidly
     useEffect(() => {
-      // Skip session loading if bootstrap is in progress or has this session
+      // Skip session loading if bootstrap is in progress
       if (isBootstrapping) {
         generalLogger.debug('[SessionManager] Waiting for bootstrap to complete', { reportId })
         return
@@ -224,6 +237,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           reportId,
           bootstrapReportId,
         })
+        // Clear loading ref since we're done
+        loadingInitiatedRef.current = null
         return
       }
 
@@ -239,8 +254,20 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         // Mark initialization as complete since bootstrap has provided all necessary data
         // The session will be created automatically when the user first saves
         useSessionStore.getState().completeInitialization()
+        // Clear loading ref since we're done
+        loadingInitiatedRef.current = null
         return
       }
+
+      // ✅ RACE CONDITION FIX: Skip if we've already initiated loading for this reportId
+      // This prevents duplicate API calls when multiple dependencies change
+      if (loadingInitiatedRef.current === reportId) {
+        generalLogger.debug('[SessionManager] Loading already initiated, skipping duplicate', { reportId })
+        return
+      }
+
+      // Mark loading as initiated for this reportId
+      loadingInitiatedRef.current = reportId
 
       let isMounted = true
       let timeoutId: NodeJS.Timeout
@@ -270,12 +297,20 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       // Race between load and timeout
       Promise.race([loadSession(reportId, detectedFlow, prefilledQuery), timeoutPromise])
         .then(() => {
+          clearTimeout(timeoutId)
+          
+          // ✅ RACE CONDITION FIX: Clear loading ref on success
+          // Only clear if we're still the active load (prevent stale cleanup)
+          if (loadingInitiatedRef.current === reportId) {
+            loadingInitiatedRef.current = null
+          }
+          
           if (!isMounted) {
             generalLogger.debug('[SessionManager] Load completed after unmount, ignoring', {
               reportId,
             })
+            return
           }
-          clearTimeout(timeoutId)
           
           // SECURITY: Clean sensitive parameters from URL after session is loaded
           // prefilledQuery is now stored in session_data, no need to keep it in URL
@@ -296,6 +331,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         })
         .catch((err) => {
           clearTimeout(timeoutId)
+          
+          // ✅ RACE CONDITION FIX: Clear loading ref on error to allow retry
+          // Only clear if we're still the active load (prevent stale cleanup)
+          if (loadingInitiatedRef.current === reportId) {
+            loadingInitiatedRef.current = null
+          }
 
           if (!isMounted) {
             generalLogger.debug('[SessionManager] Load failed after unmount, ignoring', {
@@ -384,6 +425,9 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         flow: detectedFlow,
         prefilledQuery,
       })
+      // ✅ RACE CONDITION FIX: Reset refs to allow retry
+      loadingInitiatedRef.current = null
+      bootstrapRetryRef.current = false
       loadSession(reportId, detectedFlow, prefilledQuery)
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reportId, detectedFlow, prefilledQuery]) // loadSession is stable - don't include in deps

@@ -197,10 +197,15 @@ export function sanitizeSessionData(session: any): ValuationSession {
     createdAt: session.createdAt ? new Date(session.createdAt) : new Date(),
     updatedAt: session.updatedAt ? new Date(session.updatedAt) : new Date(),
     completedAt: session.completedAt ? new Date(session.completedAt) : undefined,
+    // ✅ BANK-GRADE FIX: Preserve top-level valuation fields for restoration detection
+    // These fields are used by cache completeness checks and restoration logic
+    valuationResult: session.valuationResult || undefined,
+    htmlReport: session.htmlReport || undefined,
+    infoTabHtml: session.infoTabHtml || undefined,
   }
 
   // Validate sanitized data
   validateSessionData(sanitized)
 
-  return sanitized
+  return sanitized as ValuationSession
 }
