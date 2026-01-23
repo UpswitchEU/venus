@@ -66,16 +66,18 @@ export function useBootstrapPrefill(): {
     // ✅ WORLD-CLASS FIX: Skip prefill for existing reports with data
     // When viewing an existing completed report, we should NOT prefill the form
     // The report data is already available - prefilling would overwrite it
+    // ✅ CRITICAL FIX: Do NOT mark globalPrefillApplied = true here
+    // This allows ManualLayout to proceed with its session-based restoration
     if (bootstrap.report.mode === 'existing' && bootstrap.report.hasExistingData) {
-      logger.info('Skipping prefill - viewing existing report with data', {
+      logger.info('Skipping prefill - viewing existing report with data (allowing session restoration)', {
         reportId: bootstrap.report.reportId?.substring(0, 20),
         mode: bootstrap.report.mode,
         hasExistingData: bootstrap.report.hasExistingData,
         status: bootstrap.report.status,
       });
-      // Mark as prefilled to prevent other hooks from trying
-      globalPrefillApplied = true;
-      globalPrefillReportId = bootstrap.report.reportId;
+      // ✅ FIX: Only set local state - DO NOT set globalPrefillApplied
+      // This signals that this hook is done but did NOT prefill anything
+      // ManualLayout can then proceed with session-based restoration
       hasPrefilledRef.current = true;
       setHasPrefilled(true);
       return;

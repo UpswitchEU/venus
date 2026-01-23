@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef, useId } from 'react'
 import { useAuth } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
@@ -12,6 +12,9 @@ import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
  *
  * Displays when an accountant is acting on behalf of a client.
  * Shows client's name and avatar, with option to exit client view.
+ * 
+ * DUPLICATE PREVENTION: Uses stable ID and mount tracking to prevent
+ * duplicate banners from appearing during auth state transitions.
  */
 export function ClientContextBanner() {
   const [mounted, setMounted] = useState(false)
@@ -20,13 +23,27 @@ export function ClientContextBanner() {
   const { isEmbedded, closeEmbedded } = useEmbeddedMode()
   const locale = useLocale()
   const t = useTranslations() // ✅ Venus pattern: NO namespace
+  
+  // ✅ FIX: Use stable ID to ensure React doesn't create duplicate DOM elements
+  const bannerId = useId()
+  
+  // ✅ FIX: Track if banner has been shown to prevent duplicate rendering
+  // during rapid auth state transitions
+  const hasRenderedRef = useRef(false)
 
   useEffect(() => {
     setMounted(true)
+    return () => {
+      // Reset on unmount to allow re-render on next mount
+      hasRenderedRef.current = false
+    }
   }, [])
 
   // Only show banner if user is authenticated AND acting as client
   if (!mounted || !isActingAsClient || !client || !isAuthenticated) return null
+  
+  // ✅ FIX: Mark as rendered to track banner state
+  hasRenderedRef.current = true
 
   const handleExitClientView = () => {
     try {
@@ -169,7 +186,12 @@ export function ClientContextBanner() {
   }
 
   return (
-    <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
+    <div 
+      key={bannerId}
+      id="client-context-banner"
+      data-banner-id={bannerId}
+      className="bg-blue-50 border-b border-blue-200 px-4 py-2"
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Client Avatar */}

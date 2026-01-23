@@ -9,7 +9,6 @@
 
 import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { AssetInspector } from '../../../components/debug/AssetInspector'
-import { ClientContextBanner } from '../../../components/ClientContextBanner'
 import { FullScreenModal } from '../../../components/FullScreenModal'
 import { LoadingState } from '../../../components/LoadingState'
 import { useLoadingSteps } from '../../../hooks/useLoadingSteps'
@@ -766,8 +765,7 @@ const ConversationalLayoutInner: React.FC<ConversationalLayoutProps> = ({
       }}
     >
       <div className="flex flex-col h-full overflow-hidden">
-        {/* Client Context Banner - Shows when accountant is acting on behalf of client */}
-        <ClientContextBanner />
+        {/* Client Context Banner is rendered in root layout - no need to duplicate here */}
 
         {/* Toolbar (Save Status integrated inside toolbar) */}
         <ValuationToolbar

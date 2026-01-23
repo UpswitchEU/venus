@@ -9,7 +9,6 @@
 
 import React, { Suspense, useEffect, useRef } from 'react'
 import { AssetInspector } from '../../../components/debug/AssetInspector'
-import { ClientContextBanner } from '../../../components/ClientContextBanner'
 import { FullScreenModal } from '../../../components/FullScreenModal'
 import { LoadingState } from '../../../components/LoadingState'
 import { useLoadingSteps } from '../../../hooks/useLoadingSteps'
@@ -284,20 +283,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       let hasSessionData = false
       let formIsEmpty = true
 
-      // WORLD CLASS: Skip restoration if bootstrap has already prefilled the form
+      // WORLD CLASS: Skip restoration ONLY if bootstrap has ACTUALLY prefilled the form
       // Bootstrap prefill runs synchronously before render, so if form has meaningful data,
       // we should NOT overwrite it with session restoration
       // Check for bootstrap prefill indicators: company_name + other bootstrap fields
+      // ✅ CRITICAL FIX: Do NOT use bootstrapPrefillApplied alone - it may be true even when
+      // bootstrap skipped prefilling for existing reports. Only skip if form ACTUALLY has data.
       const hasCompanyName = currentFormData.company_name && currentFormData.company_name.trim() !== '';
       const hasBootstrapFields = !!(currentFormData.kbo_number || 
                                     currentFormData.business_type_id || 
                                     currentFormData.founding_year ||
                                     currentFormData.vat_number ||
                                     currentFormData.legal_form);
-      const hasBootstrapPrefill = hasCompanyName && (hasBootstrapFields || bootstrapPrefillApplied);
+      // ✅ FIX: Only skip restoration if form ACTUALLY has data (company name + bootstrap fields)
+      // Do NOT skip just because bootstrapPrefillApplied is true - that flag is also set when
+      // bootstrap SKIPS prefilling for existing reports (to allow session restoration)
+      const hasActualBootstrapData = hasCompanyName && hasBootstrapFields;
       
-      if (hasBootstrapPrefill) {
-        generalLogger.info('[ManualLayout] Skipping restoration - bootstrap already prefilled form', {
+      if (hasActualBootstrapData) {
+        generalLogger.info('[ManualLayout] Skipping restoration - bootstrap already prefilled form with actual data', {
           reportId,
           bootstrapPrefilled: bootstrapPrefillApplied,
           hasCompanyName,
@@ -742,15 +746,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
 
       // Restore results - CRITICAL FIX: Merge HTML reports from session into result object
-      if (currentSession.valuationResult) {
+      // ✅ CRITICAL FIX: Check BOTH top-level session fields AND sessionData for valuation result
+      // The data may be stored in either location depending on how the session was loaded/merged
+      const sessionDataForResults = currentSession.sessionData as any
+      const valuationResult = currentSession.valuationResult || sessionDataForResults?.valuation_result
+      const htmlReport = currentSession.htmlReport || sessionDataForResults?.html_report
+      const infoTabHtml = currentSession.infoTabHtml || sessionDataForResults?.info_tab_html
+      
+      if (valuationResult) {
         const currentResult = useManualResultsStore.getState().result
         const shouldRestoreResult =
           !currentResult ||
-          currentResult.valuation_id !== currentSession.valuationResult.valuation_id
+          currentResult.valuation_id !== valuationResult.valuation_id
         const resultMissingHtml =
-          currentResult && !currentResult.html_report && !!currentSession.htmlReport
+          currentResult && !currentResult.html_report && !!htmlReport
         const resultMissingInfoTab =
-          currentResult && !currentResult.info_tab_html && !!currentSession.infoTabHtml
+          currentResult && !currentResult.info_tab_html && !!infoTabHtml
 
         // ✅ FIX: Restore if result doesn't exist, has different ID, OR is missing HTML reports
         if (shouldRestoreResult || resultMissingHtml || resultMissingInfoTab) {
@@ -759,37 +770,38 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             shouldRestoreResult,
             resultMissingHtml,
             resultMissingInfoTab,
-            hasHtmlReport: !!currentSession.htmlReport,
-            hasInfoTabHtml: !!currentSession.infoTabHtml,
-            htmlReportLength: currentSession.htmlReport?.length || 0,
-            infoTabHtmlLength: currentSession.infoTabHtml?.length || 0,
+            hasHtmlReport: !!htmlReport,
+            hasInfoTabHtml: !!infoTabHtml,
+            htmlReportLength: htmlReport?.length || 0,
+            infoTabHtmlLength: infoTabHtml?.length || 0,
+            source: currentSession.valuationResult ? 'top-level' : 'sessionData',
           })
 
           // Merge HTML reports from session into result object (they're stored separately in DB)
           const resultWithHtml = {
-            ...(currentResult || currentSession.valuationResult),
-            ...currentSession.valuationResult, // Ensure we have latest valuation result
+            ...(currentResult || valuationResult),
+            ...valuationResult, // Ensure we have latest valuation result
             html_report:
-              currentSession.htmlReport ||
+              htmlReport ||
               currentResult?.html_report ||
-              currentSession.valuationResult.html_report,
+              valuationResult.html_report,
             info_tab_html:
-              currentSession.infoTabHtml ||
+              infoTabHtml ||
               currentResult?.info_tab_html ||
-              currentSession.valuationResult.info_tab_html,
+              valuationResult.info_tab_html,
           }
 
           setResultFn(resultWithHtml as any)
 
           // Verify restoration was successful
           const restoredResult = useManualResultsStore.getState().result
-          if (restoredResult && !restoredResult.html_report && currentSession.htmlReport) {
+          if (restoredResult && !restoredResult.html_report && htmlReport) {
             generalLogger.error(
               '[ManualLayout] RESTORATION FAILED: html_report missing after setResult',
               {
                 reportId,
                 valuationId: restoredResult.valuation_id,
-                sessionHadHtmlReport: !!currentSession.htmlReport,
+                sessionHadHtmlReport: !!htmlReport,
               }
             )
           } else if (restoredResult?.html_report) {
@@ -869,9 +881,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ✅ FIX: Subscribe to session to detect when HTML reports are added
   // This handles the case where HTML reports are loaded after initial restoration
   // (e.g., after PUT /result completes and session is reloaded)
-  const sessionHtmlReport = useSessionStore((state) => state.session?.htmlReport)
-  const sessionInfoTabHtml = useSessionStore((state) => state.session?.infoTabHtml)
-  const sessionValuationResult = useSessionStore((state) => state.session?.valuationResult)
+  // ✅ CRITICAL FIX: Check BOTH top-level session fields AND sessionData as fallback
+  const sessionHtmlReport = useSessionStore((state) => 
+    state.session?.htmlReport || (state.session?.sessionData as any)?.html_report
+  )
+  const sessionInfoTabHtml = useSessionStore((state) => 
+    state.session?.infoTabHtml || (state.session?.sessionData as any)?.info_tab_html
+  )
+  const sessionValuationResult = useSessionStore((state) => 
+    state.session?.valuationResult || (state.session?.sessionData as any)?.valuation_result
+  )
 
   // ✅ FIX: Subscribe to sessionData to detect when form fields are loaded
   // This handles the case where sessionData loads from cache/backend after component mounts
@@ -1252,8 +1271,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Client Context Banner - Shows when accountant is acting on behalf of client */}
-      <ClientContextBanner />
+      {/* Client Context Banner is rendered in root layout - no need to duplicate here */}
 
       {/* Toolbar (Save Status integrated inside toolbar) */}
       <ValuationToolbar
