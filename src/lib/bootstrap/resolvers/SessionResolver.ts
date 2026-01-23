@@ -208,12 +208,33 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
    * Fetch session from Titan API
    * 
    * AUTH-FIRST: Guest session headers removed - authentication is required
+   * 
+   * WARNING: This endpoint only accepts session keys (val_xxx format).
+   * UUIDs from Mercury navigation will NOT work here - they need to go through
+   * the Titan bootstrap endpoint which handles the report_id lookup.
    */
   private async fetchSession(
     sessionKey: string,
     identity?: IdentityState
   ): Promise<{ success: boolean; data?: SessionData; error?: string }> {
     try {
+      // CRITICAL: Detect UUID format - this endpoint cannot resolve UUIDs
+      // UUIDs are passed by Mercury when navigating to existing reports
+      // The main bootstrap flow (bootstrapViaTitan) handles UUIDs correctly
+      // This fallback path only works for val_xxx session keys
+      const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionKey);
+      
+      if (isUuidFormat) {
+        this.logger.warn('[SessionResolver] UUID passed to fetchSession - this endpoint only supports val_xxx format', {
+          sessionKeyPrefix: sessionKey.substring(0, 15),
+          note: 'UUIDs from Mercury should be handled by Titan bootstrap endpoint, not this fallback',
+          suggestion: 'If you see this warning frequently, check why Titan bootstrap is failing',
+        });
+        // Return not found - the caller will treat this as a new report
+        // In production, this path should rarely be hit since Titan bootstrap handles UUIDs
+        return { success: false, error: 'UUID format not supported by session endpoint - use bootstrap' };
+      }
+      
       const headers: Record<string, string> = {
         'Accept': 'application/json',
       };

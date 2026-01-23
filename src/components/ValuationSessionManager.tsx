@@ -81,12 +81,19 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     
     // ✅ FIX: Detect mismatch where URL has reportId but bootstrap says "new"
     // This indicates session wasn't found - likely auth race condition or access issue
+    // 
+    // CRITICAL: Handle BOTH ID formats that indicate existing reports:
+    // - val_xxx: Direct Venus session key format
+    // - UUID: Mercury passes valuation_reports.id (UUID format like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    const isSessionKeyFormat = reportId?.startsWith('val_') ?? false;
+    const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId || '');
+    const looksLikeExistingReportId = (isSessionKeyFormat || isUuidFormat) && !reportId?.includes('_temp');
+    
     const bootstrapMismatch = bootstrap && 
       bootstrapComplete &&
       bootstrap.report.mode === 'new' && 
       reportId && 
-      reportId.startsWith('val_') && // Looks like a valid existing reportId
-      !reportId.includes('_temp') // Not a temporary ID
+      looksLikeExistingReportId
 
     // ROOT CAUSE FIX: Subscribe to `status` directly, not computed getters
     // Zustand subscriptions don't trigger re-renders with getters - must subscribe to actual state
@@ -104,12 +111,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // ✅ CREDIT CHECK: Check bootstrap credit status
     // AUTH-FIRST: All users are authenticated, show premium modal when credits exhausted
     // CRITICAL FIX: Only show credit error for NEW reports, not existing ones
-    // If URL has val_xxx format, user is viewing an existing report - never block viewing
+    // If URL has val_xxx or UUID format, user is viewing an existing report - never block viewing
     const bootstrapCreditStatus = bootstrap?.creditStatus
-    const urlIndicatesExistingReport = reportId?.startsWith('val_') ?? false
+    // Reuse the looksLikeExistingReportId computed above for consistency
     const showCreditError = bootstrapCreditStatus && 
       !bootstrapCreditStatus.allowed && 
-      !urlIndicatesExistingReport // Don't block viewing existing reports
+      !looksLikeExistingReportId // Don't block viewing existing reports (val_xxx or UUID)
 
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)

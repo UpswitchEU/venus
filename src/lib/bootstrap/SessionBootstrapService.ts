@@ -677,10 +677,20 @@ export class SessionBootstrapService {
 
       // ✅ FIX: Retry if session was expected but not found
       // This handles race condition where auth token was stale during first request
-      if (state.report.mode === 'new' && context.reportId && context.reportId.startsWith('val_')) {
+      // 
+      // CRITICAL: Handle BOTH ID formats:
+      // - val_xxx: Direct Venus session key format
+      // - UUID: Mercury passes valuation_reports.id (UUID format)
+      const isSessionKeyFormat = context.reportId?.startsWith('val_') ?? false;
+      const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(context.reportId || '');
+      const looksLikeExistingReportId = isSessionKeyFormat || isUuidFormat;
+      
+      if (state.report.mode === 'new' && context.reportId && looksLikeExistingReportId) {
         this.logger.warn(`[Bootstrap:${traceId}] Session not found for existing reportId - retrying once`, {
           reportId: context.reportId.substring(0, 25),
           mode: state.report.mode,
+          isSessionKeyFormat,
+          isUuidFormat,
         });
         
         // Wait for auth to fully stabilize
