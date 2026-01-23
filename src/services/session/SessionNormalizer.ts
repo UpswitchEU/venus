@@ -255,8 +255,8 @@ function extractPricingRange(sessionData: any, topLevelSession: any): PricingRan
   }
   
   // Priority 3: pricing_range from valuation result
-  if (valuationResult?.pricing_range) {
-    return valuationResult.pricing_range
+  if ((valuationResult as any)?.pricing_range) {
+    return (valuationResult as any).pricing_range
   }
   
   // Priority 4: priceRange from valuation result (camelCase)

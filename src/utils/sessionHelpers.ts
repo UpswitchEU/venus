@@ -106,7 +106,9 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
 
   // ✅ FIX: Preserve ALL existing sessionData fields
   // Only add/override the special fields (valuation_result, html_report, info_tab_html)
-  const existingSessionData = session.sessionData || session.session_data || {}
+  // Cast to any to access session_data (backend may return snake_case)
+  const sessionAny = session as any
+  const existingSessionData = session.sessionData || sessionAny.session_data || {}
   
   // ✅ BANK-GRADE: Extract from BOTH top-level AND session_data locations
   // Titan controller exposes at top level, but also check session_data for defense-in-depth

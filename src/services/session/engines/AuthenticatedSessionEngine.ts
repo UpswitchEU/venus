@@ -220,16 +220,20 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         reason,
       })
       
+      // Store reference to current promise before awaiting
+      const currentSavePromise = this.savePromise
+      
       // Wait for current save to complete
       try {
-        await this.savePromise
+        await currentSavePromise
       } catch {
         // Ignore errors from the previous save, we'll try again
       }
       
-      // If another save was triggered while we were waiting, exit and let that one handle it
+      // If savePending is still true, it means another save was queued while we were waiting
+      // Exit and let that one handle it (it will process the queue in its finally block)
       // This prevents an avalanche of queued saves
-      if (this.savePending && this.savePromise) {
+      if (this.savePending) {
         generalLogger.debug('[AuthenticatedSessionEngine] Another save is handling the queue', {
           reportId: this.currentSession?.reportId,
         })

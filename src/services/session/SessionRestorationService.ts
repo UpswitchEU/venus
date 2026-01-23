@@ -498,8 +498,8 @@ class SessionRestorationServiceImpl {
       // If we have a valuation result but HTML reports are still missing,
       // try to extract them from the latest version's version_data
       if (data.valuationResult && (!restoredHtmlReport || !restoredInfoTabHtml)) {
-        const latestVersion = versions?.[0]
-        const versionData = latestVersion?.version_data as any
+        const latestVersion = versions?.[0] as any
+        const versionData = latestVersion?.version_data
         
         if (versionData) {
           // Extract HTML reports from version data - check multiple possible locations
