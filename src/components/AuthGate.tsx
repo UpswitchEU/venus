@@ -243,6 +243,30 @@ export function AuthGate({
           return
         }
         
+        // AUTH-FIRST: If auth error and no user, redirect to login instead of showing error
+        const currentUser = useAuthStore.getState().user
+        if (!currentUser && isTransient401) {
+          // Build redirect URL to return user to current page after login
+          const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://valuation.upswitch.app/reports/new'
+          const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+          const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
+          // Mercury expects 'returnUrl' parameter (not 'redirect')
+          const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+          
+          console.log(`[AuthGate:${traceId}] Auth error and no user - redirecting to Mercury login`, {
+            redirectUrl,
+            currentUrl,
+            authError,
+          })
+          
+          // Immediate redirect - no error state, no loading state
+          if (typeof window !== 'undefined') {
+            window.location.href = redirectUrl
+          }
+          return
+        }
+        
+        // Only show error if user exists but there's still an auth error (unusual case)
         console.log(`[AuthGate:${traceId}] Auth error detected: ${authError}`)
         if (mounted) {
           setState('error')
@@ -261,6 +285,33 @@ export function AuthGate({
         if (!contextState.isActingAsClient || !contextState.client || !contextState.accountant) {
           // Check if there's an auth error message from the store
           const currentAuthError = useAuthStore.getState().error
+          const currentUser = useAuthStore.getState().user
+          
+          // AUTH-FIRST: If auth error and no user, redirect to login instead of showing error
+          if (currentAuthError && !currentUser) {
+            const isAuthError = currentAuthError.includes('401') || 
+                               currentAuthError.toLowerCase().includes('expired') ||
+                               currentAuthError.toLowerCase().includes('unauthorized')
+            
+            if (isAuthError) {
+              const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://valuation.upswitch.app/reports/new'
+              const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+              const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
+              const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+              
+              console.log(`[AuthGate:${traceId}] Auth error during client context check - redirecting to Mercury login`, {
+                redirectUrl,
+                currentUrl,
+                authError: currentAuthError,
+              })
+              
+              if (typeof window !== 'undefined') {
+                window.location.href = redirectUrl
+              }
+              return
+            }
+          }
+          
           if (currentAuthError) {
             if (mounted) {
               setState('error')
