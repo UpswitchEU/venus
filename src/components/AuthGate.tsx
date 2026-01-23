@@ -185,6 +185,10 @@ export function AuthGate({
   // Auth state from store
   const authLoading = useAuthStore((s) => s.loading)
   const authError = useAuthStore((s) => s.error)
+  // RACE CONDITION FIX: Track initialization state separately from loading
+  // This ensures we wait for the full initializeAuth() to complete,
+  // not just for checkSession() to return (which sets loading=false prematurely)
+  const isInitializing = useAuthStore((s) => s.isInitializing)
 
   // BANK GRADE: Trust the prop from parent - no redundant URL checking
   // ValuationReportClient already checks urlParams for clientToken/clientId
@@ -221,8 +225,12 @@ export function AuthGate({
 
     function checkAuth() {
       // Step 1: Wait for auth to complete
-      if (authLoading) {
-        console.log(`[AuthGate:${traceId}] Waiting for auth to complete`)
+      // RACE CONDITION FIX: Wait for BOTH loading=false AND isInitializing=false
+      // This prevents checking client context before initializeAuth() has finished
+      // setting it up (the old bug was that checkSession() set loading=false 
+      // when returning cached user, but initializeAuth() was still running)
+      if (authLoading || isInitializing) {
+        console.log(`[AuthGate:${traceId}] Waiting for auth to complete (loading=${authLoading}, isInitializing=${isInitializing})`)
         setState('checking')
         return
       }
@@ -468,7 +476,7 @@ export function AuthGate({
       if (timeoutId) clearTimeout(timeoutId)
       if (maxTimeoutId) clearTimeout(maxTimeoutId)
     }
-  }, [authLoading, authError, needsClientContext, onAuthReady, onAuthError, retryCount, state])
+  }, [authLoading, authError, isInitializing, needsClientContext, onAuthReady, onAuthError, retryCount, state])
 
   // Render based on state
   if (state === 'error' && error) {

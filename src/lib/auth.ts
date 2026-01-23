@@ -242,11 +242,20 @@ interface AuthState {
   user: User | null
   loading: boolean
   error: string | null
+  /** 
+   * RACE CONDITION FIX: Tracks when initializeAuth() is running.
+   * AuthGate should wait for both loading=false AND isInitializing=false
+   * before checking client context. This prevents the race where
+   * checkSession() sets loading=false but initializeAuth() hasn't
+   * finished fetching client context yet.
+   */
+  isInitializing: boolean
 
   // Actions
   setUser: (user: User | null) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  setIsInitializing: (isInitializing: boolean) => void
   checkSession: () => Promise<User | null>
   exchangeToken: (token: string) => Promise<User | null>
   logout: () => void
@@ -263,6 +272,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       loading: true,
       error: null,
+      isInitializing: true, // RACE CONDITION FIX: Start as true, set false when initializeAuth completes
 
       // Set user
       setUser: (user: User | null) => {
@@ -279,12 +289,21 @@ export const useAuthStore = create<AuthState>()(
         set({ error, loading: false })
       },
 
+      // RACE CONDITION FIX: Set initialization state
+      setIsInitializing: (isInitializing: boolean) => {
+        set({ isInitializing })
+      },
+
       // Check session with cookie (supports dual-token system with auto-refresh)
       checkSession: async (): Promise<User | null> => {
         // CRITICAL: Check cache first (like Mercury)
         const cached = getAuthCache()
         if (cached) {
-          set({ user: cached, loading: false, error: null })
+          // RACE CONDITION FIX: Don't set loading: false here!
+          // Let initializeAuth() manage loading state in its finally block.
+          // Setting loading: false here causes AuthGate to run checkAuth()
+          // before initializeAuth() has finished setting up client context.
+          set({ user: cached, error: null })
           return cached
         }
 
@@ -617,12 +636,15 @@ async function initializeAuth(): Promise<void> {
   const traceId = currentTraceId
 
   initPromise = (async () => {
-    const { setLoading, checkSession, exchangeToken, setUser } = useAuthStore.getState()
+    const { setLoading, checkSession, exchangeToken, setUser, setIsInitializing } = useAuthStore.getState()
 
     console.log(`[Auth:${traceId}] Starting initialization flow`)
 
     try {
       setLoading(true)
+      // RACE CONDITION FIX: Ensure isInitializing is true at start
+      // This prevents AuthGate from checking client context prematurely
+      setIsInitializing(true)
 
       // ========================================================================
       // STEP 1: Client Context Token Exchange (Highest Priority - Accountant → Client)
@@ -1043,8 +1065,11 @@ async function initializeAuth(): Promise<void> {
       // AUTH-FIRST: Clear user on error - BootstrapProvider will redirect to login
       setUser(null)
     } finally {
-      console.log(`[Auth:${traceId}] Initialization complete - loading=false`)
+      console.log(`[Auth:${traceId}] Initialization complete - loading=false, isInitializing=false`)
       setLoading(false)
+      // RACE CONDITION FIX: Mark initialization as complete
+      // AuthGate waits for both loading=false AND isInitializing=false
+      setIsInitializing(false)
       // CRITICAL: Clear promise cache after completion
       initPromise = null
       // Keep traceId for AuthGate to use
