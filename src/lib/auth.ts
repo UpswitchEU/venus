@@ -906,6 +906,89 @@ async function initializeAuth(): Promise<void> {
             }
           }
           
+          // ========================================================================
+          // STEP 2.6: Restore client context from report metadata (if no clientId in URL)
+          // ========================================================================
+          // When accountant returns to existing report page, restore context from report's accountant_customer_id
+          // This handles the case where clientToken was cleaned from URL but report still needs context
+          if (!clientIdParam && user.role === 'accountant') {
+            // Check if we're viewing an existing report (reportId in pathname)
+            const reportIdMatch = window.location.pathname.match(/\/reports\/([^\/]+)/)
+            const reportId = reportIdMatch ? reportIdMatch[1] : null
+            
+            // Check if reportId is valid (session key format or UUID)
+            if (reportId && (reportId.startsWith('val_') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId))) {
+              // Check if client context already exists
+              const { useClientContext } = await import('../stores/clientContext')
+              const contextState = useClientContext.getState()
+              
+              if (!contextState.isActingAsClient) {
+                console.log(`[Auth:${traceId}] Checking report for accountant_customer_id to restore context`)
+                
+                try {
+                  // Fetch report metadata to get accountant_customer_id
+                  // Use the report lookup endpoint that accepts both UUID and session key
+                  const reportResponse = await fetch(
+                    `${API_URL}/api/v2/valuations/reports/by-session/${reportId}`,
+                    {
+                      method: 'GET',
+                      credentials: 'include',
+                      headers: { 'Accept': 'application/json' },
+                    }
+                  )
+                  
+                  if (reportResponse.ok) {
+                    const reportData = await reportResponse.json()
+                    const report = reportData.data || reportData
+                    const accountantCustomerId = report.accountant_customer_id
+                    
+                    if (accountantCustomerId) {
+                      console.log(`[Auth:${traceId}] Found accountant_customer_id in report, restoring client context`)
+                      
+                      // Initialize deferred promise for client context
+                      initClientContextPromise()
+                      
+                      // Fetch client context using accountant_customer_id
+                      const contextResponse = await fetch(`${API_URL}/api/v2/auth/get-client-context`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ clientId: accountantCustomerId }),
+                      })
+                      
+                      if (contextResponse.ok) {
+                        const context = await contextResponse.json()
+                        
+                        // Validate context structure
+                        if (context.accountantUser && context.clientUser && context.relationship) {
+                          // Set client context in store
+                          useClientContext.getState().setClientContext(context)
+                          
+                          console.log(`[Auth:${traceId}] Client context restored from report`)
+                          resolveClientContext()
+                        } else {
+                          console.warn(`[Auth:${traceId}] Invalid client context structure from report`)
+                        }
+                      } else {
+                        const errorData = await contextResponse.json().catch(() => ({}))
+                        console.warn(`[Auth:${traceId}] Failed to fetch client context from report:`, errorData.message || contextResponse.status)
+                      }
+                    } else {
+                      console.log(`[Auth:${traceId}] Report has no accountant_customer_id - not an accountant-client report`)
+                    }
+                  } else {
+                    // Report not found or access denied - this is OK, might be a new report
+                    console.log(`[Auth:${traceId}] Report not found or inaccessible (${reportResponse.status}) - may be new report`)
+                  }
+                } catch (error) {
+                  console.warn(`[Auth:${traceId}] Failed to restore client context from report (non-critical)`, error)
+                  // Don't block auth - user is authenticated, just missing client context
+                  // AuthGate will handle this gracefully
+                }
+              }
+            }
+          }
+          
           return
         }
       }

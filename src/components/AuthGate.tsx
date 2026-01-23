@@ -293,17 +293,96 @@ export function AuthGate({
 
       // Step 3: For accountant flow, verify client context is set
       // auth.ts already awaited the exchange before setting loading=false
+      
+      // ✅ FIX: Fallback - Try to restore client context from report if accountant viewing report
+      const userForContextCheck = useAuthStore.getState().user
+      const contextState = useClientContext.getState()
+      
+      // If accountant viewing report but no client context, try to restore from report metadata
+      if (!needsClientContext && userForContextCheck?.role === 'accountant' && !contextState.isActingAsClient) {
+        // Check if we're on a report page
+        const reportIdMatch = typeof window !== 'undefined' ? window.location.pathname.match(/\/reports\/([^\/]+)/) : null
+        const reportId = reportIdMatch ? reportIdMatch[1] : null
+        
+        if (reportId && (reportId.startsWith('val_') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId))) {
+          console.log(`[AuthGate:${traceId}] Fallback: Attempting to restore client context from report`)
+          
+          // Use async IIFE to handle async operations
+          ;(async () => {
+            try {
+              const API_URL =
+                process.env.NEXT_PUBLIC_BACKEND_URL ||
+                process.env.NEXT_PUBLIC_API_BASE_URL ||
+                'https://api.upswitch.app'
+              
+              // Fetch report to get accountant_customer_id
+              const reportResponse = await fetch(
+                `${API_URL}/api/v2/valuations/reports/by-session/${reportId}`,
+                {
+                  method: 'GET',
+                  credentials: 'include',
+                  headers: { 'Accept': 'application/json' },
+                }
+              )
+              
+              if (reportResponse.ok) {
+                const reportData = await reportResponse.json()
+                const report = reportData.data || reportData
+                const accountantCustomerId = report.accountant_customer_id
+                
+                if (accountantCustomerId) {
+                  // Fetch client context using accountant_customer_id
+                  const contextResponse = await fetch(`${API_URL}/api/v2/auth/get-client-context`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ clientId: accountantCustomerId }),
+                  })
+                  
+                  if (contextResponse.ok) {
+                    const context = await contextResponse.json()
+                    
+                    if (context.accountantUser && context.clientUser && context.relationship) {
+                      // Set client context in store
+                      const { useClientContext: useClientContextStore } = await import('../stores/clientContext')
+                      useClientContextStore.getState().setClientContext(context)
+                      
+                      console.log(`[AuthGate:${traceId}] Fallback: Client context restored from report`)
+                      
+                      // Retry checkAuth after context is set (with small delay to allow state update)
+                      setTimeout(() => {
+                        if (mounted) {
+                          checkAuth()
+                        }
+                      }, 100)
+                      return
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.warn(`[AuthGate:${traceId}] Fallback: Failed to restore client context from report`, error)
+              // Continue to normal flow - will show error if context is actually needed
+            }
+          })()
+          
+          // Return early to allow async restoration to complete before checking context
+          // The async IIFE will retry checkAuth() when done
+          return
+        }
+      }
+      
       if (needsClientContext) {
         console.log(`[AuthGate:${traceId}] Verifying client context is set`)
-        const contextState = useClientContext.getState()
+        const contextStateAfterFallback = useClientContext.getState()
 
-        if (!contextState.isActingAsClient || !contextState.client || !contextState.accountant) {
+        if (!contextStateAfterFallback.isActingAsClient || !contextStateAfterFallback.client || !contextStateAfterFallback.accountant) {
           // Check if there's an auth error message from the store
           const currentAuthError = useAuthStore.getState().error
-          const currentUser = useAuthStore.getState().user
+          const currentUserForError = useAuthStore.getState().user
           
           // AUTH-FIRST: If auth error and no user, redirect to login instead of showing error
-          if (currentAuthError && !currentUser) {
+          if (currentAuthError && !currentUserForError) {
             const isAuthError = currentAuthError.includes('401') || 
                                currentAuthError.toLowerCase().includes('expired') ||
                                currentAuthError.toLowerCase().includes('unauthorized')
