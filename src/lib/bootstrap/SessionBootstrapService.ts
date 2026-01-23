@@ -71,6 +71,75 @@ export class SessionBootstrapService {
   }
 
   /**
+   * Sync client context from bootstrap response to Zustand store
+   * 
+   * This ensures the useClientContext store always has the correct context
+   * from the authoritative bootstrap response, preventing stale localStorage data
+   * from causing access issues on subsequent requests.
+   */
+  private async syncClientContext(identity: IdentityState): Promise<void> {
+    try {
+      const { useClientContext } = await import('../../stores/clientContext');
+      const contextStore = useClientContext.getState();
+      
+      if (identity.type === 'accountant_for_client' && identity.clientContext) {
+        // Accountant-for-client flow: Update store with bootstrap context
+        // Transform bootstrap ClientContext to ClientContextResponseDto format
+        const bootstrapContext = identity.clientContext;
+        
+        // Check if context is different from stored context
+        const storedClientId = contextStore.client?.id;
+        const storedRelationshipId = contextStore.relationshipId;
+        
+        if (storedClientId !== bootstrapContext.clientUserId || 
+            storedRelationshipId !== bootstrapContext.relationshipId) {
+          this.logger.info('[Bootstrap] Syncing client context from bootstrap response', {
+            oldClientId: storedClientId?.substring(0, 8) || 'none',
+            newClientId: bootstrapContext.clientUserId.substring(0, 8),
+            oldRelationshipId: storedRelationshipId?.substring(0, 8) || 'none',
+            newRelationshipId: bootstrapContext.relationshipId.substring(0, 8),
+          });
+          
+          // Set the context using the store's method
+          contextStore.setClientContext({
+            accountantUser: {
+              id: bootstrapContext.accountantUserId,
+              email: bootstrapContext.accountantEmail || '',
+              full_name: '', // Not available from bootstrap, but not critical
+            },
+            clientUser: {
+              id: bootstrapContext.clientUserId,
+              email: bootstrapContext.clientEmail || '',
+              full_name: bootstrapContext.clientCompanyName || '',
+              avatar_url: null,
+            },
+            relationship: {
+              id: bootstrapContext.relationshipId,
+              customer_name: bootstrapContext.clientCompanyName || '',
+            },
+          });
+        }
+      } else if (identity.type === 'authenticated' && contextStore.isActingAsClient) {
+        // Direct authenticated flow but store has stale client context
+        // This can happen when accountant switches back to their own account
+        // but localStorage still has old client context
+        this.logger.warn('[Bootstrap] Clearing stale client context', {
+          storedClientId: contextStore.client?.id?.substring(0, 8) || 'none',
+          identityType: identity.type,
+          note: 'Bootstrap returned authenticated identity but store had client context',
+        });
+        
+        contextStore.clearClientContext();
+      }
+    } catch (error) {
+      // Non-critical - log but don't fail bootstrap
+      this.logger.warn('[Bootstrap] Failed to sync client context (non-critical)', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
    * Main bootstrap entry point
    * 
    * Resolves ALL state needed for UI rendering in a single orchestrated call.
@@ -657,6 +726,9 @@ export class SessionBootstrapService {
                 bootstrapDurationMs: performance.now() - startTime,
               };
               
+              // Sync client context from bootstrap response
+              await this.syncClientContext(retryState.identity);
+              
               return retryState;
             }
           }
@@ -671,6 +743,9 @@ export class SessionBootstrapService {
         identityType: state.identity.type,
         reportMode: state.report.mode,
       });
+
+      // Sync client context from bootstrap response to prevent stale context issues
+      await this.syncClientContext(state.identity);
 
       return state;
     } catch (error) {
