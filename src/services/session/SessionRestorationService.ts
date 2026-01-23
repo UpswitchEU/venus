@@ -28,15 +28,84 @@ import {
 } from './SessionNormalizer'
 
 /**
+ * Bank-grade retry utility with exponential backoff
+ * Used for resilient asset fetching during restoration
+ * 
+ * @param fn - Async function to retry
+ * @param options - Retry configuration
+ * @returns Result of the function or throws after max attempts
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: { maxAttempts?: number; baseDelay?: number; name?: string } = {}
+): Promise<T> {
+  const { maxAttempts = 3, baseDelay = 500, name = 'operation' } = options
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      
+      if (attempt === maxAttempts) {
+        generalLogger.error(`[SessionRestoration] ${name} failed after ${maxAttempts} attempts`, {
+          error: errorMessage,
+          attempts: maxAttempts,
+        })
+        throw error
+      }
+      
+      const delay = baseDelay * Math.pow(2, attempt - 1)
+      generalLogger.warn(`[SessionRestoration] ${name} failed, retrying in ${delay}ms`, {
+        attempt,
+        maxAttempts,
+        error: errorMessage,
+      })
+      
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  
+  throw new Error(`${name} failed after ${maxAttempts} attempts`)
+}
+
+/**
  * Restoration manifest - tracks what assets should be restored
+ * Bank-grade: Complete asset tracking for audit trail
  */
 export interface RestorationManifest {
   formData: boolean
   valuationResult: boolean
   htmlReport: boolean
   infoTabHtml: boolean
+  pricingRange: boolean
   versionHistory: boolean
   ebitdaNormalizations: boolean
+}
+
+/**
+ * Asset source tracking for audit trail
+ * Tracks where each asset was sourced from during restoration
+ */
+export type AssetSource = 'session' | 'report' | 'version' | 'derived' | null
+
+/**
+ * Restoration audit - complete audit trail for debugging and compliance
+ * Bank-grade: Full traceability of what was restored and from where
+ */
+export interface RestorationAudit {
+  reportId: string
+  timestamp: Date
+  duration_ms: number
+  manifest: RestorationManifest
+  sources: {
+    valuationResult: AssetSource
+    htmlReport: AssetSource
+    infoTabHtml: AssetSource
+    pricingRange: AssetSource
+  }
+  warnings: string[]
+  errors: string[]
 }
 
 /**
@@ -49,8 +118,10 @@ export interface RestorationResult {
   restoredValuationResult: boolean
   restoredHtmlReport: boolean
   restoredInfoTabHtml: boolean
+  restoredPricingRange: boolean
   restoredVersionHistory: boolean
   restoredEbitdaNormalizations: boolean
+  audit?: RestorationAudit
   error?: string
 }
 
@@ -141,6 +212,7 @@ class SessionRestorationServiceImpl {
         restoredValuationResult: false,
         restoredHtmlReport: false,
         restoredInfoTabHtml: false,
+        restoredPricingRange: false,
         restoredVersionHistory: false,
         restoredEbitdaNormalizations: false,
       }
@@ -160,6 +232,7 @@ class SessionRestorationServiceImpl {
       restoredValuationResult: false,
       restoredHtmlReport: false,
       restoredInfoTabHtml: false,
+      restoredPricingRange: false,
       restoredVersionHistory: false,
       restoredEbitdaNormalizations: false,
     }
@@ -207,6 +280,7 @@ class SessionRestorationServiceImpl {
         restoredValuationResult: false,
         restoredHtmlReport: false,
         restoredInfoTabHtml: false,
+        restoredPricingRange: false,
         restoredVersionHistory: false,
         restoredEbitdaNormalizations: false,
       }
@@ -262,6 +336,7 @@ class SessionRestorationServiceImpl {
           restoredValuationResult: false,
           restoredHtmlReport: false,
           restoredInfoTabHtml: false,
+          restoredPricingRange: false,
           restoredVersionHistory: false,
           restoredEbitdaNormalizations: false,
         }
@@ -307,6 +382,7 @@ class SessionRestorationServiceImpl {
         restoredValuationResult: false,
         restoredHtmlReport: false,
         restoredInfoTabHtml: false,
+        restoredPricingRange: false,
         restoredVersionHistory: false,
         restoredEbitdaNormalizations: false,
         error: errorMessage,
@@ -322,11 +398,12 @@ class SessionRestorationServiceImpl {
    * This method updates all relevant Zustand stores to ensure consistent state.
    * Includes: Form data, Results, Version history, EBITDA normalizations
    */
-  private async hydrateStores(data: NormalizedSessionData): Promise<Omit<RestorationResult, 'success' | 'error'>> {
+  private async hydrateStores(data: NormalizedSessionData): Promise<Omit<RestorationResult, 'success' | 'error' | 'audit'>> {
     let restoredFormFields = 0
     let restoredValuationResult = false
     let restoredHtmlReport = false
     let restoredInfoTabHtml = false
+    let restoredPricingRange = false
     let restoredVersionHistory = false
     let restoredEbitdaNormalizations = false
     
@@ -376,14 +453,17 @@ class SessionRestorationServiceImpl {
         restoredValuationResult = true
         restoredHtmlReport = !!fullResult.html_report
         restoredInfoTabHtml = !!fullResult.info_tab_html
+        restoredPricingRange = !!data.pricingRange
         
         generalLogger.debug('[SessionRestoration] Results hydrated', {
           reportId: data.reportId,
           valuationId: (data.valuationResult as any)?.valuation_id,
           hasHtmlReport: restoredHtmlReport,
           hasInfoTabHtml: restoredInfoTabHtml,
+          hasPricingRange: restoredPricingRange,
           htmlReportLength: fullResult.html_report?.length || 0,
           infoTabHtmlLength: fullResult.info_tab_html?.length || 0,
+          pricingRange: data.pricingRange,
         })
       } catch (error) {
         generalLogger.error('[SessionRestoration] Results hydration failed', {
@@ -399,7 +479,11 @@ class SessionRestorationServiceImpl {
         reportId: data.reportId,
       })
       
-      await useVersionHistoryStore.getState().fetchVersions(data.reportId)
+      // ✅ BANK-GRADE: Use retry mechanism for resilient version history fetch
+      await withRetry(
+        () => useVersionHistoryStore.getState().fetchVersions(data.reportId),
+        { maxAttempts: 3, baseDelay: 500, name: 'Version history fetch' }
+      )
       
       // Check if versions were loaded
       const versions = useVersionHistoryStore.getState().versions[data.reportId]
@@ -409,6 +493,73 @@ class SessionRestorationServiceImpl {
         reportId: data.reportId,
         versionCount: versions?.length || 0,
       })
+      
+      // ✅ CRITICAL FIX: Fallback to version history for missing HTML reports
+      // If we have a valuation result but HTML reports are still missing,
+      // try to extract them from the latest version's version_data
+      if (data.valuationResult && (!restoredHtmlReport || !restoredInfoTabHtml)) {
+        const latestVersion = versions?.[0]
+        const versionData = latestVersion?.version_data as any
+        
+        if (versionData) {
+          // Extract HTML reports from version data - check multiple possible locations
+          const versionHtmlReport = 
+            versionData.htmlReport ||
+            versionData.html_report ||
+            versionData.outputs?.html_report ||
+            versionData.outputs?.htmlReport
+          const versionInfoTabHtml = 
+            versionData.infoTabHtml ||
+            versionData.info_tab_html ||
+            versionData.outputs?.info_tab_html ||
+            versionData.outputs?.infoTabHtml
+          
+          if ((versionHtmlReport && !restoredHtmlReport) || (versionInfoTabHtml && !restoredInfoTabHtml)) {
+            generalLogger.info('[SessionRestoration] Recovering HTML from version history', {
+              reportId: data.reportId,
+              versionId: latestVersion?.id,
+              hasHtmlInVersion: !!versionHtmlReport,
+              hasInfoTabHtmlInVersion: !!versionInfoTabHtml,
+            })
+            
+            // Get the current result from the store and update it
+            const resultsStore = isConversational 
+              ? useConversationalResultsStore.getState()
+              : useManualResultsStore.getState()
+            
+            const currentResult = resultsStore.result
+            if (currentResult) {
+              const updatedResult = {
+                ...currentResult,
+                html_report: currentResult.html_report || versionHtmlReport,
+                info_tab_html: currentResult.info_tab_html || versionInfoTabHtml,
+              }
+              
+              if (isConversational) {
+                const { setResult } = useConversationalResultsStore.getState()
+                setResult(updatedResult as any)
+              } else {
+                const { setResult } = useManualResultsStore.getState()
+                setResult(updatedResult as any)
+              }
+              
+              // Update restoration flags
+              if (versionHtmlReport && !restoredHtmlReport) {
+                restoredHtmlReport = true
+              }
+              if (versionInfoTabHtml && !restoredInfoTabHtml) {
+                restoredInfoTabHtml = true
+              }
+              
+              generalLogger.info('[SessionRestoration] HTML reports recovered from version history', {
+                reportId: data.reportId,
+                restoredHtmlReport,
+                restoredInfoTabHtml,
+              })
+            }
+          }
+        }
+      }
     } catch (error) {
       // Non-fatal: version history is optional
       generalLogger.warn('[SessionRestoration] Version history fetch failed (non-fatal)', {
@@ -425,7 +576,11 @@ class SessionRestorationServiceImpl {
           reportId: data.reportId,
         })
         
-        await useEbitdaNormalizationStore.getState().loadAllNormalizations(data.reportId)
+        // ✅ BANK-GRADE: Use retry mechanism for resilient normalization fetch
+        await withRetry(
+          () => useEbitdaNormalizationStore.getState().loadAllNormalizations(data.reportId),
+          { maxAttempts: 3, baseDelay: 500, name: 'EBITDA normalizations fetch' }
+        )
         
         // Check if normalizations were loaded
         const normalizations = useEbitdaNormalizationStore.getState().normalizations
@@ -450,6 +605,7 @@ class SessionRestorationServiceImpl {
       restoredValuationResult,
       restoredHtmlReport,
       restoredInfoTabHtml,
+      restoredPricingRange,
       restoredVersionHistory,
       restoredEbitdaNormalizations,
     }
@@ -458,55 +614,109 @@ class SessionRestorationServiceImpl {
   /**
    * Verify that restoration completed successfully
    * 
-   * Checks that all expected assets are present in their respective stores
-   * based on what was in the normalized data.
+   * Bank-grade verification that checks all expected assets are present
+   * in their respective stores based on what was in the normalized data.
+   * Creates complete audit trail for debugging and compliance.
    */
   private verifyRestoration(data: NormalizedSessionData): boolean {
     const isConversational = data.flowType === 'conversational'
+    const warnings: string[] = []
     let allVerified = true
     
+    // Build manifest of what should be restored
+    const manifest: RestorationManifest = {
+      formData: !isConversational && !!data.formData && Object.keys(data.formData).length > 0,
+      valuationResult: !!data.valuationResult,
+      htmlReport: !!data.htmlReport,
+      infoTabHtml: !!data.infoTabHtml,
+      pricingRange: !!data.pricingRange,
+      versionHistory: true, // Always expect version history fetch
+      ebitdaNormalizations: !!data.valuationResult, // Only if we have valuation result
+    }
+    
     // Verify form data (only for manual flow)
-    if (!isConversational && data.formData && Object.keys(data.formData).length > 0) {
+    if (manifest.formData) {
       const formStore = useManualFormStore.getState()
       const formDataKeys = Object.keys(formStore.formData)
       if (formDataKeys.length === 0) {
-        generalLogger.warn('[SessionRestoration] Verification failed: form data missing')
+        warnings.push('Form data missing from store')
         allVerified = false
       }
     }
     
     // Verify valuation result
-    if (data.valuationResult) {
+    if (manifest.valuationResult) {
       const resultsStore = isConversational 
         ? useConversationalResultsStore.getState()
         : useManualResultsStore.getState()
       
       if (!resultsStore.result) {
-        generalLogger.warn('[SessionRestoration] Verification failed: valuation result missing')
+        warnings.push('Valuation result missing from store')
         allVerified = false
+      } else {
+        // Verify HTML reports if they were in the data
+        if (manifest.htmlReport && !resultsStore.result.html_report) {
+          warnings.push('HTML report missing from results store')
+          allVerified = false
+        }
+        
+        if (manifest.infoTabHtml && !resultsStore.result.info_tab_html) {
+          warnings.push('Info tab HTML missing from results store')
+          allVerified = false
+        }
       }
+    }
+    
+    // Verify pricing range
+    if (manifest.pricingRange) {
+      const resultsStore = isConversational 
+        ? useConversationalResultsStore.getState()
+        : useManualResultsStore.getState()
       
-      // Verify HTML reports if they were in the data
-      if (data.htmlReport && !resultsStore.result?.html_report) {
-        generalLogger.warn('[SessionRestoration] Verification failed: HTML report missing')
-        allVerified = false
-      }
-      
-      if (data.infoTabHtml && !resultsStore.result?.info_tab_html) {
-        generalLogger.warn('[SessionRestoration] Verification failed: info tab HTML missing')
-        allVerified = false
-      }
-      
-      // Verify pricing range if it was in the valuation result
-      const valuationAny = data.valuationResult as any
-      const hasPricingRangeInData = !!(valuationAny?.pricing_range || valuationAny?.pricingRange)
       const resultAny = resultsStore.result as any
-      const hasPricingRangeInStore = !!(resultAny?.pricing_range || resultAny?.pricingRange)
+      const hasPricingRangeInStore = !!(
+        resultAny?.pricing_range || 
+        resultAny?.priceRange ||
+        (resultAny?.equity_value_low && resultAny?.equity_value_mid && resultAny?.equity_value_high)
+      )
       
-      if (hasPricingRangeInData && !hasPricingRangeInStore) {
-        generalLogger.warn('[SessionRestoration] Verification failed: pricing range missing')
+      if (!hasPricingRangeInStore) {
+        warnings.push('Pricing range missing from results store')
         allVerified = false
       }
+    }
+    
+    // Verify version history
+    if (manifest.versionHistory) {
+      const versions = useVersionHistoryStore.getState().versions[data.reportId]
+      if (!versions || versions.length === 0) {
+        // Version history is optional - don't fail verification, just warn
+        warnings.push('Version history empty (may be new report)')
+      }
+    }
+    
+    // Verify EBITDA normalizations
+    if (manifest.ebitdaNormalizations) {
+      const normalizations = useEbitdaNormalizationStore.getState().normalizations
+      if (Object.keys(normalizations).length === 0) {
+        // Normalizations are optional - don't fail verification, just warn
+        warnings.push('EBITDA normalizations empty (may be new report)')
+      }
+    }
+    
+    // Log complete audit trail
+    if (warnings.length > 0) {
+      generalLogger.warn('[SessionRestoration] Verification warnings', {
+        reportId: data.reportId,
+        manifest,
+        warnings,
+        allVerified,
+      })
+    } else {
+      generalLogger.debug('[SessionRestoration] Verification passed', {
+        reportId: data.reportId,
+        manifest,
+      })
     }
     
     return allVerified

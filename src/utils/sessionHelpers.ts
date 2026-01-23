@@ -106,35 +106,66 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
 
   // ✅ FIX: Preserve ALL existing sessionData fields
   // Only add/override the special fields (valuation_result, html_report, info_tab_html)
-  const existingSessionData = session.sessionData || {}
+  const existingSessionData = session.sessionData || session.session_data || {}
+  
+  // ✅ BANK-GRADE: Extract from BOTH top-level AND session_data locations
+  // Titan controller exposes at top level, but also check session_data for defense-in-depth
+  // This ensures restoration works regardless of where the data is stored
+  const htmlReport = session.htmlReport || 
+                    (existingSessionData as any).htmlReport || 
+                    (existingSessionData as any).html_report
+  const infoTabHtml = session.infoTabHtml || 
+                     (existingSessionData as any).infoTabHtml || 
+                     (existingSessionData as any).info_tab_html
+  const valuationResult = session.valuationResult || 
+                         (existingSessionData as any).valuationResult || 
+                         (existingSessionData as any).valuation_result
+  const priceRange = (session as any).priceRange || 
+                    (existingSessionData as any).priceRange || 
+                    (existingSessionData as any)._pricingRange
   
   const mergedSessionData = {
     ...existingSessionData,  // Preserve ALL business card and form data
-    ...(session.valuationResult && { valuation_result: session.valuationResult }),
-    ...(session.htmlReport && { html_report: session.htmlReport }),
-    ...(session.infoTabHtml && { info_tab_html: session.infoTabHtml }),
+    ...(valuationResult && { valuation_result: valuationResult }),
+    ...(htmlReport && { html_report: htmlReport }),
+    ...(infoTabHtml && { info_tab_html: infoTabHtml }),
+    ...(priceRange && { _pricingRange: priceRange }),
   }
 
   // ✅ LOG: Verify business card data is preserved
   const hasBusinessCardData = !!(
-    existingSessionData.company_name !== undefined ||
-    existingSessionData.business_type_id ||
-    existingSessionData.founding_year ||
-    existingSessionData.country_code
+    (existingSessionData as any).company_name !== undefined ||
+    (existingSessionData as any).business_type_id ||
+    (existingSessionData as any).founding_year ||
+    (existingSessionData as any).country_code
   )
   
   if (hasBusinessCardData) {
     console.log('[mergeSessionFields] Preserving business card data', {
-      company_name: existingSessionData.company_name,
-      business_type_id: existingSessionData.business_type_id,
-      founding_year: existingSessionData.founding_year,
-      country_code: existingSessionData.country_code,
+      company_name: (existingSessionData as any).company_name,
+      business_type_id: (existingSessionData as any).business_type_id,
+      founding_year: (existingSessionData as any).founding_year,
+      country_code: (existingSessionData as any).country_code,
     })
   }
+  
+  // ✅ DEBUG LOG: Report extraction results for troubleshooting
+  console.log('[mergeSessionFields] Restoration assets merged', {
+    hasHtmlReport: !!htmlReport,
+    hasInfoTabHtml: !!infoTabHtml,
+    hasValuationResult: !!valuationResult,
+    hasPriceRange: !!priceRange,
+    sourceTopLevel: !!(session.htmlReport || session.valuationResult || session.infoTabHtml),
+    sourceSessionData: !!((existingSessionData as any).htmlReport || (existingSessionData as any).valuationResult),
+  })
 
   return {
     ...session,
     sessionData: mergedSessionData,
+    // Also preserve at top level for components that read directly
+    htmlReport,
+    infoTabHtml,
+    valuationResult,
   }
 }
 

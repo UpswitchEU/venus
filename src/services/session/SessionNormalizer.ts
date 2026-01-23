@@ -18,6 +18,16 @@ import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
 import { generalLogger } from '../../utils/logger'
 
 /**
+ * Pricing range structure for valuation results
+ */
+export interface PricingRange {
+  min: number
+  mid: number
+  max: number
+  currency: string
+}
+
+/**
  * Normalized session data structure
  * All fields use consistent camelCase naming
  */
@@ -39,6 +49,7 @@ export interface NormalizedSessionData {
   valuationResult: ValuationResponse | null
   htmlReport: string | null
   infoTabHtml: string | null
+  pricingRange: PricingRange | null
   
   // Client context (for accountant flow)
   clientContext: {
@@ -146,12 +157,15 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
   // 2. sessionData.valuationResult (camelCase)
   // 3. sessionData.valuation_result (snake_case)
   // 4. Top-level session.valuation_result (snake_case - legacy)
+  // 5. Linked report: session.report.valuation_result (from Titan JOIN)
   
   const result = 
     topLevelSession?.valuationResult ||
     sessionData?.valuationResult ||
     sessionData?.valuation_result ||
     topLevelSession?.valuation_result ||
+    topLevelSession?.report?.valuation_result ||
+    topLevelSession?.report?.valuationResult ||
     null
   
   return result
@@ -159,28 +173,115 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
 
 /**
  * Extract HTML report from session data
+ * Checks multiple locations including valuation result and Titan-injected fields
  */
 function extractHtmlReport(sessionData: any, topLevelSession: any): string | null {
+  // Get valuation result first (may contain html_report)
+  const valuationResult = 
+    topLevelSession?.valuationResult ||
+    sessionData?.valuationResult ||
+    sessionData?.valuation_result ||
+    topLevelSession?.valuation_result ||
+    topLevelSession?.report?.valuation_result ||
+    null
+  
   return (
+    // Direct top-level fields
     topLevelSession?.htmlReport ||
     sessionData?.htmlReport ||
     sessionData?.html_report ||
     topLevelSession?.html_report ||
+    // Titan-injected field (prefixed with _)
+    sessionData?._htmlReport ||
+    // Inside valuation result
+    valuationResult?.html_report ||
+    valuationResult?.htmlReport ||
+    valuationResult?.details?.html_report ||
     null
   )
 }
 
 /**
  * Extract info tab HTML from session data
+ * Checks multiple locations including valuation result and Titan-injected fields
  */
 function extractInfoTabHtml(sessionData: any, topLevelSession: any): string | null {
+  // Get valuation result first (may contain info_tab_html)
+  const valuationResult = 
+    topLevelSession?.valuationResult ||
+    sessionData?.valuationResult ||
+    sessionData?.valuation_result ||
+    topLevelSession?.valuation_result ||
+    topLevelSession?.report?.valuation_result ||
+    null
+  
   return (
+    // Direct top-level fields
     topLevelSession?.infoTabHtml ||
     sessionData?.infoTabHtml ||
     sessionData?.info_tab_html ||
     topLevelSession?.info_tab_html ||
+    // Titan-injected field (prefixed with _)
+    sessionData?._infoTabHtml ||
+    // Inside valuation result
+    valuationResult?.info_tab_html ||
+    valuationResult?.infoTabHtml ||
+    valuationResult?.details?.info_tab_html ||
     null
   )
+}
+
+/**
+ * Extract pricing range from session data
+ * Checks multiple locations including Titan-injected fields and valuation result
+ */
+function extractPricingRange(sessionData: any, topLevelSession: any): PricingRange | null {
+  // Get valuation result for fallback extraction
+  const valuationResult = extractValuationResult(sessionData, topLevelSession)
+  
+  // Priority 1: Titan-injected _pricingRange field
+  if (sessionData?._pricingRange) {
+    return sessionData._pricingRange
+  }
+  
+  // Priority 2: Direct priceRange field (camelCase)
+  if (sessionData?.priceRange) {
+    return {
+      min: sessionData.priceRange.min,
+      mid: sessionData.priceRange.mid,
+      max: sessionData.priceRange.max,
+      currency: sessionData.priceRange.currency || 'EUR',
+    }
+  }
+  
+  // Priority 3: pricing_range from valuation result
+  if (valuationResult?.pricing_range) {
+    return valuationResult.pricing_range
+  }
+  
+  // Priority 4: priceRange from valuation result (camelCase)
+  if ((valuationResult as any)?.priceRange) {
+    return (valuationResult as any).priceRange
+  }
+  
+  // Priority 5: Extract from valuation result equity values
+  if (valuationResult) {
+    const min = valuationResult.equity_value_low || (valuationResult as any).valuation_min
+    const mid = valuationResult.equity_value_mid || (valuationResult as any).valuation_midpoint
+    const max = valuationResult.equity_value_high || (valuationResult as any).valuation_max
+    
+    // Only return if we have at least one valid value
+    if (min !== undefined || mid !== undefined || max !== undefined) {
+      return {
+        min: typeof min === 'string' ? parseFloat(min) : (min || 0),
+        mid: typeof mid === 'string' ? parseFloat(mid) : (mid || 0),
+        max: typeof max === 'string' ? parseFloat(max) : (max || 0),
+        currency: (valuationResult as any).currency || 'EUR',
+      }
+    }
+  }
+  
+  return null
 }
 
 /**
@@ -252,6 +353,7 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
   const valuationResult = extractValuationResult(sessionData, backendSession)
   const htmlReport = extractHtmlReport(sessionData, backendSession)
   const infoTabHtml = extractInfoTabHtml(sessionData, backendSession)
+  const pricingRange = extractPricingRange(sessionData, backendSession)
   const clientContext = extractClientContext(sessionData)
   
   const normalized: NormalizedSessionData = {
@@ -272,6 +374,7 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     valuationResult,
     htmlReport,
     infoTabHtml,
+    pricingRange,
     
     // Context
     clientContext,
@@ -286,6 +389,7 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     hasValuationResult: !!normalized.valuationResult,
     hasHtmlReport: !!normalized.htmlReport,
     hasInfoTabHtml: !!normalized.infoTabHtml,
+    hasPricingRange: !!normalized.pricingRange,
     hasClientContext: !!normalized.clientContext,
     formDataKeys: Object.keys(normalized.formData),
   })
@@ -308,6 +412,7 @@ export function createEmptyNormalizedData(reportId: string): NormalizedSessionDa
     valuationResult: null,
     htmlReport: null,
     infoTabHtml: null,
+    pricingRange: null,
     clientContext: null,
     dataSource: 'manual',
     hasExistingData: false,

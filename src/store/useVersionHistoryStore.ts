@@ -742,8 +742,9 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
     {
       name: 'version-history-storage',
       partialize: (state) => {
-        // ✅ FIX: Exclude HTML reports from localStorage to prevent quota exceeded errors
+        // ✅ BANK-GRADE: Exclude HTML reports from localStorage to prevent quota exceeded errors
         // HTML reports are stored in backend and fetched on demand
+        // ✅ FIX: Preserve metadata flags to indicate HTML reports exist in backend for fallback recovery
         const versionsWithoutHtml: Record<string, ValuationVersion[]> = {}
 
         for (const [reportId, versions] of Object.entries(state.versions)) {
@@ -751,7 +752,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             ...version,
             htmlReport: null, // Don't store large HTML reports in localStorage
             infoTabHtml: null, // Don't store large info tab HTML in localStorage
-            // Keep metadata flags to indicate HTML reports exist in backend
+            // ✅ BANK-GRADE: Keep metadata flags to indicate HTML reports exist in backend
+            // These flags enable the restoration service to know it should fetch from backend
+            _hasHtmlReport: !!(version as any)._hasHtmlReport || !!version.htmlReport,
+            _hasInfoTabHtml: !!(version as any)._hasInfoTabHtml || !!version.infoTabHtml,
           }))
         }
 
