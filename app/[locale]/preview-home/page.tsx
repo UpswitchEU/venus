@@ -2,9 +2,6 @@
 
 import { HomePage } from '../../../src/components/pages/HomePage'
 
-// Force dynamic rendering
-export const dynamic = 'force-dynamic'
-
 /**
  * Preview Home Page - Displays the home page without redirects
  * Accessible at /{locale}/preview-home (e.g., /en/preview-home)
