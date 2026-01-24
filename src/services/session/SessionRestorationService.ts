@@ -598,6 +598,206 @@ class SessionRestorationServiceImpl {
     
     return allVerified
   }
+
+  /**
+   * WORLD-CLASS: Instant hydration from valuationPackage
+   * 
+   * Called during bootstrap to instantly populate stores with pre-fetched data.
+   * This bypasses the full restoration flow for existing reports that have
+   * complete package data, enabling < 100ms report display.
+   * 
+   * @param reportId - Report ID
+   * @param pkg - Valuation package from bootstrap response
+   * @param flow - Flow type (manual or conversational)
+   */
+  hydrateFromPackage(
+    reportId: string,
+    pkg: {
+      htmlReport: string | null;
+      infoTabHtml: string | null;
+      pricingRange: { min: number; mid: number; max: number; currency: string } | null;
+      versions: { current: number; total: number; history?: Array<{ version: number; createdAt: Date; summary: string | null; createdBy: string | null }> };
+      pdf: { url: string | null; status: 'ready' | 'generating' | 'none' };
+    },
+    flow: 'manual' | 'conversational' = 'manual'
+  ): void {
+    const startTime = performance.now()
+    
+    generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration from package', {
+      reportId: reportId.substring(0, 20),
+      hasHtmlReport: !!pkg.htmlReport,
+      hasInfoTab: !!pkg.infoTabHtml,
+      hasPricing: !!pkg.pricingRange,
+      versionCount: pkg.versions.total,
+      pdfStatus: pkg.pdf.status,
+    })
+
+    try {
+      // Hydrate HTML report
+      if (pkg.htmlReport) {
+        if (flow === 'manual') {
+          useManualResultsStore.getState().setHtmlReport(pkg.htmlReport)
+        } else {
+          useConversationalResultsStore.getState().setHtmlReport(pkg.htmlReport)
+        }
+      }
+
+      // Hydrate info tab HTML
+      if (pkg.infoTabHtml) {
+        if (flow === 'manual') {
+          useManualResultsStore.getState().setInfoTabHtml(pkg.infoTabHtml)
+        } else {
+          useConversationalResultsStore.getState().setInfoTabHtml(pkg.infoTabHtml)
+        }
+      }
+
+      // Hydrate pricing range into result object
+      if (pkg.pricingRange) {
+        const pricingResult = {
+          equity_value_low: pkg.pricingRange.min,
+          equity_value_mid: pkg.pricingRange.mid,
+          equity_value_high: pkg.pricingRange.max,
+          currency: pkg.pricingRange.currency,
+        }
+        
+        if (flow === 'manual') {
+          const manualStore = useManualResultsStore.getState()
+          // Merge with existing result or create new
+          const existingResult = manualStore.result || {}
+          manualStore.setResult({
+            ...existingResult,
+            ...pricingResult,
+          } as any)
+        } else {
+          const convStore = useConversationalResultsStore.getState()
+          const existingResult = convStore.result || {}
+          convStore.setResult({
+            ...existingResult,
+            ...pricingResult,
+          } as any)
+        }
+      }
+
+      // WORLD-CLASS: Hydrate version history for instant version tab
+      if (pkg.versions.history && pkg.versions.history.length > 0) {
+        const versionStore = useVersionHistoryStore.getState()
+        
+        // Type-safe partial version stub interface
+        // Contains only the fields available from package, full data loaded on-demand
+        interface VersionStub {
+          id: string
+          reportId: string
+          versionNumber: number
+          versionLabel: string
+          createdAt: Date
+          createdBy: string | null
+          formData: Record<string, unknown>
+          valuationResult: null
+          htmlReport: null
+          infoTabHtml: null
+          changesSummary: { totalChanges: number; sections: never[]; fields: never[] }
+          isActive: boolean
+          isPinned: boolean
+          notes: string | null
+        }
+        
+        // Create version stubs from package history
+        const versions: VersionStub[] = pkg.versions.history.map((v) => ({
+          id: `pkg-${reportId}-v${v.version}`,
+          reportId,
+          versionNumber: v.version,
+          versionLabel: `Version ${v.version}`,
+          createdAt: new Date(v.createdAt),
+          createdBy: v.createdBy,
+          // Placeholder data - full details fetched on-demand when version is selected
+          formData: {},
+          valuationResult: null,
+          htmlReport: null,
+          infoTabHtml: null,
+          changesSummary: { totalChanges: 0, sections: [], fields: [] },
+          isActive: v.version === pkg.versions.current,
+          isPinned: false,
+          notes: v.summary,
+        }))
+
+        // Merge with existing versions (package versions take priority)
+        const existingVersions = versionStore.versions[reportId] || []
+        const mergedVersions: VersionStub[] = [...versions]
+        
+        // Add any existing versions not in the package
+        existingVersions.forEach((v) => {
+          if (!mergedVersions.find((pv) => pv.versionNumber === v.versionNumber)) {
+            // Cast existing version to VersionStub for compatibility
+            mergedVersions.push(v as unknown as VersionStub)
+          }
+        })
+
+        // Sort by version number descending
+        mergedVersions.sort((a, b) => b.versionNumber - a.versionNumber)
+
+        // Update store - cast to store's expected type
+        // The store accepts partial versions for display, full data loaded on-demand
+        versionStore.versions[reportId] = mergedVersions as unknown as typeof existingVersions
+
+        generalLogger.debug('[SessionRestoration] Hydrated version history from package', {
+          reportId: reportId.substring(0, 20),
+          versionCount: versions.length,
+          total: pkg.versions.total,
+        })
+      }
+
+      // Mark as restored to prevent duplicate restoration
+      this.restoredReportIds.add(reportId)
+      
+      const durationMs = performance.now() - startTime
+      generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration complete', {
+        reportId: reportId.substring(0, 20),
+        durationMs: Math.round(durationMs),
+      })
+    } catch (error) {
+      generalLogger.error('[SessionRestoration] Package hydration failed', {
+        reportId: reportId.substring(0, 20),
+        error: error instanceof Error ? error.message : String(error),
+      })
+      // Don't throw - fall back to normal restoration
+    }
+  }
+
+  /**
+   * Check if a report can skip full restoration (has package data)
+   */
+  canSkipRestoration(reportId: string): boolean {
+    return this.restoredReportIds.has(reportId)
+  }
+
+  /**
+   * WORLD-CLASS: Mark a report for pending restoration
+   * 
+   * Called when package hydration fails and we need to trigger full restoration.
+   * ManualLayout/ConversationalLayout will check this and call restore() if needed.
+   */
+  private pendingRestorationIds = new Set<string>()
+  
+  markForRestoration(reportId: string): void {
+    this.pendingRestorationIds.add(reportId)
+    generalLogger.info('[SessionRestoration] Marked report for pending restoration', {
+      reportId: reportId.substring(0, 20),
+    })
+  }
+
+  /**
+   * Check if a report is pending restoration (hydration failed)
+   */
+  isPendingRestoration(reportId: string): boolean {
+    return this.pendingRestorationIds.has(reportId)
+  }
+
+  /**
+   * Clear pending restoration flag after successful restore
+   */
+  clearPendingRestoration(reportId: string): void {
+    this.pendingRestorationIds.delete(reportId)
+  }
 }
 
 // Export singleton instance

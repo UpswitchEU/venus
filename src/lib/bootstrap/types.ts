@@ -188,6 +188,52 @@ export interface CreditStatus {
 }
 
 // ============================================================================
+// Valuation Package Types (WORLD-CLASS: Complete data for existing reports)
+// ============================================================================
+
+/**
+ * Version summary for version history tab
+ */
+export interface VersionSummary {
+  version: number;
+  createdAt: Date;
+  summary: string | null;
+  createdBy: string | null;
+}
+
+/**
+ * Valuation Package - Complete data for existing reports
+ *
+ * WORLD-CLASS: Contains everything needed to render a valuation report.
+ * Sent by Titan for existing reports (mode: 'existing') to enable instant UI.
+ */
+export interface ValuationPackage {
+  /** HTML content for main report */
+  htmlReport: string | null;
+  /** HTML content for info tab */
+  infoTabHtml: string | null;
+  /** Pricing range summary */
+  pricingRange: {
+    min: number;
+    mid: number;
+    max: number;
+    currency: string;
+  } | null;
+  /** Version summary */
+  versions: {
+    current: number;
+    total: number;
+    /** First 5 versions for instant version tab rendering */
+    history?: VersionSummary[];
+  };
+  /** PDF status */
+  pdf: {
+    url: string | null;
+    status: 'ready' | 'generating' | 'none';
+  };
+}
+
+// ============================================================================
 // Main Bootstrap State
 // ============================================================================
 
@@ -207,11 +253,57 @@ export interface SessionBootstrapState {
   // Credit Status (optional - only present if credit check was performed)
   creditStatus?: CreditStatus;
   
+  // WORLD-CLASS: Complete valuation package for existing reports
+  // Enables instant UI hydration without additional API calls
+  valuationPackage?: ValuationPackage;
+  
   // Metadata
   bootstrapVersion: string;
   bootstrappedAt: Date;
   bootstrapDurationMs: number;
 }
+
+// ============================================================================
+// Structured Error Types
+// ============================================================================
+
+/**
+ * Structured error information from Titan API
+ * Provides consistent error handling with codes, messages, and retry hints
+ */
+export interface BootstrapErrorInfo {
+  /** Unique error code for programmatic handling */
+  code: string;
+  /** Human-readable error message */
+  message: string;
+  /** Whether the client should retry the request */
+  retryable: boolean;
+  /** Additional error details for debugging */
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Known error codes from Titan API
+ */
+export const BOOTSTRAP_ERROR_CODES = {
+  // Authentication errors (401)
+  AUTH_REQUIRED: 'AUTH_REQUIRED',
+  AUTH_EXPIRED: 'AUTH_EXPIRED',
+  AUTH_INVALID: 'AUTH_INVALID',
+  // Authorization errors (403)
+  ACCESS_DENIED: 'ACCESS_DENIED',
+  SESSION_ACCESS_DENIED: 'SESSION_ACCESS_DENIED',
+  // Not found errors (404)
+  SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
+  REPORT_NOT_FOUND: 'REPORT_NOT_FOUND',
+  // Credit errors (402)
+  CREDITS_EXHAUSTED: 'CREDITS_EXHAUSTED',
+  UPGRADE_REQUIRED: 'UPGRADE_REQUIRED',
+  // Server errors (retryable)
+  DATABASE_ERROR: 'DATABASE_ERROR',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  TIMEOUT: 'TIMEOUT',
+} as const;
 
 // ============================================================================
 // Bootstrap Context (input to bootstrap process)

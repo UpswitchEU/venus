@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { CLIENT_CONTEXT_HEADERS } from '../constants/headers'
 
 interface ClientContextResponseDto {
   accountantUser: {
@@ -148,12 +149,12 @@ export const useClientContext = create<ClientContextState>()(
           return {} as Record<string, string>
         }
 
-        // BANK GRADE: Standardized header names matching SessionBootstrapService and FlowRouter
-        // FlowRouter accepts both naming conventions, but we use the canonical names for consistency
+        // BANK GRADE: Using centralized header constants for consistency
+        // FlowRouter accepts both naming conventions, but we use the canonical names
         return {
-          'X-Client-User-Id': state.client.id,
-          'X-Accountant-User-Id': state.accountant.id,
-          'X-Relationship-Id': state.relationshipId,
+          [CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID]: state.client.id,
+          [CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID]: state.accountant.id,
+          [CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID]: state.relationshipId,
         }
       },
     }),

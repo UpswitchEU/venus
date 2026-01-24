@@ -17,6 +17,7 @@ import type {
 } from '../types';
 import { DEFAULT_REPORT } from '../types';
 import { generateReportId, truncateForLog } from '../utils';
+import { isUuid } from '../../../utils/identifiers';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
                 process.env.NEXT_PUBLIC_API_BASE_URL || 
@@ -222,9 +223,8 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       // UUIDs are passed by Mercury when navigating to existing reports
       // The main bootstrap flow (bootstrapViaTitan) handles UUIDs correctly
       // This fallback path only works for val_xxx session keys
-      const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionKey);
-      
-      if (isUuidFormat) {
+      // Using centralized identifier utilities for consistent format detection
+      if (isUuid(sessionKey)) {
         this.logger.warn('[SessionResolver] UUID passed to fetchSession - this endpoint only supports val_xxx format', {
           sessionKeyPrefix: sessionKey.substring(0, 15),
           note: 'UUIDs from Mercury should be handled by Titan bootstrap endpoint, not this fallback',

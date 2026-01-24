@@ -202,15 +202,33 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   const { handleRefresh: handleHookRefresh } = useValuationToolbarRefresh()
   const handleRefresh = onRefresh ?? handleHookRefresh
 
-  // Download hook - track loading state for UI feedback
-  // Note: Parent components should provide onDownload handler that uses the hook
-  const { isDownloading } = useValuationToolbarDownload()
-  const handleDownload =
-    onDownload ??
-    (() => {
-      // If no prop handler provided, this shouldn't be called
-      // Parent components should always provide onDownload handler
-    })
+  // WORLD-CLASS: PDF Generation with Titan API integration
+  // Uses usePdfGeneration for server-side Puppeteer PDF generation
+  const { usePdfGeneration } = React.useMemo(() => {
+    // Lazy load to avoid circular dependencies
+    return { usePdfGeneration: require('../hooks/usePdfGeneration').usePdfGeneration }
+  }, [])
+  
+  const {
+    state: pdfState,
+    downloadPdf,
+    isReady: isPdfReady,
+    isGenerating: isPdfGenerating,
+  } = usePdfGeneration(reportId || null)
+
+  // Use prop handler if provided, otherwise use PDF hook
+  const { isDownloading: isLegacyDownloading } = useValuationToolbarDownload()
+  const isDownloading = isPdfGenerating || isLegacyDownloading
+  
+  const handleDownload = React.useCallback(async () => {
+    if (onDownload) {
+      // Use prop handler if provided
+      onDownload()
+    } else {
+      // WORLD-CLASS: Use Titan PDF generation
+      await downloadPdf()
+    }
+  }, [onDownload, downloadPdf])
 
   // Fullscreen hook - use prop if provided, otherwise use hook
   const { handleOpenFullscreen: handleHookFullscreen } = useValuationToolbarFullscreen()
@@ -493,17 +511,40 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     </button>
                   </Tooltip>
                 </div>
-                {/* Download - Always visible (important action) */}
-                <Tooltip content={t('toolbar.tooltips.download')} position="bottom" className="">
+                {/* WORLD-CLASS: Download with PDF status indicator */}
+                <Tooltip 
+                  content={
+                    pdfState.error 
+                      ? t('toolbar.tooltips.downloadError') 
+                      : isPdfReady 
+                        ? t('toolbar.tooltips.downloadReady')
+                        : t('toolbar.tooltips.download')
+                  } 
+                  position="bottom" 
+                  className=""
+                >
                   <button
                     onClick={handleDownload}
-                    className="p-2 rounded-lg transition-all duration-200 text-gray-400 hover:text-gray-300 hover:bg-zinc-800"
+                    className={`p-2 rounded-lg transition-all duration-200 relative ${
+                      pdfState.error 
+                        ? 'text-accent-500 hover:text-accent-400' 
+                        : isPdfReady 
+                          ? 'text-primary-500 hover:text-primary-400'
+                          : 'text-gray-400 hover:text-gray-300'
+                    } hover:bg-zinc-800`}
                     disabled={isDownloading}
                   >
                     {isDownloading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : pdfState.error ? (
+                      <AlertCircle className="w-4 h-4" />
                     ) : (
-                      <Download className="w-4 h-4" />
+                      <>
+                        <Download className="w-4 h-4" />
+                        {isPdfReady && (
+                          <Check className="w-2 h-2 absolute -top-0.5 -right-0.5 text-primary-500" />
+                        )}
+                      </>
                     )}
                   </button>
                 </Tooltip>

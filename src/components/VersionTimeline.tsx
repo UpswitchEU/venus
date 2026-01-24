@@ -4,15 +4,24 @@
  * Single Responsibility: Display version history timeline
  * Shows v1, v2, v3... with dates, labels, and quick navigation
  *
+ * WORLD-CLASS: Supports pagination for reports with 100+ versions
+ * - Shows first 10 versions by default
+ * - "Load More" button for additional versions
+ * - Smooth scroll to newly loaded versions
+ *
  * @module components/VersionTimeline
  */
 
 'use client'
 
-import { ArrowDown, ArrowUp, Calendar, CheckCircle2, Minus } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { ArrowDown, ArrowUp, Calendar, CheckCircle2, Loader2, Minus, ChevronDown } from 'lucide-react'
 import { formatCurrency } from '../config/countries'
 import type { ValuationVersion } from '../types/ValuationVersion'
 import { formatChangesSummary } from '../utils/versionDiffDetection'
+
+/** Number of versions to show initially and per "Load More" click */
+const VERSIONS_PER_PAGE = 10
 
 export interface VersionTimelineProps {
   versions: ValuationVersion[]
@@ -20,6 +29,10 @@ export interface VersionTimelineProps {
   onVersionSelect: (versionNumber: number) => void
   onVersionPin?: (versionNumber: number) => void
   compact?: boolean
+  /** Total version count (if different from versions.length, shows "Load More") */
+  totalVersions?: number
+  /** Callback to fetch more versions */
+  onLoadMore?: () => Promise<void>
 }
 
 /**
@@ -47,7 +60,13 @@ export function VersionTimeline({
   onVersionSelect,
   onVersionPin,
   compact = false,
+  totalVersions,
+  onLoadMore,
 }: VersionTimelineProps) {
+  // WORLD-CLASS: Pagination state for large version lists
+  const [displayCount, setDisplayCount] = useState(VERSIONS_PER_PAGE)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+
   if (versions.length === 0) {
     return (
       <div className="p-8 text-center text-gray-500">
@@ -89,14 +108,40 @@ export function VersionTimeline({
     (a, b) => b.versionNumber - a.versionNumber
   )
 
+  // WORLD-CLASS: Paginate displayed versions
+  const displayedVersions = sortedVersions.slice(0, displayCount)
+  const hasMoreToShow = sortedVersions.length > displayCount
+  const totalCount = totalVersions ?? sortedVersions.length
+  const hasMoreToFetch = totalCount > sortedVersions.length
+
+  // Handle "Load More" click
+  const handleLoadMore = useCallback(async () => {
+    // If we have more versions in memory, just show them
+    if (hasMoreToShow) {
+      setDisplayCount((prev) => Math.min(prev + VERSIONS_PER_PAGE, sortedVersions.length))
+      return
+    }
+
+    // If we need to fetch more from server
+    if (hasMoreToFetch && onLoadMore) {
+      setIsLoadingMore(true)
+      try {
+        await onLoadMore()
+        setDisplayCount((prev) => prev + VERSIONS_PER_PAGE)
+      } finally {
+        setIsLoadingMore(false)
+      }
+    }
+  }, [hasMoreToShow, hasMoreToFetch, onLoadMore, sortedVersions.length])
+
   return (
     <div className="w-full p-6">
       <div className="relative">
-        {sortedVersions.map((version, index) => (
+        {displayedVersions.map((version, index) => (
           <div key={version.id} className="relative pb-8">
             <VersionTimelineItem
               version={version}
-              previousVersion={index < sortedVersions.length - 1 ? sortedVersions[index + 1] : null}
+              previousVersion={index < displayedVersions.length - 1 ? displayedVersions[index + 1] : null}
               isActive={version.versionNumber === activeVersion}
               isLatest={index === 0}
               onClick={() => onVersionSelect(version.versionNumber)}
@@ -105,6 +150,29 @@ export function VersionTimeline({
             />
           </div>
         ))}
+
+        {/* WORLD-CLASS: Load More button for pagination */}
+        {(hasMoreToShow || hasMoreToFetch) && (
+          <div className="flex justify-center pt-4 pb-2">
+            <button
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200 bg-zinc-800/50 hover:bg-zinc-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoadingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-4 h-4" />
+                  Load More ({displayCount} of {totalCount})
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

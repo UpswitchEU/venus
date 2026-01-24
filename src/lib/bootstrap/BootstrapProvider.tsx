@@ -231,16 +231,20 @@ export function BootstrapProvider({
       }
 
       // ✅ CREDIT CHECK: Check if credits are insufficient
-      // AUTH-FIRST: All users are authenticated, so credit checks always apply
-      if (result.creditStatus && !result.creditStatus.allowed) {
+      // WORLD-CLASS: Only block NEW reports - existing reports should ALWAYS be viewable
+      // Users must be able to view their completed valuations regardless of credit status
+      const isExistingReport = result.report.mode === 'existing';
+      
+      if (result.creditStatus && !result.creditStatus.allowed && !isExistingReport) {
         const creditError = result.creditStatus.message || 'Insufficient credits to create valuation';
         setBootstrapError(creditError);
         onBootstrapError?.(creditError);
         
-        console.error('[BootstrapProvider] Credit check failed - preventing Venus from opening', {
+        console.error('[BootstrapProvider] Credit check failed - preventing new valuation', {
           message: creditError,
           upgradePath: result.creditStatus.upgrade_path,
           creditsRemaining: result.creditStatus.credits_remaining,
+          reportMode: result.report.mode,
         });
         
         // Still set state so UI can display credit error
@@ -249,12 +253,59 @@ export function BootstrapProvider({
         setBootstrapState(result);
         return;
       }
+      
+      // Log if existing report viewed with insufficient credits (allowed, but noted)
+      if (result.creditStatus && !result.creditStatus.allowed && isExistingReport) {
+        console.log('[BootstrapProvider] Viewing existing report despite insufficient credits', {
+          reportId: result.report.reportId.substring(0, 20),
+          creditsRemaining: result.creditStatus.credits_remaining,
+        });
+      }
 
       setState(result);
       bootstrapCompletedRef.current = true;
       
       // Sync with SessionInitializer for backward compatibility
       setBootstrapState(result);
+      
+      // WORLD-CLASS: Instant hydration from valuationPackage
+      // If package is present, hydrate stores immediately for < 100ms render
+      if (result.valuationPackage && result.report.mode === 'existing') {
+        try {
+          const { SessionRestorationService } = await import('../../services/session/SessionRestorationService');
+          SessionRestorationService.hydrateFromPackage(
+            result.report.reportId,
+            result.valuationPackage,
+            result.ui.suggestedFlow || 'manual'
+          );
+          console.log('[BootstrapProvider] WORLD-CLASS: Instant hydration complete', {
+            reportId: result.report.reportId.substring(0, 20),
+            hasHtmlReport: !!result.valuationPackage.htmlReport,
+          });
+        } catch (hydrationError) {
+          console.warn('[BootstrapProvider] Package hydration failed - triggering full restoration', {
+            error: hydrationError instanceof Error ? hydrationError.message : String(hydrationError),
+          });
+          
+          // FALLBACK: Trigger full session restoration when package hydration fails
+          // This ensures data is loaded even if the fast path fails
+          try {
+            const { SessionRestorationService } = await import('../../services/session/SessionRestorationService');
+            // Check if report has existing data that needs restoration
+            if (result.report.hasExistingData) {
+              console.log('[BootstrapProvider] Marking report for fallback restoration...', {
+                reportId: result.report.reportId.substring(0, 20),
+              });
+              // Mark for restoration so ManualLayout/ConversationalLayout know to restore
+              SessionRestorationService.markForRestoration(result.report.reportId);
+            }
+          } catch (fallbackError) {
+            console.error('[BootstrapProvider] Fallback restoration setup failed', {
+              error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+            });
+          }
+        }
+      }
       
       // AUTH-FIRST: Set session engine for authenticated users
       try {

@@ -18,30 +18,7 @@ import {
   DRAFT_RESTORATION_STEPS,
   type LoadingStep,
 } from '../components/LoadingState.constants'
-
-/**
- * Detect if URL indicates an existing report (before bootstrap completes)
- * This provides immediate visual feedback while bootstrap is processing
- */
-function detectExistingReportFromUrl(): boolean {
-  if (typeof window === 'undefined') return false
-  
-  const pathname = window.location.pathname
-  
-  // Check for report UUID in URL path: /reports/{uuid} or /en/reports/{uuid}
-  // UUID format: 8-4-4-4-12 hex characters
-  const uuidPattern = /\/reports\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
-  if (uuidPattern.test(pathname)) {
-    return true
-  }
-  
-  // Check for session key in URL path: /reports/val_xxx
-  if (/\/reports\/val_[a-z0-9]+/i.test(pathname)) {
-    return true
-  }
-  
-  return false
-}
+import { detectExistingReportFromUrl } from '../utils/identifiers'
 
 /**
  * Hook to determine loading steps based on bootstrap report mode
@@ -77,67 +54,48 @@ export function useLoadingSteps(): LoadingStep[] {
     urlIndicatesExisting ? RESTORATION_STEPS : INITIALIZATION_STEPS
   )
 
-  // Pure computation based on bootstrap state
-  // No mutations - useMemo is now side-effect free
+  // WORLD-CLASS: Pure computation based on URL detection first, then bootstrap state
+  // Key principle: URL detection is authoritative for loading message consistency
+  // This prevents flickering when bootstrap mode transitions during loading
   return useMemo(() => {
-    // Loading step logic:
-    //
-    // 1. mode: 'new' (no session) → INITIALIZATION_STEPS
-    //    "Validating access", "Creating session", "Loading valuation engine"
-    //
-    // 2. mode: 'existing' + !hasValuationResult → DRAFT_RESTORATION_STEPS
-    //    "Restoring draft", "Recovering form data", "Preparing workspace"
-    //
-    // 3. mode: 'existing' + hasValuationResult → RESTORATION_STEPS
-    //    "Restoring valuation", "Preparing results", "Finalizing report"
-
-    // If URL indicated existing report, use locked steps until bootstrap confirms
-    // This prevents flickering if bootstrap temporarily returns 'new' mode
+    // CRITICAL: If URL indicates existing report, ALWAYS show restoration steps
+    // This is the single source of truth for loading message consistency
+    // Never switch to initialization steps for existing reports
     if (urlIndicatesExisting) {
-      // Bootstrap hasn't loaded yet - use initial locked steps
-      if (!bootstrap?.report) {
-        return initialSteps
-      }
-      
-      // Bootstrap says 'new' but URL says existing - keep showing restoration
-      // This handles race conditions where session lookup temporarily fails
-      if (bootstrap.report.mode === 'new') {
-        return initialSteps
-      }
-      
-      // Bootstrap confirms existing - refine based on report state
-      if (bootstrap.report.mode === 'existing') {
+      // Only refine between RESTORATION_STEPS and DRAFT_RESTORATION_STEPS
+      // Never show INITIALIZATION_STEPS for existing report URLs
+      if (bootstrap?.report?.mode === 'existing') {
         if (bootstrap.report.hasValuationResult) {
           return RESTORATION_STEPS
         }
         if (bootstrap.report.hasExistingData) {
           return DRAFT_RESTORATION_STEPS
         }
-        return RESTORATION_STEPS
       }
+      // Default to restoration steps for any existing report URL
+      return initialSteps
     }
 
-    // URL indicates new report flow
+    // URL indicates new report flow - can use bootstrap state directly
     if (!bootstrap?.report) {
       return INITIALIZATION_STEPS
     }
 
-    // New report - show initialization steps
+    // Bootstrap confirms new report
     if (bootstrap.report.mode === 'new') {
       return INITIALIZATION_STEPS
     }
 
-    // Existing report with completed valuation - show restoration steps
+    // Edge case: URL didn't indicate existing but bootstrap found existing
+    // This can happen with UUID-based URLs from Mercury
     if (bootstrap.report.hasValuationResult) {
       return RESTORATION_STEPS
     }
-
-    // Existing draft (has data but no valuation result) - show draft steps
     if (bootstrap.report.hasExistingData) {
       return DRAFT_RESTORATION_STEPS
     }
 
-    // Fallback based on URL detection
-    return urlIndicatesExisting ? RESTORATION_STEPS : INITIALIZATION_STEPS
+    // Final fallback
+    return INITIALIZATION_STEPS
   }, [bootstrap?.report, urlIndicatesExisting, initialSteps])
 }

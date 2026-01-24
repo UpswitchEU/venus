@@ -15,8 +15,10 @@
 import { AuthResolver, authResolver } from './resolvers/AuthResolver';
 import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver';
 import { SessionResolver, sessionResolver } from './resolvers/SessionResolver';
+import { looksLikeExistingReportId, getIdentifierType } from '../../utils/identifiers';
 import type {
   BootstrapContext,
+  BootstrapErrorInfo,
   BootstrapHints,
   FlowType,
   IdentityState,
@@ -26,6 +28,7 @@ import type {
   UIHints,
 } from './types';
 import {
+  BOOTSTRAP_ERROR_CODES,
   BOOTSTRAP_VERSION,
   DEFAULT_BOOTSTRAP_STATE,
   DEFAULT_IDENTITY,
@@ -428,6 +431,26 @@ export class SessionBootstrapService {
           continue;
         }
         
+        // Handle 5xx server errors - these are typically retryable
+        if (response.status >= 500 && attempt < maxRetries - 1) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          this.logger.warn(`[Bootstrap:${traceId}] Server error ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`, {
+            note: 'Server error may be transient',
+          });
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        
+        // Handle 408/504 timeout errors - also retryable
+        if ((response.status === 408 || response.status === 504) && attempt < maxRetries - 1) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          this.logger.warn(`[Bootstrap:${traceId}] Timeout ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`, {
+            note: 'Request timed out - may succeed on retry',
+          });
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        
         return response;
       } catch (fetchError) {
         clearTimeout(timeoutId);
@@ -564,9 +587,21 @@ export class SessionBootstrapService {
 
       const data = await response.json();
 
-        // ✅ CREDIT CHECK: Handle credit errors gracefully
+        // ✅ STRUCTURED ERROR HANDLING: Check errorInfo for smarter error handling
         if (!data.success) {
-          // Check if this is a credit error
+          // Extract structured error info if available
+          const errorInfo: BootstrapErrorInfo | undefined = data.errorInfo;
+          
+          // Log structured error details for debugging
+          if (errorInfo) {
+            this.logger.warn(`[Bootstrap:${traceId}] Received structured error`, {
+              code: errorInfo.code,
+              message: errorInfo.message,
+              retryable: errorInfo.retryable,
+            });
+          }
+
+          // Check if this is a credit error (allow viewing with limited data)
           if (data.data?.creditStatus && !data.data.creditStatus.allowed) {
             // Credit check failed - return state with credit error
             const { identity, report, prefill, ui, creditStatus } = data.data;
@@ -617,8 +652,22 @@ export class SessionBootstrapService {
               bootstrapDurationMs: performance.now() - startTime,
             };
           }
-          // Other errors - throw as before
-          throw new Error(data.error || 'Bootstrap returned no data');
+
+          // Check if error is retryable based on structured error info
+          const isRetryableError = errorInfo?.retryable ?? false;
+          const errorCode = errorInfo?.code || 'UNKNOWN';
+          
+          // Create rich error message
+          const errorMessage = errorInfo 
+            ? `[${errorCode}] ${errorInfo.message}${isRetryableError ? ' (retryable)' : ''}`
+            : (data.error || 'Bootstrap returned no data');
+          
+          // For retryable errors, we could implement automatic retry here
+          // For now, just throw with additional context
+          const error = new Error(errorMessage);
+          (error as any).code = errorCode;
+          (error as any).retryable = isRetryableError;
+          throw error;
         }
 
         if (!data.data) {
@@ -626,7 +675,7 @@ export class SessionBootstrapService {
         }
 
         // Transform Titan response to SessionBootstrapState
-        const { identity, report, prefill, ui, creditStatus } = data.data;
+        const { identity, report, prefill, ui, creditStatus, valuationPackage } = data.data;
 
         const state: SessionBootstrapState = {
         identity: {
@@ -641,6 +690,8 @@ export class SessionBootstrapService {
           mode: report.mode,
           reportId: report.reportId,
           hasExistingData: report.hasExistingData,
+          // WORLD-CLASS: Mark as having valuation result if package has HTML
+          hasValuationResult: report.hasValuationResult || !!valuationPackage?.htmlReport,
           version: report.version,
           status: report.status,
           createdAt: report.createdAt ? new Date(report.createdAt) : undefined,
@@ -670,27 +721,43 @@ export class SessionBootstrapService {
           sourceApp: context.sourceApp,
         },
         creditStatus: creditStatus, // Include credit status if present
+        // WORLD-CLASS: Extract valuationPackage for instant UI hydration
+        valuationPackage: valuationPackage ? {
+          htmlReport: valuationPackage.htmlReport || null,
+          infoTabHtml: valuationPackage.infoTabHtml || null,
+          pricingRange: valuationPackage.pricingRange || null,
+          versions: valuationPackage.versions || { current: 1, total: 1 },
+          pdf: valuationPackage.pdf || { url: null, status: 'none' },
+        } : undefined,
         bootstrapVersion: BOOTSTRAP_VERSION,
         bootstrappedAt: new Date(),
         bootstrapDurationMs: data.bootstrapDurationMs || (performance.now() - startTime),
       };
+      
+      // WORLD-CLASS: Log valuationPackage presence for debugging
+      if (valuationPackage) {
+        this.logger.info(`[Bootstrap:${traceId}] Received valuationPackage`, {
+          hasHtmlReport: !!valuationPackage.htmlReport,
+          hasInfoTab: !!valuationPackage.infoTabHtml,
+          hasPricing: !!valuationPackage.pricingRange,
+          versionCount: valuationPackage.versions?.total,
+          pdfStatus: valuationPackage.pdf?.status,
+        });
+      }
 
       // ✅ FIX: Retry if session was expected but not found
       // This handles race condition where auth token was stale during first request
       // 
-      // CRITICAL: Handle BOTH ID formats:
+      // CRITICAL: Handle BOTH ID formats using centralized identifier utilities:
       // - val_xxx: Direct Venus session key format
       // - UUID: Mercury passes valuation_reports.id (UUID format)
-      const isSessionKeyFormat = context.reportId?.startsWith('val_') ?? false;
-      const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(context.reportId || '');
-      const looksLikeExistingReportId = isSessionKeyFormat || isUuidFormat;
+      const urlIndicatesExisting = looksLikeExistingReportId(context.reportId);
       
-      if (state.report.mode === 'new' && context.reportId && looksLikeExistingReportId) {
+      if (state.report.mode === 'new' && context.reportId && urlIndicatesExisting) {
         this.logger.warn(`[Bootstrap:${traceId}] Session not found for existing reportId - retrying once`, {
           reportId: context.reportId.substring(0, 25),
           mode: state.report.mode,
-          isSessionKeyFormat,
-          isUuidFormat,
+          identifierType: getIdentifierType(context.reportId),
         });
         
         // Wait for auth to fully stabilize

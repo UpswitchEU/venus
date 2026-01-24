@@ -32,8 +32,11 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
     getActiveVersion,
     setActiveVersion,
     loading,
-    // NOTE: fetchVersions removed - now handled by SessionRestorationService
+    fetchVersions, // WORLD-CLASS: Used for "Load More" pagination
   } = useVersionHistoryStore()
+  
+  // WORLD-CLASS: Track total version count from bootstrap for pagination
+  const [totalVersionCount, setTotalVersionCount] = useState<number | undefined>(undefined)
 
   const [selectedVersionNumber, setSelectedVersionNumber] = useState<number | null>(null)
 
@@ -162,6 +165,11 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
           onVersionSelect={handleVersionSelect}
           onVersionPin={handleVersionPin}
           compact={false}
+          totalVersions={totalVersionCount}
+          onLoadMore={async () => {
+            // WORLD-CLASS: Fetch more versions from backend
+            await fetchVersions(reportId)
+          }}
         />
       </div>
     </div>

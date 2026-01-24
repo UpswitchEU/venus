@@ -11,6 +11,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { 
+  CLIENT_CONTEXT_HEADERS, 
+  extractClientContextFromHeaders,
+} from '../../../src/constants/headers';
 
 const TITAN_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
                       process.env.NEXT_PUBLIC_API_BASE_URL || 
@@ -100,19 +104,14 @@ export async function POST(request: NextRequest) {
     let cookieHeader = request.headers.get('cookie') || '';
 
     // Get guest session ID and client context headers if present
-    // ✅ CRITICAL: Support both header formats for compatibility
-    // Venus HttpClient sends: X-Client-Context-User, X-Client-Context-Accountant, X-Client-Context-Relationship
-    // Bootstrap expects: X-Client-User-Id, X-Accountant-User-Id, X-Relationship-Id
+    // ✅ CRITICAL: Using centralized header constants for consistency
+    // Accepts both canonical (X-Client-User-Id) and legacy (X-Client-Context-User) formats
     const guestSessionId = request.headers.get('x-guest-session-id');
-    const clientUserId = 
-      request.headers.get('x-client-user-id') || 
-      request.headers.get('x-client-context-user');
-    const accountantUserId = 
-      request.headers.get('x-accountant-user-id') || 
-      request.headers.get('x-client-context-accountant');
-    const relationshipId = 
-      request.headers.get('x-relationship-id') || 
-      request.headers.get('x-client-context-relationship');
+    
+    // Extract client context using centralized utility
+    const clientContext = extractClientContextFromHeaders(
+      (name: string) => request.headers.get(name)
+    );
 
     // Build headers for Titan request
     const buildTitanHeaders = (cookies: string): Record<string, string> => {
@@ -129,17 +128,13 @@ export async function POST(request: NextRequest) {
         headers['X-Guest-Session-Id'] = guestSessionId;
       }
 
-      // ✅ CRITICAL: Forward client context headers for accountant-client flow
-      if (clientUserId) {
-        headers['X-Client-User-Id'] = clientUserId;
-      }
-
-      if (accountantUserId) {
-        headers['X-Accountant-User-Id'] = accountantUserId;
-      }
-
-      if (relationshipId) {
-        headers['X-Relationship-Id'] = relationshipId;
+      // ✅ CRITICAL: Forward client context headers using canonical format
+      if (clientContext) {
+        headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId;
+        headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = clientContext.accountantUserId;
+        if (clientContext.relationshipId) {
+          headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = clientContext.relationshipId;
+        }
       }
 
       return headers;

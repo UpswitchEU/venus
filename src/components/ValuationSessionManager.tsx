@@ -26,6 +26,7 @@ import { useBootstrapSafe } from '../lib/bootstrap'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationSession } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
+import { looksLikeExistingReportId } from '../utils/identifiers'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection'
@@ -85,15 +86,14 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // CRITICAL: Handle BOTH ID formats that indicate existing reports:
     // - val_xxx: Direct Venus session key format
     // - UUID: Mercury passes valuation_reports.id (UUID format like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-    const isSessionKeyFormat = reportId?.startsWith('val_') ?? false;
-    const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId || '');
-    const looksLikeExistingReportId = (isSessionKeyFormat || isUuidFormat) && !reportId?.includes('_temp');
+    // Using centralized identifier utilities for consistent format detection
+    const urlIndicatesExisting = looksLikeExistingReportId(reportId);
     
     const bootstrapMismatch = bootstrap && 
       bootstrapComplete &&
       bootstrap.report.mode === 'new' && 
       reportId && 
-      looksLikeExistingReportId
+      urlIndicatesExisting
 
     // ROOT CAUSE FIX: Subscribe to `status` directly, not computed getters
     // Zustand subscriptions don't trigger re-renders with getters - must subscribe to actual state
@@ -113,10 +113,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // CRITICAL FIX: Only show credit error for NEW reports, not existing ones
     // If URL has val_xxx or UUID format, user is viewing an existing report - never block viewing
     const bootstrapCreditStatus = bootstrap?.creditStatus
-    // Reuse the looksLikeExistingReportId computed above for consistency
+    // Reuse the urlIndicatesExisting computed above for consistency
     const showCreditError = bootstrapCreditStatus && 
       !bootstrapCreditStatus.allowed && 
-      !looksLikeExistingReportId // Don't block viewing existing reports (val_xxx or UUID)
+      !urlIndicatesExisting // Don't block viewing existing reports (val_xxx or UUID)
 
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)
@@ -153,34 +153,18 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       }
     }, [status, reportId]) // Subscribe to status directly for proper reactivity
 
-    // ✅ FIX: Handle bootstrap mismatch - session not found for existing reportId
-    // This can happen due to auth race conditions or permission issues
-    // Trigger a retry after a short delay to give auth time to stabilize
-    // ✅ RACE CONDITION FIX: Use ref instead of state to prevent re-render loops
+    // WORLD-CLASS: Trust bootstrap result - no retry logic
+    // The retry mechanism was causing multiple loading screens and flickering
+    // Bootstrap is now optimized to handle both session_key and UUID formats
+    // If session lookup fails, proceed with the result (new session creation)
+    // The user can refresh manually if needed
     useEffect(() => {
-      if (bootstrapMismatch && !bootstrapRetryRef.current && bootstrap?.refreshBootstrap) {
-        generalLogger.warn('[SessionManager] Bootstrap returned new for existing reportId - retrying', {
-          reportId,
-          bootstrapMode: bootstrap.report.mode,
-          bootstrapReportId: bootstrap.report.reportId,
+      if (bootstrapMismatch) {
+        generalLogger.debug('[SessionManager] Bootstrap mismatch detected - proceeding without retry', {
+          reportId: reportId?.substring(0, 20),
+          bootstrapMode: bootstrap?.report.mode,
+          note: 'Trusting bootstrap result for single loading state',
         })
-        
-        // Mark retry as initiated immediately to prevent duplicate retries
-        bootstrapRetryRef.current = true
-        
-        // Wait a bit for auth to fully stabilize, then retry bootstrap
-        const retryTimer = setTimeout(async () => {
-          try {
-            await bootstrap.refreshBootstrap()
-          } catch (err) {
-            generalLogger.error('[SessionManager] Bootstrap retry failed', {
-              reportId,
-              error: err instanceof Error ? err.message : String(err),
-            })
-          }
-        }, 1000)
-        
-        return () => clearTimeout(retryTimer)
       }
     }, [bootstrapMismatch, bootstrap, reportId])
 
