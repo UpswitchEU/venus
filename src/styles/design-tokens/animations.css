@@ -91,6 +91,27 @@
   }
 }
 
+/* Aurora gradient shift - brand signature animation */
+@keyframes aurora-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes aurora-pulse {
+  0%, 100% {
+    opacity: 0.5;
+    filter: blur(8px);
+  }
+  50% {
+    opacity: 0.8;
+    filter: blur(12px);
+  }
+}
+
 /* Radix UI Accordion */
 @keyframes aurora-accordion-down {
   from {
@@ -145,6 +166,15 @@
   animation: aurora-float 3s ease-in-out infinite;
 }
 
+.animate-aurora-shift {
+  animation: aurora-shift 8s ease-in-out infinite;
+  background-size: 300% 300%;
+}
+
+.animate-aurora-pulse {
+  animation: aurora-pulse 4s ease-in-out infinite;
+}
+
 .aurora-accordion-down {
   animation: aurora-accordion-down 0.2s ease-out;
 }
@@ -194,6 +224,8 @@
   .aurora-shimmer,
   .aurora-pulse-glow,
   .aurora-float,
+  .animate-aurora-shift,
+  .animate-aurora-pulse,
   .aurora-accordion-down,
   .aurora-accordion-up {
     animation: none;

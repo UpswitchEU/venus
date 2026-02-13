@@ -1,5 +1,5 @@
 /**
- * Hybrid Aurora Design System
+ * Aurora by Upswitch Design System
  * Framer Motion Presets
  * 
  * Physics-based spring animations for natural, premium feel
@@ -103,6 +103,26 @@ export const scaleIn: Variants = {
   },
 }
 
+/** Slide in from left */
+export const slideInLeft: Variants = {
+  hidden: { opacity: 0, x: -30 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: springDefault,
+  },
+}
+
+/** Slide in from right */
+export const slideInRight: Variants = {
+  hidden: { opacity: 0, x: 30 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: springDefault,
+  },
+}
+
 /** Stagger children animation */
 export const staggerContainer: Variants = {
   hidden: { opacity: 0 },
@@ -115,7 +135,7 @@ export const staggerContainer: Variants = {
   },
 }
 
-/** Fast stagger children animation */
+/** Fast stagger for lists */
 export const staggerFast: Variants = {
   hidden: { opacity: 0 },
   visible: {
@@ -124,26 +144,6 @@ export const staggerFast: Variants = {
       staggerChildren: 0.05,
       delayChildren: 0.05,
     },
-  },
-}
-
-/** Slide in from left */
-export const slideInLeft: Variants = {
-  hidden: { opacity: 0, x: -20 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: springDefault,
-  },
-}
-
-/** Slide in from right */
-export const slideInRight: Variants = {
-  hidden: { opacity: 0, x: 20 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: springDefault,
   },
 }
 
@@ -165,8 +165,8 @@ export const hoverScale = {
 
 /** Glow effect on hover */
 export const hoverGlow = {
-  boxShadow: '0 0 20px rgba(var(--primary), 0.3)',
-  transition: springSnappy,
+  boxShadow: '0 0 20px hsl(172 55% 45% / 0.2)',
+  transition: { duration: duration.normal },
 }
 
 // ─────────────────────────────────────────
@@ -180,29 +180,26 @@ export const tapScale = {
 }
 
 // ─────────────────────────────────────────
+// VIEWPORT ANIMATION CONFIG
+// ─────────────────────────────────────────
+
+export const viewportConfig = {
+  once: true,
+  margin: '-100px',
+  amount: 0.2 as const,
+};
+
+// ─────────────────────────────────────────
 // UTILITY FUNCTIONS
 // ─────────────────────────────────────────
 
 /** Create stagger delay for index */
 export const staggerDelay = (index: number, baseDelay = 0.1): number => {
-  return index * baseDelay
-}
+  return index * baseDelay;
+};
 
-/** Viewport animation configuration */
-export const viewportConfig = {
-  once: true,
-  margin: '-100px 0px',
-  amount: 0.3,
-} as const
-
-/** Create custom spring configuration */
-export const createSpring = (
-  stiffness: number = 170,
-  damping: number = 26,
-  mass: number = 1
-): Transition => ({
-  type: 'spring',
-  stiffness,
-  damping,
-  mass,
-})
+/** Create custom spring with override */
+export const createSpring = (overrides: Partial<typeof springDefault>): Transition => ({
+  ...springDefault,
+  ...overrides,
+});

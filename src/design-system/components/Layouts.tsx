@@ -9,6 +9,7 @@
 import * as React from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '../../lib/utils'
+import { springDefault } from './motion'
 
 // ─────────────────────────────────────────
 // SPLIT LAYOUT (Two Panels)
@@ -257,6 +258,7 @@ export const AuroraCard: React.FC<AuroraCardProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={springDefault}
       className={cn(
         'aurora-theme rounded-xl',
         paddingStyles[padding],

@@ -8,6 +8,7 @@
  */
 
 import { motion } from 'framer-motion';
+import { springDefault } from '@/design-system/components/motion';
 import { 
   TrendingUp,
   TrendingDown,
@@ -120,7 +121,7 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
 
         <div className="px-8 py-8 space-y-8">
           {report.metrics && report.metrics.length > 0 && (
-            <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springDefault, delay: 0.1 }}>
               <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-slate-400" />
                 Kerncijfers
@@ -131,7 +132,7 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
                     key={metric.label}
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 + index * 0.03 }}
+                    transition={{ ...springDefault, delay: 0.15 + index * 0.03 }}
                     className="bg-slate-50 rounded-xl p-4 hover:bg-slate-100 transition-colors"
                   >
                     <p className="text-xs text-slate-500 mb-1">{metric.label}</p>
@@ -153,7 +154,7 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
             </motion.section>
           )}
 
-          <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-teal-50 border border-teal-200 rounded-xl p-5">
+          <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springDefault, delay: 0.3 }} className="bg-teal-50 border border-teal-200 rounded-xl p-5">
             <div className="flex gap-3">
               <Shield className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
               <div>
@@ -167,7 +168,7 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
             </div>
           </motion.section>
 
-          <motion.footer initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="text-[10px] text-slate-400 border-t border-slate-200 pt-6 leading-relaxed">
+          <motion.footer initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...springDefault, delay: 0.4 }} className="text-[10px] text-slate-400 border-t border-slate-200 pt-6 leading-relaxed">
             <p>
               <strong>Disclaimer:</strong> Dit document betreft een indicatieve bedrijfsschatting en vormt geen 
               formele waardering conform internationale standaarden. Voor formele transacties dient een gecertificeerde 

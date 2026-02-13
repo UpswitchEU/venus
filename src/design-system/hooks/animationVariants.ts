@@ -61,7 +61,7 @@ export const animationVariants: Record<AnimationVariant, {
     animate: { 
       opacity: 1, 
       scale: 1,
-      transition: { type: 'spring', ...springPresets.snappy },
+      transition: { type: 'spring', ...springPresets.default },
     },
     exit: { opacity: 0, scale: 0.95 },
   },
