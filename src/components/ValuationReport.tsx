@@ -64,13 +64,8 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     // Extract URL action and tab parameters (for Mercury integration)
     const urlAction = urlParams.action || undefined
     const initialTab = React.useMemo(() => {
-      // Check tab query param first
-      if (urlParams.tab === 'info') return 'info' as const
+      // Check tab query param first (info tab removed - map to preview)
       if (urlParams.tab === 'history') return 'history' as const
-      // Check URL hash for #info-tab
-      if (typeof window !== 'undefined' && window.location.hash === '#info-tab') {
-        return 'info' as const
-      }
       return 'preview' as const
     }, [urlParams.tab])
 

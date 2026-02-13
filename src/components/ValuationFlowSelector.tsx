@@ -49,8 +49,8 @@ interface ValuationFlowSelectorProps {
   onStartOver?: () => void
   /** Report ID for optimistic rendering (when session not loaded yet) */
   reportId: string
-  /** Initial tab to display (for Mercury integration - 'info' shows breakdown) */
-  initialTab?: 'preview' | 'info' | 'history'
+  /** Initial tab to display (for Mercury integration) */
+  initialTab?: 'preview' | 'history'
   /** URL action parameter (e.g., 'download' to trigger PDF download) */
   urlAction?: string
   /** Open chat drawer on mount when URL has drawer=open (Clarity parity) */

@@ -1164,8 +1164,8 @@ export interface ValuationToolbarProps {
   user?: any
   valuationName?: string
   valuationId?: string
-  activeTab?: 'preview' | 'info' | 'history'
-  onTabChange?: (tab: 'preview' | 'info' | 'history') => void
+  activeTab?: 'preview' | 'history'
+  onTabChange?: (tab: 'preview' | 'history') => void
   companyName?: string
   valuationMethod?: string
   // M&A Workflow: Version management

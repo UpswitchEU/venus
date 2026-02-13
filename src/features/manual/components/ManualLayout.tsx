@@ -219,7 +219,7 @@ interface ManualLayoutProps {
   onComplete: (result: ValuationResponse) => void
   initialVersion?: number
   initialMode?: 'edit' | 'view'
-  initialTab?: 'preview' | 'info' | 'history'
+  initialTab?: 'preview' | 'history'
   urlAction?: string
   /** Open chat drawer on mount when URL has drawer=open (Clarity parity) */
   initialDrawerOpen?: boolean

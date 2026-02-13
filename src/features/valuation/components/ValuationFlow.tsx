@@ -20,7 +20,7 @@ interface ValuationFlowProps {
   autoSend?: boolean
   initialMode?: 'edit' | 'view'
   initialVersion?: number
-  initialTab?: 'preview' | 'info' | 'history'
+  initialTab?: 'preview' | 'history'
   urlAction?: string
   initialDrawerOpen?: boolean
 }

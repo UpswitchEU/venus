@@ -25,8 +25,6 @@ import {
   ArrowRight,
   Check,
   Loader2,
-  Edit3,
-  MessageSquare,
   FileSpreadsheet,
   CheckCircle2,
 } from 'lucide-react';
