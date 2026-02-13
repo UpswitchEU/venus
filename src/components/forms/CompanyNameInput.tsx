@@ -264,7 +264,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
     return (
       <div className="relative group">
         <svg
-          className="w-5 h-5 text-primary"
+          className="w-5 h-5 text-primary-500"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -273,34 +273,34 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
         </svg>
 
-        {/* Tooltip on hover - Aurora styled */}
-        <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-background border border-foreground/[0.08] text-foreground text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[10000] transform translate-y-2 group-hover:translate-y-0" style={{ zIndex: 10000 }}>
+        {/* Tooltip on hover - Kept dark for high contrast overlay */}
+        <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-gray-900 border border-gray-800 text-white text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[10000] transform translate-y-2 group-hover:translate-y-0" style={{ zIndex: 10000 }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-primary text-xs uppercase tracking-wider">
+            <span className="font-bold text-primary-400 text-xs uppercase tracking-wider">
               {t('forms.kboLookup.verifiedCompany')}
             </span>
             {exactMatch.status === 'Active' && (
-              <span className="px-1.5 py-0.5 bg-primary/20 text-primary rounded text-[10px] font-semibold">
+              <span className="px-1.5 py-0.5 bg-primary-500/20 text-primary-400 rounded text-[10px] font-semibold">
                 ACTIVE
               </span>
             )}
           </div>
-          <div className="font-serif text-base mb-3 text-foreground">{exactMatch.company_name}</div>
-          <div className="space-y-2 text-foreground/50 border-t border-foreground/[0.08] pt-2">
+          <div className="font-serif text-base mb-3 text-white">{exactMatch.company_name}</div>
+          <div className="space-y-2 text-gray-400 border-t border-gray-800 pt-2">
             <div className="flex justify-between">
               <span>{t('forms.kboLookup.registration')}</span>
-              <span className="font-mono text-foreground/70">{exactMatch.registration_number}</span>
+              <span className="font-mono text-gray-300">{exactMatch.registration_number}</span>
             </div>
             {exactMatch.legal_form && (
               <div className="flex justify-between">
                 <span>{t('forms.kboLookup.type')}</span>
-                <span className="text-foreground/70">{exactMatch.legal_form}</span>
+                <span className="text-gray-300">{exactMatch.legal_form}</span>
               </div>
             )}
             {exactMatch.address && (
               <div className="block mt-1">
                 <span className="block mb-0.5">{t('forms.kboLookup.address')}</span>
-                <span className="text-foreground/70 leading-tight">{exactMatch.address}</span>
+                <span className="text-gray-300 leading-tight">{exactMatch.address}</span>
               </div>
             )}
           </div>
@@ -314,7 +314,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
     if (!isLoading) return null
 
     return (
-      <div className="w-4 h-4 border-2 border-foreground/20 border-t-primary rounded-full animate-spin" />
+      <div className="w-4 h-4 border-2 border-gray-200 border-t-primary-600 rounded-full animate-spin" />
     )
   }
 
@@ -326,9 +326,9 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
       <div
         id="company-suggestions-list"
         role="listbox"
-        className="absolute top-full left-0 right-0 mt-2 bg-background border border-foreground/[0.10] rounded-xl shadow-2xl shadow-black/20 z-[9999] max-h-72 overflow-y-auto transform transition-all duration-200 origin-top"
+        className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200/75 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-[9999] max-h-72 overflow-y-auto transform transition-all duration-200 origin-top animate-in fade-in slide-in-from-top-2 ring-1 ring-black/5"
       >
-        <div className="px-4 py-2.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider bg-background/95 border-b border-foreground/[0.05] sticky top-0 backdrop-blur-md z-10">
+        <div className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-white/95 border-b border-gray-100 sticky top-0 backdrop-blur-md z-10 shadow-sm">
           {t('forms.kboLookup.didYouMean')}
         </div>
         <div className="py-1">
@@ -344,31 +344,31 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
                 aria-selected={isExactMatch}
                 className={`w-full text-left px-4 py-3 transition-all duration-150 group relative border-l-2 ${
                   isHighlighted
-                    ? 'bg-primary/10 border-primary'
-                    : 'border-transparent hover:bg-foreground/[0.04] hover:border-primary/30'
-                } ${isExactMatch ? 'bg-primary/10 hover:bg-primary/15 border-primary' : ''}`}
+                    ? 'bg-primary-50 border-primary-500'
+                    : 'border-transparent hover:bg-primary-50 hover:border-primary-200'
+                } ${isExactMatch ? 'bg-primary-50/60 hover:bg-primary-100 border-primary-500' : ''}`}
                 onClick={() => handleSelectCompany(company)}
                 onMouseEnter={() => {
                   setHighlightedIndex(index)
                 }}
               >
                 <div
-                  className={`font-medium text-base transition-colors ${isExactMatch ? 'text-primary' : 'text-foreground'}`}
+                  className={`font-medium text-base transition-colors ${isExactMatch ? 'text-primary-900' : 'text-gray-900'}`}
                 >
                   {company.company_name}
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-xs">
                   {company.registration_number && (
                     <span
-                      className={`font-mono ${isExactMatch ? 'text-primary/70' : 'text-foreground/40'}`}
+                      className={`font-mono ${isExactMatch ? 'text-primary-700/70' : 'text-gray-400'}`}
                     >
                       {company.registration_number}
                     </span>
                   )}
                   {company.legal_form && (
                     <>
-                      <span className="text-foreground/20">•</span>
-                      <span className={`${isExactMatch ? 'text-primary/70' : 'text-foreground/50'}`}>
+                      <span className="text-gray-300">•</span>
+                      <span className={`${isExactMatch ? 'text-primary-700/70' : 'text-gray-500'}`}>
                         {company.legal_form}
                       </span>
                     </>
@@ -376,7 +376,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
                 </div>
                 {company.address && (
                   <div
-                    className={`text-xs mt-1 truncate ${isExactMatch ? 'text-primary/60' : 'text-foreground/40'}`}
+                    className={`text-xs mt-1 truncate ${isExactMatch ? 'text-primary-700/60' : 'text-gray-400'}`}
                   >
                     {company.address}
                   </div>

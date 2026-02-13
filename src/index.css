@@ -76,7 +76,7 @@
   }
 
   html {
-    font-family: "Satoshi", system-ui, -apple-system, sans-serif;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
   }
 
   body {
@@ -287,7 +287,7 @@
   --border-light: #e2e8f0; /* Slate-200 */
 
   /* Base Font settings */
-  font-family: "Satoshi", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 11pt;
   line-height: 1.5;
   color: #2b303a;
@@ -302,7 +302,7 @@
 
 /* Headers */
 .valuation-report-preview h1 {
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 28pt;
   font-weight: 800;
   color: var(--text-dark);
@@ -325,7 +325,7 @@
 }
 
 .valuation-report-preview h2 {
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 18pt;
   font-weight: 700;
   color: var(--text-dark);
@@ -337,7 +337,7 @@
 }
 
 .valuation-report-preview h3 {
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 14pt;
   font-weight: 600;
   color: var(--text-dark);
@@ -453,7 +453,7 @@
   border-spacing: 0;
   margin-top: 24pt;
   margin-bottom: 24pt;
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 10pt;
   line-height: 1.6;
   border: none;
@@ -487,7 +487,7 @@
   color: var(--upswitch-navy);
   padding: 12pt 12pt;
   text-align: left;
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Inter", sans-serif;
   text-transform: uppercase;
   font-size: 9pt;
   letter-spacing: 0.05em;
@@ -547,7 +547,7 @@
   font-weight: 800;
   margin: 12pt 0 16pt 0;
   color: var(--upswitch-navy);
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Inter", sans-serif;
   letter-spacing: -1pt;
 }
 

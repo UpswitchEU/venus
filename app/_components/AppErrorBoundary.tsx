@@ -54,7 +54,7 @@ export function AppErrorBoundary({
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <ErrorState
           variant="dark"

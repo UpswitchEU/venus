@@ -28,8 +28,6 @@ export interface CustomAdjustment {
   description: string
   amount: number
   note?: string
-  ledger_code?: string
-  ledger_name?: string
 }
 
 export interface NormalizationAdjustment {
@@ -37,8 +35,6 @@ export interface NormalizationAdjustment {
   amount: number
   note?: string
   confidence?: ConfidenceScore
-  ledger_code?: string
-  ledger_name?: string
 }
 
 export interface EbitdaNormalization {

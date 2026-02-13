@@ -15,9 +15,8 @@ import type { BusinessType } from '../../../services/businessTypesApi'
 import type { CompanySearchResult } from '../../../services/registry/types'
 import type { ValuationFormData } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
-import { CustomBusinessTypeSearch } from '../../forms'
+import { CustomBusinessTypeSearch, CustomDropdown, CustomNumberInputField } from '../../forms'
 import CompanyNameInput from '../../forms/CompanyNameInput'
-import { AuroraSelect, AuroraNumberInput, AuroraFormSection, AuroraFormGrid, AuroraFullWidthField, AuroraFormAlert } from '../../../design-system/components'
 
 interface BasicInformationSectionProps {
   formData: ValuationFormData
@@ -266,11 +265,15 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   }, [selectedCompany])
 
   return (
-    <AuroraFormSection title={t('forms.sections.basicInformation')}>
-      <AuroraFormGrid columns={2}>
+    <div className="space-y-6">
+      <h3 className="text-xl font-semibold text-white mb-6 pb-2 border-b border-white/10 tracking-tight">
+        {t('forms.sections.basicInformation')}
+      </h3>
+
+      <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-6">
         {/* Business Type Selector - replaces Industry, Sub-Industry, and Business Model */}
         {/* MOVED TO TOP: Aligns with AI-guided flow & enables intelligent triage from question 1 */}
-        <AuroraFullWidthField>
+        <div className="@4xl:col-span-2">
           <CustomBusinessTypeSearch
             value={formData.business_type_id}
             businessTypes={businessTypes}
@@ -356,11 +359,11 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
             disabled={businessTypesLoading}
           />
           {businessTypesError && (
-            <p className="mt-2 text-sm text-warning">
-              Using offline business types. Some options may be limited.
+            <p className="mt-2 text-sm text-yellow-400">
+              ⚠️ Using offline business types. Some options may be limited.
             </p>
           )}
-        </AuroraFullWidthField>
+        </div>
 
         {/* Company Name with KBO Registry Check */}
         {/* MOVED AFTER BUSINESS TYPE: Enables context-aware KBO validation */}
@@ -397,15 +400,29 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
         {/* Registry Data Preview - Show auto-filled fields */}
         {autoFilledFields.length > 0 && (
-          <AuroraFullWidthField>
-            <AuroraFormAlert type="success" title={t('forms.kboLookup.autoFilledFromRegistry')}>
-              {autoFilledFields.join(', ')}
-            </AuroraFormAlert>
-          </AuroraFullWidthField>
+          <div className="@4xl:col-span-2 mt-2 p-3 bg-primary-50/50 border border-primary-200/50 rounded-lg text-sm text-gray-700">
+            <div className="flex items-center gap-2">
+              <svg
+                className="w-4 h-4 text-primary-600 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="font-medium text-primary-900">{t('forms.kboLookup.autoFilledFromRegistry')}</span>
+              <span className="text-gray-600">{autoFilledFields.join(', ')}</span>
+            </div>
+          </div>
         )}
 
         {/* Founding Year */}
-        <AuroraNumberInput
+        <CustomNumberInputField
           label={t('forms.fields.yearBusinessCommenced')}
           placeholder={t('forms.fields.yearBusinessCommencedPlaceholder')}
           value={formData.founding_year || new Date().getFullYear() - 5}
@@ -424,7 +441,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
         />
 
         {/* Country */}
-        <AuroraSelect
+        <CustomDropdown
           label={t('forms.fields.primaryOperatingCountry')}
           placeholder={t('forms.fields.countrySelect')}
           options={TARGET_COUNTRIES.map((country) => ({
@@ -436,7 +453,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           helpText={t('forms.fields.primaryOperatingCountryHelp')}
           required
         />
-      </AuroraFormGrid>
-    </AuroraFormSection>
+      </div>
+    </div>
   )
 }

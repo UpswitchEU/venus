@@ -9,7 +9,7 @@
 
 import React from 'react'
 import type { ValuationFormData } from '../../../types/valuation'
-import { AuroraSelect, AuroraNumberInput, AuroraFormSection, AuroraFormGrid, AuroraFormAlert } from '../../../design-system/components'
+import { CustomDropdown, CustomNumberInputField } from '../../forms'
 
 interface OwnershipStructureSectionProps {
   formData: ValuationFormData
@@ -35,10 +35,14 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
   setEmployeeCountError,
 }) => {
   return (
-    <AuroraFormSection title="Ownership Structure">
-      <AuroraFormGrid columns={2}>
+    <div className="space-y-6">
+      <h3 className="text-xl font-semibold text-white mb-6 pb-2 border-b border-white/10 tracking-tight">
+        Ownership Structure
+      </h3>
+
+      <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-6">
         {/* Business Type */}
-        <AuroraSelect
+        <CustomDropdown
           label="Business Structure"
           placeholder="Select structure..."
           options={[
@@ -53,7 +57,7 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
 
         {/* Shares for Sale */}
         {formData.business_type === 'company' && (
-          <AuroraNumberInput
+          <CustomNumberInputField
             label="Equity Stake for Sale (%)"
             placeholder="e.g., 51 (majority control) or 25 (minority stake)"
             value={formData.shares_for_sale || 100}
@@ -67,12 +71,12 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
             helpText="Equity interest to be valued. Minority stakes (<50%) often incur a 'Discount for Lack of Control' (DLOC) of 15-30%. Majority stakes (>50%) may command a 'Control Premium' reflecting the value of strategic decision-making power."
           />
         )}
-      </AuroraFormGrid>
+      </div>
 
       {/* Owner Concentration Fields - Only for Companies */}
       {formData.business_type === 'company' && (
-        <AuroraFormGrid columns={2} className="mt-6">
-          <AuroraNumberInput
+        <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-6">
+          <CustomNumberInputField
             label="Active Owner-Managers"
             placeholder="e.g., 2 (founder + COO who owns equity)"
             value={formData.number_of_owners !== undefined ? String(formData.number_of_owners) : ''}
@@ -103,7 +107,7 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
             helpText="Number of equity holders with critical operational roles. Used to assess 'Key Person Risk'. High dependency on owner-operators (vs. professional management) increases the Specific Risk Premium, reducing the valuation multiple by 5-20%."
           />
 
-          <AuroraNumberInput
+          <CustomNumberInputField
             label="Full-Time Equivalent (FTE) Employees"
             placeholder="e.g., 12 (include part-time as FTE)"
             value={
@@ -163,37 +167,70 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
                 const isCritical = formData.number_of_employees === 0
 
                 return (
-                  <div className="@4xl:col-span-2">
-                    <AuroraFormAlert type={isCritical ? 'error' : 'warning'} title={`${riskLevel} Key Person Risk - Valuation Impact: ${discount}`}>
-                      <p className="text-sm leading-relaxed">
-                        {isCritical ? (
-                          <>
-                            This business is <strong>100% owner-operated</strong> with no
-                            non-owner employees. This represents maximum key person risk and will
-                            reduce your valuation multiple by <strong>20%</strong>.
-                          </>
-                        ) : (
-                          <>
-                            Owner ratio of <strong>{(ownerRatio * 100).toFixed(0)}%</strong>{' '}
-                            indicates high key person dependency. This will reduce your valuation
-                            multiple by <strong>{discount}</strong>.
-                          </>
-                        )}
-                      </p>
-                      {isCritical && (
-                        <p className="mt-2 text-xs text-success">
-                          <strong>Tip:</strong> Hiring 2-3 employees could increase your
-                          business value by €150K-200K
+                  <div
+                    className={`p-4 rounded-xl border ${
+                      isCritical
+                        ? 'bg-rose-50/90 border-rose-200 text-rose-900'
+                        : 'bg-amber-50/90 border-amber-200 text-amber-900'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
+                          isCritical ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
+                        }`}
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm mb-1">
+                          {riskLevel} Key Person Risk - Valuation Impact: {discount}
+                        </h4>
+                        <p className="text-sm opacity-90 leading-relaxed">
+                          {isCritical ? (
+                            <>
+                              This business is <strong>100% owner-operated</strong> with no
+                              non-owner employees. This represents maximum key person risk and will
+                              reduce your valuation multiple by <strong>20%</strong>.
+                            </>
+                          ) : (
+                            <>
+                              Owner ratio of <strong>{(ownerRatio * 100).toFixed(0)}%</strong>{' '}
+                              indicates high key person dependency. This will reduce your valuation
+                              multiple by <strong>{discount}</strong>.
+                            </>
+                          )}
                         </p>
-                      )}
-                    </AuroraFormAlert>
+                        {isCritical && (
+                          <div className="mt-3 flex items-start gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5">
+                            <span>💡</span>
+                            <span>
+                              <strong>Tip:</strong> Hiring 2-3 employees could increase your
+                              business value by €150K-200K
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )
               }
               return null
             })()}
-        </AuroraFormGrid>
+        </div>
       )}
-    </AuroraFormSection>
+    </div>
   )
 }

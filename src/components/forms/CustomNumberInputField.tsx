@@ -169,7 +169,7 @@ const CustomNumberInputField: React.FC<CustomNumberInputFieldProps> = ({
     <div className={className}>
       <div className="relative">
         {prefix && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground/50 text-sm font-medium z-10">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500 text-sm font-medium">
             {prefix}
           </span>
         )}
@@ -180,18 +180,18 @@ const CustomNumberInputField: React.FC<CustomNumberInputFieldProps> = ({
           pattern="-?[0-9]*"
           placeholder={placeholder}
           className={`
-            w-full h-16 px-4 pt-6 pb-2 text-base text-foreground bg-foreground/[0.04] 
+            w-full h-14 px-4 pt-6 pb-2 text-base text-slate-ink bg-white 
             border rounded-xl transition-all duration-200 
             ${
               hasError
-                ? 'border-destructive focus:border-destructive'
-                : 'border-foreground/[0.10] hover:border-foreground/[0.20] focus:border-primary focus:ring-2 focus:ring-primary/20'
+                ? 'border-accent-300 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20'
+                : 'border-gray-200 hover:border-primary-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20'
             }
             focus:outline-none
             ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-            ${prefix ? 'pl-10' : ''}
-            ${suffix || showArrows ? 'pr-10' : ''}
-            placeholder:text-transparent
+            ${prefix ? 'pl-8' : ''}
+            ${suffix || showArrows ? 'pr-8' : ''}
+            placeholder:text-stone-300
           `}
           aria-label={label}
           value={value}
@@ -208,7 +208,7 @@ const CustomNumberInputField: React.FC<CustomNumberInputFieldProps> = ({
           step={step}
         />
         {suffix && (
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground/50 text-sm font-medium">
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 text-sm font-medium">
             {suffix}
           </span>
         )}
@@ -222,7 +222,7 @@ const CustomNumberInputField: React.FC<CustomNumberInputFieldProps> = ({
                 (max !== undefined &&
                   (typeof value === 'string' ? (parseInt(value) ?? 0) : (value ?? 0)) >= max)
               }
-              className="w-4 h-4 flex items-center justify-center text-foreground/40 hover:text-foreground/70 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-4 h-4 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Increase value"
             >
               <svg
@@ -247,7 +247,7 @@ const CustomNumberInputField: React.FC<CustomNumberInputFieldProps> = ({
                   min > 0 &&
                   (typeof value === 'string' ? (parseInt(value) ?? 0) : (value ?? 0)) <= min)
               }
-              className="w-4 h-4 flex items-center justify-center text-foreground/40 hover:text-foreground/70 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-4 h-4 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Decrease value"
             >
               <svg
@@ -267,9 +267,9 @@ const CustomNumberInputField: React.FC<CustomNumberInputFieldProps> = ({
         )}
         <label
           className={`
-            absolute left-4 top-2 text-xs font-medium flex items-center gap-1
-            ${hasError ? 'text-destructive' : 'text-foreground/50'}
-            ${prefix ? 'left-10' : ''}
+            absolute left-4 top-2 text-xs text-stone-500 font-medium flex items-center gap-1
+            ${hasError ? 'text-rust-600' : ''}
+            ${prefix ? 'left-8' : ''}
             pointer-events-none
           `}
         >
@@ -293,15 +293,15 @@ const CustomNumberInputField: React.FC<CustomNumberInputFieldProps> = ({
       </div>
 
       {hasError && (
-        <span className="mt-1.5 text-xs text-destructive font-medium flex items-center gap-1">
-          <span className="w-1 h-1 rounded-full bg-destructive inline-block" />
+        <span className="mt-1.5 text-xs text-rust-500 font-medium flex items-center gap-1">
+          <span className="w-1 h-1 rounded-full bg-rust-500 inline-block" />
           {error}
         </span>
       )}
 
-      {/* Help Text */}
+      {/* Help Text (McKinsey UX Standard) */}
       {helpText && helpTextPlacement === 'below' && !hasError && (
-        <p className="text-xs text-foreground/50 mt-2 leading-relaxed">{helpText}</p>
+        <p className="text-xs text-stone-500 mt-2 leading-relaxed">{helpText}</p>
       )}
     </div>
   )

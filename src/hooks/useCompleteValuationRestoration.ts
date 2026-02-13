@@ -24,8 +24,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useManualFormStore } from '../store/manual'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
-// import { useConversationalResultsStore } from '../store/conversational/useConversationalResultsStore'
-// import { useConversationalChatStore } from '../store/conversational/useConversationalChatStore'
+import { useConversationalResultsStore } from '../store/conversational/useConversationalResultsStore'
+import { useConversationalChatStore } from '../store/conversational/useConversationalChatStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useLoadingCoordinator } from '../store/useLoadingCoordinator'
@@ -101,10 +101,6 @@ export function useCompleteValuationRestoration(reportId: string | null) {
               fieldsCount: Object.keys(data.session.sessionData).length,
             })
           } else if (flowType === 'conversational') {
-            // CONVERSATIONAL STORE REMOVED: Conversational flow restoration disabled
-            // The conversational stores have been removed from the codebase
-            // This code block is commented out to prevent errors
-            /*
             // Restore conversational flow data
             const chatStore = useConversationalChatStore.getState()
             
@@ -119,8 +115,6 @@ export function useCompleteValuationRestoration(reportId: string | null) {
             
             // Note: Chat messages are typically restored separately via conversation history
             // This restoration focuses on the collected business data
-            */
-            generalLogger.debug('Skipping conversational form restoration - stores removed', { reportId })
           }
         }
         setLoading('form', false)
@@ -152,10 +146,6 @@ export function useCompleteValuationRestoration(reportId: string | null) {
               hasInfoTab: !!data.currentReport.info_tab_html,
             })
           } else if (flowType === 'conversational') {
-            // CONVERSATIONAL STORE REMOVED: Conversational results restoration disabled
-            // The conversational stores have been removed from the codebase
-            // This code block is commented out to prevent errors
-            /*
             const resultsStore = useConversationalResultsStore.getState()
             
             if (data.currentReport.valuation_result) {
@@ -176,8 +166,6 @@ export function useCompleteValuationRestoration(reportId: string | null) {
               hasHtmlReport: !!data.currentReport.html_report,
               hasInfoTab: !!data.currentReport.info_tab_html,
             })
-            */
-            generalLogger.debug('Skipping conversational results restoration - stores removed', { reportId })
           }
         }
         setLoading('results', false)

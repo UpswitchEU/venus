@@ -68,9 +68,9 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
   // If no years to show, display a helpful message
   if (yearsToShow.length === 0) {
     return (
-      <div className="text-sm text-foreground/50 bg-foreground/[0.04] border border-foreground/[0.08] rounded-xl p-4 text-center">
+      <div className="text-sm text-zinc-400 bg-zinc-900 border border-zinc-700 rounded-lg p-4 text-center">
         <p>No historical data available yet.</p>
-        <p className="text-xs mt-1 text-foreground/40">Company was founded in {foundingYear || 'current year'}.</p>
+        <p className="text-xs mt-1">Company was founded in {foundingYear || 'current year'}.</p>
       </div>
     )
   }
@@ -158,7 +158,7 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
                           const reportedEbitda = parseFloat(ebitda.replace(/,/g, '')) || 0
                           openNormalizationModal(year, reportedEbitda, sessionId)
                         }}
-                        className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+                        className="text-sm text-river-300 hover:text-river-100 flex items-center gap-1 transition-colors"
                       >
                         <svg
                           className="h-4 w-4"

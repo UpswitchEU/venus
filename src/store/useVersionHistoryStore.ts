@@ -18,7 +18,7 @@ import type {
   VersionComparison,
 } from '../types/ValuationVersion'
 import { createContextLogger } from '../utils/logger'
-import { useNormalizationStore } from './useNormalizationStore'
+import { useEbitdaNormalizationStore } from './useEbitdaNormalizationStore'
 
 const versionLogger = createContextLogger('VersionHistoryStore')
 const versionAPI = new VersionAPI()
@@ -305,31 +305,32 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           let enrichedRequest = { ...request }
 
           if (!enrichedRequest.normalization_data) {
-            const normStore = useNormalizationStore.getState()
+            const normalizationStore = useEbitdaNormalizationStore.getState()
             const normalizationData: ValuationVersion['normalization_data'] = {}
 
-            // Build year-keyed normalization data from unified store
-            const accepted = normStore.items.filter((n) => n.status === 'accepted')
-            const yearGroups: Record<number, typeof accepted> = {}
-            for (const n of accepted) {
-              if (!yearGroups[n.year]) yearGroups[n.year] = []
-              yearGroups[n.year].push(n)
-            }
-
-            Object.entries(yearGroups).forEach(([year, items]) => {
-              const totalAdj = items.reduce((sum, n) => sum + n.adjustment, 0)
-              normalizationData[year] = {
-                reported_ebitda: 0, // Not tracked in unified store
-                normalized_ebitda: totalAdj,
-                total_adjustments: totalAdj,
-                adjustments: items.map((n) => ({
-                  category: n.category,
-                  amount: n.adjustment,
-                  note: n.reason,
-                })),
-                custom_adjustments: [],
-                confidence_score: items[0]?.confidence || 'medium',
-                adjustment_percentage: 0,
+            // Get all years with normalizations
+            Object.entries(normalizationStore.normalizations).forEach(([year, norm]) => {
+              if (norm && norm.reported_ebitda !== undefined) {
+                normalizationData[year] = {
+                  reported_ebitda: norm.reported_ebitda,
+                  normalized_ebitda: norm.normalized_ebitda || norm.reported_ebitda,
+                  total_adjustments: norm.total_adjustments || 0,
+                  adjustments: norm.adjustments.map((adj) => ({
+                    category: adj.category,
+                    amount: adj.amount,
+                    note: adj.note,
+                  })),
+                  custom_adjustments: norm.custom_adjustments?.map((custom) => ({
+                    description: custom.description,
+                    amount: custom.amount,
+                    note: custom.note,
+                  })),
+                  confidence_score: norm.confidence_score || 'medium',
+                  adjustment_percentage:
+                    norm.reported_ebitda !== 0
+                      ? ((norm.total_adjustments || 0) / norm.reported_ebitda) * 100
+                      : 0,
+                }
               }
             })
 

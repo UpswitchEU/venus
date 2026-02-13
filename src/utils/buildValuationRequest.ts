@@ -7,7 +7,7 @@
  * @module utils/buildValuationRequest
  */
 
-import { useNormalizationStore } from '../store/useNormalizationStore'
+import { useEbitdaNormalizationStore } from '../store/useEbitdaNormalizationStore'
 import type { DataResponse } from '../types/data-collection'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
@@ -94,35 +94,27 @@ export function buildValuationRequest(
         ? Number(formData.current_year_data.ebitda)
         : 20000
 
-  // Get normalization store state (unified store, NormalizationItem[])
-  const normStore = useNormalizationStore.getState()
-  const acceptedNorms = normStore.items.filter((n) => n.status === 'accepted')
-
-  // Build year-keyed normalization lookup from accepted items
-  const normByYear: Record<number, { totalAdjustment: number; count: number; confidence: string }> = {}
-  for (const n of acceptedNorms) {
-    if (!normByYear[n.year]) normByYear[n.year] = { totalAdjustment: 0, count: 0, confidence: 'medium' }
-    normByYear[n.year].totalAdjustment += n.adjustment
-    normByYear[n.year].count++
-    if (n.confidence === 'high') normByYear[n.year].confidence = 'high'
-  }
+  // Get normalization store state (must be called before checking normalizations)
+  const normalizationStore = useEbitdaNormalizationStore.getState()
 
   // Check if last full year EBITDA is normalized
-  const lastFullYearNormalization = normByYear[lastFullYear]
+  const lastFullYearNormalization = normalizationStore.normalizations[lastFullYear]
 
   // Build current_year_data with normalization support
   const currentYearData: any = {
     year: lastFullYear,
     revenue: revenue,
-    ebitda: lastFullYearNormalization ? ebitda + lastFullYearNormalization.totalAdjustment : ebitda,
+    ebitda: lastFullYearNormalization ? lastFullYearNormalization.normalized_ebitda : ebitda,
     ...(lastFullYearNormalization && {
       ebitda_normalized: true,
       ebitda_normalization_metadata: {
-        reported_ebitda: ebitda,
-        total_adjustments: lastFullYearNormalization.totalAdjustment,
-        adjustment_count: lastFullYearNormalization.count,
-        confidence_score: lastFullYearNormalization.confidence,
-        has_custom_adjustments: false,
+        reported_ebitda: lastFullYearNormalization.reported_ebitda,
+        total_adjustments: lastFullYearNormalization.total_adjustments,
+        adjustment_count:
+          lastFullYearNormalization.adjustments.length +
+          (lastFullYearNormalization.custom_adjustments?.length || 0),
+        confidence_score: lastFullYearNormalization.confidence_score,
+        has_custom_adjustments: (lastFullYearNormalization.custom_adjustments?.length || 0) > 0,
       },
     }),
     ...(formData.current_year_data?.total_assets &&
@@ -150,22 +142,22 @@ export function buildValuationRequest(
           year.year <= 2100
       )
       .map((year) => {
-        const normalization = normByYear[year.year]
+        const normalization = normalizationStore.normalizations[year.year]
 
         // If normalization exists, use normalized EBITDA
         if (normalization) {
-          const reportedEbitda = Number(year.ebitda)
           return {
             year: Math.min(Math.max(year.year, 2000), 2100),
             revenue: Math.max(year.revenue || 0, 1),
-            ebitda: reportedEbitda + normalization.totalAdjustment,
+            ebitda: normalization.normalized_ebitda,
             ebitda_normalized: true,
             ebitda_normalization_metadata: {
-              reported_ebitda: reportedEbitda,
-              total_adjustments: normalization.totalAdjustment,
-              adjustment_count: normalization.count,
-              confidence_score: normalization.confidence,
-              has_custom_adjustments: false,
+              reported_ebitda: normalization.reported_ebitda,
+              total_adjustments: normalization.total_adjustments,
+              adjustment_count:
+                normalization.adjustments.length + (normalization.custom_adjustments?.length || 0),
+              confidence_score: normalization.confidence_score,
+              has_custom_adjustments: (normalization.custom_adjustments?.length || 0) > 0,
             },
           }
         }

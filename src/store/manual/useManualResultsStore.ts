@@ -21,6 +21,7 @@ interface ManualResultsStore {
   // Results state
   result: ValuationResponse | null
   htmlReport: string | null
+  infoTabHtml: string | null
 
   // Calculation state
   isCalculating: boolean
@@ -32,7 +33,7 @@ interface ManualResultsStore {
   // Actions (all atomic with functional updates)
   setResult: (result: ValuationResponse | null) => void
   setHtmlReport: (html: string) => void
-  setInfoTabHtml: (html: string) => void // Legacy - info tab removed, no-op for restoration compatibility
+  setInfoTabHtml: (html: string) => void
   setError: (error: string | null) => void
   clearError: () => void
   clearResults: () => void
@@ -52,6 +53,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   // Initial state
   result: null,
   htmlReport: null,
+  infoTabHtml: null,
   isCalculating: false,
   error: null,
   calculationProgress: 0,
@@ -63,12 +65,22 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         storeLogger.info('[Manual] Valuation result set', {
           valuationId: result.valuation_id,
           hasHtmlReport: !!result.html_report,
+          hasInfoTabHtml: !!result.info_tab_html,
           htmlReportLength: result.html_report?.length || 0,
+          infoTabHtmlLength: result.info_tab_html?.length || 0,
         })
 
         // Warn if html_report is missing
         if (!result.html_report || result.html_report.trim().length === 0) {
           storeLogger.error('[Manual] CRITICAL: html_report missing or empty', {
+            valuationId: result.valuation_id,
+            resultKeys: Object.keys(result),
+          })
+        }
+
+        // Warn if info_tab_html is missing
+        if (!result.info_tab_html || result.info_tab_html.trim().length === 0) {
+          storeLogger.error('[Manual] CRITICAL: info_tab_html missing or empty', {
             valuationId: result.valuation_id,
             resultKeys: Object.keys(result),
           })
@@ -83,6 +95,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
             useSessionStore.getState().updateSession({
               valuationResult: result as any,
               htmlReport: result.html_report,
+              infoTabHtml: result.info_tab_html,
             })
             storeLogger.debug('[Manual] Session cache updated optimistically', {
               valuationId: result.valuation_id,
@@ -99,6 +112,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           ...state,
           result,
           htmlReport: result.html_report || state.htmlReport,
+          infoTabHtml: result.info_tab_html || state.infoTabHtml,
         }
       } else {
         storeLogger.debug('[Manual] Valuation result cleared')
@@ -110,9 +124,6 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
       }
     })
   },
-
-  // Legacy: Info tab removed - no-op for restoration compatibility
-  setInfoTabHtml: (_html: string) => {},
 
   // Set HTML report separately (atomic)
   setHtmlReport: (html: string) => {
@@ -140,6 +151,37 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         return {
           ...state,
           htmlReport: html,
+        }
+      }
+    })
+  },
+
+  // Set info tab HTML separately (atomic)
+  setInfoTabHtml: (html: string) => {
+    set((state) => {
+      const currentResult = state.result
+
+      if (currentResult) {
+        const updatedResult = { ...currentResult, info_tab_html: html }
+
+        storeLogger.info('[Manual] Info tab HTML updated in existing result', {
+          htmlLength: html.length,
+        })
+
+        return {
+          ...state,
+          result: updatedResult,
+          infoTabHtml: html,
+        }
+      } else {
+        // Store info tab HTML even without result object
+        storeLogger.info('[Manual] Info tab HTML set without existing result', {
+          htmlLength: html.length,
+        })
+
+        return {
+          ...state,
+          infoTabHtml: html,
         }
       }
     })
@@ -176,6 +218,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
       ...state,
       result: null,
       htmlReport: null,
+      infoTabHtml: null,
       error: null,
       calculationProgress: 0,
     }))
@@ -274,6 +317,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         ...state,
         result,
         htmlReport: result.html_report || null,
+        infoTabHtml: result.info_tab_html || null,
         isCalculating: false,
         calculationProgress: 100,
         error: null,
@@ -285,6 +329,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         valuationId: result.valuation_id,
         duration_ms: duration.toFixed(2),
         hasHtmlReport: !!result.html_report,
+        hasInfoTabHtml: !!result.info_tab_html,
       })
 
       return result

@@ -23,12 +23,9 @@ export const APP_CONFIG = {
 }
 
 // AI Agent Configuration
-// NOTE: AI is powered by Claude (Anthropic) via Titan API backend.
-// Venus does not call AI directly - all AI interactions go through Titan.
 export const AI_CONFIG = {
   enabled: process.env.NEXT_PUBLIC_AI_ENHANCED_MODE === 'true' || true,
-  // Model is configured in Titan (claude-3-5-sonnet-20241022)
-  model: 'claude-3-5-sonnet',
+  model: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4o-mini',
   showReasoning: process.env.NEXT_PUBLIC_SHOW_AI_REASONING === 'true' || true,
   showHelpText: process.env.NEXT_PUBLIC_SHOW_AI_HELP_TEXT === 'true' || true,
   showNarratives: process.env.NEXT_PUBLIC_SHOW_VALUATION_NARRATIVES === 'true' || true,

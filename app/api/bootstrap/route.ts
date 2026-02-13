@@ -20,8 +20,6 @@ const TITAN_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL ||
                       process.env.NEXT_PUBLIC_API_BASE_URL || 
                       'https://api.upswitch.app';
 
-const TIMEOUT_MS = 15_000; // 15s per request (includes potential token refresh)
-
 /**
  * Attempt to refresh the access token and return new cookies
  */
@@ -97,8 +95,6 @@ function mergeCookies(originalCookieHeader: string, newCookies: string[]): strin
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     // Get request body
@@ -161,7 +157,6 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: buildTitanHeaders(cookieHeader),
       body: JSON.stringify(body),
-      signal: controller.signal,
     });
 
     // BANK GRADE: Handle 401 by attempting token refresh
@@ -186,7 +181,6 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           headers: buildTitanHeaders(mergedCookies),
           body: JSON.stringify(body),
-          signal: controller.signal,
         });
         
         // Add any new cookies from retry response
@@ -225,14 +219,6 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const durationMs = Date.now() - startTime;
 
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      console.error('[Bootstrap Route] Request timed out', { durationMs });
-      return NextResponse.json(
-        { success: false, error: 'Bootstrap request timed out', bootstrapDurationMs: durationMs },
-        { status: 504 }
-      );
-    }
-
     console.error('[Bootstrap Route] Error', {
       error: errorMessage,
       durationMs,
@@ -247,7 +233,5 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
-  } finally {
-    clearTimeout(timeout);
   }
 }

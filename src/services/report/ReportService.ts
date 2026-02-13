@@ -69,7 +69,7 @@ export class ReportService {
       sessionData?: any // ✅ NEW: Input data (form fields or collected data)
       valuationResult?: ValuationResponse
       htmlReport?: string
-      infoTabHtml?: string // Info tab HTML (legacy)
+      infoTabHtml?: string
       name?: string // Custom valuation name (e.g., "Amadeus report")
     }
   ): Promise<void> {
@@ -120,6 +120,8 @@ export class ReportService {
         hasResult: !!assets.valuationResult,
         hasHtmlReport: !!assets.htmlReport,
         htmlLength: assets.htmlReport?.length || 0,
+        hasInfoTab: !!assets.infoTabHtml,
+        infoLength: assets.infoTabHtml?.length || 0,
       })
 
       logger.info('Saving complete report package', {
@@ -128,7 +130,9 @@ export class ReportService {
         sessionDataKeys: assets.sessionData ? Object.keys(assets.sessionData) : [],
         hasResult: !!assets.valuationResult,
         hasHtmlReport: !!assets.htmlReport,
+        hasInfoTab: !!assets.infoTabHtml,
         htmlLength: assets.htmlReport?.length || 0,
+        infoLength: assets.infoTabHtml?.length || 0,
       })
 
       // Import SessionAPI dynamically to avoid circular dependencies
@@ -178,6 +182,7 @@ export class ReportService {
         sessionData: sessionDataWithContext, // ✅ FIX: Include _client_context if available
         valuationResult: assets.valuationResult,
         htmlReport: assets.htmlReport,
+        infoTabHtml: assets.infoTabHtml,
         name: assets.name, // ✅ NEW: Send custom valuation name
       })
       const putResultDuration = performance.now() - putResultStartTime
@@ -188,6 +193,8 @@ export class ReportService {
         duration_ms: putResultDuration.toFixed(2),
         hasHtmlReport: !!assets.htmlReport,
         htmlReportLength: assets.htmlReport?.length || 0,
+        hasInfoTabHtml: !!assets.infoTabHtml,
+        infoTabHtmlLength: assets.infoTabHtml?.length || 0,
       })
 
       logger.info('Complete report package saved successfully (PUT /result)', {
@@ -195,6 +202,7 @@ export class ReportService {
         hasSessionData: !!assets.sessionData,
         hasValuationResult: !!assets.valuationResult,
         hasHtmlReport: !!assets.htmlReport,
+        hasInfoTabHtml: !!assets.infoTabHtml,
         duration_ms: putResultDuration.toFixed(2),
         timestamp: new Date().toISOString(),
       })
@@ -223,6 +231,7 @@ export class ReportService {
         logger.info('[ReportService] Starting cache update after report save', {
           reportId,
           hasHtmlReport: !!assets.htmlReport,
+          hasInfoTabHtml: !!assets.infoTabHtml,
         })
 
         // Clear cache first to ensure we fetch fresh data from backend
@@ -254,6 +263,8 @@ export class ReportService {
           hasSession: !!freshSession,
           hasHtmlReport: !!freshSession?.htmlReport,
           htmlReportLength: freshSession?.htmlReport?.length || 0,
+          hasInfoTabHtml: !!freshSession?.infoTabHtml,
+          infoTabHtmlLength: freshSession?.infoTabHtml?.length || 0,
           timestamp: new Date().toISOString(),
         })
 
@@ -267,6 +278,8 @@ export class ReportService {
               reportId,
               hasHtmlReport: !!freshSession.htmlReport,
               htmlReportLength: freshSession.htmlReport?.length || 0,
+              hasInfoTabHtml: !!freshSession.infoTabHtml,
+              infoTabHtmlLength: freshSession.infoTabHtml?.length || 0,
               timestamp: new Date().toISOString(),
             })
           } catch (storeError) {
@@ -282,12 +295,14 @@ export class ReportService {
           // HTML reports are excluded from cache, so we verify valuation result exists
           const hasValuationResult = !!freshSession.valuationResult
           const hasHtmlReportInBackend = !!freshSession.htmlReport
+          const hasInfoTabHtmlInBackend = !!freshSession.infoTabHtml
 
           if (!hasValuationResult) {
             logger.warn('[ReportService] Fresh session missing valuation result, will retry', {
               reportId,
               hasValuationResult,
               hasHtmlReport: hasHtmlReportInBackend,
+              hasInfoTabHtml: hasInfoTabHtmlInBackend,
             })
 
             // Retry once after another delay
@@ -302,6 +317,7 @@ export class ReportService {
                 reloadDuration_ms: (performance.now() - reloadStartTime).toFixed(2),
                 hasValuationResult: !!retrySession.valuationResult,
                 hasHtmlReportInBackend: !!retrySession.htmlReport,
+                hasInfoTabHtmlInBackend: !!retrySession.infoTabHtml,
                 hasSessionData: !!retrySession.sessionData,
                 note: 'HTML reports excluded from cache, fetched from backend on demand',
               })
@@ -354,6 +370,8 @@ export class ReportService {
               hasValuationResult: !!freshSession.valuationResult,
               hasHtmlReportInBackend: hasHtmlReportInBackend,
               htmlReportLength: freshSession.htmlReport?.length || 0,
+              hasInfoTabHtmlInBackend: hasInfoTabHtmlInBackend,
+              infoTabHtmlLength: freshSession.infoTabHtml?.length || 0,
               hasSessionData,
               hasFormFields,
               sessionDataKeys: sessionDataKeys.slice(0, 10), // Log first 10 keys

@@ -11,7 +11,6 @@ import { useTranslations } from 'next-intl'
 import React, { useEffect } from 'react'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import type { ValuationFormData } from '../../../types/valuation'
-import { AuroraButton, AuroraFormAlert } from '../../../design-system/components'
 
 interface FormSubmitSectionProps {
   isSubmitting: boolean
@@ -95,13 +94,10 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   return (
     <>
       {/* Submit Button */}
-      <div className="pt-6 border-t border-foreground/[0.06]">
-        <AuroraButton
+      <div className="pt-6 border-t border-zinc-700">
+        <button
           type="submit"
           disabled={isSubmitting || !isFormValid}
-          loading={isSubmitting}
-          fullWidth
-          size="lg"
           onClick={() => {
             // Debug logging (development only)
             if (process.env.NODE_ENV !== 'production') {
@@ -118,9 +114,22 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
             }
             // Don't preventDefault - let form handle submission
           }}
+          className={`
+            w-full justify-center px-8 py-4 rounded-xl font-semibold text-lg shadow-lg
+            transition-all duration-200 transform hover:-translate-y-0.5
+            flex items-center gap-3
+            ${
+              isSubmitting || !isFormValid
+                ? 'bg-zinc-800/30 text-zinc-500 border border-zinc-700 cursor-not-allowed'
+                : 'text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 hover:shadow-primary-500/20'
+            }
+          `}
         >
           {isSubmitting ? (
-            <span>{t('common.states.calculating')}</span>
+            <>
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>{t('common.states.calculating')}</span>
+            </>
           ) : (
             <>
               <span>{getButtonText()}</span>
@@ -134,22 +143,36 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
               </svg>
             </>
           )}
-        </AuroraButton>
+        </button>
       </div>
 
       {/* Error Display */}
       {error && (
-        <div className="mt-4">
-          <AuroraFormAlert type="error" title={t('common.states.error')}>
-            <p className="text-sm">{error}</p>
-            <button
-              type="button"
-              onClick={clearError}
-              className="mt-2 text-sm font-medium underline hover:no-underline"
-            >
-              {t('common.actions.close')}
-            </button>
-          </AuroraFormAlert>
+        <div className="mt-4 p-4 bg-red-600/10 border-l-4 border-red-600/30 rounded-r-lg backdrop-blur-sm">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium text-red-200">{t('common.states.error')}</h3>
+              <p className="mt-1 text-sm text-red-200">{error}</p>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={clearError}
+                  className="text-sm font-medium text-red-300 hover:text-red-200 underline"
+                >
+                  {t('common.actions.close')}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </>

@@ -28,6 +28,7 @@ export { DataCollection } from './DataCollection'
 // Field renderer
 export { FieldRenderer } from './FieldRenderer'
 // Individual renderers (for advanced use cases)
+export { ConversationalFieldRenderer } from './renderers/ConversationalFieldRenderer'
 export { FileUploadFieldRenderer } from './renderers/FileUploadFieldRenderer'
 export { FuzzySearchFieldRenderer } from './renderers/FuzzySearchFieldRenderer'
 export { ManualFormFieldRenderer } from './renderers/ManualFormFieldRenderer'

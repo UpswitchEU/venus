@@ -32,8 +32,7 @@ import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { ValuationToolbarProps } from '../types/valuation'
 import { formatVersionLabel } from '../utils/formatters'
-// FlowSwitchWarningModal removed - conversational flow no longer exists
-// import { FlowSwitchWarningModal } from './FlowSwitchWarningModal'
+import { FlowSwitchWarningModal } from './FlowSwitchWarningModal'
 import { UserDropdown } from './UserDropdown'
 import { Tooltip } from './ui/Tooltip'
 
@@ -671,7 +670,13 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
           </div>
         </div>
       </nav>
-      {/* FlowSwitchWarningModal removed - conversational flow no longer exists */}
+      <FlowSwitchWarningModal
+        isOpen={showSwitchConfirmation}
+        currentFlow={currentView || 'manual'}
+        targetFlow={pendingFlowTarget || 'manual'}
+        onConfirm={handleConfirmSwitch}
+        onClose={handleCancelSwitch}
+      />
     </>
   )
 }

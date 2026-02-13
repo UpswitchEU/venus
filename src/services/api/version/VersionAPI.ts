@@ -293,36 +293,54 @@ export class VersionAPI {
    * @param updates - Metadata updates
    * @returns Updated version
    */
-  /**
-   * Update version metadata (local-only).
-   * 
-   * Titan does not have a PATCH endpoint for versions yet.
-   * Updates are stored in the local Zustand store only.
-   * Backend support will be added in a future release.
-   */
   async updateVersion(
     reportId: string,
     versionNumber: number,
     updates: UpdateVersionRequest,
-    _options?: APIRequestConfig
+    options?: APIRequestConfig
   ): Promise<ValuationVersion> {
-    versionLogger.warn('updateVersion: local-only (no backend endpoint)', {
-      reportId,
-      versionNumber,
-      updates,
-    })
+    try {
+      versionLogger.info('Updating version metadata', {
+        reportId,
+        versionNumber,
+        updates,
+      })
 
-    // Return a minimal version object so callers can update local state
-    return {
-      id: `local-${reportId}-${versionNumber}`,
-      reportId,
-      versionNumber,
-      versionLabel: updates.versionLabel || `Versie ${versionNumber}`,
-      notes: updates.notes,
-      tags: updates.tags,
-      isPinned: updates.isPinned,
-      isActive: false,
-    } as ValuationVersion
+      const response = await this.executeRequest<{
+        success: boolean
+        data: any
+      }>(
+        {
+          method: 'PATCH',
+          url: `/api/v2/valuations/sessions/${reportId}/versions/${versionNumber}`,
+          data: {
+            version_label: updates.versionLabel,
+            notes: updates.notes,
+            tags: updates.tags,
+            is_pinned: updates.isPinned,
+          },
+          headers: {},
+        },
+        options
+      )
+
+      if (!response.data) {
+        throw new Error('No data in response')
+      }
+
+      const version = this.transformVersionFromBackend(response.data)
+
+      versionLogger.info('Version metadata updated', { reportId, versionNumber })
+
+      return version
+    } catch (error) {
+      versionLogger.error('Failed to update version', {
+        reportId,
+        versionNumber,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+      throw error
+    }
   }
 
   /**
@@ -331,68 +349,31 @@ export class VersionAPI {
    * @param reportId - Report identifier
    * @param versionNumber - Version number to delete
    */
-  /**
-   * Delete version (local-only).
-   * 
-   * Titan does not have a DELETE endpoint for versions yet.
-   * Deletion is applied to the local Zustand store only.
-   * Backend support will be added in a future release.
-   */
   async deleteVersion(
     reportId: string,
     versionNumber: number,
-    _options?: APIRequestConfig
-  ): Promise<void> {
-    versionLogger.warn('deleteVersion: local-only (no backend endpoint)', {
-      reportId,
-      versionNumber,
-    })
-    // No-op — local store removal handled by caller
-  }
-
-  /**
-   * Compare two versions
-   *
-   * @param reportId - Report identifier
-   * @param versionA - First version number
-   * @param versionB - Second version number
-   * @returns Comparison result with highlighted changes
-   */
-  /**
-   * Restore a version via Titan's POST restore endpoint.
-   * Creates a new version that is a copy of the specified version.
-   */
-  async restoreVersion(
-    reportId: string,
-    versionNumber: number,
     options?: APIRequestConfig
-  ): Promise<ValuationVersion | null> {
+  ): Promise<void> {
     try {
-      versionLogger.info('Restoring version via Titan', { reportId, versionNumber })
+      versionLogger.info('Deleting version', { reportId, versionNumber })
 
-      const response = await this.executeRequest<{
-        success: boolean
-        data: any
-      }>(
+      await this.executeRequest<{ success: boolean }>(
         {
-          method: 'POST',
-          url: `/api/v2/valuations/sessions/${reportId}/versions/${versionNumber}/restore`,
+          method: 'DELETE',
+          url: `/api/v2/valuations/sessions/${reportId}/versions/${versionNumber}`,
           headers: {},
         },
         options
       )
 
-      if (response.data) {
-        return this.transformVersionFromBackend(response.data)
-      }
-      return null
+      versionLogger.info('Version deleted', { reportId, versionNumber })
     } catch (error) {
-      versionLogger.warn('Restore via backend failed (will use local restore)', {
+      versionLogger.error('Failed to delete version', {
         reportId,
         versionNumber,
         error: error instanceof Error ? error.message : 'Unknown error',
       })
-      return null
+      throw error
     }
   }
 
