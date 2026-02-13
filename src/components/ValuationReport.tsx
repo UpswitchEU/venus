@@ -234,7 +234,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
 
     return (
       <div
-        className={`flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 ${isEmbedded ? 'embedded-mode' : ''}`}
+        className={`flex h-screen w-screen flex-col overflow-hidden bg-background ${isEmbedded ? 'embedded-mode' : ''}`}
       >
         <Suspense
           fallback={null}
@@ -273,6 +273,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                 reportId={reportId}
                 initialTab={initialTab}
                 urlAction={urlAction}
+                initialDrawerOpen={urlParams.drawer === 'open'}
               />
             )}
           </ValuationSessionManager>

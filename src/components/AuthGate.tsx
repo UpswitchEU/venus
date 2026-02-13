@@ -63,10 +63,10 @@ function DefaultLoadingState({ state }: { state: AuthGateState }) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="text-center">
         <div className="animate-pulse">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 flex items-center justify-center">
             <svg
               className="w-8 h-8 text-blue-400 animate-spin"
               xmlns="http://www.w3.org/2000/svg"
@@ -109,9 +109,9 @@ function DefaultErrorState({
   onRetry: () => void
 }) {
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="text-center max-w-md">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/20 flex items-center justify-center">
           <svg
             className="w-8 h-8 text-red-400"
             xmlns="http://www.w3.org/2000/svg"
@@ -127,8 +127,8 @@ function DefaultErrorState({
             />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-white mb-4">Authentication Failed</h1>
-        <p className="text-gray-400 mb-6">{error}</p>
+        <h1 className="text-2xl font-bold text-foreground mb-4">Authentication Failed</h1>
+        <p className="text-muted-foreground mb-6">{error}</p>
         <div className="flex gap-3 justify-center flex-wrap">
           <button
             onClick={() => {

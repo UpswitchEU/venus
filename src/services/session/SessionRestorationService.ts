@@ -17,7 +17,7 @@
 
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
+// import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { generalLogger } from '../../utils/logger'
@@ -77,7 +77,6 @@ export interface RestorationManifest {
   formData: boolean
   valuationResult: boolean
   htmlReport: boolean
-  infoTabHtml: boolean
   pricingRange: boolean
   versionHistory: boolean
   ebitdaNormalizations: boolean
@@ -101,7 +100,6 @@ export interface RestorationAudit {
   sources: {
     valuationResult: AssetSource
     htmlReport: AssetSource
-    infoTabHtml: AssetSource
     pricingRange: AssetSource
   }
   warnings: string[]
@@ -117,7 +115,6 @@ export interface RestorationResult {
   restoredFormFields: number
   restoredValuationResult: boolean
   restoredHtmlReport: boolean
-  restoredInfoTabHtml: boolean
   restoredPricingRange: boolean
   restoredVersionHistory: boolean
   restoredEbitdaNormalizations: boolean
@@ -211,7 +208,6 @@ class SessionRestorationServiceImpl {
         restoredFormFields: 0,
         restoredValuationResult: false,
         restoredHtmlReport: false,
-        restoredInfoTabHtml: false,
         restoredPricingRange: false,
         restoredVersionHistory: false,
         restoredEbitdaNormalizations: false,
@@ -231,7 +227,6 @@ class SessionRestorationServiceImpl {
       restoredFormFields: 0,
       restoredValuationResult: false,
       restoredHtmlReport: false,
-      restoredInfoTabHtml: false,
       restoredPricingRange: false,
       restoredVersionHistory: false,
       restoredEbitdaNormalizations: false,
@@ -279,7 +274,6 @@ class SessionRestorationServiceImpl {
         restoredFormFields: 0,
         restoredValuationResult: false,
         restoredHtmlReport: false,
-        restoredInfoTabHtml: false,
         restoredPricingRange: false,
         restoredVersionHistory: false,
         restoredEbitdaNormalizations: false,
@@ -335,7 +329,6 @@ class SessionRestorationServiceImpl {
           restoredFormFields: 0,
           restoredValuationResult: false,
           restoredHtmlReport: false,
-          restoredInfoTabHtml: false,
           restoredPricingRange: false,
           restoredVersionHistory: false,
           restoredEbitdaNormalizations: false,
@@ -381,7 +374,6 @@ class SessionRestorationServiceImpl {
         restoredFormFields: 0,
         restoredValuationResult: false,
         restoredHtmlReport: false,
-        restoredInfoTabHtml: false,
         restoredPricingRange: false,
         restoredVersionHistory: false,
         restoredEbitdaNormalizations: false,
@@ -402,7 +394,6 @@ class SessionRestorationServiceImpl {
     let restoredFormFields = 0
     let restoredValuationResult = false
     let restoredHtmlReport = false
-    let restoredInfoTabHtml = false
     let restoredPricingRange = false
     let restoredVersionHistory = false
     let restoredEbitdaNormalizations = false
@@ -434,17 +425,20 @@ class SessionRestorationServiceImpl {
     // 2. Hydrate results store
     if (data.valuationResult) {
       try {
-        // Build complete result with HTML reports merged in
+        // Build complete result with HTML report merged in
         const fullResult = {
           ...data.valuationResult,
-          // Ensure HTML reports are in the result object
+          // Ensure HTML report is in the result object
           html_report: data.htmlReport || data.valuationResult.html_report,
-          info_tab_html: data.infoTabHtml || data.valuationResult.info_tab_html,
         }
         
         if (isConversational) {
-          const { setResult } = useConversationalResultsStore.getState()
-          setResult(fullResult as any)
+          // CONVERSATIONAL STORE REMOVED: Conversational flow no longer supported
+          // The conversational stores have been removed from the codebase
+          // Skip updating conversational store
+          generalLogger.debug('[SessionRestoration] Skipping conversational results hydration - stores removed', {
+            reportId: data.reportId,
+          })
         } else {
           const { setResult } = useManualResultsStore.getState()
           setResult(fullResult as any)
@@ -452,17 +446,14 @@ class SessionRestorationServiceImpl {
         
         restoredValuationResult = true
         restoredHtmlReport = !!fullResult.html_report
-        restoredInfoTabHtml = !!fullResult.info_tab_html
         restoredPricingRange = !!data.pricingRange
         
         generalLogger.debug('[SessionRestoration] Results hydrated', {
           reportId: data.reportId,
           valuationId: (data.valuationResult as any)?.valuation_id,
           hasHtmlReport: restoredHtmlReport,
-          hasInfoTabHtml: restoredInfoTabHtml,
           hasPricingRange: restoredPricingRange,
           htmlReportLength: fullResult.html_report?.length || 0,
-          infoTabHtmlLength: fullResult.info_tab_html?.length || 0,
           pricingRange: data.pricingRange,
         })
       } catch (error) {
@@ -481,21 +472,40 @@ class SessionRestorationServiceImpl {
     })
     restoredVersionHistory = false // Will be loaded on demand
     
-    // 4. EBITDA normalizations - LAZY LOADED
-    // PERFORMANCE OPTIMIZATION: Normalizations are now lazy-loaded when user needs them
-    // This saves 300ms-1s on initial page load
-    // See: useEbitdaNormalizationStore.loadAllNormalizations() is called when EBITDA tab is opened
-    generalLogger.debug('[SessionRestoration] Skipping EBITDA normalizations (lazy loaded on demand)', {
-      reportId: data.reportId,
-    })
-    restoredEbitdaNormalizations = false // Will be loaded on demand
+    // 4. Normalizations — hydrate unified store
+    // Try formData metadata first (instant), then Titan API fallback
+    try {
+      const { useNormalizationStore } = await import('../../store/useNormalizationStore')
+      const normStore = useNormalizationStore.getState()
+
+      // Check if normalizations are embedded in form metadata (session JSONB _normalizations)
+      const rawMeta = (data.formData as any)?._normalizations
+      if (rawMeta && Array.isArray(rawMeta) && rawMeta.length > 0) {
+        normStore.setItems(rawMeta)
+        restoredEbitdaNormalizations = true
+        generalLogger.info('[SessionRestoration] Normalizations hydrated from session metadata', {
+          count: rawMeta.length,
+        })
+      } else {
+        // Fallback: load from Titan API
+        await normStore.loadFromTitan(data.reportId)
+        restoredEbitdaNormalizations = normStore.items.length > 0
+        generalLogger.info('[SessionRestoration] Normalizations loaded from Titan API', {
+          count: normStore.items.length,
+        })
+      }
+    } catch (error) {
+      generalLogger.warn('[SessionRestoration] Normalization hydration failed (non-blocking)', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+      restoredEbitdaNormalizations = false
+    }
     
     return {
       reportId: data.reportId,
       restoredFormFields,
       restoredValuationResult,
       restoredHtmlReport,
-      restoredInfoTabHtml,
       restoredPricingRange,
       restoredVersionHistory,
       restoredEbitdaNormalizations,
@@ -520,7 +530,6 @@ class SessionRestorationServiceImpl {
       formData: !isConversational && !!data.formData && Object.keys(data.formData).length > 0,
       valuationResult: !!data.valuationResult,
       htmlReport: !!data.htmlReport,
-      infoTabHtml: !!data.infoTabHtml,
       pricingRange: !!data.pricingRange,
       versionHistory: false, // Lazy loaded on tab open
       ebitdaNormalizations: false, // Lazy loaded on demand
@@ -538,43 +547,50 @@ class SessionRestorationServiceImpl {
     
     // Verify valuation result
     if (manifest.valuationResult) {
-      const resultsStore = isConversational 
-        ? useConversationalResultsStore.getState()
-        : useManualResultsStore.getState()
-      
-      if (!resultsStore.result) {
-        warnings.push('Valuation result missing from store')
-        allVerified = false
+      if (isConversational) {
+        // CONVERSATIONAL STORE REMOVED: Skip verification for conversational flow
+        // The conversational stores have been removed from the codebase
+        generalLogger.debug('[SessionRestoration] Skipping conversational results verification - stores removed', {
+          reportId: data.reportId,
+        })
       } else {
-        // Verify HTML reports if they were in the data
-        if (manifest.htmlReport && !resultsStore.result.html_report) {
-          warnings.push('HTML report missing from results store')
-          allVerified = false
-        }
+        const resultsStore = useManualResultsStore.getState()
         
-        if (manifest.infoTabHtml && !resultsStore.result.info_tab_html) {
-          warnings.push('Info tab HTML missing from results store')
+        if (!resultsStore.result) {
+          warnings.push('Valuation result missing from store')
           allVerified = false
+        } else {
+          // Verify HTML report if it was in the data
+          if (manifest.htmlReport && !resultsStore.result.html_report) {
+            warnings.push('HTML report missing from results store')
+            allVerified = false
+          }
         }
       }
     }
     
     // Verify pricing range
     if (manifest.pricingRange) {
-      const resultsStore = isConversational 
-        ? useConversationalResultsStore.getState()
-        : useManualResultsStore.getState()
-      
-      const resultAny = resultsStore.result as any
-      const hasPricingRangeInStore = !!(
-        resultAny?.pricing_range || 
-        resultAny?.priceRange ||
-        (resultAny?.equity_value_low && resultAny?.equity_value_mid && resultAny?.equity_value_high)
-      )
-      
-      if (!hasPricingRangeInStore) {
-        warnings.push('Pricing range missing from results store')
-        allVerified = false
+      if (isConversational) {
+        // CONVERSATIONAL STORE REMOVED: Skip verification for conversational flow
+        // The conversational stores have been removed from the codebase
+        generalLogger.debug('[SessionRestoration] Skipping conversational pricing range verification - stores removed', {
+          reportId: data.reportId,
+        })
+      } else {
+        const resultsStore = useManualResultsStore.getState()
+        
+        const resultAny = resultsStore.result as any
+        const hasPricingRangeInStore = !!(
+          resultAny?.pricing_range || 
+          resultAny?.priceRange ||
+          (resultAny?.equity_value_low && resultAny?.equity_value_mid && resultAny?.equity_value_high)
+        )
+        
+        if (!hasPricingRangeInStore) {
+          warnings.push('Pricing range missing from results store')
+          allVerified = false
+        }
       }
     }
     
@@ -614,7 +630,6 @@ class SessionRestorationServiceImpl {
     reportId: string,
     pkg: {
       htmlReport: string | null;
-      infoTabHtml: string | null;
       pricingRange: { min: number; mid: number; max: number; currency: string } | null;
       versions: { current: number; total: number; history?: Array<{ version: number; createdAt: Date; summary: string | null; createdBy: string | null }> };
       pdf: { url: string | null; status: 'ready' | 'generating' | 'none' };
@@ -626,7 +641,6 @@ class SessionRestorationServiceImpl {
     generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration from package', {
       reportId: reportId.substring(0, 20),
       hasHtmlReport: !!pkg.htmlReport,
-      hasInfoTab: !!pkg.infoTabHtml,
       hasPricing: !!pkg.pricingRange,
       versionCount: pkg.versions.total,
       pdfStatus: pkg.pdf.status,
@@ -638,16 +652,11 @@ class SessionRestorationServiceImpl {
         if (flow === 'manual') {
           useManualResultsStore.getState().setHtmlReport(pkg.htmlReport)
         } else {
-          useConversationalResultsStore.getState().setHtmlReport(pkg.htmlReport)
-        }
-      }
-
-      // Hydrate info tab HTML
-      if (pkg.infoTabHtml) {
-        if (flow === 'manual') {
-          useManualResultsStore.getState().setInfoTabHtml(pkg.infoTabHtml)
-        } else {
-          useConversationalResultsStore.getState().setInfoTabHtml(pkg.infoTabHtml)
+          // CONVERSATIONAL STORE REMOVED: Conversational flow no longer supported
+          // The conversational stores have been removed from the codebase
+          generalLogger.debug('[SessionRestoration] Skipping conversational HTML report hydration - stores removed', {
+            reportId: reportId.substring(0, 20),
+          })
         }
       }
 
@@ -669,12 +678,11 @@ class SessionRestorationServiceImpl {
             ...pricingResult,
           } as any)
         } else {
-          const convStore = useConversationalResultsStore.getState()
-          const existingResult = convStore.result || {}
-          convStore.setResult({
-            ...existingResult,
-            ...pricingResult,
-          } as any)
+          // CONVERSATIONAL STORE REMOVED: Conversational flow no longer supported
+          // The conversational stores have been removed from the codebase
+          generalLogger.debug('[SessionRestoration] Skipping conversational pricing range hydration - stores removed', {
+            reportId: reportId.substring(0, 20),
+          })
         }
       }
 
@@ -694,7 +702,6 @@ class SessionRestorationServiceImpl {
           formData: Record<string, unknown>
           valuationResult: null
           htmlReport: null
-          infoTabHtml: null
           changesSummary: { totalChanges: number; sections: never[]; fields: never[] }
           isActive: boolean
           isPinned: boolean
@@ -713,7 +720,6 @@ class SessionRestorationServiceImpl {
           formData: {},
           valuationResult: null,
           htmlReport: null,
-          infoTabHtml: null,
           changesSummary: { totalChanges: 0, sections: [], fields: [] },
           isActive: v.version === pkg.versions.current,
           isPinned: false,

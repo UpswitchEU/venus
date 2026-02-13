@@ -9,7 +9,7 @@
 
 import React from 'react'
 import { HistoricalDataInputs } from '../../forms'
-import { InfoIcon } from '../../ui/InfoIcon'
+import { AuroraFormSection } from '../../../design-system/components'
 
 interface HistoricalDataSectionProps {
   historicalInputs: { [key: string]: string }
@@ -33,19 +33,10 @@ export const HistoricalDataSection: React.FC<HistoricalDataSectionProps> = ({
   const lastFullYear = Math.min(new Date().getFullYear() - 1, 2100)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6 pb-2 border-b border-white/10">
-        <h3 className="text-xl font-semibold text-white tracking-tight flex items-center">
-          Historical Data (Optional)
-          <InfoIcon
-            content="Historical financials allow for CAGR (Compound Annual Growth Rate) calculation and trend analysis. Demonstrating consistent growth and margin stability reduces perceived risk, directly supporting a higher valuation tier."
-            position="top"
-            size={20}
-            className="ml-1.5"
-          />
-        </h3>
-      </div>
-
+    <AuroraFormSection 
+      title="Historical Data (Optional)"
+      description="Historical financials allow for CAGR (Compound Annual Growth Rate) calculation and trend analysis. Demonstrating consistent growth and margin stability reduces perceived risk, directly supporting a higher valuation tier."
+    >
       <HistoricalDataInputs
         historicalInputs={historicalInputs}
         onChange={setHistoricalInputs}
@@ -53,6 +44,6 @@ export const HistoricalDataSection: React.FC<HistoricalDataSectionProps> = ({
         foundingYear={foundingYear}
         currentYear={lastFullYear}
       />
-    </div>
+    </AuroraFormSection>
   )
 }

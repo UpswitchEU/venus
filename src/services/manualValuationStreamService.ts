@@ -335,17 +335,14 @@ class ManualValuationStreamService {
         // DIAGNOSTIC: Log when report_complete event is received
         const hasHtmlReport = !!event.html_report
         const htmlReportLength = event.html_report?.length || 0
-        const hasInfoTabHtml = !!(event as any).info_tab_html
-        const infoTabHtmlLength = (event as any).info_tab_html?.length || 0
+        const hasInfoTabHtml = !!(event as unknown as Record<string, unknown>).info_tab_html
+        const infoTabHtmlLength = ((event as unknown as Record<string, unknown>).info_tab_html as string)?.length || 0
         apiLogger.info('[STREAM-FRONTEND] report_complete event received', {
           requestId: streamId,
           valuationId: event.valuation_id,
           hasHtmlReport,
           htmlReportLength,
-          hasInfoTabHtml,
-          infoTabHtmlLength,
           htmlReportPreview: event.html_report?.substring(0, 200) || 'N/A',
-          infoTabHtmlPreview: (event as any).info_tab_html?.substring(0, 200) || 'N/A',
           progress: event.progress,
           status: event.status,
           hasOnCompleteCallback: !!callbacks.onComplete,

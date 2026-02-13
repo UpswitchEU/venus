@@ -1,0 +1,168 @@
+/* ============================================
+   HYBRID AURORA DESIGN SYSTEM
+   Color Tokens
+   
+   Core Identity:
+   - 60% Deep Slate (canvas)
+   - 30% Aurora Teal + Violet (atmosphere)
+   - 10% Burnt Clay (focal accent)
+   ============================================ */
+
+:root {
+  /* ─────────────────────────────────────────
+     CORE PALETTE
+     ───────────────────────────────────────── */
+  
+  /* Deep Slate - 60% Dominant Canvas */
+  --background: 225 18% 8%;
+  --foreground: 40 12% 94%;
+  
+  /* Surface Layers */
+  --card: 224 16% 11%;
+  --card-foreground: 40 12% 92%;
+  --popover: 224 16% 10%;
+  --popover-foreground: 40 12% 92%;
+  
+  /* Primary: Aurora Teal (30% - tech-forward) */
+  --primary: 172 55% 45%;
+  --primary-foreground: 0 0% 100%;
+  
+  /* Secondary: Burnt Clay (10% - human warmth, CTA) */
+  --secondary: 17 50% 59%;
+  --secondary-foreground: 0 0% 100%;
+  
+  /* Muted Surfaces */
+  --muted: 224 15% 14%;
+  --muted-foreground: 224 8% 65%;
+  
+  /* Accent: Aurora Violet (atmosphere) */
+  --accent: 270 45% 55%;
+  --accent-foreground: 0 0% 100%;
+  
+  /* ─────────────────────────────────────────
+     SEMANTIC COLORS
+     ───────────────────────────────────────── */
+  /* Sage-inspired success — muted earthy green */
+  --success: 143 40% 42%;
+  --success-foreground: 0 0% 100%;
+  
+  --destructive: 6 55% 50%;
+  --destructive-foreground: 0 0% 100%;
+  
+  --warning: 37 65% 55%;
+  --warning-foreground: 225 18% 8%;
+  
+  --info: 200 50% 50%;
+  --info-foreground: 0 0% 100%;
+  
+  /* Gold - Premium status indicator (high visibility on any background) */
+  --gold: 43 96% 56%;
+  --gold-foreground: 30 65% 28%;
+  
+  /* ─────────────────────────────────────────
+     BORDERS & INPUTS
+     ───────────────────────────────────────── */
+  --border: 224 15% 18%;
+  --input: 224 15% 14%;
+  --ring: 172 55% 45%;
+  
+  /* ─────────────────────────────────────────
+     GLASS EFFECTS
+     ───────────────────────────────────────── */
+  --glass: 224 16% 11% / 0.85;
+  --glass-border: 40 12% 90% / 0.08;
+  
+  /* ─────────────────────────────────────────
+     SHADOWS
+     ───────────────────────────────────────── */
+  --shadow-color: 0 0% 0% / 0.4;
+  --shadow-glow-primary: 172 55% 45% / 0.15;
+  --shadow-glow-accent: 270 45% 55% / 0.15;
+  --shadow-glow-secondary: 17 50% 59% / 0.15;
+  
+  /* ─────────────────────────────────────────
+     SURFACES (Layered elevation system)
+     ───────────────────────────────────────── */
+  --surface-subtle: 224 16% 11% / 0.02;
+  --surface-muted: 224 16% 11% / 0.04;
+  --surface-raised: 224 16% 11% / 0.06;
+  --surface-overlay: 224 16% 11% / 0.08;
+  
+  /* ─────────────────────────────────────────
+     RADIUS
+     ───────────────────────────────────────── */
+  --radius: 8px;
+  
+  /* ─────────────────────────────────────────
+     SIDEBAR
+     ───────────────────────────────────────── */
+  --sidebar-background: 224 17% 7%;
+  --sidebar-foreground: 40 12% 90%;
+  --sidebar-primary: 172 55% 45%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 224 17% 14%;
+  --sidebar-accent-foreground: 40 12% 90%;
+  --sidebar-border: 224 17% 18%;
+  --sidebar-ring: 172 55% 45%;
+}
+
+/* ============================================
+   LIGHT MODE OVERRIDES
+   ============================================ */
+.light {
+  --background: 40 20% 96%;
+  --foreground: 224 17% 15%;
+  
+  --card: 0 0% 100%;
+  --card-foreground: 224 17% 15%;
+  
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 17% 15%;
+  
+  --primary: 172 45% 38%;
+  --primary-foreground: 0 0% 100%;
+  
+  --secondary: 17 50% 55%;
+  --secondary-foreground: 0 0% 100%;
+  
+  --muted: 40 15% 92%;
+  --muted-foreground: 40 5% 40%;
+  
+  --accent: 270 40% 50%;
+  --accent-foreground: 0 0% 100%;
+  
+  /* Sage-inspired success */
+  --success: 143 35% 38%;
+  --success-foreground: 0 0% 100%;
+  
+  --destructive: 6 50% 48%;
+  --destructive-foreground: 0 0% 100%;
+  
+  --warning: 37 65% 50%;
+  --warning-foreground: 224 17% 15%;
+  
+  --info: 200 45% 45%;
+  --info-foreground: 0 0% 100%;
+  
+  /* Gold - Premium status indicator */
+  --gold: 43 90% 50%;
+  --gold-foreground: 30 60% 25%;
+  
+  --border: 40 15% 88%;
+  --input: 40 15% 92%;
+  --ring: 172 45% 38%;
+  
+  --glass: 0 0% 100% / 0.9;
+  --glass-border: 224 17% 20% / 0.08;
+  
+  --shadow-color: 172 20% 30% / 0.08;
+  
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 224 17% 15%;
+  --sidebar-primary: 172 45% 38%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 40 15% 96%;
+  --sidebar-accent-foreground: 224 17% 15%;
+  --sidebar-border: 40 15% 88%;
+  --sidebar-ring: 172 45% 38%;
+}

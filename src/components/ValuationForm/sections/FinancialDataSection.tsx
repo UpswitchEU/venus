@@ -16,7 +16,7 @@ import {
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationFormData } from '../../../types/valuation'
-import { CustomNumberInputField } from '../../forms'
+import { AuroraNumberInput, AuroraFormSection, AuroraFormGrid } from '../../../design-system/components'
 import { NormalizationModal } from '../../normalization/NormalizationModal'
 import { NormalizedEBITDAField } from '../../normalization/NormalizedEBITDAField'
 
@@ -75,12 +75,8 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
     }
   }
   return (
-    <div className="space-y-6">
-      <h3 className="text-xl font-semibold text-white mb-6 pb-2 border-b border-white/10 tracking-tight">
-        Last Full Year Financials ({lastFullYear})
-      </h3>
-
-      <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-6">
+    <AuroraFormSection title={`Last Full Year Financials (${lastFullYear})`}>
+      <AuroraFormGrid columns={2}>
         {/* Revenue */}
         <div>
           {(() => {
@@ -112,7 +108,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
               .join(' ')
 
             return (
-              <CustomNumberInputField
+              <AuroraNumberInput
                 label="Revenue (Required)"
                 placeholder="e.g., 2,500,000"
                 value={formData.revenue || ''}
@@ -175,7 +171,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                   />
                 ) : (
                   <>
-                    <CustomNumberInputField
+                    <AuroraNumberInput
                       label="EBITDA (Required)"
                       placeholder="e.g., 500,000"
                       value={
@@ -230,7 +226,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
             )
           })()}
         </div>
-      </div>
+      </AuroraFormGrid>
 
       {/* Normalization Modal */}
       {sessionId && (
@@ -243,6 +239,6 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
           }}
         />
       )}
-    </div>
+    </AuroraFormSection>
   )
 }

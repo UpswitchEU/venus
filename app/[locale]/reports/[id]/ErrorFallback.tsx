@@ -77,13 +77,13 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
   const { title, description, icon } = getErrorDetails()
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="text-center max-w-md">
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
           <span className="text-3xl">{icon}</span>
         </div>
-        <h1 className="text-2xl font-bold text-white mb-4">{title}</h1>
-        <p className="text-gray-400 mb-6">{description}</p>
+        <h1 className="text-2xl font-bold text-foreground mb-4">{title}</h1>
+        <p className="text-muted-foreground mb-6">{description}</p>
         
         {/* Error details for debugging (development only) */}
         {process.env.NODE_ENV === 'development' && error && (

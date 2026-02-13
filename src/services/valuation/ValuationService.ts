@@ -104,19 +104,12 @@ export class ValuationService {
         valuationId: response.valuation_id,
         duration_ms: duration.toFixed(2),
         hasHtmlReport: !!response.html_report,
-        hasInfoTabHtml: !!response.info_tab_html,
+        hasPdfUrl: !!(response as unknown as Record<string, unknown>).pdf_url,
       })
 
       // Validate response has required fields
       if (!response.html_report) {
         logger.warn('Valuation response missing html_report', {
-          valuationId: response.valuation_id,
-          responseKeys: Object.keys(response),
-        })
-      }
-
-      if (!response.info_tab_html) {
-        logger.warn('Valuation response missing info_tab_html', {
           valuationId: response.valuation_id,
           responseKeys: Object.keys(response),
         })

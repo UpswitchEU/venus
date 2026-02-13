@@ -474,8 +474,7 @@ export class HttpClient {
           hasHtmlReport: !!(extractedData as any)?.html_report,
           htmlReportLength: (extractedData as any)?.html_report?.length || 0,
           htmlReportType: typeof (extractedData as any)?.html_report,
-          hasInfoTabHtml: !!(extractedData as any)?.info_tab_html,
-          infoTabHtmlLength: (extractedData as any)?.info_tab_html?.length || 0,
+          hasPdfUrl: !!(extractedData as any)?.pdf_url,
           htmlReportPreview: (extractedData as any)?.html_report?.substring(0, 200) || 'N/A',
           extractionMethod: rawData?.data ? 'nested' : 'direct',
         })
@@ -506,27 +505,6 @@ export class HttpClient {
           })
         }
 
-        // CRITICAL: Warn if info_tab_html is missing from calculation response
-        if (
-          !(extractedData as any)?.info_tab_html ||
-          (extractedData as any).info_tab_html.trim().length === 0
-        ) {
-          apiLogger.error('CRITICAL: info_tab_html missing or empty in valuation response', {
-            url: config.url,
-            hasExtractedData: !!extractedData,
-            extractedDataKeys: extractedData ? Object.keys(extractedData) : [],
-            hasHtmlReport: !!(extractedData as any)?.html_report,
-            htmlReportLength: (extractedData as any)?.html_report?.length || 0,
-            rawResponseSample: JSON.stringify(response.data).substring(0, 1000),
-            note: 'POST /calculate endpoints should always return HTML reports',
-          })
-        } else {
-          apiLogger.info('SUCCESS: info_tab_html found in valuation response', {
-            url: config.url,
-            infoTabHtmlLength: (extractedData as any)?.info_tab_html?.length || 0,
-            infoTabHtmlPreview: (extractedData as any)?.info_tab_html?.substring(0, 200),
-          })
-        }
       }
 
       return responseData
