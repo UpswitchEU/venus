@@ -31,7 +31,16 @@
       "print": "Afdrukken",
       "preview": "Voorbeeld",
       "view": "Bekijken",
-      "startOver": "Opnieuw beginnen"
+      "startOver": "Opnieuw beginnen",
+      "add": "Toevoegen",
+      "remove": "Verwijderen",
+      "previous": "Vorige",
+      "done": "Klaar",
+      "skip": "Overslaan",
+      "select": "Selecteren",
+      "create": "Aanmaken",
+      "update": "Bijwerken",
+      "send": "Versturen"
     },
     "states": {
       "loading": "Laden...",
@@ -84,6 +93,16 @@
       "cannotBeUndone": "Deze actie kan niet ongedaan worden gemaakt.",
       "unsavedChanges": "U heeft niet-opgeslagen wijzigingen. Weet u zeker dat u wilt vertrekken?",
       "confirmDelete": "Weet u zeker dat u dit wilt verwijderen?"
+    },
+    "validation": {
+      "fieldRequired": "Dit veld is verplicht",
+      "invalidEmail": "Ongeldig e-mailadres",
+      "invalidFormat": "Ongeldig formaat"
+    },
+    "emptyStates": {
+      "noResults": "Geen resultaten",
+      "noData": "Geen gegevens",
+      "empty": "Leeg"
     }
   },
   "navigation": {
@@ -359,9 +378,12 @@
     "kboLookup": {
       "title": "Bedrijfsregister Opzoeken",
       "search": "Zoek uw bedrijf",
+      "minQueryHint": "Typ minstens {count} karakters om te zoeken.",
+      "clearLabel": "Wissen",
       "searching": "Register doorzoeken...",
       "found": "Bedrijf gevonden",
       "notFound": "Geen bedrijf gevonden met die naam",
+      "noResults": "Geen bedrijven gevonden.",
       "verified": "Geverifieerd",
       "verifiedCompany": "Geverifieerd Bedrijf",
       "verifying": "Verifiëren...",
@@ -408,6 +430,7 @@
       "searching": "Register doorzoeken...",
       "found": "Bedrijf gevonden",
       "notFound": "Geen bedrijf gevonden met die naam",
+      "noResults": "Geen bedrijven gevonden.",
       "verified": "Geverifieerd",
       "verifiedCompany": "Geverifieerd Bedrijf",
       "verifying": "Verifiëren...",
@@ -447,7 +470,8 @@
     },
     "toolbar": {
       "continueToDashboard": "Doorgaan naar Dashboard",
-      "backToClient": "Terug naar Klant"
+      "backToClient": "Terug naar Klant",
+      "selectVersion": "Selecteer versie"
     }
   },
   "reports": {

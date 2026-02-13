@@ -31,7 +31,16 @@
       "print": "Print",
       "preview": "Preview",
       "view": "View",
-      "startOver": "Start Over"
+      "startOver": "Start Over",
+      "add": "Add",
+      "remove": "Remove",
+      "previous": "Previous",
+      "done": "Done",
+      "skip": "Skip",
+      "select": "Select",
+      "create": "Create",
+      "update": "Update",
+      "send": "Send"
     },
     "states": {
       "loading": "Loading...",
@@ -84,6 +93,16 @@
       "cannotBeUndone": "This action cannot be undone.",
       "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?",
       "confirmDelete": "Are you sure you want to delete this?"
+    },
+    "validation": {
+      "fieldRequired": "This field is required",
+      "invalidEmail": "Invalid email address",
+      "invalidFormat": "Invalid format"
+    },
+    "emptyStates": {
+      "noResults": "No results",
+      "noData": "No data",
+      "empty": "Empty"
     }
   },
   "navigation": {
@@ -359,9 +378,12 @@
     "kboLookup": {
       "title": "Company Registry Lookup",
       "search": "Search for your company",
+      "minQueryHint": "Type at least {count} characters to search.",
+      "clearLabel": "Clear",
       "searching": "Searching registry...",
       "found": "Company found",
       "notFound": "No company found with that name",
+      "noResults": "No companies found.",
       "verified": "Verified",
       "verifiedCompany": "Verified Company",
       "verifying": "Verifying...",
@@ -408,6 +430,7 @@
       "searching": "Searching registry...",
       "found": "Company found",
       "notFound": "No company found with that name",
+      "noResults": "No companies found.",
       "verified": "Verified",
       "verifiedCompany": "Verified Company",
       "verifying": "Verifying...",
