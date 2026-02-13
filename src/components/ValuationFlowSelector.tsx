@@ -53,6 +53,8 @@ interface ValuationFlowSelectorProps {
   initialTab?: 'preview' | 'info' | 'history'
   /** URL action parameter (e.g., 'download' to trigger PDF download) */
   urlAction?: string
+  /** Open chat drawer on mount when URL has drawer=open (Clarity parity) */
+  initialDrawerOpen?: boolean
 }
 
 // Lazy load unified flow component (Next.js compatible)
@@ -149,6 +151,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     reportId,
     initialTab = 'preview',
     urlAction,
+    initialDrawerOpen = false,
   }) => {
     // ✅ WORLD CLASS: Loading handled upstream by ValuationSessionManager
     // This component only renders when ValuationSessionManager stage is 'data-entry' (session is ready)
@@ -231,16 +234,8 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       // Use reportId from props (always available) or validated session
       const effectiveReportId = session?.reportId || reportId
 
-      // Determine flow type - use session if available and validated, otherwise infer from URL
-      const flowType =
-        session?.currentView === 'manual'
-          ? 'manual'
-          : session?.currentView === 'conversational'
-            ? 'conversational'
-            : typeof window !== 'undefined' &&
-                new URLSearchParams(window.location.search).get('flow') === 'conversational'
-              ? 'conversational'
-              : 'manual'
+      // Always use manual flow (conversational has been removed)
+      const flowType = 'manual' as const
 
       return (
         <div className="relative h-full w-full">
@@ -262,6 +257,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 initialVersion={initialVersion}
                 initialTab={initialTab}
                 urlAction={urlAction}
+                initialDrawerOpen={initialDrawerOpen}
               />
             </Suspense>
           </div>

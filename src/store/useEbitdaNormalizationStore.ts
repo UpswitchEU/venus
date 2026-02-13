@@ -1,6 +1,11 @@
 /**
  * EBITDA Normalization Zustand Store
  *
+ * @deprecated Use `useNormalizationStore` for all new code.
+ * This store is retained for backward compatibility with ValuationForm components.
+ * The primary normalization flow (ManualLayout, NormalizationHub, UnifiedNormalizationModal)
+ * now uses the unified `useNormalizationStore` in `store/useNormalizationStore.ts`.
+ *
  * Manages state for EBITDA normalization feature
  * Supports optimistic updates, market rate suggestions, and session persistence
  */

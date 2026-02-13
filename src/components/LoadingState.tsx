@@ -119,7 +119,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       className={
         containerClassName ||
         `flex flex-col items-center w-full min-h-screen text-center ${baseContainer} ${
-          isDark ? 'bg-zinc-950' : 'bg-white'
+          isDark ? 'bg-background' : 'bg-white'
         }`
       }
     >
@@ -133,7 +133,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
 
       {/* Title */}
       <h3
-        className={`text-xl font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}
+        className={`text-xl font-semibold mb-2 ${isDark ? 'text-foreground' : 'text-gray-900'}`}
       >
         {showTimeoutWarning ? 'Almost there...' : currentStep.text}
       </h3>

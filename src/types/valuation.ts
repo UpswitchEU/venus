@@ -264,7 +264,6 @@ export interface ProfessionalReviewReady {
  */
 export interface TransparencyData {
   data_sources: DataSource[]
-  /** @deprecated Use info_tab_html instead. Calculation details are now available in server-generated HTML. */
   calculation_steps?: EnhancedCalculationStep[]
   comparable_companies?: ComparableCompany[]
   confidence_breakdown: ConfidenceBreakdown
@@ -937,7 +936,6 @@ export interface ValuationResponse {
   methodology_downgrade_reason?: string // Backward compatibility field
 
   // Multiple-First Discounting pipeline
-  /** @deprecated Use info_tab_html instead. Multiple pipeline details are now available in server-generated HTML. */
   multiple_pipeline?: MultiplePipeline
 
   // Additional data
@@ -947,7 +945,7 @@ export interface ValuationResponse {
   // HTML Reports (REQUIRED for display)
   /** Complete Accountant View HTML report (20-30 pages) */
   html_report?: string
-  /** Complete Info Tab HTML with 12-step calculation breakdown and all validation details */
+  /** Info tab HTML (legacy - may be returned by API) */
   info_tab_html?: string
 }
 

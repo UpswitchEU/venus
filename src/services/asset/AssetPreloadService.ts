@@ -18,7 +18,7 @@
 
 import { generalLogger } from '../../utils/logger'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
+// import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -31,9 +31,15 @@ const API_BASE_URL =
  * has already hydrated the store with HTML reports
  */
 function areAssetsAlreadyLoaded(flowType: 'manual' | 'conversational'): boolean {
-  const store = flowType === 'conversational'
-    ? useConversationalResultsStore.getState()
-    : useManualResultsStore.getState()
+  // CONVERSATIONAL STORE REMOVED: Only check manual store
+  // The conversational stores have been removed from the codebase
+  if (flowType === 'conversational') {
+    // Conversational flow no longer supported - return false to skip preload
+    generalLogger.debug('[AssetPreload] Conversational flow not supported - skipping preload check')
+    return false
+  }
+  
+  const store = useManualResultsStore.getState()
   
   const result = store.result as any
   if (!result) return false
@@ -242,8 +248,12 @@ class AssetPreloadServiceImpl {
         }
 
         if (flowType === 'conversational') {
-          const { setResult } = useConversationalResultsStore.getState()
-          setResult(result as any)
+          // CONVERSATIONAL STORE REMOVED: Conversational flow no longer supported
+          // The conversational stores have been removed from the codebase
+          // Skip updating conversational store
+          generalLogger.debug('[AssetPreload] Skipping conversational store update - stores removed', {
+            reportId: reportId.substring(0, 20) + '...',
+          })
         } else {
           const { setResult } = useManualResultsStore.getState()
           setResult(result as any)

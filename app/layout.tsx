@@ -74,7 +74,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html suppressHydrationWarning>
+    <html suppressHydrationWarning className="aurora-theme dark">
       <head>
         {/* ✅ FIX: Use manual meta tag for viewport to support Next.js 13.5.6 */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
@@ -111,7 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="bg-zinc-950 text-white antialiased">
+      <body className="bg-background text-foreground antialiased">
         <Providers>
           {children}
         </Providers>

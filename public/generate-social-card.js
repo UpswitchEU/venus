@@ -10,13 +10,13 @@ const htmlContent = `<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upswitch Social Card Generator</title>
     <style>
+        @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
         
         body {
             margin: 0;
             padding: 0;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            font-family: 'Satoshi', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
             background: #FFFFFF;
             width: 1200px;
             height: 630px;
@@ -58,7 +58,7 @@ const htmlContent = `<!DOCTYPE html>
             font-weight: 700;
             margin-bottom: 24px;
             color: #374151;
-            font-family: 'DM Sans', 'Inter', sans-serif;
+            font-family: 'Satoshi', 'Inter', sans-serif;
             letter-spacing: -0.02em;
             line-height: 1.1;
         }
@@ -69,7 +69,7 @@ const htmlContent = `<!DOCTYPE html>
             color: #6B7280;
             max-width: 900px;
             line-height: 1.3;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Satoshi', 'Inter', sans-serif;
             margin-bottom: 32px;
         }
         
@@ -77,7 +77,7 @@ const htmlContent = `<!DOCTYPE html>
             font-size: 24px;
             font-weight: 600;
             color: #14B8A6;
-            font-family: 'DM Sans', 'Inter', sans-serif;
+            font-family: 'Satoshi', 'Inter', sans-serif;
             letter-spacing: -0.01em;
         }
         

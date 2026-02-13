@@ -11,10 +11,9 @@ import {
   MarketRatesResponse,
 } from '../types/ebitdaNormalization'
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.upswitch.app'
+// Use Next.js API proxy routes (same-origin) to avoid CORS issues.
+// These proxy to Titan's /api/normalization/* endpoints.
+const API_BASE_URL = ''
 
 /**
  * API Error with structured response
@@ -47,9 +46,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
       errorMessage = `HTTP ${response.status}: ${response.statusText}`
     }
 
-    // Log 404 as info instead of error (endpoint doesn't exist in Titan yet)
     if (response.status === 404) {
-      console.info('[Normalization] No data found (expected)', { status: 404, url: response.url })
+      console.info('[Normalization] No data found for request', { status: 404, url: response.url })
     }
 
     throw new NormalizationAPIError(response.status, errorMessage, errorDetails)
@@ -74,10 +72,8 @@ export class EbitdaNormalizationService {
   }
 
   /**
-   * Get normalization for specific session and year
-   * 
-   * NOTE: Endpoint /api/normalization doesn't exist in Titan yet
-   * Returns empty data to prevent 404 errors
+   * Get normalization for specific session and year.
+   * Calls via Next.js proxy → Titan VenusNormalizationController.
    */
   async getNormalization(sessionId: string, year: number): Promise<GetNormalizationResponse> {
     try {
@@ -91,9 +87,8 @@ export class EbitdaNormalizationService {
 
       return handleResponse<GetNormalizationResponse>(response)
     } catch (error) {
-      // Suppress 404 errors - endpoint doesn't exist yet
+      // Handle 404 gracefully - session may not have normalizations yet
       if (error instanceof NormalizationAPIError && error.status === 404) {
-        console.info('[Normalization] Endpoint not available yet, skipping')
         throw error // Re-throw so the store can handle it
       }
       throw error
@@ -101,10 +96,8 @@ export class EbitdaNormalizationService {
   }
 
   /**
-   * Get all normalizations for a session
-   * 
-   * NOTE: Endpoint /api/normalization doesn't exist in Titan yet
-   * Returns empty array to prevent 404 errors
+   * Get all normalizations for a session.
+   * Calls via Next.js proxy → Titan VenusNormalizationController.
    */
   async getAllNormalizations(sessionId: string): Promise<GetNormalizationResponse[]> {
     try {
@@ -118,10 +111,9 @@ export class EbitdaNormalizationService {
 
       return handleResponse<GetNormalizationResponse[]>(response)
     } catch (error) {
-      // Suppress 404 errors - endpoint doesn't exist yet, return empty array
+      // Handle 404 gracefully - session may not have normalizations yet
       if (error instanceof NormalizationAPIError && error.status === 404) {
-        console.info('[Normalization] Endpoint not available yet, returning empty data')
-        return [] // Return empty array instead of throwing
+        return []
       }
       throw error
     }

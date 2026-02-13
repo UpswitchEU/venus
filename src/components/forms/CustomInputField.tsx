@@ -77,14 +77,14 @@ const CustomInputField: React.FC<CustomInputFieldProps> = ({
       <div
         className={`relative custom-input-group border rounded-xl shadow-sm transition-all duration-200 ${
           disabled
-            ? 'border-gray-200 bg-gray-50'
+            ? 'border-foreground/[0.05] bg-foreground/[0.02] opacity-60'
             : hasError
-              ? 'border-accent-300 bg-white hover:border-accent-400 focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/20'
-              : 'border-gray-200 bg-white hover:border-primary-300 focus-within:border-primary-600 focus-within:ring-2 focus-within:ring-primary-500/20'
+              ? 'border-destructive bg-foreground/[0.04] hover:border-destructive/80'
+              : 'border-foreground/[0.10] bg-foreground/[0.04] hover:border-foreground/[0.20] focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20'
         }`}
       >
         {leftIcon && (
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 z-10">
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-foreground/50 z-10">
             {leftIcon}
           </div>
         )}
@@ -106,32 +106,33 @@ const CustomInputField: React.FC<CustomInputFieldProps> = ({
           aria-invalid={hasError ? 'true' : 'false'}
           aria-describedby={hasError ? `${name}-error` : undefined}
           className={`
-            w-full h-14 px-4 pt-6 pb-2 text-base 
+            w-full h-16 px-4 pt-6 pb-2 text-base 
             border-none rounded-xl 
             focus:outline-none focus:ring-0
             transition-all duration-200 ease-in-out
+            placeholder:text-transparent
             ${leftIcon ? 'pl-10' : ''}
             ${rightIcon ? 'pr-10' : ''}
-            ${hasError ? 'text-rust-600' : ''}
-            ${disabled ? 'bg-transparent cursor-not-allowed text-gray-400' : 'bg-transparent text-slate-ink'}
+            ${hasError ? 'text-destructive' : ''}
+            ${disabled ? 'bg-transparent cursor-not-allowed text-foreground/30' : 'bg-transparent text-foreground'}
           `}
         />
 
         {rightIcon && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 z-10">
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-foreground/50 z-10">
             {rightIcon}
           </div>
         )}
 
         <label
           className={`
-            absolute left-4 top-2 text-xs text-stone-500 font-medium pointer-events-none
-            ${hasError ? 'text-rust-500' : ''}
-            ${disabled ? 'text-stone-300' : ''}
+            absolute left-4 top-2 text-xs font-medium pointer-events-none
+            ${hasError ? 'text-destructive' : 'text-foreground/50'}
+            ${disabled ? 'text-foreground/30' : ''}
           `}
         >
           {label}
-          {required && <span className="text-rust-500 ml-1">*</span>}
+          {required && <span className="text-destructive ml-1">*</span>}
         </label>
 
         {/* Info Icon - Positioned centered right */}
@@ -150,20 +151,20 @@ const CustomInputField: React.FC<CustomInputFieldProps> = ({
         )}
       </div>
 
-      {description && <p className="mt-1.5 text-xs text-stone-500 font-medium">{description}</p>}
+      {description && <p className="mt-1.5 text-xs text-foreground/50 font-medium">{description}</p>}
 
-      {/* Help Text (McKinsey UX Standard) */}
+      {/* Help Text */}
       {helpText && helpTextPlacement === 'below' && !hasError && (
-        <p className="text-xs text-stone-500 mt-2 leading-relaxed">{helpText}</p>
+        <p className="text-xs text-foreground/50 mt-2 leading-relaxed">{helpText}</p>
       )}
 
       {hasError && (
         <p
           id={`${name}-error`}
           role="alert"
-          className="mt-1.5 text-xs text-rust-600 font-medium flex items-start gap-1.5 animate-in fade-in slide-in-from-top-1"
+          className="mt-1.5 text-xs text-destructive font-medium flex items-start gap-1.5"
         >
-          <span className="w-1 h-1 rounded-full bg-rust-500 inline-block mt-1.5 flex-shrink-0" />
+          <span className="w-1 h-1 rounded-full bg-destructive inline-block mt-1.5 flex-shrink-0" />
           <span>{error}</span>
         </p>
       )}

@@ -1,0 +1,1447 @@
+'use client';
+
+/**
+ * Chat Assistant Drawer
+ * 
+ * Slide-in drawer for the AI co-pilot. Always available, contextual to current field.
+ * Implements bi-directional sync: Chat commands update form fields, and vice versa.
+ * 
+ * YC Advisor Pattern: "The Chat is the Navigator, not the Pilot"
+ */
+
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import { 
+  X, 
+  Send,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  ChevronRight,
+  Check,
+  Bot
+} from 'lucide-react';
+import { cn } from '@/design-system/utils';
+import { AuroraButton } from '@/design-system/components/Button';
+
+// ─────────────────────────────────────────
+// SMART NUMBER & COMMAND PARSING
+// ─────────────────────────────────────────
+
+interface ParsedValue {
+  field: string;
+  label: string;
+  value: number;
+  originalText: string;
+}
+
+interface ParsedCommand {
+  type: 'normalize' | 'set' | 'add';
+  field: string;
+  label: string;
+  value: number;
+  originalText: string;
+}
+
+/**
+ * Parse normalization commands from user input
+ * Supports: "Normaliseer eigenaarssalaris naar €60k", "Set EBITDA to 500k", etc.
+ */
+function parseNormalizationCommands(text: string): ParsedCommand[] {
+  const commands: ParsedCommand[] = [];
+  const lowerText = text.toLowerCase();
+  
+  // Dutch command patterns
+  const normalizePatterns = [
+    // "Normaliseer eigenaarssalaris naar €60k"
+    /normalis(?:eer|atie)?\s+([a-zà-ÿ\s]+?)\s+(?:naar|op|tot)\s+[€]?\s*([\d.,]+)\s*(k|m|miljoen|duizend)?/gi,
+    // "Zet huurkosten op €24k"
+    /zet\s+([a-zà-ÿ\s]+?)\s+(?:naar|op)\s+[€]?\s*([\d.,]+)\s*(k|m)?/gi,
+    // "Pas autokosten aan naar €18k"  
+    /pas\s+([a-zà-ÿ\s]+?)\s+aan\s+(?:naar|op)\s+[€]?\s*([\d.,]+)\s*(k|m)?/gi,
+    // "Voeg €35k toe aan eenmalige kosten"
+    /voeg\s+[€]?\s*([\d.,]+)\s*(k|m)?\s+toe\s+(?:aan|bij)\s+([a-zà-ÿ\s]+)/gi,
+  ];
+  
+  // English patterns for flexibility
+  const englishPatterns = [
+    /normalize\s+([a-z\s]+?)\s+to\s+[€$]?\s*([\d.,]+)\s*(k|m)?/gi,
+    /set\s+([a-z\s]+?)\s+to\s+[€$]?\s*([\d.,]+)\s*(k|m)?/gi,
+  ];
+  
+  // Field name mapping (Dutch/English to internal field names)
+  const fieldMappings: Record<string, { field: string; label: string }> = {
+    'eigenaarssalaris': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
+    'eigenaarsalaris': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
+    'salaris': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
+    'loon': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
+    'owner salary': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
+    'huur': { field: 'rent', label: 'Huurkosten' },
+    'huurkosten': { field: 'rent', label: 'Huurkosten' },
+    'huisvestingskosten': { field: 'rent', label: 'Huurkosten' },
+    'rent': { field: 'rent', label: 'Huurkosten' },
+    'auto': { field: 'vehicle', label: 'Autokosten' },
+    'autokosten': { field: 'vehicle', label: 'Autokosten' },
+    'voertuig': { field: 'vehicle', label: 'Autokosten' },
+    'voertuigkosten': { field: 'vehicle', label: 'Autokosten' },
+    'car': { field: 'vehicle', label: 'Autokosten' },
+    'ebitda': { field: 'ebitda', label: 'EBITDA' },
+    'winst': { field: 'ebitda', label: 'EBITDA' },
+    'eenmalige': { field: 'oneTime', label: 'Eenmalige kosten' },
+    'eenmalige kosten': { field: 'oneTime', label: 'Eenmalige kosten' },
+    'juridische kosten': { field: 'oneTime', label: 'Eenmalige kosten' },
+    'privé': { field: 'personal', label: 'Privékosten' },
+    'privékosten': { field: 'personal', label: 'Privékosten' },
+    'familie': { field: 'personal', label: 'Privékosten' },
+    'familieleden': { field: 'personal', label: 'Privékosten' },
+  };
+  
+  const parseValue = (numStr: string, suffix?: string): number => {
+    let value = parseFloat(numStr.replace(/\./g, '').replace(',', '.'));
+    if (suffix) {
+      const s = suffix.toLowerCase();
+      if (s === 'k' || s === 'duizend') value *= 1000;
+      else if (s === 'm' || s === 'miljoen') value *= 1000000;
+    }
+    return value;
+  };
+  
+  const findField = (fieldText: string): { field: string; label: string } | null => {
+    const normalized = fieldText.trim().toLowerCase();
+    for (const [key, mapping] of Object.entries(fieldMappings)) {
+      if (normalized.includes(key) || key.includes(normalized)) {
+        return mapping;
+      }
+    }
+    return null;
+  };
+  
+  // Process all patterns
+  [...normalizePatterns, ...englishPatterns].forEach(pattern => {
+    let match;
+    const regex = new RegExp(pattern.source, pattern.flags);
+    while ((match = regex.exec(text)) !== null) {
+      let fieldText: string;
+      let numStr: string;
+      let suffix: string | undefined;
+      
+      // Handle different capture group orders
+      if (match[1].match(/[\d.,]/)) {
+        // Pattern like "Voeg €35k toe aan eenmalige kosten"
+        numStr = match[1];
+        suffix = match[2];
+        fieldText = match[3];
+      } else {
+        fieldText = match[1];
+        numStr = match[2];
+        suffix = match[3];
+      }
+      
+      const fieldMapping = findField(fieldText);
+      if (fieldMapping) {
+        const value = parseValue(numStr, suffix);
+        if (!commands.find(c => c.field === fieldMapping.field && c.value === value)) {
+          commands.push({
+            type: 'normalize',
+            field: fieldMapping.field,
+            label: fieldMapping.label,
+            value,
+            originalText: match[0],
+          });
+        }
+      }
+    }
+  });
+  
+  return commands;
+}
+
+/**
+ * Parse financial values from user input text (enhanced)
+ * Supports formats: 500k, 500K, €500.000, 500000, 2.5M, 2,5M
+ */
+function parseFinancialValues(text: string): ParsedValue[] {
+  const results: ParsedValue[] = [];
+  const lowerText = text.toLowerCase();
+  
+  // Number patterns: 500k, 500K, €500.000, 500000, 2.5M, 2,5M
+  const numberPatterns = [
+    // K suffix: 500k, 500K
+    /(\d+(?:[.,]\d+)?)\s*k\b/gi,
+    // M suffix: 2.5M, 2,5M
+    /(\d+(?:[.,]\d+)?)\s*m\b/gi,
+    // Euro with dots: €500.000
+    /€\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/g,
+    // Plain large numbers: 500000
+    /\b(\d{4,})\b/g,
+  ];
+  
+  // Enhanced field detection patterns with grootboek codes
+  const fieldPatterns: { pattern: RegExp; field: string; label: string; code?: string }[] = [
+    { pattern: /ebitda|winst/i, field: 'ebitda', label: 'EBITDA' },
+    { pattern: /omzet|revenue/i, field: 'revenue', label: 'Omzet' },
+    { pattern: /salaris|loon|eigenaar/i, field: 'ownerSalary', label: 'Eigenaarssalaris', code: '620' },
+    { pattern: /huur|rent|kantoor|pand/i, field: 'rent', label: 'Huurkosten', code: '613' },
+    { pattern: /auto|voertuig|car|wagen/i, field: 'vehicle', label: 'Autokosten', code: '615' },
+    { pattern: /eenmalig|juridisch|advies/i, field: 'oneTime', label: 'Eenmalige kosten', code: '640' },
+    { pattern: /privé|familie|persoon/i, field: 'personal', label: 'Privékosten', code: '650' },
+  ];
+  
+  // Find numbers and their contexts
+  for (const pattern of numberPatterns) {
+    let match;
+    const regex = new RegExp(pattern.source, pattern.flags);
+    
+    while ((match = regex.exec(text)) !== null) {
+      let rawNumber = match[1] || match[0];
+      let value: number;
+      
+      // Parse the number
+      rawNumber = rawNumber.replace(/€\s*/g, '').replace(/\./g, '').replace(/,/g, '.');
+      value = parseFloat(rawNumber);
+      
+      // Apply multiplier based on suffix
+      const originalMatch = match[0];
+      
+      if (originalMatch.toLowerCase().includes('k')) {
+        value *= 1000;
+      } else if (originalMatch.toLowerCase().includes('m')) {
+        value *= 1000000;
+      }
+      
+      // Determine field from context
+      for (const fp of fieldPatterns) {
+        if (fp.pattern.test(lowerText)) {
+          // Avoid duplicates
+          if (!results.find(r => r.field === fp.field && r.value === value)) {
+            results.push({
+              field: fp.field,
+              label: fp.label,
+              value,
+              originalText: originalMatch,
+            });
+          }
+          break;
+        }
+      }
+      
+      // If no specific field found but it's a substantial number, suggest as EBITDA
+      if (results.length === 0 && value >= 10000) {
+        results.push({
+          field: 'ebitda',
+          label: 'EBITDA',
+          value,
+          originalText: originalMatch,
+        });
+      }
+    }
+  }
+  
+  return results;
+}
+
+// Export types and functions
+export type { ParsedValue, ParsedCommand };
+export { parseNormalizationCommands, parseFinancialValues };
+
+// Types
+export interface FieldUpdate {
+  field: string;
+  value: number;
+  label: string;
+  // YC-Standard: Impact framing + provenance
+  impact?: {
+    ebitdaDelta: number;      // e.g., +60000
+    valuationDelta: number;   // e.g., +312000 (at 5.2x)
+    multiple?: number;        // e.g., 5.2
+  };
+  source?: 'yuki' | 'exact' | 'manual' | 'ai' | 'kbo';
+  grootboekCode?: string;
+  confidence?: 'high' | 'medium' | 'low';
+}
+
+export interface NormalisationSuggestion {
+  id: string;
+  code: string;
+  description: string;
+  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other';
+  amount: number;
+  reason: string;
+  sourceRef?: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  // Impact calculation
+  ebitdaImpact?: number;
+  valuationImpact?: number;
+  multiple?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: Date;
+  attachments?: { name: string; type: string; url: string }[];
+  // YC-Standard: Structured cards with impact framing
+  fieldUpdates?: FieldUpdate[];
+  // AI-generated normalization suggestions with accept/reject
+  normalisationSuggestions?: NormalisationSuggestion[];
+  // Task-driven: open tasks the user can complete
+  tasks?: {
+    id: string;
+    type: 'confirm' | 'choose' | 'enter' | 'upload' | 'approve';
+    label: string;
+    context?: string;
+    completed?: boolean;
+  }[];
+}
+
+export interface FieldContext {
+  field: string;
+  label: string;
+  value?: any;
+  hint?: string;
+}
+
+interface ChatAssistantDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  messages: ChatMessage[];
+  onSendMessage: (content: string, attachments?: File[], detectedValues?: ParsedValue[], parsedCommands?: ParsedCommand[]) => void;
+  isGenerating?: boolean;
+  // Context from the form
+  companyName?: string;
+  fieldContext?: FieldContext;
+  // Bi-directional sync: when AI suggests field updates
+  onApplyFieldUpdate?: (field: string, value: any) => void;
+  pendingUpdates?: { field: string; value: any; label: string }[];
+  onAcceptUpdate?: (field: string) => void;
+  onRejectUpdate?: (field: string) => void;
+  // Normalization suggestion handlers
+  onAcceptNormalisation?: (id: string) => void;
+  onRejectNormalisation?: (id: string) => void;
+  // Quick suggestion pills for common normalizations
+  showQuickNormalizations?: boolean;
+  // Command pill click handler - auto-fills and sends
+  onCommandPillClick?: (command: string) => void;
+  // Open Normalization Hub - redirects to central hub when CSV is uploaded
+  onOpenNormalizationHub?: () => void;
+  hasUploadedData?: boolean;
+}
+
+// Contextual suggestions based on field
+const getContextualSuggestions = (fieldContext?: FieldContext): string[] => {
+  if (!fieldContext) {
+    return [
+      "Wat is dit bedrijf waard?",
+      "Analyseer deze jaarrekening",
+      "Welke normalisaties zijn relevant?",
+      "Genereer concept rapport",
+    ];
+  }
+  
+  const { field } = fieldContext;
+  
+  switch (field) {
+    case 'ownerSalary':
+    case 'salary':
+      return [
+        "Wat is een marktconform salaris?",
+        "Normaliseer naar gemiddelde",
+        "Vergelijk met sector",
+      ];
+    case 'rent':
+    case 'huurkosten':
+      return [
+        "Is deze huur marktconform?",
+        "Normaliseer naar marktwaarde",
+        "Bereken privégebruik",
+      ];
+    case 'ebitda':
+      return [
+        "Verklaar deze EBITDA",
+        "Welke normalisaties toepassen?",
+        "Vergelijk met sectorgemiddelde",
+      ];
+    case 'revenue':
+    case 'omzet':
+      return [
+        "Analyseer omzettrend",
+        "Is dit seizoensgebonden?",
+        "Projecteer komend jaar",
+      ];
+    default:
+      return [
+        "Leg dit veld uit",
+        "Wat is een goede waarde?",
+        "Help me dit invullen",
+      ];
+  }
+};
+
+export function ChatAssistantDrawer({
+  open,
+  onOpenChange,
+  messages,
+  onSendMessage,
+  isGenerating = false,
+  companyName,
+  fieldContext,
+  onApplyFieldUpdate,
+  pendingUpdates = [],
+  onAcceptUpdate,
+  onRejectUpdate,
+  onAcceptNormalisation,
+  onRejectNormalisation,
+  showQuickNormalizations = false,
+  onCommandPillClick,
+  onOpenNormalizationHub,
+  hasUploadedData = false,
+}: ChatAssistantDrawerProps) {
+  const [input, setInput] = useState('');
+  
+  // Handler for command pill clicks - auto-fills and sends
+  const handleCommandPillClick = useCallback((command: string) => {
+    if (onCommandPillClick) {
+      onCommandPillClick(command);
+    } else {
+      // Fallback: set input and trigger submit
+      setInput(command);
+      // Use setTimeout to ensure state is updated before submitting
+      setTimeout(() => {
+        const commands = parseNormalizationCommands(command);
+        onSendMessage(command, undefined, undefined, commands.length > 0 ? commands : undefined);
+        setInput('');
+      }, 0);
+    }
+  }, [onCommandPillClick, onSendMessage]);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [detectedValues, setDetectedValues] = useState<ParsedValue[]>([]);
+  const [detectedCommands, setDetectedCommands] = useState<ParsedCommand[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+    }
+  }, [input]);
+  
+  // Smart parsing - detect values and commands as user types
+  useEffect(() => {
+    if (input.length > 5) {
+      // Parse normalization commands first (higher priority)
+      const commands = parseNormalizationCommands(input);
+      setDetectedCommands(commands);
+      
+      // Only parse values if no commands detected
+      if (commands.length === 0) {
+        const parsed = parseFinancialValues(input);
+        setDetectedValues(parsed);
+      } else {
+        setDetectedValues([]);
+      }
+    } else {
+      setDetectedValues([]);
+      setDetectedCommands([]);
+    }
+  }, [input]);
+
+  // Focus textarea when drawer opens
+  useEffect(() => {
+    if (open && textareaRef.current) {
+      setTimeout(() => textareaRef.current?.focus(), 100);
+    }
+  }, [open]);
+
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() && attachments.length === 0) return;
+    // Pass detected values and commands along with the message
+    onSendMessage(
+      input, 
+      attachments, 
+      detectedValues.length > 0 ? detectedValues : undefined,
+      detectedCommands.length > 0 ? detectedCommands : undefined
+    );
+    setInput('');
+    setAttachments([]);
+    setDetectedValues([]);
+    setDetectedCommands([]);
+  }, [input, attachments, detectedValues, detectedCommands, onSendMessage]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const suggestions = getContextualSuggestions(fieldContext);
+  const isEmpty = messages.length === 0;
+
+  // Track focus state for premium glow effect
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => onOpenChange(false)}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          />
+
+          {/* Drawer Panel */}
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+            className={cn(
+              // Base: Full screen on mobile for immersive experience
+              "fixed right-0 top-0 bottom-0 z-50",
+              "w-full h-full p-0 flex flex-col",
+              // Tablet+: Balanced width - not too narrow, not too wide
+              "sm:w-[440px] md:w-[480px] lg:w-[520px]",
+              // Premium styling
+              "bg-background border-l border-foreground/[0.08]",
+              // Safe area for mobile notches/home indicators
+              "pb-[env(safe-area-inset-bottom)]"
+            )}
+          >
+            {/* Header - Minimal, premium design with close button on right */}
+            <div className="shrink-0 px-5 sm:px-6 py-4 sm:py-5 border-b border-foreground/[0.06] bg-background/80 backdrop-blur-xl">
+              <div className="flex items-center gap-4">
+                {/* Title - now on the left */}
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg sm:text-base font-semibold text-foreground tracking-tight">
+                    Assistent
+                  </h2>
+                  {fieldContext && (
+                    <p className="text-sm sm:text-xs text-foreground/50 truncate mt-0.5">
+                      {fieldContext.label}
+                    </p>
+                  )}
+                </div>
+                {/* Hub Button - when CSV data is uploaded */}
+                {hasUploadedData && onOpenNormalizationHub && (
+                  <AuroraButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={onOpenNormalizationHub}
+                    className="shrink-0 gap-1.5 text-xs"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                    Open Hub
+                  </AuroraButton>
+                )}
+                {/* Close button - now on the right, centered vertically with proper touch target */}
+                <button
+                  onClick={() => onOpenChange(false)}
+                  className={cn(
+                    "shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg",
+                    "flex items-center justify-center",
+                    "text-foreground/40 hover:text-foreground/70",
+                    "hover:bg-foreground/[0.06] active:bg-foreground/[0.08]",
+                    "transition-colors touch-manipulation"
+                  )}
+                  aria-label="Sluiten"
+                >
+                  <X className="w-5 h-5 sm:w-4 sm:h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {/* Pending Field Updates - Bi-directional sync UI */}
+            {pendingUpdates.length > 0 && (
+              <div className="shrink-0 px-4 sm:px-5 py-3 sm:py-4 border-b border-foreground/[0.06] bg-primary/5">
+                <p className="text-sm sm:text-xs font-medium text-primary mb-2.5 sm:mb-2">
+                  Voorgestelde aanpassingen
+                </p>
+                <div className="space-y-2.5 sm:space-y-2">
+                  {pendingUpdates.map((update) => (
+                    <div 
+                      key={update.field}
+                      className="flex items-center justify-between gap-3 p-3 sm:p-2.5 rounded-xl sm:rounded-lg bg-background border border-primary/20"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm sm:text-xs font-medium text-foreground truncate">
+                          {update.label}
+                        </p>
+                        <p className="text-sm sm:text-xs text-foreground/50 font-mono">
+                          → {typeof update.value === 'number' 
+                              ? `€${update.value.toLocaleString('nl-BE')}`
+                              : update.value}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 sm:gap-1.5 shrink-0">
+                        <button
+                          onClick={() => onRejectUpdate?.(update.field)}
+                          className="p-2.5 sm:p-2 rounded-lg sm:rounded hover:bg-foreground/[0.06] text-foreground/40 active:scale-95 transition-transform touch-manipulation"
+                        >
+                          <X className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            onApplyFieldUpdate?.(update.field, update.value);
+                            onAcceptUpdate?.(update.field);
+                          }}
+                          className="p-2.5 sm:p-2 rounded-lg sm:rounded bg-primary/10 hover:bg-primary/20 text-primary active:scale-95 transition-transform touch-manipulation"
+                        >
+                          <ChevronRight className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Messages Area - Scrollable with momentum */}
+            <div className="flex-1 overflow-y-auto overscroll-contain">
+              {isEmpty ? (
+                <EmptyState 
+                  onSuggestionClick={(text) => setInput(text)} 
+                  companyName={companyName}
+                  fieldContext={fieldContext}
+                  suggestions={suggestions}
+                />
+              ) : (
+                <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
+                  <AnimatePresence>
+                    {messages.map((message) => (
+                      <MessageBubble 
+                        key={message.id} 
+                        message={message}
+                        onApplyUpdate={onApplyFieldUpdate}
+                        onAcceptNormalisation={onAcceptNormalisation}
+                        onRejectNormalisation={onRejectNormalisation}
+                        onCommandPillClick={handleCommandPillClick}
+                      />
+                    ))}
+                  </AnimatePresence>
+
+                  {isGenerating && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                      className="flex items-start gap-3"
+                    >
+                      {/* AI Avatar - matches message bubble */}
+                      <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center">
+                        <Bot className="w-4 h-4 text-primary animate-pulse" />
+                      </div>
+                      {/* Streaming skeleton - Klarna-inspired */}
+                      <div className="flex-1 max-w-[82%] space-y-2">
+                        <div className="rounded-2xl rounded-tl-md px-5 py-4 bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02] border border-foreground/[0.08] backdrop-blur-sm space-y-3">
+                          {/* Typing indicator */}
+                          <div className="flex items-center gap-1.5">
+                            <motion.div 
+                              className="w-2 h-2 rounded-full bg-primary"
+                              animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                            />
+                            <motion.div 
+                              className="w-2 h-2 rounded-full bg-primary"
+                              animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
+                            />
+                            <motion.div 
+                              className="w-2 h-2 rounded-full bg-primary"
+                              animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                            />
+                            <span className="ml-2 text-xs text-foreground/40">Aan het typen...</span>
+                          </div>
+                          {/* Content skeleton lines */}
+                          <div className="space-y-2">
+                            <motion.div 
+                              className="h-3 bg-foreground/[0.06] rounded-full" 
+                              style={{ width: '85%' }}
+                              animate={{ opacity: [0.5, 0.8, 0.5] }}
+                              transition={{ duration: 1.5, repeat: Infinity }}
+                            />
+                            <motion.div 
+                              className="h-3 bg-foreground/[0.06] rounded-full" 
+                              style={{ width: '70%' }}
+                              animate={{ opacity: [0.5, 0.8, 0.5] }}
+                              transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                            />
+                            <motion.div 
+                              className="h-3 bg-foreground/[0.06] rounded-full" 
+                              style={{ width: '55%' }}
+                              animate={{ opacity: [0.5, 0.8, 0.5] }}
+                              transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                  
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+
+            {/* Contextual suggestions consolidated into input area pills */}
+
+            {/* Input Area - Premium Glassmorphism Design with safe area */}
+            <div className="shrink-0 p-4 sm:p-5 border-t border-foreground/[0.06] bg-background/80 backdrop-blur-xl">
+              {/* Command Detection Indicator */}
+              <AnimatePresence>
+                {detectedCommands.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mb-3 sm:mb-3 p-3 sm:p-2.5 rounded-xl bg-primary/10 border border-primary/20"
+                  >
+                    <p className="text-xs sm:text-[10px] font-medium text-primary mb-2 sm:mb-1.5 uppercase tracking-wide">
+                      Normalisatie commando gedetecteerd
+                    </p>
+                    <div className="flex flex-wrap gap-2.5 sm:gap-2">
+                      {detectedCommands.map((cmd, index) => (
+                        <div 
+                          key={index}
+                          className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-md bg-primary/15 border border-primary/25"
+                        >
+                          <span className="text-sm sm:text-xs font-medium text-primary">{cmd.label}</span>
+                          <span className="text-sm sm:text-xs text-foreground/60">→</span>
+                          <span className="text-sm sm:text-xs font-mono font-semibold text-foreground">
+                            €{cmd.value.toLocaleString('nl-BE')}
+                          </span>
+                          <Check className="w-4 h-4 sm:w-3 sm:h-3 text-primary" />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs sm:text-[10px] text-primary/70 mt-2 sm:mt-1.5">
+                      Dit wordt direct toegepast in het formulier
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Smart Number Detection Indicator */}
+              <AnimatePresence>
+                {detectedValues.length > 0 && detectedCommands.length === 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mb-3 sm:mb-3 p-3 sm:p-2.5 rounded-xl bg-success/10 border border-success/20"
+                  >
+                    <p className="text-xs sm:text-[10px] font-medium text-success mb-2 sm:mb-1.5 uppercase tracking-wide">
+                      Gedetecteerde waarden
+                    </p>
+                    <div className="flex flex-wrap gap-2.5 sm:gap-2">
+                      {detectedValues.map((detected, index) => (
+                        <div 
+                          key={index}
+                          className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-md bg-success/15 border border-success/25"
+                        >
+                          <span className="text-sm sm:text-xs font-medium text-success">{detected.label}</span>
+                          <span className="text-sm sm:text-xs font-mono font-semibold text-foreground">
+                            €{detected.value.toLocaleString('nl-BE')}
+                          </span>
+                          <Check className="w-4 h-4 sm:w-3 sm:h-3 text-success" />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs sm:text-[10px] text-success/70 mt-2 sm:mt-1.5">
+                      Deze waarden worden automatisch voorgesteld na verzenden
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Premium Input Container */}
+              <motion.div
+                initial={false}
+                animate={{ 
+                  borderColor: isInputFocused ? 'hsl(var(--primary) / 0.35)' : 'hsl(var(--foreground) / 0.08)',
+                }}
+                className={cn(
+                  "relative w-full flex flex-col rounded-2xl sm:rounded-xl",
+                  "p-3.5 sm:p-3",
+                  "bg-foreground/[0.03] backdrop-blur-xl",
+                  "border border-foreground/[0.08]",
+                  "transition-[box-shadow] duration-300",
+                  !isInputFocused && "hover:bg-foreground/[0.04]",
+                )}
+                style={{
+                  boxShadow: isInputFocused
+                    ? '0 0 40px -15px hsl(var(--primary) / 0.2), 0 8px 30px -12px hsl(var(--background) / 0.5)'
+                    : '0 4px 20px -8px hsl(var(--background) / 0.3)',
+                }}
+              >
+                {/* Attachments Preview */}
+                <AnimatePresence>
+                  {attachments.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex gap-2.5 sm:gap-2 mb-3 sm:mb-2 pb-3 sm:pb-2 flex-wrap border-b border-foreground/[0.06]"
+                    >
+                      {attachments.map((file, index) => (
+                        <motion.span
+                          key={index}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-2 sm:py-1 rounded-xl sm:rounded-lg bg-foreground/[0.06] text-sm sm:text-xs text-foreground/70"
+                        >
+                          {file.type.startsWith('image/') ? (
+                            <ImageIcon className="w-4 h-4 sm:w-3 sm:h-3" />
+                          ) : (
+                            <FileText className="w-4 h-4 sm:w-3 sm:h-3" />
+                          )}
+                          <span className="truncate max-w-[120px] sm:max-w-[100px]">{file.name}</span>
+                          <button 
+                            type="button"
+                            onClick={() => removeAttachment(index)}
+                            className="p-1 sm:p-0.5 rounded-md sm:rounded hover:bg-foreground/[0.08] text-foreground/40 hover:text-destructive touch-manipulation"
+                          >
+                            <X className="w-4 h-4 sm:w-3 sm:h-3" />
+                          </button>
+                        </motion.span>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Textarea Row */}
+                <div className="flex items-end gap-2.5 sm:gap-2">
+                  {/* Attach Button - 48px touch target on mobile */}
+                  <motion.button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={cn(
+                      "shrink-0 rounded-xl sm:rounded-lg transition-colors touch-manipulation",
+                      "w-12 h-12 sm:w-10 sm:h-10 flex items-center justify-center",
+                      "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]",
+                      "active:bg-foreground/[0.08]"
+                    )}
+                    aria-label="Bestand toevoegen"
+                  >
+                    <Paperclip className="w-5 h-5 sm:w-4 sm:h-4" />
+                  </motion.button>
+
+                  {/* Textarea - text-base prevents iOS zoom */}
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onFocus={() => setIsInputFocused(true)}
+                    onBlur={() => setIsInputFocused(false)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={fieldContext 
+                      ? `Vraag over ${fieldContext.label.toLowerCase()}...`
+                      : "Stel een vraag of geef een opdracht..."
+                    }
+                    rows={1}
+                    className={cn(
+                      "flex-1 w-full bg-transparent border-none outline-none resize-none",
+                      // text-base on mobile prevents iOS auto-zoom
+                      "text-base sm:text-sm min-h-[48px] sm:min-h-[44px] leading-relaxed",
+                      "text-foreground placeholder:text-foreground/40",
+                      "transition-colors duration-200"
+                    )}
+                    disabled={isGenerating}
+                    aria-label="Chat invoer"
+                  />
+
+                  {/* Send Button - 48px touch target on mobile */}
+                  <motion.button
+                    type="button"
+                    onClick={() => handleSubmit()}
+                    disabled={(!input.trim() && attachments.length === 0) || isGenerating}
+                    whileHover={{ scale: input.trim() || attachments.length > 0 ? 1.05 : 1 }}
+                    whileTap={{ scale: input.trim() || attachments.length > 0 ? 0.95 : 1 }}
+                    className={cn(
+                      "shrink-0 w-12 h-12 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center",
+                      "transition-all duration-200 touch-manipulation",
+                      // Enabled with value
+                      (input.trim() || attachments.length > 0) && !isGenerating && [
+                        "bg-primary text-primary-foreground",
+                        "shadow-md shadow-primary/20",
+                        "hover:shadow-lg hover:shadow-primary/30",
+                        "active:scale-95",
+                      ],
+                      // Disabled/empty
+                      (!input.trim() && attachments.length === 0) && !isGenerating && [
+                        "bg-foreground/[0.06] text-foreground/30",
+                        "cursor-not-allowed",
+                      ],
+                      // Loading
+                      isGenerating && "bg-primary/70 text-primary-foreground cursor-wait"
+                    )}
+                    aria-label="Verzenden"
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="w-5 h-5 sm:w-4 sm:h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5 sm:w-4 sm:h-4" />
+                    )}
+                  </motion.button>
+                </div>
+
+                {/* Quick Suggestion Pills (when empty) - Horizontal scroll on mobile */}
+                <AnimatePresence>
+                  {!input.trim() && !isGenerating && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="mt-3 sm:mt-3 pt-3 sm:pt-3 border-t border-foreground/[0.06]"
+                    >
+                      {/* On mobile: horizontal scroll, on desktop: wrap */}
+                      <div className="flex sm:flex-wrap items-center gap-2.5 sm:gap-2 overflow-x-auto sm:overflow-visible scrollbar-hide pb-1 sm:pb-0">
+                        {suggestions.slice(0, 4).map((suggestion, index) => (
+                          <motion.button
+                            key={index}
+                            type="button"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.02 + index * 0.03 }}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => handleCommandPillClick(suggestion)}
+                            disabled={isGenerating}
+                            className={cn(
+                              "shrink-0 sm:shrink",
+                              // Mobile: Larger touch targets
+                              "px-4 py-2.5 sm:px-3 sm:py-1.5",
+                              "rounded-full inline-flex items-center gap-1.5",
+                              "bg-foreground/[0.05] backdrop-blur-sm",
+                              "border border-foreground/[0.08]",
+                              "text-sm sm:text-xs font-medium text-foreground/60",
+                              "hover:bg-foreground/[0.08] hover:border-foreground/[0.12] hover:text-foreground/80",
+                              "active:scale-95 transition-all duration-150 touch-manipulation whitespace-nowrap",
+                              isGenerating && "opacity-50 cursor-not-allowed"
+                            )}
+                          >
+                            {suggestion}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Keyboard Hint */}
+                <AnimatePresence>
+                  {isInputFocused && input.trim() && !isGenerating && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute bottom-2 right-14 text-[10px] text-foreground/25 hidden md:block"
+                    >
+                      ↵ om te verzenden
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// Empty State Component - Premium minimal design (no redundant icons)
+function EmptyState({ 
+  onSuggestionClick, 
+  companyName,
+  fieldContext,
+  suggestions,
+}: { 
+  onSuggestionClick: (text: string) => void;
+  companyName?: string;
+  fieldContext?: FieldContext;
+  suggestions: string[];
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-5 sm:px-6 py-8 sm:py-10">
+      <div className="max-w-md w-full space-y-8 sm:space-y-6">
+        {/* Minimal Header - World-class typography hierarchy */}
+        <div className="text-center space-y-3 sm:space-y-2">
+          <h2 className="text-xl sm:text-lg font-semibold text-foreground tracking-tight">
+            {fieldContext 
+              ? `Hulp bij ${fieldContext.label}`
+              : companyName 
+                ? `Analyse voor ${companyName}`
+                : 'Hoe kan ik helpen?'
+            }
+          </h2>
+          <p className="text-base sm:text-sm text-foreground/50 max-w-xs mx-auto">
+            {fieldContext?.hint || 'Stel vragen of upload documenten voor analyse.'}
+          </p>
+        </div>
+
+        {/* Suggestions moved to input area pills */}
+      </div>
+    </div>
+  );
+}
+
+// Category icons for normalization suggestions
+const categoryIcons: Record<string, string> = {
+  salary: '👤',
+  rent: '🏢',
+  vehicle: '🚗',
+  'one-time': '⚡',
+  personal: '🏠',
+  other: '📊',
+};
+
+// Message Bubble Component
+function MessageBubble({ 
+  message,
+  onApplyUpdate,
+  onAcceptNormalisation,
+  onRejectNormalisation,
+  onCommandPillClick,
+}: { 
+  message: ChatMessage;
+  onApplyUpdate?: (field: string, value: any) => void;
+  onAcceptNormalisation?: (id: string) => void;
+  onRejectNormalisation?: (id: string) => void;
+  onCommandPillClick?: (command: string) => void;
+}) {
+  const isUser = message.role === 'user';
+  const isSystem = message.role === 'system';
+  
+  if (isSystem) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center py-2"
+      >
+        <span className="text-xs text-foreground/40 italic">{message.content}</span>
+      </motion.div>
+    );
+  }
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+      className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}
+    >
+      {/* AI Avatar - Premium minimal design */}
+      {!isUser && (
+        <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center mt-1">
+          <Bot className="w-4 h-4 text-primary" />
+        </div>
+      )}
+      
+      <div className={cn(
+        // Responsive bubble sizing with premium shapes
+        'max-w-[85%] sm:max-w-[82%]',
+        isUser 
+          // User bubble: Teal tint with dark text for readability
+          ? [
+              'rounded-2xl rounded-tr-md',
+              'px-4 py-3',
+              'bg-gradient-to-br from-primary/15 via-primary/12 to-primary/8',
+              'text-foreground',
+              'border border-primary/25',
+              'shadow-sm',
+            ]
+          // AI bubble: Glassmorphism with depth
+          : [
+              'rounded-2xl rounded-tl-md',
+              'px-5 py-4',
+              'bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02]',
+              'border border-foreground/[0.08]',
+              'backdrop-blur-sm',
+              'text-foreground',
+              'shadow-sm',
+            ]
+      )}>
+        {/* Attachments */}
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 sm:gap-1.5 mb-3 sm:mb-2">
+            {message.attachments.map((attachment, i) => (
+              <div 
+                key={i} 
+                className={cn(
+                  'flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg text-sm sm:text-xs',
+                  isUser ? 'bg-primary/20 text-foreground/80' : 'bg-foreground/[0.06] text-foreground/70'
+                )}
+              >
+                {attachment.type.startsWith('image/') ? (
+                  <ImageIcon className="w-4 h-4 sm:w-3 sm:h-3" />
+                ) : (
+                  <FileText className="w-4 h-4 sm:w-3 sm:h-3" />
+                )}
+                <span className="truncate max-w-[100px] sm:max-w-[80px]">{attachment.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Content with Markdown for AI, plain text for user */}
+        {isUser ? (
+          <p className="text-[15px] sm:text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <div className="prose prose-sm prose-invert max-w-none">
+            <ReactMarkdown
+              components={{
+                // Premium typography for headings
+                h1: ({ children }) => <h1 className="text-lg font-semibold text-foreground mt-4 mb-2 first:mt-0">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-base font-semibold text-foreground mt-3 mb-2 first:mt-0">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-sm font-semibold text-foreground mt-2 mb-1 first:mt-0">{children}</h3>,
+                // Paragraphs with proper spacing
+                p: ({ children }) => <p className="text-[15px] sm:text-sm leading-relaxed text-foreground/90 mb-3 last:mb-0">{children}</p>,
+                // Styled lists
+                ul: ({ children }) => <ul className="space-y-1.5 mb-3 last:mb-0">{children}</ul>,
+                ol: ({ children }) => <ol className="space-y-1.5 mb-3 last:mb-0 list-decimal list-inside">{children}</ol>,
+                li: ({ children }) => (
+                  <li className="flex items-start gap-2 text-[15px] sm:text-sm text-foreground/85">
+                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary/60 mt-2" />
+                    <span>{children}</span>
+                  </li>
+                ),
+                // Bold text in primary color for emphasis
+                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                // Italic for commands/suggestions - styled as interactive pills
+                em: ({ children }) => {
+                  const text = String(children);
+                  // Check if it looks like a command (quoted or starting with action word)
+                  if (text.startsWith('"') || text.toLowerCase().startsWith('normalis') || text.toLowerCase().startsWith('zet ') || text.toLowerCase().startsWith('pas ')) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => onCommandPillClick?.(text.replace(/^["']|["']$/g, ''))}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-medium not-italic cursor-pointer hover:bg-primary/20 hover:border-primary/30 active:scale-[0.98] transition-all touch-manipulation"
+                      >
+                        {children}
+                      </button>
+                    );
+                  }
+                  return <em className="italic text-foreground/70">{children}</em>;
+                },
+                // Code blocks for technical content
+                code: ({ children }) => (
+                  <code className="px-1.5 py-0.5 rounded bg-foreground/[0.08] text-sm font-mono text-foreground/80">
+                    {children}
+                  </code>
+                ),
+                // Blockquotes for callouts
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-2 border-primary/40 pl-4 my-3 text-foreground/70 italic">
+                    {children}
+                  </blockquote>
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          </div>
+        )}
+        
+        {/* YC-Standard: Structured Cards with Impact Framing */}
+        {message.fieldUpdates && message.fieldUpdates.length > 0 && (
+          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
+            {message.fieldUpdates.map((update) => (
+              <div
+                key={update.field}
+                className="rounded-xl sm:rounded-lg border border-foreground/[0.08] bg-foreground/[0.02] overflow-hidden"
+              >
+                {/* Header with source badge */}
+                <div className="flex items-center justify-between px-4 sm:px-3 py-2.5 sm:py-2 bg-foreground/[0.02] border-b border-foreground/[0.04]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm sm:text-xs font-medium text-foreground">{update.label}</span>
+                    {update.grootboekCode && (
+                      <span className="text-xs sm:text-[9px] font-mono text-foreground/40 bg-foreground/[0.04] px-2 sm:px-1.5 py-0.5 rounded">
+                        {update.grootboekCode}
+                      </span>
+                    )}
+                  </div>
+                  {update.source && (
+                    <span className={cn(
+                      "text-xs sm:text-[9px] font-medium px-2 sm:px-1.5 py-0.5 rounded",
+                      update.source === 'yuki' ? "bg-primary/10 text-primary" :
+                      update.source === 'ai' ? "bg-primary/10 text-primary" :
+                      update.source === 'kbo' ? "bg-success/10 text-success" :
+                      "bg-foreground/[0.06] text-foreground/50"
+                    )}>
+                      {update.source === 'ai' ? 'AI suggestie' : 
+                       update.source === 'yuki' ? 'Yuki' :
+                       update.source === 'kbo' ? 'KBO' :
+                       update.source}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Value + Impact */}
+                <div className="px-4 sm:px-3 py-3 sm:py-2.5 space-y-2.5 sm:space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-base sm:text-sm font-mono font-semibold text-foreground">
+                      €{update.value.toLocaleString('nl-BE')}
+                    </span>
+                    {update.confidence && (
+                      <div className={cn(
+                        "flex items-center gap-1.5 sm:gap-1 text-xs sm:text-[10px]",
+                        update.confidence === 'high' ? "text-success" :
+                        update.confidence === 'medium' ? "text-secondary" :
+                        "text-foreground/40"
+                      )}>
+                        <div className={cn(
+                          "w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full",
+                          update.confidence === 'high' ? "bg-success" :
+                          update.confidence === 'medium' ? "bg-secondary" :
+                          "bg-foreground/30"
+                        )} />
+                        {update.confidence === 'high' ? 'Betrouwbaar' :
+                         update.confidence === 'medium' ? 'Te verifiëren' :
+                         'Indicatief'}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Impact framing - YC killer feature */}
+                  {update.impact && (
+                    <div className="flex items-center gap-3 p-3 sm:p-2 rounded-lg sm:rounded-md bg-success/5 border border-success/10">
+                      <div className="flex-1">
+                        <p className="text-xs sm:text-[10px] text-success/70 uppercase tracking-wide mb-0.5">
+                          Impact op waarde
+                        </p>
+                        <p className="text-sm sm:text-xs font-semibold text-success">
+                          +€{update.impact.valuationDelta.toLocaleString('nl-BE')}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs sm:text-[10px] text-foreground/50">
+                          EBITDA {update.impact.ebitdaDelta > 0 ? '+' : ''}€{(update.impact.ebitdaDelta / 1000).toFixed(0)}k
+                        </p>
+                        {update.impact.multiple && (
+                          <p className="text-xs sm:text-[10px] text-foreground/40">
+                            @ {update.impact.multiple}x
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Action button - 48px touch target on mobile */}
+                <button
+                  onClick={() => onApplyUpdate?.(update.field, update.value)}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2",
+                    "px-4 sm:px-3 py-3.5 sm:py-2.5",
+                    "bg-primary/10 hover:bg-primary/20 active:bg-primary/25",
+                    "transition-colors border-t border-foreground/[0.04]",
+                    "touch-manipulation"
+                  )}
+                >
+                  <Check className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-primary" />
+                  <span className="text-sm sm:text-xs font-medium text-primary">Accepteren & Toepassen</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* AI-Generated Normalization Suggestions with Accept/Reject */}
+        {message.normalisationSuggestions && message.normalisationSuggestions.length > 0 && (
+          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
+            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
+              Normalisatiesuggesties
+            </p>
+            {message.normalisationSuggestions.map((suggestion) => {
+              const valuationImpact = suggestion.valuationImpact || Math.round(suggestion.amount * (suggestion.multiple || 5.2));
+              const isPending = suggestion.status === 'pending';
+              const isAccepted = suggestion.status === 'accepted';
+              const isRejected = suggestion.status === 'rejected';
+              
+              return (
+                <motion.div
+                  key={suggestion.id}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "rounded-xl sm:rounded-lg border overflow-hidden transition-all",
+                    isPending ? "border-primary/20 bg-primary/5" :
+                    isAccepted ? "border-success/20 bg-success/5" :
+                    "border-foreground/10 bg-foreground/[0.02] opacity-60"
+                  )}
+                >
+                  {/* Suggestion Header */}
+                  <div className="flex items-start gap-3 p-4 sm:p-3">
+                    <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-xl sm:rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0 text-lg sm:text-base">
+                      {categoryIcons[suggestion.category] || '📊'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-xs font-medium text-foreground">
+                        Wil je <span className="text-primary">{suggestion.description.toLowerCase()}</span> normaliseren?
+                      </p>
+                      <p className="text-xs sm:text-[10px] text-foreground/50 mt-1 sm:mt-0.5">
+                        {suggestion.reason}
+                      </p>
+                      {suggestion.sourceRef && (
+                        <span className="inline-block mt-1.5 sm:mt-1 text-xs sm:text-[9px] font-mono text-foreground/40 bg-foreground/[0.04] px-2 sm:px-1.5 py-0.5 rounded">
+                          {suggestion.sourceRef}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Impact + Actions - Stack on mobile for better touch targets */}
+                  {isPending ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center border-t border-foreground/[0.06]">
+                      {/* Impact Display */}
+                      <div className="flex-1 px-4 sm:px-3 py-3 sm:py-2 bg-success/5">
+                        <p className="text-xs sm:text-[10px] text-success/70">Impact</p>
+                        <p className="text-sm sm:text-xs font-mono font-semibold text-success">
+                          +€{suggestion.amount.toLocaleString('nl-BE')} EBITDA → +€{valuationImpact.toLocaleString('nl-BE')} waarde
+                        </p>
+                      </div>
+                      {/* Accept/Reject Buttons - Full width on mobile */}
+                      <div className="flex shrink-0 border-t sm:border-t-0 border-foreground/[0.06]">
+                        <button
+                          onClick={() => onRejectNormalisation?.(suggestion.id)}
+                          className={cn(
+                            "flex-1 sm:flex-initial flex items-center justify-center gap-2",
+                            "px-5 sm:px-4 py-4 sm:py-3",
+                            "text-foreground/40 hover:text-destructive hover:bg-destructive/10",
+                            "active:bg-destructive/15 transition-colors",
+                            "sm:border-l border-foreground/[0.06]",
+                            "touch-manipulation"
+                          )}
+                          aria-label="Afwijzen"
+                        >
+                          <X className="w-5 h-5 sm:w-4 sm:h-4" />
+                          <span className="text-sm sm:hidden">Afwijzen</span>
+                        </button>
+                        <button
+                          onClick={() => onAcceptNormalisation?.(suggestion.id)}
+                          className={cn(
+                            "flex-1 sm:flex-initial flex items-center justify-center gap-2",
+                            "px-5 sm:px-4 py-4 sm:py-3",
+                            "bg-success/10 text-success hover:bg-success/20",
+                            "active:bg-success/25 transition-colors",
+                            "touch-manipulation"
+                          )}
+                          aria-label="Accepteren"
+                        >
+                          <Check className="w-5 h-5 sm:w-4 sm:h-4" />
+                          <span className="text-sm sm:hidden">Accepteren</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={cn(
+                      "px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t",
+                      isAccepted ? "border-success/10 text-success bg-success/5" :
+                      "border-foreground/[0.06] text-foreground/40"
+                    )}>
+                      {isAccepted ? '✓ Geaccepteerd' : '✕ Afgewezen'}
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+        
+        {/* Task-driven: Open tasks the user can complete */}
+        {message.tasks && message.tasks.length > 0 && (
+          <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
+            <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
+              Open taken
+            </p>
+            {message.tasks.filter(t => !t.completed).map((task) => (
+              <div
+                key={task.id}
+                className={cn(
+                  "flex items-center gap-3 p-3.5 sm:p-2.5 rounded-xl sm:rounded-lg",
+                  "border border-foreground/[0.08] bg-foreground/[0.02]",
+                  "active:bg-foreground/[0.04] transition-colors touch-manipulation"
+                )}
+              >
+                <div className={cn(
+                  "w-8 h-8 sm:w-6 sm:h-6 rounded-lg sm:rounded-md flex items-center justify-center text-xs sm:text-[10px] font-bold shrink-0",
+                  task.type === 'confirm' ? "bg-secondary/10 text-secondary" :
+                  task.type === 'approve' ? "bg-success/10 text-success" :
+                  task.type === 'enter' ? "bg-primary/10 text-primary" :
+                  "bg-foreground/[0.06] text-foreground/50"
+                )}>
+                  {task.type === 'confirm' ? '?' :
+                   task.type === 'approve' ? '✓' :
+                   task.type === 'enter' ? '→' :
+                   task.type === 'upload' ? '↑' :
+                   '○'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm sm:text-xs font-medium text-foreground truncate">{task.label}</p>
+                  {task.context && (
+                    <p className="text-xs sm:text-[10px] text-foreground/50 truncate">{task.context}</p>
+                  )}
+                </div>
+                <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4 text-foreground/30 shrink-0" />
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Timestamp - refined styling */}
+        <span className={cn(
+          'text-[11px] mt-2.5 block font-medium tracking-wide',
+          isUser ? 'text-primary-foreground/50' : 'text-foreground/35'
+        )}>
+          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+export default ChatAssistantDrawer;

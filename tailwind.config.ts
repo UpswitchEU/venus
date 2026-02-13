@@ -2,8 +2,10 @@ import { heroui } from '@heroui/theme'
 import containerQueries from '@tailwindcss/container-queries'
 import forms from '@tailwindcss/forms'
 import type { Config } from 'tailwindcss'
+import { hybridAuroraPreset } from './src/design-system/tailwind.preset'
 
 const config: Config = {
+  presets: [hybridAuroraPreset as Config],
   content: [
     './app/**/*.{js,ts,jsx,tsx}',
     './src/**/*.{js,ts,jsx,tsx}',
@@ -11,20 +13,104 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // ═══════════════════════════════════════════════════════
+      // AURORA DESIGN SYSTEM - Font Families
+      // ═══════════════════════════════════════════════════════
+      fontFamily: {
+        // Aurora Design System — Satoshi as primary
+        sans: ['Satoshi', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['Satoshi', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
+        // Legacy aliases
+        'aurora': ['Satoshi', 'system-ui', '-apple-system', 'sans-serif'],
+        'aurora-mono': ['JetBrains Mono', 'Monaco', 'Consolas', 'monospace'],
+      },
       colors: {
-        // Upswitch Brand Colors - Sage Foundation Primary
+        // ═══════════════════════════════════════════════════════
+        // AURORA DESIGN SYSTEM - HSL-based semantic colors
+        // Use these for new components with .aurora-theme class
+        // ═══════════════════════════════════════════════════════
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        gold: {
+          DEFAULT: 'hsl(var(--gold))',
+          foreground: 'hsl(var(--gold-foreground))',
+        },
+        // Aurora brand colors (direct values for charts/illustrations)
+        teal: {
+          DEFAULT: '#3DBDB0',
+          50: '#E8F8F7',
+          100: '#D1F1EF',
+          200: '#A3E3DF',
+          300: '#75D5CF',
+          400: '#4CC7BF',
+          500: '#3DBDB0',
+          600: '#319A8F',
+          700: '#25776E',
+          800: '#19544D',
+          900: '#0D312C',
+        },
+        clay: {
+          DEFAULT: '#C87F63',
+          50: '#FAF0EC',
+          100: '#F5E1D9',
+          200: '#EBC3B3',
+          300: '#E1A58D',
+          400: '#D79278',
+          500: '#C87F63',
+          600: '#B86A4E',
+          700: '#9A5840',
+          800: '#7C4733',
+          900: '#5E3627',
+        },
+        violet: {
+          DEFAULT: '#8B5CF6',
+          50: '#F3EFFE',
+          100: '#E7DFFD',
+          200: '#CFBFFB',
+          300: '#B79FF9',
+          400: '#9F7FF7',
+          500: '#8B5CF6',
+          600: '#6D3AE8',
+          700: '#5521D0',
+          800: '#4118A8',
+          900: '#2E1180',
+        },
+        // ═══════════════════════════════════════════════════════
+        // LEGACY UPSWITCH BRAND COLORS (keep for backward compatibility)
+        // ═══════════════════════════════════════════════════════
+        // Upswitch Brand Colors - Aurora Teal Primary
         primary: {
-          50: '#F2F5F3',
-          100: '#E1E8E3',
-          200: '#C4D1C9',
-          300: '#A2B6A9',
-          400: '#7E9888',
-          500: '#607C6B',
-          600: '#4A5D4F', // Sage Foundation
-          700: '#3D4D41',
-          800: '#323E35',
-          900: '#28312B',
-          DEFAULT: '#4A5D4F',
+          50: '#ECFDF5',
+          100: '#D1FAE5',
+          200: '#A7F3D0',
+          300: '#6EE7B7',
+          400: '#4ECBB0',
+          500: '#3DBDB0',
+          600: '#358F84', // Aurora Teal
+          700: '#2D756D',
+          800: '#255C57',
+          900: '#1E4A46',
+          DEFAULT: '#3DBDB0',
         },
         // Accent - Burnt Clay
         accent: {
@@ -134,17 +220,77 @@ const config: Config = {
           600: '#A04A44',
         },
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['DM Sans', 'Inter', 'system-ui', 'sans-serif'],
-      },
+      // ═══════════════════════════════════════════════════════
+      // AURORA DESIGN SYSTEM - Border Radius
+      // ═══════════════════════════════════════════════════════
       borderRadius: {
         DEFAULT: '8px',
-        lg: '12px',
-        xl: '16px',
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+        xl: 'calc(var(--radius) + 4px)',
+        '2xl': 'calc(var(--radius) + 8px)',
+        '3xl': 'calc(var(--radius) + 16px)',
       },
+      // ═══════════════════════════════════════════════════════
+      // AURORA DESIGN SYSTEM - Box Shadows
+      // ═══════════════════════════════════════════════════════
       boxShadow: {
-        elevated: '0 12px 24px -6px rgba(74, 93, 79, 0.15)', // Updated to Sage shadow
+        elevated: '0 12px 24px -6px rgba(74, 93, 79, 0.15)',
+        'mercury-sm': '0 1px 2px hsl(var(--shadow-color))',
+        'mercury': '0 1px 3px hsl(var(--shadow-color)), 0 4px 12px hsl(var(--shadow-color))',
+        'mercury-lg': '0 4px 6px hsl(var(--shadow-color)), 0 10px 24px hsl(var(--shadow-color))',
+        'mercury-xl': '0 8px 16px hsl(var(--shadow-color)), 0 20px 40px hsl(var(--shadow-color))',
+      },
+      // ═══════════════════════════════════════════════════════
+      // AURORA DESIGN SYSTEM - Keyframes
+      // ═══════════════════════════════════════════════════════
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+        'aurora-fade-in': {
+          from: { opacity: '0', transform: 'translateY(10px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'aurora-fade-out': {
+          from: { opacity: '1', transform: 'translateY(0)' },
+          to: { opacity: '0', transform: 'translateY(10px)' },
+        },
+        'aurora-scale-in': {
+          from: { opacity: '0', transform: 'scale(0.95)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        'aurora-slide-up': {
+          from: { opacity: '0', transform: 'translateY(20px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'aurora-slide-down': {
+          from: { opacity: '0', transform: 'translateY(-20px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'aurora-shimmer': {
+          from: { backgroundPosition: '200% 0' },
+          to: { backgroundPosition: '-200% 0' },
+        },
+      },
+      // ═══════════════════════════════════════════════════════
+      // AURORA DESIGN SYSTEM - Animations
+      // ═══════════════════════════════════════════════════════
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'aurora-fade-in': 'aurora-fade-in 0.4s ease-out forwards',
+        'aurora-fade-out': 'aurora-fade-out 0.3s ease-out forwards',
+        'aurora-scale-in': 'aurora-scale-in 0.3s ease-out forwards',
+        'aurora-slide-up': 'aurora-slide-up 0.5s ease-out forwards',
+        'aurora-slide-down': 'aurora-slide-down 0.5s ease-out forwards',
+        'aurora-shimmer': 'aurora-shimmer 1.5s infinite',
       },
     },
   },
@@ -158,7 +304,7 @@ const config: Config = {
         light: {
           colors: {
             primary: {
-              DEFAULT: '#4A5D4F', // Sage Foundation
+              DEFAULT: '#3DBDB0', // Aurora Teal
               foreground: '#ffffff',
             },
             secondary: {

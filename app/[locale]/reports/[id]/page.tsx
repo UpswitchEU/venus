@@ -69,10 +69,10 @@ export default async function Page({ params, searchParams }: PageProps) {
   // Return error UI if no ID
   if (!id) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Invalid Report URL</h1>
-          <p className="text-gray-400">Missing report ID</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Invalid Report URL</h1>
+          <p className="text-muted-foreground">Missing report ID</p>
         </div>
       </div>
     )

@@ -16,7 +16,7 @@ import React from 'react'
 import { DataCollectionMethod, FieldRendererProps } from '../../types/data-collection'
 
 // Import collection method specific renderers
-import { ConversationalFieldRenderer } from './renderers/ConversationalFieldRenderer'
+
 import { FileUploadFieldRenderer } from './renderers/FileUploadFieldRenderer'
 import { FuzzySearchFieldRenderer } from './renderers/FuzzySearchFieldRenderer'
 import { ManualFormFieldRenderer } from './renderers/ManualFormFieldRenderer'
@@ -30,8 +30,6 @@ export const FieldRenderer: React.FC<FieldRendererProps> = (props) => {
     switch (method) {
       case 'manual_form':
         return ManualFormFieldRenderer
-      case 'conversational':
-        return ConversationalFieldRenderer
       case 'suggestion':
         return SuggestionFieldRenderer
       case 'fuzzy_search':
@@ -49,7 +47,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = (props) => {
 }
 
 // Export individual renderers for direct use if needed
-export { ConversationalFieldRenderer } from './renderers/ConversationalFieldRenderer'
+
 export { FileUploadFieldRenderer } from './renderers/FileUploadFieldRenderer'
 export { FuzzySearchFieldRenderer } from './renderers/FuzzySearchFieldRenderer'
 export { ManualFormFieldRenderer } from './renderers/ManualFormFieldRenderer'

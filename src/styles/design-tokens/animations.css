@@ -1,0 +1,208 @@
+/* ============================================
+   HYBRID AURORA DESIGN SYSTEM
+   Animation Tokens
+   
+   Philosophy: Physics-based springs for natural motion
+   Spring Config: mass=1, stiffness=170, damping=26
+   ============================================ */
+
+/* ─────────────────────────────────────────
+   KEYFRAMES
+   ───────────────────────────────────────── */
+@keyframes aurora-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes aurora-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes aurora-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes aurora-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes aurora-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes aurora-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes aurora-pulse-glow {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes aurora-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Radix UI Accordion */
+@keyframes aurora-accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes aurora-accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+/* ─────────────────────────────────────────
+   ANIMATION CLASSES
+   ───────────────────────────────────────── */
+.aurora-fade-in {
+  animation: aurora-fade-in 0.4s ease-out forwards;
+}
+
+.aurora-fade-out {
+  animation: aurora-fade-out 0.3s ease-out forwards;
+}
+
+.aurora-scale-in {
+  animation: aurora-scale-in 0.3s ease-out forwards;
+}
+
+.aurora-slide-up {
+  animation: aurora-slide-up 0.5s ease-out forwards;
+}
+
+.aurora-slide-down {
+  animation: aurora-slide-down 0.5s ease-out forwards;
+}
+
+.aurora-shimmer {
+  animation: aurora-shimmer 1.5s infinite;
+}
+
+.aurora-pulse-glow {
+  animation: aurora-pulse-glow 2s ease-in-out infinite;
+}
+
+.aurora-float {
+  animation: aurora-float 3s ease-in-out infinite;
+}
+
+.aurora-accordion-down {
+  animation: aurora-accordion-down 0.2s ease-out;
+}
+
+.aurora-accordion-up {
+  animation: aurora-accordion-up 0.2s ease-out;
+}
+
+/* ─────────────────────────────────────────
+   SPRING TIMING FUNCTION
+   Approximates physics spring
+   ───────────────────────────────────────── */
+.spring {
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─────────────────────────────────────────
+   TRANSITION PRESETS
+   ───────────────────────────────────────── */
+.transition-smooth {
+  transition-property: all;
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-fast {
+  transition-property: all;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-slow {
+  transition-property: all;
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─────────────────────────────────────────
+   REDUCED MOTION
+   ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-fade-in,
+  .aurora-fade-out,
+  .aurora-scale-in,
+  .aurora-slide-up,
+  .aurora-slide-down,
+  .aurora-shimmer,
+  .aurora-pulse-glow,
+  .aurora-float,
+  .aurora-accordion-down,
+  .aurora-accordion-up {
+    animation: none;
+  }
+  
+  .spring,
+  .transition-smooth,
+  .transition-fast,
+  .transition-slow {
+    transition: none;
+  }
+}
