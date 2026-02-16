@@ -212,12 +212,10 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
         }
       }
 
-      // Signal after bootstrap sync completes AND a brief delay to ensure session is ready
-      // The ValuationSessionManager will have loaded the session by this point
+      // Signal after bootstrap sync completes - signal mainly for iframe flow
+      // No delay: content is already visible; VenusTransitionLoader not used in full-page flow
       if (isBootstrapSynced) {
-        // Brief delay to ensure ValuationSessionManager has finished loading session (reduced for faster Mercury→Venus feel)
-        const timeoutId = setTimeout(signalReady, 300)
-        return () => clearTimeout(timeoutId)
+        signalReady()
       }
     }, [isBootstrapSynced, reportId, urlParams.source])
 
