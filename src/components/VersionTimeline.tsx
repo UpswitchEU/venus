@@ -69,7 +69,7 @@ export function VersionTimeline({
 
   if (versions.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-500">
+      <div className="p-8 text-center text-muted-foreground">
         <p className="text-lg font-medium">No versions yet</p>
         <p className="text-sm mt-2">Versions will appear here after regenerating the valuation</p>
       </div>
@@ -157,7 +157,7 @@ export function VersionTimeline({
             <button
               onClick={handleLoadMore}
               disabled={isLoadingMore}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200 bg-zinc-800/50 hover:bg-zinc-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground bg-muted hover:bg-foreground/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoadingMore ? (
                 <>
@@ -255,7 +255,7 @@ function VersionTimelineItem({
       : 0
 
   return (
-    <div className="relative transition-all duration-200 rounded-lg bg-harvest-50">
+    <div className="relative transition-all duration-200 rounded-lg bg-muted">
       <div className="p-6 cursor-pointer" onClick={onClick}>
         {/* Content */}
         <div className="w-full">
@@ -263,9 +263,9 @@ function VersionTimelineItem({
           <div className="mb-3">
             <div className="flex-1">
               <div className="mb-1 flex items-center gap-2">
-                <h3 className="text-lg font-semibold text-gray-900">{version.versionLabel}</h3>
+                <h3 className="text-lg font-semibold text-foreground">{version.versionLabel}</h3>
                 {hasNormalizedEbitda && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-300">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success border border-success/30">
                     <CheckCircle2 className="w-3 h-3" />
                     Normalized ({normalizedYearsCount} year{normalizedYearsCount > 1 ? 's' : ''})
                   </span>
@@ -273,7 +273,7 @@ function VersionTimelineItem({
               </div>
 
               {/* Metadata row */}
-              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" />
                   <span>{formatDate(version.createdAt)}</span>
@@ -440,10 +440,10 @@ function VersionTimelineItem({
             <div
               className={`flex items-center gap-1 text-sm font-medium mb-3 ${
                 priceChange > 0
-                  ? 'text-green-600'
+                  ? 'text-success'
                   : priceChange < 0
-                    ? 'text-red-600'
-                    : 'text-gray-600'
+                    ? 'text-destructive'
+                    : 'text-muted-foreground'
               }`}
             >
               {priceChange > 0 ? (
@@ -464,16 +464,16 @@ function VersionTimelineItem({
           {/* Changes summary */}
           {!compact && hasChanges && changeSummaries.length > 0 && (
             <div className="mb-3">
-              <p className="text-xs font-medium text-gray-700 mb-2">Key Changes:</p>
+              <p className="text-xs font-medium text-foreground mb-2">Key Changes:</p>
               <div className="space-y-1.5">
                 {changeSummaries.slice(0, 3).map((change, i) => (
-                  <div key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-blue-500 mt-1">•</span>
+                  <div key={i} className="flex items-start gap-2 text-sm text-foreground">
+                    <span className="text-primary mt-1">•</span>
                     <span>{change}</span>
                   </div>
                 ))}
                 {changeSummaries.length > 3 && (
-                  <p className="text-sm text-gray-500 ml-4">
+                  <p className="text-sm text-muted-foreground ml-4">
                     +{changeSummaries.length - 3} more changes
                   </p>
                 )}
@@ -483,8 +483,8 @@ function VersionTimelineItem({
 
           {/* Notes */}
           {!compact && version.notes && (
-            <div className="mt-3 p-3 bg-amber-50 border-l-2 border-amber-400 rounded">
-              <p className="text-sm text-gray-700 italic">"{version.notes}"</p>
+            <div className="mt-3 p-3 bg-warning/10 border-l-2 border-warning rounded">
+              <p className="text-sm text-foreground italic">"{version.notes}"</p>
             </div>
           )}
 
@@ -494,7 +494,7 @@ function VersionTimelineItem({
               {version.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-md border border-gray-200"
+                  className="px-2 py-1 text-xs font-medium bg-muted text-foreground rounded-md border border-foreground/10"
                 >
                   {tag}
                 </span>
@@ -506,19 +506,19 @@ function VersionTimelineItem({
 
       {/* Collapsible Details Section - Removed expand button but keeping section for potential future use */}
       {false && (
-        <div className="px-6 pb-6 pt-0 space-y-4 border-t border-gray-200 mt-4">
+        <div className="px-6 pb-6 pt-0 space-y-4 border-t border-foreground/10 mt-4">
           {/* Valuation Breakdown */}
           {version.valuationResult && (
             <div className="mt-4">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Valuation Details</h4>
+              <h4 className="text-sm font-semibold text-foreground mb-3">Valuation Details</h4>
               <div className="grid grid-cols-2 gap-3">
                 {version.valuationResult?.valuation_summary &&
                   typeof version.valuationResult?.valuation_summary === 'object' && (
                     <>
                       {(version.valuationResult?.valuation_summary as any)?.base_valuation && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-600 mb-1">Base Valuation</p>
-                          <p className="text-sm font-semibold text-gray-900">
+                        <div className="p-3 bg-muted rounded-lg">
+                          <p className="text-xs text-muted-foreground mb-1">Base Valuation</p>
+                          <p className="text-sm font-semibold text-foreground">
                             {formatCurrency(
                               (version.valuationResult?.valuation_summary as any)?.base_valuation,
                               countryCode
@@ -528,14 +528,14 @@ function VersionTimelineItem({
                       )}
                       {(version.valuationResult?.valuation_summary as any)?.adjustments_total !==
                         undefined && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-600 mb-1">Total Adjustments</p>
+                        <div className="p-3 bg-muted rounded-lg">
+                          <p className="text-xs text-muted-foreground mb-1">Total Adjustments</p>
                           <p
                             className={`text-sm font-semibold ${
                               (version.valuationResult?.valuation_summary as any)
                                 ?.adjustments_total >= 0
-                                ? 'text-green-700'
-                                : 'text-red-700'
+                                ? 'text-success'
+                                : 'text-destructive'
                             }`}
                           >
                             {(version.valuationResult?.valuation_summary as any)
@@ -558,36 +558,36 @@ function VersionTimelineItem({
 
           {/* Key Metrics */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-3">Key Metrics</h4>
+            <h4 className="text-sm font-semibold text-foreground mb-3">Key Metrics</h4>
             <div className="grid grid-cols-2 gap-3">
               {version.formData.current_year_data?.revenue && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Revenue</p>
-                  <p className="text-sm font-semibold text-gray-900">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Revenue</p>
+                  <p className="text-sm font-semibold text-foreground">
                     {formatCurrency(version.formData.current_year_data.revenue, countryCode)}
                   </p>
                 </div>
               )}
               {version.formData.current_year_data?.ebitda !== undefined && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">EBITDA</p>
-                  <p className="text-sm font-semibold text-gray-900">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">EBITDA</p>
+                  <p className="text-sm font-semibold text-foreground">
                     {formatCurrency(version.formData.current_year_data.ebitda, countryCode)}
                   </p>
                 </div>
               )}
               {version.formData.number_of_employees && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Employees</p>
-                  <p className="text-sm font-semibold text-gray-900">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Employees</p>
+                  <p className="text-sm font-semibold text-foreground">
                     {version.formData.number_of_employees}
                   </p>
                 </div>
               )}
               {version.formData.number_of_owners && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Owners</p>
-                  <p className="text-sm font-semibold text-gray-900">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Owners</p>
+                  <p className="text-sm font-semibold text-foreground">
                     {version.formData.number_of_owners}
                   </p>
                 </div>
@@ -597,32 +597,32 @@ function VersionTimelineItem({
 
           {/* Business Info */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-3">Business Information</h4>
+            <h4 className="text-sm font-semibold text-foreground mb-3">Business Information</h4>
             <div className="space-y-2 text-sm">
               {version.formData.company_name && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Company:</span>
-                  <span className="font-medium text-gray-900">{version.formData.company_name}</span>
+                  <span className="text-muted-foreground">Company:</span>
+                  <span className="font-medium text-foreground">{version.formData.company_name}</span>
                 </div>
               )}
               {version.formData.industry && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Industry:</span>
-                  <span className="font-medium text-gray-900">{version.formData.industry}</span>
+                  <span className="text-muted-foreground">Industry:</span>
+                  <span className="font-medium text-foreground">{version.formData.industry}</span>
                 </div>
               )}
               {version.formData.business_type && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Business Type:</span>
-                  <span className="font-medium text-gray-900">
+                  <span className="text-muted-foreground">Business Type:</span>
+                  <span className="font-medium text-foreground">
                     {version.formData.business_type}
                   </span>
                 </div>
               )}
               {version.formData.country_code && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Country:</span>
-                  <span className="font-medium text-gray-900">{version.formData.country_code}</span>
+                  <span className="text-muted-foreground">Country:</span>
+                  <span className="font-medium text-foreground">{version.formData.country_code}</span>
                 </div>
               )}
             </div>
@@ -630,10 +630,10 @@ function VersionTimelineItem({
 
           {/* Calculation Info */}
           {version.calculationDuration_ms && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">Calculation Time:</span>
-                <span className="font-semibold text-blue-700">
+                <span className="text-foreground">Calculation Time:</span>
+                <span className="font-semibold text-primary">
                   {((version.calculationDuration_ms ?? 0) / 1000).toFixed(2)}s
                 </span>
               </div>
@@ -642,8 +642,8 @@ function VersionTimelineItem({
 
           {/* Initial Version Message */}
           {!previousVersion && (
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
-              <p className="text-sm text-gray-600">
+            <div className="p-4 bg-muted border border-foreground/10 rounded-lg text-center">
+              <p className="text-sm text-muted-foreground">
                 This is the initial version. No previous version to compare against.
               </p>
             </div>
@@ -682,10 +682,10 @@ export function CompactVersionSelector({
         value={activeVersion}
         onChange={(e) => onVersionSelect(parseInt(e.target.value))}
         className="
-          px-2 py-1.5 pr-6 rounded-lg border border-zinc-700
-          bg-zinc-800 text-gray-200 text-xs font-medium
-          focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500
-          cursor-pointer hover:bg-zinc-750 transition-colors
+          px-2 py-1.5 pr-6 rounded-lg border border-foreground/20
+          bg-muted text-foreground text-xs font-medium
+          focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary
+          cursor-pointer hover:bg-foreground/10 transition-colors
           appearance-none
         "
         title={`Select version (${versions.length} total)`}
@@ -694,7 +694,7 @@ export function CompactVersionSelector({
           <option
             key={version.id}
             value={version.versionNumber}
-            className="bg-zinc-800 text-gray-200"
+            className="bg-muted text-foreground"
           >
             {version.versionLabel}
             {version.isPinned ? ' 📌' : ''}
@@ -705,7 +705,7 @@ export function CompactVersionSelector({
       {/* Dropdown icon */}
       <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
         <svg
-          className="w-3 h-3 text-gray-400"
+          className="w-3 h-3 text-muted-foreground"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

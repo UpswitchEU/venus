@@ -109,9 +109,9 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
   // Loading state
   if (loading && versions.length === 0) {
     return (
-      <div className={`flex items-center justify-center h-full bg-zinc-900 ${className}`}>
-        <div className="text-center text-gray-400 p-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+      <div className={`flex items-center justify-center h-full bg-background ${className}`}>
+        <div className="text-center text-muted-foreground p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-sm">Loading version history...</p>
         </div>
       </div>
@@ -121,8 +121,8 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
   // Empty state
   if (versions.length === 0) {
     return (
-      <div className={`flex items-center justify-center h-full bg-zinc-900 ${className}`}>
-        <div className="text-center text-gray-400 p-8 max-w-md">
+      <div className={`flex items-center justify-center h-full bg-background ${className}`}>
+        <div className="text-center text-muted-foreground p-8 max-w-md">
           <svg
             className="w-16 h-16 mx-auto mb-4 opacity-50"
             fill="none"
@@ -136,7 +136,7 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          <h3 className="text-lg font-semibold text-gray-300 mb-2">No Versions Yet</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Versions Yet</h3>
           <p className="text-sm leading-relaxed">
             Versions are created automatically when you regenerate valuations with updated data.
             Make changes to your valuation inputs and recalculate to create version history.
@@ -147,11 +147,11 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
   }
 
   return (
-    <div className={`h-full overflow-hidden bg-white ${className}`}>
+    <div className={`h-full overflow-hidden bg-background ${className}`}>
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
-        <h2 className="text-2xl font-semibold text-gray-900">Version History</h2>
-        <p className="text-sm text-gray-600 mt-1">
+      <div className="p-6 border-b border-foreground/10">
+        <h2 className="text-2xl font-semibold text-foreground">Version History</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           {versions.length} version{versions.length !== 1 ? 's' : ''} • Track changes and compare
           valuations
         </p>

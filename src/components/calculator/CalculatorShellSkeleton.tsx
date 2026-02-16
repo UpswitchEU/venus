@@ -21,7 +21,7 @@ import { ReportSkeleton } from '@/components/skeletons/ReportSkeleton';
 
 function NavSkeleton() {
   return (
-    <div className="flex items-center justify-between h-14 px-4 border-b border-foreground/[0.06] bg-background">
+    <div className="flex items-center justify-between h-14 px-4 border-b border-foreground/10 bg-background">
       <div className="flex items-center gap-2">
         <div className="h-8 w-8 rounded-lg bg-foreground/10 animate-pulse" />
         <div className="h-5 w-32 rounded bg-foreground/10 animate-pulse" />
@@ -39,7 +39,7 @@ export function CalculatorShellSkeleton() {
     <div className="aurora-theme flex flex-col h-screen bg-background overflow-hidden">
       <NavSkeleton />
 
-      <div className="flex-1 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
+      <div className="flex-1 overflow-hidden m-4 rounded-xl border border-foreground/10">
         <ResizablePanelGroup orientation="horizontal" className="h-full">
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
             <div className="h-full overflow-y-auto p-6">
@@ -49,7 +49,7 @@ export function CalculatorShellSkeleton() {
 
           <ResizableHandle
             withHandle
-            className="w-px bg-foreground/[0.06] hover:bg-primary/30 transition-colors"
+            className="w-px bg-foreground/10 hover:bg-primary/30 transition-colors"
           />
 
           <ResizablePanel defaultSize={65} minSize={40}>
