@@ -24,6 +24,7 @@ import { AlertCircle } from 'lucide-react'
 import { GlassCard, AuroraButton } from '@/design-system'
 import { useAuthStore, waitForClientContext, getInitTraceId } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
+import { getMercuryUrl } from '../utils/getMercuryUrl'
 import type { User } from '../contexts/AuthContextTypes'
 
 // ============================================================================
@@ -112,7 +113,7 @@ function DefaultErrorState({
 }) {
   const handleLogIn = () => {
     const currentUrl = window.location.href
-    const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+    const mercuryUrl = getMercuryUrl()
     const locale = window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
     window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
   }
@@ -273,7 +274,7 @@ export function AuthGate({
         if (!currentUser) {
           // Build redirect URL to return user to current page after login
           const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://valuation.upswitch.app/reports/new'
-          const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+          const mercuryUrl = getMercuryUrl()
           const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
           // Mercury expects 'returnUrl' parameter (not 'redirect')
           const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
@@ -399,7 +400,7 @@ export function AuthGate({
             
             if (isAuthError) {
               const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://valuation.upswitch.app/reports/new'
-              const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+              const mercuryUrl = getMercuryUrl()
               const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
               const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
               
@@ -442,7 +443,7 @@ export function AuthGate({
         // AUTH-FIRST: Redirect to Mercury login when no user is found
         // Build redirect URL to return user to current page after login
         const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://valuation.upswitch.app/reports/new'
-        const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+        const mercuryUrl = getMercuryUrl()
         const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
         // Mercury expects 'returnUrl' parameter (not 'redirect')
         const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`

@@ -21,6 +21,7 @@ import type {
 } from '../types';
 import { DEFAULT_IDENTITY, REQUIRE_AUTH_FOR_VALUATION } from '../types';
 import { truncateForLog } from '../utils';
+import { getMercuryUrl } from '@/utils/getMercuryUrl';
 
 /**
  * Error thrown when authentication is required but user is not authenticated
@@ -96,7 +97,7 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       // Build redirect URL to return user to current page after login
       // Redirect to Mercury login page (Venus doesn't have its own auth)
       const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://valuation.upswitch.app/reports/new';
-      const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app';
+      const mercuryUrl = getMercuryUrl();
       const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en';
       // Mercury expects 'returnUrl' parameter (not 'redirect')
       const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`;
