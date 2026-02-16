@@ -8,6 +8,7 @@ import UrlGeneratorService from '../services/urlGenerator'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import { generalLogger } from '../utils/logger'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
 
@@ -150,7 +151,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       window.parent.postMessage({ type: 'OPEN_SIGNUP' }, '*')
     } else {
       // Fallback: open in same window
-      window.open('https://upswitch.app/signup', '_blank')
+      window.open(`${getMercuryUrl()}/signup`, '_blank')
     }
   }
 
@@ -165,7 +166,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       ? sessionStorage.getItem('upswitch_source')
       : null
     
-    const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+    const mercuryUrl = getMercuryUrl()
     
     let targetUrl: string
     
@@ -211,7 +212,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       window.parent.postMessage({ type: 'NAVIGATE_TO_SETTINGS' }, '*')
     } else {
       // Fallback: open in same window
-      window.open('https://upswitch.app/users/profile', '_blank')
+      window.open(`${getMercuryUrl()}/users/profile`, '_blank')
     }
   }
 
@@ -222,7 +223,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       window.parent.postMessage({ type: 'NAVIGATE_TO_VALUATION' }, '*')
     } else {
       // Fallback: open in same window
-      window.open('https://upswitch.app/valuation', '_blank')
+      window.open(`${getMercuryUrl()}/valuation`, '_blank')
     }
   }
 
@@ -291,7 +292,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         }
         
         // ✅ FIX: Construct full Mercury URL from returnUrl
-        const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+        const mercuryUrl = getMercuryUrl()
         let targetUrl: string
         
         if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
@@ -386,7 +387,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           })
           
           // ✅ FIX: Construct full Mercury URL from returnUrl
-          const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+          const mercuryUrl = getMercuryUrl()
           let targetUrl: string
           
           if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
@@ -431,7 +432,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         
         if (returnUrl) {
           // ✅ FIX: Construct full Mercury URL from returnUrl
-          const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+          const mercuryUrl = getMercuryUrl()
           let targetUrl: string
           
           if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {

@@ -343,13 +343,14 @@ export class SessionBootstrapService {
   }
 
   /**
-   * Generate cache key for deduplication
+   * Generate cache key for deduplication.
+   * 
+   * IMPORTANT: Only use reportId — do NOT include clientToken because
+   * auth.ts sanitizes the URL (strips clientToken) after the first call.
+   * Including it would cause a second call to miss the in-flight cache.
    */
   private getCacheKey(context: BootstrapContext): string {
-    return [
-      context.reportId || 'new',
-      context.clientToken?.substring(0, 10) || 'no-token',
-    ].join(':');
+    return context.reportId || 'new';
   }
 
   /**
@@ -484,6 +485,29 @@ export class SessionBootstrapService {
    * Use this for production for optimal performance.
    */
   async bootstrapViaTitan(
+    context: BootstrapContext,
+    options: BootstrapOptions = {}
+  ): Promise<SessionBootstrapState> {
+    const cacheKey = `titan:${this.getCacheKey(context)}`;
+
+    // Dedup: return in-flight request if one exists for the same reportId
+    const inflight = this.bootstrapPromiseCache.get(cacheKey);
+    if (inflight) {
+      this.logger.info('[Bootstrap] Returning in-flight Titan request (dedup)');
+      return inflight;
+    }
+
+    const promise = this._executeBootstrapViaTitan(context, options);
+    this.bootstrapPromiseCache.set(cacheKey, promise);
+
+    try {
+      return await promise;
+    } finally {
+      this.bootstrapPromiseCache.delete(cacheKey);
+    }
+  }
+
+  private async _executeBootstrapViaTitan(
     context: BootstrapContext,
     options: BootstrapOptions = {}
   ): Promise<SessionBootstrapState> {

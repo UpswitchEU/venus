@@ -29,6 +29,7 @@ import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { ValuationToolbarProps } from '../types/valuation'
 import { formatVersionLabel } from '../utils/formatters'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
 // FlowSwitchWarningModal removed - conversational flow no longer exists
 // import { FlowSwitchWarningModal } from './FlowSwitchWarningModal'
 import { UserDropdown } from './UserDropdown'
@@ -287,7 +288,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     // ✅ FIX: Construct full Mercury URL from returnUrl
     // Return URL from Mercury is relative (e.g., /nl/accountant/clients/...)
     // We need to construct full URL using Mercury domain (upswitch.app, not valuation.upswitch.app)
-    const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+    const mercuryUrl = getMercuryUrl()
     
     let targetUrl: string
     

@@ -7,6 +7,7 @@
 
 import React from 'react'
 import { useAuth } from '../lib/auth'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
 
 export const AuthStatus: React.FC = () => {
   const { user, isAuthenticated, loading, error, refreshAuth } = useAuth()
@@ -30,7 +31,7 @@ export const AuthStatus: React.FC = () => {
         <div className="auth-status-content">
           <p className="auth-status-message">Unable to verify authentication</p>
           <button
-            onClick={() => (window.location.href = 'https://upswitch.app')}
+            onClick={() => (window.location.href = getMercuryUrl())}
             style={{
               marginTop: '0.75rem',
               padding: '0.5rem 1rem',
@@ -74,7 +75,7 @@ export const AuthStatus: React.FC = () => {
         >
           💡{' '}
           <a
-            href="https://upswitch.app"
+            href={getMercuryUrl()}
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: '#3b82f6', textDecoration: 'underline' }}

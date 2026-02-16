@@ -103,7 +103,12 @@
       "noResults": "Geen resultaten",
       "noData": "Geen gegevens",
       "empty": "Leeg"
-    }
+    },
+    "back": "Terug",
+    "continue": "Doorgaan",
+    "share": "Delen",
+    "exporting": "Exporteren...",
+    "ago": "geleden"
   },
   "navigation": {
     "tabs": {
@@ -256,7 +261,13 @@
       "complete": "Waardering voltooid",
       "failed": "Berekening mislukt",
       "retry": "Berekening opnieuw proberen"
-    }
+    },
+    "new": "Nieuwe Schatting",
+    "recentValuations": "Recente Schattingen",
+    "draft": "Concept",
+    "noRecent": "Geen recente schattingen",
+    "versions": "Schattingsversies",
+    "currentVersion": "Huidige versie"
   },
   "forms": {
     "sections": {
@@ -472,6 +483,40 @@
       "continueToDashboard": "Doorgaan naar Dashboard",
       "backToClient": "Terug naar Klant",
       "selectVersion": "Selecteer versie"
+    },
+    "clickToChangeStatus": "Klik om status te wijzigen",
+    "finalReport": "Definitief rapport",
+    "draftReport": "Concept rapport",
+    "valuation": "Bedrijfsschatting",
+    "exportPDF": "Exporteer PDF",
+    "estimatedValue": "Geschatte ondernemingswaarde",
+    "normalizedEbitda": "Genormaliseerde EBITDA",
+    "appliedMultiple": "Toegepaste multiple",
+    "indicativeRange": "Indicatief bereik",
+    "methodology": "Methodologie",
+    "methodologyText": "De waardering is gebaseerd op een EBITDA-multiplier methode, waarbij de genormaliseerde EBITDA wordt vermenigvuldigd met een branche-specifieke multiple.",
+    "fullReport": "Volledig rapport",
+    "regenerate": "Analyse opnieuw genereren",
+    "preview": "Preview",
+    "noReport": "Nog geen rapport",
+    "history": "Versiegeschiedenis",
+    "generatingPDF": "PDF wordt gegenereerd...",
+    "downloadPDF": "Download PDF",
+    "recentDownloads": "Recente Downloads",
+    "fullscreen": "Volledig scherm",
+    "download": "Download",
+    "placeholder": {
+      "title": "Uw rapport verschijnt hier",
+      "description": "Vul de bedrijfsgegevens in en klik op 'Bereken Schatting' om uw waarderingsrapport te genereren.",
+      "time": "±15 min gemiddelde doorlooptijd"
+    },
+    "generating": {
+      "title": "Rapport genereren",
+      "description": "Financiële gegevens analyseren en schattingsmetrics berekenen...",
+      "step1": "Documenten verwerken",
+      "step2": "EBITDA berekenen",
+      "step3": "Multiples toepassen",
+      "step4": "Rapport genereren"
     }
   },
   "reports": {
@@ -751,5 +796,23 @@
     "success": "Succes",
     "warning": "Waarschuwing",
     "info": "Informatie"
+  },
+  "assistant": {
+    "ask": "Vraag Assistent",
+    "title": "Assistent"
+  },
+  "normalization": {
+    "title": "Normalisaties"
+  },
+  "account": {
+    "settings": "Account instellingen",
+    "switchWorkspace": "Wissel workspace"
+  },
+  "auth": {
+    "logout": "Uitloggen"
+  },
+  "calculator": {
+    "businessValuation": "Bedrijfsschatting",
+    "stepOf": "Stap {current} van {total}"
   }
 }

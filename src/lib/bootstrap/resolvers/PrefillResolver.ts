@@ -25,10 +25,9 @@ import type {
 } from '../types';
 import { DEFAULT_PREFILL } from '../types';
 import { calculatePrefillConfidence, mergeWithPriority, truncateForLog } from '../utils';
+import { getApiUrl } from '../../../utils/getMercuryUrl';
 
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
-                process.env.NEXT_PUBLIC_API_BASE_URL || 
-                'https://api.upswitch.app';
+const API_URL = getApiUrl();
 
 // Fields that we track for prefill completeness
 const ALL_PREFILL_FIELDS = [

@@ -18,10 +18,9 @@ import type {
 import { DEFAULT_REPORT } from '../types';
 import { generateReportId, truncateForLog } from '../utils';
 import { isUuid } from '../../../utils/identifiers';
+import { getApiUrl } from '../../../utils/getMercuryUrl';
 
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
-                process.env.NEXT_PUBLIC_API_BASE_URL || 
-                'https://api.upswitch.app';
+const API_URL = getApiUrl();
 
 /**
  * Session data structure from Titan API

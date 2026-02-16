@@ -21,11 +21,10 @@ import { devtools } from 'zustand/middleware'
 import type { User } from '../contexts/AuthContextTypes'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
 
-// Backend API URL
-const API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.upswitch.app'
+import { getApiUrl } from '../utils/getMercuryUrl'
+
+// Backend API URL - environment-aware (shared utility)
+const API_URL = getApiUrl()
 
 /**
  * Simple Auth Cache - Prevents redundant API calls

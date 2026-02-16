@@ -6,6 +6,7 @@ import React, { useEffect, useState, useRef, useId } from 'react'
 import { useAuth } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
 
 /**
  * Client Context Banner
@@ -75,7 +76,7 @@ export function ClientContextBanner() {
       console.error('[ClientContextBanner] Error in handleExitClientView:', error)
       // Fallback: try to navigate to Mercury home page
       try {
-        const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+        const mercuryUrl = getMercuryUrl()
         window.location.href = `${mercuryUrl}/en/accountant/dashboard`
       } catch (fallbackError) {
         console.error('[ClientContextBanner] Fallback navigation also failed:', fallbackError)
@@ -107,7 +108,7 @@ export function ClientContextBanner() {
         // Return URL from Mercury is relative (e.g., /en/accountant/clients/...)
         // We need to construct full URL using Mercury domain
         try {
-          const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+          const mercuryUrl = getMercuryUrl()
           
           // If returnUrl is already a full URL, use it as-is
           // Otherwise, construct full URL using Mercury domain
@@ -147,7 +148,7 @@ export function ClientContextBanner() {
         // Try to extract clientId from relationshipId or construct URL
         // Relationship ID format might be UUID, but we can try to construct URL
         // Note: This is a best-effort fallback - ideally return_url should always be set
-        const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+        const mercuryUrl = getMercuryUrl()
         const validLocale = locale && (locale === 'en' || locale === 'nl') ? locale : 'en'
         
         // If we have relationshipId, try to navigate to client valuations page
@@ -166,7 +167,7 @@ export function ClientContextBanner() {
       
       // If no fallback URL from context, use dashboard
       if (!fallbackUrl) {
-        const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+        const mercuryUrl = getMercuryUrl()
         const validLocale = locale && (locale === 'en' || locale === 'nl') ? locale : 'en'
         fallbackUrl = `${mercuryUrl}/${validLocale}/accountant/dashboard`
       }
@@ -177,7 +178,7 @@ export function ClientContextBanner() {
       console.error('[ClientContextBanner] Error in navigateToMercury:', error)
       // Last resort fallback
       try {
-        const mercuryUrl = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'https://upswitch.app'
+        const mercuryUrl = getMercuryUrl()
         window.location.href = `${mercuryUrl}/en/accountant/dashboard`
       } catch (fallbackError) {
         console.error('[ClientContextBanner] Fallback navigation also failed:', fallbackError)

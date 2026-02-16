@@ -41,6 +41,7 @@ import { valuationService, reportService } from '../../../services'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { DownloadService } from '../../../services/downloadService'
 import { generalLogger } from '../../../utils/logger'
+import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import {
   areChangesSignificant,
   detectVersionChanges,
@@ -877,7 +878,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handleAccountSettings = useCallback(() => {
     // Settings page lives in Mercury (cross-app navigation)
-    const mercuryBaseUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://app.upswitch.app'
+    const mercuryBaseUrl = getMercuryUrl()
     window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/settings`
   }, [currentLocale])
 
@@ -1285,7 +1286,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         selectedVersionId={selectedVersionId}
         onSelectVersion={handleSelectVersion}
         onContinueToListing={() => {
-          const mercuryBaseUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://app.upswitch.app'
+          const mercuryBaseUrl = getMercuryUrl()
           window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/listings`
         }}
         recentValuations={recentValuations}

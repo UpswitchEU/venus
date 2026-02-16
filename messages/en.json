@@ -103,7 +103,12 @@
       "noResults": "No results",
       "noData": "No data",
       "empty": "Empty"
-    }
+    },
+    "back": "Back",
+    "continue": "Continue",
+    "share": "Share",
+    "exporting": "Exporting...",
+    "ago": "ago"
   },
   "navigation": {
     "tabs": {
@@ -256,7 +261,13 @@
       "complete": "Valuation complete",
       "failed": "Calculation failed",
       "retry": "Retry calculation"
-    }
+    },
+    "new": "New Valuation",
+    "recentValuations": "Recent Valuations",
+    "draft": "Draft",
+    "noRecent": "No recent valuations",
+    "versions": "Valuation Versions",
+    "currentVersion": "Current version"
   },
   "forms": {
     "sections": {
