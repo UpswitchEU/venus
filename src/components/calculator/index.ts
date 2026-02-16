@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────
 // NAVIGATION & LAYOUT
 // ─────────────────────────────────────────
+export { CalculatorShellSkeleton } from './CalculatorShellSkeleton';
 export { CalculatorNav } from './CalculatorNav';
 export type { 
   CalculatorNavProps, 

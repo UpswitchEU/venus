@@ -1,15 +1,13 @@
 import nextDynamic from 'next/dynamic'
-import { LoadingState } from '../../../../src/components/LoadingState'
-import { ACCESS_VERIFICATION_STEPS } from '../../../../src/components/LoadingState.constants'
+import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 
 // Dynamically import the client component with no SSR
 // ssr: false means it only renders on the client, so no Suspense needed
 // Use default import to avoid "Cannot access .then on server" error
-// ✅ FIX: Show loading state instead of null to prevent blank page
-// This ensures users see feedback while the component loads
+// ✅ Async loading: Show calculator shell skeleton instead of blocking LoadingState
 const ValuationReportClient = nextDynamic(() => import('./ValuationReportClient'), {
   ssr: false,
-  loading: () => <LoadingState steps={ACCESS_VERIFICATION_STEPS} />, // Show loading instead of null
+  loading: () => <CalculatorShellSkeleton />,
 })
 
 interface PageProps {

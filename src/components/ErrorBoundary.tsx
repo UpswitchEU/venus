@@ -80,12 +80,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
 
       // Default error UI using Venus ErrorFallback (Aurora design system)
+      // Modal variant for component-level errors - less disruptive than full-page
       return (
         <ErrorFallback
           error={this.state.error}
           reset={this.handleReset}
           homeHref="/"
-          variant="fullPage"
+          variant="modal"
         />
       )
     }

@@ -33,14 +33,14 @@ export function LoadingProgress() {
   if (!isAnyLoading) return null
 
   return (
-    <div className="fixed top-4 right-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px]">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">Loading Valuation</h3>
+    <div className="fixed top-4 right-4 z-50 bg-background rounded-lg shadow-lg border border-foreground/10 p-4 min-w-[280px]">
+      <h3 className="text-sm font-semibold text-foreground mb-3">Loading Valuation</h3>
       <div className="space-y-2">
         {steps.map((step) => (
           <div
             key={step.key}
             className={`flex items-center gap-2 text-sm transition-all ${
-              step.completed ? 'text-green-600' : 'text-gray-600'
+              step.completed ? 'text-success' : 'text-muted-foreground'
             }`}
           >
             {step.completed ? (

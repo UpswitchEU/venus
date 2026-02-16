@@ -13,10 +13,9 @@
 import React, { lazy, Suspense, useEffect, useMemo } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { GlassCard, AuroraButton } from '@/design-system'
-import { useLoadingSteps } from '../hooks/useLoadingSteps'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
-import { LoadingState } from './LoadingState'
+import { CalculatorShellSkeleton } from './calculator'
 import { ErrorState } from './ErrorState'
 
 /**
@@ -165,19 +164,6 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
   }) => {
     // ✅ WORLD CLASS: Loading handled upstream by ValuationSessionManager
     // This component only renders when ValuationSessionManager stage is 'data-entry' (session is ready)
-    // Loading steps are kept here only for safety fallback when stage is 'loading' (should never happen in normal flow)
-    const loadingSteps = useLoadingSteps()
-
-    // Debug logging to understand rendering
-    useEffect(() => {
-      console.log('[ValuationFlowSelector] Render', {
-        stage,
-        hasSession: !!session,
-        sessionReportId: session?.reportId,
-        sessionCurrentView: session?.currentView,
-        loadingStepsType: loadingSteps[0]?.text.includes('Restoring') ? 'restoration' : 'initialization',
-      })
-    }, [stage, session, loadingSteps])
 
     // Memoize flow type calculation
     const flowType = useMemo(() => {
@@ -191,10 +177,8 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
 
     // Render based on stage
     if (stage === 'loading') {
-      // ✅ WORLD CLASS: Loading handled by ValuationSessionManager
-      // This should not normally render - ValuationSessionManager shows loading state before rendering children
-      // This is a safety fallback only
-      return <LoadingState steps={loadingSteps} variant="light" />
+      // ✅ Async loading: Show calculator shell skeleton instead of blocking LoadingState
+      return <CalculatorShellSkeleton />
     }
 
     if (error) {
@@ -250,9 +234,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     }
 
     // Fallback - should not normally reach here
-    // ✅ FIX: Use light variant for consistency
-    // Different steps for new vs existing reports
-    return <LoadingState steps={loadingSteps} variant="light" />
+    return <CalculatorShellSkeleton />
   },
   // Custom comparison: Always re-render if stage changes (critical for UI updates)
   (prevProps, nextProps) => {

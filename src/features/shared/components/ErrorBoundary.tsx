@@ -87,7 +87,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
 
       // Default error UI using Venus ErrorFallback (Aurora design system)
+      // App-level: fullPage. Feature/component/network: modal (less disruptive)
       const config = getErrorConfig(level)
+      const variant = level === 'app' ? 'fullPage' : 'modal'
       return (
         <ErrorFallback
           error={error!}
@@ -95,7 +97,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           homeHref="/"
           title={config.title}
           message={config.message}
-          variant="inline"
+          variant={variant}
         />
       )
     }

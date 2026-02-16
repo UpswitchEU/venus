@@ -5,8 +5,7 @@ import { ValuationReport } from '../../../../src/components/ValuationReport'
 import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
 import { BootstrapProvider, type BootstrapContext, type FlowType } from '../../../../src/lib/bootstrap'
 import { AuthGate } from '../../../../src/components/AuthGate'
-import { LoadingState } from '../../../../src/components/LoadingState'
-import { ACCESS_VERIFICATION_STEPS } from '../../../../src/components/LoadingState.constants'
+import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 
 interface ValuationReportClientProps {
   reportId: string
@@ -92,7 +91,7 @@ export default function ValuationReportClient({
       <AuthGate
         hasClientToken={hasClientToken}
         returnUrl={urlParams.return_url}
-        loadingComponent={<LoadingState steps={ACCESS_VERIFICATION_STEPS} />}
+        loadingComponent={<CalculatorShellSkeleton />}
       >
         <BootstrapProvider
           context={bootstrapContext}

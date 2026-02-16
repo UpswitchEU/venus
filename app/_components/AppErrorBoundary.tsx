@@ -12,6 +12,8 @@ interface AppErrorBoundaryProps {
   showBackButton?: boolean
   backHref?: string
   context?: string
+  /** 'modal' (default) - less disruptive overlay; 'fullPage' - full-screen takeover for critical crashes */
+  variant?: 'fullPage' | 'modal'
 }
 
 /**
@@ -36,6 +38,7 @@ export function AppErrorBoundary({
   showBackButton = false,
   backHref = '/',
   context,
+  variant = 'modal',
 }: AppErrorBoundaryProps) {
   useEffect(() => {
     // Use structured logger with context
@@ -55,7 +58,7 @@ export function AppErrorBoundary({
       homeHref={backHref}
       title={title}
       message={error.message || defaultMessage}
-      variant="fullPage"
+      variant={variant}
     />
   )
 }

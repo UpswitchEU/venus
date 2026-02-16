@@ -10,8 +10,6 @@ import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
-import { useLoadingSteps } from '../hooks/useLoadingSteps'
-import { LoadingState } from './LoadingState'
 
 // Lazy load heavy components for code splitting
 const ValuationFlowSelector = React.lazy(() =>
@@ -72,10 +70,6 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     // Bootstrap sync - syncs bootstrap state with existing stores
     // This ensures auth, session, and prefill data are available in stores
     const { isSynced: isBootstrapSynced } = useBootstrapSync()
-
-    // ✅ WORLD CLASS: Use centralized hook to determine loading steps based on bootstrap mode
-    // Automatically selects RESTORATION_STEPS for existing reports, INITIALIZATION_STEPS for new reports
-    const loadingSteps = useLoadingSteps()
 
     // Embedded mode detection for iframe integration
     const { isEmbedded } = useEmbeddedMode()

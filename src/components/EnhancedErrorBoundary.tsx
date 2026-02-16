@@ -104,7 +104,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
           homeHref="/"
           title={title}
           message={userMessage}
-          variant="fullPage"
+          variant="modal"
         />
       )
     }

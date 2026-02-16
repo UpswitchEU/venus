@@ -54,7 +54,7 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
 
     const badgeContent = (
       <div
-        className={`flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-accent-500 to-accent-600 text-white rounded-full text-sm font-medium transition-all duration-200 hover:shadow-md ${onClick ? 'cursor-pointer hover:scale-105' : ''} ${className}`}
+        className={`flex items-center gap-2 px-3 py-1 bg-accent text-accent-foreground rounded-full text-sm font-medium transition-all duration-200 hover:shadow-md ${onClick ? 'cursor-pointer hover:scale-105' : ''} ${className}`}
         onClick={onClick}
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
@@ -82,7 +82,7 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
   if (isPremium) {
     return (
       <div
-        className={`flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-accent-500 to-accent-600 text-white rounded-full text-sm font-medium ${className}`}
+        className={`flex items-center gap-2 px-3 py-1 bg-accent text-accent-foreground rounded-full text-sm font-medium ${className}`}
       >
         <span>✨ Premium</span>
       </div>

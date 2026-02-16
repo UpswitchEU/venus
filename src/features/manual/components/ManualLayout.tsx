@@ -31,13 +31,12 @@ import { toast } from 'sonner'
 // Venus infrastructure (auth, session, stores, services)
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
-import { useLoadingSteps } from '../../../hooks/useLoadingSteps'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useNormalizationStore, enableNormalizationAutoPersist, mapBackendCategoryToFrontend } from '../../../store/useNormalizationStore'
-import { LoadingState } from '../../../components/LoadingState'
+import { CalculatorShellSkeleton } from '../../../components/calculator'
 import { valuationService, reportService } from '../../../services'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { DownloadService } from '../../../services/downloadService'
@@ -56,6 +55,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from '../../../design-system/components/Resizable'
+import { springDefault } from '../../../design-system/components/motion'
 
 // Calculator Components (full Clarity parity)
 import {
@@ -254,7 +254,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const sessionError = useSessionStore((s) => s.errorMessage)
   const reportIdFromSession = useSessionStore((s) => s.session?.reportId)
   const sessionName = useSessionStore((s) => s.session?.name)
-  const loadingSteps = useLoadingSteps()
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
   const { generatePdf, downloadPdf, isGenerating: isPdfGenerating, isReady: isPdfReady } = usePdfGeneration(reportId)
 
@@ -275,11 +274,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [])
 
-  // Safety guard: loading state (after all hooks)
+  // Async loading: show calculator shell skeleton instead of blocking LoadingState
   const isLoading = status === 'loading'
   const isInitializing = status === 'idle' || status === 'loading'
   if (isLoading || isInitializing || !session || session.reportId !== reportId) {
-    return <LoadingState steps={loadingSteps} variant="light" />
+    return <CalculatorShellSkeleton />
   }
   if (sessionError) {
     return (
@@ -1321,7 +1320,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+                  transition={springDefault}
                   className="h-full"
                 >
                   <Suspense fallback={<PanelSkeleton />}>
@@ -1343,7 +1342,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+                  transition={springDefault}
                   className="h-full"
                 >
                   <ManualInputPanel {...manualInputProps} />
@@ -1369,6 +1368,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
+                      transition={springDefault}
                       className="h-full overflow-y-auto p-8"
                     >
                       <div className="text-center text-foreground/50 py-20">
@@ -1382,6 +1382,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
+                      transition={springDefault}
                       className="h-full"
                     >
                       <Suspense fallback={<PanelSkeleton />}>
@@ -1394,6 +1395,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
+                      transition={springDefault}
                       className="h-full"
                     >
                       <ValuationReportPanel
