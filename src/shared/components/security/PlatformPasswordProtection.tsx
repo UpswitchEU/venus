@@ -258,11 +258,11 @@ const PlatformPasswordProtection: React.FC<PlatformPasswordProtectionProps> = ({
     }
   }
 
-  // ✅ FIX: Don't show loading state - let Venus's LoadingState component handle it
+  // ✅ FIX: Don't show loading state - let Venus's CalculatorShellSkeleton handle it
   // PlatformPasswordProtection should only block if password protection is actually needed
   // The loading check is fast (<50ms) so we can skip the loading screen
   if (isLoading) {
-    // Return null during loading to avoid blocking Venus's LoadingState
+    // Return null during loading to avoid blocking Venus's skeleton loading
     // This prevents the duplicate "Verifying access..." screen
     return null
   }

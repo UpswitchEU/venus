@@ -10,7 +10,7 @@
 'use client'
 
 // Dynamic imports using React.lazy for code splitting (Next.js compatible)
-import React, { lazy, Suspense, useEffect, useMemo } from 'react'
+import React, { lazy, Suspense, useMemo } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { GlassCard, AuroraButton } from '@/design-system'
 import { useSessionStore } from '../store/useSessionStore'
