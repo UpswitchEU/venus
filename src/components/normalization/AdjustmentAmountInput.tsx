@@ -100,7 +100,7 @@ export function AdjustmentAmountInput({
 
   return (
     <div className="relative">
-      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500 text-sm font-medium z-10">
+      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium z-10">
         €
       </span>
 
@@ -116,24 +116,24 @@ export function AdjustmentAmountInput({
         onBlur={handleBlur}
         disabled={disabled}
         className={`
-          w-full h-14 px-4 pt-6 pb-2 pl-8 text-base text-slate-ink bg-white 
+          w-full h-14 px-4 pt-6 pb-2 pl-8 text-base text-slate-ink bg-card 
           border rounded-xl transition-all duration-200
           ${
             value > 0
               ? 'border-moss-300 hover:border-moss-400 focus:border-moss-500 focus:ring-2 focus:ring-moss-500/20'
               : value < 0
                 ? 'border-rust-300 hover:border-rust-400 focus:border-rust-500 focus:ring-2 focus:ring-rust-500/20'
-                : 'border-gray-200 hover:border-primary-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20'
+                : 'border-foreground/10 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20'
           }
           focus:outline-none
-          placeholder:text-stone-300
+          placeholder:text-muted-foreground
           disabled:opacity-50 disabled:cursor-not-allowed
         `}
         placeholder={getPlaceholder()}
         aria-label={`${category.label} amount`}
       />
 
-      <label className="absolute left-8 top-2 text-xs text-stone-500 font-medium pointer-events-none">
+      <label className="absolute left-8 top-2 text-xs text-muted-foreground font-medium pointer-events-none">
         Adjustment Amount
       </label>
     </div>

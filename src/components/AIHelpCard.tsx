@@ -51,7 +51,7 @@ export const AIHelpCard: React.FC<AIHelpCardProps> = ({
 
               {/* Answer */}
               <div className="space-y-3">
-                <div className="text-[15px] leading-relaxed text-zinc-100">{answer}</div>
+                <div className="text-[15px] leading-relaxed text-foreground">{answer}</div>
 
                 {/* Reasoning */}
                 {reasoning && (
@@ -84,7 +84,7 @@ export const AIHelpCard: React.FC<AIHelpCardProps> = ({
 
             {/* Timestamp */}
             {timestamp && (
-              <div className="text-xs text-zinc-500 ml-1 flex items-center gap-1">
+              <div className="text-xs text-muted-foreground ml-1 flex items-center gap-1">
                 <span className="text-accent-400">●</span>
                 {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>

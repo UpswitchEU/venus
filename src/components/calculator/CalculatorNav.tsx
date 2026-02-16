@@ -38,7 +38,7 @@ import {
   Avatar,
 } from '@/design-system';
 import { useSessionStore } from '@/store/useSessionStore';
-import { useRouter } from 'next/navigation';
+import { useTransitionRouter } from 'next-view-transitions';
 import React from 'react';
 
 // ─────────────────────────────────────────
@@ -220,7 +220,7 @@ export function CalculatorNav({
   onRedownload,
 }: CalculatorNavProps) {
   const t = useTranslations();
-  const router = useRouter();
+  const router = useTransitionRouter();
 
   const activeVersion = valuationVersions.find(v => v.id === selectedVersionId) || valuationVersions[0];
   const displaySummary = valuationSummary || (activeVersion ? {

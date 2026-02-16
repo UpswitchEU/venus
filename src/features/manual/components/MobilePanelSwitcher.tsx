@@ -28,11 +28,11 @@ interface MobilePanelSwitcherProps {
 export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.memo(
   ({ activePanel, onPanelChange }) => {
     return (
-      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 bg-zinc-800 p-1 rounded-full shadow-lg z-50">
+      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 bg-muted p-1 rounded-full shadow-lg z-50">
         <button
           onClick={() => onPanelChange('form')}
           className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-            activePanel === 'form' ? 'bg-primary-600 text-white' : 'text-zinc-400 hover:text-white'
+            activePanel === 'form' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           Form
@@ -41,8 +41,8 @@ export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.mem
           onClick={() => onPanelChange('preview')}
           className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
             activePanel === 'preview'
-              ? 'bg-primary-600 text-white'
-              : 'text-zinc-400 hover:text-white'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           Preview

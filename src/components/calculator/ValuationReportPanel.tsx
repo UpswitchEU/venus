@@ -9,6 +9,7 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { springDefault } from '@/design-system/components/motion';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -28,7 +29,6 @@ import { HTMLProcessor } from '@/utils/htmlProcessor';
 import { 
   AuroraButton,
   Badge,
-  springDefault,
   AuroraScrollArea,
 } from '@/design-system';
 
@@ -232,7 +232,7 @@ export function ValuationReportPanel({
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1 }}
+              transition={{ ...springDefault, delay: 0.1 }}
               className={cn(
                 "relative overflow-hidden rounded-2xl border border-primary/30 p-6 md:p-8",
               )}
@@ -303,7 +303,7 @@ export function ValuationReportPanel({
                     key={metric.label}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 + index * 0.03 }}
+                    transition={{ ...springDefault, delay: 0.15 + index * 0.03 }}
                     className="rounded-xl bg-muted/50 border border-border p-4 hover:border-primary/30 transition-colors"
                   >
                     <p className="text-xs text-foreground/50 mb-1.5">{metric.label}</p>
@@ -338,7 +338,7 @@ export function ValuationReportPanel({
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
+              transition={{ ...springDefault, delay: 0.3 }}
               className="rounded-xl bg-muted/30 border border-border p-5"
             >
               <div className="flex items-start gap-3">
@@ -367,7 +367,7 @@ export function ValuationReportPanel({
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.35 }}
+                transition={{ ...springDefault, delay: 0.35 }}
                 className="rounded-xl border border-border overflow-hidden"
               >
                 <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-2">

@@ -20,7 +20,8 @@
 
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useTransitionRouter } from 'next-view-transitions'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
 import { useSessionStore } from '../store/useSessionStore'
@@ -60,7 +61,7 @@ interface ValuationSessionManagerProps {
 export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = React.memo(
   ({ reportId, children }) => {
     const searchParams = useSearchParams()
-    const router = useRouter()
+    const router = useTransitionRouter()
 
     // WORLD CLASS: Bootstrap integration - check if bootstrap has already loaded session
     const bootstrap = useBootstrapSafe()

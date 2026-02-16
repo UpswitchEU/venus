@@ -24,7 +24,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { useTransitionRouter } from 'next-view-transitions'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -238,7 +238,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   urlAction,
   initialDrawerOpen = false,
 }) => {
-  const router = useRouter()
+  const router = useTransitionRouter()
   const isMobile = useIsMobile()
   const reportPanelRef = useRef<HTMLDivElement>(null)
 

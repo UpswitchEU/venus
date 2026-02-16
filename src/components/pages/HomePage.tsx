@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useTransitionRouter } from 'next-view-transitions'
 import { useTranslations } from 'next-intl'
 import React, { useEffect, useRef, useState } from 'react'
 import { ALL_BUSINESS_VIDEOS } from '../../constants/videos'
@@ -24,7 +24,7 @@ const API_URL =
   'https://api.upswitch.app'
 
 export const HomePage: React.FC = () => {
-  const router = useRouter()
+  const router = useTransitionRouter()
   const { user } = useAuth()
   const t = useTranslations()
   const [query, setQuery] = useState('')
@@ -252,7 +252,7 @@ export const HomePage: React.FC = () => {
                     e.preventDefault()
                     handleQuerySubmit()
                   }}
-                  className="focus-within:bg-zinc-900/30 group flex flex-col gap-2 p-3 md:p-4 duration-150 w-full rounded-3xl border border-zinc-700/50 bg-zinc-900/20 text-base shadow-xl transition-all ease-in-out focus-within:border-zinc-500/40 hover:border-zinc-600/30 focus-within:hover:border-zinc-500/40 backdrop-blur-sm"
+                  className="focus-within:bg-background/30 group flex flex-col gap-2 p-3 md:p-4 duration-150 w-full rounded-3xl border border-foreground/10 bg-background/20 text-base shadow-xl transition-all ease-in-out focus-within:border-primary/40 hover:border-foreground/20 focus-within:hover:border-primary/40 backdrop-blur-sm"
                 >
                   {/* Main textarea container */}
                   <div className="relative flex items-center">
@@ -260,7 +260,7 @@ export const HomePage: React.FC = () => {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder={t('home.hero.placeholder')}
-                      className="textarea-seamless flex w-full rounded-md px-3 py-3 pr-24 ring-offset-background placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 resize-none text-base leading-snug placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base max-h-[200px] bg-transparent focus:bg-transparent flex-1 text-white"
+                      className="textarea-seamless flex w-full rounded-md px-3 py-3 pr-24 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 resize-none text-base leading-snug placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base max-h-[200px] bg-transparent focus:bg-transparent flex-1 text-foreground"
                       style={{ minHeight: '80px', height: '80px' }}
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -274,15 +274,15 @@ export const HomePage: React.FC = () => {
                     />
 
                     {/* Mode Toggle - Grand Persona Style */}
-                    <div className="absolute right-1 top-1 flex items-center gap-0.5 bg-zinc-900/60 backdrop-blur-md p-0.5 rounded-lg border border-zinc-700/30 shadow-lg z-10 scale-90 origin-top-right">
+                    <div className="absolute right-1 top-1 flex items-center gap-0.5 bg-background/60 backdrop-blur-md p-0.5 rounded-lg border border-foreground/10 shadow-lg z-10 scale-90 origin-top-right">
                       <div className="relative group/manual">
                         <button
                           type="button"
                           onClick={() => setMode('manual')}
                           className={`p-1.5 rounded-md transition-all duration-200 ${
                             mode === 'manual'
-                              ? 'bg-zinc-700 text-white shadow-sm'
-                              : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800/50'
+                              ? 'bg-muted text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-foreground/10'
                           }`}
                           aria-label="Manual Input"
                         >
@@ -303,7 +303,7 @@ export const HomePage: React.FC = () => {
                           </svg>
                         </button>
                         {/* Tooltip */}
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-900 text-[10px] text-zinc-200 rounded opacity-0 group-hover/manual:opacity-100 transition-opacity pointer-events-none whitespace-nowrap border border-zinc-700 shadow-xl">
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-[10px] text-foreground rounded opacity-0 group-hover/manual:opacity-100 transition-opacity pointer-events-none whitespace-nowrap border border-foreground/10 shadow-xl">
                           {t('home.flows.manual')}
                         </div>
                       </div>
@@ -314,8 +314,8 @@ export const HomePage: React.FC = () => {
                           onClick={() => setMode('conversational')}
                           className={`p-1.5 rounded-md transition-all duration-200 ${
                             mode === 'conversational'
-                              ? 'bg-zinc-700 text-white shadow-sm'
-                              : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800/50'
+                              ? 'bg-muted text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-foreground/10'
                           }`}
                           aria-label="Conversational Mode"
                         >
@@ -335,7 +335,7 @@ export const HomePage: React.FC = () => {
                           </svg>
                         </button>
                         {/* Tooltip */}
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-900 text-[10px] text-zinc-200 rounded opacity-0 group-hover/chat:opacity-100 transition-opacity pointer-events-none whitespace-nowrap border border-zinc-700 shadow-xl">
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-[10px] text-foreground rounded opacity-0 group-hover/chat:opacity-100 transition-opacity pointer-events-none whitespace-nowrap border border-foreground/10 shadow-xl">
                           {t('home.flows.conversational')}
                         </div>
                       </div>
@@ -349,8 +349,8 @@ export const HomePage: React.FC = () => {
                         key={index}
                         type="button"
                         onClick={() => setQuery(quickQuery)}
-                        className="px-3 py-1.5 bg-zinc-800/50 hover:bg-zinc-700/60 border border-zinc-700/50 hover:border-zinc-600/60 rounded-full text-xs text-zinc-300 
-                                  hover:text-white transition-all duration-200 hover:shadow-md hover:shadow-black/20"
+                        className="px-3 py-1.5 bg-muted/50 hover:bg-foreground/10 border border-foreground/10 hover:border-foreground/20 rounded-full text-xs text-muted-foreground 
+                                  hover:text-foreground transition-all duration-200 hover:shadow-md hover:shadow-black/20"
                       >
                         {quickQuery}
                       </button>
@@ -362,7 +362,7 @@ export const HomePage: React.FC = () => {
                         <button
                           type="submit"
                           disabled={!query.trim()}
-                          className="submit-button-white flex h-8 w-8 items-center justify-center rounded-full bg-white hover:bg-zinc-100 transition-all duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-zinc-600"
+                          className="submit-button-white flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-muted"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"

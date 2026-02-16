@@ -67,21 +67,21 @@ export const ResizableDivider: React.FC<ResizableDividerProps> = ({
   return (
     <div
       ref={dividerRef}
-      className="w-[1px] bg-zinc-800 cursor-col-resize flex items-center justify-center transition-all duration-150 ease-in-out relative group"
+      className="w-[1px] bg-foreground/10 cursor-col-resize flex items-center justify-center transition-all duration-150 ease-in-out relative group"
       onMouseDown={handleMouseDown}
       style={{
         backgroundColor: isDragging ? '#71717a' : undefined, // zinc-500 when dragging
       }}
     >
       {/* Hover area */}
-      <div className="absolute inset-y-0 -left-2 -right-2 hover:bg-zinc-800/10" />
+      <div className="absolute inset-y-0 -left-2 -right-2 hover:bg-foreground/5" />
 
       {/* Visual indicator dots */}
       <div className="absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <div className="flex flex-col gap-1">
-          <div className="w-[2px] h-[2px] rounded-full bg-zinc-500" />
-          <div className="w-[2px] h-[2px] rounded-full bg-zinc-500" />
-          <div className="w-[2px] h-[2px] rounded-full bg-zinc-500" />
+          <div className="w-[2px] h-[2px] rounded-full bg-foreground/40" />
+          <div className="w-[2px] h-[2px] rounded-full bg-foreground/40" />
+          <div className="w-[2px] h-[2px] rounded-full bg-foreground/40" />
         </div>
       </div>
     </div>

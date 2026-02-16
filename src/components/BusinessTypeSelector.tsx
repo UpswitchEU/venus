@@ -76,14 +76,14 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
     <div className={`business-type-selector ${className}`}>
       {/* Selector Dropdown */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-foreground mb-2">
           Business Type <span className="text-rust-500">*</span>
         </label>
         <select
           value={selectedId || ''}
           onChange={(e) => handleSelect(e.target.value)}
           disabled={loadingTypes}
-          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          className="block w-full rounded-md border-foreground/10 shadow-sm focus:border-primary focus:ring-primary"
         >
           <option value="">
             {loadingTypes ? 'Loading business types...' : 'Select your business type...'}
@@ -100,8 +100,8 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
       {showPreview && selectedId && (
         <div className="mt-4">
           {loadingMetadata ? (
-            <div className="flex items-center justify-center p-6 bg-gray-50 rounded-lg">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+            <div className="flex items-center justify-center p-6 bg-muted rounded-lg">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
           ) : selectedMetadata ? (
             <div className="bg-gradient-to-br from-primary-50 to-canvas rounded-lg p-6 space-y-4">
@@ -109,8 +109,8 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
               <div className="flex items-center space-x-3">
                 <span className="text-4xl">{selectedMetadata.icon}</span>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{selectedMetadata.title}</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="text-lg font-semibold text-foreground">{selectedMetadata.title}</h3>
+                  <p className="text-sm text-muted-foreground">
                     {selectedMetadata.sector} • {selectedMetadata.industry}
                   </p>
                 </div>
@@ -123,12 +123,12 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Revenue */}
                   {selectedMetadata.typical_revenue_median && (
-                    <div className="bg-white rounded-md p-3">
-                      <p className="text-xs text-gray-500 mb-1">Typical Revenue</p>
-                      <p className="text-lg font-semibold text-gray-900">
+                    <div className="bg-card rounded-md p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Typical Revenue</p>
+                      <p className="text-lg font-semibold text-foreground">
                         {formatCurrency(selectedMetadata.typical_revenue_median)}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Range: {formatCurrency(selectedMetadata.typical_revenue_min)} -{' '}
                         {formatCurrency(selectedMetadata.typical_revenue_max)}
                       </p>
@@ -137,12 +137,12 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
 
                   {/* EBITDA Margin */}
                   {selectedMetadata.typical_ebitda_margin_median && (
-                    <div className="bg-white rounded-md p-3">
-                      <p className="text-xs text-gray-500 mb-1">Typical EBITDA Margin</p>
-                      <p className="text-lg font-semibold text-gray-900">
+                    <div className="bg-card rounded-md p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Typical EBITDA Margin</p>
+                      <p className="text-lg font-semibold text-foreground">
                         {formatPercentage(selectedMetadata.typical_ebitda_margin_median)}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Range: {formatPercentage(selectedMetadata.typical_ebitda_margin_min)} -{' '}
                         {formatPercentage(selectedMetadata.typical_ebitda_margin_max)}
                       </p>
@@ -151,12 +151,12 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
 
                   {/* Employees */}
                   {selectedMetadata.typical_employee_median && (
-                    <div className="bg-white rounded-md p-3">
-                      <p className="text-xs text-gray-500 mb-1">Typical Employees</p>
-                      <p className="text-lg font-semibold text-gray-900">
+                    <div className="bg-card rounded-md p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Typical Employees</p>
+                      <p className="text-lg font-semibold text-foreground">
                         {selectedMetadata.typical_employee_median}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Range: {selectedMetadata.typical_employee_min} -{' '}
                         {selectedMetadata.typical_employee_max}
                       </p>
@@ -168,7 +168,7 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
               {/* Key Metrics */}
               {selectedMetadata.key_metrics && selectedMetadata.key_metrics.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">
+                  <p className="text-sm font-medium text-foreground mb-2">
                     Key Metrics We'll Ask About:
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -177,7 +177,7 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
                       .map((metric: { label?: string; name?: string }, index: number) => (
                         <span
                           key={index}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800"
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
                         >
                           {metric.label || metric.name}
                         </span>
@@ -188,7 +188,7 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
 
               {/* Questions Count */}
               {selectedMetadata.questions && selectedMetadata.questions.length > 0 && (
-                <div className="flex items-center text-sm text-gray-600">
+                <div className="flex items-center text-sm text-muted-foreground">
                   <svg
                     className="w-4 h-4 mr-2"
                     fill="none"
@@ -211,7 +211,7 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
 
               {/* Valuation Method Preference */}
               {selectedMetadata.dcf_preference && (
-                <div className="flex items-center text-sm text-gray-600">
+                <div className="flex items-center text-sm text-muted-foreground">
                   <svg
                     className="w-4 h-4 mr-2"
                     fill="none"

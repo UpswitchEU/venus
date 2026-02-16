@@ -8,6 +8,7 @@
  */
 
 import { motion } from 'framer-motion';
+import { springDefault } from '@/design-system/components/motion';
 import { Calculator, TrendingUp, Scale, Info } from 'lucide-react';
 import { cn } from '@/design-system/utils';
 import { Modal, ModalContent, ModalHeader, ModalTitle, AuroraButton } from '@/design-system';
@@ -83,7 +84,7 @@ export function CalculationBreakdownModal({
                 key={step.label}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ ...springDefault, delay: index * 0.1 }}
                 className={cn(
                   "flex items-start gap-3 p-3 rounded-lg transition-colors",
                   step.highlight 

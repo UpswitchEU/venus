@@ -53,23 +53,23 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
   const adjustmentCount = allAdjustments.filter((a) => a !== 0).length
 
   return (
-    <div className="sticky top-0 bg-canvas rounded-lg border border-stone-200 p-6 shadow-sm">
+    <div className="sticky top-0 bg-canvas rounded-lg border border-foreground/10 p-6 shadow-sm">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-slate-ink">Live Preview</h3>
-        <p className="text-sm text-gray-600 mt-1">Normalization for {year}</p>
+        <p className="text-sm text-muted-foreground mt-1">Normalization for {year}</p>
       </div>
 
       {/* Reported EBITDA */}
-      <div className="mb-4 pb-4 border-b border-stone-200">
-        <div className="text-sm text-gray-600 mb-1">Reported EBITDA</div>
+      <div className="mb-4 pb-4 border-b border-foreground/10">
+        <div className="text-sm text-muted-foreground mb-1">Reported EBITDA</div>
         <div className="text-2xl font-bold text-slate-ink">{formatCurrency(reportedEbitda)}</div>
-        <div className="text-xs text-gray-600 mt-1">As shown in financial statements</div>
+        <div className="text-xs text-muted-foreground mt-1">As shown in financial statements</div>
       </div>
 
       {/* Active Adjustments List */}
       {adjustmentCount > 0 && (
-        <div className="mb-4 pb-4 border-b border-stone-200">
-          <div className="text-sm font-medium text-gray-700 mb-3">Active Adjustments</div>
+        <div className="mb-4 pb-4 border-b border-foreground/10">
+          <div className="text-sm font-medium text-foreground mb-3">Active Adjustments</div>
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {/* Standard adjustments */}
             {adjustments
@@ -79,14 +79,14 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                 return (
                   <div
                     key={adj.category}
-                    className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-stone-200"
+                    className="flex items-center justify-between gap-2 p-2 bg-card rounded-lg border border-foreground/10"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-ink truncate">
                         {category?.label || adj.category}
                       </p>
                       {adj.note && (
-                        <p className="text-xs text-gray-500 truncate mt-0.5">{adj.note}</p>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">{adj.note}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -102,7 +102,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                         <button
                           type="button"
                           onClick={() => onRemoveAdjustment(adj.category)}
-                          className="p-1 text-gray-400 hover:text-rust-600 transition-colors"
+                          className="p-1 text-muted-foreground hover:text-rust-600 transition-colors"
                           title="Remove adjustment"
                         >
                           <svg
@@ -131,12 +131,12 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
               .map((adj) => (
                 <div
                   key={adj.id}
-                  className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-stone-200"
+                  className="flex items-center justify-between gap-2 p-2 bg-card rounded-lg border border-foreground/10"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-ink truncate">{adj.description}</p>
                     {adj.note && (
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{adj.note}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{adj.note}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -152,7 +152,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                       <button
                         type="button"
                         onClick={() => onRemoveCustomAdjustment(adj.id!)}
-                        className="p-1 text-gray-400 hover:text-rust-600 transition-colors"
+                        className="p-1 text-muted-foreground hover:text-rust-600 transition-colors"
                         title="Remove adjustment"
                       >
                         <svg
@@ -176,9 +176,9 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
           </div>
 
           {/* Summary */}
-          <div className="mt-3 pt-3 border-t border-stone-200">
+          <div className="mt-3 pt-3 border-t border-foreground/10">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Net Adjustment:</span>
+              <span className="text-sm font-medium text-foreground">Net Adjustment:</span>
               <span
                 className={`text-base font-bold ${
                   totalAdjustments > 0
@@ -192,7 +192,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                 {formatCurrency(totalAdjustments)}
               </span>
             </div>
-            <div className="text-xs text-gray-600 mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               {adjustmentCount} active adjustment{adjustmentCount !== 1 ? 's' : ''}
             </div>
           </div>
@@ -201,8 +201,8 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
 
       {/* Total Adjustments (if no breakdown) */}
       {adjustmentCount === 0 && (
-        <div className="mb-4 pb-4 border-b border-stone-200">
-          <div className="text-sm text-gray-600 mb-1">Total Adjustments</div>
+        <div className="mb-4 pb-4 border-b border-foreground/10">
+          <div className="text-sm text-muted-foreground mb-1">Total Adjustments</div>
           <div
             className={`text-2xl font-bold ${
               totalAdjustments > 0
@@ -215,17 +215,17 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
             {totalAdjustments > 0 ? '+' : ''}
             {formatCurrency(totalAdjustments)}
           </div>
-          <div className="text-xs text-gray-600 mt-1">No adjustments yet</div>
+          <div className="text-xs text-muted-foreground mt-1">No adjustments yet</div>
         </div>
       )}
 
       {/* Normalized EBITDA */}
-      <div className="mb-4 pb-4 border-b border-stone-200">
-        <div className="text-sm text-gray-600 mb-1">Normalized EBITDA</div>
-        <div className="text-3xl font-bold text-primary-600">
+      <div className="mb-4 pb-4 border-b border-foreground/10">
+        <div className="text-sm text-muted-foreground mb-1">Normalized EBITDA</div>
+        <div className="text-3xl font-bold text-primary">
           {formatCurrency(normalizedEbitda)}
         </div>
-        <div className="text-xs text-gray-600 mt-1">True earning power</div>
+        <div className="text-xs text-muted-foreground mt-1">True earning power</div>
       </div>
 
       {/* Info box */}

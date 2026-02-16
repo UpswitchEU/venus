@@ -72,7 +72,7 @@ const CustomPasswordInputField: React.FC<CustomPasswordInputFieldProps> = ({
         <button
           type="button"
           onClick={togglePasswordVisibility}
-          className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+          className="text-muted-foreground hover:text-foreground transition-colors duration-200"
           disabled={disabled}
         >
           {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}

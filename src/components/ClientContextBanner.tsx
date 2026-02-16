@@ -190,7 +190,7 @@ export function ClientContextBanner() {
       key={bannerId}
       id="client-context-banner"
       data-banner-id={bannerId}
-      className="bg-blue-50 border-b border-blue-200 px-4 py-2"
+      className="bg-primary/10 border-b border-primary/20 px-4 py-2"
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-3">

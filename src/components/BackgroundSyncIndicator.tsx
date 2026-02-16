@@ -59,12 +59,12 @@ export function BackgroundSyncIndicator({
     case 'syncing':
       icon = <Loader2 className="w-3 h-3 animate-spin" />
       text = compact ? '' : 'Syncing...'
-      colorClasses = 'text-primary-500'
+      colorClasses = 'text-primary'
       break
     case 'synced':
       icon = <Check className="w-3 h-3" />
       text = compact ? '' : 'Synced'
-      colorClasses = 'text-primary-500'
+      colorClasses = 'text-primary'
       break
     case 'failed':
       icon = <WifiOff className="w-3 h-3" />
@@ -88,7 +88,7 @@ export function BackgroundSyncIndicator({
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${colorClasses} bg-zinc-900/50 border border-zinc-800 ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${colorClasses} bg-muted/50 border border-foreground/10 ${className}`}
     >
       {icon}
       <span>{text}</span>

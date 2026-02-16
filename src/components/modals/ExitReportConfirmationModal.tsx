@@ -85,17 +85,17 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
         role="dialog"
       >
         <div
-          className="bg-zinc-800 rounded-2xl shadow-2xl border border-zinc-700 max-w-md w-full"
+          className="bg-popover rounded-2xl shadow-2xl border border-foreground/10 max-w-md w-full"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-6 py-5 border-b border-zinc-700">
+          <div className="px-6 py-5 border-b border-foreground/10">
             <div className="flex items-center gap-3">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-500/10 flex items-center justify-center">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                 {showSaveOption ? (
-                  <Save className="w-5 h-5 text-primary-500" />
+                  <Save className="w-5 h-5 text-primary" />
                 ) : (
-                  <AlertTriangle className="w-5 h-5 text-primary-500" />
+                  <AlertTriangle className="w-5 h-5 text-primary" />
                 )}
               </div>
               <h2 className="text-xl font-semibold text-white">{title}</h2>
@@ -104,18 +104,18 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
 
           {/* Content */}
           <div className="px-6 py-5 space-y-3">
-            <p className="text-zinc-300 leading-relaxed">{message}</p>
+            <p className="text-foreground leading-relaxed">{message}</p>
             {showSaveOption && (
-              <p className="text-zinc-400 text-sm leading-relaxed">{t('modals.exit.saveNote')}</p>
+              <p className="text-muted-foreground text-sm leading-relaxed">{t('modals.exit.saveNote')}</p>
             )}
           </div>
 
           {/* Actions */}
-          <div className="px-6 py-4 bg-zinc-900/50 rounded-b-2xl flex items-center justify-end gap-3">
+          <div className="px-6 py-4 bg-muted/50 rounded-b-2xl flex items-center justify-end gap-3">
             <button
               onClick={onClose}
               disabled={isSaving}
-              className="px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-medium text-foreground hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t('modals.exit.cancel')}
             </button>
@@ -123,7 +123,7 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
               <button
                 onClick={onConfirm}
                 disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-foreground hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('modals.exit.exitWithoutSaving')}
               </button>

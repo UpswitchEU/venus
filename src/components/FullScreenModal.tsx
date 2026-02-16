@@ -60,17 +60,17 @@ export const FullScreenModal: React.FC<FullScreenModalProps> = ({
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
 
       {/* Modal Content */}
-      <div className="relative w-full h-full bg-zinc-950 flex flex-col">
+      <div className="relative w-full h-full bg-background flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900">
+        <div className="flex items-center justify-between p-4 border-b border-foreground/10 bg-card">
           <div className="flex items-center gap-3">
-            <Maximize2 className="w-5 h-5 text-blue-400" />
+            <Maximize2 className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-semibold text-white">{title}</h2>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
             title="Close (ESC)"
           >
             <X className="w-5 h-5" />

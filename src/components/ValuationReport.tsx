@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useTransitionRouter } from 'next-view-transitions'
 import React, { Suspense, useEffect } from 'react'
 import { useBootstrapSync } from '../hooks/useBootstrapSync'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
@@ -57,7 +57,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     initialVersion,
     urlParams = {},
   }) => {
-    const router = useRouter()
+    const router = useTransitionRouter()
 
     // Extract URL action and tab parameters (for Mercury integration)
     const urlAction = urlParams.action || undefined

@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
+import { springSnappy } from '@/design-system/components/motion'
 import { ArrowRight, CheckCircle, Sparkles, XCircle } from 'lucide-react'
 import React from 'react'
 
@@ -44,7 +45,7 @@ export const SuggestionChips: React.FC<SuggestionChipsProps> = ({
               initial={{ opacity: 0, scale: 0.9, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ delay: index * 0.05, type: 'spring', stiffness: 300, damping: 30 }}
+              transition={{ ...springSnappy, delay: index * 0.05 }}
               onClick={() => onSelect(suggestion.text)}
               className="group relative flex items-center gap-2.5 px-4 py-2.5 bg-muted border border-foreground/5 rounded-xl hover:bg-foreground/10 hover:border-primary/30 active:scale-[0.98] transition-all duration-200 shadow-sm hover:shadow-lg backdrop-blur-sm"
             >
@@ -77,7 +78,7 @@ export const SuggestionChips: React.FC<SuggestionChipsProps> = ({
               key="keep-original"
               initial={{ opacity: 0, scale: 0.9, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ delay: suggestions.length * 0.05, type: 'spring', stiffness: 300, damping: 30 }}
+              transition={{ ...springSnappy, delay: suggestions.length * 0.05 }}
               onClick={onDismiss}
               className="flex items-center gap-2 px-4 py-2.5 bg-transparent border border-foreground/5 rounded-xl hover:bg-foreground/5 hover:border-foreground/10 active:scale-[0.98] transition-all duration-200 group"
             >

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useTransitionRouter } from 'next-view-transitions'
 import { useEffect } from 'react'
 import { useAuthStore } from '../lib/auth'
 import {
@@ -26,7 +26,7 @@ import {
  * 2. Visibility change (background tabs) - checks on next API call
  */
 export function LogoutListener() {
-  const router = useRouter()
+  const router = useTransitionRouter()
   const { checkSession } = useAuthStore()
 
   useEffect(() => {

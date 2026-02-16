@@ -4,13 +4,11 @@ import {
   ArrowRight,
   Check,
   Download,
-  Edit3,
   Eye,
   GitBranch,
   History,
   Loader2,
   Maximize,
-  MessageSquare,
   RefreshCw,
   Save,
   X,
@@ -21,7 +19,6 @@ import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import {
   useValuationToolbarAuth,
   useValuationToolbarDownload,
-  useValuationToolbarFlow,
   useValuationToolbarFullscreen,
   useValuationToolbarName,
   useValuationToolbarRefresh,
@@ -54,16 +51,11 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   // Read from unified session store
   // ROOT CAUSE FIX: Only subscribe to specific primitives, not entire session object
   const reportId = useSessionStore((state) => state.session?.reportId)
-  const currentView = useSessionStore((state) => state.session?.currentView)
   const isSaving = useSessionStore((state) => state.isSaving)
   const lastSaved = useSessionStore((state) => state.lastSaved)
   const hasUnsavedChanges = useSessionStore((state) => state.hasUnsavedChanges)
   const syncError = useSessionStore((state) => state.error)
   const valuationResult = useSessionStore((state) => state.session?.valuationResult)
-
-  // Flow detection from session
-  const isManualFlow = currentView === 'manual'
-  const isConversationalFlow = currentView === 'conversational'
 
   const {
     versions: storeVersions,
@@ -154,15 +146,6 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   }
 
   // Use focused hooks for business logic
-  const {
-    showSwitchConfirmation,
-    pendingFlowTarget,
-    handleFlowIconClick,
-    handleConfirmSwitch,
-    handleCancelSwitch,
-    isSyncing,
-  } = useValuationToolbarFlow()
-
   const {
     isEditingName,
     editedName,
@@ -422,48 +405,6 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
               {/* Center Section - Action Buttons */}
               {/* ✅ UX: Hide on very small screens to prioritize CTA */}
               <div className="absolute left-1/2 transform -translate-x-1/2 hidden sm:flex items-center gap-1">
-                {/* Flow Toggles - Hidden on mobile, shown on md+ */}
-                <div className="hidden md:flex items-center gap-1">
-                  <Tooltip content={t('navigation.flows.manual')} position="bottom" className="">
-                    <button
-                      onClick={() => handleFlowIconClick('manual')}
-                      disabled={currentView === 'manual' || isSyncing}
-                      className={`p-2 rounded-lg transition-all duration-200 ${
-                        currentView === 'manual'
-                          ? 'bg-foreground/[0.08] text-foreground'
-                          : 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
-                      } ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      {isSyncing && currentView !== 'manual' ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Edit3 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </Tooltip>
-                  <Tooltip
-                    content={t('navigation.flows.conversational')}
-                    position="bottom"
-                    className=""
-                  >
-                    <button
-                      onClick={() => handleFlowIconClick('conversational')}
-                      disabled={currentView === 'conversational' || isSyncing}
-                      className={`p-2 rounded-lg transition-all duration-200 ${
-                        currentView === 'conversational'
-                          ? 'bg-foreground/[0.08] text-foreground'
-                          : 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
-                      } ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      {isSyncing && currentView !== 'conversational' ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <MessageSquare className="w-4 h-4" />
-                      )}
-                    </button>
-                  </Tooltip>
-                  <div className="mx-2 h-6 w-px bg-foreground/[0.08]"></div>
-                </div>
                 <Tooltip content={t('navigation.tabs.preview')} position="bottom" className="">
                   <button
                     onClick={() => handleTabClick('preview')}

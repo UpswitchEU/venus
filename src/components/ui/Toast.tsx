@@ -36,7 +36,7 @@ export const Toast: React.FC<ToastProps> = ({
       case 'success':
         return {
           container: 'bg-primary-50 border-primary-200 text-primary-800',
-          icon: 'text-primary-600',
+          icon: 'text-primary',
           iconComponent: Check,
         }
       case 'error':
@@ -54,8 +54,8 @@ export const Toast: React.FC<ToastProps> = ({
       case 'info':
       default:
         return {
-          container: 'bg-blue-50 border-blue-200 text-blue-800',
-          icon: 'text-blue-600',
+          container: 'bg-primary/10 border-primary/20 text-primary',
+          icon: 'text-primary',
           iconComponent: Info,
         }
     }
@@ -80,7 +80,7 @@ export const Toast: React.FC<ToastProps> = ({
         <div className="flex-1 text-sm font-medium">{message}</div>
         <button
           onClick={handleClose}
-          className="ml-3 text-gray-400 hover:text-gray-600 transition-colors"
+          className="ml-3 text-muted-foreground hover:text-foreground transition-colors"
           aria-label="Close notification"
         >
           <X className="w-4 h-4" />

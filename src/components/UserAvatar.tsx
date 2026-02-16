@@ -61,8 +61,8 @@ const UserAvatar: React.FC<UserAvatarProps> = React.memo(({ size = 'md', classNa
           flex items-center justify-center
           transition-colors duration-200
           cursor-pointer
-          bg-gray-200 hover:bg-gray-300
-          focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+          bg-foreground/10 hover:bg-foreground/15
+          focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
         `}
         aria-label={user ? `${user.name || 'User'}` : 'Guest'}
         role="button"
@@ -70,7 +70,7 @@ const UserAvatar: React.FC<UserAvatarProps> = React.memo(({ size = 'md', classNa
       >
         {isLoading ? (
           // Loading state
-          <div className="animate-pulse bg-gray-300 rounded-full w-full h-full" />
+          <div className="animate-pulse bg-foreground/15 rounded-full w-full h-full" />
         ) : user && hasValidAvatar ? (
           // User with avatar image
           <img
@@ -82,12 +82,12 @@ const UserAvatar: React.FC<UserAvatarProps> = React.memo(({ size = 'md', classNa
           />
         ) : user ? (
           // User without avatar - show initials
-          <span className={`${config.text} font-semibold text-gray-700`} style={{ lineHeight: 1 }}>
+          <span className={`${config.text} font-semibold text-foreground`} style={{ lineHeight: 1 }}>
             {getUserInitials()}
           </span>
         ) : (
           // Guest user - show User icon
-          <User className="w-4 h-4 text-gray-600" />
+          <User className="w-4 h-4 text-muted-foreground" />
         )}
       </div>
     </div>

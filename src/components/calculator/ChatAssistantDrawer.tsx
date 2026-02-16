@@ -11,6 +11,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { springDefault, springSnappy } from '@/design-system/components/motion';
 import ReactMarkdown from 'react-markdown';
 import { 
   X, 
@@ -511,7 +512,7 @@ export function ChatAssistantDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+            transition={springSnappy}
             onClick={() => onOpenChange(false)}
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           />
@@ -521,7 +522,7 @@ export function ChatAssistantDrawer({
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+            transition={springSnappy}
             className={cn(
               // Base: Full screen on mobile for immersive experience
               "fixed right-0 top-0 bottom-0 z-50",
@@ -660,7 +661,7 @@ export function ChatAssistantDrawer({
                     <motion.div 
                       initial={{ opacity: 0, y: 8, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+                      transition={springSnappy}
                       className="flex items-start gap-3"
                     >
                       {/* AI Avatar - matches message bubble */}
@@ -932,7 +933,7 @@ export function ChatAssistantDrawer({
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+                      transition={springSnappy}
                       className="mt-3 sm:mt-3 pt-3 sm:pt-3 border-t border-foreground/[0.06]"
                     >
                       {/* On mobile: horizontal scroll, on desktop: wrap */}
@@ -943,7 +944,7 @@ export function ChatAssistantDrawer({
                             type="button"
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.02 + index * 0.03 }}
+                            transition={{ ...springDefault, delay: 0.02 + index * 0.03 }}
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
                             onClick={() => handleCommandPillClick(suggestion)}
@@ -1070,7 +1071,7 @@ function MessageBubble({
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+      transition={springSnappy}
       className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}
     >
       {/* AI Avatar - Premium minimal design */}

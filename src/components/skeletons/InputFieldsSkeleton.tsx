@@ -104,7 +104,7 @@ export function InputFieldsSkeleton() {
       </div>
 
       {/* Submit Button */}
-      <div className="pt-6 border-t border-zinc-700">
+      <div className="pt-6 border-t border-foreground/10">
         <div className="h-14 w-full bg-white/5 rounded-xl" />
       </div>
     </div>

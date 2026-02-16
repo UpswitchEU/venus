@@ -36,18 +36,18 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 max-w-md w-full shadow-xl">
+      <div className="bg-popover border border-foreground/10 rounded-lg p-6 max-w-md w-full shadow-xl">
         {/* Simple Header */}
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold text-white mb-2">{t('modals.paywall.title')}</h2>
-          <p className="text-zinc-400 text-sm">{message || defaultMessage}</p>
+          <p className="text-muted-foreground text-sm">{message || defaultMessage}</p>
         </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-medium rounded-lg transition-colors"
+            className="flex-1 px-4 py-2 bg-muted hover:bg-foreground/10 text-foreground text-sm font-medium rounded-lg transition-colors"
           >
             {t('modals.paywall.cancel')}
           </button>

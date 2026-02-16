@@ -18,11 +18,12 @@ const ScrollToTop = () => {
   const pathname = usePathname()
 
   useEffect(() => {
-    // Scroll to top when location changes
+    const prefersReduced =
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     window.scrollTo({
       top: 0,
       left: 0,
-      behavior: 'instant', // Use 'instant' for immediate scroll, 'smooth' for animated
+      behavior: prefersReduced ? 'auto' : 'smooth',
     })
   }, [pathname])
 

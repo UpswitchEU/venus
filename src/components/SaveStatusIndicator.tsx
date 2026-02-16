@@ -111,7 +111,7 @@ export function SaveStatusIndicator({
     // Saving state
     icon = <Loader2 className="w-4 h-4 animate-spin" />
     text = compact ? '' : 'Saving...'
-    colorClasses = 'text-primary-600 bg-primary-50 border-primary-200'
+    colorClasses = 'text-primary bg-primary/10 border-primary/20'
   } else if (hasUnsavedChanges) {
     // Unsaved changes state
     icon = <Save className="w-4 h-4" />
@@ -121,7 +121,7 @@ export function SaveStatusIndicator({
     // Saved state
     icon = <Check className="w-4 h-4" />
     text = compact ? '' : `Saved ${relativeTime}`
-    colorClasses = 'text-primary-600 bg-primary-50 border-primary-200'
+    colorClasses = 'text-primary bg-primary/10 border-primary/20'
   } else {
     // Initial state (no changes yet)
     return null

@@ -31,7 +31,7 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
   if (!version) {
     return (
       <div className={`flex items-center justify-center h-full ${className}`}>
-        <div className="text-center text-gray-400 p-8">
+        <div className="text-center text-muted-foreground p-8">
           <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <h3 className="text-lg font-semibold mb-2">Select a Version</h3>
           <p className="text-sm">Choose a version from the timeline to view its details</p>
@@ -44,19 +44,19 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
   const hasChanges = version.changesSummary && version.changesSummary.totalChanges > 0
 
   return (
-    <div className={`h-full overflow-y-auto bg-zinc-900 ${className}`}>
+    <div className={`h-full overflow-y-auto bg-background ${className}`}>
       <div className="p-6 space-y-6">
         {/* Version Header */}
-        <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+        <div className="bg-card border border-foreground/10 rounded-lg p-4">
           <div className="flex items-start justify-between mb-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-500 text-white text-lg font-bold">
+                <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-white text-lg font-bold">
                   {version.versionNumber}
                 </span>
-                <h2 className="text-xl font-semibold text-gray-200">{version.versionLabel}</h2>
+                <h2 className="text-xl font-semibold text-foreground">{version.versionLabel}</h2>
               </div>
-              <div className="flex items-center gap-4 text-sm text-gray-400">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" />
                   <span>{formatDate(version.createdAt)}</span>
@@ -76,7 +76,7 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
               </div>
             </div>
             {version.isActive && (
-              <span className="px-3 py-1 text-xs font-medium bg-green-500/10 text-green-400 rounded-full border border-green-500/20">
+              <span className="px-3 py-1 text-xs font-medium bg-moss-500/10 text-moss-500 rounded-full border border-moss-500/20">
                 Active
               </span>
             )}
@@ -84,13 +84,13 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
 
           {/* Tags */}
           {version.tags && version.tags.length > 0 && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-zinc-700">
-              <Tag className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-foreground/10">
+              <Tag className="w-4 h-4 text-muted-foreground" />
               <div className="flex flex-wrap gap-2">
                 {version.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="px-2 py-1 text-xs bg-zinc-700 text-gray-300 rounded border border-zinc-600"
+                    className="px-2 py-1 text-xs bg-muted text-foreground rounded border border-foreground/10"
                   >
                     {tag}
                   </span>
@@ -101,33 +101,33 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
 
           {/* Notes */}
           {version.notes && (
-            <div className="mt-3 pt-3 border-t border-zinc-700">
-              <p className="text-sm text-gray-300 italic">"{version.notes}"</p>
+            <div className="mt-3 pt-3 border-t border-foreground/10">
+              <p className="text-sm text-muted-foreground italic">"{version.notes}"</p>
             </div>
           )}
         </div>
 
         {/* Statistics Card */}
         {hasChanges && (
-          <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-200 mb-3">Change Statistics</h3>
+          <div className="bg-card border border-foreground/10 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Change Statistics</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-gray-400 mb-1">Total Changes</p>
-                <p className="text-2xl font-bold text-gray-200">
+                <p className="text-xs text-muted-foreground mb-1">Total Changes</p>
+                <p className="text-2xl font-bold text-foreground">
                   {version.changesSummary.totalChanges}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-1">Significant Changes</p>
+                <p className="text-xs text-muted-foreground mb-1">Significant Changes</p>
                 <p className="text-2xl font-bold text-amber-400">
                   {version.changesSummary.significantChanges.length}
                 </p>
               </div>
             </div>
             {version.changesSummary.significantChanges.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-zinc-700">
-                <p className="text-xs text-gray-400 mb-2">Significant Fields (&gt;10% change):</p>
+              <div className="mt-3 pt-3 border-t border-foreground/10">
+                <p className="text-xs text-muted-foreground mb-2">Significant Fields (&gt;10% change):</p>
                 <div className="flex flex-wrap gap-1.5">
                   {version.changesSummary.significantChanges.map((field) => (
                     <span
@@ -145,8 +145,8 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
 
         {/* Field Changes */}
         {hasChanges && (
-          <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-200 mb-3">Field Changes</h3>
+          <div className="bg-card border border-foreground/10 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Field Changes</h3>
             <div className="space-y-3">
               {renderFieldChanges(version.changesSummary, countryCode)}
             </div>
@@ -155,8 +155,8 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
 
         {/* Empty state for no changes */}
         {!hasChanges && version.versionNumber === 1 && (
-          <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-6 text-center">
-            <p className="text-gray-400 text-sm">
+          <div className="bg-card border border-foreground/10 rounded-lg p-6 text-center">
+            <p className="text-muted-foreground text-sm">
               This is the initial version. No previous version to compare against.
             </p>
           </div>
@@ -267,7 +267,7 @@ function renderFieldChanges(changes: any, countryCode: string) {
   )
 
   if (changedFields.length === 0) {
-    return <p className="text-gray-400 text-sm text-center py-4">No field changes detected</p>
+    return <p className="text-muted-foreground text-sm text-center py-4">No field changes detected</p>
   }
 
   // Sort fields: financial first, then business profile, then others
@@ -334,13 +334,13 @@ function FieldChangeRow({ field, change, countryCode, isSignificant }: FieldChan
   return (
     <div
       className={`p-3 rounded-lg border ${
-        isSignificant ? 'bg-amber-500/5 border-amber-500/20' : 'bg-zinc-900 border-zinc-700'
+        isSignificant ? 'bg-amber-500/5 border-amber-500/20' : 'bg-background border-foreground/10'
       }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
-            <h4 className="text-sm font-medium text-gray-200">{formatFieldLabel(field)}</h4>
+            <h4 className="text-sm font-medium text-foreground">{formatFieldLabel(field)}</h4>
             {isSignificant && (
               <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded border border-amber-500/20">
                 Significant
@@ -348,9 +348,9 @@ function FieldChangeRow({ field, change, countryCode, isSignificant }: FieldChan
             )}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-gray-400">{formatValue(change.from, field, countryCode)}</span>
-            <span className="text-gray-500">→</span>
-            <span className="text-gray-200 font-medium">
+            <span className="text-muted-foreground">{formatValue(change.from, field, countryCode)}</span>
+            <span className="text-muted-foreground">→</span>
+            <span className="text-foreground font-medium">
               {formatValue(change.to, field, countryCode)}
             </span>
           </div>
@@ -358,7 +358,7 @@ function FieldChangeRow({ field, change, countryCode, isSignificant }: FieldChan
         {hasPercentChange && (
           <div
             className={`flex items-center gap-1 text-sm font-medium ${
-              isIncrease ? 'text-green-400' : isDecrease ? 'text-red-400' : 'text-gray-400'
+              isIncrease ? 'text-moss-500' : isDecrease ? 'text-rust-500' : 'text-muted-foreground'
             }`}
           >
             {isIncrease && <ArrowUpRight className="w-4 h-4" />}

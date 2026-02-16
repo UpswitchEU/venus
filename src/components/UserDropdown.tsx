@@ -1,5 +1,6 @@
 import { Home, Info, LogOut, Settings, User, UserPlus } from 'lucide-react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
+import { useTransitionRouter } from 'next-view-transitions'
 import React, { useEffect, useRef, useState } from 'react'
 import { User as UserType } from '../contexts/AuthContextTypes'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
@@ -18,7 +19,7 @@ interface UserDropdownProps {
 export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) => {
   // Get client context to show client avatar when acting as client
   const { isActingAsClient, client } = useClientContext()
-  const router = useRouter()
+  const router = useTransitionRouter()
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
@@ -595,7 +596,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       <button
         ref={buttonRef}
         onClick={handleUserClick}
-        className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-full bg-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-300 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+        className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-full bg-foreground/10 text-foreground text-sm font-medium hover:bg-foreground/15 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
         aria-label={user ? `${displayName} - Account Menu` : 'Guest - Account Menu'}
         aria-expanded={isOpen}
         aria-haspopup="true"
@@ -618,7 +619,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             <span className={hasAvatar ? 'hidden' : 'block'}>{getUserInitials()}</span>
           </>
         ) : (
-          <User className="w-4 h-4 text-gray-600" />
+          <User className="w-4 h-4 text-muted-foreground" />
         )}
       </button>
 
@@ -636,7 +637,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           {/* Dropdown */}
           {/* ✅ FIX: Use very high z-index to ensure dropdown appears above report content */}
           <div
-            className="fixed w-56 bg-zinc-900 rounded-lg shadow-lg border border-zinc-800 py-2 z-[10001]"
+            className="fixed w-56 bg-popover rounded-lg shadow-lg border border-foreground/10 py-2 z-[10001]"
             style={{
               top: `${dropdownPosition.top}px`, // Dynamic position
               right: `${dropdownPosition.right}px`, // Dynamic position
@@ -644,10 +645,10 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             }}
           >
             {/* User Profile Header */}
-            <div className="px-4 py-3 border-b border-zinc-800">
+            <div className="px-4 py-3 border-b border-foreground/10">
               {user ? (
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-zinc-700 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0">
                     {hasAvatar ? (
                       <img
                         src={avatarUrl || ''}
@@ -660,21 +661,21 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
                         }}
                       />
                     ) : null}
-                    <span className={hasAvatar ? 'hidden' : 'block text-white text-sm font-medium'}>
+                    <span className={hasAvatar ? 'hidden' : 'block text-foreground text-sm font-medium'}>
                       {getUserInitials()}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white truncate">
+                    <div className="text-sm font-medium text-foreground truncate">
                       {user.name || 'User'}
                     </div>
-                    <div className="text-xs text-zinc-400 truncate">{user.email}</div>
+                    <div className="text-xs text-muted-foreground truncate">{user.email}</div>
                   </div>
                 </div>
               ) : (
                 <div className="flex flex-col">
-                  <p className="text-sm font-medium text-white">Welcome, Guest</p>
-                  <p className="text-xs text-zinc-400">Sign in to access your dashboard</p>
+                  <p className="text-sm font-medium text-foreground">Welcome, Guest</p>
+                  <p className="text-xs text-muted-foreground">Sign in to access your dashboard</p>
                 </div>
               )}
             </div>
@@ -683,7 +684,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             <div className="py-2">
               {menuItems.map((item, index) => {
                 if (item.isDivider) {
-                  return <div key={index} className="h-px bg-zinc-800 my-1" role="separator" />
+                  return <div key={index} className="h-px bg-foreground/10 my-1" role="separator" />
                 }
 
                 const Icon = item.icon
@@ -712,7 +713,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
                       ${
                         isLogout
                           ? 'hover:bg-red-900/20 text-red-400 hover:text-red-300'
-                          : 'hover:bg-zinc-800/50 text-zinc-300 hover:text-white'
+                          : 'hover:bg-foreground/10 text-muted-foreground hover:text-foreground'
                       }
                     `}
                     role="menuitem"
@@ -720,7 +721,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
                   >
                     {Icon && (
                       <Icon
-                        className={`w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0 ${isLogout ? 'text-red-400' : 'text-zinc-400'}`}
+                        className={`w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0 ${isLogout ? 'text-red-400' : 'text-muted-foreground'}`}
                       />
                     )}
                     <span className="flex-1">{item.label}</span>

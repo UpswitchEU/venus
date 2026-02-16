@@ -59,14 +59,14 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
       ? 'text-moss-600'
       : totalAdjustments < 0
         ? 'text-rust-600'
-        : 'text-gray-600'
+        : 'text-muted-foreground'
   const adjustmentSign = totalAdjustments > 0 ? '+' : ''
 
   return (
     <div>
       {/* Disabled Input Field (matches company verification style) */}
       <div className="relative">
-        <div className="relative custom-input-group border rounded-xl shadow-sm transition-all duration-200 border-gray-200 bg-gray-50">
+        <div className="relative custom-input-group border rounded-xl shadow-sm transition-all duration-200 border-foreground/10 bg-muted">
           <input
             placeholder=""
             aria-invalid="false"
@@ -76,7 +76,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
               focus:outline-none focus:ring-0
               transition-all duration-200 ease-in-out
               pr-10
-              bg-transparent cursor-not-allowed text-gray-400
+              bg-transparent cursor-not-allowed text-muted-foreground
             "
             type="text"
             value={`${formatCurrency(originalValue)} → ${formatCurrency(normalizedValue)}`}
@@ -85,7 +85,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
           />
 
           {/* Checkmark Icon with Tooltip */}
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 z-10">
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground z-10">
             <div className="relative group">
               <svg
                 className="w-5 h-5 text-moss-500"
@@ -103,16 +103,16 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
               </svg>
 
               {/* Tooltip */}
-              <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-gray-900 border border-gray-800 text-white text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0">
+              <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-popover border border-foreground/10 text-foreground text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-moss-400 text-xs uppercase tracking-wider">
                     EBITDA Normalized
                   </span>
                 </div>
-                <div className="space-y-2 text-gray-400 border-t border-gray-800 pt-2">
+                <div className="space-y-2 text-muted-foreground border-t border-foreground/10 pt-2">
                   <div className="flex justify-between">
                     <span>Original:</span>
-                    <span className="font-mono text-gray-300">{formatCurrency(originalValue)}</span>
+                    <span className="font-mono text-foreground">{formatCurrency(originalValue)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Adjusted by:</span>
@@ -125,7 +125,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
                     <span>Used in valuation:</span>
                     <span className="font-mono text-white">{formatCurrency(normalizedValue)}</span>
                   </div>
-                  <div className="mt-3 pt-2 border-t border-gray-800 text-xs text-gray-500">
+                  <div className="mt-3 pt-2 border-t border-foreground/10 text-xs text-muted-foreground">
                     Click "Edit" to modify adjustments
                     <br />
                     Click "Remove" to use original value
@@ -137,8 +137,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
 
           <label
             className="
-            absolute left-4 top-2 text-xs text-stone-500 font-medium pointer-events-none
-            text-stone-300
+            absolute left-4 top-2 text-xs text-muted-foreground font-medium pointer-events-none
           "
           >
             {label}
@@ -170,7 +169,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
               <p className="text-xs font-semibold text-moss-700 uppercase tracking-wider">
                 EBITDA Normalized
               </p>
-              <p className="text-sm font-medium text-gray-600">
+              <p className="text-sm font-medium text-muted-foreground">
                 {adjustmentCount} adjustment{adjustmentCount !== 1 ? 's' : ''} •{' '}
                 {formatRelativeTime(lastUpdated)}
               </p>
@@ -181,13 +180,13 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
         {/* Values Breakdown */}
         <div className="space-y-2 mb-4">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-700">Original EBITDA:</span>
-            <span className="font-mono font-medium text-gray-700">
+            <span className="text-muted-foreground">Original EBITDA:</span>
+            <span className="font-mono font-medium text-foreground">
               {formatCurrency(originalValue)}
             </span>
           </div>
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-700">Net Adjustment:</span>
+            <span className="text-muted-foreground">Net Adjustment:</span>
             <span className={`font-mono font-semibold ${adjustmentColor}`}>
               {adjustmentSign}
               {formatCurrency(totalAdjustments)}
@@ -195,9 +194,9 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
           </div>
           <div className="pt-2 border-t border-moss-200/50">
             <div className="flex justify-between items-center text-base">
-              <span className="font-semibold text-gray-900">Normalized EBITDA:</span>
+              <span className="font-semibold text-foreground">Normalized EBITDA:</span>
               <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-gray-900">
+                <span className="font-mono font-bold text-foreground">
                   {formatCurrency(normalizedValue)}
                 </span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-moss-100 text-moss-800">

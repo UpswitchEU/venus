@@ -144,9 +144,9 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
   const hasFinancialData = companyData.filing_history.length > 0
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+    <div className="bg-card rounded-2xl shadow-xl border border-foreground/10 overflow-hidden">
       {/* Company Header */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-500 text-white p-6">
+      <div className="bg-gradient-to-r from-primary to-primary/90 text-white p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
@@ -177,22 +177,22 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
       </div>
 
       {/* Data Source Info */}
-      <div className="bg-primary-50 border-b border-primary-100 p-4">
+      <div className="bg-primary/10 border-b border-primary/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-primary-900">
             <TrendingUp className="w-4 h-4" />
             <span className="font-medium">Data Source:</span>
             <span>{companyData.data_source}</span>
-            <span className="text-primary-600">•</span>
+            <span className="text-primary">•</span>
             <span>{companyData.filing_history.length} years of history</span>
-            <span className="text-primary-600">•</span>
+            <span className="text-primary">•</span>
             <span className="font-semibold">
               {Math.round(companyData.completeness_score * 100)}% complete
             </span>
           </div>
           <button
             onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white hover:bg-gray-50 rounded-lg border border-primary-200 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-card hover:bg-muted rounded-lg border border-primary/20 transition-colors"
           >
             {isEditing ? (
               <>
@@ -213,12 +213,12 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
           {/* Latest Year (Editable) */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary-600" />
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
                 Latest Financial Year: {latestYear.year}
               </h3>
               {latestYear.filing_date && (
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-muted-foreground">
                   Filed: {new Date(latestYear.filing_date).toLocaleDateString()}
                 </span>
               )}
@@ -226,8 +226,8 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {/* Revenue */}
-              <div className="bg-gradient-to-br from-primary-50 to-canvas rounded-xl p-4 border border-primary-100">
-                <div className="text-sm font-medium text-gray-600 mb-1">Revenue</div>
+              <div className="bg-gradient-to-br from-primary/10 to-canvas rounded-xl p-4 border border-primary/20">
+                <div className="text-sm font-medium text-muted-foreground mb-1">Revenue</div>
                 {isEditing ? (
                   <input
                     type="number"
@@ -235,18 +235,18 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, revenue: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-gray-900 bg-white border border-gray-300 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatCurrency(editedData.revenue || 0)}
                   </div>
                 )}
               </div>
 
               {/* EBITDA */}
-              <div className="bg-gradient-to-br from-primary-50 to-canvas rounded-xl p-4 border border-primary-100">
-                <div className="text-sm font-medium text-gray-600 mb-1">EBITDA</div>
+              <div className="bg-gradient-to-br from-primary/10 to-canvas rounded-xl p-4 border border-primary/20">
+                <div className="text-sm font-medium text-muted-foreground mb-1">EBITDA</div>
                 {isEditing ? (
                   <input
                     type="number"
@@ -254,18 +254,18 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, ebitda: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-gray-900 bg-white border border-gray-300 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatCurrency(editedData.ebitda || 0)}
                   </div>
                 )}
               </div>
 
               {/* Net Income */}
-              <div className="bg-gradient-to-br from-primary-50 to-canvas rounded-xl p-4 border border-primary-100">
-                <div className="text-sm font-medium text-gray-600 mb-1">Net Income</div>
+              <div className="bg-gradient-to-br from-primary/10 to-canvas rounded-xl p-4 border border-primary/20">
+                <div className="text-sm font-medium text-muted-foreground mb-1">Net Income</div>
                 {isEditing ? (
                   <input
                     type="number"
@@ -273,10 +273,10 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, net_income: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-gray-900 bg-white border border-gray-300 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatCurrency(editedData.net_income || 0)}
                   </div>
                 )}
@@ -284,7 +284,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
 
               {/* Assets */}
               <div className="bg-gradient-to-br from-accent-50 to-canvas rounded-xl p-4 border border-accent-100">
-                <div className="text-sm font-medium text-gray-600 mb-1">Total Assets</div>
+                <div className="text-sm font-medium text-muted-foreground mb-1">Total Assets</div>
                 {isEditing ? (
                   <input
                     type="number"
@@ -292,10 +292,10 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, total_assets: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-gray-900 bg-white border border-gray-300 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatCurrency(editedData.total_assets || 0)}
                   </div>
                 )}
@@ -303,7 +303,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
 
               {/* Debt */}
               <div className="bg-gradient-to-br from-accent-50 to-canvas rounded-xl p-4 border border-accent-100">
-                <div className="text-sm font-medium text-gray-600 mb-1">Total Debt</div>
+                <div className="text-sm font-medium text-muted-foreground mb-1">Total Debt</div>
                 {isEditing ? (
                   <input
                     type="number"
@@ -311,18 +311,18 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, total_debt: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-gray-900 bg-white border border-gray-300 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatCurrency(editedData.total_debt || 0)}
                   </div>
                 )}
               </div>
 
               {/* Cash */}
-              <div className="bg-gradient-to-br from-primary-50 to-canvas rounded-xl p-4 border border-primary-100">
-                <div className="text-sm font-medium text-gray-600 mb-1">Cash</div>
+              <div className="bg-gradient-to-br from-primary/10 to-canvas rounded-xl p-4 border border-primary/20">
+                <div className="text-sm font-medium text-muted-foreground mb-1">Cash</div>
                 {isEditing ? (
                   <input
                     type="number"
@@ -330,10 +330,10 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, cash: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-gray-900 bg-white border border-gray-300 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatCurrency(editedData.cash || 0)}
                   </div>
                 )}
@@ -350,7 +350,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                 </button>
                 <button
                   onClick={handleCancelEdit}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-foreground/10 transition-colors"
                 >
                   <X className="w-4 h-4" /> Cancel
                 </button>
@@ -361,21 +361,21 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
           {/* Historical Data */}
           {companyData.filing_history.length > 1 && (
             <div className="mt-8">
-              <h4 className="text-base font-semibold text-gray-900 mb-3">Historical Data</h4>
+              <h4 className="text-base font-semibold text-foreground mb-3">Historical Data</h4>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-100 border-b border-gray-200">
+                  <thead className="bg-muted border-b border-foreground/10">
                     <tr>
-                      <th className="px-4 py-2 text-left font-medium text-gray-700">Year</th>
-                      <th className="px-4 py-2 text-right font-medium text-gray-700">Revenue</th>
-                      <th className="px-4 py-2 text-right font-medium text-gray-700">EBITDA</th>
-                      <th className="px-4 py-2 text-right font-medium text-gray-700">Net Income</th>
-                      <th className="px-4 py-2 text-right font-medium text-gray-700">Assets</th>
+                      <th className="px-4 py-2 text-left font-medium text-foreground">Year</th>
+                      <th className="px-4 py-2 text-right font-medium text-foreground">Revenue</th>
+                      <th className="px-4 py-2 text-right font-medium text-foreground">EBITDA</th>
+                      <th className="px-4 py-2 text-right font-medium text-foreground">Net Income</th>
+                      <th className="px-4 py-2 text-right font-medium text-foreground">Assets</th>
                     </tr>
                   </thead>
                   <tbody>
                     {companyData.filing_history.slice(1).map((year, idx) => (
-                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr key={idx} className="border-b border-foreground/10 hover:bg-muted">
                         <td className="px-4 py-3 font-medium">{year.year}</td>
                         <td className="px-4 py-3 text-right">
                           {formatCurrency(year.revenue || 0)}
@@ -406,7 +406,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
               Calculate Business Valuation
             </button>
             {isEditing && (
-              <p className="text-sm text-gray-500 text-center mt-2">
+              <p className="text-sm text-muted-foreground text-center mt-2">
                 Save your changes first before calculating
               </p>
             )}
@@ -415,11 +415,11 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
       ) : (
         // Show "No Financial Data" UI
         <div className="p-6 text-center">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <div className="bg-harvest-50 border border-harvest-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               📋 No Public Financial Data Available
             </h3>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               Financial data for {companyData.company_name} is not publicly available. You can
               proceed with manual data entry.
             </p>

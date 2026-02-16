@@ -119,7 +119,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({
         ref={modalRef}
         id="modal-content"
         tabIndex={-1}
-        className="bg-white rounded-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden shadow-2xl border border-gray-100 flex flex-col animate-scale-in focus:outline-none"
+        className="bg-card rounded-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden shadow-2xl border border-foreground/10 flex flex-col animate-scale-in focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         style={{
           willChange: 'transform',
@@ -127,16 +127,16 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 sm:px-8 pt-6 sm:pt-8 pb-5 sm:pb-6 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 sm:px-8 pt-6 sm:pt-8 pb-5 sm:pb-6 border-b border-foreground/10 flex-shrink-0">
           <h2
             id="modal-title"
-            className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight pr-4"
+            className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight pr-4"
           >
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-2 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 flex-shrink-0"
+            className="text-muted-foreground hover:text-foreground transition-colors duration-200 p-2 rounded-lg hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 flex-shrink-0"
             aria-label="Close modal"
             type="button"
           >

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/design-system/utils';
+import { springDefault, springSnappy } from '@/design-system/components/motion';
 import { AuroraButton as Button, Checkbox } from '@/design-system';
 import { VersionCompareModal, type HistoryVersion } from './VersionCompareModal';
 
@@ -168,7 +169,7 @@ function VisualTimeline({ versions }: { versions: HistoryVersion[] }) {
           className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-foreground/20 via-primary/50 to-primary rounded-full origin-left"
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
-          transition={{ type: 'spring', stiffness: 170, damping: 26, mass: 1 }}
+          transition={springDefault}
         />
 
         {/* Version Dots */}
@@ -185,7 +186,7 @@ function VisualTimeline({ versions }: { versions: HistoryVersion[] }) {
                 <motion.div
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: index * 0.1, type: 'spring', stiffness: 300 }}
+                  transition={{ ...springSnappy, delay: index * 0.1 }}
                   className={cn(
                     "relative w-4 h-4 rounded-full border-2 transition-all",
                     version.isCurrent 
@@ -527,7 +528,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                 key={version.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ ...springDefault, delay: index * 0.05 }}
                 className={cn(
                   "rounded-xl border transition-all duration-200",
                   isSelectedForCompare && "ring-2 ring-primary ring-offset-2 ring-offset-background",
@@ -633,7 +634,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+                      transition={springSnappy}
                       className="overflow-hidden"
                     >
                       <div className="px-4 pb-4 pt-0">

@@ -16,18 +16,26 @@ afterEach(() => {
 })
 
 // Mock Next.js router
+const mockRouter = {
+  push: vi.fn(),
+  replace: vi.fn(),
+  prefetch: vi.fn(),
+  back: vi.fn(),
+  forward: vi.fn(),
+  refresh: vi.fn(),
+}
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    prefetch: vi.fn(),
-    back: vi.fn(),
-    forward: vi.fn(),
-    refresh: vi.fn(),
-  }),
+  useRouter: () => mockRouter,
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
   useParams: () => ({}),
+}))
+
+// Mock next-view-transitions (useTransitionRouter returns same API as useRouter)
+vi.mock('next-view-transitions', () => ({
+  useTransitionRouter: () => mockRouter,
+  Link: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) =>
+    React.createElement('a', { href, ...props }, children),
 }))
 
 // Mock Next.js Image component

@@ -33,7 +33,7 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
 
   if (videos.length === 0) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
+      <div className="fixed inset-0 bg-gradient-to-br from-background via-background/95 to-background" />
     )
   }
 

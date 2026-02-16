@@ -99,13 +99,6 @@ const nextConfig = {
               chunks: 'async', // Load on demand
               priority: 12,
             },
-            // Feature modules - conversational flow
-            conversational: {
-              test: /src[\\/]features[\\/]conversational[\\/]/,
-              name: 'conversational-feature',
-              chunks: 'async',
-              priority: 8,
-            },
             // Feature modules - manual flow
             manual: {
               test: /src[\\/]features[\\/]manual[\\/]/,

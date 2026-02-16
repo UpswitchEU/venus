@@ -49,13 +49,13 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = () => {
             </div>
 
             {/* Always show "AI is thinking..." */}
-            <span className="text-[13px] font-medium text-zinc-400 tracking-wide">{message}</span>
+            <span className="text-[13px] font-medium text-muted-foreground tracking-wide">{message}</span>
           </div>
         </div>
       </div>
 
       {/* Timestamp */}
-      <div className="text-xs text-zinc-500 mt-1 text-left ml-11">
+      <div className="text-xs text-muted-foreground mt-1 text-left ml-11">
         {new Date().toLocaleTimeString()}
       </div>
     </motion.div>

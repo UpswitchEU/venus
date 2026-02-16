@@ -2,7 +2,6 @@
  * Valuation Toolbar Hooks - Unified Export
  *
  * Provides focused hooks for ValuationToolbar business logic:
- * - useValuationToolbarFlow: Flow switching logic
  * - useValuationToolbarName: Name editing logic
  * - useValuationToolbarAuth: Authentication/logout logic
  * - useValuationToolbarTabs: Tab switching logic
@@ -17,8 +16,6 @@ export type { UseValuationToolbarAuthReturn } from './useValuationToolbarAuth'
 export { useValuationToolbarAuth } from './useValuationToolbarAuth'
 export type { UseValuationToolbarDownloadReturn } from './useValuationToolbarDownload'
 export { useValuationToolbarDownload } from './useValuationToolbarDownload'
-export type { UseValuationToolbarFlowReturn } from './useValuationToolbarFlow'
-export { useValuationToolbarFlow } from './useValuationToolbarFlow'
 export type { UseValuationToolbarFullscreenReturn } from './useValuationToolbarFullscreen'
 export { useValuationToolbarFullscreen } from './useValuationToolbarFullscreen'
 export type {

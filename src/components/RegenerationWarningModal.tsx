@@ -40,9 +40,9 @@ export const RegenerationWarningModal: React.FC<RegenerationWarningModalProps> =
       <div className="absolute inset-0 bg-black/70" onClick={onCancel} />
 
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-md mx-4 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl">
+      <div className="relative z-10 w-full max-w-md mx-4 bg-popover border border-foreground/10 rounded-2xl shadow-2xl">
         {/* Header */}
-        <div className="p-6 border-b border-zinc-800">
+        <div className="p-6 border-b border-foreground/10">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-harvest-500/20 rounded-full flex items-center justify-center">
               <span className="text-harvest-400 text-xl">⚠️</span>
@@ -54,16 +54,16 @@ export const RegenerationWarningModal: React.FC<RegenerationWarningModalProps> =
         {/* Content */}
         <div className="p-6 space-y-4">
           <div className="space-y-2">
-            <p className="text-zinc-300">
+            <p className="text-foreground">
               You have an{' '}
               <span className="font-semibold text-white">existing valuation report</span> that will
               be <span className="font-semibold text-harvest-400">permanently overwritten</span>.
             </p>
 
             {completedAt && (
-              <p className="text-zinc-400 text-sm">
+              <p className="text-muted-foreground text-sm">
                 Previous report was generated on{' '}
-                <span className="font-medium text-zinc-300">{formatTimestamp(completedAt)}</span>
+                <span className="font-medium text-foreground">{formatTimestamp(completedAt)}</span>
               </p>
             )}
           </div>
@@ -78,8 +78,8 @@ export const RegenerationWarningModal: React.FC<RegenerationWarningModalProps> =
           </div>
 
           {/* Info Box */}
-          <div className="p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
-            <p className="text-xs text-zinc-400">
+          <div className="p-3 bg-muted/50 rounded-lg border border-foreground/10">
+            <p className="text-xs text-muted-foreground">
               💡 <span className="font-medium">Tip:</span> If you want to compare different
               valuations, consider downloading the current report first.
             </p>
@@ -87,10 +87,10 @@ export const RegenerationWarningModal: React.FC<RegenerationWarningModalProps> =
         </div>
 
         {/* Actions */}
-        <div className="p-6 border-t border-zinc-800 flex gap-3">
+        <div className="p-6 border-t border-foreground/10 flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors"
+            className="flex-1 px-4 py-3 bg-muted hover:bg-foreground/10 text-foreground rounded-lg font-medium transition-colors"
           >
             Cancel
           </button>

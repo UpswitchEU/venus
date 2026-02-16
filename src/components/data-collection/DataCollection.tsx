@@ -110,17 +110,17 @@ export const DataCollection: React.FC<DataCollectionProps> = ({
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Progress Indicator */}
-      <div className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700/50">
+      <div className="bg-muted/50 rounded-lg p-4 border border-foreground/10">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-white">Complete the Form</h3>
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-muted-foreground">
             {completedFields}/{totalFields} fields
           </span>
         </div>
 
-        <div className="w-full bg-zinc-700 rounded-full h-2">
+        <div className="w-full bg-muted rounded-full h-2">
           <div
-            className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+            className="bg-primary h-2 rounded-full transition-all duration-300"
             style={{ width: `${(completedFields / totalFields) * 100}%` }}
           />
         </div>

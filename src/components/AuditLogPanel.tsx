@@ -78,24 +78,24 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
   if (auditLog.length === 0) {
     return (
       <div className="p-8 text-center">
-        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Edit3 className="w-8 h-8 text-gray-500" />
+        <div className="w-16 h-16 bg-foreground/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Edit3 className="w-8 h-8 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No audit trail yet</h3>
-        <p className="text-sm text-gray-600">Changes and regenerations will appear here</p>
+        <h3 className="text-lg font-semibold text-foreground mb-2">No audit trail yet</h3>
+        <p className="text-sm text-muted-foreground">Changes and regenerations will appear here</p>
       </div>
     )
   }
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-card">
       {/* Header with statistics */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-foreground/10">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-semibold text-gray-900">Audit Trail</h2>
+          <h2 className="text-2xl font-semibold text-foreground">Audit Trail</h2>
           <button
             onClick={handleExport}
-            className="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-primary hover:text-primary/90 hover:bg-primary/10 rounded-lg transition-colors"
           >
             Export CSV
           </button>
@@ -103,29 +103,29 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
 
         {/* Statistics */}
         <div className="grid grid-cols-3 gap-4">
-          <div className="p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-600 font-medium mb-1">Total Edits</p>
-            <p className="text-2xl font-bold text-blue-700">{stats.totalEdits}</p>
+          <div className="p-3 bg-primary/10 rounded-lg">
+            <p className="text-sm text-primary font-medium mb-1">Total Edits</p>
+            <p className="text-2xl font-bold text-primary">{stats.totalEdits}</p>
           </div>
-          <div className="p-3 bg-green-50 rounded-lg">
-            <p className="text-sm text-green-600 font-medium mb-1">Regenerations</p>
-            <p className="text-2xl font-bold text-green-700">{stats.totalRegenerations}</p>
+          <div className="p-3 bg-moss-50 rounded-lg">
+            <p className="text-sm text-moss-600 font-medium mb-1">Regenerations</p>
+            <p className="text-2xl font-bold text-moss-700">{stats.totalRegenerations}</p>
           </div>
-          <div className="p-3 bg-purple-50 rounded-lg">
-            <p className="text-sm text-purple-600 font-medium mb-1">Versions</p>
-            <p className="text-2xl font-bold text-purple-700">{stats.totalVersions}</p>
+          <div className="p-3 bg-accent/10 rounded-lg">
+            <p className="text-sm text-accent font-medium mb-1">Versions</p>
+            <p className="text-2xl font-bold text-accent">{stats.totalVersions}</p>
           </div>
         </div>
 
         {/* Most edited fields */}
         {stats.mostEditedFields.length > 0 && (
           <div className="mt-4">
-            <p className="text-sm text-gray-600 font-medium mb-2">Most Edited Fields:</p>
+            <p className="text-sm text-muted-foreground font-medium mb-2">Most Edited Fields:</p>
             <div className="flex flex-wrap gap-2">
               {stats.mostEditedFields.map((item) => (
                 <span
                   key={item.field}
-                  className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
+                  className="px-3 py-1 bg-muted text-foreground text-sm rounded-full"
                 >
                   {item.field} ({item.count})
                 </span>
@@ -139,7 +139,7 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
           <select
             value={filterOperation}
             onChange={(e) => setFilterOperation(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="px-3 py-2 border border-foreground/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="all">All Operations</option>
             <option value="EDIT">Field Edits</option>
@@ -152,7 +152,7 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
 
       {/* Timeline */}
       <div className="flex-1 overflow-y-auto">
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-foreground/10">
           {sortedEntries.map((entry) => (
             <AuditLogEntry key={entry.id} entry={entry} countryCode={countryCode} />
           ))}
@@ -201,13 +201,13 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
   const getIcon = () => {
     switch (entry.operation) {
       case 'EDIT':
-        return <Edit3 className="w-5 h-5 text-blue-600" />
+        return <Edit3 className="w-5 h-5 text-primary" />
       case 'REGENERATE':
-        return <RefreshCw className="w-5 h-5 text-green-600" />
+        return <RefreshCw className="w-5 h-5 text-moss-600" />
       case 'VERSION_CREATE':
-        return <Save className="w-5 h-5 text-purple-600" />
+        return <Save className="w-5 h-5 text-accent" />
       default:
-        return <Calendar className="w-5 h-5 text-gray-600" />
+        return <Calendar className="w-5 h-5 text-muted-foreground" />
     }
   }
 
@@ -231,13 +231,13 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
   const getBgColor = (): string => {
     switch (entry.operation) {
       case 'EDIT':
-        return 'bg-blue-50'
+        return 'bg-primary/10'
       case 'REGENERATE':
-        return 'bg-green-50'
+        return 'bg-moss-50'
       case 'VERSION_CREATE':
-        return 'bg-purple-50'
+        return 'bg-accent/10'
       default:
-        return 'bg-gray-50'
+        return 'bg-muted'
     }
   }
 
@@ -246,7 +246,7 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
   const bgColor = getBgColor()
 
   return (
-    <div className="p-4 hover:bg-gray-50 transition-colors">
+    <div className="p-4 hover:bg-muted transition-colors">
       <div className="flex items-start gap-4">
         {/* Icon */}
         <div
@@ -259,30 +259,30 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-gray-900">{operationLabel}</span>
-            <span className="text-sm text-gray-500">·</span>
-            <span className="text-sm text-gray-600">{formatDate(entry.timestamp)}</span>
+            <span className="font-semibold text-foreground">{operationLabel}</span>
+            <span className="text-sm text-muted-foreground">·</span>
+            <span className="text-sm text-muted-foreground">{formatDate(entry.timestamp)}</span>
           </div>
 
           {/* Details based on operation type */}
           {entry.operation === 'EDIT' && entry.metadata?.field ? (
-            <div className="text-sm text-gray-700 mt-2">
+            <div className="text-sm text-muted-foreground mt-2">
               <p className="mb-1">
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-foreground">
                   {String(entry.metadata?.fieldLabel || entry.metadata?.field || '')}
                 </span>
                 {' changed'}
               </p>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-gray-600">{formatValue(entry.metadata.oldValue)}</span>
-                <span className="text-gray-400">→</span>
-                <span className="text-gray-900 font-medium">
+                <span className="text-muted-foreground">{formatValue(entry.metadata.oldValue)}</span>
+                <span className="text-muted-foreground">→</span>
+                <span className="text-foreground font-medium">
                   {formatValue(entry.metadata.newValue)}
                 </span>
                 {typeof entry.metadata.percentChange === 'number' && (
                   <span
                     className={`text-sm font-medium ${
-                      entry.metadata.percentChange > 0 ? 'text-green-600' : 'text-red-600'
+                      entry.metadata.percentChange > 0 ? 'text-moss-600' : 'text-rust-600'
                     }`}
                   >
                     ({entry.metadata.percentChange > 0 ? '+' : ''}
@@ -294,7 +294,7 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
           ) : null}
 
           {entry.operation === 'REGENERATE' && entry.metadata ? (
-            <div className="text-sm text-gray-700 mt-2">
+            <div className="text-sm text-muted-foreground mt-2">
               <p className="mb-1">
                 Created{' '}
                 <span className="font-medium">
@@ -303,7 +303,7 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
               </p>
               {Array.isArray(entry.metadata.significantChanges) &&
                 entry.metadata.significantChanges.length > 0 && (
-                  <p className="text-gray-600">
+                  <p className="text-muted-foreground">
                     Significant changes: {entry.metadata.significantChanges.join(', ')}
                   </p>
                 )}
@@ -311,7 +311,7 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
           ) : null}
 
           {entry.operation === 'VERSION_CREATE' && entry.metadata ? (
-            <div className="text-sm text-gray-700 mt-2">
+            <div className="text-sm text-muted-foreground mt-2">
               <p>
                 <span className="font-medium">{String(entry.metadata.versionLabel || '')}</span>
                 {' saved'}
@@ -321,7 +321,7 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
 
           {/* User info */}
           {entry.userId && (
-            <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+            <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
               <User className="w-3 h-3" />
               <span>{entry.userId}</span>
             </div>
@@ -338,11 +338,11 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
 export function AuditLogEmpty() {
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-      <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-        <Edit3 className="w-8 h-8 text-gray-500" />
+      <div className="w-16 h-16 bg-foreground/10 rounded-full flex items-center justify-center mb-4">
+        <Edit3 className="w-8 h-8 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">No changes yet</h3>
-      <p className="text-sm text-gray-600 max-w-sm">
+      <h3 className="text-lg font-semibold text-foreground mb-2">No changes yet</h3>
+      <p className="text-sm text-muted-foreground max-w-sm">
         Edit fields or regenerate the valuation to see the audit trail here
       </p>
     </div>

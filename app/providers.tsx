@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { LogoutListener } from '../src/components/LogoutListener'
+import { ScrollToTop } from '../src/utils'
 import { ToastProvider } from '../src/hooks/useToast'
 import { registerServiceWorker } from '../src/utils/serviceWorkerRegistration'
 // RUM is auto-initialized on import
@@ -45,6 +46,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
       <LogoutListener />
+      <ScrollToTop />
       {children}
     </ToastProvider>
   )

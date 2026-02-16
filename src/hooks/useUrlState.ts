@@ -8,7 +8,8 @@
  * - Syncs URL with component state
  */
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useTransitionRouter } from 'next-view-transitions'
 import { useCallback, useEffect, useRef } from 'react'
 
 interface UrlState {
@@ -40,7 +41,7 @@ interface UseUrlStateReturn {
  * - Preserves other query parameters
  */
 export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): UseUrlStateReturn {
-  const router = useRouter()
+  const router = useTransitionRouter()
   const searchParams = useSearchParams()
   const isUpdatingRef = useRef(false)
   const lastStateRef = useRef<UrlState>({})

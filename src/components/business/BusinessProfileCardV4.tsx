@@ -8,7 +8,7 @@
 'use client'
 
 import { Edit } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useTransitionRouter } from 'next-view-transitions'
 import React, { useState } from 'react'
 import { getBusinessTypeIcon, getBusinessTypeTitle } from '../../utils/businessTypeDisplay'
 import type { BusinessInfo } from '../../utils/valuationSessionMapper'
@@ -43,7 +43,7 @@ const BusinessProfileCardV4: React.FC<BusinessProfileCardV4Props> = ({
   latestValuationReport,
   onCreateValuation,
 }) => {
-  const router = useRouter()
+  const router = useTransitionRouter()
   const [hoveredBadge, setHoveredBadge] = useState<string | null>(null)
 
   if (!businessInfo) return null
@@ -104,7 +104,7 @@ const BusinessProfileCardV4: React.FC<BusinessProfileCardV4Props> = ({
               className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 p-2 sm:p-2.5 bg-white/90 backdrop-blur-sm rounded-full opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 transition-opacity duration-200 z-20 hover:bg-white touch-manipulation"
               style={{ minWidth: '44px', minHeight: '44px' }}
             >
-              <Edit className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
+              <Edit className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
             </button>
           )}
 
@@ -122,9 +122,9 @@ const BusinessProfileCardV4: React.FC<BusinessProfileCardV4Props> = ({
                   <span className="text-xl">💰</span>
                 </button>
                 {hoveredBadge === 'valuation' && (
-                  <div className="absolute left-12 top-0 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap z-20">
+                  <div className="absolute left-12 top-0 bg-popover text-foreground text-xs px-3 py-2 rounded-lg whitespace-nowrap z-20">
                     Get valuation
-                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-popover rotate-45"></div>
                   </div>
                 )}
               </div>
@@ -140,9 +140,9 @@ const BusinessProfileCardV4: React.FC<BusinessProfileCardV4Props> = ({
                     <span className="text-xl">💰</span>
                   </button>
                   {hoveredBadge === 'valuation-complete' && (
-                    <div className="absolute left-12 top-0 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap z-20">
+                    <div className="absolute left-12 top-0 bg-popover text-foreground text-xs px-3 py-2 rounded-lg whitespace-nowrap z-20">
                       {formatValuationAmount(latestValuationReport.businessValue)}
-                      <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                      <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-popover rotate-45"></div>
                     </div>
                   )}
                 </div>
@@ -176,9 +176,9 @@ const BusinessProfileCardV4: React.FC<BusinessProfileCardV4Props> = ({
                   }}
                 />
                 {hoveredBadge === 'owner' && (
-                  <div className="absolute right-0 top-14 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap z-20">
+                  <div className="absolute right-0 top-14 bg-popover text-foreground text-xs px-3 py-2 rounded-lg whitespace-nowrap z-20">
                     Owned by {profileCardData.fullName}
-                    <div className="absolute right-3 top-0 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                    <div className="absolute right-3 top-0 -translate-y-1/2 w-2 h-2 bg-popover rotate-45"></div>
                   </div>
                 )}
               </div>
@@ -196,14 +196,14 @@ const BusinessProfileCardV4: React.FC<BusinessProfileCardV4Props> = ({
                   }}
                   onMouseEnter={() => setHoveredBadge('profile')}
                   onMouseLeave={() => setHoveredBadge(null)}
-                  className="w-10 h-10 bg-white hover:bg-gray-50 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 border-2 border-teal-500"
+                  className="w-10 h-10 bg-white hover:bg-muted rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 border-2 border-teal-500"
                 >
                   <span className="text-xl">👤</span>
                 </button>
                 {hoveredBadge === 'profile' && (
-                  <div className="absolute right-0 top-12 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap z-20">
+                  <div className="absolute right-0 top-12 bg-popover text-foreground text-xs px-3 py-2 rounded-lg whitespace-nowrap z-20">
                     Guest user
-                    <div className="absolute right-3 top-0 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                    <div className="absolute right-3 top-0 -translate-y-1/2 w-2 h-2 bg-popover rotate-45"></div>
                   </div>
                 )}
               </div>
