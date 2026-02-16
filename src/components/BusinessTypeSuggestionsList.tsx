@@ -34,7 +34,7 @@ export const BusinessTypeSuggestionsList = ({
 
   return (
     <div className="mt-4 space-y-2">
-      <div className="text-xs text-zinc-400 mb-3">
+      <div className="text-xs text-muted-foreground mb-3">
         Select the business type that best describes your business:
       </div>
 
@@ -47,9 +47,9 @@ export const BusinessTypeSuggestionsList = ({
             className="w-full text-left group relative"
             aria-label={`Select ${suggestion.title}`}
           >
-            <div className="flex items-start gap-3 p-3 bg-zinc-800/50 border border-zinc-700/50 rounded-lg hover:border-primary-500/50 hover:bg-zinc-800/70 transition-all duration-200 cursor-pointer">
+            <div className="flex items-start gap-3 p-3 bg-muted border border-foreground/20 rounded-lg hover:border-primary/30 hover:bg-muted/80 transition-all duration-200 cursor-pointer">
               {/* Number Badge */}
-              <div className="flex-shrink-0 w-8 h-8 bg-primary-600/20 text-primary-400 rounded-full flex items-center justify-center text-sm font-semibold">
+              <div className="flex-shrink-0 w-8 h-8 bg-primary/20 text-primary rounded-full flex items-center justify-center text-sm font-semibold">
                 {suggestion.number}
               </div>
 
@@ -57,15 +57,15 @@ export const BusinessTypeSuggestionsList = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-lg flex-shrink-0">{suggestion.icon || '🏢'}</span>
-                  <span className="font-semibold text-white group-hover:text-primary-300 transition-colors">
+                  <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
                     {suggestion.title}
                   </span>
                 </div>
                 {suggestion.description && (
-                  <div className="text-xs text-zinc-400 mt-1 ml-8">{suggestion.description}</div>
+                  <div className="text-xs text-muted-foreground mt-1 ml-8">{suggestion.description}</div>
                 )}
                 {suggestion.category && (
-                  <div className="text-xs text-zinc-500 mt-1 ml-8 font-medium">
+                  <div className="text-xs text-muted-foreground mt-1 ml-8 font-medium">
                     {/* ✅ FIX: Handle category as either string or object */}
                     {typeof suggestion.category === 'string'
                       ? suggestion.category
@@ -76,7 +76,7 @@ export const BusinessTypeSuggestionsList = ({
 
               {/* Hover Indicator */}
               <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="w-2 h-2 bg-primary-500 rounded-full" />
+                <div className="w-2 h-2 bg-primary rounded-full" />
               </div>
             </div>
           </button>
@@ -86,10 +86,10 @@ export const BusinessTypeSuggestionsList = ({
       {/* None of these button */}
       <button
         onClick={() => handleSelect('none')}
-        className="w-full mt-3 p-3 bg-zinc-800/30 border border-zinc-700/30 rounded-lg hover:border-zinc-600 hover:bg-zinc-800/50 transition-all duration-200 text-center"
+        className="w-full mt-3 p-3 bg-muted border border-foreground/20 rounded-lg hover:border-foreground/30 hover:bg-muted/80 transition-all duration-200 text-center"
         aria-label="None of these business types match"
       >
-        <div className="flex items-center justify-center gap-2 text-sm text-zinc-300 hover:text-white">
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
           <span>None of these match - let me type it</span>
         </div>

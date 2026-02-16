@@ -33,7 +33,7 @@ export function AssetInspector() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-xl hover:bg-gray-800 transition-colors z-50 text-sm font-medium"
+        className="fixed bottom-4 right-4 bg-background text-foreground px-4 py-2 rounded-lg shadow-xl hover:bg-muted transition-colors z-50 text-sm font-medium border border-foreground/10"
       >
         🔍 Session Inspector
       </button>
@@ -41,13 +41,13 @@ export function AssetInspector() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 bg-white shadow-2xl rounded-lg w-96 max-h-[600px] overflow-hidden z-50 border border-gray-200">
+    <div className="fixed bottom-4 right-4 bg-card shadow-2xl rounded-lg w-96 max-h-[600px] overflow-hidden z-50 border border-foreground/10">
       {/* Header */}
-      <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between">
+      <div className="bg-background text-foreground px-4 py-3 flex items-center justify-between border-b border-foreground/10">
         <h3 className="font-bold text-sm">🔍 Session Inspector</h3>
         <button
           onClick={() => setIsOpen(false)}
-          className="text-gray-400 hover:text-white transition-colors"
+          className="text-muted-foreground hover:text-foreground transition-colors"
         >
           ✕
         </button>
@@ -56,31 +56,31 @@ export function AssetInspector() {
       {/* Session state */}
       <div className="p-4 space-y-3 overflow-y-auto max-h-[520px]">
         {/* Status */}
-        <div className="border border-gray-200 rounded-lg p-3 bg-white">
-          <div className="font-medium text-sm text-gray-900 mb-2">Status</div>
+        <div className="border border-foreground/10 rounded-lg p-3 bg-muted/30">
+          <div className="font-medium text-sm text-foreground mb-2">Status</div>
           <div className="space-y-1 text-xs">
             <div className="flex justify-between">
-              <span className="text-gray-600">Loading:</span>
-              <span className={isLoading ? 'text-blue-600 font-medium' : 'text-gray-500'}>
+              <span className="text-muted-foreground">Loading:</span>
+              <span className={isLoading ? 'text-primary font-medium' : 'text-muted-foreground'}>
                 {isLoading ? 'Yes' : 'No'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Saving:</span>
-              <span className={isSaving ? 'text-blue-600 font-medium' : 'text-gray-500'}>
+              <span className="text-muted-foreground">Saving:</span>
+              <span className={isSaving ? 'text-primary font-medium' : 'text-muted-foreground'}>
                 {isSaving ? 'Yes' : 'No'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Has Changes:</span>
-              <span className={hasUnsavedChanges ? 'text-amber-600 font-medium' : 'text-gray-500'}>
+              <span className="text-muted-foreground">Has Changes:</span>
+              <span className={hasUnsavedChanges ? 'text-warning font-medium' : 'text-muted-foreground'}>
                 {hasUnsavedChanges ? 'Yes' : 'No'}
               </span>
             </div>
             {lastSaved && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Last Saved:</span>
-                <span className="text-gray-900">{lastSaved.toLocaleTimeString()}</span>
+                <span className="text-muted-foreground">Last Saved:</span>
+                <span className="text-foreground">{lastSaved.toLocaleTimeString()}</span>
               </div>
             )}
           </div>
@@ -88,38 +88,38 @@ export function AssetInspector() {
 
         {/* Session Data */}
         {session && (
-          <div className="border border-gray-200 rounded-lg p-3 bg-white">
-            <div className="font-medium text-sm text-gray-900 mb-2">Session</div>
+          <div className="border border-foreground/10 rounded-lg p-3 bg-muted/30">
+            <div className="font-medium text-sm text-foreground mb-2">Session</div>
             <div className="space-y-1 text-xs">
               <div className="flex justify-between">
-                <span className="text-gray-600">Report ID:</span>
-                <span className="text-gray-900 font-mono">{session.reportId?.slice(-8)}</span>
+                <span className="text-muted-foreground">Report ID:</span>
+                <span className="text-foreground font-mono">{session.reportId?.slice(-8)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">View:</span>
-                <span className="text-gray-900">{session.currentView}</span>
+                <span className="text-muted-foreground">View:</span>
+                <span className="text-foreground">{session.currentView}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Session Data:</span>
-                <span className={session.sessionData ? 'text-green-600' : 'text-gray-400'}>
+                <span className="text-muted-foreground">Session Data:</span>
+                <span className={session.sessionData ? 'text-success' : 'text-muted-foreground'}>
                   {session.sessionData ? '✓' : '✗'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">HTML Report:</span>
-                <span className={session.htmlReport ? 'text-green-600' : 'text-gray-400'}>
+                <span className="text-muted-foreground">HTML Report:</span>
+                <span className={session.htmlReport ? 'text-success' : 'text-muted-foreground'}>
                   {session.htmlReport ? '✓' : '✗'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Info Tab:</span>
-                <span className={session.infoTabHtml ? 'text-green-600' : 'text-gray-400'}>
+                <span className="text-muted-foreground">Info Tab:</span>
+                <span className={session.infoTabHtml ? 'text-success' : 'text-muted-foreground'}>
                   {session.infoTabHtml ? '✓' : '✗'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Result:</span>
-                <span className={session.valuationResult ? 'text-green-600' : 'text-gray-400'}>
+                <span className="text-muted-foreground">Result:</span>
+                <span className={session.valuationResult ? 'text-success' : 'text-muted-foreground'}>
                   {session.valuationResult ? '✓' : '✗'}
                 </span>
               </div>
@@ -136,7 +136,7 @@ export function AssetInspector() {
         )}
 
         {!session && !isLoading && (
-          <div className="text-center text-gray-500 text-sm py-4">No session loaded</div>
+          <div className="text-center text-muted-foreground text-sm py-4">No session loaded</div>
         )}
       </div>
     </div>

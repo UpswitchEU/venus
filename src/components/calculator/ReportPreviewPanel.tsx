@@ -86,7 +86,7 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
             <p className="text-xs text-slate-400 uppercase tracking-[0.2em] mb-4">Indicatieve Bedrijfsschatting</p>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">{report.companyName}</h1>
 
-            <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6 mb-6">
+            <div className="bg-foreground/5 backdrop-blur-sm rounded-2xl border border-foreground/10 p-6 mb-6">
               <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">Geschatte Ondernemingswaarde</p>
               <div className="flex items-baseline gap-4">
                 <span className="text-5xl md:text-6xl font-bold font-mono tabular-nums text-teal-400">

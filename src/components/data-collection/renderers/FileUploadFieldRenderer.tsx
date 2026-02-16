@@ -123,14 +123,14 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex items-center space-x-2">
-        <Upload className="w-4 h-4 text-primary-400" />
-        <label className="text-sm font-medium text-white">
+        <Upload className="w-4 h-4 text-primary" />
+        <label className="text-sm font-medium text-foreground">
           {field.label}
           {field.required && <span className="text-destructive ml-1">*</span>}
         </label>
       </div>
 
-      {field.description && <p className="text-xs text-zinc-400">{field.description}</p>}
+      {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
 
       {/* File Upload Area */}
       {!uploadedFile && (
@@ -142,8 +142,8 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
             relative border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer
             ${
               isDragOver
-                ? 'border-primary-400 bg-primary-600/10'
-                : 'border-zinc-600 hover:border-zinc-500'
+                ? 'border-primary bg-primary/10'
+                : 'border-foreground/20 hover:border-foreground/30'
             }
             ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
           `}
@@ -158,9 +158,9 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
             className="hidden"
           />
 
-          <FileText className="w-8 h-8 text-zinc-400 mx-auto mb-2" />
-          <p className="text-sm text-zinc-300 mb-1">Drop your file here or click to browse</p>
-          <p className="text-xs text-zinc-500">
+          <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground mb-1">Drop your file here or click to browse</p>
+          <p className="text-xs text-muted-foreground">
             Supported formats: {supportedFormats.join(', ')} (max{' '}
             {Math.round(maxSize / 1024 / 1024)}MB)
           </p>
@@ -169,11 +169,11 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
 
       {/* Processing State */}
       {uploadedFile && isProcessing && (
-        <div className="flex items-center space-x-3 p-4 bg-zinc-800/50 rounded-lg border border-zinc-600/50">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-500"></div>
+        <div className="flex items-center space-x-3 p-4 bg-muted rounded-lg border border-foreground/20">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
           <div>
-            <p className="text-sm text-white">Processing {uploadedFile.name}...</p>
-            <p className="text-xs text-zinc-400">
+            <p className="text-sm text-foreground">Processing {uploadedFile.name}...</p>
+            <p className="text-xs text-muted-foreground">
               Extracting {field.label.toLowerCase()} from document
             </p>
           </div>
@@ -182,19 +182,19 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
 
       {/* Success State */}
       {uploadedFile && !isProcessing && !processingError && value !== undefined && (
-        <div className="flex items-center justify-between p-4 bg-green-900/20 rounded-lg border border-green-700/50">
+        <div className="flex items-center justify-between p-4 bg-success/10 rounded-lg border border-success/30">
           <div className="flex items-center space-x-3">
-            <CheckCircle className="w-5 h-5 text-green-400" />
+            <CheckCircle className="w-5 h-5 text-success" />
             <div>
-              <p className="text-sm text-white">Successfully processed {uploadedFile.name}</p>
-              <p className="text-xs text-zinc-400">
-                Extracted: <span className="text-green-300">{formatValue(value, field)}</span>
+              <p className="text-sm text-foreground">Successfully processed {uploadedFile.name}</p>
+              <p className="text-xs text-muted-foreground">
+                Extracted: <span className="text-success">{formatValue(value, field)}</span>
               </p>
             </div>
           </div>
           <button
             onClick={removeFile}
-            className="text-zinc-400 hover:text-zinc-300 text-sm"
+            className="text-muted-foreground hover:text-foreground text-sm"
             disabled={disabled}
           >
             Remove
@@ -208,11 +208,11 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
           <AlertCircle className="w-5 h-5 text-destructive" />
           <div className="flex-1">
             <p className="text-sm text-destructive">Processing failed</p>
-            <p className="text-xs text-zinc-400">{processingError}</p>
+            <p className="text-xs text-muted-foreground">{processingError}</p>
           </div>
           <button
             onClick={removeFile}
-            className="text-zinc-400 hover:text-zinc-300 text-sm"
+            className="text-muted-foreground hover:text-foreground text-sm"
             disabled={disabled}
           >
             Try again
@@ -222,11 +222,11 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
 
       {/* Extraction Hints */}
       {field.id && (
-        <div className="bg-zinc-800/30 rounded-lg p-3 border border-zinc-700/30">
-          <p className="text-xs font-medium text-zinc-300 mb-2">
+        <div className="bg-muted rounded-lg p-3 border border-foreground/20">
+          <p className="text-xs font-medium text-muted-foreground mb-2">
             💡 What to look for in your file:
           </p>
-          <ul className="text-xs text-zinc-400 space-y-1">
+          <ul className="text-xs text-muted-foreground space-y-1">
             {getExtractionHints(field).map((hint, index) => (
               <li key={index}>• {hint}</li>
             ))}

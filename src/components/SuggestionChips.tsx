@@ -44,7 +44,7 @@ export const SuggestionChips: React.FC<SuggestionChipsProps> = ({
               initial={{ opacity: 0, scale: 0.9, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ delay: index * 0.05, duration: 0.2 }}
+              transition={{ delay: index * 0.05, type: 'spring', stiffness: 300, damping: 30 }}
               onClick={() => onSelect(suggestion.text)}
               className="group relative flex items-center gap-2.5 px-4 py-2.5 bg-zinc-800/40 border border-white/5 rounded-xl hover:bg-zinc-800/80 hover:border-primary-500/30 active:scale-[0.98] transition-all duration-200 shadow-sm hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] backdrop-blur-sm"
             >
@@ -77,7 +77,7 @@ export const SuggestionChips: React.FC<SuggestionChipsProps> = ({
               key="keep-original"
               initial={{ opacity: 0, scale: 0.9, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ delay: suggestions.length * 0.05, duration: 0.2 }}
+              transition={{ delay: suggestions.length * 0.05, type: 'spring', stiffness: 300, damping: 30 }}
               onClick={onDismiss}
               className="flex items-center gap-2 px-4 py-2.5 bg-transparent border border-white/5 rounded-xl hover:bg-white/5 hover:border-white/10 active:scale-[0.98] transition-all duration-200 group"
             >

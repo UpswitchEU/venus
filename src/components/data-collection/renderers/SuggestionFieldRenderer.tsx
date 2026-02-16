@@ -24,7 +24,7 @@ export const SuggestionFieldRenderer: React.FC<FieldRendererProps> = ({
     // Fallback to manual input if no suggestions
     return (
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-white">
+        <label className="block text-sm font-medium text-foreground">
           {field.label}
           {field.required && <span className="text-destructive ml-1">*</span>}
         </label>
@@ -34,7 +34,7 @@ export const SuggestionFieldRenderer: React.FC<FieldRendererProps> = ({
           onChange={(e) => onChange(e.target.value, 'suggestion')}
           placeholder={field.placeholder}
           disabled={disabled}
-          className="w-full px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 py-2 bg-muted border border-foreground/20 rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         />
         {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
       </div>
@@ -44,14 +44,14 @@ export const SuggestionFieldRenderer: React.FC<FieldRendererProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex items-center space-x-2">
-        <Sparkles className="w-4 h-4 text-primary-400" />
-        <label className="text-sm font-medium text-white">
+        <Sparkles className="w-4 h-4 text-primary" />
+        <label className="text-sm font-medium text-foreground">
           {field.label}
           {field.required && <span className="text-destructive ml-1">*</span>}
         </label>
       </div>
 
-      {field.description && <p className="text-xs text-zinc-400">{field.description}</p>}
+      {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
 
       <div className="grid grid-cols-2 gap-2">
         {suggestions.map((suggestion, index) => (
@@ -63,8 +63,8 @@ export const SuggestionFieldRenderer: React.FC<FieldRendererProps> = ({
               px-3 py-2 text-left rounded-lg border transition-all duration-200 text-sm
               ${
                 value === parseSuggestionValue(suggestion, field)
-                  ? 'bg-primary-600 border-primary-500 text-white shadow-lg'
-                  : 'bg-zinc-800/50 border-zinc-600/50 text-zinc-300 hover:bg-zinc-700/50 hover:border-zinc-500/50'
+                  ? 'bg-primary border-primary text-primary-foreground shadow-lg'
+                  : 'bg-muted border-foreground/20 text-muted-foreground hover:bg-muted/80 hover:border-foreground/30'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
             `}
@@ -82,7 +82,7 @@ export const SuggestionFieldRenderer: React.FC<FieldRendererProps> = ({
           onChange={(e) => onChange(e.target.value, 'suggestion')}
           placeholder={`Or enter custom ${field.label.toLowerCase()}...`}
           disabled={disabled}
-          className="w-full px-3 py-2 bg-zinc-800/50 border border-zinc-600/50 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 text-sm"
+          className="w-full px-3 py-2 bg-muted border border-foreground/20 rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
         />
       </div>
 

@@ -104,38 +104,38 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
       const context = isValuationError(error) ? error.context : undefined
 
       return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-          <div className="max-w-lg w-full bg-zinc-900 border border-zinc-800 rounded-lg p-6 sm:p-8">
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="max-w-lg w-full bg-card border border-foreground/10 rounded-lg p-6 sm:p-8">
             {/* Icon */}
             <div className="flex items-center justify-center mb-4">
-              <div className="w-16 h-16 bg-rust-500/20 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-8 h-8 text-rust-400" />
+              <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-8 h-8 text-destructive" />
               </div>
             </div>
 
             {/* Error Title */}
-            <h2 className="text-2xl font-bold text-white text-center mb-2">
+            <h2 className="text-2xl font-bold text-foreground text-center mb-2">
               {isRecoverable ? 'Something went wrong' : 'Critical error'}
             </h2>
 
             {/* Error Message */}
-            <p className="text-zinc-400 text-center mb-6">{userMessage}</p>
+            <p className="text-muted-foreground text-center mb-6">{userMessage}</p>
 
             {/* Error Code (if available) */}
             {isValuationError(error) && (
-              <div className="bg-zinc-800 border border-zinc-700 rounded p-3 mb-6">
-                <div className="text-xs text-zinc-500 mb-1">Error Code</div>
-                <div className="text-sm font-mono text-zinc-300">{error.code}</div>
+              <div className="bg-muted border border-foreground/10 rounded p-3 mb-6">
+                <div className="text-xs text-muted-foreground mb-1">Error Code</div>
+                <div className="text-sm font-mono text-foreground">{error.code}</div>
               </div>
             )}
 
             {/* Context Info (in development mode) */}
             {process.env.NODE_ENV === 'development' && context && (
-              <details className="bg-zinc-800 border border-zinc-700 rounded p-3 mb-6">
-                <summary className="text-xs text-zinc-400 cursor-pointer">
+              <details className="bg-muted border border-foreground/10 rounded p-3 mb-6">
+                <summary className="text-xs text-muted-foreground cursor-pointer">
                   Technical Details (Dev Mode)
                 </summary>
-                <pre className="mt-2 text-xs text-zinc-300 overflow-auto">
+                <pre className="mt-2 text-xs text-muted-foreground overflow-auto">
                   {JSON.stringify(context, null, 2)}
                 </pre>
               </details>
@@ -146,7 +146,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
               {isRecoverable && (
                 <button
                   onClick={this.handleReset}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors font-medium"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors font-medium"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Try Again
@@ -154,7 +154,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
               )}
               <button
                 onClick={this.handleGoHome}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition-colors font-medium"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-muted hover:bg-muted/80 text-foreground rounded-lg transition-colors font-medium"
               >
                 <Home className="w-4 h-4" />
                 Go Home
@@ -163,11 +163,11 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
 
             {/* Stack Trace (development only) */}
             {process.env.NODE_ENV === 'development' && this.state.error.stack && (
-              <details className="mt-6 bg-zinc-950 border border-zinc-800 rounded p-4">
-                <summary className="text-xs text-zinc-500 cursor-pointer">
+              <details className="mt-6 bg-background border border-foreground/10 rounded p-4">
+                <summary className="text-xs text-muted-foreground cursor-pointer">
                   Stack Trace (Dev Mode)
                 </summary>
-                <pre className="mt-2 text-xs text-rust-300 overflow-auto max-h-48">
+                <pre className="mt-2 text-xs text-muted-foreground overflow-auto max-h-48">
                   {this.state.error.stack}
                 </pre>
               </details>

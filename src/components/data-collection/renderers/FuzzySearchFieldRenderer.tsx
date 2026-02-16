@@ -84,17 +84,17 @@ export const FuzzySearchFieldRenderer: React.FC<FieldRendererProps> = ({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-white">
+      <label className="block text-sm font-medium text-foreground">
         {field.label}
         {field.required && <span className="text-destructive ml-1">*</span>}
       </label>
 
-      {field.description && <p className="text-xs text-zinc-400">{field.description}</p>}
+      {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
 
       {/* Search Input */}
       <div className="relative">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-zinc-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             value={query}
@@ -105,36 +105,36 @@ export const FuzzySearchFieldRenderer: React.FC<FieldRendererProps> = ({
             onFocus={() => setIsOpen(true)}
             placeholder={`Search ${field.label.toLowerCase()}...`}
             disabled={disabled}
-            className="w-full pl-10 pr-4 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full pl-10 pr-4 py-2 bg-muted border border-foreground/20 rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
           {value && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-              <span className="text-xs text-zinc-400 bg-zinc-700 px-2 py-1 rounded">
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                 {getDisplayLabel()}
               </span>
-              <Check className="w-4 h-4 text-green-400" />
+              <Check className="w-4 h-4 text-success" />
             </div>
           )}
         </div>
 
         {/* Search Results Dropdown */}
         {isOpen && query.trim() && searchResults.length > 0 && (
-          <div className="absolute z-[10000] w-full mt-1 bg-zinc-800 border border-zinc-600 rounded-lg shadow-lg max-h-64 overflow-y-auto" style={{ zIndex: 10000 }}>
+          <div className="absolute z-[10000] w-full mt-1 bg-muted border border-foreground/20 rounded-lg shadow-lg max-h-64 overflow-y-auto" style={{ zIndex: 10000 }}>
             {searchResults.map(({ option }) => (
               <button
                 key={option.value}
                 onClick={() => handleSelect(option.value)}
                 disabled={disabled}
-                className="w-full px-4 py-3 text-left hover:bg-zinc-700 focus:bg-zinc-700 focus:outline-none transition-colors border-b border-zinc-700/50 last:border-b-0"
+                className="w-full px-4 py-3 text-left hover:bg-muted/80 focus:bg-muted/80 focus:outline-none transition-colors border-b border-foreground/10 last:border-b-0"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-white font-medium">{option.label}</div>
+                    <div className="text-foreground font-medium">{option.label}</div>
                     {option.description && (
-                      <div className="text-xs text-zinc-400 mt-1">{option.description}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{option.description}</div>
                     )}
                   </div>
-                  {value === option.value && <Check className="w-4 h-4 text-primary-400" />}
+                  {value === option.value && <Check className="w-4 h-4 text-primary" />}
                 </div>
               </button>
             ))}
@@ -143,11 +143,11 @@ export const FuzzySearchFieldRenderer: React.FC<FieldRendererProps> = ({
 
         {/* No results */}
         {isOpen && query.trim() && searchResults.length === 0 && (
-          <div className="absolute z-[10000] w-full mt-1 bg-zinc-800 border border-zinc-600 rounded-lg shadow-lg p-4 text-center" style={{ zIndex: 10000 }}>
-            <p className="text-zinc-400 text-sm">No matches found for "{query}"</p>
+          <div className="absolute z-[10000] w-full mt-1 bg-muted border border-foreground/20 rounded-lg shadow-lg p-4 text-center" style={{ zIndex: 10000 }}>
+            <p className="text-muted-foreground text-sm">No matches found for "{query}"</p>
             <button
               onClick={() => handleSelect(query)}
-              className="mt-2 px-3 py-1 bg-primary-600 text-white text-xs rounded hover:bg-primary-700 transition-colors"
+              className="mt-2 px-3 py-1 bg-primary text-primary-foreground text-xs rounded hover:bg-primary/90 transition-colors"
             >
               Use "{query}" anyway
             </button>
@@ -158,14 +158,14 @@ export const FuzzySearchFieldRenderer: React.FC<FieldRendererProps> = ({
       {/* Popular/Recent options when no search */}
       {!query.trim() && field.options && field.options.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-zinc-500">Popular options:</p>
+          <p className="text-xs text-muted-foreground">Popular options:</p>
           <div className="flex flex-wrap gap-2">
             {field.options.slice(0, 6).map((option) => (
               <button
                 key={option.value}
                 onClick={() => handleSelect(option.value)}
                 disabled={disabled}
-                className="px-3 py-1 bg-zinc-800/50 hover:bg-zinc-700/50 text-sm text-zinc-300 rounded-lg border border-zinc-600/50 hover:border-zinc-500/50 transition-colors"
+                className="px-3 py-1 bg-muted hover:bg-muted/80 text-sm text-muted-foreground rounded-lg border border-foreground/20 hover:border-foreground/30 transition-colors"
               >
                 {option.label}
               </button>

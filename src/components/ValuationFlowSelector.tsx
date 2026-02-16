@@ -70,14 +70,14 @@ const ValuationFlow = lazy(() =>
         default: () => (
           <div className="flex items-center justify-center h-full">
             <div className="max-w-md mx-auto text-center">
-              <div className="bg-rust-500/20 border border-rust-500/30 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-rust-400 mb-2">Loading Error</h3>
-                <p className="text-rust-300 mb-4">
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-destructive mb-2">Loading Error</h3>
+                <p className="text-muted-foreground mb-4">
                   Failed to load valuation flow component. Please refresh the page.
                 </p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-rust-600 hover:bg-rust-700 text-white rounded-lg transition-colors"
+                  className="px-4 py-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg transition-colors"
                 >
                   Reload Page
                 </button>
@@ -191,14 +191,14 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       return (
         <div className="flex items-center justify-center h-full">
           <div className="max-w-md mx-auto text-center">
-            <div className="bg-rust-500/20 border border-rust-500/30 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-rust-400 mb-2">Session Error</h3>
-              <p className="text-rust-300 mb-6">{error}</p>
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-destructive mb-2">Session Error</h3>
+              <p className="text-muted-foreground mb-6">{error}</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 {onRetry && (
                   <button
                     onClick={onRetry}
-                    className="px-6 py-2.5 bg-rust-600 hover:bg-rust-700 text-white rounded-lg transition-colors font-medium"
+                    className="px-6 py-2.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg transition-colors font-medium"
                   >
                     Retry
                   </button>
@@ -206,7 +206,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 {onStartOver && (
                   <button
                     onClick={onStartOver}
-                    className="px-6 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors font-medium"
+                    className="px-6 py-2.5 bg-muted hover:bg-muted/80 text-foreground rounded-lg transition-colors font-medium"
                   >
                     Start Over
                   </button>
@@ -214,7 +214,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 {!onRetry && !onStartOver && (
                   <button
                     onClick={() => window.location.reload()}
-                    className="px-6 py-2.5 bg-rust-600 hover:bg-rust-700 text-white rounded-lg transition-colors font-medium"
+                    className="px-6 py-2.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg transition-colors font-medium"
                   >
                     Reload Page
                   </button>

@@ -1165,7 +1165,7 @@ export function UnifiedNormalizationModal({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                   className="px-4 pb-4 pt-2"
                 >
                   <div className="flex flex-wrap items-center gap-2.5">
@@ -1228,7 +1228,7 @@ export function UnifiedNormalizationModal({
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.15 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                   className="absolute z-[11001] pointer-events-auto py-1 bg-background border border-foreground/10 rounded-xl shadow-2xl max-h-[320px] overflow-y-auto"
                   style={{
                     top: inputRect.bottom + 4,
@@ -1329,7 +1329,7 @@ export function UnifiedNormalizationModal({
             <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background/80 border border-foreground/[0.06]">
               {[
                 { value: 'all', label: 'Alle', count: counts.all, icon: null, color: null },
-                { value: 'pending', label: 'Te beoordelen', count: counts.pending, icon: Clock, color: 'amber' },
+                { value: 'pending', label: 'Te beoordelen', count: counts.pending, icon: Clock, color: 'warning' },
                 { value: 'accepted', label: 'Geaccepteerd', count: counts.accepted, icon: CheckCircle2, color: 'success' },
                 { value: 'rejected', label: 'Afgewezen', count: counts.rejected, icon: XCircle, color: 'secondary' },
               ].map(({ value, label, count, icon: Icon, color }) => (
@@ -1350,7 +1350,7 @@ export function UnifiedNormalizationModal({
                       "ml-0.5 min-w-[1.25rem] h-5 px-1.5 inline-flex items-center justify-center rounded-md text-[10px] font-bold tabular-nums",
                       activeTab === value
                         ? "bg-primary-foreground/20 text-primary-foreground"
-                        : color === 'amber' ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                        : color === 'warning' ? "bg-warning/10 text-warning"
                         : color === 'success' ? "bg-success/15 text-success"
                         : color === 'secondary' ? "bg-secondary/15 text-secondary"
                         : "bg-foreground/[0.08] text-foreground/60"
@@ -1519,9 +1519,9 @@ export function UnifiedNormalizationModal({
         >
           {/* Bulk Actions for Pending - only show if no selection */}
           {activeTab === 'pending' && counts.pending > 0 && selectedIds.size === 0 && (
-            <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/5 border border-amber-500/10 mb-4">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-warning/5 border border-warning/10 mb-4">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
+                <Sparkles className="w-4 h-4 text-warning" />
                 <span className="text-xs font-medium text-foreground/70">
                   {counts.pending} suggestie{counts.pending > 1 ? 's' : ''} te beoordelen
                 </span>
@@ -1840,7 +1840,7 @@ export function UnifiedNormalizationModal({
                           <div className="flex items-center gap-3">
                             <motion.div
                               animate={{ rotate: isCollapsed ? -90 : 0 }}
-                              transition={{ duration: 0.2 }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             >
                               <ChevronDown className="w-4 h-4 text-foreground/40" />
                             </motion.div>
@@ -1868,7 +1868,7 @@ export function UnifiedNormalizationModal({
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: 'auto', opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2 }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             >
                               {/* Table header inside group for compact mode */}
                               <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-t border-b border-foreground/[0.06] bg-foreground/[0.01]">
@@ -2111,7 +2111,7 @@ function CompactTableRow({
       {/* Status */}
       <div className="w-20 flex-shrink-0 text-center">
         {item.status === 'pending' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-warning/10 text-warning">
             <Clock className="w-2.5 h-2.5" />
             Pending
           </span>

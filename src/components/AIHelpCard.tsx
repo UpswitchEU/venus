@@ -28,7 +28,7 @@ export const AIHelpCard: React.FC<AIHelpCardProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
       className="flex justify-start"
     >
       <div className="max-w-[85%] mr-auto">

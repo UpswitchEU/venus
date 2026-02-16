@@ -300,7 +300,7 @@ const PlatformPasswordProtection: React.FC<PlatformPasswordProtectionProps> = ({
                   <Shield className="w-8 h-8 text-destructive" />
                 </div>
                 <h1 className="text-2xl font-bold text-white mb-2">Platform Access</h1>
-                <p className="text-gray-300 text-sm">
+                <p className="text-muted-foreground text-sm">
                   You need a password to access this platform.
                 </p>
               </div>
@@ -348,7 +348,7 @@ const PlatformPasswordProtection: React.FC<PlatformPasswordProtectionProps> = ({
               </div>
 
               {/* Security Footer */}
-              <div className="text-center mt-6 text-gray-300 text-xs bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+              <div className="text-center mt-6 text-muted-foreground text-xs bg-foreground/5 backdrop-blur-sm rounded-lg p-3 border border-foreground/20">
                 <p>🔒 All access attempts are logged and monitored</p>
                 <p>Unauthorized access is prohibited and may result in legal action</p>
               </div>

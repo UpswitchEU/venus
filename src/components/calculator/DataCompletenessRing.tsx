@@ -72,7 +72,7 @@ export function DataCompletenessRing({
             )}
             initial={{ width: 0 }}
             animate={{ width: `${percentage}%` }}
-            transition={{ duration: 0.5 }}
+            transition={{ type: 'spring', stiffness: 170, damping: 26 }}
           />
         </div>
       </div>
@@ -101,7 +101,7 @@ export function DataCompletenessRing({
               <span className={cn(
                 "text-[9px] px-1.5 py-0.5 rounded font-medium",
                 field.source === 'kbo' && "bg-success/10 text-success",
-                field.source === 'csv' && "bg-amber-500/10 text-amber-600",
+                field.source === 'csv' && "bg-warning/10 text-warning",
                 field.source === 'ai' && "bg-primary/10 text-primary",
                 field.source === 'manual' && "bg-foreground/[0.06] text-foreground/50"
               )}>
@@ -149,7 +149,7 @@ export function DataCompletenessRing({
               strokeDasharray={circumference}
               initial={{ strokeDashoffset: circumference }}
               animate={{ strokeDashoffset: offset }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
+              transition={{ type: 'spring', stiffness: 170, damping: 26 }}
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">

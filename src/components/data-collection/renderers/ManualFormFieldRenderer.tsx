@@ -30,12 +30,12 @@ export const ManualFormFieldRenderer: React.FC<FieldRendererProps> = ({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-white">
+      <label className="block text-sm font-medium text-foreground">
         {field.label}
         {field.required && <span className="text-destructive ml-1">*</span>}
       </label>
 
-      {field.description && <p className="text-sm text-zinc-400">{field.description}</p>}
+      {field.description && <p className="text-sm text-muted-foreground">{field.description}</p>}
 
       <FieldInput
         field={field}
@@ -69,9 +69,9 @@ const FieldInput: React.FC<FieldInputProps> = ({
   hasErrors = false,
 }) => {
   const baseClasses = `
-    w-full px-3 py-2 bg-zinc-800 border rounded-lg text-white placeholder-zinc-400
+    w-full px-3 py-2 bg-muted border rounded-lg text-foreground placeholder-muted-foreground
     focus:outline-none focus:ring-2 focus:ring-primary
-    ${hasErrors ? 'border-destructive' : 'border-zinc-600'}
+    ${hasErrors ? 'border-destructive' : 'border-foreground/20'}
     ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
   `
 
@@ -155,7 +155,7 @@ const FieldInput: React.FC<FieldInputProps> = ({
             autoFocus={autoFocus}
             className="w-4 h-4 text-primary bg-muted border-foreground/20 rounded focus:ring-primary"
           />
-          <span className="text-sm text-zinc-300">Yes</span>
+          <span className="text-sm text-muted-foreground">Yes</span>
         </div>
       )
     }
@@ -175,7 +175,7 @@ const FieldInput: React.FC<FieldInputProps> = ({
             max="100"
             className={baseClasses}
           />
-          <span className="absolute right-3 top-2 text-zinc-400">%</span>
+          <span className="absolute right-3 top-2 text-muted-foreground">%</span>
         </div>
       )
     }

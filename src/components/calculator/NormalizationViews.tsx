@@ -411,7 +411,7 @@ export function NormalizationBentoView({
                 {/* Status indicator bar */}
                 <div className={cn(
                   "absolute top-0 left-0 right-0 h-0.5",
-                  item.status === 'pending' && "bg-gradient-to-r from-amber-500/50 via-amber-400/30 to-transparent",
+                  item.status === 'pending' && "bg-gradient-to-r from-warning/20 via-warning/30 to-transparent",
                   item.status === 'accepted' && "bg-gradient-to-r from-success/50 via-success/30 to-transparent",
                   item.status === 'rejected' && "bg-gradient-to-r from-secondary/50 via-secondary/30 to-transparent"
                 )} />

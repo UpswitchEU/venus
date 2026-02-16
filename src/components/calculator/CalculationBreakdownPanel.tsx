@@ -97,12 +97,12 @@ export function CalculationBreakdownPanel({
           className="mb-8"
         >
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
-              <Calculator className="w-4 h-4 text-teal-600" />
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Calculator className="w-4 h-4 text-primary" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900">Berekeningsdetails</h2>
+            <h2 className="text-xl font-bold text-foreground">Berekeningsdetails</h2>
           </div>
-          <p className="text-sm text-slate-500 ml-10">
+          <p className="text-sm text-muted-foreground ml-10">
             Volledige transparantie over de schattingsmethodologie voor {report.companyName}
           </p>
         </motion.div>
@@ -114,12 +114,12 @@ export function CalculationBreakdownPanel({
           transition={{ delay: 0.1 }}
           className="mb-8"
         >
-          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-slate-400" />
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-muted-foreground" />
             EBITDA Normalisatie Bridge
           </h3>
           
-          <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+          <div className="bg-muted/50 rounded-xl p-4 space-y-2">
             {ebitdaAdjustments.map((item, index) => (
               <motion.div
                 key={item.id}
@@ -128,46 +128,46 @@ export function CalculationBreakdownPanel({
                 transition={{ delay: 0.15 + index * 0.05 }}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-lg",
-                  item.type === 'base' && "bg-white border border-slate-200",
-                  item.type === 'add' && "bg-white border-l-4 border-l-emerald-400",
-                  item.type === 'subtract' && "bg-white border-l-4 border-l-rose-400",
-                  item.type === 'result' && "bg-teal-600 text-white"
+                  item.type === 'base' && "bg-card border border-foreground/10",
+                  item.type === 'add' && "bg-card border-l-4 border-l-success",
+                  item.type === 'subtract' && "bg-card border-l-4 border-l-destructive",
+                  item.type === 'result' && "bg-primary text-primary-foreground"
                 )}
               >
                 {/* Icon */}
                 <div className={cn(
                   "w-6 h-6 rounded-full flex items-center justify-center shrink-0",
-                  item.type === 'base' && "bg-slate-100",
-                  item.type === 'add' && "bg-emerald-100",
-                  item.type === 'subtract' && "bg-rose-100",
-                  item.type === 'result' && "bg-white/20"
+                  item.type === 'base' && "bg-muted",
+                  item.type === 'add' && "bg-success/10",
+                  item.type === 'subtract' && "bg-destructive/10",
+                  item.type === 'result' && "bg-primary-foreground/20"
                 )}>
-                  {item.type === 'base' && <Equal className="w-3 h-3 text-slate-500" />}
-                  {item.type === 'add' && <Plus className="w-3 h-3 text-emerald-600" />}
-                  {item.type === 'subtract' && <Minus className="w-3 h-3 text-rose-600" />}
-                  {item.type === 'result' && <Equal className="w-3 h-3 text-white" />}
+                  {item.type === 'base' && <Equal className="w-3 h-3 text-muted-foreground" />}
+                  {item.type === 'add' && <Plus className="w-3 h-3 text-success" />}
+                  {item.type === 'subtract' && <Minus className="w-3 h-3 text-destructive" />}
+                  {item.type === 'result' && <Equal className="w-3 h-3 text-primary-foreground" />}
                 </div>
 
                 {/* Label & Description */}
                 <div className="flex-1 min-w-0">
                   <p className={cn(
                     "text-sm font-medium",
-                    item.type === 'result' ? "text-white" : "text-slate-900"
+                    item.type === 'result' ? "text-primary-foreground" : "text-foreground"
                   )}>
                     {item.label}
                   </p>
                   {item.description && (
-                    <p className="text-xs text-slate-400">{item.description}</p>
+                    <p className="text-xs text-muted-foreground">{item.description}</p>
                   )}
                 </div>
 
                 {/* Value */}
                 <span className={cn(
                   "font-mono text-sm font-semibold tabular-nums shrink-0",
-                  item.type === 'add' && "text-emerald-600",
-                  item.type === 'subtract' && "text-rose-600",
-                  item.type === 'base' && "text-slate-700",
-                  item.type === 'result' && "text-white"
+                  item.type === 'add' && "text-success",
+                  item.type === 'subtract' && "text-destructive",
+                  item.type === 'base' && "text-muted-foreground",
+                  item.type === 'result' && "text-primary-foreground"
                 )}>
                   {item.type === 'add' && '+'}
                   {item.type === 'subtract' && '−'}
@@ -185,31 +185,31 @@ export function CalculationBreakdownPanel({
           transition={{ delay: 0.3 }}
           className="mb-8"
         >
-          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-slate-400" />
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
             Indicatieve Berekening
           </h3>
 
           <div className="grid grid-cols-3 gap-4">
             {/* EBITDA */}
-            <div className="bg-slate-50 rounded-xl p-4 text-center">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Genorm. EBITDA</p>
-              <p className="text-xl font-bold font-mono text-slate-900">{formatCurrency(report.ebitda)}</p>
+            <div className="bg-muted/50 rounded-xl p-4 text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Genorm. EBITDA</p>
+              <p className="text-xl font-bold font-mono text-foreground">{formatCurrency(report.ebitda)}</p>
             </div>
 
             {/* Times symbol */}
             <div className="flex items-center justify-center">
-              <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
-                <span className="text-teal-600 text-lg font-bold">×</span>
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <span className="text-primary text-lg font-bold">×</span>
               </div>
             </div>
 
             {/* Multiple with explanation */}
-            <div className="bg-slate-50 rounded-xl p-4 text-center relative group">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Sector Multiple</p>
-              <p className="text-xl font-bold font-mono text-slate-900">{report.multiple.toFixed(1)}x</p>
+            <div className="bg-muted/50 rounded-xl p-4 text-center relative group">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Sector Multiple</p>
+              <p className="text-xl font-bold font-mono text-foreground">{report.multiple.toFixed(1)}x</p>
               <div className="absolute left-0 right-0 -bottom-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[10px] bg-slate-700 text-white px-2 py-0.5 rounded-full">
+                <span className="text-[10px] bg-muted text-foreground px-2 py-0.5 rounded-full">
                   Industrial Manufacturing
                 </span>
               </div>
@@ -218,14 +218,14 @@ export function CalculationBreakdownPanel({
 
           {/* Equals */}
           <div className="flex items-center justify-center my-4">
-            <ArrowRight className="w-5 h-5 text-slate-300" />
+            <ArrowRight className="w-5 h-5 text-muted-foreground" />
           </div>
 
           {/* Result */}
-          <div className="bg-gradient-to-r from-teal-600 to-teal-500 rounded-xl p-6 text-center text-white">
-            <p className="text-xs text-teal-100 uppercase tracking-wider mb-1">Ondernemingswaarde</p>
+          <div className="bg-gradient-to-r from-primary to-primary/90 rounded-xl p-6 text-center text-primary-foreground">
+            <p className="text-xs text-primary-foreground/80 uppercase tracking-wider mb-1">Ondernemingswaarde</p>
             <p className="text-3xl font-bold font-mono">{formatCurrency(report.valuation)}</p>
-            <p className="text-xs text-teal-200 mt-2">
+            <p className="text-xs text-primary-foreground/70 mt-2">
               Bereik: {formatCurrency(valuationLow)} – {formatCurrency(valuationHigh)}
             </p>
           </div>
@@ -238,32 +238,32 @@ export function CalculationBreakdownPanel({
           transition={{ delay: 0.4 }}
           className="mb-8"
         >
-          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-slate-400" />
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-muted-foreground" />
             Waarom deze Multiple?
           </h3>
 
           <div className="space-y-3">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="bg-warning/10 border border-warning/30 rounded-xl p-4">
               <div className="flex gap-3">
-                <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <Info className="w-5 h-5 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm text-amber-900 font-medium">Sector: Industrial Manufacturing • 5.0× – 6.0× bereik</p>
-                  <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                  <p className="text-sm text-warning font-medium">Sector: Industrial Manufacturing • 5.0× – 6.0× bereik</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     Manufacturing bedrijven in België met €1-5M omzet worden typisch gewaardeerd tegen 5.0×-6.0× EBITDA. 
                     De 5.5× is gebaseerd op recente transacties en houdt rekening met:
                   </p>
-                  <ul className="text-xs text-amber-700 mt-2 space-y-1">
+                  <ul className="text-xs text-muted-foreground mt-2 space-y-1">
                     <li className="flex items-start gap-1.5">
-                      <span className="text-amber-500">•</span>
+                      <span className="text-warning">•</span>
                       <span><strong>Omvangpremie:</strong> Kleinere bedrijven (&lt;€5M omzet) krijgen lagere multiples vanwege concentratierisico</span>
                     </li>
                     <li className="flex items-start gap-1.5">
-                      <span className="text-amber-500">•</span>
+                      <span className="text-warning">•</span>
                       <span><strong>Eigenaar-afhankelijkheid:</strong> 2 eigenaar-managers betekent beperkte afhankelijkheid (-0.2×)</span>
                     </li>
                     <li className="flex items-start gap-1.5">
-                      <span className="text-amber-500">•</span>
+                      <span className="text-warning">•</span>
                       <span><strong>Sector stabiliteit:</strong> Manufacturing is minder volatiel dan tech (+0.3×)</span>
                     </li>
                   </ul>
@@ -271,8 +271,8 @@ export function CalculationBreakdownPanel({
               </div>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <p className="text-xs text-slate-600 leading-relaxed">
+            <div className="bg-muted/50 border border-foreground/10 rounded-xl p-4">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 <strong>Bronnen:</strong> Damodaran Dataset 2024, PitchBook Benelux, BDO M&A Monitor. 
                 De methodologie volgt de Koller/McKinsey 'Valuation' benadering 
                 met aanpassingen voor SME-context.
@@ -287,32 +287,32 @@ export function CalculationBreakdownPanel({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Scale className="w-4 h-4 text-slate-400" />
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Scale className="w-4 h-4 text-muted-foreground" />
             Vergelijkbare Transacties
           </h3>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="overflow-hidden rounded-xl border border-foreground/10">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50">
+              <thead className="bg-muted/50">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-600 uppercase">Bedrijf</th>
-                  <th className="text-right px-4 py-2 text-xs font-semibold text-slate-600 uppercase">Multiple</th>
-                  <th className="text-right px-4 py-2 text-xs font-semibold text-slate-600 uppercase">Omzet</th>
-                  <th className="text-right px-4 py-2 text-xs font-semibold text-slate-600 uppercase">Datum</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">Bedrijf</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">Multiple</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">Omzet</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">Datum</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-foreground/5">
                 {[
                   { company: 'Vergelijkbaar A (Geanonimiseerd)', multiple: 5.8, revenue: 1500000, date: '2025-Q3' },
                   { company: 'Vergelijkbaar B (Geanonimiseerd)', multiple: 5.2, revenue: 850000, date: '2025-Q2' },
                   { company: 'Vergelijkbaar C (Geanonimiseerd)', multiple: 5.5, revenue: 1200000, date: '2025-Q1' },
                 ].map((comp, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 text-slate-700">{comp.company}</td>
-                    <td className="px-4 py-3 text-right font-mono text-slate-900">{comp.multiple.toFixed(1)}x</td>
-                    <td className="px-4 py-3 text-right font-mono text-slate-600">{formatCurrency(comp.revenue)}</td>
-                    <td className="px-4 py-3 text-right text-slate-500">{comp.date}</td>
+                  <tr key={i} className="hover:bg-muted/50">
+                    <td className="px-4 py-3 text-foreground">{comp.company}</td>
+                    <td className="px-4 py-3 text-right font-mono text-foreground">{comp.multiple.toFixed(1)}x</td>
+                    <td className="px-4 py-3 text-right font-mono text-muted-foreground">{formatCurrency(comp.revenue)}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{comp.date}</td>
                   </tr>
                 ))}
               </tbody>

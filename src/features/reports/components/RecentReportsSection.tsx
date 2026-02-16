@@ -86,17 +86,17 @@ export function RecentReportsSection({
       <section className="w-full bg-gradient-to-b from-black/5 to-transparent py-16">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
-            <div className="h-8 w-48 bg-white/10 animate-pulse rounded" />
-            <div className="h-8 w-24 bg-white/10 animate-pulse rounded" />
+            <div className="h-8 w-48 bg-foreground/10 animate-pulse rounded" />
+            <div className="h-8 w-24 bg-foreground/10 animate-pulse rounded" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-white/10 border border-white/5 animate-pulse"
+                className="aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-foreground/10 border border-foreground/5 animate-pulse"
               >
-                <div className="w-full h-full bg-white/5" />
+                <div className="w-full h-full bg-foreground/5" />
               </div>
             ))}
           </div>

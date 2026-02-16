@@ -111,7 +111,7 @@ export function NormalisationSuggestionModal({
 
   const confidenceColors = {
     high: 'text-success bg-success/10 border-success/20',
-    medium: 'text-amber-600 bg-amber-50 border-amber-200',
+    medium: 'text-warning bg-warning/10 border-warning/30',
     low: 'text-foreground/50 bg-foreground/5 border-foreground/10',
   };
 

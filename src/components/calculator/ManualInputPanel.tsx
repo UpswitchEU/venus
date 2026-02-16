@@ -682,7 +682,7 @@ export function ManualInputPanel({
                       placeholder="10"
                     />
                     {(fieldValidation.errors.fteEmployees || fieldValidation.warnings.fteEmployees) && (
-                      <p className={`text-[10px] mt-0.5 ${fieldValidation.errors.fteEmployees ? 'text-destructive' : 'text-amber-500'}`}>
+                      <p className={`text-[10px] mt-0.5 ${fieldValidation.errors.fteEmployees ? 'text-destructive' : 'text-warning'}`}>
                         {fieldValidation.errors.fteEmployees || fieldValidation.warnings.fteEmployees}
                       </p>
                     )}
@@ -858,7 +858,7 @@ export function ManualInputPanel({
                               placeholder="1.500.000"
                             />
                             {(fieldValidation.warnings[`revenue-${yearData.year}`] || fieldValidation.errors[`revenue-${yearData.year}`]) && (
-                              <p className={`text-[10px] mt-0.5 ${fieldValidation.errors[`revenue-${yearData.year}`] ? 'text-destructive' : 'text-amber-500'}`}>
+                              <p className={`text-[10px] mt-0.5 ${fieldValidation.errors[`revenue-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}>
                                 {fieldValidation.errors[`revenue-${yearData.year}`] || fieldValidation.warnings[`revenue-${yearData.year}`]}
                               </p>
                             )}
@@ -872,7 +872,7 @@ export function ManualInputPanel({
                               placeholder="250.000"
                             />
                             {(fieldValidation.warnings[`ebitda-${yearData.year}`] || fieldValidation.errors[`ebitda-${yearData.year}`] || fieldValidation.warnings[`margin-${yearData.year}`]) && (
-                              <p className={`text-[10px] mt-0.5 ${fieldValidation.errors[`ebitda-${yearData.year}`] ? 'text-destructive' : 'text-amber-500'}`}>
+                              <p className={`text-[10px] mt-0.5 ${fieldValidation.errors[`ebitda-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}>
                                 {fieldValidation.errors[`ebitda-${yearData.year}`] || fieldValidation.warnings[`ebitda-${yearData.year}`] || fieldValidation.warnings[`margin-${yearData.year}`]}
                               </p>
                             )}

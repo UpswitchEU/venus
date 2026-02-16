@@ -60,20 +60,20 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
   if (variant === 'mobile') {
     return (
       <div className={`flex flex-col space-y-2 ${className}`}>
-        <div className="text-sm font-medium text-stone-400">{t('language.selectLanguage')}</div>
+        <div className="text-sm font-medium text-muted-foreground">{t('language.selectLanguage')}</div>
         {languages.map((lang) => (
           <button
             key={lang.code}
             onClick={() => handleLanguageChange(lang.code)}
             className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${
-              locale === lang.code ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-800 text-stone-400'
+              locale === lang.code ? 'bg-muted text-foreground' : 'hover:bg-muted text-muted-foreground'
             }`}
             aria-label={`Switch to ${lang.name}`}
             aria-current={locale === lang.code ? 'true' : 'false'}
           >
             <span className="text-2xl">{lang.flag}</span>
             <span className="font-medium">{lang.name}</span>
-            {locale === lang.code && <span className="ml-auto text-white">✓</span>}
+            {locale === lang.code && <span className="ml-auto text-foreground">✓</span>}
           </button>
         ))}
       </div>
@@ -84,20 +84,20 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors"
+        className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-muted transition-colors"
         aria-label={t('language.switchLanguage')}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <Globe className="w-4 h-4 text-stone-400" />
-        <span className="hidden md:inline text-sm font-medium text-stone-300">
+        <Globe className="w-4 h-4 text-muted-foreground" />
+        <span className="hidden md:inline text-sm font-medium text-muted-foreground">
           {currentLanguage?.flag} {currentLanguage?.name}
         </span>
         <span className="md:hidden text-sm">{currentLanguage?.flag}</span>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-zinc-900 rounded-lg shadow-lg border border-zinc-800 z-[10000] overflow-hidden" style={{ zIndex: 10000 }}>
+        <div className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-foreground/10 z-[10000] overflow-hidden" style={{ zIndex: 10000 }}>
           <div className="py-1">
             {languages.map((lang) => (
               <button
@@ -105,8 +105,8 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
                 onClick={() => handleLanguageChange(lang.code)}
                 className={`flex items-center w-full space-x-3 px-4 py-2 text-sm transition-colors ${
                   locale === lang.code
-                    ? 'bg-zinc-800 text-white'
-                    : 'hover:bg-zinc-800 text-stone-400'
+                    ? 'bg-muted text-foreground'
+                    : 'hover:bg-muted text-muted-foreground'
                 }`}
                 role="menuitem"
                 aria-label={`Switch to ${lang.name}`}
@@ -114,7 +114,7 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
               >
                 <span className="text-xl">{lang.flag}</span>
                 <span className="flex-1 text-left font-medium">{lang.name}</span>
-                {locale === lang.code && <span className="text-white">✓</span>}
+                {locale === lang.code && <span className="text-foreground">✓</span>}
               </button>
             ))}
           </div>
