@@ -1321,7 +1321,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
                   className="h-full"
                 >
                   <Suspense fallback={<PanelSkeleton />}>
@@ -1343,7 +1343,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
                   className="h-full"
                 >
                   <ManualInputPanel {...manualInputProps} />
@@ -1360,7 +1360,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
           {/* Right Panel: Report / Preview / History */}
           <ResizablePanel defaultSize={65} minSize={40}>
-            <div ref={reportPanelRef} className="h-full bg-white dark:bg-background flex flex-col">
+            <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">
                   {rightPanelView === 'preview' ? (

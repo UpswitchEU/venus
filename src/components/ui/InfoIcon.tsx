@@ -149,7 +149,7 @@ export const InfoIcon: React.FC<InfoIconProps> = ({
           id="info-tooltip"
           ref={tooltipRef}
           role="tooltip"
-          className={`absolute z-[10000] px-3 py-2 text-sm text-white bg-slate-ink rounded-lg shadow-lg transition-opacity duration-200 ${positionClasses[position]}`}
+          className={`absolute z-[10000] px-3 py-2 text-sm text-background bg-foreground/95 rounded-lg shadow-lg transition-opacity duration-200 ${positionClasses[position]}`}
           style={{
             zIndex: 10000,
             maxWidth: `${maxWidth}px`,
@@ -160,7 +160,7 @@ export const InfoIcon: React.FC<InfoIconProps> = ({
         >
           <p className="whitespace-normal leading-relaxed">{content}</p>
           <div
-            className={`absolute w-2 h-2 bg-slate-ink rotate-45 ${arrowPositionClasses[position]}`}
+            className={`absolute w-2 h-2 bg-foreground/95 rotate-45 ${arrowPositionClasses[position]}`}
             aria-hidden="true"
           />
         </div>

@@ -168,7 +168,7 @@ function VisualTimeline({ versions }: { versions: HistoryVersion[] }) {
           className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-foreground/20 via-primary/50 to-primary rounded-full origin-left"
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
+          transition={{ type: 'spring', stiffness: 170, damping: 26, mass: 1 }}
         />
 
         {/* Version Dots */}
@@ -633,7 +633,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
                       className="overflow-hidden"
                     >
                       <div className="px-4 pb-4 pt-0">

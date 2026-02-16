@@ -32,7 +32,7 @@ export const ManualFormFieldRenderer: React.FC<FieldRendererProps> = ({
     <div className="space-y-2">
       <label className="block text-sm font-medium text-white">
         {field.label}
-        {field.required && <span className="text-red-400 ml-1">*</span>}
+        {field.required && <span className="text-destructive ml-1">*</span>}
       </label>
 
       {field.description && <p className="text-sm text-zinc-400">{field.description}</p>}
@@ -46,7 +46,7 @@ export const ManualFormFieldRenderer: React.FC<FieldRendererProps> = ({
         hasErrors={hasErrors}
       />
 
-      {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
+      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
     </div>
   )
 }
@@ -70,8 +70,8 @@ const FieldInput: React.FC<FieldInputProps> = ({
 }) => {
   const baseClasses = `
     w-full px-3 py-2 bg-zinc-800 border rounded-lg text-white placeholder-zinc-400
-    focus:outline-none focus:ring-2 focus:ring-primary-500
-    ${hasErrors ? 'border-red-500' : 'border-zinc-600'}
+    focus:outline-none focus:ring-2 focus:ring-primary
+    ${hasErrors ? 'border-destructive' : 'border-zinc-600'}
     ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
   `
 
@@ -153,7 +153,7 @@ const FieldInput: React.FC<FieldInputProps> = ({
             onChange={(e) => onChange(e.target.checked)}
             disabled={disabled}
             autoFocus={autoFocus}
-            className="w-4 h-4 text-primary-600 bg-zinc-800 border-zinc-600 rounded focus:ring-primary-500"
+            className="w-4 h-4 text-primary bg-muted border-foreground/20 rounded focus:ring-primary"
           />
           <span className="text-sm text-zinc-300">Yes</span>
         </div>

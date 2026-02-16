@@ -48,18 +48,18 @@ export function VersionComparisonModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-card rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-foreground/10 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-900">Compare Versions</h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <h2 className="text-2xl font-semibold text-foreground">Compare Versions</h2>
+            <p className="text-sm text-muted-foreground mt-1">
               {versionA.versionLabel} vs {versionB.versionLabel}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-foreground/50 hover:text-foreground hover:bg-foreground/10 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -69,12 +69,12 @@ export function VersionComparisonModal({
         <div className="flex-1 overflow-y-auto p-6">
           {/* Valuation Impact (if available) */}
           {valuationDelta && (
-            <div className="mb-8 p-6 bg-gradient-to-br from-primary-50 to-primary-100 rounded-xl border border-primary-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Valuation Impact</h3>
+            <div className="mb-8 p-6 bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl border border-primary/30">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Valuation Impact</h3>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">Previous Valuation</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm text-muted-foreground mb-1">Previous Valuation</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {formatCurrency(
                       (typeof versionA.valuationResult === 'object' && versionA.valuationResult
                         ? (versionA.valuationResult as any).valuation_summary?.final_valuation
@@ -85,12 +85,12 @@ export function VersionComparisonModal({
                 </div>
 
                 <div className="flex-shrink-0">
-                  <ArrowRight className="w-8 h-8 text-primary-600" />
+                  <ArrowRight className="w-8 h-8 text-primary" />
                 </div>
 
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">New Valuation</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm text-muted-foreground mb-1">New Valuation</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {formatCurrency(
                       (typeof versionB.valuationResult === 'object' && versionB.valuationResult
                         ? (versionB.valuationResult as any).valuation_summary?.final_valuation
@@ -106,10 +106,10 @@ export function VersionComparisonModal({
                       px-4 py-2 rounded-lg font-semibold text-lg
                       ${
                         valuationDelta.direction === 'increase'
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-success/10 text-success'
                           : valuationDelta.direction === 'decrease'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-gray-100 text-gray-700'
+                            ? 'bg-destructive/10 text-foreground'
+                            : 'bg-muted text-muted-foreground'
                       }
                     `}
                   >
@@ -126,8 +126,8 @@ export function VersionComparisonModal({
               </div>
 
               {/* Absolute change */}
-              <div className="mt-4 pt-4 border-t border-primary-200">
-                <p className="text-sm text-gray-700">
+              <div className="mt-4 pt-4 border-t border-primary/30">
+                <p className="text-sm text-muted-foreground">
                   <span className="font-medium">Change: </span>
                   {valuationDelta.absoluteChange > 0 ? '+' : ''}
                   {formatCurrency(Math.abs(valuationDelta.absoluteChange), countryCode)}
@@ -139,26 +139,26 @@ export function VersionComparisonModal({
           {/* Highlights (significant changes) */}
           {highlights.length > 0 && (
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Changes</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Key Changes</h3>
               <div className="space-y-3">
                 {highlights.map((highlight) => (
                   <div
                     key={highlight.field}
-                    className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                    className="p-4 bg-muted/50 rounded-lg border border-foreground/10"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900 mb-2">{highlight.label}</p>
+                        <p className="font-medium text-foreground mb-2">{highlight.label}</p>
                         <div className="flex items-center gap-3 text-sm">
-                          <span className="text-gray-600">{String(highlight.oldValue)}</span>
-                          <ArrowRight className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-900 font-medium">
+                          <span className="text-muted-foreground">{String(highlight.oldValue)}</span>
+                          <ArrowRight className="w-4 h-4 text-foreground/40" />
+                          <span className="text-foreground font-medium">
                             {String(highlight.newValue)}
                           </span>
                         </div>
                       </div>
                       <div className="flex-shrink-0 ml-4">
-                        <span className="px-3 py-1 bg-primary-100 text-primary-700 text-sm font-medium rounded-full">
+                        <span className="px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
                           {highlight.impact}
                         </span>
                       </div>
@@ -171,12 +171,12 @@ export function VersionComparisonModal({
 
           {/* Detailed field comparison */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Field-by-Field Comparison</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Field-by-Field Comparison</h3>
             <div className="grid grid-cols-2 gap-6">
               {/* Version A */}
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                  <span className="w-6 h-6 bg-gray-200 text-gray-700 rounded-full flex items-center justify-center text-xs font-bold">
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                  <span className="w-6 h-6 bg-foreground/10 text-muted-foreground rounded-full flex items-center justify-center text-xs font-bold">
                     {versionA.versionNumber}
                   </span>
                   {versionA.versionLabel}
@@ -209,8 +209,8 @@ export function VersionComparisonModal({
 
               {/* Version B */}
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                  <span className="w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                  <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold">
                     {versionB.versionNumber}
                   </span>
                   {versionB.versionLabel}
@@ -257,8 +257,8 @@ export function VersionComparisonModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <p className="text-sm text-gray-600">
+        <div className="px-6 py-4 border-t border-foreground/10 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
             {changes.totalChanges} field{changes.totalChanges === 1 ? '' : 's'} changed
           </p>
           <div className="flex items-center gap-3">
@@ -266,13 +266,13 @@ export function VersionComparisonModal({
               <>
                 <button
                   onClick={() => onUseVersion(versionA.versionNumber)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/10 rounded-lg transition-colors"
                 >
                   Use v{versionA.versionNumber}
                 </button>
                 <button
                   onClick={() => onUseVersion(versionB.versionNumber)}
-                  className="px-4 py-2 text-sm font-medium bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
                 >
                   Use v{versionB.versionNumber}
                 </button>
@@ -280,7 +280,7 @@ export function VersionComparisonModal({
             )}
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               Close
             </button>
@@ -318,11 +318,11 @@ function FieldRow({
     <div
       className={`
         flex items-center justify-between px-3 py-2 rounded
-        ${isChanged ? 'bg-amber-50 border border-amber-200' : 'bg-white border border-gray-200'}
+        ${isChanged ? 'bg-warning/10 border border-warning/30' : 'bg-card border border-foreground/10'}
       `}
     >
-      <span className="text-gray-700">{label}</span>
-      <span className={`font-medium ${isChanged ? 'text-amber-900' : 'text-gray-900'}`}>
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`font-medium ${isChanged ? 'text-warning' : 'text-foreground'}`}>
         {displayText}
       </span>
     </div>

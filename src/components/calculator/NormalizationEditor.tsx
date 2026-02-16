@@ -99,9 +99,9 @@ const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus;
 
 const sourceOptions: { value: NormalizationSource; label: string; color: string }[] = [
   { value: 'manual', label: 'Manueel', color: 'bg-foreground/10 text-foreground/70' },
-  { value: 'yuki', label: 'Yuki', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400' },
-  { value: 'exact', label: 'Exact Online', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  { value: 'csv', label: 'CSV Import', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+  { value: 'yuki', label: 'Yuki', color: 'bg-accent/10 text-accent' },
+  { value: 'exact', label: 'Exact Online', color: 'bg-info/10 text-info' },
+  { value: 'csv', label: 'CSV Import', color: 'bg-warning/10 text-warning' },
 ];
 
 const formatCurrency = (amount: number) => {

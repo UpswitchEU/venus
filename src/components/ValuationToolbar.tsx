@@ -35,7 +35,7 @@ import { formatVersionLabel } from '../utils/formatters'
 // FlowSwitchWarningModal removed - conversational flow no longer exists
 // import { FlowSwitchWarningModal } from './FlowSwitchWarningModal'
 import { UserDropdown } from './UserDropdown'
-import { Tooltip } from './ui/Tooltip'
+import { Tooltip } from '@/design-system'
 
 export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   onRefresh,

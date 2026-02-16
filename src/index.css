@@ -86,7 +86,7 @@
 
 @layer components {
   .gradient-primary {
-    @apply bg-gradient-to-r from-primary-600 to-primary-500;
+    @apply bg-gradient-to-r from-primary to-primary;
   }
 
   .gradient-hero {
@@ -128,7 +128,7 @@
   }
 
   .card-elevated {
-    @apply bg-white rounded-xl shadow-elevated;
+    @apply bg-card rounded-xl shadow-elevated;
   }
 }
 
@@ -149,15 +149,15 @@
 
 /* Dropzone styles */
 .dropzone {
-  @apply border-2 border-dashed border-gray-300 rounded-xl p-8 text-center transition-all duration-200 cursor-pointer;
+  @apply border-2 border-dashed border-foreground/10 rounded-xl p-8 text-center transition-all duration-200 cursor-pointer;
 }
 
 .dropzone:hover {
-  @apply border-primary-500 bg-primary-50/50;
+  @apply border-primary bg-primary/10;
 }
 
 .dropzone.active {
-  @apply border-primary-600 bg-primary-50 scale-[1.02];
+  @apply border-primary bg-primary/10 scale-[1.02];
 }
 
 /* Loading skeleton */
@@ -171,7 +171,7 @@
 }
 
 .skeleton {
-  @apply bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200;
+  @apply bg-gradient-to-r from-foreground/10 via-foreground/20 to-foreground/10;
   background-size: 1000px 100%;
   animation: shimmer 2s infinite linear;
 }

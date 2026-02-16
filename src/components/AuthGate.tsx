@@ -68,7 +68,7 @@ function DefaultLoadingState({ state }: { state: AuthGateState }) {
         <div className="animate-pulse">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-blue-400 animate-spin"
+              className="w-8 h-8 text-primary animate-spin"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -89,7 +89,7 @@ function DefaultLoadingState({ state }: { state: AuthGateState }) {
             </svg>
           </div>
         </div>
-        <p className="text-gray-400 text-lg">{getMessage()}</p>
+        <p className="text-foreground/50 text-lg">{getMessage()}</p>
       </div>
     </div>
   )
@@ -113,7 +113,7 @@ function DefaultErrorState({
       <div className="text-center max-w-md">
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/20 flex items-center justify-center">
           <svg
-            className="w-8 h-8 text-red-400"
+            className="w-8 h-8 text-destructive"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -137,13 +137,13 @@ function DefaultErrorState({
               const locale = window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
               window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
             Log In
           </button>
           <button
             onClick={onRetry}
-            className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors"
           >
             Try Again
           </button>
@@ -152,7 +152,7 @@ function DefaultErrorState({
               onClick={() => {
                 window.location.href = returnUrl
               }}
-              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors"
             >
               Go Back
             </button>

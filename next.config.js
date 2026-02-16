@@ -87,7 +87,7 @@ const nextConfig = {
             },
             // UI libraries (can be lazy loaded)
             ui: {
-              test: /[\\/]node_modules[\\/](lucide-react|framer-motion|@heroui)[\\/]/,
+              test: /[\\/]node_modules[\\/](lucide-react|framer-motion)[\\/]/,
               name: 'ui-vendor',
               chunks: 'async', // Load on demand
               priority: 15,

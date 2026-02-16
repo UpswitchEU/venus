@@ -126,7 +126,7 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
         <Upload className="w-4 h-4 text-primary-400" />
         <label className="text-sm font-medium text-white">
           {field.label}
-          {field.required && <span className="text-red-400 ml-1">*</span>}
+          {field.required && <span className="text-destructive ml-1">*</span>}
         </label>
       </div>
 
@@ -204,10 +204,10 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
 
       {/* Error State */}
       {processingError && (
-        <div className="flex items-center space-x-3 p-4 bg-red-900/20 rounded-lg border border-red-700/50">
-          <AlertCircle className="w-5 h-5 text-red-400" />
+        <div className="flex items-center space-x-3 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+          <AlertCircle className="w-5 h-5 text-destructive" />
           <div className="flex-1">
-            <p className="text-sm text-red-400">Processing failed</p>
+            <p className="text-sm text-destructive">Processing failed</p>
             <p className="text-xs text-zinc-400">{processingError}</p>
           </div>
           <button
@@ -235,7 +235,7 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
       )}
 
       {/* Field-level error */}
-      {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
+      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
     </div>
   )
 }

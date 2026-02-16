@@ -129,9 +129,9 @@ export function AssetInspector() {
 
         {/* Error */}
         {error && (
-          <div className="border border-red-200 rounded-lg p-3 bg-red-50">
-            <div className="font-medium text-sm text-red-900 mb-2">Error</div>
-            <div className="text-xs text-red-700">{error}</div>
+          <div className="border border-destructive/20 rounded-lg p-3 bg-destructive/10">
+            <div className="font-medium text-sm text-foreground mb-2">Error</div>
+            <div className="text-xs text-muted-foreground">{error}</div>
           </div>
         )}
 

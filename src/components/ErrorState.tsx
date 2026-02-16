@@ -16,33 +16,21 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   onRetry,
   onBack,
   className = '',
-  variant = 'light',
+  variant = 'dark',
 }) => {
-  const isDark = variant === 'dark'
-
   return (
     <div
       className={`flex flex-col items-center justify-center p-6 sm:p-8 text-center animate-in fade-in duration-500 ${className}`}
     >
-      <div
-        className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-3 sm:mb-4 transition-colors ${
-          isDark ? 'bg-rust-500/10' : 'bg-rust-tint'
-        }`}
-      >
-        <AlertTriangle
-          className={`w-6 h-6 sm:w-8 sm:h-8 ${isDark ? 'text-rust-400' : 'text-rust-500'}`}
-        />
+      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-3 sm:mb-4 transition-colors bg-destructive/10">
+        <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-destructive" />
       </div>
 
-      <h3
-        className={`text-base sm:text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-ink'}`}
-      >
+      <h3 className="text-base sm:text-lg font-semibold mb-2 text-foreground">
         {title}
       </h3>
 
-      <p
-        className={`text-xs sm:text-sm max-w-md leading-relaxed mb-6 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}
-      >
+      <p className="text-xs sm:text-sm max-w-md leading-relaxed mb-6 text-muted-foreground">
         {message}
       </p>
 
@@ -50,11 +38,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         {onBack && (
           <button
             onClick={onBack}
-            className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all ${
-              isDark
-                ? 'text-zinc-300 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white hover:border-zinc-600'
-                : 'text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 hover:text-slate-ink hover:border-primary-300'
-            }`}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all text-foreground bg-card border border-foreground/10 hover:bg-muted hover:text-foreground hover:border-primary/30"
           >
             <ArrowLeft className="w-4 h-4" />
             Go Back
@@ -64,9 +48,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         {onRetry && (
           <button
             onClick={onRetry}
-            className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white rounded-lg shadow-sm hover:shadow-md transition-all ${
-              isDark ? 'bg-rust-600 hover:bg-rust-500' : 'bg-rust-600 hover:bg-rust-500'
-            }`}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-destructive-foreground rounded-lg shadow-sm hover:shadow-md transition-all bg-destructive hover:bg-destructive/90"
           >
             <RefreshCw className="w-4 h-4" />
             Try Again

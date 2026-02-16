@@ -86,7 +86,7 @@ export const FuzzySearchFieldRenderer: React.FC<FieldRendererProps> = ({
     <div className="space-y-2">
       <label className="block text-sm font-medium text-white">
         {field.label}
-        {field.required && <span className="text-red-400 ml-1">*</span>}
+        {field.required && <span className="text-destructive ml-1">*</span>}
       </label>
 
       {field.description && <p className="text-xs text-zinc-400">{field.description}</p>}
@@ -174,7 +174,7 @@ export const FuzzySearchFieldRenderer: React.FC<FieldRendererProps> = ({
         </div>
       )}
 
-      {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
+      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
     </div>
   )
 }

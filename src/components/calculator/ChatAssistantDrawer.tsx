@@ -511,7 +511,7 @@ export function ChatAssistantDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
             onClick={() => onOpenChange(false)}
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           />
@@ -660,7 +660,7 @@ export function ChatAssistantDrawer({
                     <motion.div 
                       initial={{ opacity: 0, y: 8, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
                       className="flex items-start gap-3"
                     >
                       {/* AI Avatar - matches message bubble */}
@@ -932,7 +932,7 @@ export function ChatAssistantDrawer({
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.15 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
                       className="mt-3 sm:mt-3 pt-3 sm:pt-3 border-t border-foreground/[0.06]"
                     >
                       {/* On mobile: horizontal scroll, on desktop: wrap */}
@@ -1070,7 +1070,7 @@ function MessageBubble({
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
       className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}
     >
       {/* AI Avatar - Premium minimal design */}

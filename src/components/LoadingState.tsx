@@ -17,7 +17,7 @@ interface LoadingStateProps {
 
 export const LoadingState: React.FC<LoadingStateProps> = ({
   steps = GENERATION_STEPS,
-  variant = 'light',
+  variant = 'dark',
   centered = true,
   compact = false,
   containerClassName,
@@ -118,43 +118,33 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
     <div
       className={
         containerClassName ||
-        `flex flex-col items-center w-full min-h-screen text-center ${baseContainer} ${
-          isDark ? 'bg-background' : 'bg-white'
-        }`
+        `flex flex-col items-center w-full min-h-screen text-center ${baseContainer} bg-background`
       }
     >
       {/* Sage Green Spinner */}
       <div className={`relative ${compact ? 'mb-4' : 'mb-8'}`}>
         <Loader2
-          className={`w-12 h-12 animate-spin ${isDark ? 'text-primary-400' : 'text-primary-600'}`}
+          className="w-12 h-12 animate-spin text-primary"
           strokeWidth={2}
         />
       </div>
 
       {/* Title */}
-      <h3
-        className={`text-xl font-semibold mb-2 ${isDark ? 'text-foreground' : 'text-gray-900'}`}
-      >
+      <h3 className="text-xl font-semibold mb-2 text-foreground">
         {showTimeoutWarning ? 'Almost there...' : currentStep.text}
       </h3>
 
       {/* Description */}
-      <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+      <p className="text-sm mb-6 text-muted-foreground">
         {showTimeoutWarning
           ? 'This is taking longer than usual. Please wait...'
           : currentStep.subtext || 'Preparing your workspace...'}
       </p>
 
       {/* Progress Bar */}
-      <div
-        className={`w-full max-w-md h-2 rounded-full mb-6 overflow-hidden ${
-          isDark ? 'bg-gray-800' : 'bg-gray-200'
-        }`}
-      >
+      <div className="w-full max-w-md h-2 rounded-full mb-6 overflow-hidden bg-foreground/10">
         <div
-          className={`h-full rounded-full transition-all duration-300 ${
-            isDark ? 'bg-primary-500' : 'bg-primary-600'
-          }`}
+          className="h-full rounded-full transition-all duration-300 bg-primary"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -171,17 +161,13 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
               {/* Icon */}
               <div className="flex-shrink-0">
                 {isCompleted && (
-                  <Check className={`w-5 h-5 ${isDark ? 'text-green-400' : 'text-green-500'}`} />
+                  <Check className="w-5 h-5 text-success" />
                 )}
                 {isActive && (
-                  <Loader2
-                    className={`w-5 h-5 animate-spin ${
-                      isDark ? 'text-primary-400' : 'text-primary-600'
-                    }`}
-                  />
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
                 )}
                 {isPending && (
-                  <Clock className={`w-5 h-5 ${isDark ? 'text-gray-600' : 'text-gray-400'}`} />
+                  <Clock className="w-5 h-5 text-foreground/40" />
                 )}
               </div>
 
@@ -189,16 +175,10 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
               <span
                 className={`text-sm ${
                   isActive
-                    ? isDark
-                      ? 'text-white font-medium'
-                      : 'text-gray-900 font-medium'
+                    ? 'text-foreground font-medium'
                     : isCompleted
-                      ? isDark
-                        ? 'text-gray-300'
-                        : 'text-gray-700'
-                      : isDark
-                        ? 'text-gray-600'
-                        : 'text-gray-400'
+                      ? 'text-foreground/70'
+                      : 'text-foreground/50'
                 }`}
               >
                 {step.text}
@@ -210,23 +190,13 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
 
       {/* Warning Message */}
       {showTimeoutWarning && !showRetryOptions && (
-        <div
-          className={`mt-6 flex items-start gap-2 p-3 rounded-lg max-w-md ${
-            isDark
-              ? 'bg-amber-900/30 border border-amber-700'
-              : 'bg-amber-50 border border-amber-200'
-          }`}
-        >
-          <AlertTriangle
-            className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-              isDark ? 'text-amber-400' : 'text-amber-600'
-            }`}
-          />
+        <div className="mt-6 flex items-start gap-2 p-3 rounded-lg max-w-md bg-warning/10 border border-warning/30">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-warning" />
           <div className="text-left">
-            <p className={`text-xs font-medium ${isDark ? 'text-amber-400' : 'text-amber-800'}`}>
+            <p className="text-xs font-medium text-warning">
               Taking longer than expected...
             </p>
-            <p className={`text-xs mt-1 ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+            <p className="text-xs mt-1 text-warning/80">
               Please wait a moment while we complete the setup.
             </p>
           </div>
@@ -235,24 +205,14 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
 
       {/* Retry Options - shown after extended wait */}
       {showRetryOptions && (
-        <div
-          className={`mt-6 p-4 rounded-lg max-w-md ${
-            isDark
-              ? 'bg-zinc-800/50 border border-zinc-700'
-              : 'bg-gray-50 border border-gray-200'
-          }`}
-        >
+        <div className="mt-6 p-4 rounded-lg max-w-md bg-muted border border-foreground/10">
           <div className="flex items-start gap-2 mb-4">
-            <AlertTriangle
-              className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                isDark ? 'text-amber-400' : 'text-amber-600'
-              }`}
-            />
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-warning" />
             <div className="text-left">
-              <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <p className="text-sm font-medium text-foreground">
                 This is taking longer than usual
               </p>
-              <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className="text-xs mt-1 text-muted-foreground">
                 There might be a connection issue. You can try again or return to the dashboard.
               </p>
             </div>
@@ -261,22 +221,14 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
           <div className="flex gap-3 justify-center">
             <button
               onClick={handleRetry}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                isDark
-                  ? 'bg-primary-600 text-white hover:bg-primary-700'
-                  : 'bg-primary-600 text-white hover:bg-primary-700'
-              }`}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <RefreshCw className="w-4 h-4" />
               Try Again
             </button>
             <button
               onClick={handleReturn}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                isDark
-                  ? 'bg-zinc-700 text-white hover:bg-zinc-600'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-muted text-foreground hover:bg-muted/80"
             >
               <ArrowLeft className="w-4 h-4" />
               Go Back
@@ -287,7 +239,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
 
       {/* Estimated Time Remaining */}
       {!showTimeoutWarning && elapsedTime < totalEstimatedTime && (
-        <div className={`mt-4 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+        <div className="mt-4 text-xs text-muted-foreground">
           Estimated time: {Math.ceil((totalEstimatedTime - elapsedTime) / 1000)}s remaining
         </div>
       )}

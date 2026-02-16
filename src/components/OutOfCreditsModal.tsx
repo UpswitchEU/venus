@@ -19,8 +19,8 @@ export const OutOfCreditsModal: React.FC<OutOfCreditsModalProps> = ({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-8 max-w-md w-full mx-4">
         <div className="text-center">
-          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-red-400 text-2xl">🔒</span>
+          <div className="w-16 h-16 bg-destructive/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-destructive text-2xl">🔒</span>
           </div>
 
           <h2 className="text-2xl font-bold text-white mb-2">You've Used All 3 Free Credits!</h2>

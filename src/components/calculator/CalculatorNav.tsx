@@ -166,7 +166,7 @@ const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start' 
             initial={{ opacity: 0, y: -4, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
             className={cn(
               "absolute z-50 mt-2 min-w-[200px] rounded-xl border border-foreground/[0.08]",
               "bg-background/95 backdrop-blur-xl shadow-xl",
@@ -317,7 +317,7 @@ export function CalculatorNav({
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
                 className="hidden md:flex items-center"
               >
                 <div className={cn(

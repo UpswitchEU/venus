@@ -69,12 +69,12 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
 
       {/* Popup */}
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="relative bg-card rounded-lg shadow-xl max-w-md w-full p-6">
           {/* Icon */}
           <div className="flex justify-center mb-4">
-            <div className="rounded-full bg-blue-100 p-3">
+            <div className="rounded-full bg-primary/20 p-3">
               <svg
-                className="h-8 w-8 text-blue-600"
+                className="h-8 w-8 text-primary"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -90,19 +90,19 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
           </div>
 
           {/* Content */}
-          <h3 className="text-xl font-semibold text-gray-900 mb-2 text-center">
+          <h3 className="text-xl font-semibold text-foreground mb-2 text-center">
             Create New Valuation Version?
           </h3>
 
-          <p className="text-gray-600 mb-4 text-center">{getDescription()}</p>
+          <p className="text-muted-foreground mb-4 text-center">{getDescription()}</p>
 
           {/* Info Box */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-sm font-semibold text-blue-900 mb-2">What happens:</p>
-            <ul className="text-sm text-blue-800 space-y-2">
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
+            <p className="text-sm font-semibold text-foreground mb-2">What happens:</p>
+            <ul className="text-sm text-muted-foreground space-y-2">
               <li className="flex items-start">
                 <svg
-                  className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0"
+                  className="h-4 w-4 text-primary mt-0.5 mr-2 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -118,7 +118,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
               </li>
               <li className="flex items-start">
                 <svg
-                  className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0"
+                  className="h-4 w-4 text-primary mt-0.5 mr-2 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -138,7 +138,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
               </li>
               <li className="flex items-start">
                 <svg
-                  className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0"
+                  className="h-4 w-4 text-primary mt-0.5 mr-2 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -154,7 +154,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
               </li>
               <li className="flex items-start">
                 <svg
-                  className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0"
+                  className="h-4 w-4 text-primary mt-0.5 mr-2 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -175,7 +175,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
               type="button"
               onClick={onCancel}
               disabled={isCreating}
-              className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 text-muted-foreground bg-background border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -183,7 +183,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
               type="button"
               onClick={onConfirm}
               disabled={isCreating}
-              className="flex-1 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:bg-primary/50 disabled:cursor-not-allowed"
             >
               {isCreating ? (
                 <span className="flex items-center justify-center">

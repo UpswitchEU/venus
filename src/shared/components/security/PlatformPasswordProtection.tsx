@@ -296,8 +296,8 @@ const PlatformPasswordProtection: React.FC<PlatformPasswordProtectionProps> = ({
             <div className="w-full max-w-md">
               {/* Security Notice */}
               <div className="text-center mb-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500/20 backdrop-blur-sm rounded-full mb-4 border border-red-500/30">
-                  <Shield className="w-8 h-8 text-red-400" />
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-destructive/20 backdrop-blur-sm rounded-full mb-4 border border-destructive/30">
+                  <Shield className="w-8 h-8 text-destructive" />
                 </div>
                 <h1 className="text-2xl font-bold text-white mb-2">Platform Access</h1>
                 <p className="text-gray-300 text-sm">
@@ -324,8 +324,8 @@ const PlatformPasswordProtection: React.FC<PlatformPasswordProtectionProps> = ({
                   />
 
                   {isLocked && (
-                    <div className="bg-red-500/20 backdrop-blur-sm border border-red-500/40 rounded-lg p-4 shadow-lg">
-                      <div className="flex items-center space-x-2 text-red-300">
+                    <div className="bg-destructive/20 backdrop-blur-sm border border-destructive/40 rounded-lg p-4 shadow-lg">
+                      <div className="flex items-center space-x-2 text-destructive/80">
                         <Lock className="w-4 h-4" />
                         <span className="text-sm">
                           Access locked for {lockoutTime} minutes due to multiple failed attempts.

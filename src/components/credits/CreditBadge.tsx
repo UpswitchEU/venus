@@ -4,7 +4,7 @@
  * Displays user's current credit status with upgrade prompts
  */
 
-import { Tooltip } from '@heroui/react'
+import { Tooltip } from '@/design-system'
 import React from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCredits } from '@/hooks/useCredits'
@@ -41,7 +41,7 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
 
   // Loading state
   if (isLoading) {
-    return <div className={`animate-pulse bg-gray-200 h-8 w-24 rounded ${className}`} />
+    return <div className={`animate-pulse bg-foreground/10 h-8 w-24 rounded ${className}`} />
   }
 
   // SOFT DISABLE: Show unlimited access badge for all users
@@ -67,7 +67,7 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
 
     if (showTooltip && !onClick) {
       return (
-        <Tooltip content="Generate unlimited valuations" placement="bottom">
+        <Tooltip content="Generate unlimited valuations" side="bottom">
           {badgeContent}
         </Tooltip>
       )
@@ -96,12 +96,12 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
   // Color classes based on credit status
   const getColorClasses = () => {
     if (isOut) {
-      return 'bg-accent-100 text-accent-700 hover:bg-accent-200 border-accent-200'
+      return 'bg-destructive/10 text-destructive hover:bg-destructive/20 border-destructive/30'
     }
     if (isLow) {
-      return 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border-yellow-200'
+      return 'bg-warning/10 text-warning hover:bg-warning/20 border-warning/30'
     }
-    return 'bg-primary-100 text-primary-700 hover:bg-primary-200 border-primary-200'
+    return 'bg-primary/10 text-primary hover:bg-primary/20 border-primary/30'
   }
 
   // Icon based on status

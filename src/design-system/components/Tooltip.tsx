@@ -19,7 +19,9 @@ import { cn } from '../utils';
 export interface TooltipProps {
   children: React.ReactNode;
   content: React.ReactNode;
+  /** Preferred: use `side`. `position` is an alias for backward compatibility. */
   side?: 'top' | 'bottom' | 'left' | 'right';
+  position?: 'top' | 'bottom' | 'left' | 'right';
   align?: 'start' | 'center' | 'end';
   sideOffset?: number;
   delayDuration?: number;
@@ -93,6 +95,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
   children,
   content,
   side = 'top',
+  position,
   align = 'center',
   sideOffset = 6,
   delayDuration,
@@ -100,6 +103,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
   className,
 }) => {
   const [open, setOpen] = React.useState(false);
+  const effectiveSide = position ?? side;
 
   return (
     <TooltipPrimitive.Root
@@ -114,14 +118,14 @@ export const Tooltip: React.FC<TooltipProps> = ({
         {open && (
           <TooltipPrimitive.Portal forceMount>
             <TooltipPrimitive.Content
-              side={side}
+              side={effectiveSide}
               align={align}
               sideOffset={sideOffset}
               asChild
               onPointerDownOutside={(e) => e.preventDefault()}
             >
               <motion.div
-                custom={side}
+                custom={effectiveSide}
                 variants={tooltipVariants}
                 initial="initial"
                 animate="animate"

@@ -40,22 +40,22 @@ export const ValidationMessage: React.FC<ValidationMessageProps> = ({
 }) => {
   const { message, severity } = validation
 
-  // Severity-based styling
+  // Severity-based styling (Aurora design system)
   const severityStyles = {
     error: {
-      container: 'bg-red-50 border-red-400 text-red-800',
+      container: 'bg-destructive/10 border-l-4 border-l-destructive text-foreground',
       icon: '❌',
-      iconBg: 'bg-red-100',
+      iconBg: 'bg-destructive/20',
     },
     warning: {
-      container: 'bg-yellow-50 border-yellow-400 text-yellow-800',
+      container: 'bg-warning/10 border-l-4 border-l-warning text-foreground',
       icon: '⚠️',
-      iconBg: 'bg-yellow-100',
+      iconBg: 'bg-warning/20',
     },
     info: {
-      container: 'bg-blue-50 border-blue-400 text-blue-800',
+      container: 'bg-primary/10 border-l-4 border-l-primary text-foreground',
       icon: 'ℹ️',
-      iconBg: 'bg-blue-100',
+      iconBg: 'bg-primary/20',
     },
   }
 
@@ -89,7 +89,7 @@ export const ValidationMessage: React.FC<ValidationMessageProps> = ({
       {onDismiss && (
         <button
           onClick={onDismiss}
-          className="ml-3 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+          className="ml-3 flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
           aria-label="Dismiss"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -127,12 +127,12 @@ export const ValidationMessageList: React.FC<ValidationMessageListProps> = ({
       {/* Header with dismiss all button */}
       {onDismissAll && validations.length > 1 && (
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-foreground">
             {validations.length} validation message{validations.length > 1 ? 's' : ''}
           </span>
           <button
             onClick={onDismissAll}
-            className="text-xs text-gray-500 hover:text-gray-700 underline"
+            className="text-xs text-muted-foreground hover:text-foreground underline"
           >
             Dismiss all
           </button>

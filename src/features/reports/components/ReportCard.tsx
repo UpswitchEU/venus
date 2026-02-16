@@ -111,11 +111,11 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
   const getStatusColor = () => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-700 border-green-200'
+        return 'bg-success/10 text-success border-success/30'
       case 'in_progress':
-        return 'bg-blue-100 text-blue-700 border-blue-200'
+        return 'bg-info/10 text-info border-info/30'
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200'
+        return 'bg-muted text-muted-foreground border-foreground/10'
     }
   }
 
@@ -124,9 +124,9 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
   return (
     <div
       className={`
-        group relative bg-white border border-gray-200 rounded-lg overflow-hidden
+        group relative bg-card border border-foreground/10 rounded-lg overflow-hidden
         cursor-pointer transition-all duration-200
-        ${isHovered ? 'shadow-lg border-primary-500' : 'shadow-sm hover:shadow-md'}
+        ${isHovered ? 'shadow-lg border-primary' : 'shadow-sm hover:shadow-md'}
         ${isDeleting ? 'opacity-50 pointer-events-none' : ''}
       `}
       onClick={onClick}
@@ -134,10 +134,10 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Header with industry icon and status */}
-      <div className="relative p-4 bg-gradient-to-br from-primary-50 to-primary-100">
+      <div className="relative p-4 bg-gradient-to-br from-primary/10 to-primary/20">
         {/* Industry icon placeholder */}
-        <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm">
-          <TrendingUp className="w-6 h-6 text-primary-600" />
+        <div className="w-12 h-12 bg-card rounded-lg flex items-center justify-center shadow-sm">
+          <TrendingUp className="w-6 h-6 text-primary" />
         </div>
 
         {/* Status badge */}
@@ -156,7 +156,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
           disabled={isDeleting}
           className={`
             absolute bottom-3 right-3 p-2 rounded-lg
-            bg-white text-red-600 hover:bg-red-50 hover:text-red-700
+            bg-card text-destructive hover:bg-destructive/10 hover:text-destructive
             transition-all duration-200 shadow-sm
             ${isHovered ? 'opacity-100' : 'opacity-0'}
           `}
@@ -169,15 +169,15 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
       {/* Content */}
       <div className="p-4">
         {/* Company name */}
-        <h3 className="font-semibold text-lg text-gray-900 truncate mb-2">{companyName}</h3>
+        <h3 className="font-semibold text-lg text-foreground truncate mb-2">{companyName}</h3>
 
         {/* Metadata */}
-        <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
           <div className="flex items-center gap-1">
             <Calendar className="w-4 h-4" />
             <span>{formatDate(createdAt)}</span>
           </div>
-          <span className="text-gray-300">·</span>
+          <span className="text-foreground/30">·</span>
           <div className="flex items-center gap-1">
             <Clock className="w-4 h-4" />
             <span className="capitalize">{currentView}</span>
@@ -187,13 +187,13 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
         {/* Progress indicator (for in-progress reports) */}
         {status === 'in_progress' && (
           <div className="mb-3">
-            <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
               <span>Completeness</span>
               <span>{completeness}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-foreground/10 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-primary-600 h-full rounded-full transition-all duration-300"
+                className="bg-primary h-full rounded-full transition-all duration-300"
                 style={{ width: `${completeness}%` }}
               />
             </div>
@@ -202,9 +202,9 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
 
         {/* Valuation result preview (for completed reports) */}
         {status === 'completed' && valuationResult && (
-          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">Estimated Value</p>
-            <p className="text-xl font-bold text-green-700">
+          <div className="mt-3 p-3 bg-success/10 border border-success/30 rounded-lg">
+            <p className="text-xs text-muted-foreground mb-1">Estimated Value</p>
+            <p className="text-xl font-bold text-success">
               {formatCurrency(
                 (valuationResult as any).valuation_summary?.final_valuation ||
                   (valuationResult as any).value ||
@@ -217,7 +217,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
 
         {/* Hover indicator */}
         {isHovered && (
-          <div className="mt-3 text-sm text-primary-600 font-medium flex items-center gap-1">
+          <div className="mt-3 text-sm text-primary font-medium flex items-center gap-1">
             <span>Open report</span>
             <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
           </div>

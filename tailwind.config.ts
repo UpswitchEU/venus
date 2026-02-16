@@ -1,4 +1,3 @@
-import { heroui } from '@heroui/theme'
 import containerQueries from '@tailwindcss/container-queries'
 import forms from '@tailwindcss/forms'
 import type { Config } from 'tailwindcss'
@@ -9,7 +8,6 @@ const config: Config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx}',
     './src/**/*.{js,ts,jsx,tsx}',
-    './node_modules/@heroui/theme/dist/components/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
@@ -298,25 +296,6 @@ const config: Config = {
   plugins: [
     containerQueries,
     forms,
-    heroui({
-      defaultTheme: 'light',
-      themes: {
-        light: {
-          colors: {
-            primary: {
-              DEFAULT: '#3DBDB0', // Aurora Teal
-              foreground: '#ffffff',
-            },
-            secondary: {
-              DEFAULT: '#C87F63', // Burnt Clay
-              foreground: '#ffffff',
-            },
-            background: '#F4F1EA', // Canvas
-            foreground: '#2B303A', // Slate Ink
-          },
-        },
-      },
-    }),
   ],
 }
 

@@ -79,7 +79,7 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="text-center max-w-md">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
           <span className="text-3xl">{icon}</span>
         </div>
         <h1 className="text-2xl font-bold text-foreground mb-4">{title}</h1>
@@ -88,10 +88,10 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
         {/* Error details for debugging (development only) */}
         {process.env.NODE_ENV === 'development' && error && (
           <details className="mb-6 text-left">
-            <summary className="text-gray-500 cursor-pointer hover:text-gray-400 text-sm">
+            <summary className="text-muted-foreground cursor-pointer hover:text-foreground text-sm">
               Technical details
             </summary>
-            <pre className="mt-2 p-3 bg-zinc-900 rounded-lg text-xs text-red-400 overflow-auto max-h-32">
+            <pre className="mt-2 p-3 bg-muted rounded-lg text-xs text-muted-foreground overflow-auto max-h-32 border border-border">
               {error.message}
               {error.stack && `\n\n${error.stack}`}
             </pre>
@@ -101,7 +101,7 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
           >
             Reload Page
           </button>
@@ -110,7 +110,7 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
               onClick={() => {
                 window.location.href = effectiveReturnUrl
               }}
-              className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+              className="px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors font-medium border border-border"
             >
               Return to Dashboard
             </button>
@@ -118,11 +118,11 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
         </div>
         
         {/* Support link */}
-        <p className="mt-6 text-sm text-gray-500">
+        <p className="mt-6 text-sm text-muted-foreground">
           If this problem persists,{' '}
           <a 
             href="mailto:support@upswitch.app" 
-            className="text-blue-400 hover:text-blue-300 underline"
+            className="text-primary hover:text-primary/80 underline"
           >
             contact support
           </a>

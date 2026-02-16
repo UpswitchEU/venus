@@ -422,7 +422,7 @@ export function VersionCompareModal({
                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-foreground/20 to-primary rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: '100%' }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
+                transition={{ type: 'spring', stiffness: 170, damping: 26, mass: 1 }}
               />
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-foreground/30 border-2 border-background" />
               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background" />

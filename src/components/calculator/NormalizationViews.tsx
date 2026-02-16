@@ -61,9 +61,9 @@ const categoryLabels: Record<string, { label: string; icon: string; group: 'omze
 
 const sourceConfig: Record<NormalizationSource, { label: string; color: string }> = {
   manual: { label: 'Manueel', color: 'bg-foreground/10 text-foreground/70' },
-  yuki: { label: 'Yuki', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400' },
-  exact: { label: 'Exact', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  csv: { label: 'CSV', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+  yuki: { label: 'Yuki', color: 'bg-accent/10 text-accent' },
+  exact: { label: 'Exact', color: 'bg-info/10 text-info' },
+  csv: { label: 'CSV', color: 'bg-warning/10 text-warning' },
   ai: { label: 'AI', color: 'bg-primary/10 text-primary' },
 };
 

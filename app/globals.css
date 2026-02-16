@@ -4,6 +4,9 @@
 /* Import Aurora Design System Tokens */
 @import "../src/styles/design-tokens/index.css";
 
+/* Import Valuation Report Print (Aurora tokens for .valuation-report) */
+@import "../src/styles/valuation-report-print.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -142,7 +145,7 @@
   }
 
   .card-elevated {
-    @apply bg-white rounded-xl shadow-elevated;
+    @apply bg-card rounded-xl shadow-elevated;
   }
 }
 
@@ -163,15 +166,15 @@
 
 /* Dropzone styles */
 .dropzone {
-  @apply border-2 border-dashed border-gray-300 rounded-xl p-8 text-center transition-all duration-200 cursor-pointer;
+  @apply border-2 border-dashed border-foreground/10 rounded-xl p-8 text-center transition-all duration-200 cursor-pointer;
 }
 
 .dropzone:hover {
-  @apply border-primary-500 bg-primary-50/50;
+  @apply border-primary bg-primary/10;
 }
 
 .dropzone.active {
-  @apply border-primary-600 bg-primary-50 scale-[1.02];
+  @apply border-primary bg-primary/10 scale-[1.02];
 }
 
 /* Loading skeleton */
@@ -185,7 +188,7 @@
 }
 
 .skeleton {
-  @apply bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200;
+  @apply bg-gradient-to-r from-foreground/10 via-foreground/20 to-foreground/10;
   background-size: 1000px 100%;
   animation: shimmer 2s infinite linear;
 }
@@ -263,21 +266,45 @@
   /* No padding on container, to allow full bleed design */
 }
 
-/* CSS Variables for Colors */
+/* CSS Variables for Colors — Aurora by Upswitch Design System */
 .valuation-report-preview {
-  --upswitch-navy: #2b303a; /* Slate Ink - Primary Text */
-  --upswitch-blue: #4a5d4f; /* Sage Foundation - Primary Brand */
-  --text-dark: #2b303a; /* Slate Ink */
-  --text-body: #4b5563; /* Slate-600 */
-  --text-muted: #6b7280; /* Slate-500 */
-  --bg-subtle: #f4f1ea; /* Canvas */
-  --border-light: #e2e8f0; /* Slate-200 */
+  /* Aurora Report Tokens (60/30/10: Deep Slate, Aurora Teal, Burnt Clay) */
+  --report-slate-900: 224 17% 12%;
+  --report-slate-800: 224 16% 18%;
+  --report-slate-700: 224 14% 28%;
+  --report-slate-600: 224 12% 42%;
+  --report-slate-500: 224 10% 55%;
+  --report-slate-400: 224 8% 70%;
+  --report-slate-300: 224 8% 82%;
+  --report-slate-200: 224 10% 91%;
+  --report-slate-100: 224 12% 96%;
+  --report-slate-50: 40 20% 98%;
+  --report-teal: 172 55% 45%;
+  --report-teal-light: 172 45% 92%;
+  --report-teal-dark: 172 60% 32%;
+  --report-clay: 17 50% 59%;
+  --report-success: 143 40% 42%;
+  --report-warning: 37 65% 55%;
+  --report-danger: 6 55% 50%;
+  --report-bg: 0 0% 100%;
+  --report-surface: 40 15% 98%;
+  --report-text: 225 18% 12%;
+  --report-text-muted: 224 10% 45%;
+
+  /* Legacy aliases for compatibility */
+  --upswitch-navy: hsl(var(--report-slate-900));
+  --upswitch-blue: hsl(var(--report-teal));
+  --text-dark: hsl(var(--report-text));
+  --text-body: hsl(var(--report-slate-600));
+  --text-muted: hsl(var(--report-text-muted));
+  --bg-subtle: hsl(var(--report-surface));
+  --border-light: hsl(var(--report-slate-200));
 
   /* Base Font settings */
   font-family: "Satoshi", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 11pt;
   line-height: 1.5;
-  color: #2b303a;
+  color: hsl(var(--report-text));
 }
 
 /* Reset internal elements */
@@ -307,7 +334,7 @@
   font-weight: 800;
   line-height: 0.9;
   letter-spacing: -2pt;
-  color: var(--upswitch-navy);
+  color: hsl(var(--report-slate-900));
   margin-bottom: 24pt;
 }
 
@@ -372,7 +399,7 @@
 .valuation-report-preview .stat-card .value {
   font-size: 32pt;
   font-weight: 700;
-  color: var(--upswitch-navy);
+  color: hsl(var(--report-slate-900));
   line-height: 1.1;
 }
 
@@ -383,20 +410,20 @@
 
 .valuation-report-preview .report-callout {
   background-color: var(--bg-subtle);
-  border-left: 4pt solid var(--upswitch-navy);
+  border-left: 4pt solid hsl(var(--report-slate-900));
   padding: 16pt;
   margin: 24pt 0;
   border-radius: 0 4pt 4pt 0;
 }
 
 .valuation-report-preview .report-callout.warning {
-  background-color: #faf5eb; /* Harvest Tint */
-  border-left-color: #d9a558; /* Harvest */
+  background-color: hsl(var(--report-warning) / 0.1);
+  border-left-color: hsl(var(--report-warning));
 }
 
 .valuation-report-preview .report-callout.danger {
-  background-color: #f5ebea; /* Rust Tint */
-  border-left-color: #b85c56; /* Rust */
+  background-color: hsl(var(--report-danger) / 0.1);
+  border-left-color: hsl(var(--report-danger));
 }
 
 .valuation-report-preview .report-callout p {
@@ -444,7 +471,7 @@
   font-size: 10pt;
   line-height: 1.6;
   border: none;
-  border-top: 2px solid var(--upswitch-navy);
+  border-top: 2px solid hsl(var(--report-slate-900));
 }
 
 /* Remove side margins when table is inside report-section */
@@ -471,7 +498,7 @@
   background-color: #f8fafc; /* Academic/Formal header background */
   border-bottom: 1px solid #cbd5e1;
   font-weight: 700;
-  color: var(--upswitch-navy);
+  color: hsl(var(--report-slate-900));
   padding: 12pt 12pt;
   text-align: left;
   font-family: "Satoshi", "Inter", sans-serif;
@@ -497,7 +524,7 @@
 /* Primary column emphasis for step-table */
 .valuation-report-preview .step-table td:first-child {
   font-weight: 500;
-  color: var(--upswitch-navy);
+  color: hsl(var(--report-slate-900));
 }
 
 .valuation-report-preview tr:last-child td,
@@ -533,7 +560,7 @@
   font-size: 28pt;
   font-weight: 800;
   margin: 12pt 0 16pt 0;
-  color: var(--upswitch-navy);
+  color: hsl(var(--report-slate-900));
   font-family: "Satoshi", "Inter", sans-serif;
   letter-spacing: -1pt;
 }
@@ -579,7 +606,7 @@
 /* Classification Banner */
 .valuation-report-preview .classification-banner {
   background-color: #ffffff;
-  border: 1pt solid var(--upswitch-navy);
+  border: 1pt solid hsl(var(--report-slate-900));
   padding: 12pt;
   margin: 24pt 0;
   text-align: center;
@@ -606,7 +633,7 @@
 
 .valuation-report-preview .classification-banner h3 {
   margin: 0 0 6pt 0;
-  color: var(--upswitch-navy);
+  color: hsl(var(--report-slate-900));
   font-size: 12pt;
   text-transform: uppercase;
   letter-spacing: 0.5pt;
@@ -629,7 +656,7 @@
 
 .valuation-report-preview .toc-entry > a {
   text-decoration: none;
-  color: var(--upswitch-navy);
+  color: hsl(var(--report-slate-900));
   display: block;
   font-weight: 700;
 }
@@ -676,24 +703,24 @@
 }
 
 .valuation-report-preview .status-badge.completed {
-  background-color: #e9f0eb; /* Moss Tint */
-  color: #6b8e72; /* Moss */
+  background-color: hsl(var(--report-success) / 0.15);
+  color: hsl(var(--report-success));
 }
 
 .valuation-report-preview .status-badge.skipped {
-  background-color: #faf5eb; /* Harvest Tint */
-  color: #d9a558; /* Harvest */
+  background-color: hsl(var(--report-warning) / 0.15);
+  color: hsl(var(--report-warning));
 }
 
 .valuation-report-preview .status-badge.failed {
-  background-color: #f5ebea; /* Rust Tint */
-  color: #b85c56; /* Rust */
+  background-color: hsl(var(--report-danger) / 0.15);
+  color: hsl(var(--report-danger));
 }
 
 .valuation-report-preview .status-badge.pending,
 .valuation-report-preview .status-badge.not_executed {
-  background-color: #ebe7de; /* Stone 100 */
-  color: #85827a; /* Stone 500 */
+  background-color: hsl(var(--report-slate-200));
+  color: hsl(var(--report-slate-500));
 }
 .valuation-report-preview div.flex.items-center.mb-4:has(svg.lucide-circle-check-big),
 .valuation-report-preview div:has(> svg.lucide-circle-check-big):has(> h2),

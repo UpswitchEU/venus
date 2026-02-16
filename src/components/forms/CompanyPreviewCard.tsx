@@ -34,12 +34,12 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
   }, [isVerifying])
 
   return (
-    <div className="mt-3 p-4 bg-gradient-to-br from-primary-50 to-canvas border border-primary-200 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+    <div className="mt-3 p-4 bg-gradient-to-br from-primary/10 to-background border border-primary/30 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
       {/* Header with verified badge */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <div
-            className={`flex-shrink-0 w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center transition-all ${
+            className={`flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center transition-all ${
               justVerified ? 'scale-110' : ''
             }`}
           >
@@ -62,10 +62,10 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
             )}
           </div>
           <div>
-            <p className="text-xs font-semibold text-primary-700 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-primary uppercase tracking-wider">
               {isVerifying ? t('forms.kboLookup.verifying') : t('forms.kboLookup.verifiedCompany')}
             </p>
-            <p className="text-sm font-medium text-gray-600">{t('forms.kboLookup.kboBelgium')}</p>
+            <p className="text-sm font-medium text-muted-foreground">{t('forms.kboLookup.kboBelgium')}</p>
           </div>
         </div>
 
@@ -73,7 +73,7 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
         <button
           type="button"
           onClick={onClear}
-          className="px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-100 rounded-lg transition-colors"
+          className="px-3 py-1.5 text-sm text-primary hover:text-primary/90 hover:bg-primary/10 rounded-lg transition-colors"
           aria-label={t('forms.kboLookup.changeCompany')}
         >
           {t('forms.kboLookup.changeCompany')}
@@ -83,12 +83,12 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
       {/* Company details */}
       <div className="space-y-2">
         <div>
-          <h4 className="text-lg font-semibold text-gray-900 mb-1">{company.company_name}</h4>
+          <h4 className="text-lg font-semibold text-foreground mb-1">{company.company_name}</h4>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             {company.registration_number && (
-              <span className="inline-flex items-center gap-1.5 text-gray-700">
+              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                 <svg
-                  className="w-4 h-4 text-gray-400"
+                  className="w-4 h-4 text-foreground/40"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -105,18 +105,18 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
             )}
             {company.legal_form && (
               <>
-                <span className="text-gray-300">•</span>
-                <span className="text-gray-600">{company.legal_form}</span>
+                <span className="text-foreground/30">•</span>
+                <span className="text-muted-foreground">{company.legal_form}</span>
               </>
             )}
             {company.status && (
               <>
-                <span className="text-gray-300">•</span>
+                <span className="text-foreground/30">•</span>
                 <span
                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                     company.status.toLowerCase() === 'active'
-                      ? 'bg-primary-100 text-primary-800'
-                      : 'bg-gray-100 text-gray-800'
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {company.status.toLowerCase() === 'active' ? t('forms.kboLookup.active') : company.status}
@@ -127,10 +127,10 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
         </div>
 
         {company.address && (
-          <div className="pt-2 border-t border-primary-200/50">
-            <div className="flex items-start gap-2 text-sm text-gray-600">
+          <div className="pt-2 border-t border-primary/20">
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
               <svg
-                className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0"
+                className="w-4 h-4 text-foreground/40 mt-0.5 flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
