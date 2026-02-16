@@ -212,11 +212,11 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
         }
       }
 
-      // Signal after bootstrap sync completes AND a small delay to ensure session is ready
+      // Signal after bootstrap sync completes AND a brief delay to ensure session is ready
       // The ValuationSessionManager will have loaded the session by this point
       if (isBootstrapSynced) {
-        // Small delay to ensure ValuationSessionManager has finished loading session
-        const timeoutId = setTimeout(signalReady, 800)
+        // Brief delay to ensure ValuationSessionManager has finished loading session (reduced for faster Mercury→Venus feel)
+        const timeoutId = setTimeout(signalReady, 300)
         return () => clearTimeout(timeoutId)
       }
     }, [isBootstrapSynced, reportId, urlParams.source])

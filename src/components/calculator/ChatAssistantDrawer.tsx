@@ -11,7 +11,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { springDefault, springSnappy } from '@/design-system/components/motion';
 import ReactMarkdown from 'react-markdown';
 import { 
   X, 
@@ -512,7 +511,7 @@ export function ChatAssistantDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={springSnappy}
+            transition={{ duration: 0.2 }}
             onClick={() => onOpenChange(false)}
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           />
@@ -522,7 +521,7 @@ export function ChatAssistantDrawer({
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={springSnappy}
+            transition={{ duration: 0.2 }}
             className={cn(
               // Base: Full screen on mobile for immersive experience
               "fixed right-0 top-0 bottom-0 z-50",
@@ -661,7 +660,7 @@ export function ChatAssistantDrawer({
                     <motion.div 
                       initial={{ opacity: 0, y: 8, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={springSnappy}
+                      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
                       className="flex items-start gap-3"
                     >
                       {/* AI Avatar - matches message bubble */}
@@ -732,6 +731,7 @@ export function ChatAssistantDrawer({
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.15 }}
                     className="mb-3 sm:mb-3 p-3 sm:p-2.5 rounded-xl bg-primary/10 border border-primary/20"
                   >
                     <p className="text-xs sm:text-[10px] font-medium text-primary mb-2 sm:mb-1.5 uppercase tracking-wide">
@@ -766,6 +766,7 @@ export function ChatAssistantDrawer({
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.15 }}
                     className="mb-3 sm:mb-3 p-3 sm:p-2.5 rounded-xl bg-success/10 border border-success/20"
                   >
                     <p className="text-xs sm:text-[10px] font-medium text-success mb-2 sm:mb-1.5 uppercase tracking-wide">
@@ -819,6 +820,7 @@ export function ChatAssistantDrawer({
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.15 }}
                       className="flex gap-2.5 sm:gap-2 mb-3 sm:mb-2 pb-3 sm:pb-2 flex-wrap border-b border-foreground/[0.06]"
                     >
                       {attachments.map((file, index) => (
@@ -827,6 +829,7 @@ export function ChatAssistantDrawer({
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.15 }}
                           className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-2 sm:py-1 rounded-xl sm:rounded-lg bg-foreground/[0.06] text-sm sm:text-xs text-foreground/70"
                         >
                           {file.type.startsWith('image/') ? (
@@ -933,7 +936,7 @@ export function ChatAssistantDrawer({
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      transition={springSnappy}
+                      transition={{ duration: 0.15 }}
                       className="mt-3 sm:mt-3 pt-3 sm:pt-3 border-t border-foreground/[0.06]"
                     >
                       {/* On mobile: horizontal scroll, on desktop: wrap */}
@@ -944,7 +947,7 @@ export function ChatAssistantDrawer({
                             type="button"
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ ...springDefault, delay: 0.02 + index * 0.03 }}
+                            transition={{ duration: 0.15, delay: 0.02 + index * 0.03 }}
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
                             onClick={() => handleCommandPillClick(suggestion)}
@@ -977,6 +980,7 @@ export function ChatAssistantDrawer({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
                       className="absolute bottom-2 right-14 text-[10px] text-foreground/25 hidden md:block"
                     >
                       ↵ om te verzenden
@@ -1060,6 +1064,7 @@ function MessageBubble({
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
+        transition={{ duration: 0.25 }}
         className="text-center py-2"
       >
         <span className="text-xs text-foreground/40 italic">{message.content}</span>
@@ -1071,7 +1076,7 @@ function MessageBubble({
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={springSnappy}
+      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
       className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}
     >
       {/* AI Avatar - Premium minimal design */}
@@ -1308,6 +1313,7 @@ function MessageBubble({
                   key={suggestion.id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
                   className={cn(
                     "rounded-xl sm:rounded-lg border overflow-hidden transition-all",
                     isPending ? "border-primary/20 bg-primary/5" :

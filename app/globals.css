@@ -131,9 +131,9 @@
     ring: none !important;
   }
 
-  /* Data collection animations */
+  /* Data collection animations — aligned with Aurora */
   .data-collected-item {
-    animation: slideIn 0.3s ease-out;
+    animation: slideInUp 0.3s ease-out;
   }
 
   .valuation-preview-item {
@@ -193,11 +193,11 @@
   animation: shimmer 2s infinite linear;
 }
 
-/* Keyframe animations for lovable experience */
-@keyframes slideIn {
+/* Keyframe animations — aligned with Aurora (translateY 10px = from below) */
+@keyframes slideInUp {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
