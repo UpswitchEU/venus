@@ -11,10 +11,13 @@
 
 // Dynamic imports using React.lazy for code splitting (Next.js compatible)
 import React, { lazy, Suspense, useEffect, useMemo } from 'react'
+import { AlertCircle } from 'lucide-react'
+import { GlassCard, AuroraButton } from '@/design-system'
 import { useLoadingSteps } from '../hooks/useLoadingSteps'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
 import { LoadingState } from './LoadingState'
+import { ErrorState } from './ErrorState'
 
 /**
  * Valuation flow stage types
@@ -65,24 +68,31 @@ const ValuationFlow = lazy(() =>
     }))
     .catch((error) => {
       console.error('[ValuationFlowSelector] Failed to load ValuationFlow component', error)
-      // Return a fallback component that shows an error
+      // Return a fallback component that shows an error (Aurora design system)
       return {
         default: () => (
-          <div className="flex items-center justify-center h-full">
-            <div className="max-w-md mx-auto text-center">
-              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-destructive mb-2">Loading Error</h3>
-                <p className="text-muted-foreground mb-4">
-                  Failed to load valuation flow component. Please refresh the page.
-                </p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg transition-colors"
-                >
-                  Reload Page
-                </button>
+          <div className="flex items-center justify-center h-full p-4">
+            <GlassCard
+              variant="default"
+              glow="none"
+              hover={false}
+              className="max-w-md w-full text-center"
+            >
+              <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-destructive/10">
+                <AlertCircle className="w-6 h-6 text-destructive/70" aria-hidden />
               </div>
-            </div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">Loading Error</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Failed to load valuation flow component. Please refresh the page.
+              </p>
+              <AuroraButton
+                onClick={() => window.location.reload()}
+                variant="primary"
+                size="lg"
+              >
+                Reload Page
+              </AuroraButton>
+            </GlassCard>
           </div>
         ),
       }
@@ -189,39 +199,13 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
 
     if (error) {
       return (
-        <div className="flex items-center justify-center h-full">
-          <div className="max-w-md mx-auto text-center">
-            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-destructive mb-2">Session Error</h3>
-              <p className="text-muted-foreground mb-6">{error}</p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                {onRetry && (
-                  <button
-                    onClick={onRetry}
-                    className="px-6 py-2.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg transition-colors font-medium"
-                  >
-                    Retry
-                  </button>
-                )}
-                {onStartOver && (
-                  <button
-                    onClick={onStartOver}
-                    className="px-6 py-2.5 bg-muted hover:bg-muted/80 text-foreground rounded-lg transition-colors font-medium"
-                  >
-                    Start Over
-                  </button>
-                )}
-                {!onRetry && !onStartOver && (
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="px-6 py-2.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg transition-colors font-medium"
-                  >
-                    Reload Page
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center justify-center h-full p-4">
+          <ErrorState
+            title="Session Error"
+            message={error}
+            onRetry={onRetry}
+            onBack={onStartOver ?? (!onRetry ? () => window.location.reload() : undefined)}
+          />
         </div>
       )
     }

@@ -1,10 +1,12 @@
 /**
  * ErrorRecovery Component
  * Provides error recovery UI with retry functionality
+ * Uses Aurora design system (AuroraButton).
  */
 
 import { AlertTriangle, RefreshCw, X } from 'lucide-react'
 import React from 'react'
+import { AuroraButton } from '@/design-system'
 import { ErrorType, extractErrorInfo } from '../utils/errorHandler'
 
 interface ErrorRecoveryProps {
@@ -30,7 +32,7 @@ export const ErrorRecovery: React.FC<ErrorRecoveryProps> = ({
   }
 
   return (
-    <div className="bg-destructive/10 border-l-4 border-destructive/30 rounded-r-lg p-4 mb-4 backdrop-blur-sm">
+    <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 mb-4 backdrop-blur-sm">
       <div className="flex items-start">
         <div className="flex-shrink-0">
           <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -43,7 +45,7 @@ export const ErrorRecovery: React.FC<ErrorRecoveryProps> = ({
 
           {/* Show partial results if available */}
           {showPartialResults && partialResults && (
-            <div className="mt-3 p-3 bg-success/10 border border-success/30 rounded">
+            <div className="mt-3 p-3 bg-success/10 border border-success/30 rounded-lg">
               <p className="text-sm text-success font-medium mb-1">Partial results available</p>
               <p className="text-xs text-muted-foreground">
                 Some sections were generated before the error occurred. You can view them below.
@@ -54,22 +56,26 @@ export const ErrorRecovery: React.FC<ErrorRecoveryProps> = ({
           {/* Action buttons */}
           <div className="mt-4 flex gap-2">
             {errorInfo.retryable && onRetry && (
-              <button
+              <AuroraButton
                 onClick={onRetry}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                variant="primary"
+                size="sm"
+                className="gap-2"
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="h-4 w-4" />
                 Retry
-              </button>
+              </AuroraButton>
             )}
             {onDismiss && (
-              <button
+              <AuroraButton
                 onClick={onDismiss}
-                className="inline-flex items-center px-3 py-2 border border-foreground/20 text-sm leading-4 font-medium rounded-md text-foreground bg-muted hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-foreground/20 transition-colors"
+                variant="outline"
+                size="sm"
+                className="gap-2"
               >
-                <X className="h-4 w-4 mr-2" />
+                <X className="h-4 w-4" />
                 Dismiss
-              </button>
+              </AuroraButton>
             )}
           </div>
 
@@ -79,7 +85,7 @@ export const ErrorRecovery: React.FC<ErrorRecoveryProps> = ({
               <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
                 Error details (dev only)
               </summary>
-              <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-40 text-muted-foreground">
+              <pre className="mt-2 text-xs bg-muted/50 p-2 rounded-lg overflow-auto max-h-40 text-muted-foreground border border-foreground/[0.06]">
                 {JSON.stringify(errorInfo, null, 2)}
               </pre>
             </details>

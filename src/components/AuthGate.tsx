@@ -20,6 +20,8 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react'
+import { AlertCircle } from 'lucide-react'
+import { GlassCard, AuroraButton } from '@/design-system'
 import { useAuthStore, waitForClientContext, getInitTraceId } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import type { User } from '../contexts/AuthContextTypes'
@@ -108,57 +110,57 @@ function DefaultErrorState({
   returnUrl?: string
   onRetry: () => void
 }) {
+  const handleLogIn = () => {
+    const currentUrl = window.location.href
+    const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+    const locale = window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+    window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="text-center max-w-md">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/20 flex items-center justify-center">
-          <svg
-            className="w-8 h-8 text-destructive"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-            />
-          </svg>
+      <GlassCard
+        variant="default"
+        glow="none"
+        hover={false}
+        className="max-w-md w-full text-center"
+      >
+        <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-destructive/10">
+          <AlertCircle className="w-6 h-6 text-destructive/70" aria-hidden />
         </div>
-        <h1 className="text-2xl font-bold text-foreground mb-4">Authentication Failed</h1>
-        <p className="text-muted-foreground mb-6">{error}</p>
-        <div className="flex gap-3 justify-center flex-wrap">
-          <button
-            onClick={() => {
-              const currentUrl = window.location.href
-              const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
-              const locale = window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
-              window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
-            }}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+        <h1 className="text-xl font-semibold text-foreground mb-2">Authentication Failed</h1>
+        <p className="text-sm text-muted-foreground mb-6">{error}</p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
+          <AuroraButton
+            onClick={handleLogIn}
+            variant="primary"
+            size="lg"
+            className="flex items-center justify-center gap-2"
           >
             Log In
-          </button>
-          <button
+          </AuroraButton>
+          <AuroraButton
             onClick={onRetry}
-            className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors"
+            variant="ghost"
+            size="lg"
+            className="flex items-center justify-center gap-2"
           >
             Try Again
-          </button>
+          </AuroraButton>
           {returnUrl && (
-            <button
+            <AuroraButton
               onClick={() => {
                 window.location.href = returnUrl
               }}
-              className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors"
+              variant="ghost"
+              size="lg"
+              className="flex items-center justify-center gap-2"
             >
               Go Back
-            </button>
+            </AuroraButton>
           )}
         </div>
-      </div>
+      </GlassCard>
     </div>
   )
 }

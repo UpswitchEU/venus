@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { AlertCircle } from 'lucide-react'
+import { GlassCard, AuroraButton } from '@/design-system'
 
 interface ErrorFallbackProps {
   returnUrl?: string
@@ -10,11 +12,13 @@ interface ErrorFallbackProps {
 
 /**
  * ErrorFallback - Bank-grade error recovery component
- * 
+ *
  * Provides meaningful error messages and recovery options:
  * - Reload page to retry
- * - Go back to Mercury (if return URL available)
+ * - Return to Dashboard (if return URL available)
  * - Contact support (for persistent errors)
+ *
+ * Uses Aurora design system (GlassCard, AuroraButton).
  */
 export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProps) {
   const [storedReturnUrl, setStoredReturnUrl] = useState<string | null>(null)
@@ -34,100 +38,106 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
   // Categorize error for better messaging
   const getErrorDetails = () => {
     const errorMessage = error?.message || errorInfo || ''
-    
+
     if (errorMessage.includes('Authentication') || errorMessage.includes('auth')) {
       return {
         title: 'Authentication Failed',
         description: 'Unable to verify your access. Please try logging in again.',
-        icon: '🔒',
       }
     }
-    
+
     if (errorMessage.includes('client context') || errorMessage.includes('clientToken')) {
       return {
         title: 'Client Access Error',
-        description: 'Unable to load the client context. The link may have expired. Please try creating a new valuation.',
-        icon: '👥',
+        description:
+          'Unable to load the client context. The link may have expired. Please try creating a new valuation.',
       }
     }
-    
+
     if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
       return {
         title: 'Connection Error',
-        description: 'Unable to connect to the server. Please check your internet connection and try again.',
-        icon: '📡',
+        description:
+          'Unable to connect to the server. Please check your internet connection and try again.',
       }
     }
-    
+
     if (errorMessage.includes('bootstrap') || errorMessage.includes('session')) {
       return {
         title: 'Session Error',
         description: 'Unable to initialize the valuation session. Please try reloading the page.',
-        icon: '🔄',
       }
     }
-    
+
     return {
       title: 'Failed to Load Report',
-      description: 'Unable to load the valuation report. This may be due to a network issue or a problem with the report.',
-      icon: '⚠️',
+      description:
+        'Unable to load the valuation report. This may be due to a network issue or a problem with the report.',
     }
   }
 
-  const { title, description, icon } = getErrorDetails()
+  const { title, description } = getErrorDetails()
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="text-center max-w-md">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
-          <span className="text-3xl">{icon}</span>
+      <GlassCard
+        variant="default"
+        glow="none"
+        hover={false}
+        className="max-w-md w-full text-center"
+      >
+        <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-destructive/10">
+          <AlertCircle className="w-6 h-6 text-destructive/70" aria-hidden />
         </div>
-        <h1 className="text-2xl font-bold text-foreground mb-4">{title}</h1>
-        <p className="text-muted-foreground mb-6">{description}</p>
-        
+
+        <h1 className="text-xl font-semibold text-foreground mb-2">{title}</h1>
+        <p className="text-sm text-muted-foreground mb-6">{description}</p>
+
         {/* Error details for debugging (development only) */}
         {process.env.NODE_ENV === 'development' && error && (
-          <details className="mb-6 text-left">
-            <summary className="text-muted-foreground cursor-pointer hover:text-foreground text-sm">
-              Technical details
-            </summary>
-            <pre className="mt-2 p-3 bg-muted rounded-lg text-xs text-muted-foreground overflow-auto max-h-32 border border-border">
+          <div className="mb-6 p-4 rounded-lg bg-muted/50 border border-foreground/[0.06] text-left">
+            <p className="text-xs font-medium text-foreground/80 mb-1">Error Details</p>
+            <pre className="text-xs font-mono text-muted-foreground break-all overflow-auto max-h-32">
               {error.message}
               {error.stack && `\n\n${error.stack}`}
             </pre>
-          </details>
+          </div>
         )}
-        
+
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
+          <AuroraButton
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+            variant="primary"
+            size="lg"
+            className="flex items-center justify-center gap-2"
           >
             Reload Page
-          </button>
+          </AuroraButton>
           {effectiveReturnUrl && (
-            <button
+            <AuroraButton
               onClick={() => {
                 window.location.href = effectiveReturnUrl
               }}
-              className="px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors font-medium border border-border"
+              variant="ghost"
+              size="lg"
+              className="flex items-center justify-center gap-2"
             >
               Return to Dashboard
-            </button>
+            </AuroraButton>
           )}
         </div>
-        
+
         {/* Support link */}
         <p className="mt-6 text-sm text-muted-foreground">
           If this problem persists,{' '}
-          <a 
-            href="mailto:support@upswitch.app" 
+          <a
+            href="mailto:support@upswitch.app"
             className="text-primary hover:text-primary/80 underline"
           >
             contact support
           </a>
         </p>
-      </div>
+      </GlassCard>
     </div>
   )
 }

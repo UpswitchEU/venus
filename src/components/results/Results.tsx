@@ -4,6 +4,7 @@ import type { ValuationResponse } from '../../types/valuation'
 import { HTMLProcessor } from '../../utils/htmlProcessor'
 import { generalLogger } from '../../utils/logger'
 import { ReportSkeleton } from '../skeletons/ReportSkeleton'
+import { ErrorState } from '../ErrorState'
 
 interface ResultsComponentProps {
   result?: ValuationResponse | null
@@ -65,27 +66,14 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     )
   }
 
-  // Show error state
+  // Show error state (Aurora design system)
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
-        <div className="text-center text-destructive max-w-md">
-          <svg
-            className="w-16 h-16 mx-auto mb-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <p className="font-medium text-lg">Failed to load report</p>
-          <p className="text-sm text-muted-foreground mt-2">{error}</p>
-        </div>
+      <div className="flex items-center justify-center h-full min-h-[400px] p-4">
+        <ErrorState
+          title="Failed to load report"
+          message={error}
+        />
       </div>
     )
   }

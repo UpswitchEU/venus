@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
-import { ErrorState } from '../../src/components/ErrorState'
-import { generalLogger } from '../../src/utils/logger'
+import { ErrorFallback } from '@/components/ErrorFallback'
+import { generalLogger } from '@/utils/logger'
 
 interface AppErrorBoundaryProps {
   error: Error & { digest?: string }
@@ -19,6 +19,7 @@ interface AppErrorBoundaryProps {
  *
  * Reusable error handler for Next.js App Router error.tsx files.
  * Consolidates common error handling logic to avoid duplication.
+ * Uses Venus ErrorFallback (Aurora design system).
  *
  * Usage in error.tsx files:
  * ```tsx
@@ -47,23 +48,14 @@ export function AppErrorBoundary({
     })
   }, [error, context])
 
-  const handleBack = () => {
-    if (backHref) {
-      window.location.href = backHref
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
-        <ErrorState
-          variant="dark"
-          title={title}
-          message={error.message || defaultMessage}
-          onRetry={reset}
-          onBack={showBackButton ? handleBack : undefined}
-        />
-      </div>
-    </div>
+    <ErrorFallback
+      error={error}
+      reset={reset}
+      homeHref={backHref}
+      title={title}
+      message={error.message || defaultMessage}
+      variant="fullPage"
+    />
   )
 }

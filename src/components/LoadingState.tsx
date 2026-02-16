@@ -2,6 +2,7 @@
 
 import { Loader2, Check, Clock, AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react'
 import React, { useEffect, useState, useCallback } from 'react'
+import { AuroraButton } from '@/design-system'
 import { GENERATION_STEPS, type LoadingStep } from './LoadingState.constants'
 
 interface LoadingStateProps {
@@ -219,20 +220,24 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
           </div>
 
           <div className="flex gap-3 justify-center">
-            <button
+            <AuroraButton
               onClick={handleRetry}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+              variant="primary"
+              size="lg"
+              className="gap-2"
             >
               <RefreshCw className="w-4 h-4" />
               Try Again
-            </button>
-            <button
+            </AuroraButton>
+            <AuroraButton
               onClick={handleReturn}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-muted text-foreground hover:bg-muted/80"
+              variant="ghost"
+              size="lg"
+              className="gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
               Go Back
-            </button>
+            </AuroraButton>
           </div>
         </div>
       )}
