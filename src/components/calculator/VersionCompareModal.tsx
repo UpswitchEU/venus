@@ -8,6 +8,7 @@
  * clear visual indicators for changes.
  */
 
+import { useTranslations, useLocale } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -70,37 +71,12 @@ export interface VersionCompareModalProps {
 // HELPERS
 // ─────────────────────────────────────────
 
-const typeConfig: Record<HistoryVersion['type'], { icon: typeof Clock; label: string }> = {
-  initial: { icon: FileText, label: 'Initieel' },
-  normalization: { icon: Settings2, label: 'Normalisatie' },
-  data_update: { icon: Calculator, label: 'Data update' },
-  methodology: { icon: TrendingUp, label: 'Methodologie' },
-  revision: { icon: User, label: 'Revisie' },
-};
-
-const formatCurrency = (amount: number) => {
-  if (amount >= 1000000) {
-    return `€${(amount / 1000000).toFixed(2)}M`;
-  }
-  if (amount >= 1000) {
-    return `€${Math.round(amount / 1000)}K`;
-  }
-  return new Intl.NumberFormat('nl-BE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
-
-const formatTime = (date: Date) => {
-  return date.toLocaleDateString('nl-BE', { 
-    day: 'numeric', 
-    month: 'short', 
-    year: 'numeric',
-    hour: '2-digit', 
-    minute: '2-digit' 
-  });
+const typeIcons: Record<HistoryVersion['type'], typeof Clock> = {
+  initial: FileText,
+  normalization: Settings2,
+  data_update: Calculator,
+  methodology: TrendingUp,
+  revision: User,
 };
 
 // ─────────────────────────────────────────
@@ -111,15 +87,22 @@ function VersionCard({
   version, 
   label, 
   isOlder,
-  comparison 
+  comparison,
+  typeLabel,
+  formatCurrency,
+  formatTime,
+  t,
 }: { 
   version: HistoryVersion; 
   label: string;
   isOlder?: boolean;
   comparison?: HistoryVersion | null;
+  typeLabel: string;
+  formatCurrency: (n: number) => string;
+  formatTime: (d: Date) => string;
+  t: (k: string) => string;
 }) {
-  const config = typeConfig[version.type];
-  const TypeIcon = config.icon;
+  const TypeIcon = typeIcons[version.type];
   
   // Calculate diff with comparison
   const valuationDiff = comparison?.valuation && version.valuation 
@@ -150,11 +133,11 @@ function VersionCard({
           {label}
         </span>
         <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-foreground/[0.06] text-foreground/50">
-          {config.label}
+          {typeLabel}
         </span>
         {version.isCurrent && (
           <span className="text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
-            HUIDIG
+            {t('current')}
           </span>
         )}
       </div>
@@ -261,7 +244,7 @@ function VersionCard({
       {version.changes.length > 0 && (
         <div className="mt-4 space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
-            Wijzigingen ({version.changes.length})
+            {t('changes')} ({version.changes.length})
           </p>
           <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-hide">
             {version.changes.map((change, idx) => (
@@ -337,6 +320,14 @@ function DiffRow({
 // MAIN COMPONENT
 // ─────────────────────────────────────────
 
+const typeLabelKeys: Record<HistoryVersion['type'], string> = {
+  initial: 'typeInitial',
+  normalization: 'typeNormalization',
+  data_update: 'typeDataUpdate',
+  methodology: 'typeMethodology',
+  revision: 'typeRevision',
+};
+
 export function VersionCompareModal({
   open,
   onOpenChange,
@@ -345,6 +336,27 @@ export function VersionCompareModal({
   onRestore,
   onSwap,
 }: VersionCompareModalProps) {
+  const t = useTranslations('versionCompare');
+  const locale = useLocale();
+  const formatCurrency = (amount: number) => {
+    if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`;
+    if (amount >= 1000) return `€${Math.round(amount / 1000)}K`;
+    return new Intl.NumberFormat(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+  const formatTime = (date: Date) =>
+    date.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
   if (!versionA || !versionB) return null;
 
   // Ensure A is older, B is newer
@@ -370,7 +382,7 @@ export function VersionCompareModal({
               </div>
               <div>
                 <ModalTitle className="text-base">
-                  Versie Vergelijking
+                  {t('title')}
                 </ModalTitle>
                 <p className="text-xs text-foreground/50 mt-0.5">
                   v{older.version} → v{newer.version}
@@ -448,44 +460,52 @@ export function VersionCompareModal({
           <div className="flex gap-4">
             <VersionCard 
               version={older} 
-              label="Vorige" 
+              label={t('older')} 
               isOlder 
               comparison={null}
+              typeLabel={t(typeLabelKeys[older.type])}
+              formatCurrency={formatCurrency}
+              formatTime={formatTime}
+              t={t}
             />
             <div className="flex items-center">
               <div className="w-px h-full bg-foreground/[0.06]" />
             </div>
             <VersionCard 
               version={newer} 
-              label="Nieuw" 
+              label={t('newer')} 
               comparison={older}
+              typeLabel={t(typeLabelKeys[newer.type])}
+              formatCurrency={formatCurrency}
+              formatTime={formatTime}
+              t={t}
             />
           </div>
 
           {/* Detailed Diff Table */}
           <div className="mt-6 space-y-2">
             <h3 className="text-sm font-semibold text-foreground mb-3">
-              Gedetailleerde Wijzigingen
+              {t('comparisonDetails')}
             </h3>
             <div className="space-y-1">
               <DiffRow 
-                label="Ondernemingswaarde" 
+                label={t('enterpriseValue')} 
                 valueA={older.valuation ? formatCurrency(older.valuation) : undefined}
                 valueB={newer.valuation ? formatCurrency(newer.valuation) : undefined}
               />
               <DiffRow 
-                label="EBITDA" 
+                label={t('ebitda')} 
                 valueA={older.ebitda ? formatCurrency(older.ebitda) : undefined}
                 valueB={newer.ebitda ? formatCurrency(newer.ebitda) : undefined}
               />
               <DiffRow 
-                label="Multiple" 
+                label={t('multiple')} 
                 valueA={older.multiple ? `${older.multiple.toFixed(2)}×` : undefined}
                 valueB={newer.multiple ? `${newer.multiple.toFixed(2)}×` : undefined}
               />
               {older.valuationLow && newer.valuationLow && (
                 <DiffRow 
-                  label="Bandbreedte" 
+                  label={t('bandwidth')} 
                   valueA={`${formatCurrency(older.valuationLow)} — ${formatCurrency(older.valuationHigh || 0)}`}
                   valueB={`${formatCurrency(newer.valuationLow)} — ${formatCurrency(newer.valuationHigh || 0)}`}
                 />
@@ -503,7 +523,7 @@ export function VersionCompareModal({
               onClick={() => onOpenChange(false)}
               className="text-foreground/60"
             >
-              Sluiten
+              {t('close')}
             </AuroraButton>
             
             <div className="flex items-center gap-2">
@@ -515,7 +535,7 @@ export function VersionCompareModal({
                   className="gap-1.5"
                 >
                   <ArrowLeftRight className="w-4 h-4" />
-                  Omwisselen
+                  {t('swap')}
                 </AuroraButton>
               )}
               {onRestore && !newer.isCurrent && (
@@ -525,7 +545,7 @@ export function VersionCompareModal({
                   className="gap-1.5"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Herstel naar v{newer.version}
+                  {t('restoreTo', { version: newer.version })}
                 </AuroraButton>
               )}
             </div>

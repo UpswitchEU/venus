@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Check, 
@@ -46,34 +47,25 @@ interface NormalizationViewProps {
 }
 
 // ─────────────────────────────────────────
-// CONSTANTS
+// HELPERS
 // ─────────────────────────────────────────
 
-const categoryLabels: Record<string, { label: string; icon: string; group: 'omzet' | 'kosten' }> = {
-  salary: { label: 'Personeelskosten', icon: '👤', group: 'kosten' },
-  rent: { label: 'Huisvestingskosten', icon: '🏢', group: 'kosten' },
-  vehicle: { label: 'Voertuigkosten', icon: '🚗', group: 'kosten' },
-  'one-time': { label: 'Eenmalige posten', icon: '⚡', group: 'kosten' },
-  personal: { label: 'Privékosten', icon: '🏠', group: 'kosten' },
-  depreciation: { label: 'Afschrijvingen', icon: '📉', group: 'kosten' },
-  other: { label: 'Overige', icon: '📋', group: 'kosten' },
+const categoryIcons: Record<string, string> = {
+  salary: '👤',
+  rent: '🏢',
+  vehicle: '🚗',
+  'one-time': '⚡',
+  personal: '🏠',
+  depreciation: '📉',
+  other: '📋',
 };
 
-const sourceConfig: Record<NormalizationSource, { label: string; color: string }> = {
-  manual: { label: 'Manueel', color: 'bg-foreground/10 text-foreground/70' },
-  yuki: { label: 'Yuki', color: 'bg-accent/10 text-accent' },
-  exact: { label: 'Exact', color: 'bg-info/10 text-info' },
-  csv: { label: 'CSV', color: 'bg-warning/10 text-warning' },
-  ai: { label: 'AI', color: 'bg-primary/10 text-primary' },
-};
-
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('nl-NL', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+const sourceColors: Record<NormalizationSource, string> = {
+  manual: 'bg-foreground/10 text-foreground/70',
+  yuki: 'bg-accent/10 text-accent',
+  exact: 'bg-info/10 text-info',
+  csv: 'bg-warning/10 text-warning',
+  ai: 'bg-primary/10 text-primary',
 };
 
 // ─────────────────────────────────────────
@@ -91,6 +83,43 @@ export function NormalizationTableView({
   onRestore,
   onEdit,
 }: NormalizationViewProps) {
+  const t = useTranslations('normalizationHub');
+  const locale = useLocale();
+  const formatCurrency = React.useCallback(
+    (value: number) =>
+      new Intl.NumberFormat(locale === 'nl' ? 'nl-NL' : 'en-GB', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(value),
+    [locale]
+  );
+  const categoryLabels = React.useMemo(
+    () =>
+      ({
+        salary: { label: t('categories.salary'), icon: categoryIcons.salary, group: 'kosten' as const },
+        rent: { label: t('categories.rent'), icon: categoryIcons.rent, group: 'kosten' as const },
+        vehicle: { label: t('categories.vehicle'), icon: categoryIcons.vehicle, group: 'kosten' as const },
+        'one-time': { label: t('categories.oneTime'), icon: categoryIcons['one-time'], group: 'kosten' as const },
+        personal: { label: t('categories.personal'), icon: categoryIcons.personal, group: 'kosten' as const },
+        depreciation: { label: t('categories.depreciation'), icon: categoryIcons.depreciation, group: 'kosten' as const },
+        other: { label: t('categories.other'), icon: categoryIcons.other, group: 'kosten' as const },
+      }) as Record<string, { label: string; icon: string; group: 'omzet' | 'kosten' }>,
+    [t]
+  );
+  const sourceConfig = React.useMemo(
+    () =>
+      ({
+        manual: { label: t('sources.manual'), color: sourceColors.manual },
+        yuki: { label: t('sources.yuki'), color: sourceColors.yuki },
+        exact: { label: t('sources.exact'), color: sourceColors.exact },
+        csv: { label: t('sources.csv'), color: sourceColors.csv },
+        ai: { label: t('sources.ai'), color: sourceColors.ai },
+      }) as Record<NormalizationSource, { label: string; color: string }>,
+    [t]
+  );
+
   // Show each normalization as its own row, sorted by ledger code
   const rowItems = React.useMemo(() => {
     return [...items].sort((a, b) => a.ledgerCode.localeCompare(b.ledgerCode));
@@ -125,13 +154,13 @@ export function NormalizationTableView({
           <tr className="border-b border-foreground/[0.1] bg-muted/50">
             {/* Fixed columns - left section */}
             <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wider text-foreground/60 w-20 whitespace-nowrap border-r border-foreground/[0.06]">
-              Soort
+              {t('table.soort')}
             </th>
             <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wider text-foreground/60 w-24 whitespace-nowrap">
-              Code
+              {t('table.code')}
             </th>
             <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-wider text-foreground/60 min-w-[200px] whitespace-nowrap border-r border-foreground/[0.08]">
-              Grootboekrekening
+              {t('table.grootboekrekening')}
             </th>
             {/* Year columns - one column per year showing the adjustment */}
             {years.map((year, idx) => (
@@ -149,7 +178,7 @@ export function NormalizationTableView({
               </th>
             ))}
             <th className="px-4 py-3.5 text-center text-[10px] font-semibold uppercase tracking-wider text-foreground/60 w-28 whitespace-nowrap border-l border-foreground/[0.08]">
-              Acties
+              {t('table.acties')}
             </th>
           </tr>
         </thead>
@@ -180,7 +209,7 @@ export function NormalizationTableView({
                         : "bg-success/10 text-success"
                     )}>
                       {cat.icon}
-                      <span className="hidden xl:inline">{cat.group === 'kosten' ? 'Kosten' : 'Omzet'}</span>
+                      <span className="hidden xl:inline">{cat.group === 'kosten' ? t('groups.kosten') : t('groups.omzet')}</span>
                     </span>
                   </td>
                   
@@ -240,19 +269,19 @@ export function NormalizationTableView({
                         <>
                           <ActionButton 
                             icon={Edit3} 
-                            tooltip="Bewerken" 
+                            tooltip={t('actions.edit')} 
                             onClick={() => onEdit(item)}
                             color="primary"
                           />
                           <ActionButton 
                             icon={X} 
-                            tooltip="Afwijzen" 
+                            tooltip={t('actions.reject')} 
                             onClick={() => onReject(item.id)}
                             color="secondary"
                           />
                           <ActionButton 
                             icon={Check} 
-                            tooltip="Accepteren" 
+                            tooltip={t('actions.accept')} 
                             onClick={() => onAccept(item.id)}
                             color="success"
                           />
@@ -262,14 +291,14 @@ export function NormalizationTableView({
                         <>
                           <ActionButton 
                             icon={Edit3} 
-                            tooltip="Bewerken" 
+                            tooltip={t('actions.edit')} 
                             onClick={() => onEdit(item)}
                             color="primary"
                           />
                           {item.source === 'manual' && (
                             <ActionButton 
                               icon={Trash2} 
-                              tooltip="Verwijderen" 
+                              tooltip={t('actions.remove')} 
                               onClick={() => onRemove(item.id)}
                               color="secondary"
                             />
@@ -279,7 +308,7 @@ export function NormalizationTableView({
                       {item.status === 'rejected' && (
                         <ActionButton 
                           icon={Clock} 
-                          tooltip="Herstellen" 
+                          tooltip={t('actions.restore')} 
                           onClick={() => onRestore(item.id)}
                           color="muted"
                         />
@@ -296,7 +325,7 @@ export function NormalizationTableView({
         <tfoot>
           <tr className="border-t-2 border-foreground/[0.12] bg-muted/60">
             <td colSpan={3} className="px-4 py-3.5 border-r border-foreground/[0.08]">
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider">EBITDA Totaal</span>
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider">{t('footer.ebitdaTotal')}</span>
             </td>
             {years.map((year, idx) => {
               const yt = yearTotals[year];
@@ -310,13 +339,13 @@ export function NormalizationTableView({
                 >
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-end gap-2">
-                      <span className="text-[9px] text-foreground/40 uppercase">Geboekt</span>
+                      <span className="text-[9px] text-foreground/40 uppercase">{t('footer.geboekt')}</span>
                       <span className="font-mono text-xs tabular-nums text-foreground/50">
                         {formatCurrency(originalEBITDA)}
                       </span>
                     </div>
                     <div className="flex items-center justify-end gap-2">
-                      <span className="text-[9px] text-foreground/40 uppercase">Correctie</span>
+                      <span className="text-[9px] text-foreground/40 uppercase">{t('footer.correctie')}</span>
                       <span className={cn(
                         "font-mono text-xs font-bold tabular-nums",
                         yt.adjustment > 0 ? "text-success" : yt.adjustment < 0 ? "text-secondary" : "text-foreground/40"
@@ -325,7 +354,7 @@ export function NormalizationTableView({
                       </span>
                     </div>
                     <div className="flex items-center justify-end gap-2 pt-1 border-t border-foreground/[0.08]">
-                      <span className="text-[9px] text-primary uppercase font-semibold">Genorm.</span>
+                      <span className="text-[9px] text-primary uppercase font-semibold">{t('footer.genorm')}</span>
                       <span className="font-mono text-sm font-bold tabular-nums text-foreground">
                         {formatCurrency(yt.normalized)}
                       </span>
@@ -357,6 +386,43 @@ export function NormalizationBentoView({
   onRestore,
   onEdit,
 }: NormalizationViewProps) {
+  const t = useTranslations('normalizationHub');
+  const locale = useLocale();
+  const formatCurrency = React.useCallback(
+    (value: number) =>
+      new Intl.NumberFormat(locale === 'nl' ? 'nl-NL' : 'en-GB', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(value),
+    [locale]
+  );
+  const categoryLabels = React.useMemo(
+    () =>
+      ({
+        salary: { label: t('categories.salary'), icon: categoryIcons.salary, group: 'kosten' as const },
+        rent: { label: t('categories.rent'), icon: categoryIcons.rent, group: 'kosten' as const },
+        vehicle: { label: t('categories.vehicle'), icon: categoryIcons.vehicle, group: 'kosten' as const },
+        'one-time': { label: t('categories.oneTime'), icon: categoryIcons['one-time'], group: 'kosten' as const },
+        personal: { label: t('categories.personal'), icon: categoryIcons.personal, group: 'kosten' as const },
+        depreciation: { label: t('categories.depreciation'), icon: categoryIcons.depreciation, group: 'kosten' as const },
+        other: { label: t('categories.other'), icon: categoryIcons.other, group: 'kosten' as const },
+      }) as Record<string, { label: string; icon: string; group: 'omzet' | 'kosten' }>,
+    [t]
+  );
+  const sourceConfig = React.useMemo(
+    () =>
+      ({
+        manual: { label: t('sources.manual'), color: sourceColors.manual },
+        yuki: { label: t('sources.yuki'), color: sourceColors.yuki },
+        exact: { label: t('sources.exact'), color: sourceColors.exact },
+        csv: { label: t('sources.csv'), color: sourceColors.csv },
+        ai: { label: t('sources.ai'), color: sourceColors.ai },
+      }) as Record<NormalizationSource, { label: string; color: string }>,
+    [t]
+  );
+
   // Group by category for visual organization
   const groupedByCategory = React.useMemo(() => {
     const groups: Record<string, NormalizationItem[]> = {};
@@ -445,21 +511,21 @@ export function NormalizationBentoView({
                     <div className="flex gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       {item.status === 'pending' && (
                         <>
-                          <ActionButton icon={Edit3} tooltip="Bewerken" onClick={() => onEdit(item)} color="primary" size="sm" />
-                          <ActionButton icon={X} tooltip="Afwijzen" onClick={() => onReject(item.id)} color="secondary" size="sm" />
-                          <ActionButton icon={Check} tooltip="Accepteren" onClick={() => onAccept(item.id)} color="success" size="sm" />
+                          <ActionButton icon={Edit3} tooltip={t('actions.edit')} onClick={() => onEdit(item)} color="primary" size="sm" />
+                          <ActionButton icon={X} tooltip={t('actions.reject')} onClick={() => onReject(item.id)} color="secondary" size="sm" />
+                          <ActionButton icon={Check} tooltip={t('actions.accept')} onClick={() => onAccept(item.id)} color="success" size="sm" />
                         </>
                       )}
                       {item.status === 'accepted' && (
                         <>
-                          <ActionButton icon={Edit3} tooltip="Bewerken" onClick={() => onEdit(item)} color="primary" size="sm" />
+                          <ActionButton icon={Edit3} tooltip={t('actions.edit')} onClick={() => onEdit(item)} color="primary" size="sm" />
                           {item.source === 'manual' && (
-                            <ActionButton icon={Trash2} tooltip="Verwijderen" onClick={() => onRemove(item.id)} color="secondary" size="sm" />
+                            <ActionButton icon={Trash2} tooltip={t('actions.remove')} onClick={() => onRemove(item.id)} color="secondary" size="sm" />
                           )}
                         </>
                       )}
                       {item.status === 'rejected' && (
-                        <ActionButton icon={Clock} tooltip="Herstellen" onClick={() => onRestore(item.id)} color="muted" size="sm" />
+                        <ActionButton icon={Clock} tooltip={t('actions.restore')} onClick={() => onRestore(item.id)} color="muted" size="sm" />
                       )}
                     </div>
                   </div>

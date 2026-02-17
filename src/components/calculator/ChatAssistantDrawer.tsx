@@ -25,6 +25,7 @@ import {
   Bot
 } from 'lucide-react';
 import { cn } from '@/design-system/utils';
+import { springDefault } from '@/design-system/components/motion';
 import { AuroraButton } from '@/design-system/components/Button';
 
 // ─────────────────────────────────────────
@@ -487,7 +488,7 @@ export function ChatAssistantDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={springDefault}
             onClick={() => onOpenChange(false)}
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           />
@@ -497,7 +498,7 @@ export function ChatAssistantDrawer({
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ duration: 0.2 }}
+            transition={springDefault}
             className={cn(
               // Base: Full screen on mobile for immersive experience
               "fixed right-0 top-0 bottom-0 z-50",

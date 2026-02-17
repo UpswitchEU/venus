@@ -36,7 +36,7 @@ import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
-import { useNormalizationStore, enableNormalizationAutoPersist, mapBackendCategoryToFrontend } from '../../../store/useNormalizationStore'
+import { useNormalizationStore, enableNormalizationAutoPersist, mapBackendCategoryToFrontend, setNormalizationToastMessages } from '../../../store/useNormalizationStore'
 import { CalculatorShellSkeleton } from '../../../components/calculator'
 import { valuationService, reportService } from '../../../services'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
@@ -243,6 +243,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const router = useTransitionRouter()
   const t = useTranslations('toast')
   const isMobile = useIsMobile()
+
+  // Provide i18n for normalization store toasts (store cannot use hooks)
+  useEffect(() => {
+    setNormalizationToastMessages((key) => t(key))
+    return () => setNormalizationToastMessages(null)
+  }, [t])
   const reportPanelRef = useRef<HTMLDivElement>(null)
 
   // Venus infrastructure

@@ -7,6 +7,7 @@
  */
 
 import { HelpCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/design-system/utils';
 import { Tooltip, TooltipProvider } from '@/design-system';
 
@@ -33,6 +34,7 @@ export function FieldHelpTrigger({
   className,
   size = 'sm',
 }: FieldHelpTriggerProps) {
+  const t = useTranslations('fieldHelp');
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -43,10 +45,10 @@ export function FieldHelpTrigger({
     <Tooltip
       content={
         <div>
-          <p>Vraag AI-assistent over {context.label.toLowerCase()}</p>
+          <p>{t('askAbout', { label: context.label.toLowerCase() })}</p>
           {context.grootboekCode && (
             <p className="text-foreground/50 mt-0.5 font-mono text-[10px]">
-              Grootboek: {context.grootboekCode}
+              {t('ledgerAccount', { code: context.grootboekCode })}
             </p>
           )}
         </div>
@@ -63,7 +65,7 @@ export function FieldHelpTrigger({
           size === 'sm' ? "w-5 h-5" : "w-6 h-6",
           className
         )}
-        aria-label={`Hulp bij ${context.label}`}
+        aria-label={t('helpWith', { label: context.label })}
       >
         <HelpCircle className={cn(size === 'sm' ? "w-3.5 h-3.5" : "w-4 h-4")} />
       </button>

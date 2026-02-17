@@ -8,6 +8,7 @@
  */
 
 import { motion } from 'framer-motion';
+import { useTranslations, useLocale } from 'next-intl';
 import { springDefault } from '@/design-system/components/motion';
 import { Calculator, TrendingUp, Scale, Info } from 'lucide-react';
 import { cn } from '@/design-system/utils';
@@ -24,40 +25,41 @@ export interface CalculationBreakdownModalProps {
   } | null;
 }
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('nl-BE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
-
 export function CalculationBreakdownModal({
   open,
   onOpenChange,
   report,
 }: CalculationBreakdownModalProps) {
+  const t = useTranslations('calculationBreakdown');
+  const locale = useLocale() as 'nl' | 'en';
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+
   if (!report) return null;
 
   const steps = [
     {
       icon: Calculator,
-      label: 'Genormaliseerde EBITDA',
+      label: t('stepEbitda'),
       value: formatCurrency(report.ebitda),
-      description: 'EBITDA na correctie voor eenmalige en niet-operationele kosten',
+      description: t('stepEbitdaDesc'),
     },
     {
       icon: TrendingUp,
-      label: 'Sector Multiple',
+      label: t('stepMultiple'),
       value: `${report.multiple.toFixed(1)}x`,
-      description: 'Gebaseerd op vergelijkbare transacties in de sector',
+      description: t('stepMultipleDesc'),
     },
     {
       icon: Scale,
-      label: 'Ondernemingswaarde',
+      label: t('stepValue'),
       value: formatCurrency(report.valuation),
-      description: 'EBITDA × Multiple = Enterprise Value',
+      description: t('stepValueDesc'),
       highlight: true,
     },
   ];
@@ -68,13 +70,13 @@ export function CalculationBreakdownModal({
         <ModalHeader>
           <ModalTitle className="flex items-center gap-2">
             <Info className="w-5 h-5 text-primary" />
-            Berekeningsdetails
+            {t('title')}
           </ModalTitle>
         </ModalHeader>
 
         <div className="py-4 space-y-4">
           <div className="px-4 py-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
-            <p className="text-xs text-foreground/50 uppercase tracking-wider">Bedrijf</p>
+            <p className="text-xs text-foreground/50 uppercase tracking-wider">{t('company')}</p>
             <p className="text-sm font-medium text-foreground mt-0.5">{report.companyName}</p>
           </div>
 
@@ -115,21 +117,20 @@ export function CalculationBreakdownModal({
           </div>
 
           <div className="px-4 py-3 rounded-lg bg-muted/50 border border-foreground/[0.06]">
-            <p className="text-xs text-foreground/50 mb-2">Formule</p>
+            <p className="text-xs text-foreground/50 mb-2">{t('formula')}</p>
             <code className="text-sm font-mono text-foreground">
               {formatCurrency(report.ebitda)} × {report.multiple.toFixed(1)} = {formatCurrency(report.valuation)}
             </code>
           </div>
 
           <p className="text-xs text-foreground/40 px-1">
-            De multiple is bepaald op basis van recente transacties van vergelijkbare bedrijven in dezelfde sector, 
-            gecorrigeerd voor omvang, groeipotentieel en risicoprofiel.
+            {t('multipleNote')}
           </p>
         </div>
 
         <div className="flex justify-end pt-2 border-t border-foreground/[0.06]">
           <AuroraButton variant="ghost" onClick={() => onOpenChange(false)}>
-            Sluiten
+            {t('close')}
           </AuroraButton>
         </div>
       </ModalContent>

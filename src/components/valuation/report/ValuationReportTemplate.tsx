@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Valuation Report Template
  * 
@@ -12,7 +14,8 @@
  */
 
 import { format } from 'date-fns';
-import { nl } from 'date-fns/locale';
+import { nl, enUS } from 'date-fns/locale';
+import { useTranslations, useLocale } from 'next-intl';
 import type { ValuationReportData, EBITDAAdjustment } from './types';
 
 // ============================================
@@ -33,9 +36,9 @@ function formatCurrencyExact(value: number): string {
   return `€${value.toLocaleString('nl-BE')}`;
 }
 
-function formatDate(date: Date | string): string {
+function formatDate(date: Date | string, locale: 'nl' | 'en' = 'nl'): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return format(d, 'd MMMM yyyy', { locale: nl });
+  return format(d, 'd MMMM yyyy', { locale: locale === 'nl' ? nl : enUS });
 }
 
 // ============================================
@@ -57,6 +60,8 @@ export function ValuationReportTemplate({
   showPrintButton = false,
   className = '',
 }: ValuationReportTemplateProps) {
+  const t = useTranslations('valuationReport');
+  const locale = useLocale() as 'nl' | 'en';
   const handlePrint = () => {
     window.print();
   };
@@ -67,29 +72,29 @@ export function ValuationReportTemplate({
         <div className="print:hidden mb-4 flex justify-end">
           <button
             onClick={handlePrint}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
-            Afdrukken / PDF
+            {t('printPdf')}
           </button>
         </div>
       )}
 
       {/* Cover Page */}
-      <CoverPage data={data} />
+      <CoverPage data={data} t={t} locale={locale} />
 
       {/* Executive Summary */}
-      <ExecutiveSummaryPage data={data} />
+      <ExecutiveSummaryPage data={data} t={t} locale={locale} />
 
       {/* EBITDA Normalization */}
       {data.ebitdaAdjustments && data.ebitdaAdjustments.length > 0 && (
-        <NormalizationPage data={data} />
+        <NormalizationPage data={data} t={t} locale={locale} />
       )}
 
       {/* Valuation Calibration */}
-      <CalibrationPage data={data} />
+      <CalibrationPage data={data} t={t} locale={locale} />
 
       {/* Disclaimers */}
-      <DisclaimersPage data={data} />
+      <DisclaimersPage data={data} t={t} locale={locale} />
 
       {/* Print Styles */}
       <style jsx global>{`
@@ -114,7 +119,9 @@ export function ValuationReportTemplate({
 // PAGE COMPONENTS
 // ============================================
 
-function CoverPage({ data }: { data: ValuationReportData }) {
+type ReportT = (key: string, values?: Record<string, string | number>) => string;
+
+function CoverPage({ data, t, locale }: { data: ValuationReportData; t: ReportT; locale: 'nl' | 'en' }) {
   return (
     <div className="page min-h-screen bg-slate-900 text-white p-12 flex flex-col justify-center relative">
       {/* Logo */}
@@ -124,17 +131,17 @@ function CoverPage({ data }: { data: ValuationReportData }) {
 
       {/* Company Name */}
       <h1 className="text-5xl font-bold mb-2">{data.companyName}</h1>
-      <p className="text-xl text-slate-400 mb-12">Ondernemingswaardering</p>
+      <p className="text-xl text-slate-400 mb-12">{t('businessValuation')}</p>
 
       {/* Valuation Card */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-8 mb-8">
         <p className="text-sm text-teal-400 uppercase tracking-wider mb-2">
-          Indicatieve Waarde
+          {t('indicativeValue')}
         </p>
         <p className="text-6xl font-bold">{formatCurrency(data.valuation)}</p>
         {data.valuationLow && data.valuationHigh && (
           <p className="text-slate-400 mt-2">
-            Bandbreedte: {formatCurrency(data.valuationLow)} - {formatCurrency(data.valuationHigh)}
+            {t('bandwidth', { low: formatCurrency(data.valuationLow), high: formatCurrency(data.valuationHigh) })}
           </p>
         )}
       </div>
@@ -146,12 +153,12 @@ function CoverPage({ data }: { data: ValuationReportData }) {
           <p className="text-lg">{formatCurrency(data.ebitda)}</p>
         </div>
         <div>
-          <p className="text-sm text-slate-500">Multiple</p>
+          <p className="text-sm text-slate-500">{t('multiple')}</p>
           <p className="text-lg">{data.multiple.toFixed(2)}x</p>
         </div>
         {data.revenue && (
           <div>
-            <p className="text-sm text-slate-500">Omzet</p>
+            <p className="text-sm text-slate-500">{t('revenue')}</p>
             <p className="text-lg">{formatCurrency(data.revenue)}</p>
           </div>
         )}
@@ -159,50 +166,50 @@ function CoverPage({ data }: { data: ValuationReportData }) {
 
       {/* Footer */}
       <div className="absolute bottom-8 left-12 right-12 flex justify-between text-sm text-slate-500">
-        <span>Rapport ID: {data.id}</span>
-        <span>Gegenereerd: {formatDate(data.generatedAt)}</span>
+        <span>{t('reportId', { id: data.id })}</span>
+        <span>{t('generated', { date: formatDate(data.generatedAt, locale) })}</span>
       </div>
     </div>
   );
 }
 
-function ExecutiveSummaryPage({ data }: { data: ValuationReportData }) {
+function ExecutiveSummaryPage({ data, t, locale }: { data: ValuationReportData; t: ReportT; locale: 'nl' | 'en' }) {
   return (
     <div className="page min-h-screen bg-white p-12">
       <PageHeader data={data} pageNumber={2} />
 
-      <h1 className="text-3xl font-bold text-slate-900 mb-8">Samenvatting</h1>
+      <h1 className="text-3xl font-bold text-slate-900 mb-8">{t('summary')}</h1>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-3 gap-6 mb-8">
-        <StatCard label="Duurzame EBITDA" value={formatCurrency(data.ebitda)} />
+        <StatCard label={t('sustainableEbitda')} value={formatCurrency(data.ebitda)} />
         <StatCard 
-          label="Multiple" 
+          label={t('multiple')} 
           value={`${data.multiple.toFixed(2)}x`} 
           highlight 
         />
-        <StatCard label="Ondernemingswaarde" value={formatCurrency(data.valuation)} />
+        <StatCard label={t('enterpriseValue')} value={formatCurrency(data.valuation)} />
       </div>
 
       {/* Valuation Range */}
       <div className="bg-white border-l-4 border-teal-500 rounded-lg p-6 mb-8 shadow-sm">
-        <h3 className="font-semibold text-slate-800 mb-4">Waarderingsbereik</h3>
+        <h3 className="font-semibold text-slate-800 mb-4">{t('valuationRange')}</h3>
         <table className="w-full">
           <tbody>
             <tr className="border-b border-slate-100">
-              <td className="py-2 text-slate-600">Conservatief (P25)</td>
+              <td className="py-2 text-slate-600">{t('conservative')}</td>
               <td className="py-2 text-right font-medium">
                 {data.valuationLow ? formatCurrencyExact(data.valuationLow) : 'N/A'}
               </td>
             </tr>
             <tr className="border-b border-slate-100">
-              <td className="py-2 text-slate-600">Mediaan (P50)</td>
+              <td className="py-2 text-slate-600">{t('median')}</td>
               <td className="py-2 text-right font-bold text-teal-600">
                 {formatCurrencyExact(data.valuation)}
               </td>
             </tr>
             <tr>
-              <td className="py-2 text-slate-600">Optimistisch (P75)</td>
+              <td className="py-2 text-slate-600">{t('optimistic')}</td>
               <td className="py-2 text-right font-medium">
                 {data.valuationHigh ? formatCurrencyExact(data.valuationHigh) : 'N/A'}
               </td>
@@ -214,13 +221,13 @@ function ExecutiveSummaryPage({ data }: { data: ValuationReportData }) {
       {/* Key Metrics */}
       {data.metrics.length > 0 && (
         <>
-          <h2 className="text-xl font-semibold text-slate-800 mb-4">Kerngegevens</h2>
+          <h2 className="text-xl font-semibold text-slate-800 mb-4">{t('coreData')}</h2>
           <table className="w-full mb-8">
             <thead>
               <tr className="bg-slate-50">
-                <th className="text-left py-3 px-4 font-semibold text-slate-700">Metric</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-700">Waarde</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-700">Trend</th>
+                <th className="text-left py-3 px-4 font-semibold text-slate-700">{t('metric')}</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">{t('value')}</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">{t('trend')}</th>
               </tr>
             </thead>
             <tbody>
@@ -240,31 +247,30 @@ function ExecutiveSummaryPage({ data }: { data: ValuationReportData }) {
         </>
       )}
 
-      <PageFooter companyName={data.companyName} pageNumber={2} />
+      <PageFooter companyName={data.companyName} pageNumber={2} t={t} />
     </div>
   );
 }
 
-function NormalizationPage({ data }: { data: ValuationReportData }) {
+function NormalizationPage({ data, t, locale }: { data: ValuationReportData; t: ReportT; locale: 'nl' | 'en' }) {
   return (
     <div className="page min-h-screen bg-white p-12">
       <PageHeader data={data} pageNumber={3} />
 
-      <h1 className="text-3xl font-bold text-slate-900 mb-4">EBITDA Normalisatie</h1>
+      <h1 className="text-3xl font-bold text-slate-900 mb-4">{t('ebitdaNormalization')}</h1>
       <p className="text-slate-600 mb-8">
-        De gerapporteerde EBITDA wordt gecorrigeerd voor eenmalige en niet-operationele kosten
-        om een duurzame winstcapaciteit te bepalen.
+        {t('normalizationIntro')}
       </p>
 
       {/* Adjustments Table */}
-      <h2 className="text-xl font-semibold text-slate-800 mb-4">Normalisatie-aanpassingen</h2>
+      <h2 className="text-xl font-semibold text-slate-800 mb-4">{t('normalizationAdjustments')}</h2>
       <table className="w-full mb-8">
         <thead>
           <tr className="bg-slate-50">
-            <th className="text-left py-3 px-4 font-semibold text-slate-700">Omschrijving</th>
-            <th className="text-left py-3 px-4 font-semibold text-slate-700">Categorie</th>
-            <th className="text-left py-3 px-4 font-semibold text-slate-700">Bron</th>
-            <th className="text-right py-3 px-4 font-semibold text-slate-700">Bedrag</th>
+            <th className="text-left py-3 px-4 font-semibold text-slate-700">{t('description')}</th>
+            <th className="text-left py-3 px-4 font-semibold text-slate-700">{t('category')}</th>
+            <th className="text-left py-3 px-4 font-semibold text-slate-700">{t('source')}</th>
+            <th className="text-right py-3 px-4 font-semibold text-slate-700">{t('amount')}</th>
           </tr>
         </thead>
         <tbody>
@@ -297,15 +303,15 @@ function NormalizationPage({ data }: { data: ValuationReportData }) {
       {/* Multi-Year EBITDA */}
       {data.multiYearEbitda && data.multiYearEbitda.length > 0 && (
         <>
-          <h2 className="text-xl font-semibold text-slate-800 mb-4">Meerjarig EBITDA-overzicht</h2>
+          <h2 className="text-xl font-semibold text-slate-800 mb-4">{t('multiYearEbitda')}</h2>
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50">
-                <th className="text-left py-3 px-4 font-semibold text-slate-700">Jaar</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-700">Gerapporteerd</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-700">Genormaliseerd</th>
-                <th className="text-center py-3 px-4 font-semibold text-slate-700">Weging</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-700">Bijdrage</th>
+                <th className="text-left py-3 px-4 font-semibold text-slate-700">{t('year')}</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">{t('reported')}</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">{t('normalized')}</th>
+                <th className="text-center py-3 px-4 font-semibold text-slate-700">{t('weight')}</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">{t('contribution')}</th>
               </tr>
             </thead>
             <tbody>
@@ -321,7 +327,7 @@ function NormalizationPage({ data }: { data: ValuationReportData }) {
                 </tr>
               ))}
               <tr className="bg-slate-50">
-                <td colSpan={4} className="py-3 px-4 font-bold">Duurzame EBITDA (Gewogen Gemiddelde)</td>
+                <td colSpan={4} className="py-3 px-4 font-bold">{t('sustainableEbitdaWeighted')}</td>
                 <td className="py-3 px-4 text-right font-bold text-teal-600">
                   {formatCurrencyExact(data.ebitda)}
                 </td>
@@ -331,37 +337,36 @@ function NormalizationPage({ data }: { data: ValuationReportData }) {
         </>
       )}
 
-      <PageFooter companyName={data.companyName} pageNumber={3} />
+      <PageFooter companyName={data.companyName} pageNumber={3} t={t} />
     </div>
   );
 }
 
-function CalibrationPage({ data }: { data: ValuationReportData }) {
+function CalibrationPage({ data, t, locale }: { data: ValuationReportData; t: ReportT; locale: 'nl' | 'en' }) {
   return (
     <div className="page min-h-screen bg-white p-12">
       <PageHeader data={data} pageNumber={4} />
 
-      <h1 className="text-3xl font-bold text-slate-900 mb-4">Waarderingskalibratie</h1>
+      <h1 className="text-3xl font-bold text-slate-900 mb-4">{t('valuationCalibration')}</h1>
       <p className="text-slate-600 mb-8">
-        De waardering wordt bepaald door het toepassen van een marktconforme multiple
-        op de genormaliseerde EBITDA.
+        {t('calibrationIntro')}
       </p>
 
       {/* Calculation */}
       <div className="bg-white border-l-4 border-teal-500 rounded-lg p-6 mb-8 shadow-sm">
-        <h3 className="font-semibold text-slate-800 mb-4">Berekening</h3>
+        <h3 className="font-semibold text-slate-800 mb-4">{t('calculation')}</h3>
         <table className="w-full">
           <tbody>
             <tr className="border-b border-slate-100">
-              <td className="py-3 text-slate-600">Duurzame EBITDA</td>
+              <td className="py-3 text-slate-600">{t('sustainableEbitda')}</td>
               <td className="py-3 text-right font-medium">{formatCurrencyExact(data.ebitda)}</td>
             </tr>
             <tr className="border-b border-slate-100">
-              <td className="py-3 text-slate-600">× Multiple</td>
+              <td className="py-3 text-slate-600">× {t('multiple')}</td>
               <td className="py-3 text-right font-medium text-teal-600">{data.multiple.toFixed(2)}x</td>
             </tr>
             <tr className="bg-slate-50">
-              <td className="py-3 font-bold text-slate-900">= Ondernemingswaarde</td>
+              <td className="py-3 font-bold text-slate-900">= {t('enterpriseValue')}</td>
               <td className="py-3 text-right font-bold text-slate-900">
                 {formatCurrencyExact(data.valuation)}
               </td>
@@ -373,7 +378,7 @@ function CalibrationPage({ data }: { data: ValuationReportData }) {
       {/* Methodology */}
       <div className="bg-slate-50 rounded-lg p-6 mb-8">
         <p className="text-slate-700">
-          <strong>Toegepaste methode:</strong> {data.methodology || 'EBITDA Multiple'}
+          <strong>{t('appliedMethod')}</strong> {data.methodology || 'EBITDA Multiple'}
         </p>
         {data.methodologyNotes && (
           <p className="text-slate-600 mt-4">{data.methodologyNotes}</p>
@@ -383,14 +388,14 @@ function CalibrationPage({ data }: { data: ValuationReportData }) {
       {/* Comparables */}
       {data.comparables && data.comparables.length > 0 && (
         <>
-          <h2 className="text-xl font-semibold text-slate-800 mb-4">Vergelijkbare Transacties</h2>
+          <h2 className="text-xl font-semibold text-slate-800 mb-4">{t('comparableTransactions')}</h2>
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50">
-                <th className="text-left py-3 px-4 font-semibold text-slate-700">Onderneming</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-700">Multiple</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-700">Omzet</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-700">Datum</th>
+                <th className="text-left py-3 px-4 font-semibold text-slate-700">{t('company')}</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">{t('multiple')}</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">{t('revenue')}</th>
+                <th className="text-right py-3 px-4 font-semibold text-slate-700">{t('date')}</th>
               </tr>
             </thead>
             <tbody>
@@ -413,7 +418,7 @@ function CalibrationPage({ data }: { data: ValuationReportData }) {
       {data.confidenceScore != null && (
         <div className="bg-slate-50 rounded-lg p-6 mt-8">
           <div className="flex justify-between items-center">
-            <span className="text-slate-700">Betrouwbaarheidsscore</span>
+            <span className="text-slate-700">{t('confidenceScore')}</span>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               data.confidenceScore >= 80 ? 'bg-green-100 text-green-700' :
               data.confidenceScore >= 60 ? 'bg-teal-100 text-teal-700' :
@@ -425,17 +430,17 @@ function CalibrationPage({ data }: { data: ValuationReportData }) {
         </div>
       )}
 
-      <PageFooter companyName={data.companyName} pageNumber={4} />
+      <PageFooter companyName={data.companyName} pageNumber={4} t={t} />
     </div>
   );
 }
 
-function DisclaimersPage({ data }: { data: ValuationReportData }) {
+function DisclaimersPage({ data, t, locale }: { data: ValuationReportData; t: ReportT; locale: 'nl' | 'en' }) {
   return (
     <div className="page min-h-screen bg-white p-12">
       <PageHeader data={data} pageNumber={5} />
 
-      <h1 className="text-3xl font-bold text-slate-900 mb-8">Disclaimer & Voorwaarden</h1>
+      <h1 className="text-3xl font-bold text-slate-900 mb-8">{t('disclaimers')}</h1>
 
       <DisclaimerBox
         title="Indicatieve Waardering"
@@ -472,7 +477,7 @@ function DisclaimersPage({ data }: { data: ValuationReportData }) {
         </div>
       )}
 
-      <PageFooter companyName={data.companyName} pageNumber={5} />
+      <PageFooter companyName={data.companyName} pageNumber={5} t={t} />
     </div>
   );
 }
@@ -493,11 +498,11 @@ function PageHeader({ data, pageNumber }: { data: ValuationReportData; pageNumbe
   );
 }
 
-function PageFooter({ companyName, pageNumber }: { companyName: string; pageNumber: number }) {
+function PageFooter({ companyName, pageNumber, t }: { companyName: string; pageNumber: number; t: ReportT }) {
   return (
     <div className="absolute bottom-8 left-12 right-12 flex justify-between text-sm text-slate-400 pt-4 border-t border-slate-200">
       <span>{companyName}</span>
-      <span>Pagina {pageNumber}</span>
+      <span>{t('page', { number: pageNumber })}</span>
     </div>
   );
 }

@@ -9,6 +9,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, 
@@ -49,20 +50,19 @@ export interface ChatInputPanelProps {
   collectedData?: CollectedData;
 }
 
-// Minimalist prompts - no icons, focused on core workflows (Dieter Rams aesthetic)
-const suggestions = [
-  "Wat is dit bedrijf waard?",
-  "Analyseer deze jaarrekening",
-  "Normaliseer eigenaarssalaris",
-  "Genereer concept rapport",
-];
-
 export function ChatInputPanel({
   messages,
   onSendMessage,
   isGenerating = false,
   collectedData,
 }: ChatInputPanelProps) {
+  const ca = useTranslations('chatAssistant');
+  const suggestions = [
+    ca('suggestions.suggestion1'),
+    ca('suggestions.suggestion2'),
+    ca('suggestions.suggestion3'),
+    ca('suggestions.suggestion4'),
+  ];
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,6 +125,7 @@ export function ChatInputPanel({
       <div className="flex-1 overflow-y-auto">
         {isEmpty ? (
           <EmptyState 
+            suggestions={suggestions}
             onSuggestionClick={(text) => setInput(text)} 
             companyName={collectedData?.companyName}
           />
@@ -208,7 +209,7 @@ export function ChatInputPanel({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Stel een vraag of upload documenten..."
+              placeholder={ca('suggestions.askOrUploadDoc')}
               rows={1}
               className={cn(
                 "w-full resize-none rounded-xl px-4 py-3 pr-12",
@@ -236,7 +237,7 @@ export function ChatInputPanel({
         </div>
 
         <p className="text-center text-[10px] text-foreground/30 mt-2 hidden sm:block">
-          Shift+Enter voor nieuwe regel · Enter om te versturen
+          {ca('suggestions.sendHintFull')}
         </p>
       </div>
     </div>
@@ -245,22 +246,25 @@ export function ChatInputPanel({
 
 // Empty State Component - Minimalist Dieter Rams aesthetic
 function EmptyState({ 
+  suggestions,
   onSuggestionClick, 
   companyName 
 }: { 
+  suggestions: string[];
   onSuggestionClick: (text: string) => void;
   companyName?: string;
 }) {
+  const ca = useTranslations('chatAssistant');
   return (
     <div className="flex flex-col items-center justify-center h-full p-4 sm:p-6">
       <div className="max-w-md w-full space-y-6 sm:space-y-8">
         {/* Header - Engaging, action-oriented */}
         <div className="text-center space-y-2">
           <h2 className="text-lg sm:text-xl font-semibold text-foreground">
-            {companyName ? `Wat wilt u weten over ${companyName}?` : 'Wat wilt u weten?'}
+            {companyName ? ca('suggestions.askAboutCompany', { company: companyName }) : ca('suggestions.whatToKnow')}
           </h2>
           <p className="text-sm text-foreground/50">
-            Upload een jaarrekening of stel direct een vraag.
+            {ca('suggestions.uploadOrAsk')}
           </p>
         </div>
 
@@ -288,7 +292,7 @@ function EmptyState({
 
         {/* Subtle upload hint */}
         <p className="text-center text-xs text-foreground/30">
-          Of upload een jaarrekening voor automatische analyse
+          {ca('suggestions.askOrUploadHint')}
         </p>
       </div>
     </div>

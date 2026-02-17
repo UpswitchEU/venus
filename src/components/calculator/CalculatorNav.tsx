@@ -118,12 +118,18 @@ export interface CalculatorNavProps {
 // UTILITIES
 // ─────────────────────────────────────────
 
-const formatTimeAgo = (date: Date) => {
+const formatTimeAgo = (
+  date: Date,
+  t: (key: string, values?: Record<string, number>) => string
+) => {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
-  if (diff < 1000 * 60 * 60) return `${Math.floor(diff / (1000 * 60))} min`;
-  if (diff < 1000 * 60 * 60 * 24) return `${Math.floor(diff / (1000 * 60 * 60))} uur`;
-  return `${Math.floor(diff / (1000 * 60 * 60 * 24))} dagen`;
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (diff < 1000 * 60 * 60) return t('common.time.minutesAgo', { count: minutes });
+  if (diff < 1000 * 60 * 60 * 24) return t('common.time.hoursAgo', { count: hours });
+  return t('common.time.daysAgo', { count: days });
 };
 
 const formatPrice = (value: number) => {
@@ -282,7 +288,7 @@ export function CalculatorNav({
                       <p className="text-sm font-medium text-foreground truncate">{val.companyName}</p>
                       <div className="flex items-center gap-1.5 text-xs text-foreground/40">
                         <Clock className="w-3 h-3" />
-                        <span>{formatTimeAgo(val.updatedAt)} {t('common.ago') || 'geleden'}</span>
+                        <span>{formatTimeAgo(val.updatedAt, t)}</span>
                         {val.isDraft && (
                           <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[10px] font-medium">
                             {t('valuation.draft') || 'Concept'}
@@ -573,7 +579,7 @@ export function CalculatorNav({
                         <div className="flex-1 min-w-0 text-left">
                           <p className="text-xs font-medium text-foreground truncate">{item.fileName}</p>
                           <p className="text-[10px] text-foreground/40">
-                            {formatTimeAgo(item.timestamp)} {t('common.ago') || 'geleden'}{item.size && ` · ${item.size}`}
+                            {formatTimeAgo(item.timestamp, t)}{item.size && ` · ${item.size}`}
                           </p>
                         </div>
                       </button>

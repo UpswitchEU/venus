@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { 
   Check, 
   X, 
@@ -42,16 +43,6 @@ export interface NormalisationSuggestionModalProps {
   companyName?: string;
 }
 
-const categoryLabels: Record<NormalisationSuggestion['category'], string> = {
-  salary: 'Eigenaarssalaris',
-  rent: 'Huurkosten',
-  vehicle: 'Voertuigkosten',
-  'one-time': 'Eenmalige kosten',
-  personal: 'Privékosten',
-  depreciation: 'Afschrijvingen',
-  other: 'Overige',
-};
-
 const categoryIcons: Record<NormalisationSuggestion['category'], string> = {
   salary: '👤',
   rent: '🏢',
@@ -62,15 +53,6 @@ const categoryIcons: Record<NormalisationSuggestion['category'], string> = {
   other: '📋',
 };
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('nl-BE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
-
 export function NormalisationSuggestionModal({
   open,
   onOpenChange,
@@ -78,6 +60,25 @@ export function NormalisationSuggestionModal({
   onAccept,
   onReject,
 }: NormalisationSuggestionModalProps) {
+  const t = useTranslations('normalizationHub.suggestionModal');
+  const locale = useLocale();
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  const categoryLabels: Record<NormalisationSuggestion['category'], string> = {
+    salary: t('categories.salary'),
+    rent: t('categories.rent'),
+    vehicle: t('categories.vehicle'),
+    'one-time': t('categories.oneTime'),
+    personal: t('categories.personal'),
+    depreciation: t('categories.depreciation'),
+    other: t('categories.other'),
+  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [customValue, setCustomValue] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -124,7 +125,7 @@ export function NormalisationSuggestionModal({
               {categoryIcons[suggestion.category]}
             </div>
             <div>
-              <ModalTitle className="text-base">Normalisatie Suggestie</ModalTitle>
+              <ModalTitle className="text-base">{t('title')}</ModalTitle>
               <p className="text-xs text-foreground/50 mt-0.5">
                 {categoryLabels[suggestion.category]} · {suggestion.label}
               </p>
@@ -145,9 +146,9 @@ export function NormalisationSuggestionModal({
                 "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
                 confidenceColors[suggestion.confidence]
               )}>
-                {suggestion.confidence === 'high' && '✓ Hoge zekerheid'}
-                {suggestion.confidence === 'medium' && '○ Gemiddelde zekerheid'}
-                {suggestion.confidence === 'low' && '? Lage zekerheid'}
+                {suggestion.confidence === 'high' && `✓ ${t('confidenceHigh')}`}
+                {suggestion.confidence === 'medium' && `○ ${t('confidenceMedium')}`}
+                {suggestion.confidence === 'low' && `? ${t('confidenceLow')}`}
               </span>
             )}
           </div>
@@ -155,19 +156,19 @@ export function NormalisationSuggestionModal({
           <div className="p-4 rounded-xl bg-foreground/[0.02] border border-foreground/[0.08]">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">Huidige waarde</p>
+                <p className="text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">{t('currentValue')}</p>
                 <p className="text-lg font-mono font-semibold text-foreground/60 line-through">
                   {suggestion.currentValue !== undefined ? formatCurrency(suggestion.currentValue) : '—'}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">Aanpassing</p>
+                <p className="text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">{t('adjustment')}</p>
                 <p className={cn("text-lg font-mono font-semibold", suggestion.adjustment > 0 ? "text-success" : "text-secondary")}>
                   {suggestion.adjustment > 0 ? '+' : ''}{formatCurrency(suggestion.adjustment)}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-medium text-primary uppercase tracking-wider mb-1">Suggestie</p>
+                <p className="text-[10px] font-medium text-primary uppercase tracking-wider mb-1">{t('suggestion')}</p>
                 {isEditing ? (
                   <AuroraInput
                     value={customValue}
@@ -183,7 +184,7 @@ export function NormalisationSuggestionModal({
             </div>
             {suggestion.marketBenchmark && (
               <div className="mt-3 pt-3 border-t border-foreground/[0.06] text-center">
-                <p className="text-[10px] text-foreground/40">Marktgemiddelde sector: {formatCurrency(suggestion.marketBenchmark)}</p>
+                <p className="text-[10px] text-foreground/40">{t('marketBenchmark')}: {formatCurrency(suggestion.marketBenchmark)}</p>
               </div>
             )}
           </div>
@@ -192,7 +193,7 @@ export function NormalisationSuggestionModal({
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-medium text-foreground mb-0.5">Reden voor normalisatie</p>
+                <p className="text-xs font-medium text-foreground mb-0.5">{t('reasonTitle')}</p>
                 <p className="text-xs text-foreground/60">{suggestion.reason}</p>
               </div>
             </div>
@@ -200,7 +201,7 @@ export function NormalisationSuggestionModal({
 
           {suggestion.grootboekCode && (
             <div className="flex items-center justify-between text-xs">
-              <span className="text-foreground/50">Grootboekrekening</span>
+              <span className="text-foreground/50">{t('ledgerAccount')}</span>
               <span className="font-mono text-foreground/70 px-2 py-0.5 rounded bg-foreground/[0.04] border border-foreground/[0.06]">
                 {suggestion.grootboekCode}
               </span>
@@ -212,17 +213,17 @@ export function NormalisationSuggestionModal({
           {!isEditing && (
             <AuroraButton variant="ghost" onClick={startEditing} className="w-full sm:w-auto gap-1.5">
               <Edit2 className="w-3.5 h-3.5" />
-              Aanpassen
+              {t('edit')}
             </AuroraButton>
           )}
           <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
             <AuroraButton variant="secondary" onClick={handleReject} disabled={isProcessing} className="flex-1 sm:flex-none gap-1.5">
               <X className="w-3.5 h-3.5" />
-              Afwijzen
+              {t('reject')}
             </AuroraButton>
             <AuroraButton variant="primary" onClick={handleAccept} disabled={isProcessing} className="flex-1 sm:flex-none gap-1.5">
               <Check className="w-3.5 h-3.5" />
-              Toepassen
+              {t('apply')}
             </AuroraButton>
           </div>
         </ModalFooter>

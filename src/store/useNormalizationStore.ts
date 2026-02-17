@@ -99,6 +99,24 @@ interface NormalizationStore {
 }
 
 // ─────────────────────────────────────────
+// TOAST I18N — set by ManualLayout or provider so store can show translated toasts
+// ─────────────────────────────────────────
+
+type ToastMessageGetter = (key: 'normalizationNotSaved' | 'normalizationNotSavedDesc') => string
+
+let toastMessageGetter: ToastMessageGetter | null = null
+
+export function setNormalizationToastMessages(getter: ToastMessageGetter | null) {
+  toastMessageGetter = getter
+}
+
+function getToastMessage(key: 'normalizationNotSaved' | 'normalizationNotSavedDesc'): string {
+  return toastMessageGetter?.(key) ?? (key === 'normalizationNotSaved'
+    ? 'Normalization not saved to server'
+    : 'Your changes are saved locally. Server sync will be retried.')
+}
+
+// ─────────────────────────────────────────
 // DEBOUNCE HELPER
 // ─────────────────────────────────────────
 
@@ -241,8 +259,8 @@ export const useNormalizationStore = create<NormalizationStore>()(
           })
           // Import toast dynamically to avoid circular deps
           import('sonner').then(({ toast }) => {
-            toast.warning('Normalisatie niet opgeslagen op server', {
-              description: 'Uw wijzigingen zijn lokaal bewaard. Server-opslag wordt opnieuw geprobeerd.',
+            toast.warning(getToastMessage('normalizationNotSaved'), {
+              description: getToastMessage('normalizationNotSavedDesc'),
               duration: 5000,
             })
           }).catch(() => {})

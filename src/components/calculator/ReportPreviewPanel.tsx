@@ -8,6 +8,7 @@
  */
 
 import { motion } from 'framer-motion';
+import { useTranslations, useLocale } from 'next-intl';
 import { springDefault } from '@/design-system/components/motion';
 import { 
   TrendingUp,
@@ -34,13 +35,15 @@ export interface ReportPreviewPanelProps {
   } | null;
 }
 
-const formatCurrency = (amount: number) => {
-  if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`;
-  if (amount >= 1000) return `€${(amount / 1000).toFixed(0)}K`;
-  return `€${amount.toLocaleString('nl-BE')}`;
-};
-
 export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
+  const t = useTranslations('reportPreview');
+  const locale = useLocale() as 'nl' | 'en';
+  const formatCurrency = (amount: number) => {
+    if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`;
+    if (amount >= 1000) return `€${(amount / 1000).toFixed(0)}K`;
+    return `€${amount.toLocaleString(locale === 'nl' ? 'nl-BE' : 'en-GB')}`;
+  };
+
   if (!report) {
     return (
       <div className="h-full flex items-center justify-center p-8 bg-background">
@@ -48,9 +51,9 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
             <FileText className="w-6 h-6 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground">Jouw bedrijfsschatting</h3>
+          <h3 className="text-lg font-semibold text-foreground">{t('emptyTitle')}</h3>
           <p className="text-sm text-muted-foreground mt-2">
-            Vul de gegevens in of start een gesprek om je gepersonaliseerde schattingsrapport te genereren.
+            {t('emptyDesc')}
           </p>
         </div>
       </div>
@@ -79,22 +82,22 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
               <span className="text-sm font-semibold text-background/80 tracking-wider">UPSWITCH</span>
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/20 border border-primary/30">
                 <CheckCircle2 className="w-3 h-3 text-primary" />
-                <span className="text-[10px] font-medium text-primary/90 uppercase tracking-wider">Concept Rapport</span>
+                <span className="text-[10px] font-medium text-primary/90 uppercase tracking-wider">{t('conceptReport')}</span>
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">Indicatieve Bedrijfsschatting</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">{t('indicativeValuation')}</p>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">{report.companyName}</h1>
 
             <div className="bg-background/5 backdrop-blur-sm rounded-2xl border border-foreground/10 p-6 mb-6">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Geschatte Ondernemingswaarde</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{t('estimatedEnterpriseValue')}</p>
               <div className="flex items-baseline gap-4">
                 <span className="text-5xl md:text-6xl font-bold font-mono tabular-nums text-primary">
                   {formatCurrency(report.valuation)}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground mt-3">
-                Bereik: {formatCurrency(valuationLow)} – {formatCurrency(valuationHigh)}
+                {t('range', { low: formatCurrency(valuationLow), high: formatCurrency(valuationHigh) })}
               </p>
             </div>
 
@@ -110,9 +113,9 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
               </div>
               <div className="w-px bg-background/10" />
               <div>
-                <p className="text-muted-foreground text-xs uppercase tracking-wider">Datum</p>
+                <p className="text-muted-foreground text-xs uppercase tracking-wider">{t('date')}</p>
                 <p className="font-semibold text-background">
-                  {report.generatedAt.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {report.generatedAt.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
               </div>
             </div>
@@ -124,7 +127,7 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
             <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springDefault, delay: 0.1 }}>
               <h2 className="text-sm font-semibold text-foreground/80 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                Kerncijfers
+                {t('keyMetrics')}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {report.metrics.map((metric, index) => (
@@ -158,22 +161,16 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
             <div className="flex gap-3">
               <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-sm font-semibold text-foreground mb-1">Methodologie</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-1">{t('methodology')}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Deze indicatieve bedrijfsschatting is gebaseerd op vergelijkbare transactieanalyse met 
-                  sectorspecifieke EBITDA-multiples (Damodaran). Het bereik houdt rekening met 
-                  huidige marktomstandigheden, bedrijfsspecifieke risicofactoren en groeitraject.
+                  {t('methodologyDesc')}
                 </p>
               </div>
             </div>
           </motion.section>
 
           <motion.footer initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...springDefault, delay: 0.4 }} className="text-[10px] text-muted-foreground border-t border-foreground/10 pt-6 leading-relaxed">
-            <p>
-              <strong>Disclaimer:</strong> Dit document betreft een indicatieve bedrijfsschatting en vormt geen 
-              formele waardering conform internationale standaarden. Voor formele transacties dient een gecertificeerde 
-              waardering door een erkend expert te worden uitgevoerd.
-            </p>
+            <p>{t('disclaimer')}</p>
           </motion.footer>
         </div>
       </div>

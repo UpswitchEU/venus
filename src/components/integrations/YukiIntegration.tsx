@@ -9,6 +9,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/design-system/utils';
 import { AuroraButton as Button } from '@/design-system/components/Button';
@@ -87,24 +88,18 @@ const formatCurrency = (amount: number) => {
   return `€${amount.toFixed(0)}`;
 };
 
-const formatImportTime = (date: Date, locale: 'en' | 'nl' = 'nl') => {
+type FormatImportTimeT = (key: string, values?: Record<string, number | string>) => string;
+
+const formatImportTime = (date: Date, t: FormatImportTimeT, locale: 'en' | 'nl' = 'nl') => {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const minutes = Math.floor(diff / 60000);
   
-  if (locale === 'nl') {
-    if (minutes < 1) return 'Zojuist';
-    if (minutes < 60) return `${minutes}m geleden`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}u geleden`;
-    return date.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' });
-  } else {
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  }
+  if (minutes < 1) return t('justNow');
+  if (minutes < 60) return t('minutesAgo', { count: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t('hoursAgo', { count: hours });
+  return date.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', { day: 'numeric', month: 'short' });
 };
 
 // ─────────────────────────────────────────
@@ -119,6 +114,8 @@ export function CSVImportCard({
   className,
   softwareName = 'Generiek',
 }: CSVImportCardProps) {
+  const t = useTranslations('yukiIntegration');
+  const locale = useLocale() as 'nl' | 'en';
   const { status, lastImport, fileName, errorMessage } = importStatus;
   
   const softwareColors: Record<string, string> = {
@@ -144,25 +141,25 @@ export function CSVImportCard({
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-center gap-2 mb-1">
-            <Heading level={3} className="text-lg">{softwareName} Export</Heading>
+            <Heading level={3} className="text-lg">{t('exportLabel', { software: softwareName })}</Heading>
             {status === 'imported' && (
-              <Badge variant="primary" size="sm">Geïmporteerd</Badge>
+              <Badge variant="primary" size="sm">{t('importedBadge')}</Badge>
             )}
             {status === 'error' && (
-              <Badge variant="accent" size="sm">Fout</Badge>
+              <Badge variant="accent" size="sm">{t('errorBadge')}</Badge>
             )}
           </div>
 
           {/* Status Description */}
           {status === 'none' && (
             <Body size="sm" className="text-foreground/50 mb-4">
-              Upload een grootboekexport (CSV) om rekeningen te categoriseren.
+              {t('uploadHint')}
             </Body>
           )}
           
           {status === 'processing' && (
             <Body size="sm" className="text-foreground/50 mb-4">
-              Bestand verwerken...
+              {t('processing')}
             </Body>
           )}
           
@@ -174,7 +171,7 @@ export function CSVImportCard({
                 </Caption>
               )}
               <Caption className="text-foreground/40">
-                Geïmporteerd: {formatImportTime(lastImport)}
+                {t('imported')}: {formatImportTime(lastImport, t, locale)}
               </Caption>
             </div>
           )}
@@ -183,7 +180,7 @@ export function CSVImportCard({
             <div className="flex items-start gap-2 mb-4">
               <AlertCircle className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
               <Body size="sm" className="text-secondary">
-                {errorMessage || 'Het bestand kon niet worden verwerkt. Controleer het formaat.'}
+                {errorMessage || t('errorDefault')}
               </Body>
             </div>
           )}
@@ -194,11 +191,11 @@ export function CSVImportCard({
               <>
                 <Button variant="primary" size="sm" className="gap-2" onClick={onUpload}>
                   <Upload className="w-4 h-4" />
-                  Upload CSV
+                  {t('uploadCsv')}
                 </Button>
                 <Button variant="ghost" size="sm" className="gap-2" onClick={onDownloadTemplate}>
                   <Download className="w-4 h-4" />
-                  Template
+                  {t('template')}
                 </Button>
               </>
             )}
@@ -207,11 +204,11 @@ export function CSVImportCard({
               <>
                 <Button variant="secondary" size="sm" className="gap-2" onClick={onUpload}>
                   <RefreshCw className="w-4 h-4" />
-                  Nieuw bestand
+                  {t('newFile')}
                 </Button>
                 {onClearImport && (
                   <Button variant="ghost" size="sm" onClick={onClearImport}>
-                    Wissen
+                    {t('clear')}
                   </Button>
                 )}
               </>
@@ -221,11 +218,11 @@ export function CSVImportCard({
               <>
                 <Button variant="primary" size="sm" className="gap-2" onClick={onUpload}>
                   <RefreshCw className="w-4 h-4" />
-                  Opnieuw proberen
+                  {t('retry')}
                 </Button>
                 <Button variant="ghost" size="sm" className="gap-2" onClick={onDownloadTemplate}>
                   <Download className="w-4 h-4" />
-                  Template
+                  {t('template')}
                 </Button>
               </>
             )}
@@ -268,9 +265,6 @@ export function YukiConnectCard({
   );
 }
 
-// Legacy alias for backward compatibility
-const formatSyncTime = formatImportTime;
-
 // ─────────────────────────────────────────
 // IMPORT STATUS BADGE
 // ─────────────────────────────────────────
@@ -282,11 +276,14 @@ export function ImportStatusBadge({
   status: ImportStatus['status']; 
   lastImport?: Date;
 }) {
+  const t = useTranslations('yukiIntegration');
+  const locale = useLocale() as 'nl' | 'en';
+
   if (status === 'processing') {
     return (
       <div className="flex items-center gap-2 text-sm text-foreground/50">
         <RefreshCw className="w-4 h-4 animate-spin" />
-        <span>Verwerken...</span>
+        <span>{t('processing')}</span>
       </div>
     );
   }
@@ -295,7 +292,7 @@ export function ImportStatusBadge({
     return (
       <div className="flex items-center gap-2 text-sm text-secondary">
         <AlertCircle className="w-4 h-4" />
-        <span>Import mislukt</span>
+        <span>{t('importFailed')}</span>
       </div>
     );
   }
@@ -304,7 +301,7 @@ export function ImportStatusBadge({
     return (
       <div className="flex items-center gap-2 text-sm text-primary">
         <Check className="w-4 h-4" />
-        <span>Geïmporteerd {formatImportTime(lastImport)}</span>
+        <span>{t('importedAgo', { time: formatImportTime(lastImport, t, locale) })}</span>
       </div>
     );
   }

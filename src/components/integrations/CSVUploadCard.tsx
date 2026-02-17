@@ -8,6 +8,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/design-system/utils';
 import { AuroraButton as Button } from '@/design-system/components/Button';
@@ -119,6 +120,7 @@ export function CSVUploadCard({
   onSkip,
   className,
 }: CSVUploadCardProps) {
+  const t = useTranslations('csvUpload');
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedCSVData | null>(null);
@@ -134,17 +136,17 @@ export function CSVUploadCard({
       const data = parseCSV(content);
       
       if (data.rows.length === 0) {
-        throw new Error('Geen gegevens gevonden in het bestand');
+        throw new Error(t('errorNoData'));
       }
       
       setFile(selectedFile);
       setParsedData(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kon bestand niet verwerken');
+      setError(err instanceof Error ? err.message : t('errorProcessFailed'));
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -154,7 +156,7 @@ export function CSVUploadCard({
     if (droppedFile && (droppedFile.type === 'text/csv' || droppedFile.name.endsWith('.csv'))) {
       processFile(droppedFile);
     } else {
-      setError('Alleen CSV-bestanden worden ondersteund');
+      setError(t('errorCsvOnly'));
     }
   }, [processFile]);
 
@@ -186,11 +188,11 @@ export function CSVUploadCard({
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <Heading level={3} className="text-lg">Yuki Export Uploaden</Heading>
+            <Heading level={3} className="text-lg">{t('title')}</Heading>
             <Badge variant="primary" size="sm">CSV</Badge>
           </div>
           <Caption className="text-foreground/50">
-            Upload uw grootboekexport uit Yuki of een ander boekhoudpakket
+            {t('subtitle')}
           </Caption>
         </div>
       </div>
@@ -209,7 +211,7 @@ export function CSVUploadCard({
               <div className="flex items-center gap-3">
                 <Download className="w-4 h-4 text-foreground/40" />
                 <Caption className="text-foreground/60">
-                  Gebruik onze template voor optimale import
+                  {t('useTemplate')}
                 </Caption>
               </div>
               <Button 
@@ -219,7 +221,7 @@ export function CSVUploadCard({
                 onClick={downloadTemplate}
               >
                 <Download className="w-3.5 h-3.5" />
-                Download Template
+                {t('downloadTemplate')}
               </Button>
             </div>
 
@@ -248,7 +250,7 @@ export function CSVUploadCard({
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="w-8 h-8 text-primary animate-spin" />
                   <Body size="sm" className="text-foreground/60">
-                    Bestand verwerken...
+                    {t('processing')}
                   </Body>
                 </div>
               ) : (
@@ -263,10 +265,10 @@ export function CSVUploadCard({
                     )} />
                   </div>
                   <Body size="sm" className="font-medium mb-1">
-                    {isDragging ? "Laat los om te uploaden" : "Sleep uw CSV-bestand hierheen"}
+                    {isDragging ? t('dropActive') : t('dropHere')}
                   </Body>
                   <Caption className="text-foreground/40">
-                    of klik om te bladeren
+                    {t('orClick')}
                   </Caption>
                 </>
               )}
@@ -286,8 +288,8 @@ export function CSVUploadCard({
 
             {/* Supported formats */}
             <div className="flex items-center justify-center gap-4 mt-6">
-              <Caption className="text-foreground/30">Ondersteund:</Caption>
-              {['Yuki', 'Exact', 'Odoo', 'Generic CSV'].map((format) => (
+              <Caption className="text-foreground/30">{t('supported')}</Caption>
+              {[t('formats.yuki'), t('formats.exact'), t('formats.odoo'), t('formats.generic')].map((format) => (
                 <Badge key={format} variant="neutral" size="sm">
                   {format}
                 </Badge>
@@ -318,7 +320,7 @@ export function CSVUploadCard({
               <button
                 onClick={handleRemoveFile}
                 className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                aria-label="Verwijder bestand"
+                aria-label={t('removeFile')}
               >
                 <X className="w-4 h-4 text-foreground/40" />
               </button>
@@ -328,21 +330,21 @@ export function CSVUploadCard({
             {parsedData && (
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
-                  <Caption className="text-foreground/40 mb-1">Formaat</Caption>
+                  <Caption className="text-foreground/40 mb-1">{t('format')}</Caption>
                   <div className="flex items-center gap-2">
                     <Badge variant="primary" size="sm">
-                      {parsedData.detectedType === 'yuki' ? 'Yuki' :
-                       parsedData.detectedType === 'exact' ? 'Exact' :
-                       parsedData.detectedType === 'odoo' ? 'Odoo' : 'Generiek'}
+                      {parsedData.detectedType === 'yuki' ? t('formats.yuki') :
+                       parsedData.detectedType === 'exact' ? t('formats.exact') :
+                       parsedData.detectedType === 'odoo' ? t('formats.odoo') : t('formats.generic')}
                     </Badge>
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
-                  <Caption className="text-foreground/40 mb-1">Rekeningen</Caption>
+                  <Caption className="text-foreground/40 mb-1">{t('accounts')}</Caption>
                   <Mono className="text-lg font-semibold">{parsedData.totalRows}</Mono>
                 </div>
                 <div className="p-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
-                  <Caption className="text-foreground/40 mb-1">Boekjaren</Caption>
+                  <Caption className="text-foreground/40 mb-1">{t('fiscalYears')}</Caption>
                   <Mono className="text-lg font-semibold">
                     {parsedData.fiscalYears.length > 0 
                       ? parsedData.fiscalYears.join(', ') 
@@ -357,7 +359,7 @@ export function CSVUploadCard({
               <div className="rounded-xl border border-foreground/[0.06] overflow-hidden">
                 <div className="px-4 py-3 bg-foreground/[0.02] border-b border-foreground/[0.06]">
                   <Caption className="text-foreground/50">
-                    Preview — eerste {Math.min(3, parsedData.rows.length)} rijen
+                    {t('previewRows', { count: Math.min(3, parsedData.rows.length) })}
                   </Caption>
                 </div>
                 <div className="overflow-x-auto">
@@ -398,11 +400,11 @@ export function CSVUploadCard({
             {/* Actions */}
             <div className="flex items-center justify-between pt-2">
               <Button variant="ghost" size="sm" onClick={handleRemoveFile}>
-                Ander bestand kiezen
+                {t('chooseOther')}
               </Button>
               <Button variant="primary" onClick={handleContinue}>
                 <Check className="w-4 h-4 mr-2" />
-                Importeren en doorgaan
+                {t('importAndContinue')}
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
@@ -417,7 +419,7 @@ export function CSVUploadCard({
             onClick={onSkip}
             className="text-sm text-foreground/40 hover:text-foreground/60 transition-colors"
           >
-            Sla over en voer handmatig in →
+            {t('skipAndManual')}
           </button>
         </div>
       )}
