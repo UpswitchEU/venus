@@ -41,6 +41,7 @@ import { bootstrapService } from './SessionBootstrapService';
 import { parseUrlToContext } from './utils';
 import { setBootstrapState } from '../sessionInitialization';
 import { AuthenticationRequiredError } from './resolvers/AuthResolver';
+import { generalLogger } from '../../utils/logger';
 
 // ============================================================================
 // Context Types
@@ -144,15 +145,9 @@ export function BootstrapProvider({
   const runBootstrap = useCallback(async () => {
     // ✅ WORLD CLASS: When from Mercury, ensure unified loading experience
     // Bootstrap will handle all initialization, and ValuationSessionManager will show single loading state
-    if (isFromMercury) {
-      console.log('[BootstrapProvider] Detected Mercury source - optimizing for unified loading', {
-        reportId: context?.reportId,
-      })
-    }
-
     // CRITICAL: Guard against duplicate calls
     if (bootstrapStartedRef.current) {
-      console.log('[BootstrapProvider] Bootstrap already started, skipping duplicate call', {
+      generalLogger.debug('[BootstrapProvider] Bootstrap already started, skipping duplicate call', {
         reportId: context?.reportId?.substring(0, 20),
       });
       return;
@@ -165,17 +160,15 @@ export function BootstrapProvider({
     if (!isFromMercury) {
       const authState = useAuthStore.getState();
       if (authState.loading) {
-        console.log('[BootstrapProvider] Auth still loading, waiting 500ms before bootstrap');
+        generalLogger.debug('[BootstrapProvider] Auth still loading, waiting 500ms before bootstrap');
         await new Promise(r => setTimeout(r, 500));
         
         // Check again after waiting
         const updatedAuthState = useAuthStore.getState();
         if (updatedAuthState.loading) {
-          console.warn('[BootstrapProvider] Auth still loading after wait, proceeding anyway');
+          generalLogger.debug('[BootstrapProvider] Auth still loading after wait, proceeding anyway');
         }
       }
-    } else {
-      console.log('[BootstrapProvider] Mercury flow — skipping auth wait, cookies already present');
     }
     
     bootstrapStartedRef.current = true;
@@ -189,8 +182,7 @@ export function BootstrapProvider({
         typeof window !== 'undefined' ? window.location.href : '/'
       );
 
-      // CRITICAL: Log the reportId being sent to bootstrap
-      console.log('[BootstrapProvider] Starting bootstrap', {
+      generalLogger.debug('[BootstrapProvider] Starting bootstrap', {
         contextReportId: bootstrapContext.reportId?.substring(0, 20) || 'none',
         method,
       });
@@ -212,15 +204,11 @@ export function BootstrapProvider({
       
       if (requestedId && requestedId !== returnedId) {
         // This is a critical bug that can cause data to be saved to wrong report!
-        console.error(
-          '%c⚠️ CRITICAL: Bootstrap returned different reportId than requested!',
-          'background: #ff0000; color: white; font-weight: bold; padding: 4px 8px;',
-          {
-            requested: requestedId.substring(0, 30),
-            returned: returnedId?.substring(0, 30),
-            mode: result.report.mode,
-          }
-        );
+        generalLogger.error('[BootstrapProvider] Bootstrap returned different reportId than requested', {
+          requested: requestedId.substring(0, 30),
+          returned: returnedId?.substring(0, 30),
+          mode: result.report.mode,
+        });
         
         // ALWAYS override with the requested reportId when there's a mismatch
         result = {
@@ -230,10 +218,6 @@ export function BootstrapProvider({
             reportId: requestedId,
           },
         };
-        
-        console.log('[BootstrapProvider] Overrode reportId to match URL', {
-          finalReportId: requestedId.substring(0, 30),
-        });
       }
 
       // ✅ CREDIT CHECK: Check if credits are insufficient
@@ -246,7 +230,7 @@ export function BootstrapProvider({
         setBootstrapError(creditError);
         onBootstrapError?.(creditError);
         
-        console.error('[BootstrapProvider] Credit check failed - preventing new valuation', {
+        generalLogger.error('[BootstrapProvider] Credit check failed - preventing new valuation', {
           message: creditError,
           upgradePath: result.creditStatus.upgrade_path,
           creditsRemaining: result.creditStatus.credits_remaining,
@@ -262,7 +246,7 @@ export function BootstrapProvider({
       
       // Log if existing report viewed with insufficient credits (allowed, but noted)
       if (result.creditStatus && !result.creditStatus.allowed && isExistingReport) {
-        console.log('[BootstrapProvider] Viewing existing report despite insufficient credits', {
+        generalLogger.debug('[BootstrapProvider] Viewing existing report despite insufficient credits', {
           reportId: result.report.reportId.substring(0, 20),
           creditsRemaining: result.creditStatus.credits_remaining,
         });
@@ -284,12 +268,12 @@ export function BootstrapProvider({
             result.valuationPackage,
             result.ui.suggestedFlow || 'manual'
           );
-          console.log('[BootstrapProvider] WORLD-CLASS: Instant hydration complete', {
+          generalLogger.debug('[BootstrapProvider] WORLD-CLASS: Instant hydration complete', {
             reportId: result.report.reportId.substring(0, 20),
             hasHtmlReport: !!result.valuationPackage.htmlReport,
           });
         } catch (hydrationError) {
-          console.warn('[BootstrapProvider] Package hydration failed - triggering full restoration', {
+          generalLogger.warn('[BootstrapProvider] Package hydration failed - triggering full restoration', {
             error: hydrationError instanceof Error ? hydrationError.message : String(hydrationError),
           });
           
@@ -299,14 +283,14 @@ export function BootstrapProvider({
             const { SessionRestorationService } = await import('../../services/session/SessionRestorationService');
             // Check if report has existing data that needs restoration
             if (result.report.hasExistingData) {
-              console.log('[BootstrapProvider] Marking report for fallback restoration...', {
+              generalLogger.debug('[BootstrapProvider] Marking report for fallback restoration...', {
                 reportId: result.report.reportId.substring(0, 20),
               });
               // Mark for restoration so ManualLayout/ConversationalLayout know to restore
               SessionRestorationService.markForRestoration(result.report.reportId);
             }
           } catch (fallbackError) {
-            console.error('[BootstrapProvider] Fallback restoration setup failed', {
+            generalLogger.error('[BootstrapProvider] Fallback restoration setup failed', {
               error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
             });
           }
@@ -317,19 +301,19 @@ export function BootstrapProvider({
       try {
         const { useSessionStore } = await import('../../store/useSessionStore');
         useSessionStore.getState().setEngine(result.identity);
-        console.log('[BootstrapProvider] Session engine set', {
+        generalLogger.debug('[BootstrapProvider] Session engine set', {
           identityType: result.identity.type,
           engineType: 'AuthenticatedSessionEngine',
         });
       } catch (engineError) {
-        console.error('[BootstrapProvider] Failed to set session engine', {
+        generalLogger.error('[BootstrapProvider] Failed to set session engine', {
           error: engineError instanceof Error ? engineError.message : String(engineError),
         });
       }
       
       onBootstrapComplete?.(result);
 
-      console.log('[BootstrapProvider] Bootstrap complete', {
+      generalLogger.debug('[BootstrapProvider] Bootstrap complete', {
         method,
         reportId: result.report.reportId.substring(0, 20),
         identityType: result.identity.type,
@@ -346,7 +330,7 @@ export function BootstrapProvider({
       
       // Check if this is an authentication error that requires redirect
       if (error instanceof AuthenticationRequiredError) {
-        console.log('[BootstrapProvider] Authentication required - redirecting to login', {
+        generalLogger.debug('[BootstrapProvider] Authentication required - redirecting to login', {
           redirectUrl: error.redirectUrl,
           currentUrl: typeof window !== 'undefined' ? window.location.pathname : 'unknown',
         });
@@ -362,7 +346,7 @@ export function BootstrapProvider({
       setBootstrapError(errorMessage);
       onBootstrapError?.(errorMessage);
 
-      console.error('[BootstrapProvider] Bootstrap failed:', errorMessage);
+      generalLogger.error('[BootstrapProvider] Bootstrap failed:', errorMessage);
     } finally {
       setIsBootstrapping(false);
     }
@@ -384,7 +368,7 @@ export function BootstrapProvider({
     // OPTIMISTIC: Mercury flows start bootstrap immediately — no auth wait, no delay.
     // Cookies from .upswitch.app are already present and the proxy forwards them.
     if (isFromMercury && autoBootstrap) {
-      console.log('[BootstrapProvider] Mercury flow — starting bootstrap immediately (no auth wait, no delay)');
+      generalLogger.debug('[BootstrapProvider] Mercury flow — starting bootstrap immediately (no auth wait, no delay)');
       runBootstrap();
       return;
     }
@@ -392,7 +376,7 @@ export function BootstrapProvider({
     // ✅ FIX: Wait for auth to be stable before running bootstrap
     // This prevents race condition where bootstrap runs with stale/expired token
     if (authLoading) {
-      console.log('[BootstrapProvider] Waiting for auth to stabilize before bootstrap');
+      generalLogger.debug('[BootstrapProvider] Waiting for auth to stabilize before bootstrap');
       return; // Will re-run when authLoading changes
     }
     
@@ -418,7 +402,7 @@ export function BootstrapProvider({
         const { useSessionStore } = require('../../store/useSessionStore');
         useSessionStore.getState().setEngine(state.identity);
       } catch (error) {
-        console.error('[BootstrapProvider] Failed to set session engine on identity change', {
+        generalLogger.error('[BootstrapProvider] Failed to set session engine on identity change', {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -435,7 +419,7 @@ export function BootstrapProvider({
         const { useSessionStore } = require('../../store/useSessionStore');
         useSessionStore.getState().setEngine(updatedIdentity);
       } catch (error) {
-        console.error('[BootstrapProvider] Failed to set session engine on identity update', {
+        generalLogger.error('[BootstrapProvider] Failed to set session engine on identity update', {
           error: error instanceof Error ? error.message : String(error),
         });
       }

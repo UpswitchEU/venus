@@ -10,6 +10,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { generalLogger } from '../utils/logger'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { VersionTimeline } from './VersionTimeline'
 
@@ -98,7 +99,7 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
   const handleVersionPin = (versionNumber: number) => {
     // Pin/unpin functionality would be implemented here
     // For now, we'll just log it
-    console.log('Pin version:', versionNumber)
+    generalLogger.debug('Pin version', { versionNumber })
   }
 
   // Get selected version data

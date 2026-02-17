@@ -12,6 +12,7 @@ import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { generalLogger } from '@/utils/logger'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
 export const dynamic = 'force-dynamic'
@@ -40,16 +41,12 @@ export async function GET(request: NextRequest) {
     const hasAccessToken = cookieHeader.includes('upswitch_access_token=')
     const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=')
 
-    // Cookie state check (silent - only log in development)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Venus /api/auth/me] Cookie state:', {
-        hasAccessToken,
-        hasRefreshToken,
-        hasRequestCookies: !!requestCookieHeader,
-        hasCookieStoreCookies: cookiePairs.length > 0,
-        cookieHeaderLength: cookieHeader.length,
-      })
-    }
+    generalLogger.debug('[Venus /api/auth/me] Cookie state', {
+      hasAccessToken,
+      hasRefreshToken,
+      hasRequestCookies: !!requestCookieHeader,
+      hasCookieStoreCookies: cookiePairs.length > 0,
+    })
 
     if (!hasAccessToken && !hasRefreshToken) {
       // Return 401 with isAuthenticated: false (not an error condition)
@@ -71,7 +68,7 @@ export async function GET(request: NextRequest) {
       const errorData = await response.json().catch(() => ({}))
 
       if (response.status >= 500) {
-        console.error('[Venus /api/auth/me] Titan API server error:', {
+        generalLogger.error('[Venus /api/auth/me] Titan API server error', {
           status: response.status,
           error: errorData,
           titanUrl: `${titanApiUrl}/api/v2/auth/me`,
@@ -100,7 +97,9 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[Venus /api/auth/me] Error:', error)
+    generalLogger.error('[Venus /api/auth/me] Error', {
+      error: error instanceof Error ? error.message : String(error),
+    })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

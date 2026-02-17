@@ -583,6 +583,8 @@ export class SessionBootstrapService {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        // Trace flow Venus → Venus API → Titan → ValuationIQ for staging/prod debugging
+        'X-Correlation-ID': traceId,
       };
 
       // BANK GRADE: Add client context headers using the store's getContextHeaders()
@@ -654,7 +656,7 @@ export class SessionBootstrapService {
       const data = await response.json();
 
       // DIAGNOSTIC (dev only): Log bootstrap response for accountant + clientToken flow
-      if (process.env.NODE_ENV === 'development' && hints.hasClientToken) {
+      if (hints.hasClientToken) {
         this.logger.info(`[Bootstrap:${traceId}] Accountant flow response`, {
           status: response.status,
           success: data.success,

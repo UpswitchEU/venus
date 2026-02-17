@@ -1,5 +1,6 @@
 import nextDynamic from 'next/dynamic'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
+import { generalLogger } from '@/utils/logger'
 
 // Dynamically import the client component with no SSR
 // ssr: false means it only renders on the client, so no Suspense needed
@@ -96,12 +97,10 @@ export default async function Page({ params, searchParams }: PageProps) {
     clientProps.initialVersion = version
   }
 
-  // ✅ FIX: Add debug logging to track component loading
-  console.log('[Page] Rendering ValuationReportClient', {
+  generalLogger.debug('[Page] Rendering ValuationReportClient', {
     reportId: id,
     locale,
     mode,
-    urlParams,
     hasClientId: !!urlParams.clientId,
   })
 

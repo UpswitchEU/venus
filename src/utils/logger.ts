@@ -16,8 +16,9 @@ import pino from 'pino'
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined'
 
+// Full logging in staging and prod for validation - will tighten later
 const logger = pino({
-  level: (process.env.NODE_ENV === 'production' ? 'info' : 'debug') as 'info' | 'debug',
+  level: 'debug' as 'info' | 'debug',
   // In browser, use custom write function to format logs properly
   // This prevents "Object" spam in console
   browser: isBrowser

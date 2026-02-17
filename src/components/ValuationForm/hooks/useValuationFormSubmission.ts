@@ -424,22 +424,9 @@ export const useValuationFormSubmission = (
           // This ensures everything can be restored when user returns later
           // Note: Saving handled by unified session store
 
-          // DIAGNOSTIC: Check if reportId exists
-          console.log('[Manual] DIAGNOSTIC: About to save report assets', {
-            hasReportId: !!reportId,
-            reportId,
-            hasResult: !!result,
-            hasHtmlReport: !!result?.html_report,
-            htmlReportLength: result?.html_report?.length || 0,
-            hasInfoTabHtml: !!result?.info_tab_html,
-            infoTabHtmlLength: result?.info_tab_html?.length || 0,
-          })
-
           if (reportId) {
             try {
-              console.log('[Manual] DIAGNOSTIC: Calling reportService.saveReportAssets', {
-                reportId,
-              })
+              generalLogger.debug('[Manual] Saving report assets', { reportId })
 
               // ATOMIC SAVE: Save complete package in single API call
               // - sessionData: Original form inputs for restoration
@@ -454,11 +441,6 @@ export const useValuationFormSubmission = (
                 infoTabHtml: result.info_tab_html,
                 name: sessionName, // ✅ NEW: Include custom valuation name
               })
-
-              console.log(
-                '[Manual] DIAGNOSTIC: reportService.saveReportAssets completed successfully',
-                { reportId }
-              )
 
               generalLogger.info(
                 '[Manual] Complete report package saved atomically after calculation',
@@ -476,12 +458,6 @@ export const useValuationFormSubmission = (
 
               useSessionStore.getState().markSaved()
             } catch (saveError) {
-              console.error('[Manual] DIAGNOSTIC: reportService.saveReportAssets FAILED', {
-                reportId,
-                error: saveError,
-                errorMessage: saveError instanceof Error ? saveError.message : String(saveError),
-              })
-
               generalLogger.error('[Manual] Failed to save complete report package', {
                 reportId,
                 error: saveError instanceof Error ? saveError.message : String(saveError),
@@ -489,7 +465,7 @@ export const useValuationFormSubmission = (
               // Error logged, continue - don't block user even if save fails
             }
           } else {
-            console.warn('[Manual] DIAGNOSTIC: No reportId, skipping save')
+            generalLogger.debug('[Manual] No reportId, skipping save')
             useSessionStore.getState().markSaved()
           }
 

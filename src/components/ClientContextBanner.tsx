@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { generalLogger } from '@/utils/logger'
 
 /**
  * Client Context Banner
@@ -54,17 +55,17 @@ export function ClientContextBanner() {
       // BANK-GRADE: Always try to close embedded mode first
       // The closeEmbedded() function now always sends postMessage to parent,
       // which handles both true embedded mode and edge cases where detection failed
-      console.log('[ClientContextBanner] Closing embedded session, isEmbedded:', isEmbedded)
+      generalLogger.debug('[ClientContextBanner] Closing embedded session', { isEmbedded })
       closeEmbedded()
       
       // If embedded in Mercury modal, the modal will close and we're done
       if (isEmbedded) {
-        console.log('[ClientContextBanner] Embedded mode detected, modal should close')
+        generalLogger.debug('[ClientContextBanner] Embedded mode detected, modal should close')
         // Give the parent a moment to receive the message and close
         // If we're truly embedded, the modal will close before navigation happens
         setTimeout(() => {
           // If we're still here after 500ms, we might not be embedded - navigate
-          console.log('[ClientContextBanner] Fallback: navigating to Mercury')
+          generalLogger.debug('[ClientContextBanner] Fallback: navigating to Mercury')
           navigateToMercury()
         }, 500)
         return
@@ -73,13 +74,17 @@ export function ClientContextBanner() {
       // If not embedded, navigate back to accountant dashboard in Mercury
       navigateToMercury()
     } catch (error) {
-      console.error('[ClientContextBanner] Error in handleExitClientView:', error)
+      generalLogger.error('[ClientContextBanner] Error in handleExitClientView', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       // Fallback: try to navigate to Mercury home page
       try {
         const mercuryUrl = getMercuryUrl()
         window.location.href = `${mercuryUrl}/en/accountant/dashboard`
       } catch (fallbackError) {
-        console.error('[ClientContextBanner] Fallback navigation also failed:', fallbackError)
+        generalLogger.error('[ClientContextBanner] Fallback navigation also failed', {
+          error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+        })
       }
     }
   }
@@ -89,7 +94,7 @@ export function ClientContextBanner() {
    */
   const navigateToMercury = () => {
     if (typeof window === 'undefined') {
-      console.warn('[ClientContextBanner] window is undefined, cannot navigate')
+      generalLogger.warn('[ClientContextBanner] window is undefined, cannot navigate')
       return
     }
 
@@ -100,7 +105,9 @@ export function ClientContextBanner() {
         returnUrl = sessionStorage.getItem('upswitch_return_url')
       } catch (error) {
         // sessionStorage might not be available (e.g., private browsing)
-        console.warn('[ClientContextBanner] Failed to read sessionStorage:', error)
+        generalLogger.warn('[ClientContextBanner] Failed to read sessionStorage', {
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
 
       if (returnUrl) {
@@ -120,7 +127,9 @@ export function ClientContextBanner() {
             if (url.origin.includes('upswitch.app')) {
               fullReturnUrl = returnUrl
             } else {
-              console.warn('[ClientContextBanner] Return URL from different domain, using dashboard:', returnUrl)
+              generalLogger.warn('[ClientContextBanner] Return URL from different domain, using dashboard', {
+                returnUrl,
+              })
             }
           } else {
             // Relative URL - construct full URL
@@ -128,13 +137,18 @@ export function ClientContextBanner() {
           }
           
           if (fullReturnUrl) {
-            console.log('[ClientContextBanner] Navigating to return URL:', fullReturnUrl)
+            generalLogger.debug('[ClientContextBanner] Navigating to return URL', {
+              fullReturnUrl,
+            })
             window.location.href = fullReturnUrl
             return
           }
           // If fullReturnUrl is null, fall through to dashboard URL construction
         } catch (error) {
-          console.warn('[ClientContextBanner] Invalid return URL, falling back to dashboard:', returnUrl, error)
+          generalLogger.warn('[ClientContextBanner] Invalid return URL, falling back to dashboard', {
+            returnUrl,
+            error: error instanceof Error ? error.message : String(error),
+          })
           // Fall through to dashboard URL construction
         }
       }
@@ -154,7 +168,7 @@ export function ClientContextBanner() {
         // If we have relationshipId, try to navigate to client valuations page
         // This is better than dashboard but requires clientId which we might not have
         // For now, fall back to dashboard - but log for debugging
-        console.warn('[ClientContextBanner] No return_url found, but relationshipId exists:', {
+        generalLogger.warn('[ClientContextBanner] No return_url found, but relationshipId exists:', {
           relationshipId: clientContext.relationshipId,
           clientId: clientContext.client?.id,
         })
@@ -172,16 +186,22 @@ export function ClientContextBanner() {
         fallbackUrl = `${mercuryUrl}/${validLocale}/accountant/dashboard`
       }
       
-      console.log('[ClientContextBanner] Navigating to fallback URL:', fallbackUrl)
+      generalLogger.debug('[ClientContextBanner] Navigating to fallback URL', {
+        fallbackUrl,
+      })
       window.location.href = fallbackUrl
     } catch (error) {
-      console.error('[ClientContextBanner] Error in navigateToMercury:', error)
+      generalLogger.error('[ClientContextBanner] Error in navigateToMercury', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       // Last resort fallback
       try {
         const mercuryUrl = getMercuryUrl()
         window.location.href = `${mercuryUrl}/en/accountant/dashboard`
       } catch (fallbackError) {
-        console.error('[ClientContextBanner] Fallback navigation also failed:', fallbackError)
+        generalLogger.error('[ClientContextBanner] Fallback navigation also failed', {
+          error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+        })
       }
     }
   }

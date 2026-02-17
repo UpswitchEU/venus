@@ -9,6 +9,7 @@
 
 import { useTranslations } from 'next-intl'
 import React, { useEffect } from 'react'
+import { generalLogger } from '../../../utils/logger'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import { useCanSave } from '../../../hooks/useCanSave'
 import type { ValuationFormData } from '../../../types/valuation'
@@ -67,10 +68,9 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
     return t('forms.actions.calculate')
   }
 
-  // Debug: Log form validation state
+  // Debug: Log form validation state (generalLogger.debug suppressed in production)
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[FormSubmitSection] Form validation state:', {
+    generalLogger.debug('[FormSubmitSection] Form validation state', {
         isFormValid,
         isSubmitting,
         hasRevenue: !!formData.revenue,
@@ -83,7 +83,6 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
         country_code: formData.country_code,
         missingFields,
       })
-    }
   }, [
     isFormValid,
     isSubmitting,
@@ -106,19 +105,16 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
           size="lg"
           title={!canSave ? canSaveReason : undefined}
           onClick={() => {
-            // Debug logging (development only)
-            if (process.env.NODE_ENV !== 'production') {
-              console.log('[FormSubmitSection] Button clicked', {
-                isSubmitting,
-                isFormValid,
-                formData: {
-                  revenue: formData.revenue,
-                  ebitda: formData.ebitda,
-                  industry: formData.industry,
-                  country_code: formData.country_code,
-                },
-              })
-            }
+            generalLogger.debug('[FormSubmitSection] Button clicked', {
+              isSubmitting,
+              isFormValid,
+              formData: {
+                revenue: formData.revenue,
+                ebitda: formData.ebitda,
+                industry: formData.industry,
+                country_code: formData.country_code,
+              },
+            })
             // Don't preventDefault - let form handle submission
           }}
         >

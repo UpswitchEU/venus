@@ -17,6 +17,7 @@ import {
 } from '../../../src/constants/headers';
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl';
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout';
+import { generalLogger } from '@/utils/logger';
 
 const TIMEOUT_MS = 15_000; // 15s per request (includes potential token refresh)
 
@@ -41,20 +42,20 @@ async function tryRefreshToken(
     );
 
     if (!refreshResponse.ok) {
-      console.log('[Bootstrap Route] Token refresh failed', {
+      generalLogger.warn('[Bootstrap Route] Token refresh failed', {
         status: refreshResponse.status,
       });
       return { success: false, newCookies: [] };
     }
 
     const newCookies = refreshResponse.headers.getSetCookie();
-    console.log('[Bootstrap Route] Token refresh successful', {
+    generalLogger.debug('[Bootstrap Route] Token refresh successful', {
       newCookiesCount: newCookies.length,
     });
 
     return { success: true, newCookies };
   } catch (error) {
-    console.error('[Bootstrap Route] Token refresh error', {
+    generalLogger.error('[Bootstrap Route] Token refresh error', {
       error: error instanceof Error ? error.message : String(error),
     });
     return { success: false, newCookies: [] };
@@ -128,17 +129,20 @@ export async function POST(request: NextRequest) {
       ? Object.keys(clientContext)
       : [];
     if (!hasClientContext && (body.clientToken || body.clientId)) {
-      console.warn('[Bootstrap Route] Client token/ID in body but no client context headers received', {
+      generalLogger.warn('[Bootstrap Route] Client token/ID in body but no client context headers received', {
         hasClientToken: !!body.clientToken,
         hasClientId: !!body.clientId,
         note: 'Client context may not be in store when Venus built the request',
       });
     }
-    console.log('[Bootstrap Route] Client context forwarding', {
+    generalLogger.debug('[Bootstrap Route] Client context forwarding', {
       hasClientContext,
       clientContextKeys,
       hasCookies: !!cookieHeader,
     });
+
+    // Forward correlation ID for trace flow Venus → Titan → ValuationIQ
+    const correlationId = request.headers.get('x-correlation-id') || request.headers.get('x-request-id');
 
     // Build headers for Titan request
     const buildTitanHeaders = (cookies: string): Record<string, string> => {
@@ -153,6 +157,10 @@ export async function POST(request: NextRequest) {
 
       if (guestSessionId) {
         headers['X-Guest-Session-Id'] = guestSessionId;
+      }
+
+      if (correlationId) {
+        headers['X-Correlation-ID'] = correlationId;
       }
 
       // ✅ CRITICAL: Forward client context headers using canonical format
@@ -170,7 +178,8 @@ export async function POST(request: NextRequest) {
     const titanApiUrl = getTitanApiUrl(request);
 
     // CRITICAL LOGGING: Log the exact reportId and client context to trace ID mismatch issues
-    console.log('[Bootstrap Route] Proxying to Titan', {
+    generalLogger.debug('[Bootstrap Route] Proxying to Titan', {
+      correlationId: correlationId || undefined,
       url: `${titanApiUrl}/api/v2/valuations/bootstrap`,
       reportId: body.reportId?.substring(0, 30) || 'NONE',
       reportIdLength: body.reportId?.length || 0,
@@ -194,7 +203,7 @@ export async function POST(request: NextRequest) {
     let allSetCookieHeaders: string[] = [];
     
     if (response.status === 401) {
-      console.log('[Bootstrap Route] Got 401, attempting token refresh');
+      generalLogger.debug('[Bootstrap Route] Got 401, attempting token refresh');
       
       const refreshResult = await tryRefreshToken(cookieHeader, request);
       
@@ -205,7 +214,7 @@ export async function POST(request: NextRequest) {
         // Merge new cookies with original cookies for retry request
         const mergedCookies = mergeCookies(cookieHeader, refreshResult.newCookies);
         
-        console.log('[Bootstrap Route] Retrying bootstrap with refreshed token');
+        generalLogger.debug('[Bootstrap Route] Retrying bootstrap with refreshed token');
         
         // Retry the bootstrap request with new cookies
         response = await fetch(`${titanApiUrl}/api/v2/valuations/bootstrap`, {
@@ -229,7 +238,7 @@ export async function POST(request: NextRequest) {
 
     // Log response
     const durationMs = Date.now() - startTime;
-    console.log('[Bootstrap Route] Response received', {
+    generalLogger.debug('[Bootstrap Route] Response received', {
       status: response.status,
       success: data.success,
       durationMs,
@@ -252,14 +261,14 @@ export async function POST(request: NextRequest) {
     const durationMs = Date.now() - startTime;
 
     if (error instanceof DOMException && error.name === 'AbortError') {
-      console.error('[Bootstrap Route] Request timed out', { durationMs });
+      generalLogger.error('[Bootstrap Route] Request timed out', { durationMs });
       return NextResponse.json(
         { success: false, error: 'Bootstrap request timed out', bootstrapDurationMs: durationMs },
         { status: 504 }
       );
     }
 
-    console.error('[Bootstrap Route] Error', {
+    generalLogger.error('[Bootstrap Route] Error', {
       error: errorMessage,
       durationMs,
     });

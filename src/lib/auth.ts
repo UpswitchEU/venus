@@ -22,6 +22,7 @@ import type { User } from '../contexts/AuthContextTypes'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
 
 import { getApiUrl } from '../utils/getMercuryUrl'
+import { generalLogger } from '../utils/logger'
 
 // Backend API URL - environment-aware (shared utility)
 const API_URL = getApiUrl()
@@ -71,7 +72,7 @@ const requestCache = new Map<string, Promise<any>>()
 function getCachedRequest<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const cached = requestCache.get(key)
   if (cached) {
-    console.log('[Auth] Reusing cached request:', key)
+    generalLogger.debug('[Auth] Reusing cached request', { key })
     return cached as Promise<T>
   }
 
@@ -115,11 +116,11 @@ function sanitizeUrl(paramsToRemove: string[]): void {
       
       // Log sanitization (development only)
       if (process.env.NODE_ENV === 'development') {
-        console.log('[Security] Sanitized URL parameters:', paramsToRemove)
+        generalLogger.debug('[Security] Sanitized URL parameters', { paramsToRemove })
       }
     }
   } catch (error) {
-    console.error('[Security] URL sanitization failed:', error)
+    generalLogger.error('[Security] URL sanitization failed', { error })
   }
 }
 
@@ -576,7 +577,7 @@ export const useAuthStore = create<AuthState>()(
           // DO NOT clear cookies client-side (server does it with HttpOnly)
           // DO NOT use setTimeout (use proper await)
         } catch (error) {
-          console.warn('[Venus Auth] Logout failed (non-fatal):', error)
+          generalLogger.warn('[Venus Auth] Logout failed (non-fatal)', { error })
 
           // Still broadcast logout on error (graceful degradation)
           if (typeof window !== 'undefined') {
@@ -637,7 +638,7 @@ async function initializeAuth(): Promise<void> {
   initPromise = (async () => {
     const { setLoading, checkSession, exchangeToken, setUser, setIsInitializing } = useAuthStore.getState()
 
-    console.log(`[Auth:${traceId}] Starting initialization flow`)
+    generalLogger.info(`[Auth:${traceId}] Starting initialization flow`)
 
     try {
       setLoading(true)
@@ -669,7 +670,7 @@ async function initializeAuth(): Promise<void> {
         }
         // Silent - only log in development
         if (process.env.NODE_ENV === 'development') {
-          console.log('[Auth] Return URL captured:', {
+          generalLogger.debug('[Auth] Return URL captured', {
             returnUrl,
             source: sourceApp,
           })
@@ -677,7 +678,7 @@ async function initializeAuth(): Promise<void> {
       }
 
       if (clientToken) {
-        console.log(`[Auth:${traceId}] Client token detected - starting context exchange`)
+        generalLogger.info(`[Auth:${traceId}] Client token detected - starting context exchange`)
         
         // BANK GRADE: Initialize deferred promise IMMEDIATELY when clientToken detected
         // This ensures waitForClientContext() always has a promise to wait for
@@ -685,7 +686,7 @@ async function initializeAuth(): Promise<void> {
         
         // Validate token format before attempting exchange
         if (clientToken.length < 20 || !/^[A-Za-z0-9._-]+$/.test(clientToken)) {
-          console.warn(`[Auth:${traceId}] Invalid client token format - skipping exchange`)
+          generalLogger.warn(`[Auth:${traceId}] Invalid client token format - skipping exchange`)
           // Continue to normal auth flow - don't block user
           // SECURITY: Clean up invalid token and sensitive parameters from URL
           sanitizeUrl(['clientToken', 'client_id', 'prefilledQuery', 'autoSend'])
@@ -769,7 +770,7 @@ async function initializeAuth(): Promise<void> {
                     window.history.replaceState({}, '', url.pathname + (url.search || ''))
 
                     // BANK GRADE: Mark initialization as complete using deferred promise pattern
-                    console.log(`[Auth:${traceId}] Client context exchange successful`)
+                    generalLogger.info(`[Auth:${traceId}] Client context exchange successful`)
                     resolveClientContext()
 
                     return
@@ -812,7 +813,7 @@ async function initializeAuth(): Promise<void> {
                     const delay = baseDelay * Math.pow(2, attempt)
                     // Silent - only log in development
                     if (process.env.NODE_ENV === 'development') {
-                      console.warn(`[Auth] Client context exchange failed, retrying in ${delay}ms...`, {
+                      generalLogger.warn(`[Auth] Client context exchange failed, retrying in ${delay}ms...`, {
                         attempt: attempt + 1,
                         maxRetries,
                         error: lastError.message,
@@ -841,7 +842,7 @@ async function initializeAuth(): Promise<void> {
           } catch (error) {
             // Client context exchange failed - log and continue to normal auth flow
             const lastError = error instanceof Error ? error : new Error(String(error))
-            console.error(`[Auth:${traceId}] Client context exchange failed:`, lastError.message)
+            generalLogger.error(`[Auth:${traceId}] Client context exchange failed`, { message: lastError.message })
 
             // Show user-friendly error message
             const errorMessage = lastError.message.includes('expired')
@@ -885,7 +886,7 @@ async function initializeAuth(): Promise<void> {
           const clientIdParam = params.get('clientId')
           
           if (mode === 'accountant' && clientIdParam && user.role === 'accountant') {
-            console.log(`[Auth:${traceId}] Accountant mode with clientId - fetching client context`)
+            generalLogger.info(`[Auth:${traceId}] Accountant mode with clientId - fetching client context`)
             
             // Initialize deferred promise for client context
             initClientContextPromise()
@@ -910,14 +911,16 @@ async function initializeAuth(): Promise<void> {
                 const { useClientContext } = await import('../stores/clientContext')
                 useClientContext.getState().setClientContext(context)
                 
-                console.log(`[Auth:${traceId}] Client context established via clientId`)
+                generalLogger.info(`[Auth:${traceId}] Client context established via clientId`)
                 resolveClientContext()
               } else {
                 const errorData = await response.json().catch(() => ({}))
                 throw new Error(errorData.message || `Failed to fetch client context (${response.status})`)
               }
             } catch (error) {
-              console.error(`[Auth:${traceId}] Failed to fetch client context:`, error)
+              generalLogger.error(`[Auth:${traceId}] Failed to fetch client context`, {
+                error: error instanceof Error ? error.message : String(error),
+              })
               // Don't block auth - user is authenticated, just missing client context
               // AuthGate will show an appropriate error
               rejectClientContext(error instanceof Error ? error : new Error(String(error)))
@@ -944,7 +947,7 @@ async function initializeAuth(): Promise<void> {
               const contextState = useClientContext.getState()
               
               if (!contextState.isActingAsClient) {
-                console.log(`[Auth:${traceId}] Checking report for accountant_customer_id to restore context`)
+                generalLogger.debug(`[Auth:${traceId}] Checking report for accountant_customer_id to restore context`)
                 
                 try {
                   // Fetch report metadata to get accountant_customer_id
@@ -964,7 +967,7 @@ async function initializeAuth(): Promise<void> {
                     const accountantCustomerId = report.accountant_customer_id
                     
                     if (accountantCustomerId) {
-                      console.log(`[Auth:${traceId}] Found accountant_customer_id in report, restoring client context`)
+                      generalLogger.info(`[Auth:${traceId}] Found accountant_customer_id in report, restoring client context`)
                       
                       // Initialize deferred promise for client context
                       initClientContextPromise()
@@ -985,24 +988,28 @@ async function initializeAuth(): Promise<void> {
                           // Set client context in store
                           useClientContext.getState().setClientContext(context)
                           
-                          console.log(`[Auth:${traceId}] Client context restored from report`)
+                          generalLogger.info(`[Auth:${traceId}] Client context restored from report`)
                           resolveClientContext()
                         } else {
-                          console.warn(`[Auth:${traceId}] Invalid client context structure from report`)
+                          generalLogger.warn(`[Auth:${traceId}] Invalid client context structure from report`)
                         }
                       } else {
                         const errorData = await contextResponse.json().catch(() => ({}))
-                        console.warn(`[Auth:${traceId}] Failed to fetch client context from report:`, errorData.message || contextResponse.status)
+                        generalLogger.warn(`[Auth:${traceId}] Failed to fetch client context from report`, {
+                          message: errorData.message || contextResponse.status,
+                        })
                       }
                     } else {
-                      console.log(`[Auth:${traceId}] Report has no accountant_customer_id - not an accountant-client report`)
+                      generalLogger.debug(`[Auth:${traceId}] Report has no accountant_customer_id - not an accountant-client report`)
                     }
                   } else {
                     // Report not found or access denied - this is OK, might be a new report
-                    console.log(`[Auth:${traceId}] Report not found or inaccessible (${reportResponse.status}) - may be new report`)
+                    generalLogger.debug(`[Auth:${traceId}] Report not found or inaccessible (${reportResponse.status}) - may be new report`)
                   }
                 } catch (error) {
-                  console.warn(`[Auth:${traceId}] Failed to restore client context from report (non-critical)`, error)
+                  generalLogger.warn(`[Auth:${traceId}] Failed to restore client context from report (non-critical)`, {
+                    error: error instanceof Error ? error.message : String(error),
+                  })
                   // Don't block auth - user is authenticated, just missing client context
                   // AuthGate will handle this gracefully
                 }
@@ -1029,7 +1036,9 @@ async function initializeAuth(): Promise<void> {
             // AUTH-FIRST: Guest migration no longer needed
           }
         } catch (tokenError) {
-          console.error('[Auth] Token exchange failed:', tokenError)
+          generalLogger.error('[Auth] Token exchange failed', {
+            error: tokenError instanceof Error ? tokenError.message : String(tokenError),
+          })
           trackAuthFailure(
             tokenError instanceof Error ? tokenError.message : 'Token exchange failed',
             { method: 'token-exchange' }
@@ -1052,7 +1061,9 @@ async function initializeAuth(): Promise<void> {
       setUser(null)
       // Note: Not recording as success - user needs to authenticate
     } catch (error) {
-      console.error(`[Auth:${traceId}] Initialization failed:`, error)
+      generalLogger.error(`[Auth:${traceId}] Initialization failed`, {
+        error: error instanceof Error ? error.message : String(error),
+      })
       logAuthError('Auth initialization failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
       })
@@ -1064,7 +1075,7 @@ async function initializeAuth(): Promise<void> {
       // AUTH-FIRST: Clear user on error - BootstrapProvider will redirect to login
       setUser(null)
     } finally {
-      console.log(`[Auth:${traceId}] Initialization complete - loading=false, isInitializing=false`)
+      generalLogger.info(`[Auth:${traceId}] Initialization complete - loading=false, isInitializing=false`)
       setLoading(false)
       // RACE CONDITION FIX: Mark initialization as complete
       // AuthGate waits for both loading=false AND isInitializing=false

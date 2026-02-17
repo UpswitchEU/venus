@@ -12,6 +12,7 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import { generalLogger } from '../utils/logger'
 import { getCategoryDefinition } from '../config/normalizationCategories'
 import { NormalizationAPIError, normalizationService } from '../services/ebitdaNormalizationService'
 import {
@@ -119,7 +120,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             })
             .catch((error) => {
               // No data found - template is already shown, no action needed
-              console.log(`No existing normalization for ${year}, using template`)
+              generalLogger.debug(`No existing normalization for ${year}, using template`)
             })
         } else {
           // Already exists in store, just open modal
@@ -314,7 +315,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           })
 
           // API call succeeded - log diagnostic info
-          console.log('[Normalization] Save succeeded', {
+          generalLogger.debug('[Normalization] Save succeeded', {
             year,
             sessionId,
             responseHasId: !!response?.id,
@@ -338,7 +339,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
               isSaving: false,
             })
 
-            console.log('Normalization saved successfully', {
+            generalLogger.debug('Normalization saved successfully', {
               year,
               id: response?.id,
               session_id: sessionId,
@@ -412,7 +413,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             isLoading: false,
           })
 
-          console.log('Normalization loaded successfully', { year })
+          generalLogger.debug('Normalization loaded successfully', { year })
         } catch (error) {
           set({ isLoading: false })
 
@@ -421,7 +422,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           if (error instanceof NormalizationAPIError) {
             if (error.status === 404) {
               // Not found - no normalization exists yet, this is expected
-              console.log('No normalization found for year, will create template', { year })
+              generalLogger.debug('No normalization found for year, will create template', { year })
             } else {
               // 500 or other server errors - log but allow UI to continue with template
               console.warn('Error loading normalization from backend, will create template', {
@@ -481,7 +482,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             isLoading: false,
           })
 
-          console.log('All normalizations loaded', { count: responses.length })
+          generalLogger.debug('All normalizations loaded', { count: responses.length })
         } catch (error) {
           console.error('Error loading all normalizations', error)
           set({
@@ -507,7 +508,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
         try {
           await normalizationService.deleteNormalization(sessionId, year)
-          console.log('Normalization removed successfully', { year })
+          generalLogger.debug('Normalization removed successfully', { year })
         } catch (error) {
           console.error('Error removing normalization', error)
 
@@ -591,7 +592,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             },
           })
 
-          console.log('Market rates fetched successfully', { year, count: suggestions.length })
+          generalLogger.debug('Market rates fetched successfully', { year, count: suggestions.length })
         } catch (error) {
           console.error('Error fetching market rates', error)
           // Don't fail - market rates are suggestions, not required

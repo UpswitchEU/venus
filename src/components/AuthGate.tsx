@@ -25,6 +25,7 @@ import { GlassCard, AuroraButton } from '@/design-system'
 import { useAuthStore, waitForClientContext, getInitTraceId } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { getMercuryUrl, getApiUrl } from '../utils/getMercuryUrl'
+import { generalLogger } from '../utils/logger'
 import type { User } from '../contexts/AuthContextTypes'
 
 // ============================================================================
@@ -226,7 +227,7 @@ export function AuthGate({
     // ✅ FIX: Set maximum timeout to prevent infinite loading
     maxTimeoutId = setTimeout(() => {
       if (mounted && state === 'checking') {
-        console.error(`[AuthGate:${traceId}] Max timeout exceeded while checking auth`)
+        generalLogger.error(`[AuthGate:${traceId}] Max timeout exceeded while checking auth`)
         setState('error')
         setError('Authentication check timed out. Please refresh the page.')
         onAuthError?.('Authentication timeout')
@@ -240,7 +241,7 @@ export function AuthGate({
       // setting it up (the old bug was that checkSession() set loading=false 
       // when returning cached user, but initializeAuth() was still running)
       if (authLoading || isInitializing) {
-        console.log(`[AuthGate:${traceId}] Waiting for auth to complete (loading=${authLoading}, isInitializing=${isInitializing})`)
+        generalLogger.debug(`[AuthGate:${traceId}] Waiting for auth to complete`, { authLoading, isInitializing })
         setState('checking')
         return
       }
@@ -257,7 +258,9 @@ export function AuthGate({
                                authError.toLowerCase().includes('no refresh token')
         
         if (isTransient401 && retryCount < maxRetries) {
-          console.log(`[AuthGate:${traceId}] Transient auth error - retrying (${retryCount + 1}/${maxRetries})`, {
+          generalLogger.debug(`[AuthGate:${traceId}] Transient auth error - retrying`, {
+            retry: retryCount + 1,
+            maxRetries,
             error: authError,
           })
           
@@ -286,9 +289,8 @@ export function AuthGate({
           // Mercury expects 'returnUrl' parameter (not 'redirect')
           const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
           
-          console.log(`[AuthGate:${traceId}] Auth error and no user - redirecting to Mercury login`, {
+          generalLogger.debug(`[AuthGate:${traceId}] Auth error and no user - redirecting to Mercury login`, {
             redirectUrl,
-            currentUrl,
             authError,
           })
           
@@ -300,7 +302,7 @@ export function AuthGate({
         }
         
         // Only show error if user exists but there's still an auth error (unusual case)
-        console.log(`[AuthGate:${traceId}] Auth error detected: ${authError}`)
+        generalLogger.debug(`[AuthGate:${traceId}] Auth error detected`, { authError })
         if (mounted) {
           setState('error')
           setError(authError)
@@ -323,7 +325,7 @@ export function AuthGate({
         const reportId = reportIdMatch ? reportIdMatch[1] : null
         
         if (reportId && (reportId.startsWith('val_') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId))) {
-          console.log(`[AuthGate:${traceId}] Fallback: Attempting to restore client context from report`)
+          generalLogger.debug(`[AuthGate:${traceId}] Fallback: Attempting to restore client context from report`)
           
           // Use async IIFE to handle async operations
           ;(async () => {
@@ -362,7 +364,7 @@ export function AuthGate({
                       const { useClientContext: useClientContextStore } = await import('../stores/clientContext')
                       useClientContextStore.getState().setClientContext(context)
                       
-                      console.log(`[AuthGate:${traceId}] Fallback: Client context restored from report`)
+                      generalLogger.debug(`[AuthGate:${traceId}] Fallback: Client context restored from report`)
                       
                       // Retry checkAuth after context is set (with small delay to allow state update)
                       setTimeout(() => {
@@ -376,7 +378,9 @@ export function AuthGate({
                 }
               }
             } catch (error) {
-              console.warn(`[AuthGate:${traceId}] Fallback: Failed to restore client context from report`, error)
+              generalLogger.warn(`[AuthGate:${traceId}] Fallback: Failed to restore client context from report`, {
+                error: error instanceof Error ? error.message : String(error),
+              })
               // Continue to normal flow - will show error if context is actually needed
             }
           })()
@@ -388,7 +392,7 @@ export function AuthGate({
       }
       
       if (needsClientContext) {
-        console.log(`[AuthGate:${traceId}] Verifying client context is set`)
+        generalLogger.debug(`[AuthGate:${traceId}] Verifying client context is set`)
         const contextStateAfterFallback = useClientContext.getState()
 
         if (!contextStateAfterFallback.isActingAsClient || !contextStateAfterFallback.client || !contextStateAfterFallback.accountant) {
@@ -408,7 +412,7 @@ export function AuthGate({
               const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
               const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
               
-              console.log(`[AuthGate:${traceId}] Auth error during client context check - redirecting to Mercury login`, {
+              generalLogger.debug(`[AuthGate:${traceId}] Auth error during client context check - redirecting to Mercury login`, {
                 redirectUrl,
                 currentUrl,
                 authError: currentAuthError,
@@ -452,7 +456,7 @@ export function AuthGate({
         // Mercury expects 'returnUrl' parameter (not 'redirect')
         const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
         
-        console.log(`[AuthGate:${traceId}] No user found - redirecting to Mercury login`, {
+        generalLogger.debug(`[AuthGate:${traceId}] No user found - redirecting to Mercury login`, {
           redirectUrl,
           currentUrl,
         })
@@ -466,7 +470,7 @@ export function AuthGate({
 
       // Step 5: All checks passed - ready to render children
       if (mounted) {
-        console.log(`[AuthGate:${traceId}] All checks passed - rendering children`, {
+        generalLogger.debug(`[AuthGate:${traceId}] All checks passed - rendering children`, {
           userId: currentUser.id.substring(0, 8) + '...',
           isAccountantFlow: needsClientContext,
         })
