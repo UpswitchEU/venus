@@ -504,14 +504,23 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   /**
    * Mark initialization as complete (transition to loaded state)
+   * 
+   * For new reports from bootstrap: session is created by useBootstrapSync
+   * before this is called. For bootstrapHasNewReport (ValuationSessionManager
+   * skips loadSession): we rely on useBootstrapSync to create session and
+   * call this, so session will exist.
+   * 
+   * When session is null (e.g. bootstrap failed or sync not yet run):
+   * set status='loaded' anyway to unblock UI - prevents infinite loading
+   * when bootstrap provides new report but sync hasn't run yet.
    */
   completeInitialization: () => {
     const state = get()
-    // Only transition if we have a session loaded
-    if (state.session) {
-      set({ status: 'loaded' as SessionStatus })
-      storeLogger.debug('[Session] Initialization complete')
-    }
+    set({ status: 'loaded' as SessionStatus })
+    storeLogger.debug('[Session] Initialization complete', {
+      hasSession: !!state.session,
+      reportId: state.session?.reportId?.substring(0, 20) || 'none',
+    })
   },
 
   /**

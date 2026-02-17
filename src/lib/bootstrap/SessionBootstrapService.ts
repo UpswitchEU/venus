@@ -38,6 +38,8 @@ import {
 } from './types';
 import { generateReportId, parseBootstrapHints, parseUrlToContext, truncateForLog } from './utils';
 import { getInitTraceId } from '../auth';
+import { AuthenticationRequiredError } from './resolvers/AuthResolver';
+import { getMercuryUrl } from '../../utils/getMercuryUrl';
 
 interface BootstrapOptions {
   /** Timeout for bootstrap process in ms */
@@ -247,6 +249,8 @@ export class SessionBootstrapService {
     hints: BootstrapHints,
     options: BootstrapOptions
   ): Promise<SessionBootstrapState> {
+    const phaseStart = performance.now();
+
     // Phase 1: Resolve identity (required for other resolutions)
     let identity: IdentityState;
     if (options.skipAuth) {
@@ -255,18 +259,25 @@ export class SessionBootstrapService {
       const authResult = await this.authResolver.resolve(context, hints);
       identity = authResult.data;
     }
+    const phase1Ms = Math.round(performance.now() - phaseStart);
+    this.logger.info('[Bootstrap] Phase 1 (auth) complete', { durationMs: phase1Ms });
 
     // Phase 2: Parallel resolution of session and prefill
+    const phase2Start = performance.now();
     const [sessionResult, prefillResult] = await Promise.all([
       this.sessionResolver.resolve(context, hints, identity),
       this.prefillResolver.resolve(context, hints, identity),
     ]);
+    const phase2Ms = Math.round(performance.now() - phase2Start);
+    this.logger.info('[Bootstrap] Phase 2 (session+prefill) complete', { durationMs: phase2Ms });
 
     const report = sessionResult.data;
     const prefillData = prefillResult.data;
 
     // Phase 3: Build UI hints
     const ui = this.buildUIHints(context, hints, identity, report, prefillData);
+    const totalMs = Math.round(performance.now() - phaseStart);
+    this.logger.info('[Bootstrap] Phase 3 (ui hints) complete', { totalDurationMs: totalMs });
 
     return {
       identity,
@@ -357,40 +368,32 @@ export class SessionBootstrapService {
    * Wait for auth to be ready before making bootstrap API call
    * 
    * PERFORMANCE OPTIMIZATION:
-   * - Reduced max wait from 5s to 1s for faster page loads
-   * - Skip wait entirely if auth already loaded or we have a valid token cookie
-   * - Poll interval reduced from 100ms to 50ms for faster response
+   * - Skip wait if auth already loaded
+   * - When clientToken present: wait for isInitializing=false (client context exchange)
+   * - Otherwise: 1s max for cookie-based auth
    */
-  private async waitForAuth(maxWaitMs: number): Promise<boolean> {
+  private async waitForAuth(maxWaitMs: number, hasClientToken?: boolean): Promise<boolean> {
     const { useAuthStore } = await import('../auth');
     const start = Date.now();
-    
+    // When clientToken present, client context exchange must complete - wait longer
+    const effectiveMaxWait = hasClientToken ? 5000 : maxWaitMs;
+
     // OPTIMIZATION: Check if auth is already ready (common case)
     const initialState = useAuthStore.getState();
-    if (!initialState.loading && (initialState.user || initialState.error)) {
+    const authReady = !initialState.loading && !initialState.isInitializing && (initialState.user || initialState.error);
+    if (authReady) {
       return true;
     }
-    
-    // OPTIMIZATION: Check for existing token cookie - if present, skip wait
-    // The API call will use the cookie for auth, no need to wait for store
-    if (typeof document !== 'undefined') {
-      const hasTokenCookie = document.cookie.includes('upswitch_access_token') || 
-                             document.cookie.includes('sb-') // Supabase tokens
-      if (hasTokenCookie) {
-        this.logger.debug('[Bootstrap] Token cookie found, skipping auth wait');
+
+    // Poll until auth and client context (if applicable) are ready
+    while (Date.now() - start < effectiveMaxWait) {
+      const { loading, isInitializing, user, error } = useAuthStore.getState();
+      if (!loading && !isInitializing && (user || error)) {
         return true;
       }
+      await new Promise(r => setTimeout(r, 50));
     }
-    
-    // Poll with shorter interval for faster response
-    while (Date.now() - start < maxWaitMs) {
-      const { loading, user, error } = useAuthStore.getState();
-      if (!loading && (user || error)) {
-        return true;
-      }
-      await new Promise(r => setTimeout(r, 50)); // Reduced from 100ms
-    }
-    
+
     return false;
   }
 
@@ -521,9 +524,12 @@ export class SessionBootstrapService {
     });
 
     try {
-      // PERFORMANCE: Reduced auth wait from 5s to 1s for faster page loads
-      // The optimized waitForAuth now skips wait if token cookie exists
-      const authReady = await this.waitForAuth(1000);
+      // When clientToken present, wait for client context exchange to complete (up to 5s)
+      // Otherwise short wait (1s) for cookie-based auth
+      const authWaitStart = performance.now();
+      const authReady = await this.waitForAuth(1000, hints.hasClientToken);
+      const authWaitMs = Math.round(performance.now() - authWaitStart);
+      this.logger.info(`[Bootstrap:${traceId}] Auth wait complete`, { durationMs: authWaitMs, ready: authReady });
       if (!authReady) {
         this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after 1s timeout, proceeding anyway`);
       }
@@ -597,7 +603,10 @@ export class SessionBootstrapService {
       }
 
       // BANK GRADE: Make request with retry logic for 401 errors
+      const apiStart = performance.now();
       const response = await this.makeBootstrapRequest(requestBody, headers, traceId);
+      const apiMs = Math.round(performance.now() - apiStart);
+      this.logger.info(`[Bootstrap:${traceId}] Titan API request complete`, { durationMs: apiMs, status: response.status });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -606,6 +615,16 @@ export class SessionBootstrapService {
           statusText: response.statusText,
           error: errorText.substring(0, 200),
         });
+        // 401: Redirect to Mercury login instead of hanging on error state
+        if (response.status === 401) {
+          const mercuryUrl = getMercuryUrl();
+          const locale = typeof window !== 'undefined'
+            ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+            : 'en';
+          const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+          const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`;
+          throw new AuthenticationRequiredError('Session expired or authentication required', redirectUrl);
+        }
         throw new Error(`Bootstrap API failed (${response.status}): ${errorText.substring(0, 100)}`);
       }
 
@@ -757,6 +776,13 @@ export class SessionBootstrapService {
         bootstrappedAt: new Date(),
         bootstrapDurationMs: data.bootstrapDurationMs || (performance.now() - startTime),
       };
+
+      const totalMs = Math.round(performance.now() - startTime);
+      this.logger.info(`[Bootstrap:${traceId}] Titan bootstrap complete`, {
+        durationMs: totalMs,
+        reportMode: state.report.mode,
+        identityType: state.identity.type,
+      });
       
       // WORLD-CLASS: Log valuationPackage presence for debugging
       if (valuationPackage) {

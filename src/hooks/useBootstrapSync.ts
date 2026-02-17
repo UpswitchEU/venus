@@ -13,7 +13,7 @@
  * @module hooks/useBootstrapSync
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useBootstrapSafe } from '../lib/bootstrap';
 import type { SessionBootstrapState } from '../lib/bootstrap/types';
 import { useAuthStore } from '../lib/auth';
@@ -39,18 +39,16 @@ interface SyncStatus {
  * with the existing store architecture. It ensures all stores are populated
  * with bootstrap data when bootstrap completes.
  */
+// Module-level ref used by sync functions (shared across hook instances)
+const syncStatusRef = { current: { identity: false, session: false, prefill: false, clientContext: false } as SyncStatus };
+
 export function useBootstrapSync(): {
   isSynced: boolean;
   syncStatus: SyncStatus;
 } {
   const bootstrap = useBootstrapSafe();
+  const [isSynced, setIsSynced] = useState(false);
   const hasSyncedRef = useRef(false);
-  const syncStatusRef = useRef<SyncStatus>({
-    identity: false,
-    session: false,
-    prefill: false,
-    clientContext: false,
-  });
 
   useEffect(() => {
     // Skip if no bootstrap context or already synced
@@ -72,13 +70,21 @@ export function useBootstrapSync(): {
     }
 
     const state = bootstrap.state;
-    
+
     // Perform sync
     syncIdentity(state);
     syncSession(state);
     syncClientContext(state);
-    
+
+    // CRITICAL: For new reports, syncSession creates session in store synchronously.
+    // completeInitialization sets status='loaded' so UI exits loading state.
+    // For existing reports, syncSession triggers async loadSession - don't override.
+    if (state.report.mode === 'new') {
+      useSessionStore.getState().completeInitialization();
+    }
+
     hasSyncedRef.current = true;
+    setIsSynced(true);
 
     logger.info('Bootstrap sync complete', {
       syncStatus: syncStatusRef.current,
@@ -89,8 +95,8 @@ export function useBootstrapSync(): {
   }, [bootstrap]);
 
   return {
-    isSynced: hasSyncedRef.current,
-    syncStatus: syncStatusRef.current,
+    isSynced,
+    syncStatus: { ...syncStatusRef.current },
   };
 }
 
@@ -343,8 +349,5 @@ function syncClientContext(state: SessionBootstrapState): void {
     });
   }
 }
-
-// Export reference for direct store sync
-const syncStatusRef = { current: {} as SyncStatus };
 
 export default useBootstrapSync;
