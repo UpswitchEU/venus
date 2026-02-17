@@ -366,29 +366,38 @@ export class SessionBootstrapService {
 
   /**
    * Wait for auth to be ready before making bootstrap API call
-   * 
+   *
    * PERFORMANCE OPTIMIZATION:
    * - Skip wait if auth already loaded
-   * - When clientToken present: wait for isInitializing=false (client context exchange)
+   * - When clientToken present: wait for isInitializing=false AND isActingAsClient (client context in store)
    * - Otherwise: 1s max for cookie-based auth
    */
   private async waitForAuth(maxWaitMs: number, hasClientToken?: boolean): Promise<boolean> {
     const { useAuthStore } = await import('../auth');
+    const { useClientContext } = await import('../../stores/clientContext');
     const start = Date.now();
     // When clientToken present, client context exchange must complete - wait longer
     const effectiveMaxWait = hasClientToken ? 5000 : maxWaitMs;
 
-    // OPTIMIZATION: Check if auth is already ready (common case)
-    const initialState = useAuthStore.getState();
-    const authReady = !initialState.loading && !initialState.isInitializing && (initialState.user || initialState.error);
-    if (authReady) {
+    const isAuthAndContextReady = (): boolean => {
+      const authState = useAuthStore.getState();
+      const authReady = !authState.loading && !authState.isInitializing && (authState.user || authState.error);
+      if (!authReady) return false;
+      // When clientToken present, also require client context in store (headers needed for Titan delegated flow)
+      if (hasClientToken && !useClientContext.getState().isActingAsClient) {
+        return false;
+      }
+      return true;
+    };
+
+    // OPTIMIZATION: Check if auth and context are already ready (common case)
+    if (isAuthAndContextReady()) {
       return true;
     }
 
     // Poll until auth and client context (if applicable) are ready
     while (Date.now() - start < effectiveMaxWait) {
-      const { loading, isInitializing, user, error } = useAuthStore.getState();
-      if (!loading && !isInitializing && (user || error)) {
+      if (isAuthAndContextReady()) {
         return true;
       }
       await new Promise(r => setTimeout(r, 50));
@@ -601,6 +610,20 @@ export class SessionBootstrapService {
           error: error instanceof Error ? error.message : String(error),
         });
       }
+
+      // DIAGNOSTIC: Log before bootstrap request to trace client context propagation
+      const hasClientContextHeaders = Object.keys(headers).some(
+        (k) =>
+          k.toLowerCase() === 'x-client-user-id' ||
+          k.toLowerCase() === 'x-accountant-user-id' ||
+          k.toLowerCase() === 'x-relationship-id'
+      );
+      this.logger.info(`[Bootstrap:${traceId}] Pre-request diagnostic`, {
+        hasClientContextHeaders,
+        authReady,
+        authWaitMs,
+        headerKeys: Object.keys(headers).filter((k) => k.toLowerCase().startsWith('x-')),
+      });
 
       // BANK GRADE: Make request with retry logic for 401 errors
       const apiStart = performance.now();

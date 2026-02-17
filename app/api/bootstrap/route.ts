@@ -122,6 +122,24 @@ export async function POST(request: NextRequest) {
       (name: string) => request.headers.get(name)
     );
 
+    // DIAGNOSTIC: Log client context forwarding to trace propagation to Titan
+    const hasClientContext = !!clientContext;
+    const clientContextKeys = clientContext
+      ? Object.keys(clientContext)
+      : [];
+    if (!hasClientContext && (body.clientToken || body.clientId)) {
+      console.warn('[Bootstrap Route] Client token/ID in body but no client context headers received', {
+        hasClientToken: !!body.clientToken,
+        hasClientId: !!body.clientId,
+        note: 'Client context may not be in store when Venus built the request',
+      });
+    }
+    console.log('[Bootstrap Route] Client context forwarding', {
+      hasClientContext,
+      clientContextKeys,
+      hasCookies: !!cookieHeader,
+    });
+
     // Build headers for Titan request
     const buildTitanHeaders = (cookies: string): Record<string, string> => {
       const headers: Record<string, string> = {
@@ -151,7 +169,7 @@ export async function POST(request: NextRequest) {
 
     const titanApiUrl = getTitanApiUrl(request);
 
-    // CRITICAL LOGGING: Log the exact reportId to trace ID mismatch issues
+    // CRITICAL LOGGING: Log the exact reportId and client context to trace ID mismatch issues
     console.log('[Bootstrap Route] Proxying to Titan', {
       url: `${titanApiUrl}/api/v2/valuations/bootstrap`,
       reportId: body.reportId?.substring(0, 30) || 'NONE',
@@ -161,6 +179,7 @@ export async function POST(request: NextRequest) {
       bodyKeys: Object.keys(body || {}),
       hasCookies: !!cookieHeader,
       hasGuestSessionId: !!guestSessionId,
+      hasClientContext,
     });
 
     // Forward request to Titan
