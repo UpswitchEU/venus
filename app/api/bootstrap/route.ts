@@ -1,39 +1,44 @@
 /**
  * Bootstrap API Route
- * 
+ *
  * Proxies bootstrap requests to Titan API for unified session initialization.
  * This enables same-origin requests from Venus client to avoid CORS issues.
- * 
+ *
  * BANK GRADE: Handles 401 errors by attempting token refresh and retry.
- * This prevents race conditions where bootstrap fires before token refresh completes.
- * 
+ * Uses getTitanApiUrl(request), fetchWithTimeout.
+ *
  * @module api/bootstrap
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  CLIENT_CONTEXT_HEADERS, 
+import {
+  CLIENT_CONTEXT_HEADERS,
   extractClientContextFromHeaders,
 } from '../../../src/constants/headers';
-
-const TITAN_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
-                      process.env.NEXT_PUBLIC_API_BASE_URL || 
-                      'https://api.upswitch.app';
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl';
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout';
 
 const TIMEOUT_MS = 15_000; // 15s per request (includes potential token refresh)
 
 /**
  * Attempt to refresh the access token and return new cookies
  */
-async function tryRefreshToken(cookieHeader: string): Promise<{ success: boolean; newCookies: string[] }> {
+async function tryRefreshToken(
+  cookieHeader: string,
+  request: NextRequest
+): Promise<{ success: boolean; newCookies: string[] }> {
   try {
-    const refreshResponse = await fetch(`${TITAN_API_URL}/api/v2/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie': cookieHeader,
-      },
-    });
+    const titanApiUrl = getTitanApiUrl(request);
+    const refreshResponse = await fetchWithTimeout(
+      `${titanApiUrl}/api/v2/auth/refresh`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: cookieHeader,
+        },
+      }
+    );
 
     if (!refreshResponse.ok) {
       console.log('[Bootstrap Route] Token refresh failed', {
@@ -144,9 +149,11 @@ export async function POST(request: NextRequest) {
       return headers;
     };
 
+    const titanApiUrl = getTitanApiUrl(request);
+
     // CRITICAL LOGGING: Log the exact reportId to trace ID mismatch issues
     console.log('[Bootstrap Route] Proxying to Titan', {
-      url: `${TITAN_API_URL}/api/v2/valuations/bootstrap`,
+      url: `${titanApiUrl}/api/v2/valuations/bootstrap`,
       reportId: body.reportId?.substring(0, 30) || 'NONE',
       reportIdLength: body.reportId?.length || 0,
       reportIdType: typeof body.reportId,
@@ -157,7 +164,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Forward request to Titan
-    let response = await fetch(`${TITAN_API_URL}/api/v2/valuations/bootstrap`, {
+    let response = await fetch(`${titanApiUrl}/api/v2/valuations/bootstrap`, {
       method: 'POST',
       headers: buildTitanHeaders(cookieHeader),
       body: JSON.stringify(body),
@@ -170,7 +177,7 @@ export async function POST(request: NextRequest) {
     if (response.status === 401) {
       console.log('[Bootstrap Route] Got 401, attempting token refresh');
       
-      const refreshResult = await tryRefreshToken(cookieHeader);
+      const refreshResult = await tryRefreshToken(cookieHeader, request);
       
       if (refreshResult.success && refreshResult.newCookies.length > 0) {
         // Store new cookies to forward to browser
@@ -182,7 +189,7 @@ export async function POST(request: NextRequest) {
         console.log('[Bootstrap Route] Retrying bootstrap with refreshed token');
         
         // Retry the bootstrap request with new cookies
-        response = await fetch(`${TITAN_API_URL}/api/v2/valuations/bootstrap`, {
+        response = await fetch(`${titanApiUrl}/api/v2/valuations/bootstrap`, {
           method: 'POST',
           headers: buildTitanHeaders(mergedCookies),
           body: JSON.stringify(body),

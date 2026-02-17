@@ -10,6 +10,7 @@
 import { useTranslations } from 'next-intl'
 import React, { useEffect } from 'react'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
+import { useCanSave } from '../../../hooks/useCanSave'
 import type { ValuationFormData } from '../../../types/valuation'
 import { AuroraButton, AuroraFormAlert } from '../../../design-system/components'
 
@@ -37,6 +38,7 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   const t = useTranslations()
   const lastFullYear = Math.min(new Date().getFullYear() - 1, 2100)
   const { hasNormalization } = useEbitdaNormalizationStore()
+  const { canSave, reason: canSaveReason } = useCanSave()
 
   // Check if any normalizations exist
   const hasAnyNormalization =
@@ -98,10 +100,11 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
       <div className="pt-6 border-t border-foreground/[0.06]">
         <AuroraButton
           type="submit"
-          disabled={isSubmitting || !isFormValid}
+          disabled={isSubmitting || !isFormValid || !canSave}
           loading={isSubmitting}
           fullWidth
           size="lg"
+          title={!canSave ? canSaveReason : undefined}
           onClick={() => {
             // Debug logging (development only)
             if (process.env.NODE_ENV !== 'production') {

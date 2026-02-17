@@ -13,6 +13,7 @@ import { valuationAuditService } from '../../../services/audit/ValuationAuditSer
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
+import { useCanSave } from '../../../hooks/useCanSave'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
@@ -48,10 +49,20 @@ export const useValuationFormSubmission = (
   const reportId = useSessionStore((state) => state.session?.reportId)
   const sessionName = useSessionStore((state) => state.session?.name) // Get name from session
   const { createVersion, getLatestVersion, fetchVersions } = useVersionHistoryStore()
+  const { canSave, reason: canSaveReason } = useCanSave()
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
+
+      // Defense-in-depth: block submission if auth/bootstrap not ready
+      if (!canSave) {
+        generalLogger.warn('[Manual] Submission blocked — auth/bootstrap not ready', {
+          canSave,
+          reason: canSaveReason,
+        })
+        return
+      }
 
       try {
         // Log submission
@@ -516,6 +527,8 @@ export const useValuationFormSubmission = (
       setCalculating,
       trySetCalculating,
       isCalculating,
+      canSave,
+      canSaveReason,
     ]
   )
 

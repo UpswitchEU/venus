@@ -47,6 +47,12 @@ interface AuthGateProps {
   hasClientToken?: boolean
   /** Return URL for error state back button */
   returnUrl?: string
+  /**
+   * Optimistic mode: render children immediately without waiting for auth.
+   * Auth still runs in the background; if it fails the user is redirected.
+   * Use for Mercury→Venus flows where cookies are already present.
+   */
+  optimistic?: boolean
 }
 
 // ============================================================================
@@ -178,6 +184,7 @@ export function AuthGate({
   errorComponent,
   hasClientToken = false,
   returnUrl,
+  optimistic = false,
 }: AuthGateProps) {
   const [state, setState] = useState<AuthGateState>('checking')
   const [error, setError] = useState<string | null>(null)
@@ -479,6 +486,13 @@ export function AuthGate({
   }, [authLoading, authError, isInitializing, needsClientContext, onAuthReady, onAuthError, retryCount, state])
 
   // Render based on state
+  // In optimistic mode, render children immediately.
+  // Auth still runs in the background via the useEffect above.
+  // If auth fails, the useEffect will redirect to login.
+  if (optimistic) {
+    return <>{children}</>
+  }
+
   if (state === 'error' && error) {
     if (errorComponent) {
       return <>{errorComponent}</>

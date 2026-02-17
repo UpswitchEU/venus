@@ -22,7 +22,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useTransitionRouter } from 'next-view-transitions'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationSession } from '../types/valuation'
@@ -63,6 +63,15 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
   ({ reportId, children }) => {
     const searchParams = useSearchParams()
     const router = useTransitionRouter()
+
+    // OPTIMISTIC: Detect Mercury flow to render form immediately during bootstrap
+    const isFromMercury = useMemo(() => {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        return urlParams.get('source') === 'mercury'
+      }
+      return false
+    }, [])
 
     // WORLD CLASS: Bootstrap integration - check if bootstrap has already loaded session
     const bootstrap = useBootstrapSafe()
@@ -188,10 +197,26 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // WORLD CLASS: Also consider bootstrap state for stage calculation
     // If bootstrap is still running, we're loading. If bootstrap failed but
     // session store has data, continue with session store data.
-    const stage: Stage =
-      isBootstrapping || isLoading || isInitializing || !session || session.reportId !== reportId
-        ? 'loading'
-        : 'data-entry'
+    //
+    // OPTIMISTIC: Mercury flows render 'data-entry' while bootstrap is in progress.
+    // The form shows immediately with empty/placeholder state. When bootstrap
+    // completes the session hydrates and the form fills in. The useCanSave hook
+    // prevents destructive actions until auth + bootstrap are ready.
+    const stage: Stage = (() => {
+      // If session is loaded and matches, always data-entry
+      if (session && session.reportId === reportId && !isLoading && !isInitializing) {
+        return 'data-entry'
+      }
+      // Mercury optimistic: render form during bootstrap instead of loading screen
+      if (isFromMercury && isBootstrapping && !isLoading) {
+        return 'data-entry'
+      }
+      // Default: loading until everything is ready
+      if (isBootstrapping || isLoading || isInitializing || !session || session.reportId !== reportId) {
+        return 'loading'
+      }
+      return 'data-entry'
+    })()
 
     // ✅ FIX: Maximum loading timeout - force error state after 30 seconds
     // This prevents users from being stuck forever on a loading screen

@@ -160,16 +160,22 @@ export function BootstrapProvider({
     
     // ✅ FIX: Double-check auth is stable before proceeding
     // This handles edge cases where runBootstrap is called directly
-    const authState = useAuthStore.getState();
-    if (authState.loading) {
-      console.log('[BootstrapProvider] Auth still loading, waiting 500ms before bootstrap');
-      await new Promise(r => setTimeout(r, 500));
-      
-      // Check again after waiting
-      const updatedAuthState = useAuthStore.getState();
-      if (updatedAuthState.loading) {
-        console.warn('[BootstrapProvider] Auth still loading after wait, proceeding anyway');
+    // OPTIMISTIC: Mercury flows skip this wait — cookies are already present,
+    // the Titan proxy will forward them automatically.
+    if (!isFromMercury) {
+      const authState = useAuthStore.getState();
+      if (authState.loading) {
+        console.log('[BootstrapProvider] Auth still loading, waiting 500ms before bootstrap');
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Check again after waiting
+        const updatedAuthState = useAuthStore.getState();
+        if (updatedAuthState.loading) {
+          console.warn('[BootstrapProvider] Auth still loading after wait, proceeding anyway');
+        }
       }
+    } else {
+      console.log('[BootstrapProvider] Mercury flow — skipping auth wait, cookies already present');
     }
     
     bootstrapStartedRef.current = true;
@@ -374,6 +380,14 @@ export function BootstrapProvider({
     if (bootstrapStartedRef.current || initialState) {
       return;
     }
+
+    // OPTIMISTIC: Mercury flows start bootstrap immediately — no auth wait, no delay.
+    // Cookies from .upswitch.app are already present and the proxy forwards them.
+    if (isFromMercury && autoBootstrap) {
+      console.log('[BootstrapProvider] Mercury flow — starting bootstrap immediately (no auth wait, no delay)');
+      runBootstrap();
+      return;
+    }
     
     // ✅ FIX: Wait for auth to be stable before running bootstrap
     // This prevents race condition where bootstrap runs with stale/expired token
@@ -395,7 +409,7 @@ export function BootstrapProvider({
       return () => clearTimeout(stabilityDelay);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading]); // Re-run when auth loading state changes
+  }, [authLoading, isFromMercury]); // Re-run when auth loading state changes
 
   // AUTH-FIRST: Update engine when identity changes
   useEffect(() => {

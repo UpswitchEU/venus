@@ -1,11 +1,13 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { ValuationReport } from '../../../../src/components/ValuationReport'
 import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
 import { BootstrapProvider, type BootstrapContext, type FlowType } from '../../../../src/lib/bootstrap'
 import { AuthGate } from '../../../../src/components/AuthGate'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
+import { useTokenRefresh } from '../../../../src/hooks/useTokenRefresh'
+import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
 
 interface ValuationReportClientProps {
   reportId: string
@@ -64,6 +66,21 @@ export default function ValuationReportClient({
     return !!urlParams.clientToken || !!urlParams.clientId
   }, [urlParams.clientToken, urlParams.clientId])
 
+  // Detect Mercury flow - cookies are already present so we can render optimistically
+  const isFromMercury = urlParams.source === 'mercury'
+
+  // Proactive token refresh: keeps the access token alive during long sessions.
+  // Without this, the 15-minute access token expires silently while the user fills data.
+  const handleTokenExpired = useCallback(() => {
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
+    const mercuryUrl = getMercuryUrl()
+    const localeMatch = typeof window !== 'undefined'
+      ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+      : 'en'
+    window.location.href = `${mercuryUrl}/${localeMatch}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+  }, [])
+  useTokenRefresh({ onTokenExpired: handleTokenExpired })
+
   // Build bootstrap context from URL params
   const bootstrapContext = useMemo<BootstrapContext>(() => {
     return {
@@ -92,6 +109,7 @@ export default function ValuationReportClient({
         hasClientToken={hasClientToken}
         returnUrl={urlParams.return_url}
         loadingComponent={<CalculatorShellSkeleton />}
+        optimistic={isFromMercury}
       >
         <BootstrapProvider
           context={bootstrapContext}

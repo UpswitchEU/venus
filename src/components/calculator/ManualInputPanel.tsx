@@ -53,6 +53,7 @@ import {
   UnifiedNormalizationModal,
   type NormalizationItem as UnifiedNormalizationItem,
 } from './UnifiedNormalizationModal';
+import { useCanSave } from '../../hooks/useCanSave';
 
 // Types
 export interface YearlyFinancials {
@@ -481,7 +482,8 @@ export function ManualInputPanel({
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0;
   const hasBusinessType = !!selectedBusinessType || formData.businessType.length > 0;
   const hasFinancials = formData.yearlyFinancials.some(yf => yf.revenue > 0 && yf.ebitda > 0);
-  const canSubmit = hasCompanyInfo && hasBusinessType && hasFinancials;
+  const { canSave, reason: canSaveReason } = useCanSave();
+  const canSubmit = hasCompanyInfo && hasBusinessType && hasFinancials && canSave;
 
   // Field-level: detect partially filled years (has one of revenue/ebitda but not both)
   const partialYears = formData.yearlyFinancials
@@ -958,11 +960,13 @@ export function ManualInputPanel({
           </AuroraButton>
           {!canSubmit && (
             <p className="text-center text-xs text-foreground/40 mt-2">
-              {!hasCompanyInfo 
-                ? mi('validation.enterCompanyName')
-                : !hasBusinessType 
-                  ? mi('validation.selectBusinessType')
-                  : mi('validation.enterFinancials')
+              {!canSave
+                ? canSaveReason
+                : !hasCompanyInfo 
+                  ? mi('validation.enterCompanyName')
+                  : !hasBusinessType 
+                    ? mi('validation.selectBusinessType')
+                    : mi('validation.enterFinancials')
               }
             </p>
           )}
