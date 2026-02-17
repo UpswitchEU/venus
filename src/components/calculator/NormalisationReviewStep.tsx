@@ -685,9 +685,9 @@ export function NormalisationReviewStep({
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-foreground/[0.04] flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-6 h-6 md:w-8 md:h-8 text-foreground/30" />
             </div>
-            <p className="text-foreground/60 mb-1 text-sm md:text-base">Geen normalisaties gedetecteerd</p>
+            <p className="text-foreground/60 mb-1 text-sm md:text-base">{nh('noNormalizationsDetected')}</p>
             <p className="text-xs md:text-sm text-foreground/40 mb-4">
-              De geïmporteerde gegevens tonen geen aanpassingsmogelijkheden.
+              {nh('noAdjustmentsInData')}
             </p>
             {onAdd && (
               <Button
@@ -697,7 +697,7 @@ export function NormalisationReviewStep({
                 className="gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Handmatig toevoegen
+                {nh('addManually')}
               </Button>
             )}
           </div>
@@ -946,7 +946,7 @@ export function NormalisationReviewStep({
         
         {pendingCount > 0 && (
           <p className="text-center text-[10px] md:text-xs text-foreground/40 mt-2">
-            Beoordeel alle normalisaties om door te gaan
+            {nh('reviewAllToContinue')}
           </p>
         )}
       </div>

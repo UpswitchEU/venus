@@ -14,6 +14,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { 
@@ -371,6 +372,9 @@ export function UnifiedNormalizationModal({
   onUploadClick,
   initialSearchQuery = '',
 }: UnifiedNormalizationModalProps) {
+  const nh = useTranslations('normalizationHub');
+  const ca = useTranslations('chatAssistant');
+  const tCommon = useTranslations('common.actions');
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
   
   // View mode: bento (cards), compact (table rows), or financial (multi-year table)
@@ -776,8 +780,8 @@ export function UnifiedNormalizationModal({
       // Block if adjustment exceeds 200% of EBITDA (likely a data entry error)
       if (pctOfEbitda > 200) {
         import('sonner').then(({ toast }) =>
-          toast.error('Normalisatie geblokkeerd', {
-            description: `Aanpassing (${pctOfEbitda.toFixed(0)}% van EBITDA) is onrealistisch hoog. Controleer het bedrag.`,
+          toast.error(nh('blockedToast'), {
+            description: nh('blockedToastDesc', { pct: pctOfEbitda.toFixed(0) }),
           })
         );
         return;
@@ -787,7 +791,7 @@ export function UnifiedNormalizationModal({
       if (pctOfEbitda > 30) {
         import('sonner').then(({ toast }) =>
           toast.warning('Hoge normalisatie', {
-            description: `Deze aanpassing is ${pctOfEbitda.toFixed(0)}% van de EBITDA. Zorg voor onderbouwing.`,
+            description: nh('warnToastDesc', { pct: pctOfEbitda.toFixed(0) }),
           })
         );
       }
@@ -955,7 +959,7 @@ export function UnifiedNormalizationModal({
             </div>
             <div>
               <ModalTitle className="text-sm font-semibold">
-                EBITDA Normalisaties
+                {nh('ebitdaNormalizations')}
               </ModalTitle>
               <p className="text-xs text-foreground/50">
                 {companyName}
@@ -1330,8 +1334,8 @@ export function UnifiedNormalizationModal({
               {[
                 { value: 'all', label: 'Alle', count: counts.all, icon: null, color: null },
                 { value: 'pending', label: 'Te beoordelen', count: counts.pending, icon: Clock, color: 'warning' },
-                { value: 'accepted', label: 'Geaccepteerd', count: counts.accepted, icon: CheckCircle2, color: 'success' },
-                { value: 'rejected', label: 'Afgewezen', count: counts.rejected, icon: XCircle, color: 'secondary' },
+                { value: 'accepted', label: ca('accepted'), count: counts.accepted, icon: CheckCircle2, color: 'success' },
+                { value: 'rejected', label: ca('rejected'), count: counts.rejected, icon: XCircle, color: 'secondary' },
               ].map(({ value, label, count, icon: Icon, color }) => (
                 <button
                   key={value}
@@ -1485,7 +1489,7 @@ export function UnifiedNormalizationModal({
                     className="text-xs h-8 px-3 text-secondary hover:text-secondary hover:bg-secondary/10"
                   >
                     <X className="w-3.5 h-3.5 mr-1.5" />
-                    Afwijzen
+                    {ca('reject')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -1494,7 +1498,7 @@ export function UnifiedNormalizationModal({
                     className="text-xs h-8 px-3 text-success hover:text-success hover:bg-success/10"
                   >
                     <Check className="w-3.5 h-3.5 mr-1.5" />
-                    Accepteren
+                    {ca('accept')}
                   </Button>
                   <div className="w-px h-6 bg-foreground/10" />
                   <Button
@@ -1562,7 +1566,7 @@ export function UnifiedNormalizationModal({
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-sm font-semibold text-foreground flex items-center gap-2">
                     <Plus className="w-4 h-4 text-primary" />
-                    Normalisatie toevoegen
+                    {nh('addNormalization')}
                   </span>
                   <button
                     onClick={() => {
@@ -1721,7 +1725,7 @@ export function UnifiedNormalizationModal({
                   <div className="mt-4 p-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
                     <div className="flex items-center gap-4">
                       <div>
-                        <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5">Origineel EBITDA</p>
+                        <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5">{nh('originalEbitda')}</p>
                         <p className="text-sm font-mono font-medium text-foreground/60">{formatCurrency(originalEBITDA)}</p>
                       </div>
                       <div className="text-foreground/30">→</div>
@@ -1955,7 +1959,7 @@ export function UnifiedNormalizationModal({
                   <p className="text-sm text-foreground/45 max-w-sm mx-auto leading-relaxed">
                     {activeTab === 'pending' && 'Goed bezig! Alle AI-suggesties zijn verwerkt.'}
                     {activeTab === 'accepted' && 'Accepteer suggesties of voeg handmatig normalisaties toe via de zoekbalk hierboven.'}
-                    {activeTab === 'rejected' && 'Afgewezen normalisaties verschijnen hier.'}
+                    {activeTab === 'rejected' && nh('rejectedEmptyState')}
                     {activeTab === 'all' && 'Gebruik de zoekbalk of klik op een snelkeuze hierboven om een normalisatie toe te voegen.'}
                   </p>
                 </motion.div>
@@ -1999,7 +2003,7 @@ export function UnifiedNormalizationModal({
               {yearFilter && ` · Filter: ${yearFilter}`}
             </p>
             <Button onClick={() => onOpenChange(false)}>
-              Sluiten
+              {tCommon('close')}
             </Button>
           </div>
         </ModalFooter>
@@ -2036,6 +2040,9 @@ function CompactTableRow({
   onEdit,
   hideYear = false,
 }: CompactTableRowProps) {
+  const ca = useTranslations('chatAssistant');
+  const nh = useTranslations('normalizationHub');
+  const tCommon = useTranslations('common.actions');
   const category = categoryConfig[item.category] || categoryConfig.other;
   const source = sourceConfig[item.source] || sourceConfig.manual;
 
@@ -2125,7 +2132,7 @@ function CompactTableRow({
         {item.status === 'rejected' && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary/10 text-secondary">
             <X className="w-2.5 h-2.5" />
-            Nee
+            {nh('no')}
           </span>
         )}
       </div>
@@ -2154,7 +2161,7 @@ function CompactTableRow({
                     <Edit3 className="w-3.5 h-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Bewerken</TooltipContent>
+                <TooltipContent>{tCommon('edit')}</TooltipContent>
               </TooltipRoot>
             </TooltipProvider>
             <TooltipProvider>
@@ -2167,7 +2174,7 @@ function CompactTableRow({
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Afwijzen</TooltipContent>
+                <TooltipContent>{ca('reject')}</TooltipContent>
               </TooltipRoot>
             </TooltipProvider>
             <TooltipProvider>
@@ -2180,7 +2187,7 @@ function CompactTableRow({
                     <Check className="w-3.5 h-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Accepteren</TooltipContent>
+                <TooltipContent>{ca('accept')}</TooltipContent>
               </TooltipRoot>
             </TooltipProvider>
           </>
@@ -2198,7 +2205,7 @@ function CompactTableRow({
                     <Edit3 className="w-3.5 h-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Bewerken</TooltipContent>
+                <TooltipContent>{tCommon('edit')}</TooltipContent>
               </TooltipRoot>
             </TooltipProvider>
             {item.source === 'manual' && (
@@ -2212,7 +2219,7 @@ function CompactTableRow({
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Verwijderen</TooltipContent>
+                  <TooltipContent>{tCommon('delete')}</TooltipContent>
                 </TooltipRoot>
               </TooltipProvider>
             )}
@@ -2291,6 +2298,9 @@ function NormalizationRow({
   onCancelEdit,
   typeOptions,
 }: NormalizationRowProps) {
+  const ca = useTranslations('chatAssistant');
+  const nh = useTranslations('normalizationHub');
+  const tCommon = useTranslations('common.actions');
   const category = categoryConfig[item.category] || categoryConfig.other;
   const source = sourceConfig[item.source] || sourceConfig.manual;
 
@@ -2508,13 +2518,13 @@ function NormalizationRow({
             {item.status === 'accepted' && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/10 text-success">
                 <Check className="w-2.5 h-2.5" />
-                Geaccepteerd
+                {ca('accepted')}
               </span>
             )}
             {item.status === 'rejected' && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary/10 text-secondary">
                 <X className="w-2.5 h-2.5" />
-                Afgewezen
+                {ca('rejected')}
               </span>
             )}
           </div>
@@ -2546,7 +2556,7 @@ function NormalizationRow({
                       <Edit3 className="w-4 h-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Bewerken</TooltipContent>
+                  <TooltipContent>{tCommon('edit')}</TooltipContent>
                 </TooltipRoot>
               </TooltipProvider>
               <TooltipProvider>
@@ -2559,7 +2569,7 @@ function NormalizationRow({
                       <X className="w-4 h-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Afwijzen</TooltipContent>
+                  <TooltipContent>{ca('reject')}</TooltipContent>
                 </TooltipRoot>
               </TooltipProvider>
               <TooltipProvider>
@@ -2572,7 +2582,7 @@ function NormalizationRow({
                       <Check className="w-4 h-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Accepteren</TooltipContent>
+                  <TooltipContent>{ca('accept')}</TooltipContent>
                 </TooltipRoot>
               </TooltipProvider>
             </div>
@@ -2590,7 +2600,7 @@ function NormalizationRow({
                       <Edit3 className="w-4 h-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Bewerken</TooltipContent>
+                  <TooltipContent>{tCommon('edit')}</TooltipContent>
                 </TooltipRoot>
               </TooltipProvider>
               {item.source === 'manual' && (
@@ -2604,7 +2614,7 @@ function NormalizationRow({
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Verwijderen</TooltipContent>
+                    <TooltipContent>{tCommon('delete')}</TooltipContent>
                   </TooltipRoot>
                 </TooltipProvider>
               )}

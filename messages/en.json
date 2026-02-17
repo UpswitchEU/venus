@@ -1064,6 +1064,13 @@
     "reviewAllToContinue": "Review all normalizations to continue",
     "noNormalizationsDetected": "No normalizations detected",
     "noAdjustmentsInData": "The imported data shows no adjustment opportunities.",
-    "addManually": "Add manually"
+    "addManually": "Add manually",
+    "blockedToast": "Normalization blocked",
+    "blockedToastDesc": "Adjustment ({pct}% of EBITDA) is unrealistically high. Check the amount.",
+    "warnToastDesc": "This adjustment is {pct}% of EBITDA. Ensure proper justification.",
+    "rejectedEmptyState": "Rejected normalizations appear here.",
+    "originalEbitda": "Original EBITDA",
+    "reassess": "Reassess",
+    "no": "No"
   }
 }

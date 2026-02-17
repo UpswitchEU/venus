@@ -1063,6 +1063,13 @@
     "reviewAllToContinue": "Beoordeel alle normalisaties om door te gaan",
     "noNormalizationsDetected": "Geen normalisaties gedetecteerd",
     "noAdjustmentsInData": "De geïmporteerde gegevens tonen geen aanpassingsmogelijkheden.",
-    "addManually": "Handmatig toevoegen"
+    "addManually": "Handmatig toevoegen",
+    "blockedToast": "Normalisatie geblokkeerd",
+    "blockedToastDesc": "Aanpassing ({pct}% van EBITDA) is onrealistisch hoog. Controleer het bedrag.",
+    "warnToastDesc": "Deze aanpassing is {pct}% van de EBITDA. Zorg voor onderbouwing.",
+    "rejectedEmptyState": "Afgewezen normalisaties verschijnen hier.",
+    "originalEbitda": "Origineel EBITDA",
+    "reassess": "Opnieuw beoordelen",
+    "no": "Nee"
   }
 }

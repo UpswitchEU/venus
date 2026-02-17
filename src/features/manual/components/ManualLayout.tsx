@@ -1256,6 +1256,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           userInitials={(user?.email?.[0] || 'G').toUpperCase()}
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
+          onOpenNormalization={() => setShowUnifiedNormalizationModal(true)}
+          normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
           openTasksCount={suggestedNormalisations.filter((n: any) => n.status === 'pending').length + pendingUpdates.length}
           isExporting={isExporting}
           recentValuations={recentValuations}
