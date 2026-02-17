@@ -57,6 +57,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from '../../../design-system/components/Resizable'
+import { useGroupRef } from 'react-resizable-panels'
 import { springDefault } from '../../../design-system/components/motion'
 
 // Calculator Components (full Clarity parity)
@@ -252,58 +253,34 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const t = useTranslations('toast')
   const isMobile = useIsMobile()
 
-  // Panel layout persistence with validation (fixes collapsed left panel)
-  // react-resizable-panels expects defaultLayout as Layout (Record<panelId, number>)
+  // Panel layout: persist via defaultLayout + onLayoutChanged (Clarity parity)
   const LAYOUT_KEY = 'venus-calculator-layout-v2'
-  const MIN_LEFT_PANEL = 15
-  const PANEL_IDS = ['venus-left-panel', 'venus-right-panel'] as const
-  const DEFAULT_LAYOUT = { [PANEL_IDS[0]]: 35, [PANEL_IDS[1]]: 65 }
-  const [savedLayout, setSavedLayout] = useState<Record<string, number> | null>(() => {
-    if (typeof window === 'undefined') return null
+  const panelGroupRef = useGroupRef()
+
+  const [savedLayout, setSavedLayout] = useState<Record<string, number> | null>(null)
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(LAYOUT_KEY)
-      if (!raw) return null
-      const data = JSON.parse(raw)
-      const layout = data?.layout
-      const leftSize = layout?.[PANEL_IDS[0]]
-      if (typeof leftSize === 'number' && leftSize < MIN_LEFT_PANEL) {
-        localStorage.removeItem(LAYOUT_KEY)
-        return null
-      }
-      return layout && typeof layout === 'object' ? layout : null
-    } catch {
-      return null
-    }
-  })
-  const defaultLayout = savedLayout ?? DEFAULT_LAYOUT
-  const handleLayoutChanged = useCallback((layout: Record<string, number>) => {
-    try {
-      const leftSize = layout?.[PANEL_IDS[0]]
-      if (typeof leftSize === 'number' && leftSize >= MIN_LEFT_PANEL) {
-        localStorage.setItem(LAYOUT_KEY, JSON.stringify({ layout }))
-        setSavedLayout(layout)
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, number>
+        const left = parsed['venus-left-panel']
+        const right = parsed['venus-right-panel']
+        if (typeof left === 'number' && typeof right === 'number' && left >= 25 && left <= 50 && right >= 40) {
+          setSavedLayout(parsed)
+        }
       }
     } catch {}
   }, [])
 
-  // One-time migration: clear legacy/corrupted layout keys
   useEffect(() => {
+    if (savedLayout && panelGroupRef.current) {
+      panelGroupRef.current.setLayout(savedLayout)
+    }
+  }, [savedLayout])
+
+  const handleLayoutChanged = useCallback((layout: Record<string, number>) => {
     try {
-      localStorage.removeItem('venus-calculator-panels')
-      localStorage.removeItem('upswitch-panel-width')
-      // Clear layout if it has wrong structure (array instead of object keyed by panel id)
-      const raw = localStorage.getItem(LAYOUT_KEY)
-      if (raw) {
-        try {
-          const data = JSON.parse(raw)
-          const layout = data?.layout
-          if (Array.isArray(layout) || (layout && !layout[PANEL_IDS[0]])) {
-            localStorage.removeItem(LAYOUT_KEY)
-          }
-        } catch {
-          localStorage.removeItem(LAYOUT_KEY)
-        }
-      }
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
     } catch {}
   }, [])
 
@@ -1444,12 +1421,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       {/* Main Content: Resizable Panels */}
       <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
         <ResizablePanelGroup
+          id="venus-calculator-panels"
           orientation="horizontal"
           className="h-full w-full"
-          id="venus-calculator-layout-v2"
-          defaultLayout={defaultLayout}
-          onLayoutChanged={handleLayoutChanged}
           resizeTargetMinimumSize={{ coarse: 28, fine: 24 }}
+          groupRef={panelGroupRef}
+          defaultLayout={savedLayout ?? undefined}
+          onLayoutChanged={handleLayoutChanged}
         >
           {/* Left Panel: ManualInput or NormalizationHub */}
           <ResizablePanel id="venus-left-panel" defaultSize={35} minSize={25} maxSize={50} collapsible={false}>
@@ -1494,7 +1472,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           {/* Resize Handle */}
           <ResizableHandle
             withHandle
-            className="w-px bg-foreground/[0.06] hover:bg-primary/30 transition-colors"
+            className="w-px bg-foreground/[0.06] hover:bg-primary/30 data-[state=dragging]:bg-primary/50 transition-colors"
           />
 
           {/* Right Panel: Report / Preview / History */}

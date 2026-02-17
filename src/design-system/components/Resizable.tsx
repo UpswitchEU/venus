@@ -50,7 +50,7 @@ const ResizableHandle = ({
       'data-[panel-group-direction=vertical]:after:translate-x-0',
       'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1',
       '[&[data-panel-group-direction=vertical]>div]:rotate-90',
-      'cursor-col-resize hover:bg-primary/20 transition-colors',
+      'cursor-col-resize hover:bg-primary/30 data-[state=dragging]:bg-primary/50 transition-colors',
       className
     )}
     {...props}
