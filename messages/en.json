@@ -484,6 +484,40 @@
       "continueToDashboard": "Continue to Dashboard",
       "backToClient": "Back to Client",
       "selectVersion": "Select version"
+    },
+    "clickToChangeStatus": "Click to change status",
+    "finalReport": "Final report",
+    "draftReport": "Draft report",
+    "valuation": "Business valuation",
+    "exportPDF": "Export PDF",
+    "estimatedValue": "Estimated enterprise value",
+    "normalizedEbitda": "Normalized EBITDA",
+    "appliedMultiple": "Applied multiple",
+    "indicativeRange": "Indicative range",
+    "methodology": "Methodology",
+    "methodologyText": "The valuation is based on an EBITDA multiplier method, where the normalized EBITDA is multiplied by an industry-specific multiple.",
+    "fullReport": "Full report",
+    "regenerate": "Regenerate analysis",
+    "preview": "Preview",
+    "noReport": "No report yet",
+    "history": "Version history",
+    "generatingPDF": "Generating PDF...",
+    "downloadPDF": "Download PDF",
+    "recentDownloads": "Recent Downloads",
+    "fullscreen": "Fullscreen",
+    "download": "Download",
+    "placeholder": {
+      "title": "Your report will appear here",
+      "description": "Fill in the business details and click 'Calculate Valuation' to generate your valuation report.",
+      "time": "±15 min average processing time"
+    },
+    "generating": {
+      "title": "Generating report",
+      "description": "Analyzing financial data and calculating valuation metrics...",
+      "step1": "Processing documents",
+      "step2": "Calculating EBITDA",
+      "step3": "Applying multiples",
+      "step4": "Generating report"
     }
   },
   "reports": {
@@ -763,5 +797,69 @@
     "success": "Success",
     "warning": "Warning",
     "info": "Information"
+  },
+  "assistant": {
+    "ask": "Ask Assistant",
+    "title": "Assistant"
+  },
+  "normalization": {
+    "title": "Normalizations"
+  },
+  "account": {
+    "settings": "Account settings",
+    "switchWorkspace": "Switch workspace"
+  },
+  "auth": {
+    "logout": "Logout"
+  },
+  "calculator": {
+    "businessValuation": "Business Valuation",
+    "stepOf": "Step {current} of {total}"
+  },
+  "toast": {
+    "versionLoaded": "Version \"{label}\" loaded",
+    "companyNameMissing": "Company name missing",
+    "companyNameMissingDesc": "Enter a company name or search via KBO.",
+    "businessTypeMissing": "Business type missing",
+    "businessTypeMissingDesc": "Select a business type to continue.",
+    "financialDataIncomplete": "Financial data incomplete",
+    "financialDataIncompleteDesc": "Enter at least 1 year with revenue and EBITDA.",
+    "calculationFailed": "Calculation failed",
+    "calculationFailedNoResult": "No result received.",
+    "calculationComplete": "Business valuation completed",
+    "unknownError": "Unknown error",
+    "fieldUpdated": "{field} updated to {value}",
+    "fieldApplied": "✓ {field} has been applied to the form",
+    "normApplied": "✓ Normalization(s) applied!",
+    "aiUnavailable": "AI assistant temporarily unavailable",
+    "aiUnavailableDesc": "Local suggestions are being used.",
+    "chatError": "An error occurred. Please try again.",
+    "suggestionRejected": "Suggestion rejected",
+    "pdfGenerating": "PDF is being generated...",
+    "pdfServerUnavailable": "Server PDF not available, generating local PDF",
+    "pdfDownloaded": "PDF report downloaded",
+    "pdfExportFailed": "PDF export failed",
+    "pdfExportFailedDesc": "Please try again.",
+    "pdfRegenerating": "PDF is being regenerated...",
+    "pdfRegeneratingDesc": "This may take a moment.",
+    "recalculatedWithNorms": "Valuation recalculated with normalizations",
+    "recalculatedWithNormsDesc": "{count} normalization(s) applied",
+    "normalizationsSaved": "Normalizations saved",
+    "versionRestored": "Version {version} restored",
+    "versionRestoreFailed": "Version restore failed",
+    "importStarted": "{source} import started",
+    "importStartedDesc": "Normalizations are being analyzed...",
+    "importAnalyzed": "I analyzed {source} and found {count} potential normalizations.",
+    "importAnalysisFailed": "Analysis failed",
+    "importAnalysisFailedDesc": "Please try again.",
+    "normNormalized": "{label} normalized to €{value}",
+    "readyForRecalculation": "Ready for recalculation",
+    "unnamed": "Unnamed",
+    "newEstimation": "New Estimation",
+    "company": "Company",
+    "reportPreview": "Report Preview",
+    "reportPreviewDesc": "The full report template will be shown here.",
+    "currentVersion": "Current version",
+    "guest": "Guest"
   }
 }

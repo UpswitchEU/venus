@@ -16,6 +16,7 @@ import type {
   VersionListResponse,
   VersionStatistics,
 } from '../../../types/ValuationVersion'
+import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { createContextLogger } from '../../../utils/logger'
 
 export interface APIRequestConfig {
@@ -51,10 +52,7 @@ export class VersionAPI {
   private baseURL: string
 
   constructor() {
-    this.baseURL =
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      'https://api.upswitch.app'
+    this.baseURL = getApiUrl()
   }
 
   /**

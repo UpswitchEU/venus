@@ -10,6 +10,7 @@ import type { ValuationRequest, ValuationSession } from '../../types/valuation'
 import { createContextLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
 import { backendAPI } from '../backendApi'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 // AUTH-FIRST: guestSessionService removed - authentication is required
 
 const reportLogger = createContextLogger('ReportService')
@@ -208,10 +209,7 @@ class ReportServiceImpl implements ReportService {
    */
   private async checkValuationLimit(): Promise<void> {
     try {
-      const baseURL =
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'https://api.upswitch.app'
+      const baseURL = getApiUrl()
       // ✅ FIX: Add /v2 to the API path (endpoint is at /api/v2/billing/...)
       const url = `${baseURL}/api/v2/billing/plan-enforcement/check?usage_type=VALUATION`
 
@@ -265,10 +263,7 @@ class ReportServiceImpl implements ReportService {
    */
   private async logValuationUsage(reportId: string): Promise<void> {
     try {
-      const baseURL =
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'https://api.upswitch.app'
+      const baseURL = getApiUrl()
       const url = `${baseURL}/api/billing/usage-logs`
 
       await fetch(url, {

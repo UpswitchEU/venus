@@ -13,6 +13,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Check, 
@@ -237,6 +238,7 @@ export function ManualInputPanel({
   onQuickActionReject,
   onViewAllNormalizations,
 }: ManualInputPanelProps) {
+  const t = useTranslations();
   const [formData, setFormData] = useState<ValuationFormData>({
     companyName: initialData.companyName || '',
     kboNumber: initialData.kboNumber || '',
@@ -503,9 +505,9 @@ export function ManualInputPanel({
         {/* Progress Header */}
         <div className="shrink-0 px-6 pt-5 pb-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-foreground">Bedrijfsschatting</h2>
+            <h2 className="text-sm font-semibold text-foreground">{t('calculator.businessValuation')}</h2>
             <span className="text-xs font-medium text-foreground/50">
-              Stap {Math.max(1, completedSteps)} van {totalSteps}
+              {t('calculator.stepOf', { current: Math.max(1, completedSteps), total: totalSteps })}
             </span>
           </div>
           <div className="flex gap-1.5">

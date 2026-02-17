@@ -14,6 +14,7 @@ import type {
   ValuationRequest,
   ValuationResponse,
 } from '../types/valuation'
+import { getApiUrl } from '../utils/getMercuryUrl'
 import { apiLogger } from '../utils/logger'
 
 class ValuationAPI {
@@ -27,10 +28,7 @@ class ValuationAPI {
     // HOW: Uses VITE_BACKEND_URL or VITE_API_BASE_URL environment variables, falls back to Railway backend URL
     // WHEN: When creating API client for all valuation and conversation endpoints
     this.client = axios.create({
-      baseURL:
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'https://api.upswitch.app',
+      baseURL: getApiUrl(),
       // BANK-GRADE: Cascading Timeout Chain
       // Venus (85s) > Titan (80s) > ValuationIQ (70s)
       // This ensures proper error propagation - ValuationIQ times out first,

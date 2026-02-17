@@ -16,12 +16,10 @@ import { generalLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
 import { MinimalHeader } from '../MinimalHeader'
 import { VideoBackground } from '../VideoBackground'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 
 // Backend API URL
-const API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.upswitch.app'
+const API_URL = getApiUrl()
 
 export const HomePage: React.FC = () => {
   const router = useTransitionRouter()

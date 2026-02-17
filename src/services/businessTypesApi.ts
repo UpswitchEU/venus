@@ -19,6 +19,7 @@ import {
   BUSINESS_TYPES_FALLBACK,
   BusinessTypeOption as ConfigBusinessTypeOption,
 } from '../config/businessTypes'
+import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 import { businessTypesCache } from './cache/businessTypesCache'
 
@@ -75,7 +76,7 @@ class BusinessTypesApiService {
   constructor() {
     // Use the main backend API (Titan)
     // Follow Mercury's pattern: use env var with fallback
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app'
+    const apiBaseUrl = getApiUrl()
     
     // Normalize URL: remove /api suffix if present
     this.baseUrl = apiBaseUrl.replace(/\/api\/?$/, '')

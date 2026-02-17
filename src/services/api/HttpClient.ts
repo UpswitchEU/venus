@@ -15,6 +15,7 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 // AUTH-FIRST: useGuestSessionStore removed - guest sessions are no longer supported
 import { env } from '../../utils/env'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 import {
   classifyError,
   defaultShouldRetry,
@@ -69,13 +70,7 @@ export class HttpClient {
 
   constructor(baseURL?: string, defaultTimeout: number = 30000) {
     this.client = axios.create({
-      baseURL:
-        baseURL ||
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        env.NEXT_PUBLIC_BACKEND_URL ||
-        env.NEXT_PUBLIC_API_BASE_URL ||
-        'https://api.upswitch.app',
+      baseURL: baseURL || getApiUrl(),
       timeout: defaultTimeout,
       headers: {
         'Content-Type': 'application/json',

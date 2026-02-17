@@ -17,13 +17,11 @@
  */
 
 import { generalLogger } from '../../utils/logger'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.upswitch.app'
+const API_BASE_URL = getApiUrl()
 
 /**
  * Check if assets are already loaded in the store

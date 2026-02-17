@@ -30,6 +30,7 @@ import {
   normalizeSessionDates,
 } from '../../utils/sessionHelpers'
 import { validateSessionData } from '../../utils/sessionValidation'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
@@ -48,7 +49,7 @@ const logger = createContextLogger('SessionService')
  */
 async function fetchBusinessCardData(clientUserId: string): Promise<Record<string, any> | null> {
   try {
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app'
+    const apiBaseUrl = getApiUrl()
     const response = await fetch(
       `${apiBaseUrl}/api/v2/business-cards/${clientUserId}`,
       {
@@ -177,10 +178,7 @@ export class SessionService {
     const PLAN_ENFORCEMENT_TIMEOUT = 5000 // 5 seconds max for plan check
 
     try {
-      const baseURL =
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'https://api.upswitch.app'
+      const baseURL = getApiUrl()
       // ✅ FIX: Add /v2 to the API path (endpoint is at /api/v2/billing/...)
       const url = `${baseURL}/api/v2/billing/plan-enforcement/check?usage_type=VALUATION`
 

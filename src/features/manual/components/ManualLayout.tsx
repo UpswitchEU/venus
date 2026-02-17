@@ -25,6 +25,7 @@
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react'
 import { useTransitionRouter } from 'next-view-transitions'
+import { useTranslations } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -240,6 +241,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   initialDrawerOpen = false,
 }) => {
   const router = useTransitionRouter()
+  const t = useTranslations('toast')
   const isMobile = useIsMobile()
   const reportPanelRef = useRef<HTMLDivElement>(null)
 
@@ -423,7 +425,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const version = versions.find((v) => v.id === id)
     if (version?.valuationResult) {
       setResult(version.valuationResult)
-      toast.info(`Versie "${version.versionLabel}" geladen`)
+      toast.info(t('versionLoaded', { label: version.versionLabel }))
     }
   }, [versions, setResult])
 
@@ -468,15 +470,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleManualSubmit = useCallback(async (data: any) => {
     // Validation
     if (!data.companyName?.trim()) {
-      toast.error('Bedrijfsnaam ontbreekt', { description: 'Vul een bedrijfsnaam in of zoek via KBO.' })
+      toast.error(t('companyNameMissing'), { description: t('companyNameMissingDesc') })
           return
         }
     if (!data.businessType?.trim()) {
-      toast.error('Bedrijfstype ontbreekt', { description: 'Selecteer een bedrijfstype om verder te gaan.' })
+      toast.error(t('businessTypeMissing'), { description: t('businessTypeMissingDesc') })
       return
     }
     if (!data.yearlyFinancials?.some((yf: any) => yf.revenue > 0 && yf.ebitda > 0)) {
-      toast.error('Financiële gegevens onvolledig', { description: 'Vul minstens 1 jaar met omzet én EBITDA in.' })
+      toast.error(t('financialDataIncomplete'), { description: t('financialDataIncompleteDesc') })
       return
     }
 
@@ -533,7 +535,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (!calcResult) {
         setCalculating(false)
         setIsGenerating(false)
-        toast.error('Berekening mislukt', { description: 'Geen resultaat ontvangen.' })
+        toast.error(t('calculationFailed'), { description: t('calculationFailedNoResult') })
         return
       }
 
@@ -597,12 +599,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
       }
 
-      toast.success('Bedrijfsschatting voltooid')
+      toast.success(t('calculationComplete'))
     } catch (error) {
       setCalculating(false)
       setIsGenerating(false)
-      const message = error instanceof Error ? error.message : 'Onbekende fout'
-      toast.error('Berekening mislukt', { description: message })
+      const message = error instanceof Error ? error.message : t('unknownError')
+      toast.error(t('calculationFailed'), { description: message })
       generalLogger.error('[ManualLayout] Form submission failed', { error: message })
     }
   }, [reportId, formStoreData, updateFormData, trySetCalculating, setCalculating, setResult, getLatestVersion, createVersion, sessionName])
@@ -1311,7 +1313,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       {/* Main Content: Resizable Panels */}
       <div className="flex-1 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
-        <ResizablePanelGroup orientation="horizontal" className="h-full">
+        <ResizablePanelGroup orientation="horizontal" autoSaveId="calculator-panels" className="h-full">
           {/* Left Panel: ManualInput or NormalizationHub */}
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
             <AnimatePresence mode="wait">

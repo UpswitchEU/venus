@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CLIENT_CONTEXT_HEADERS } from '../constants/headers'
+import { getApiUrl } from '../utils/getMercuryUrl'
 
 interface ClientContextResponseDto {
   accountantUser: {
@@ -119,10 +120,7 @@ export const useClientContext = create<ClientContextState>()(
         // Try to refresh context from backend if needed
         // This is a lightweight check - just verify the relationship still exists
         try {
-          const API_URL =
-            process.env.NEXT_PUBLIC_BACKEND_URL ||
-            process.env.NEXT_PUBLIC_API_BASE_URL ||
-            'https://api.upswitch.app'
+          const API_URL = getApiUrl()
 
           // Quick validation endpoint (if available)
           // For now, just check if we have valid IDs

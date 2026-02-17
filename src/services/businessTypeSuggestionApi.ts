@@ -6,6 +6,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios'
+import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 
 export interface BusinessTypeSuggestion {
@@ -25,7 +26,7 @@ class BusinessTypeSuggestionService {
 
   constructor() {
     // Use the main backend API (Titan) - follow Mercury pattern
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app'
+    const apiBaseUrl = getApiUrl()
     
     // Normalize URL: remove /api suffix if present
     this.baseUrl = apiBaseUrl.replace(/\/api\/?$/, '')

@@ -1,0 +1,7 @@
+# Force Vercel to ignore build cache
+.vercel
+.next
+dist
+build
+node_modules
+.vite

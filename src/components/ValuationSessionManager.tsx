@@ -29,6 +29,7 @@ import type { ValuationSession } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import { looksLikeExistingReportId } from '../utils/identifiers'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
+import { getMercuryUrl } from '../utils/getMercuryUrl'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection'
 
@@ -470,7 +471,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
                 : 'Insufficient credits to create valuation. Upgrade to Premium for unlimited valuations.')}
             onUpgrade={() => {
               // Redirect to Mercury pricing page (full URL for cross-app navigation)
-              window.location.href = 'https://app.upswitch.be/pricing'
+              window.location.href = `${getMercuryUrl()}/pricing`
             }}
           />
         )}
@@ -487,7 +488,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             message={paywallData?.message}
             onUpgrade={() => {
               // Redirect to Mercury pricing page (full URL for cross-app navigation)
-              window.location.href = 'https://app.upswitch.be/pricing'
+              window.location.href = `${getMercuryUrl()}/pricing`
             }}
           />
         )}

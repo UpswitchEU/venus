@@ -8,6 +8,7 @@
  */
 
 import type { BusinessTypeAnalysis } from '../../types/valuation'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 import { serviceLogger } from '../../utils/logger'
 import type { BusinessProfileData } from './businessDataTypes'
 
@@ -15,10 +16,7 @@ export class BusinessDataFetchingService {
   private backendUrl: string
 
   constructor() {
-    this.backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      'https://api.upswitch.app'
+    this.backendUrl = getApiUrl()
   }
 
   /**
@@ -68,10 +66,7 @@ export class BusinessDataFetchingService {
     try {
       // Use Node.js backend instead of direct Python engine calls
       // FIX: Fallback should be Node.js backend (proxy), not Python engine directly
-      const backendUrl =
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'https://api.upswitch.app'
+      const backendUrl = getApiUrl()
 
       const response = await fetch(`${backendUrl}/api/v1/analyze`, {
         method: 'POST',
