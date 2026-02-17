@@ -300,7 +300,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
           targetUrl = returnUrl
         } else {
           // Different domain - fall back to dashboard
-          const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+          const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
           targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
         }
       } else {
@@ -311,7 +311,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
       // No return URL - fall back to dashboard based on user role
       // Try to get locale from current URL or default to 'en'
       const currentLocale = typeof window !== 'undefined' 
-        ? window.location.pathname.match(/\/(en|nl)\//)?.[1] || 'en'
+        ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
         : 'en'
       
       // Determine dashboard based on source app or default to accountant dashboard

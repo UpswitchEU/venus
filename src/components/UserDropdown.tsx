@@ -176,7 +176,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         if (url.origin.includes('upswitch.app')) {
           targetUrl = returnUrl
         } else {
-          const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+          const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
           targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
         }
       } else {
@@ -191,7 +191,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       
       // Fallback: determine dashboard based on source or default
       const currentLocale = typeof window !== 'undefined'
-        ? window.location.pathname.match(/\/(en|nl)\//)?.[1] || 'en'
+        ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
         : 'en'
       
       // ✅ FIX: Mercury sends 'mercury' as source, not 'mercury-accountant'
@@ -300,7 +300,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           if (url.origin.includes('upswitch.app')) {
             targetUrl = returnUrl
           } else {
-            const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+            const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
             targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
           }
         } else {
@@ -395,7 +395,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             if (url.origin.includes('upswitch.app')) {
               targetUrl = returnUrl
             } else {
-              const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+              const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
               targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
             }
           } else {
@@ -440,7 +440,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             if (url.origin.includes('upswitch.app')) {
               targetUrl = returnUrl
             } else {
-              const locale = returnUrl.match(/\/(en|nl)\//)?.[1] || 'en'
+              const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
               targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
             }
           } else {

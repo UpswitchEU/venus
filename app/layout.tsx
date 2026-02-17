@@ -80,8 +80,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* ✅ FIX: Use manual meta tag for viewport to support Next.js 13.5.6 */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
-        {/* Manifest is still referenced here as it's not part of metadata API */}
-        <link rel="manifest" href="/manifest.json" />
+        {/* Manifest: omit on preview to avoid 401 from Vercel Deployment Protection (no path-level bypass on Standard plan) */}
+        {process.env.NEXT_PUBLIC_VERCEL_ENV !== 'preview' && (
+          <link rel="manifest" href="/manifest.json" />
+        )}
         {/* Service Worker update check and cache clear (silent) */}
         <script
           dangerouslySetInnerHTML={{
