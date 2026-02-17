@@ -15,6 +15,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Check, 
@@ -193,6 +194,8 @@ export function NormalisationReviewStep({
   onAdd,
   onRemove,
 }: NormalisationReviewStepProps) {
+  const nh = useTranslations('normalizationHub');
+  const ca = useTranslations('chatAssistant');
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -372,7 +375,7 @@ export function NormalisationReviewStep({
             <span>{integrationLabels[sourceIntegration]}</span>
           </div>
           <span className="text-[10px] md:text-xs text-foreground/40">
-            {suggestions.length} aanpassingen
+            {nh('adjustmentsCount', { count: suggestions.length })}
           </span>
         </div>
       </div>
@@ -391,7 +394,7 @@ export function NormalisationReviewStep({
           
           <div className="text-center">
             <p className="text-[8px] md:text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5 md:mb-1">
-              Aanpassing
+              {nh('adjustment')}
             </p>
             <p className={cn(
               "text-sm md:text-lg font-mono font-semibold",
@@ -419,7 +422,7 @@ export function NormalisationReviewStep({
           <span>{acceptedCount} ✓</span>
           <span>{rejectedCount} ✗</span>
           {pendingCount > 0 && (
-            <span className="text-primary font-medium">{pendingCount} te beoordelen</span>
+            <span className="text-primary font-medium">{pendingCount} {nh('toReviewShort')}</span>
           )}
         </div>
         
@@ -431,7 +434,7 @@ export function NormalisationReviewStep({
               onClick={onRejectAll}
               className="text-foreground/50 text-xs px-2 md:px-3"
             >
-              <span className="hidden sm:inline">Alles </span>afwijzen
+              {nh('rejectAll')}
             </Button>
             <Button
               variant="secondary"
@@ -439,7 +442,7 @@ export function NormalisationReviewStep({
               onClick={handleAcceptAll}
               className="text-xs px-2 md:px-3"
             >
-              <span className="hidden sm:inline">Alles </span>accepteren
+              {nh('acceptAll')}
             </Button>
           </div>
         )}
@@ -623,14 +626,14 @@ export function NormalisationReviewStep({
                             <button
                               onClick={() => onReject(suggestion.id)}
                               className="w-10 h-10 md:w-9 md:h-9 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                              aria-label="Afwijzen"
+                              aria-label={ca('reject')}
                             >
                               <X className="w-4 h-4 text-foreground/40" />
                             </button>
                             <button
                               onClick={() => onAccept(suggestion.id)}
                               className="w-10 h-10 md:w-9 md:h-9 rounded-lg flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
-                              aria-label="Accepteren"
+                              aria-label={ca('accept')}
                             >
                               <Check className="w-4 h-4 text-primary" />
                             </button>
@@ -648,7 +651,7 @@ export function NormalisationReviewStep({
                             )}
                             <div className="flex items-center gap-1 text-[10px] md:text-xs text-success font-medium px-2 py-1 rounded-full bg-success/10">
                               <Check className="w-3 h-3" />
-                              <span className="hidden sm:inline">Geaccepteerd</span>
+                              <span className="hidden sm:inline">{ca('accepted')}</span>
                               <span className="sm:hidden">OK</span>
                             </div>
                           </div>
@@ -663,7 +666,7 @@ export function NormalisationReviewStep({
                             </button>
                             <div className="flex items-center gap-1 text-[10px] md:text-xs text-foreground/40 font-medium px-2 py-1 rounded-full bg-foreground/[0.04]">
                               <X className="w-3 h-3" />
-                              <span className="hidden sm:inline">Afgewezen</span>
+                              <span className="hidden sm:inline">{ca('rejected')}</span>
                             </div>
                           </div>
                         )}
@@ -709,7 +712,7 @@ export function NormalisationReviewStep({
                 className="w-full p-3 rounded-xl border border-dashed border-foreground/10 hover:border-primary/30 hover:bg-primary/[0.02] transition-all flex items-center justify-center gap-2 text-sm text-foreground/50 hover:text-primary"
               >
                 <Plus className="w-4 h-4" />
-                Normalisatie toevoegen
+                {nh('addNormalization')}
               </button>
             ) : (
               <motion.div
@@ -720,7 +723,7 @@ export function NormalisationReviewStep({
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-foreground/60">
-                    Normalisatie toevoegen
+                    {nh('addNormalization')}
                   </span>
                   <button
                     onClick={() => {
@@ -924,7 +927,7 @@ export function NormalisationReviewStep({
             disabled={isProcessing}
             className="w-full sm:w-auto"
           >
-            Terug
+            {nh('back')}
           </Button>
           <Button
             variant="primary"
@@ -935,7 +938,7 @@ export function NormalisationReviewStep({
           >
             {pendingCount > 0 
               ? `${pendingCount} nog te beoordelen`
-              : 'Doorgaan naar Schatting'
+              : nh('continueToEstimate')
             }
             {pendingCount === 0 && <ChevronRight className="w-4 h-4" />}
           </Button>

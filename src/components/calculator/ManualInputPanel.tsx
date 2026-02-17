@@ -176,6 +176,7 @@ function FieldHelpTrigger({
   onTrigger?: (context: FieldHelpContext) => void;
   className?: string;
 }) {
+  const mi = useTranslations('manualInput');
   if (!onTrigger) return null;
   
   const handleClick = (e: React.MouseEvent) => {
@@ -198,16 +199,16 @@ function FieldHelpTrigger({
               "w-5 h-5",
               className
             )}
-            aria-label={`Vraag AI over ${context.label}`}
+            aria-label={mi('askAi', { label: context.label })}
           >
             <HelpCircle className="w-3.5 h-3.5" />
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-[200px] text-xs">
-          <p>Vraag AI-assistent over {context.label.toLowerCase()}</p>
+          <p>{mi('askAiAbout', { label: context.label.toLowerCase() })}</p>
           {context.grootboekCode && (
             <p className="text-foreground/50 mt-0.5 font-mono text-[10px]">
-              Grootboek: {context.grootboekCode}
+              {mi('ledger')}: {context.grootboekCode}
             </p>
           )}
         </TooltipContent>
@@ -239,6 +240,7 @@ export function ManualInputPanel({
   onViewAllNormalizations,
 }: ManualInputPanelProps) {
   const t = useTranslations();
+  const mi = useTranslations('manualInput');
   const [formData, setFormData] = useState<ValuationFormData>({
     companyName: initialData.companyName || '',
     kboNumber: initialData.kboNumber || '',
@@ -383,29 +385,29 @@ export function ManualInputPanel({
     // Validate yearly financials
     for (const yf of formData.yearlyFinancials) {
       if (yf.revenue > 0 && yf.revenue > 1_000_000_000) {
-        warnings[`revenue-${yf.year}`] = 'Omzet > €1B — controleer dit getal';
+        warnings[`revenue-${yf.year}`] = mi('validation.revenueOver1B');
       }
       if (yf.ebitda !== 0) {
-        if (yf.ebitda < -100_000_000) errors[`ebitda-${yf.year}`] = 'EBITDA onder -€100M is onwaarschijnlijk';
-        else if (yf.ebitda > 500_000_000) errors[`ebitda-${yf.year}`] = 'EBITDA boven €500M is onwaarschijnlijk';
+        if (yf.ebitda < -100_000_000) errors[`ebitda-${yf.year}`] = mi('validation.ebitdaBelow100M');
+        else if (yf.ebitda > 500_000_000) errors[`ebitda-${yf.year}`] = mi('validation.ebitdaAbove500M');
         if (yf.revenue > 0) {
           const margin = (yf.ebitda / yf.revenue) * 100;
-          if (margin < -50) warnings[`margin-${yf.year}`] = `EBITDA-marge ${margin.toFixed(0)}% — ongebruikelijk laag`;
-          else if (margin > 80) warnings[`margin-${yf.year}`] = `EBITDA-marge ${margin.toFixed(0)}% — ongebruikelijk hoog`;
+          if (margin < -50) warnings[`margin-${yf.year}`] = mi('validation.marginLow', { margin: margin.toFixed(0) });
+          else if (margin > 80) warnings[`margin-${yf.year}`] = mi('validation.marginHigh', { margin: margin.toFixed(0) });
         }
       }
     }
 
     // Owner managers
-    if (formData.ownerManagers < 0) errors.ownerManagers = 'Minimaal 0';
+    if (formData.ownerManagers < 0) errors.ownerManagers = mi('validation.minZero');
     // FTE Employees
-    if (formData.fteEmployees < 0) errors.fteEmployees = 'Minimaal 0';
-    else if (formData.fteEmployees > 10000) warnings.fteEmployees = 'Meer dan 10.000 FTE — controleer';
+    if (formData.fteEmployees < 0) errors.fteEmployees = mi('validation.minZero');
+    else if (formData.fteEmployees > 10000) warnings.fteEmployees = mi('validation.fteOver10k');
     // Equity stake
-    if (formData.equityStake < 0 || formData.equityStake > 100) errors.equityStake = 'Moet tussen 0% en 100% liggen';
+    if (formData.equityStake < 0 || formData.equityStake > 100) errors.equityStake = mi('validation.equityRange');
     // Year founded
     if (formData.yearFounded && (Number(formData.yearFounded) < 1800 || Number(formData.yearFounded) > currentYear)) {
-      errors.yearFounded = `Moet tussen 1800 en ${currentYear} liggen`;
+      errors.yearFounded = mi('validation.yearRange', { year: currentYear });
     }
 
     return { warnings, errors, hasErrors: Object.keys(errors).length > 0 };
@@ -414,7 +416,7 @@ export function ManualInputPanel({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (fieldValidation.hasErrors) {
-      import('sonner').then(({ toast }) => toast.error('Controleer de invoervelden', { description: Object.values(fieldValidation.errors)[0] }));
+      import('sonner').then(({ toast }) => toast.error(mi('validation.checkFields'), { description: Object.values(fieldValidation.errors)[0] }));
       return;
     }
     onSubmit({
@@ -470,8 +472,8 @@ export function ManualInputPanel({
 
   const handleConnect = (integrationId: string) => {
     setShowConnectModal(false);
-    import('sonner').then(({ toast }) => toast.info('CSV import in volgende versie', {
-      description: 'Directe import vanuit CSV en boekhoudpakketten (Yuki, Exact Online, Odoo) wordt in de volgende release ondersteund.',
+    import('sonner').then(({ toast }) => toast.info(mi('csvComingSoon'), {
+      description: mi('csvComingSoonDesc'),
     }));
   };
 
@@ -542,7 +544,7 @@ export function ManualInputPanel({
                     type="button"
                     onClick={() => setHideUploadHint(true)}
                     className="absolute top-2 right-2 p-1.5 rounded-lg text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
-                    aria-label="Sluiten"
+                    aria-label={t('common.actions.close')}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -553,17 +555,17 @@ export function ManualInputPanel({
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-foreground mb-1">
-                        Sneller met grootboek upload?
+                        {mi('uploadHint.title')}
                       </h3>
                       <p className="text-xs text-foreground/60 mb-3">
-                        Upload een grootboekexport (CSV) van Yuki, Exact of Odoo om rekeningen automatisch te categoriseren.
+                        {mi('uploadHint.description')}
                       </p>
                       <button
                         type="button"
                         onClick={() => setShowConnectModal(true)}
                         className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                       >
-                        Upload CSV
+                        {mi('uploadHint.action')}
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -582,12 +584,12 @@ export function ManualInputPanel({
                   {selectedCompany ? <Check className="w-3.5 h-3.5" /> : '1'}
                 </div>
                 <h3 className="text-sm font-medium text-foreground">
-                  Bedrijfsgegevens
+                  {mi('sections.companyDetails')}
                 </h3>
               </div>
               
               <KBOSearchInput
-                label="Bedrijfsnaam of KBO-nummer"
+                label={mi('fields.companyNameOrKbo')}
                 value={companySearchValue}
                 onChange={setCompanySearchValue}
                 onCompanySelect={handleCompanySelect}
@@ -605,19 +607,19 @@ export function ManualInputPanel({
                     className="space-y-3 overflow-hidden"
                   >
                     <BusinessTypeSearchInput
-                      label="Bedrijfstype"
+                      label={mi('fields.businessType')}
                       value={formData.businessType}
                       onChange={handleBusinessTypeSelect}
                       size="sm"
                     />
                     {selectedBusinessType && (
                       <p className="text-[11px] text-foreground/40 -mt-1">
-                        Dit bedrijfstype bepaalt de benchmark data en multiples voor de schatting
+                        {mi('businessTypeHint')}
                       </p>
                     )}
 
                     <AuroraSelect
-                      label="Rechtsvorm"
+                      label={mi('fields.legalForm')}
                       options={businessStructures}
                       value={formData.businessStructure}
                       onChange={(val) => updateField('businessStructure', val)}
@@ -645,14 +647,14 @@ export function ManualInputPanel({
                     {formData.ownerManagers > 0 && formData.fteEmployees > 0 ? <Check className="w-3.5 h-3.5" /> : '2'}
                   </div>
                   <h3 className="text-sm font-medium text-foreground">
-                    Eigendom & Structuur
+                    {mi('sections.ownershipStructure')}
                   </h3>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="relative">
                     <AuroraInput
-                      label="Eigenaar-managers"
+                      label={mi('fields.ownerManagers')}
                       type="number"
                       min={1}
                       max={10}
@@ -665,9 +667,9 @@ export function ManualInputPanel({
                       <FieldHelpTrigger
                         context={{
                           field: 'ownerManagers',
-                          label: 'Eigenaar-managers',
+                          label: mi('fields.ownerManagers'),
                           value: formData.ownerManagers,
-                          hint: 'Hoeveel eigenaar-managers zijn actief in de dagelijkse operaties?',
+                          hint: mi('ownerManagersHint'),
                         }}
                         onTrigger={onFieldHelpRequest}
                       />
@@ -675,7 +677,7 @@ export function ManualInputPanel({
                   </div>
                   <div>
                     <AuroraInput
-                      label="Totaal FTE"
+                      label={mi('fields.totalFte')}
                       type="number"
                       min={0}
                       value={formData.fteEmployees || ''}
@@ -691,7 +693,7 @@ export function ManualInputPanel({
                   </div>
                   <div>
                     <AuroraInput
-                      label="Aandelenbelang %"
+                      label={mi('fields.equityStakePercent')}
                       type="number"
                       min={1}
                       max={100}
@@ -706,7 +708,7 @@ export function ManualInputPanel({
                   </div>
                 </div>
                 <p className="text-[11px] text-foreground/40">
-                  Deze gegevens beïnvloeden de risicopremie en meervoudscorrecties in de schatting
+                  {mi('ownershipHint')}
                 </p>
               </motion.section>
             )}
@@ -726,13 +728,13 @@ export function ManualInputPanel({
                     {hasFinancials ? <Check className="w-3.5 h-3.5" /> : '3'}
                   </div>
                   <h3 className="text-sm font-medium text-foreground">
-                    Financiële historie
+                    {mi('sections.financialHistory')}
                   </h3>
                 </div>
 
                 {/* Step indicator */}
                 <div className="text-xs text-foreground/40 -mt-1 ml-8">
-                  Vul omzet en EBITDA in → pas normalisaties toe → bekijk gewogen resultaat
+                  {mi('financialInstruction')}
                 </div>
 
                 {/* Aurora EBITDA Summary Card - Animated gradient border */}
@@ -765,12 +767,12 @@ export function ManualInputPanel({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
-                                Genormaliseerde EBITDA
+                                {mi('fields.normalizedEbitda')}
                               </span>
                               {normalizedData.years.some(y => y.totalAdjustment !== 0) && (
                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-success/10 text-success text-[9px] font-semibold uppercase tracking-wider">
                                   <Check className="w-2.5 h-2.5" />
-                                  Genormaliseerd
+                                  {mi('normalized')}
                                 </span>
                               )}
                             </div>
@@ -785,7 +787,7 @@ export function ManualInputPanel({
                                 {formatCurrency(normalizedData.averageNormalizedEbitda)}
                               </motion.span>
                               <span className="text-[10px] text-foreground/40">
-                                ({normalizedData.totalYearsWithData} {normalizedData.totalYearsWithData === 1 ? 'jaar' : 'jaren'})
+                                ({normalizedData.totalYearsWithData} {normalizedData.totalYearsWithData === 1 ? mi('year') : mi('years')})
                               </span>
                               {normalizedData.years.some(y => y.totalAdjustment !== 0) && (
                                 <motion.span 
@@ -810,13 +812,13 @@ export function ManualInputPanel({
                                 : "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-sm hover:shadow-md hover:shadow-primary/20"
                             )}
                           >
-                            {normalizedData.years.some(y => y.totalAdjustment !== 0) ? 'Aanpassen' : 'Normaliseren'}
+                            {normalizedData.years.some(y => y.totalAdjustment !== 0) ? mi('adjust') : mi('normalize')}
                           </motion.button>
                         </div>
                       ) : (
                         <p className="text-xs text-foreground/50 leading-relaxed">
-                          <span className="text-foreground/70 font-medium">Waarom normaliseren?</span> Fiscaal-geoptimaliseerde cijfers onderschatten de werkelijke winst — dat maakt een groot verschil bij waardering. 
-                          Normalisatie corrigeert eenmalige kosten en bovenmatige vergoedingen naar <span className="text-foreground/70">marktconforme niveaus</span>.
+                          <span className="text-foreground/70 font-medium">{mi('whyNormalize')}</span> {mi('whyNormalizeExplanation')}{' '}
+                          <span className="text-foreground/70">{mi('marketConformLevels')}</span>.
                         </p>
                       )}
                     </div>
@@ -845,7 +847,7 @@ export function ManualInputPanel({
                           <span className="text-sm font-semibold text-foreground">{yearData.year}</span>
                           {hasNormalizations && (
                             <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                              {yearData.normalizations.filter(n => n.enabled).length} normalisaties
+                              {yearData.normalizations.filter(n => n.enabled).length} {mi('normalizations')}
                             </span>
                           )}
                         </div>
@@ -853,7 +855,7 @@ export function ManualInputPanel({
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <CurrencyInput
-                              label="Omzet"
+                              label={mi('fields.revenue')}
                               value={yearData.revenue}
                               onChange={(v) => updateYearlyFinancials(yearData.year, 'revenue', v)}
                               size="sm"
@@ -867,7 +869,7 @@ export function ManualInputPanel({
                           </div>
                           <div className="relative">
                             <CurrencyInput
-                              label="EBITDA"
+                              label={mi('fields.ebitda')}
                               value={yearData.ebitda}
                               onChange={(v) => updateYearlyFinancials(yearData.year, 'ebitda', v)}
                               size="sm"
@@ -884,7 +886,7 @@ export function ManualInputPanel({
                                   field: 'ebitda',
                                   label: `EBITDA ${yearData.year}`,
                                   value: yearData.ebitda,
-                                  hint: 'Welke normalisaties zijn relevant voor deze EBITDA?',
+                                  hint: mi('ebitdaRelevantHint'),
                                   normalizationType: 'other',
                                 }}
                                 onTrigger={onFieldHelpRequest}
@@ -896,7 +898,7 @@ export function ManualInputPanel({
                         {/* Show normalized EBITDA if different */}
                         {yearData.ebitda > 0 && normalizedYear && normalizedYear.normalizedEbitda !== yearData.ebitda && (
                           <div className="mt-2 flex items-center justify-between text-xs">
-                            <span className="text-foreground/50">Genormaliseerde EBITDA:</span>
+                            <span className="text-foreground/50">{mi('fields.normalizedEbitdaLabel')}</span>
                             <span className="font-mono font-semibold text-success">
                               {formatCurrency(normalizedYear.normalizedEbitda)}
                               <span className="text-foreground/40 ml-1">
@@ -909,7 +911,7 @@ export function ManualInputPanel({
                         {partialYears.includes(yearData.year) && (
                           <div className="mt-2 flex items-center gap-1.5 text-xs text-warning">
                             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                            <span>Vul zowel omzet als EBITDA in voor dit jaar</span>
+                            <span>{mi('fillBothFields')}</span>
                           </div>
                         )}
                       </div>
@@ -931,7 +933,7 @@ export function ManualInputPanel({
                       className="w-full p-3 rounded-xl border border-dashed border-foreground/[0.08] text-sm text-foreground/40 hover:text-foreground/60 hover:border-foreground/[0.15] hover:bg-foreground/[0.02] transition-colors flex items-center justify-center gap-2"
                     >
                       <Plus className="w-4 h-4" />
-                      Jaar toevoegen ({Math.min(...formData.yearlyFinancials.map(yf => Number(yf.year))) - 1})
+                      {mi('addYear')} ({Math.min(...formData.yearlyFinancials.map(yf => Number(yf.year))) - 1})
                     </button>
                   )}
                 </div>
@@ -952,15 +954,15 @@ export function ManualInputPanel({
             disabled={!canSubmit}
             onClick={handleSubmit}
           >
-            {isCalculating ? 'Berekenen...' : 'Bereken Schatting'}
+            {isCalculating ? mi('calculating') : mi('calculateEstimate')}
           </AuroraButton>
           {!canSubmit && (
             <p className="text-center text-xs text-foreground/40 mt-2">
               {!hasCompanyInfo 
-                ? 'Vul een bedrijfsnaam in of zoek via KBO'
+                ? mi('validation.enterCompanyName')
                 : !hasBusinessType 
-                  ? 'Selecteer een bedrijfstype'
-                  : 'Vul minstens 1 jaar omzet én EBITDA in'
+                  ? mi('validation.selectBusinessType')
+                  : mi('validation.enterFinancials')
               }
             </p>
           )}
@@ -971,7 +973,7 @@ export function ManualInputPanel({
       <UnifiedNormalizationModal
         open={showNormalizationModal}
         onOpenChange={setShowNormalizationModal}
-        companyName={formData.companyName || 'Bedrijfsschatting'}
+        companyName={formData.companyName || t('calculator.businessValuation')}
         currentYear={Number(activeNormalizationYear) || currentYear}
         originalEBITDA={currentYearData?.ebitda || 0}
         normalizations={unifiedNormalizations}
@@ -1011,12 +1013,12 @@ export function ManualInputPanel({
       <Modal open={showConnectModal} onOpenChange={setShowConnectModal}>
         <ModalContent className="max-w-md">
           <ModalHeader>
-            <ModalTitle>Grootboek Importeren</ModalTitle>
+            <ModalTitle>{mi('importModal.title')}</ModalTitle>
           </ModalHeader>
           
           <div className="py-4 space-y-4">
             <p className="text-sm text-foreground/60">
-              Upload een grootboekexport (CSV) van uw boekhoudsoftware. We herkennen automatisch Yuki, Exact en Odoo formaten.
+              {mi('importModal.description')}
             </p>
             
             <div className="space-y-3">
@@ -1036,8 +1038,8 @@ export function ManualInputPanel({
                   <span className="text-lg font-bold text-[#00A4E4]">Y</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">Yuki Export</p>
-                  <p className="text-xs text-foreground/50">Grootboek → Exporteren → CSV</p>
+                  <p className="text-sm font-medium text-foreground">{mi('importModal.yukiExport')}</p>
+                  <p className="text-xs text-foreground/50">{mi('importModal.yukiPath')}</p>
                 </div>
                 <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
               </button>
@@ -1058,8 +1060,8 @@ export function ManualInputPanel({
                   <span className="text-lg font-bold text-[#E94E1B]">E</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">Exact Export</p>
-                  <p className="text-xs text-foreground/50">Rapportage → Grootboek → Excel</p>
+                  <p className="text-sm font-medium text-foreground">{mi('importModal.exactExport')}</p>
+                  <p className="text-xs text-foreground/50">{mi('importModal.exactPath')}</p>
                 </div>
                 <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
               </button>
@@ -1080,21 +1082,21 @@ export function ManualInputPanel({
                   <span className="text-lg font-bold text-[#714B67]">O</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">Odoo Export</p>
-                  <p className="text-xs text-foreground/50">Boekhouding → Rapporten → Export</p>
+                  <p className="text-sm font-medium text-foreground">{mi('importModal.odooExport')}</p>
+                  <p className="text-xs text-foreground/50">{mi('importModal.odooPath')}</p>
                 </div>
                 <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
               </button>
             </div>
 
             <p className="text-xs text-foreground/40 text-center pt-2">
-              Directe API-koppelingen komen binnenkort
+              {mi('importModal.apiComingSoon')}
             </p>
           </div>
 
           <ModalFooter>
             <AuroraButton variant="ghost" onClick={() => setShowConnectModal(false)}>
-              Annuleren
+              {mi('importModal.cancel')}
             </AuroraButton>
           </ModalFooter>
         </ModalContent>

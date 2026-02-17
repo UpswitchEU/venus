@@ -39,8 +39,8 @@ export function CalculatorShellSkeleton() {
     <div className="aurora-theme flex flex-col h-screen bg-background overflow-hidden">
       <NavSkeleton />
 
-      <div className="flex-1 overflow-hidden m-4 rounded-xl border border-foreground/10">
-        <ResizablePanelGroup orientation="horizontal" className="h-full">
+      <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/10">
+        <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
             <div className="h-full overflow-y-auto p-6">
               <InputFieldsSkeleton />

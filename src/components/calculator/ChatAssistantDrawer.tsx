@@ -10,6 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { 
@@ -330,53 +331,26 @@ interface ChatAssistantDrawerProps {
   hasUploadedData?: boolean;
 }
 
-// Contextual suggestions based on field
-const getContextualSuggestions = (fieldContext?: FieldContext): string[] => {
+// Contextual suggestions based on field (returns translation keys for flexibility)
+const getContextualSuggestionKeys = (fieldContext?: FieldContext): string[] => {
   if (!fieldContext) {
-    return [
-      "Wat is dit bedrijf waard?",
-      "Analyseer deze jaarrekening",
-      "Welke normalisaties zijn relevant?",
-      "Genereer concept rapport",
-    ];
+    return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
   }
-  
   const { field } = fieldContext;
-  
   switch (field) {
     case 'ownerSalary':
     case 'salary':
-      return [
-        "Wat is een marktconform salaris?",
-        "Normaliseer naar gemiddelde",
-        "Vergelijk met sector",
-      ];
+      return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
     case 'rent':
     case 'huurkosten':
-      return [
-        "Is deze huur marktconform?",
-        "Normaliseer naar marktwaarde",
-        "Bereken privégebruik",
-      ];
+      return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
     case 'ebitda':
-      return [
-        "Verklaar deze EBITDA",
-        "Welke normalisaties toepassen?",
-        "Vergelijk met sectorgemiddelde",
-      ];
+      return ['suggestions.explainEbitda', 'suggestions.whichNormsApply', 'suggestions.whichNorms', 'suggestions.generateReport'];
     case 'revenue':
     case 'omzet':
-      return [
-        "Analyseer omzettrend",
-        "Is dit seizoensgebonden?",
-        "Projecteer komend jaar",
-      ];
+      return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
     default:
-      return [
-        "Leg dit veld uit",
-        "Wat is een goede waarde?",
-        "Help me dit invullen",
-      ];
+      return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
   }
 };
 
@@ -399,6 +373,7 @@ export function ChatAssistantDrawer({
   onOpenNormalizationHub,
   hasUploadedData = false,
 }: ChatAssistantDrawerProps) {
+  const ca = useTranslations('chatAssistant');
   const [input, setInput] = useState('');
   
   // Handler for command pill clicks - auto-fills and sends
@@ -420,6 +395,8 @@ export function ChatAssistantDrawer({
   const [detectedValues, setDetectedValues] = useState<ParsedValue[]>([]);
   const [detectedCommands, setDetectedCommands] = useState<ParsedCommand[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const suggestionKeys = getContextualSuggestionKeys(fieldContext);
+  const suggestions = suggestionKeys.map((k) => ca(k));
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -496,7 +473,6 @@ export function ChatAssistantDrawer({
     }
   };
 
-  const suggestions = getContextualSuggestions(fieldContext);
   const isEmpty = messages.length === 0;
 
   // Track focus state for premium glow effect
@@ -540,7 +516,7 @@ export function ChatAssistantDrawer({
                 {/* Title - now on the left */}
                 <div className="flex-1 min-w-0">
                   <h2 className="text-lg sm:text-base font-semibold text-foreground tracking-tight">
-                    Assistent
+                    {ca('title')}
                   </h2>
                   {fieldContext && (
                     <p className="text-sm sm:text-xs text-foreground/50 truncate mt-0.5">
@@ -557,7 +533,7 @@ export function ChatAssistantDrawer({
                     className="shrink-0 gap-1.5 text-xs"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
-                    Open Hub
+                    {ca('openHub')}
                   </AuroraButton>
                 )}
                 {/* Close button - now on the right, centered vertically with proper touch target */}
@@ -570,7 +546,7 @@ export function ChatAssistantDrawer({
                     "hover:bg-foreground/[0.06] active:bg-foreground/[0.08]",
                     "transition-colors touch-manipulation"
                   )}
-                  aria-label="Sluiten"
+                  aria-label={ca('close')}
                 >
                   <X className="w-5 h-5 sm:w-4 sm:h-4" />
                 </button>
@@ -591,7 +567,7 @@ export function ChatAssistantDrawer({
             {pendingUpdates.length > 0 && (
               <div className="shrink-0 px-4 sm:px-5 py-3 sm:py-4 border-b border-foreground/[0.06] bg-primary/5">
                 <p className="text-sm sm:text-xs font-medium text-primary mb-2.5 sm:mb-2">
-                  Voorgestelde aanpassingen
+                  {ca('suggestedUpdates')}
                 </p>
                 <div className="space-y-2.5 sm:space-y-2">
                   {pendingUpdates.map((update) => (
@@ -687,7 +663,7 @@ export function ChatAssistantDrawer({
                               animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
                               transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
                             />
-                            <span className="ml-2 text-xs text-foreground/40">Aan het typen...</span>
+                            <span className="ml-2 text-xs text-foreground/40">{ca('typing')}</span>
                           </div>
                           {/* Content skeleton lines */}
                           <div className="space-y-2">
@@ -735,7 +711,7 @@ export function ChatAssistantDrawer({
                     className="mb-3 sm:mb-3 p-3 sm:p-2.5 rounded-xl bg-primary/10 border border-primary/20"
                   >
                     <p className="text-xs sm:text-[10px] font-medium text-primary mb-2 sm:mb-1.5 uppercase tracking-wide">
-                      Normalisatie commando gedetecteerd
+                      {ca('normCommandDetected')}
                     </p>
                     <div className="flex flex-wrap gap-2.5 sm:gap-2">
                       {detectedCommands.map((cmd, index) => (
@@ -753,7 +729,7 @@ export function ChatAssistantDrawer({
                       ))}
                     </div>
                     <p className="text-xs sm:text-[10px] text-primary/70 mt-2 sm:mt-1.5">
-                      Dit wordt direct toegepast in het formulier
+                      {ca('normCommandDesc')}
                     </p>
                   </motion.div>
                 )}
@@ -770,7 +746,7 @@ export function ChatAssistantDrawer({
                     className="mb-3 sm:mb-3 p-3 sm:p-2.5 rounded-xl bg-success/10 border border-success/20"
                   >
                     <p className="text-xs sm:text-[10px] font-medium text-success mb-2 sm:mb-1.5 uppercase tracking-wide">
-                      Gedetecteerde waarden
+                      {ca('detectedValues')}
                     </p>
                     <div className="flex flex-wrap gap-2.5 sm:gap-2">
                       {detectedValues.map((detected, index) => (
@@ -787,7 +763,7 @@ export function ChatAssistantDrawer({
                       ))}
                     </div>
                     <p className="text-xs sm:text-[10px] text-success/70 mt-2 sm:mt-1.5">
-                      Deze waarden worden automatisch voorgesteld na verzenden
+                      {ca('detectedValuesDesc')}
                     </p>
                   </motion.div>
                 )}
@@ -865,7 +841,7 @@ export function ChatAssistantDrawer({
                       "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]",
                       "active:bg-foreground/[0.08]"
                     )}
-                    aria-label="Bestand toevoegen"
+                    aria-label={ca('addFile')}
                   >
                     <Paperclip className="w-5 h-5 sm:w-4 sm:h-4" />
                   </motion.button>
@@ -879,8 +855,8 @@ export function ChatAssistantDrawer({
                     onBlur={() => setIsInputFocused(false)}
                     onKeyDown={handleKeyDown}
                     placeholder={fieldContext 
-                      ? `Vraag over ${fieldContext.label.toLowerCase()}...`
-                      : "Stel een vraag of geef een opdracht..."
+                      ? ca('askAboutField', { field: fieldContext.label.toLowerCase() })
+                      : ca('askOrCommand')
                     }
                     rows={1}
                     className={cn(
@@ -891,7 +867,7 @@ export function ChatAssistantDrawer({
                       "transition-colors duration-200"
                     )}
                     disabled={isGenerating}
-                    aria-label="Chat invoer"
+                    aria-label={ca('chatInput')}
                   />
 
                   {/* Send Button - 48px touch target on mobile */}
@@ -919,7 +895,7 @@ export function ChatAssistantDrawer({
                       // Loading
                       isGenerating && "bg-primary/70 text-primary-foreground cursor-wait"
                     )}
-                    aria-label="Verzenden"
+                    aria-label={ca('send')}
                   >
                     {isGenerating ? (
                       <Loader2 className="w-5 h-5 sm:w-4 sm:h-4 animate-spin" />
@@ -983,7 +959,7 @@ export function ChatAssistantDrawer({
                       transition={{ duration: 0.15 }}
                       className="absolute bottom-2 right-14 text-[10px] text-foreground/25 hidden md:block"
                     >
-                      ↵ om te verzenden
+                      {ca('sendHint')}
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -1008,6 +984,7 @@ function EmptyState({
   fieldContext?: FieldContext;
   suggestions: string[];
 }) {
+  const ca = useTranslations('chatAssistant');
   return (
     <div className="flex flex-col items-center justify-center h-full px-5 sm:px-6 py-8 sm:py-10">
       <div className="max-w-md w-full space-y-8 sm:space-y-6">
@@ -1015,14 +992,14 @@ function EmptyState({
         <div className="text-center space-y-3 sm:space-y-2">
           <h2 className="text-xl sm:text-lg font-semibold text-foreground tracking-tight">
             {fieldContext 
-              ? `Hulp bij ${fieldContext.label}`
+              ? ca('helpWithField', { field: fieldContext.label })
               : companyName 
-                ? `Analyse voor ${companyName}`
-                : 'Hoe kan ik helpen?'
+                ? ca('analysisFor', { company: companyName })
+                : ca('howCanIHelp')
             }
           </h2>
           <p className="text-base sm:text-sm text-foreground/50 max-w-xs mx-auto">
-            {fieldContext?.hint || 'Stel vragen of upload documenten voor analyse.'}
+            {fieldContext?.hint || ca('askOrUpload')}
           </p>
         </div>
 
@@ -1056,6 +1033,7 @@ function MessageBubble({
   onRejectNormalisation?: (id: string) => void;
   onCommandPillClick?: (command: string) => void;
 }) {
+  const ca = useTranslations('chatAssistant');
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   
@@ -1218,7 +1196,7 @@ function MessageBubble({
                       update.source === 'kbo' ? "bg-success/10 text-success" :
                       "bg-foreground/[0.06] text-foreground/50"
                     )}>
-                      {update.source === 'ai' ? 'AI suggestie' : 
+                      {update.source === 'ai' ? ca('aiSuggestion') : 
                        update.source === 'yuki' ? 'Yuki' :
                        update.source === 'kbo' ? 'KBO' :
                        update.source}
@@ -1245,9 +1223,9 @@ function MessageBubble({
                           update.confidence === 'medium' ? "bg-secondary" :
                           "bg-foreground/30"
                         )} />
-                        {update.confidence === 'high' ? 'Betrouwbaar' :
-                         update.confidence === 'medium' ? 'Te verifiëren' :
-                         'Indicatief'}
+                        {update.confidence === 'high' ? ca('reliable') :
+                         update.confidence === 'medium' ? ca('toVerify') :
+                         ca('indicative')}
                       </div>
                     )}
                   </div>
@@ -1257,7 +1235,7 @@ function MessageBubble({
                     <div className="flex items-center gap-3 p-3 sm:p-2 rounded-lg sm:rounded-md bg-success/5 border border-success/10">
                       <div className="flex-1">
                         <p className="text-xs sm:text-[10px] text-success/70 uppercase tracking-wide mb-0.5">
-                          Impact op waarde
+                          {ca('impactOnValue')}
                         </p>
                         <p className="text-sm sm:text-xs font-semibold text-success">
                           +€{update.impact.valuationDelta.toLocaleString('nl-BE')}
@@ -1289,7 +1267,7 @@ function MessageBubble({
                   )}
                 >
                   <Check className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-primary" />
-                  <span className="text-sm sm:text-xs font-medium text-primary">Accepteren & Toepassen</span>
+                  <span className="text-sm sm:text-xs font-medium text-primary">{ca('acceptAndApply')}</span>
                 </button>
               </div>
             ))}
@@ -1300,7 +1278,7 @@ function MessageBubble({
         {message.normalisationSuggestions && message.normalisationSuggestions.length > 0 && (
           <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
             <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              Normalisatiesuggesties
+              {ca('normSuggestions')}
             </p>
             {message.normalisationSuggestions.map((suggestion) => {
               const valuationImpact = suggestion.valuationImpact || Math.round(suggestion.amount * (suggestion.multiple || 5.2));
@@ -1328,7 +1306,7 @@ function MessageBubble({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm sm:text-xs font-medium text-foreground">
-                        Wil je <span className="text-primary">{suggestion.description.toLowerCase()}</span> normaliseren?
+                        {ca('normalizeSuggestion', { description: suggestion.description.toLowerCase() })}
                       </p>
                       <p className="text-xs sm:text-[10px] text-foreground/50 mt-1 sm:mt-0.5">
                         {suggestion.reason}
@@ -1346,9 +1324,9 @@ function MessageBubble({
                     <div className="flex flex-col sm:flex-row sm:items-center border-t border-foreground/[0.06]">
                       {/* Impact Display */}
                       <div className="flex-1 px-4 sm:px-3 py-3 sm:py-2 bg-success/5">
-                        <p className="text-xs sm:text-[10px] text-success/70">Impact</p>
+                        <p className="text-xs sm:text-[10px] text-success/70">{ca('impact')}</p>
                         <p className="text-sm sm:text-xs font-mono font-semibold text-success">
-                          +€{suggestion.amount.toLocaleString('nl-BE')} EBITDA → +€{valuationImpact.toLocaleString('nl-BE')} waarde
+                          {ca('impactEbitdaToValue', { ebitda: suggestion.amount.toLocaleString('nl-BE'), value: valuationImpact.toLocaleString('nl-BE') })}
                         </p>
                       </div>
                       {/* Accept/Reject Buttons - Full width on mobile */}
@@ -1363,10 +1341,10 @@ function MessageBubble({
                             "sm:border-l border-foreground/[0.06]",
                             "touch-manipulation"
                           )}
-                          aria-label="Afwijzen"
+                          aria-label={ca('reject')}
                         >
                           <X className="w-5 h-5 sm:w-4 sm:h-4" />
-                          <span className="text-sm sm:hidden">Afwijzen</span>
+                          <span className="text-sm sm:hidden">{ca('reject')}</span>
                         </button>
                         <button
                           onClick={() => onAcceptNormalisation?.(suggestion.id)}
@@ -1377,10 +1355,10 @@ function MessageBubble({
                             "active:bg-success/25 transition-colors",
                             "touch-manipulation"
                           )}
-                          aria-label="Accepteren"
+                          aria-label={ca('accept')}
                         >
                           <Check className="w-5 h-5 sm:w-4 sm:h-4" />
-                          <span className="text-sm sm:hidden">Accepteren</span>
+                          <span className="text-sm sm:hidden">{ca('accept')}</span>
                         </button>
                       </div>
                     </div>
@@ -1390,7 +1368,7 @@ function MessageBubble({
                       isAccepted ? "border-success/10 text-success bg-success/5" :
                       "border-foreground/[0.06] text-foreground/40"
                     )}>
-                      {isAccepted ? '✓ Geaccepteerd' : '✕ Afgewezen'}
+                      {isAccepted ? ca('accepted') : ca('rejected')}
                     </div>
                   )}
                 </motion.div>
@@ -1403,7 +1381,7 @@ function MessageBubble({
         {message.tasks && message.tasks.length > 0 && (
           <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
             <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
-              Open taken
+              {ca('openTasks')}
             </p>
             {message.tasks.filter(t => !t.completed).map((task) => (
               <div

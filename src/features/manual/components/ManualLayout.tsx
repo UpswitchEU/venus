@@ -1351,8 +1351,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       )}
 
       {/* Main Content: Resizable Panels */}
-      <div className="flex-1 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
-        <ResizablePanelGroup orientation="horizontal" className="h-full">
+      <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
+        <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
           {/* Left Panel: ManualInput or NormalizationHub */}
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
             <AnimatePresence mode="wait">

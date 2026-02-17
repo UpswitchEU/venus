@@ -9,6 +9,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore';
 import { 
@@ -63,13 +64,13 @@ function deriveVersionType(v: any): HistoryVersion['type'] {
 }
 
 // ── Helper: derive changes from store version ──
-function deriveChanges(v: any): HistoryVersion['changes'] {
+function deriveChanges(v: any, changedLabel: string): HistoryVersion['changes'] {
   if (v.changesSummary) {
     const cs = v.changesSummary
     const changes: HistoryVersion['changes'] = []
     if (cs.fieldsChanged) {
       for (const field of cs.fieldsChanged.slice(0, 5)) {
-        changes.push({ field, newValue: 'Gewijzigd' })
+        changes.push({ field, newValue: changedLabel })
       }
     }
     return changes
@@ -78,12 +79,12 @@ function deriveChanges(v: any): HistoryVersion['changes'] {
 }
 
 // Unified neutral styling for all version types (60/30/10 rule - reserve color for actions)
-const typeConfig: Record<HistoryVersion['type'], { icon: typeof Clock; label: string }> = {
-  initial: { icon: FileText, label: 'Initieel' },
-  normalization: { icon: Settings2, label: 'Normalisatie' },
-  data_update: { icon: Calculator, label: 'Data update' },
-  methodology: { icon: TrendingUp, label: 'Methodologie' },
-  revision: { icon: User, label: 'Revisie' },
+const typeConfig: Record<HistoryVersion['type'], { icon: typeof Clock; labelKey: string }> = {
+  initial: { icon: FileText, labelKey: 'typeInitial' },
+  normalization: { icon: Settings2, labelKey: 'typeNormalization' },
+  data_update: { icon: Calculator, labelKey: 'typeDataUpdate' },
+  methodology: { icon: TrendingUp, labelKey: 'typeMethodology' },
+  revision: { icon: User, labelKey: 'typeRevision' },
 };
 
 const formatCurrency = (amount: number) => {
@@ -98,14 +99,14 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const formatTime = (date: Date) => {
+const formatTime = (date: Date, hp: (key: string, values?: Record<string, number>) => string) => {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   
-  if (diff < 1000 * 60) return 'Zojuist';
-  if (diff < 1000 * 60 * 60) return `${Math.floor(diff / (1000 * 60))} min geleden`;
-  if (diff < 1000 * 60 * 60 * 24) return `${Math.floor(diff / (1000 * 60 * 60))} uur geleden`;
-  if (diff < 1000 * 60 * 60 * 24 * 7) return `${Math.floor(diff / (1000 * 60 * 60 * 24))} dagen geleden`;
+  if (diff < 1000 * 60) return hp('timeJustNow');
+  if (diff < 1000 * 60 * 60) return hp('timeMinutesAgo', { count: Math.floor(diff / (1000 * 60)) });
+  if (diff < 1000 * 60 * 60 * 24) return hp('timeHoursAgo', { count: Math.floor(diff / (1000 * 60 * 60)) });
+  if (diff < 1000 * 60 * 60 * 24 * 7) return hp('timeDaysAgo', { count: Math.floor(diff / (1000 * 60 * 60 * 24)) });
   return date.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 };
 
@@ -123,7 +124,7 @@ const formatDate = (date: Date) => {
 // VISUAL TIMELINE COMPONENT
 // ─────────────────────────────────────────
 
-function VisualTimeline({ versions }: { versions: HistoryVersion[] }) {
+function VisualTimeline({ versions, hp }: { versions: HistoryVersion[]; hp: (k: string) => string }) {
   const firstVal = versions[0]?.valuation;
   const lastVal = versions[versions.length - 1]?.valuation;
   const totalChange = versions.length > 1 && firstVal && lastVal
@@ -140,7 +141,7 @@ function VisualTimeline({ versions }: { versions: HistoryVersion[] }) {
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-foreground/40" />
           <span className="text-xs text-foreground/50">
-            Waarderingsverloop
+            {hp('valuationFlow')}
           </span>
         </div>
         {totalChange !== 0 && (
@@ -223,7 +224,7 @@ function VisualTimeline({ versions }: { versions: HistoryVersion[] }) {
 // VALUATION SUMMARY CARD
 // ─────────────────────────────────────────
 
-function ValuationSummaryCard({ version }: { version: HistoryVersion }) {
+function ValuationSummaryCard({ version, hp }: { version: HistoryVersion; hp: (k: string) => string }) {
   if (!version.valuation) return null;
   
   return (
@@ -231,7 +232,7 @@ function ValuationSummaryCard({ version }: { version: HistoryVersion }) {
       <div className="p-5">
         {/* Label */}
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-foreground/50">
-          Indicatieve Ondernemingswaarde (EV)
+          {hp('indicativeEV')}
         </p>
         
         {/* Main Value */}
@@ -241,7 +242,7 @@ function ValuationSummaryCard({ version }: { version: HistoryVersion }) {
           </span>
           {version.isCurrent && (
             <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded text-primary bg-primary/10 border border-primary/20">
-              HUIDIG
+              {hp('current')}
             </span>
           )}
         </div>
@@ -251,7 +252,7 @@ function ValuationSummaryCard({ version }: { version: HistoryVersion }) {
           {version.valuationLow && version.valuationHigh && (
             <div>
               <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
-                Bandbreedte
+                {hp('bandwidth')}
               </p>
               <p className="text-xs font-medium text-foreground/80 font-mono">
                 {formatCurrency(version.valuationLow)} — {formatCurrency(version.valuationHigh)}
@@ -261,7 +262,7 @@ function ValuationSummaryCard({ version }: { version: HistoryVersion }) {
           {version.ebitda && (
             <div>
               <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
-                Genormaliseerde EBITDA
+                {hp('normalizedEbitda')}
               </p>
               <p className="text-xs font-medium text-foreground/80 font-mono">
                 {formatCurrency(version.ebitda)}
@@ -271,7 +272,7 @@ function ValuationSummaryCard({ version }: { version: HistoryVersion }) {
           {version.multiple && (
             <div>
               <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
-                Multiple
+                {hp('multiple')}
               </p>
               <p className="text-xs font-medium text-foreground/80 font-mono">
                 {version.multiple.toFixed(2)}×
@@ -289,6 +290,7 @@ function ValuationSummaryCard({ version }: { version: HistoryVersion }) {
 // ─────────────────────────────────────────
 
 export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
+  const hp = useTranslations('historyPanel')
   // ── Real version data from store ──
   const reportId = report?.id
   const storeVersions = useVersionHistoryStore((s) => reportId ? (s.versions[reportId] || []) : [])
@@ -313,11 +315,11 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
         id: v.id || String(v.versionNumber),
         version: v.versionNumber || 1,
         timestamp: v.createdAt ? new Date(v.createdAt) : new Date(),
-        author: (v as any).createdBy || 'Gebruiker',
+        author: (v as any).createdBy || hp('user'),
         authorInitials: ((v as any).createdBy || 'GE').substring(0, 2).toUpperCase(),
         type: deriveVersionType(v),
-        summary: v.versionLabel || `Versie ${v.versionNumber}`,
-        changes: deriveChanges(v),
+        summary: v.versionLabel || hp('versionN', { number: v.versionNumber ?? 1 }),
+        changes: deriveChanges(v, hp('changed')),
         valuation: (v as any).valuationResult?.valuation_midpoint || (v as any).valuationResult?.equity_value_mid,
         valuationLow: (v as any).valuationResult?.valuation_min || (v as any).valuationResult?.equity_value_low,
         valuationHigh: (v as any).valuationResult?.valuation_max || (v as any).valuationResult?.equity_value_high,
@@ -325,7 +327,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
         multiple: (v as any).valuationResult?.ebitda_multiple || (v as any).valuationResult?.revenue_multiple,
         isCurrent: v.versionNumber === activeVersionNumber || v.isActive,
       }))
-  }, [storeVersions, activeVersionNumber])
+  }, [storeVersions, activeVersionNumber, hp])
 
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set()); // Current version expanded by default
   const [restoringVersion, setRestoringVersion] = useState<string | null>(null);
@@ -407,10 +409,10 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
             <Clock className="w-8 h-8 text-foreground/30" />
           </div>
           <h3 className="text-lg font-semibold text-foreground mb-2">
-            Geen geschiedenis beschikbaar
+            {hp('noHistory')}
           </h3>
           <p className="text-sm text-foreground/50">
-            Genereer eerst een bedrijfsschatting om de versiegeschiedenis te bekijken.
+            {hp('noHistoryDesc')}
           </p>
         </div>
       </div>
@@ -423,9 +425,9 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
       <div className="shrink-0 px-4 sm:px-6 py-4 sm:py-5 border-b border-foreground/[0.06]">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Versiegeschiedenis</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">{hp('title')}</h2>
             <p className="text-xs sm:text-sm text-foreground/50 mt-1">
-              {storeLoading ? 'Laden...' : storeError ? 'Versiegeschiedenis kon niet worden geladen' : `${historyVersions.length} versies · Audit trail`}
+              {storeLoading ? hp('loading') : storeError ? hp('loadError') : hp('versionsCount', { count: historyVersions.length })}
             </p>
           </div>
           
@@ -438,7 +440,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                 className="gap-1.5"
               >
                 <ArrowLeftRight className="w-4 h-4" />
-                Vergelijk ({selectedForCompare.size})
+                {hp('compare')} ({selectedForCompare.size})
               </Button>
             )}
             <Button
@@ -451,7 +453,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
               className="gap-1.5"
             >
               <GitCompare className="w-4 h-4" />
-              {compareMode ? 'Stop vergelijken' : 'Vergelijk'}
+              {compareMode ? hp('stopCompare') : hp('compare')}
             </Button>
           </div>
         </div>
@@ -466,7 +468,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
               className="mt-3 p-3 rounded-lg bg-primary/[0.05] border border-primary/20"
             >
               <p className="text-xs text-primary">
-                Selecteer 2 versies om te vergelijken ({selectedForCompare.size}/2 geselecteerd)
+                {hp('selectToCompare', { selected: selectedForCompare.size })}
               </p>
             </motion.div>
           )}
@@ -474,7 +476,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
       </div>
 
       {/* Visual Timeline */}
-      {historyVersions.length > 0 && <VisualTimeline versions={historyVersions} />}
+      {historyVersions.length > 0 && <VisualTimeline versions={historyVersions} hp={hp} />}
 
       {/* Timeline List */}
       <div className="flex-1 overflow-y-auto scrollbar-hide pb-20 sm:pb-6">
@@ -482,19 +484,19 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
         {storeLoading && historyVersions.length === 0 && (
           <div className="flex items-center justify-center p-8">
             <Loader2 className="w-5 h-5 animate-spin text-foreground/40 mr-2" />
-            <span className="text-sm text-foreground/50">Versies laden...</span>
+            <span className="text-sm text-foreground/50">{hp('loadingVersions')}</span>
           </div>
         )}
 
         {/* Error state */}
         {storeError && historyVersions.length === 0 && !storeLoading && (
           <div className="p-6 text-center">
-            <p className="text-sm text-destructive/80 mb-2">Versiegeschiedenis kon niet worden geladen</p>
+            <p className="text-sm text-destructive/80 mb-2">{hp('loadError')}</p>
             <button
               onClick={() => reportId && fetchVersions(reportId)}
               className="text-xs text-primary hover:underline"
             >
-              Opnieuw proberen
+              {hp('retry')}
             </button>
           </div>
         )}
@@ -505,9 +507,9 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
             <div className="w-12 h-12 rounded-xl bg-foreground/[0.04] flex items-center justify-center mb-3">
               <Clock className="w-6 h-6 text-foreground/25" />
             </div>
-            <p className="text-sm font-medium text-foreground/60 mb-1">Nog geen versies</p>
+            <p className="text-sm font-medium text-foreground/60 mb-1">{hp('noVersions')}</p>
             <p className="text-xs text-foreground/40 text-center max-w-[240px]">
-              Na uw eerste berekening wordt automatisch een versie aangemaakt.
+              {hp('noVersionsDesc')}
             </p>
           </div>
         )}
@@ -576,12 +578,12 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       {/* Clean text-only badge - no icon clutter */}
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-foreground/[0.06] text-foreground/60 border border-foreground/[0.08]">
-                        {config.label}
+                        {hp(config.labelKey)}
                       </span>
                       {/* Only "HUIDIG" gets the primary accent (30% rule) */}
                       {version.isCurrent && (
                         <span className="text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
-                          HUIDIG
+                          {hp('current')}
                         </span>
                       )}
                     </div>
@@ -595,7 +597,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        {formatTime(version.timestamp)}
+                        {formatTime(version.timestamp, hp)}
                       </span>
                     </div>
                   </div>
@@ -639,13 +641,13 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                     >
                       <div className="px-4 pb-4 pt-0">
                         {/* Valuation Summary Card */}
-                        <ValuationSummaryCard version={version} />
+                        <ValuationSummaryCard version={version} hp={hp} />
 
                         {/* Changes List with Source References */}
                         {version.changes.length > 0 && (
                           <div className="space-y-2">
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40 mb-2">
-                              Wijzigingen · Audit Trail
+                              {hp('changesAuditTrail')}
                             </p>
                             {version.changes.map((change, changeIndex) => (
                               <div 
@@ -699,7 +701,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                               /* Current version badge */
                               <div className="flex-1 flex items-center justify-center gap-2 h-9 px-4 rounded-lg bg-primary/[0.06] border border-primary/20 text-primary text-sm font-medium">
                                 <Check className="w-4 h-4" />
-                                Huidige versie
+                                {hp('currentVersion')}
                               </div>
                             ) : (
                               /* Restore Version - Only on non-current versions */
@@ -714,12 +716,12 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                                 {restoringVersion === version.id ? (
                                   <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                    Herstellen...
+                                    {hp('restoring')}
                                   </>
                                 ) : (
                                   <>
                                     <RotateCcw className="w-4 h-4" />
-                                    Herstel naar deze versie
+                                    {hp('restoreToVersion')}
                                   </>
                                 )}
                               </button>

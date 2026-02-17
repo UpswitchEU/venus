@@ -13,6 +13,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -125,6 +126,8 @@ export function NormalizationEditor({
   hasUploadedData = false,
   companyName,
 }: NormalizationEditorProps) {
+  const nh = useTranslations('normalizationHub');
+  const tCommon = useTranslations('common.actions');
   const [searchQuery, setSearchQuery] = useState('');
   const [normalizations, setNormalizations] = useState<Normalization[]>(existingNormalizations);
   const [selectedLedger, setSelectedLedger] = useState<LedgerAccount | null>(null);
@@ -228,10 +231,10 @@ export function NormalizationEditor({
             </div>
             <div>
               <ModalTitle className="text-base">
-                EBITDA Normalisaties
+                {nh('ebitdaNormalizations')}
               </ModalTitle>
               <p className="text-xs text-foreground/50 mt-0.5">
-                {companyName || 'Bedrijfsschatting'} · {currentYear}
+                {companyName || nh('businessEstimate')} · {currentYear}
               </p>
             </div>
           </div>
@@ -242,7 +245,7 @@ export function NormalizationEditor({
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-medium text-foreground/60 uppercase tracking-wider">
               <Plus className="w-3.5 h-3.5" />
-              Normalisatie toevoegen
+              {nh('addNormalization')}
             </div>
 
             {/* Ledger Search */}
@@ -250,7 +253,7 @@ export function NormalizationEditor({
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/40" />
                 <Input
-                  placeholder="Zoek grootboekrekening (bijv. 613, huur...)"
+                  placeholder={nh('searchLedgerPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -284,8 +287,8 @@ export function NormalizationEditor({
                     {filteredLedgers.length === 0 ? (
                       <div className="px-4 py-3 text-sm text-foreground/50 text-center">
                         {hasUploadedData 
-                          ? 'Geen rekeningen gevonden'
-                          : 'Upload data om in grootboek te zoeken'}
+                          ? nh('noAccountsFound')
+                          : nh('uploadToSearchLedger')}
                       </div>
                     ) : (
                       filteredLedgers.map((account) => (
@@ -451,7 +454,7 @@ export function NormalizationEditor({
                     className="w-full gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    Normalisatie toevoegen
+                    {nh('addNormalization')}
                   </Button>
                 </motion.div>
               )}
@@ -464,7 +467,7 @@ export function NormalizationEditor({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground/60 uppercase tracking-wider">
                   <FileSpreadsheet className="w-3.5 h-3.5" />
-                  Toegevoegde normalisaties ({normalizations.length})
+                  {nh('addedNormalizations', { count: normalizations.length })}
                 </div>
                 <div className="text-sm font-mono font-semibold text-primary">
                   {totalAdjustment >= 0 ? '+' : ''}{formatCurrency(totalAdjustment)}
@@ -515,7 +518,7 @@ export function NormalizationEditor({
                             {normalization.applyAllYears ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-foreground/[0.06] text-foreground/50">
                                 <CalendarRange className="w-2.5 h-2.5" />
-                                Alle jaren
+                                {nh('allYears')}
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-foreground/[0.06] text-foreground/50">
@@ -562,12 +565,12 @@ export function NormalizationEditor({
                 <PenLine className="w-5 h-5 text-foreground/30" />
               </div>
               <p className="text-sm text-foreground/50 mb-1">
-                Geen normalisaties toegevoegd
+                {nh('noNormalizationsAdded')}
               </p>
               <p className="text-xs text-foreground/40">
                 {hasUploadedData 
-                  ? 'Zoek een grootboekrekening om te normaliseren'
-                  : 'Upload data of voeg handmatig normalisaties toe'}
+                  ? nh('searchLedgerEmpty')
+                  : nh('uploadOrAddManual')}
               </p>
             </div>
           )}
@@ -578,7 +581,7 @@ export function NormalizationEditor({
             <div className="text-sm">
               {normalizations.length > 0 && (
                 <span className="text-foreground/50">
-                  Totale impact: {' '}
+                  {nh('totalImpact')}: {' '}
                   <span className={cn(
                     "font-mono font-semibold",
                     totalAdjustment >= 0 ? "text-success" : "text-secondary"
@@ -593,14 +596,14 @@ export function NormalizationEditor({
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
               >
-                Annuleren
+                {tCommon('cancel')}
               </Button>
               <Button
                 onClick={handleSave}
                 className="gap-1.5"
               >
                 <Check className="w-4 h-4" />
-                Opslaan ({normalizations.length})
+                {tCommon('save')} ({normalizations.length})
               </Button>
             </div>
           </div>

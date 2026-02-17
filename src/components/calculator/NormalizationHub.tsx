@@ -16,6 +16,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { 
   Calculator,
@@ -99,6 +100,7 @@ export function NormalizationHub({
   hasUploadedData = false,
   ledgerAccounts = [],
 }: NormalizationHubProps) {
+  const nh = useTranslations('normalizationHub');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Calculate stats
@@ -134,7 +136,7 @@ export function NormalizationHub({
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="text-base md:text-lg font-semibold text-foreground truncate">
-                Normalisatie Hub
+                {nh('title')}
               </h2>
               <p className="text-xs md:text-sm text-foreground/50 truncate">
                 {companyName}
@@ -152,7 +154,7 @@ export function NormalizationHub({
               {hasUploadedData && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-medium">
                   <Check className="w-2.5 h-2.5" />
-                  Verbonden
+                  {nh('connected')}
                 </span>
               )}
             </div>
@@ -164,7 +166,7 @@ export function NormalizationHub({
                 className="text-xs gap-1.5"
               >
                 <Upload className="w-3.5 h-3.5" />
-                Upload CSV
+                {nh('uploadCsv')}
               </Button>
             )}
           </div>
@@ -176,7 +178,7 @@ export function NormalizationHub({
             {/* Original */}
             <div className="text-center p-3 rounded-xl bg-foreground/[0.02] border border-foreground/[0.04]">
               <p className="text-[9px] md:text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">
-                Origineel
+                {nh('original')}
               </p>
               <p className="text-sm md:text-base font-mono font-semibold text-foreground/60 line-through">
                 {formatCurrency(originalEbitda)}
@@ -186,7 +188,7 @@ export function NormalizationHub({
             {/* Adjustment */}
             <div className="text-center p-3 rounded-xl bg-foreground/[0.02] border border-foreground/[0.04]">
               <p className="text-[9px] md:text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">
-                Aanpassing
+                {nh('adjustment')}
               </p>
               <p className={cn(
                 "text-sm md:text-base font-mono font-semibold",
@@ -200,7 +202,7 @@ export function NormalizationHub({
             {/* Normalized */}
             <div className="text-center p-3 rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/15">
               <p className="text-[9px] md:text-[10px] font-medium text-primary uppercase tracking-wider mb-1">
-                Genormaliseerd
+                {nh('normalized')}
               </p>
               <p className="text-sm md:text-base font-mono font-bold text-foreground">
                 {formatCurrency(stats.normalizedEbitda)}
@@ -212,8 +214,8 @@ export function NormalizationHub({
         {/* Status Overview */}
         <div className="shrink-0 px-4 md:px-6 py-4 border-b border-foreground/[0.06]">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-foreground">Status Overzicht</h3>
-            <span className="text-xs text-foreground/50">{stats.total} normalisaties</span>
+            <h3 className="text-sm font-medium text-foreground">{nh('statusOverview')}</h3>
+            <span className="text-xs text-foreground/50">{nh('normalizationsCount', { count: stats.total })}</span>
           </div>
           
           <div className="grid grid-cols-3 gap-2">
@@ -234,7 +236,7 @@ export function NormalizationHub({
                 )} />
               </div>
               <div>
-                <p className="text-xs text-foreground/50">Te beoordelen</p>
+                <p className="text-xs text-foreground/50">{nh('toReview')}</p>
                 <p className={cn(
                   "text-sm font-semibold",
                   stats.pending > 0 ? "text-warning" : "text-foreground/40"
@@ -261,7 +263,7 @@ export function NormalizationHub({
                 )} />
               </div>
               <div>
-                <p className="text-xs text-foreground/50">Geaccepteerd</p>
+                <p className="text-xs text-foreground/50">{nh('accepted')}</p>
                 <p className={cn(
                   "text-sm font-semibold",
                   stats.accepted > 0 ? "text-success" : "text-foreground/40"
@@ -288,7 +290,7 @@ export function NormalizationHub({
                 )} />
               </div>
               <div>
-                <p className="text-xs text-foreground/50">Afgewezen</p>
+                <p className="text-xs text-foreground/50">{nh('rejected')}</p>
                 <p className={cn(
                   "text-sm font-semibold",
                   stats.rejected > 0 ? "text-destructive" : "text-foreground/40"
@@ -313,10 +315,10 @@ export function NormalizationHub({
             </div>
             
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              Centrale Normalisatie Hub
+              {nh('centralHub')}
             </h3>
             <p className="text-sm text-foreground/50 mb-6 max-w-xs mx-auto">
-              Beheer alle EBITDA-correcties op één plek. Zoek grootboekrekeningen, pas bedragen aan, en bouw een audit-ready normalisatielijst.
+              {nh('centralHubDesc')}
             </p>
 
             {/* Primary CTA */}
@@ -325,7 +327,7 @@ export function NormalizationHub({
               className="w-full max-w-xs gap-2 h-12 text-sm font-medium shadow-lg shadow-primary/20"
             >
               <Sparkles className="w-4 h-4" />
-              Open Normalisatie Hub
+              {nh('openHub')}
               <ArrowRight className="w-4 h-4 ml-auto" />
             </Button>
 
@@ -333,7 +335,7 @@ export function NormalizationHub({
             {stats.pending > 0 && (
               <p className="mt-3 text-xs text-warning flex items-center justify-center gap-1">
                 <Clock className="w-3 h-3" />
-                {stats.pending} suggestie{stats.pending !== 1 ? 's' : ''} wachten op beoordeling
+                {stats.pending === 1 ? nh('pendingSuggestions', { count: stats.pending }) : nh('pendingSuggestionsPlural', { count: stats.pending })}
               </p>
             )}
           </motion.div>
@@ -347,7 +349,7 @@ export function NormalizationHub({
               onClick={onBack}
               className="text-foreground/60"
             >
-              Terug
+              {nh('back')}
             </Button>
             <Button
               onClick={onContinue}
@@ -358,11 +360,11 @@ export function NormalizationHub({
               {stats.pending > 0 ? (
                 <>
                   <Clock className="w-4 h-4" />
-                  Beoordeel eerst ({stats.pending} openstaand)
+                  {nh('reviewFirst', { count: stats.pending })}
                 </>
               ) : (
                 <>
-                  Doorgaan naar Schatting
+                  {nh('continueToEstimate')}
                   <ChevronRight className="w-4 h-4" />
                 </>
               )}
