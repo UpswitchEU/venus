@@ -26,10 +26,12 @@ export async function middleware(request: NextRequest) {
 	const { pathname } = request.nextUrl;
 
 	// Skip middleware for static files, api routes, and assets
+	// Belt-and-suspenders: explicit manifest.json skip (matcher also excludes paths with dots)
 	if (
 		pathname.startsWith('/_next') ||
 		pathname.startsWith('/api') ||
 		pathname.startsWith('/static') ||
+		pathname === '/manifest.json' ||
 		pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot)$/)
 	) {
 		return;

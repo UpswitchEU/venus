@@ -653,6 +653,18 @@ export class SessionBootstrapService {
 
       const data = await response.json();
 
+      // DIAGNOSTIC (dev only): Log bootstrap response for accountant + clientToken flow
+      if (process.env.NODE_ENV === 'development' && hints.hasClientToken) {
+        this.logger.info(`[Bootstrap:${traceId}] Accountant flow response`, {
+          status: response.status,
+          success: data.success,
+          reportMode: data.data?.report?.mode,
+          reportId: data.data?.report?.reportId?.substring(0, 25),
+          identityType: data.data?.identity?.type,
+          hasExistingData: data.data?.report?.hasExistingData,
+        });
+      }
+
         // ✅ STRUCTURED ERROR HANDLING: Check errorInfo for smarter error handling
         if (!data.success) {
           // Extract structured error info if available

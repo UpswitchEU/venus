@@ -90,7 +90,22 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       bootstrap.report.reportId === reportId
     // Alias for logging
     const bootstrapHasSession = bootstrapHasExistingSession || bootstrapHasNewReport
-    
+
+    // DIAGNOSTIC (dev only): Log bootstrap/session state for stuck loading debugging
+    if (process.env.NODE_ENV === 'development') {
+      generalLogger.debug('[SessionManager] Bootstrap state', {
+        reportId: reportId?.substring(0, 20),
+        bootstrapComplete,
+        bootstrapHasExistingSession,
+        bootstrapHasNewReport,
+        bootstrapHasSession,
+        isBootstrapping,
+        bootstrapReportId: bootstrapReportId?.substring(0, 20),
+        bootstrapMode: bootstrap?.report?.mode,
+        sessionLoadSkipped: bootstrapHasSession,
+      });
+    }
+
     // ✅ FIX: Detect mismatch where URL has reportId but bootstrap says "new"
     // This indicates session wasn't found - likely auth race condition or access issue
     // 
@@ -249,17 +264,21 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     useEffect(() => {
       // Skip session loading if bootstrap is in progress
       if (isBootstrapping) {
-        generalLogger.debug('[SessionManager] Waiting for bootstrap to complete', { reportId })
+        if (process.env.NODE_ENV === 'development') {
+          generalLogger.debug('[SessionManager] Session load SKIPPED: waiting for bootstrap', { reportId })
+        }
         return
       }
 
       // If bootstrap already resolved this session, session store should be synced
       // by useBootstrapSync hook - we can skip redundant API call
       if (bootstrapHasExistingSession && session?.reportId === reportId) {
-        generalLogger.debug('[SessionManager] Session already loaded via bootstrap', {
-          reportId,
-          bootstrapReportId,
-        })
+        if (process.env.NODE_ENV === 'development') {
+          generalLogger.debug('[SessionManager] Session load SKIPPED: already loaded via bootstrap', {
+            reportId,
+            bootstrapReportId,
+          })
+        }
         // Clear loading ref since we're done
         loadingInitiatedRef.current = null
         return
@@ -269,11 +288,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       // Skip loading to avoid 404 errors - session will be created lazily on first save
       // The prefill data is already applied by useBootstrapPrefill hook
       if (bootstrapHasNewReport) {
-        generalLogger.debug('[SessionManager] New report from bootstrap - skipping load, session will be created on first save', {
-          reportId,
-          bootstrapReportId,
-          bootstrapMode: bootstrap?.report.mode,
-        })
+        if (process.env.NODE_ENV === 'development') {
+          generalLogger.debug('[SessionManager] Session load SKIPPED: new report from bootstrap, calling completeInitialization', {
+            reportId,
+            bootstrapReportId,
+            bootstrapMode: bootstrap?.report.mode,
+          })
+        }
         // Mark initialization as complete since bootstrap has provided all necessary data
         // The session will be created automatically when the user first saves
         useSessionStore.getState().completeInitialization()
@@ -285,7 +306,9 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       // ✅ RACE CONDITION FIX: Skip if we've already initiated loading for this reportId
       // This prevents duplicate API calls when multiple dependencies change
       if (loadingInitiatedRef.current === reportId) {
-        generalLogger.debug('[SessionManager] Loading already initiated, skipping duplicate', { reportId })
+        if (process.env.NODE_ENV === 'development') {
+          generalLogger.debug('[SessionManager] Session load SKIPPED: duplicate load already in progress', { reportId })
+        }
         return
       }
 
@@ -295,6 +318,16 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       let isMounted = true
       let timeoutId: NodeJS.Timeout
 
+      if (process.env.NODE_ENV === 'development') {
+        generalLogger.debug('[SessionManager] Session load TRIGGERED', {
+          reportId,
+          reason: !bootstrapComplete
+            ? 'bootstrap not complete'
+            : bootstrapMismatch
+              ? 'bootstrap mismatch (new mode for existing reportId)'
+              : 'need to load session from API',
+        })
+      }
       generalLogger.info('[SessionManager] Loading session', {
         reportId,
         flow: detectedFlow,
