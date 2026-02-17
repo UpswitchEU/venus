@@ -32,17 +32,19 @@ Venus uses a dual-token system managed by Titan API:
 
 ### Cookie Configuration
 
-Both tokens are set with the following attributes:
+Both tokens are set by Titan with the following attributes:
 
 ```typescript
 {
   httpOnly: true,        // Not accessible via JavaScript
   secure: true,          // HTTPS only (production)
-  sameSite: 'lax',       // CSRF protection
+  sameSite: 'none',      // Required for cross-subdomain OAuth (Mercury/Venus)
   domain: '.upswitch.app', // Shared across subdomains
   path: '/',
 }
 ```
+
+**Note**: Titan uses `sameSite: 'none'` (not `lax`) because OAuth redirects and cross-subdomain requests (e.g. Venus → Titan) require cookies to be sent on cross-site requests. This is required for the Mercury–Titan–Venus auth flow.
 
 ## Authentication Flows
 
@@ -359,10 +361,11 @@ npm run test:e2e
 ✅ **Why**: Limits damage if refresh token is compromised  
 ✅ **Implementation**: New refresh token on every refresh call
 
-### SameSite=Lax
+### SameSite=None
 
-✅ **Why**: CSRF protection (cookies not sent on cross-site requests)  
-✅ **Works with**: Same-site navigation (upswitch.app → valuation.upswitch.app)
+✅ **Why**: Required for cross-subdomain OAuth and Venus→Titan direct API calls  
+✅ **Titan sets**: `sameSite: 'none'` for access/refresh tokens (cross-site cookie sending)  
+✅ **Works with**: Same-site navigation (upswitch.app → valuation.upswitch.app) and cross-origin API calls (preview.valuation.upswitch.app → api-staging.upswitch.app)
 
 ### Secure Flag
 

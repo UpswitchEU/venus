@@ -1360,9 +1360,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       {/* Main Content: Resizable Panels */}
       <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
-        <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
+        <ResizablePanelGroup orientation="horizontal" className="h-full w-full" id="venus-calculator-panels">
           {/* Left Panel: ManualInput or NormalizationHub */}
-          <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
+          <ResizablePanel defaultSize={35} minSize={25} maxSize={50} collapsible={false}>
             <AnimatePresence mode="wait">
               {leftPanelView === 'normalization-hub' ? (
                 <motion.div
@@ -1408,7 +1408,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           />
 
           {/* Right Panel: Report / Preview / History */}
-          <ResizablePanel defaultSize={65} minSize={40}>
+          <ResizablePanel defaultSize={65} minSize={40} collapsible={false}>
             <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">

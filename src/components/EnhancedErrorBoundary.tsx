@@ -64,6 +64,25 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
       recoverable: isRecoverableError(error),
     })
 
+    // Auth-related crashes (e.g. React 418 hydration errors from failed auth/cookie)
+    // Redirect only on strong signals: 418 (React teapot), 401 (unauthorized), 400 (bad request), hydration mismatch
+    const msg = error.message.toLowerCase()
+    const isAuthCrash =
+      msg.includes('418') ||
+      msg.includes('401') ||
+      msg.includes('hydration')
+
+    if (isAuthCrash && typeof window !== 'undefined') {
+      const locale = window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+      const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+      const returnUrl = encodeURIComponent(window.location.href)
+      chatLogger.error('Auth-related crash detected, redirecting to login', {
+        error: error.message,
+      })
+      window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${returnUrl}`
+      return
+    }
+
     // Call onError callback if provided
     if (this.props.onError) {
       this.props.onError(error, errorInfo)
