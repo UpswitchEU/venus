@@ -5,8 +5,11 @@
  * This ensures cookies are properly validated server-side.
  *
  * Following Mercury's proven pattern for cross-subdomain authentication.
+ * Bank-grade: server-safe Titan URL, 5xx vs 401 differentiation, fetch timeout.
  */
 
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -15,7 +18,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const titanApiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app'
+    const titanApiUrl = getTitanApiUrl(request)
 
     // CRITICAL: Prioritize request headers for cookies (works in iframe context)
     // HTTP-only cookies set for .upswitch.app domain are sent in request headers
@@ -53,25 +56,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ isAuthenticated: false }, { status: 401 })
     }
 
-    // Forward request to Titan API with cookies
-    const response = await fetch(`${titanApiUrl}/api/v2/auth/me`, {
-      method: 'GET',
-      headers: {
-        // Forward cookies from request headers (contains all cookies sent by browser)
-        Cookie: cookieHeader,
-      },
-      // CRITICAL: Don't include credentials here - we're manually forwarding cookies
-      // Including credentials would try to send cookies from Venus's domain, not Titan's
-    })
+    // Forward request to Titan API with cookies (with timeout)
+    const response = await fetchWithTimeout(
+      `${titanApiUrl}/api/v2/auth/me`,
+      {
+        method: 'GET',
+        headers: {
+          Cookie: cookieHeader,
+        },
+      }
+    )
 
     if (!response.ok) {
-      // User not authenticated - this is a valid state, not an error
+      const errorData = await response.json().catch(() => ({}))
+
+      if (response.status >= 500) {
+        console.error('[Venus /api/auth/me] Titan API server error:', {
+          status: response.status,
+          error: errorData,
+          titanUrl: `${titanApiUrl}/api/v2/auth/me`,
+        })
+        return NextResponse.json(
+          {
+            isAuthenticated: false,
+            error: 'Server error',
+            message: errorData.message || 'Authentication service temporarily unavailable',
+            details: process.env.NODE_ENV === 'development' ? errorData : undefined,
+          },
+          { status: 500 }
+        )
+      }
+
       return NextResponse.json({ isAuthenticated: false }, { status: 401 })
     }
 
     const data = await response.json()
 
-    // Return with no-cache headers to ensure fresh auth state
     return NextResponse.json(data, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',

@@ -5,8 +5,11 @@
  * This ensures cookies are properly validated and set server-side.
  *
  * Following Mercury's proven pattern for cross-subdomain authentication.
+ * Bank-grade: server-safe Titan URL, fetch timeout.
  */
 
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -15,13 +18,11 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const titanApiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.upswitch.app'
+    const titanApiUrl = getTitanApiUrl(request)
 
     // CRITICAL: Prioritize request headers for cookies (works in iframe context)
-    // HTTP-only cookies set for .upswitch.app domain are sent in request headers
     const requestCookieHeader = request.headers.get('cookie') || ''
 
-    // Also try cookies() helper as fallback
     const cookieStore = await cookies()
     const cookiePairs: string[] = []
     cookieStore.getAll().forEach((cookie) => {
@@ -29,10 +30,8 @@ export async function POST(request: NextRequest) {
     })
     const cookieStoreHeader = cookiePairs.join('; ')
 
-    // Use request headers first (contains all cookies sent by browser), fallback to cookie store
     const cookieHeader = requestCookieHeader || cookieStoreHeader
 
-    // Extract refresh token from cookie header string (fallback to cookie store)
     const refreshTokenFromStore = cookieStore.get('upswitch_refresh_token')?.value
     const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=')
     const refreshToken = refreshTokenFromStore || (hasRefreshToken ? 'present' : null)
@@ -47,18 +46,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Call Titan API refresh endpoint
-    // Forward cookies in Cookie header (Titan will extract refresh token from cookies)
-    // Also send refreshToken in body as fallback for cross-domain scenarios
-    const response = await fetch(`${titanApiUrl}/api/v2/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: cookieHeader, // Forward cookies to Titan
-      },
-      credentials: 'include',
-      body: JSON.stringify({ refreshToken }), // Fallback for cross-domain scenarios
-    })
+    const response = await fetchWithTimeout(
+      `${titanApiUrl}/api/v2/auth/refresh`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: cookieHeader,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ refreshToken }),
+      }
+    )
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Token refresh failed' }))
@@ -73,8 +72,6 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
 
-    // Forward cookies from Titan API to client
-    // Use getSetCookie() to match Mercury's pattern
     const setCookieHeaders = response.headers.getSetCookie()
     const nextResponse = NextResponse.json({
       success: true,
@@ -82,7 +79,6 @@ export async function POST(request: NextRequest) {
       message: 'Token refreshed successfully',
     })
 
-    // Forward all Set-Cookie headers from Titan
     setCookieHeaders.forEach((cookie) => {
       nextResponse.headers.append('Set-Cookie', cookie)
     })

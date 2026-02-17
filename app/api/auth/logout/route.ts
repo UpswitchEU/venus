@@ -5,28 +5,22 @@
  * Ensures complete cleanup across all subdomains.
  *
  * Following Mercury's proven pattern for cross-subdomain authentication.
+ * Bank-grade: server-safe Titan URL, fetch timeout.
  */
 
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { NextResponse } from 'next/server'
 
-// Force dynamic rendering - this route uses request headers
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
   try {
-    // Use NEXT_PUBLIC_API_URL to match Mercury's env variable name
-    const titanApiUrl =
-      process.env.NEXT_PUBLIC_API_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      'https://api.upswitch.app'
+    const titanApiUrl = getTitanApiUrl(request)
 
-    console.log('[Venus /api/auth/logout] Forwarding logout to Titan')
-
-    // Forward request to Titan API with cookies
-    const response = await fetch(`${titanApiUrl}/api/v2/auth/logout`, {
+    const response = await fetchWithTimeout(`${titanApiUrl}/api/v2/auth/logout`, {
       method: 'POST',
       headers: {
-        // Forward cookies from the request
         Cookie: request.headers.get('cookie') || '',
       },
     })
@@ -60,7 +54,6 @@ export async function POST(request: Request) {
       )
     })
 
-    console.log('[Venus /api/auth/logout] Logout successful')
     return nextResponse
   } catch (error) {
     console.error('[Venus /api/auth/logout] Error:', error)
