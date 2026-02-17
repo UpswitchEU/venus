@@ -859,6 +859,7 @@
     "reportPreview": "Rapport Preview",
     "reportPreviewDesc": "De volledige rapport template wordt hier getoond.",
     "currentVersion": "Huidige versie",
-    "guest": "Gast"
+    "guest": "Gast",
+    "retry": "Opnieuw proberen"
   }
 }

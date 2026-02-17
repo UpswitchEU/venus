@@ -207,6 +207,11 @@ export function useSessionDataPrefill() {
     if (mergedData.nace_code) updates.nace_code = mergedData.nace_code
     if (mergedData.nace_description) updates.nace_description = mergedData.nace_description
 
+    // Revenue prefill from latest valuation or current year data
+    if (mergedData.current_year_data?.revenue) {
+      updates.revenue = mergedData.current_year_data.revenue
+    }
+
     // Apply updates if we have any
     if (Object.keys(updates).length > 0) {
       updateFormData(updates)

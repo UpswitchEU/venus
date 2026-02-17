@@ -397,7 +397,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (versions.length === 0 && report) {
       return [{
         id: 'current',
-        label: 'Huidige versie',
+        label: t('currentVersion'),
         priceRange: { min: Math.round(report.valuation * 0.85), max: Math.round(report.valuation * 1.15) },
         askPrice: report.valuation,
         timestamp: report.generatedAt,
@@ -466,6 +466,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
   }, [result, onComplete, reportId, generatePdf])
 
+  // Store last submitted data for retry capability
+  const lastSubmittedDataRef = useRef<any>(null)
+
   // ─── Manual Form Submit Handler (REAL - wired to Venus services) ───
   const handleManualSubmit = useCallback(async (data: any) => {
     // Validation
@@ -485,6 +488,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     // Prevent double submission
     const wasSet = trySetCalculating()
     if (!wasSet) return
+
+    // Store for retry capability
+    lastSubmittedDataRef.current = data
 
     setIsGenerating(true)
 
@@ -535,7 +541,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (!calcResult) {
         setCalculating(false)
         setIsGenerating(false)
-        toast.error(t('calculationFailed'), { description: t('calculationFailedNoResult') })
+        toast.error(t('calculationFailed'), {
+          description: t('calculationFailedNoResult'),
+          action: {
+            label: t('retry') || 'Retry',
+            onClick: () => {
+              if (lastSubmittedDataRef.current) {
+                handleManualSubmit(lastSubmittedDataRef.current)
+              }
+            },
+          },
+        })
         return
       }
 
@@ -604,7 +620,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setCalculating(false)
       setIsGenerating(false)
       const message = error instanceof Error ? error.message : t('unknownError')
-      toast.error(t('calculationFailed'), { description: message })
+      toast.error(t('calculationFailed'), {
+        description: message,
+        action: {
+          label: t('retry') || 'Retry',
+          onClick: () => {
+            if (lastSubmittedDataRef.current) {
+              handleManualSubmit(lastSubmittedDataRef.current)
+            }
+          },
+        },
+      })
       generalLogger.error('[ManualLayout] Form submission failed', { error: message })
     }
   }, [reportId, formStoreData, updateFormData, trySetCalculating, setCalculating, setResult, getLatestVersion, createVersion, sessionName])
@@ -612,10 +638,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Chat Handlers (bi-directional sync) ───
   const handleApplyFieldUpdate = useCallback((field: string, value: any) => {
     setCollectedData((prev) => ({ ...prev, [field]: value }))
-    toast.success(`${field} bijgewerkt naar ${typeof value === 'number' ? `€${value.toLocaleString('nl-BE')}` : value}`)
+    toast.success(t('fieldUpdated', { field, value: typeof value === 'number' ? `€${value.toLocaleString('nl-BE')}` : String(value) }))
     setChatMessages((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), role: 'system' as const, content: `✓ ${field} is toegepast in het formulier`, timestamp: new Date() },
+      { id: crypto.randomUUID(), role: 'system' as const, content: t('fieldApplied', { field }), timestamp: new Date() },
     ])
   }, [])
 
@@ -639,7 +665,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           const commandsList = parsedCommands.map((cmd: any) => `- **${cmd.label}** → €${cmd.value.toLocaleString('nl-BE')}`).join('\n')
           setChatMessages((prev) => [
             ...prev,
-            { id: crypto.randomUUID(), role: 'assistant' as const, content: `✓ Normalisatie(s) toegepast!\n\n${commandsList}`, timestamp: new Date() },
+            { id: crypto.randomUUID(), role: 'assistant' as const, content: `${t('normApplied')}\n\n${commandsList}`, timestamp: new Date() },
           ])
           setIsChatGenerating(false)
           return
@@ -705,8 +731,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         // Notify user if AI fell back to local responses
         if (aiResponse.fallback) {
-          toast.info('AI-assistent tijdelijk niet beschikbaar', {
-            description: 'Lokale suggesties worden gebruikt.',
+          toast.info(t('aiUnavailable'), {
+            description: t('aiUnavailableDesc'),
             duration: 4000,
           })
         }
@@ -750,7 +776,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ])
         }
       } catch {
-        setChatMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant' as const, content: 'Er is een fout opgetreden. Probeer het opnieuw.', timestamp: new Date() }])
+        setChatMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant' as const, content: t('chatError'), timestamp: new Date() }])
       } finally {
         setIsChatGenerating(false)
       }
@@ -764,7 +790,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handleRejectUpdate = useCallback((field: string) => {
     setPendingUpdates((prev) => prev.filter((u) => u.field !== field))
-    toast.info('Suggestie afgewezen')
+    toast.info(t('suggestionRejected'))
   }, [])
 
   // ─── Export Handler (server-side primary, client-side fallback) ───
@@ -772,20 +798,33 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (!report) return
     setIsExporting(true)
 
+    let serverPdfSucceeded = false
+
     try {
       // Path 1: Server-side PDF via Titan API (primary)
-      if (isPdfReady) {
-        await downloadPdf()
-      } else if (reportId) {
-        toast.loading('PDF wordt gegenereerd...', { id: 'pdf-gen' })
-        await generatePdf()
-        if (isPdfReady) await downloadPdf()
+      try {
+        if (isPdfReady) {
+          await downloadPdf()
+          serverPdfSucceeded = true
+        } else if (reportId) {
+          toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
+          await generatePdf()
+          toast.dismiss('pdf-gen')
+          if (isPdfReady) {
+            await downloadPdf()
+            serverPdfSucceeded = true
+          }
+        }
+      } catch (serverError) {
         toast.dismiss('pdf-gen')
+        generalLogger.warn('[ManualLayout] Server PDF failed, falling back to client-side', {
+          error: serverError instanceof Error ? serverError.message : String(serverError),
+        })
       }
 
-      // Path 2: Client-side PDF fallback (if server unavailable)
-      if (!isPdfReady && !isPdfGenerating) {
-        toast.info('Server PDF niet beschikbaar, lokale PDF wordt gegenereerd')
+      // Path 2: Client-side PDF fallback (server unavailable or failed)
+      if (!serverPdfSucceeded) {
+        toast.info(t('pdfServerUnavailable'))
         const htmlContent = result?.html_report || ''
         await DownloadService.downloadPDF(
           {
@@ -809,12 +848,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         },
         ...prev,
       ])
-      toast.success('PDF rapport gedownload')
+      toast.success(t('pdfDownloaded'))
     } catch (error) {
       generalLogger.error('[ManualLayout] PDF export failed', {
         error: error instanceof Error ? error.message : String(error),
       })
-      toast.error('PDF export mislukt', { description: 'Probeer het opnieuw.' })
+      toast.error(t('pdfExportFailed'), { description: t('pdfExportFailedDesc') })
     } finally {
       setIsExporting(false)
     }
@@ -842,7 +881,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setRecentValuations(
           reports.slice(0, 5).map((r: any) => ({
             id: r.id || r.reportId,
-            companyName: r.company_name || r.companyName || 'Onbenoemd',
+            companyName: r.company_name || r.companyName || t('unnamed'),
             updatedAt: new Date(r.updated_at || r.updatedAt || r.created_at),
             isDraft: r.status === 'draft',
           }))
@@ -959,8 +998,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setResult(calcResult)
         setDraftStatus('saved')
         setLastSaved(new Date())
-        toast.success('Waardering herberekend met normalisaties', {
-          description: `${acceptedNorms.length} normalisatie(s) toegepast`,
+        toast.success(t('recalculatedWithNorms'), {
+          description: t('recalculatedWithNormsDesc', { count: acceptedNorms.length }),
         })
       }
     } catch (error) {
@@ -981,7 +1020,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
     // Trigger automatic re-valuation with accepted normalizations
     recalculateWithNormalizations(items)
-    toast.success('Normalisaties opgeslagen')
+    toast.success(t('normalizationsSaved'))
   }, [reportId, normalizationActions, recalculateWithNormalizations])
 
   const handleNormalisationReviewBack = useCallback(() => setLeftPanelView('input'), [])
@@ -1036,19 +1075,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
 
       setRightPanelView('report')
-      toast.success(`Versie ${versionNumber} hersteld`)
+      toast.success(t('versionRestored', { version: versionNumber }))
     } catch (error) {
       generalLogger.warn('[ManualLayout] Version restore failed', {
         error: error instanceof Error ? error.message : String(error),
       })
-      toast.error('Versie herstellen mislukt')
+      toast.error(t('versionRestoreFailed'))
     }
   }, [reportId, updateFormData, setResult, normalizationActions])
 
   // ─── CSV Import → Normalization Hub ───
   const handleCSVImportComplete = useCallback(async (source: 'yuki' | 'exact' | 'odoo', _fileName?: string) => {
     const labels = { yuki: 'Yuki', exact: 'Exact Online', odoo: 'Odoo' }
-    toast.success(`${labels[source]} import gestart`, { description: 'Normalisaties worden geanalyseerd...' })
+    toast.success(t('importStarted', { source: labels[source] }), { description: t('importStartedDesc') })
 
     try {
       // Request AI-powered normalization analysis
@@ -1124,7 +1163,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         {
           id: crypto.randomUUID(),
           role: 'assistant' as const,
-          content: `Ik heb ${labels[source]} geanalyseerd en ${unifiedItems.length} potentiële normalisaties gevonden.`,
+          content: t('importAnalyzed', { source: labels[source], count: unifiedItems.length }),
           timestamp: new Date(),
           normalisationSuggestions: suggestions.map((s: any) => ({ ...s, multiple: 5.2 })),
         },
@@ -1133,7 +1172,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       generalLogger.error('[ManualLayout] CSV import analysis failed', {
         error: error instanceof Error ? error.message : String(error),
       })
-      toast.error('Analyse mislukt', { description: 'Probeer het opnieuw.' })
+      toast.error(t('importAnalysisFailed'), { description: t('importAnalysisFailedDesc') })
     }
   }, [reportId, collectedData, normalizationActions])
 
@@ -1144,7 +1183,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       handleApplyFieldUpdate(suggestion.field, value)
       setShowNormalisationModal(false)
       setCurrentNormalisationSuggestion(null)
-      toast.success(`${suggestion.label} genormaliseerd naar €${value.toLocaleString('nl-BE')}`)
+      toast.success(t('normNormalized', { label: suggestion.label, value: value.toLocaleString('nl-BE') }))
     },
     [handleApplyFieldUpdate]
   )
@@ -1152,7 +1191,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleNormalisationSuggestionReject = useCallback(() => {
     setShowNormalisationModal(false)
     setCurrentNormalisationSuggestion(null)
-    toast.info('Suggestie afgewezen')
+    toast.info(t('suggestionRejected'))
   }, [])
 
   // ─── Shared ManualInputPanel Props ───
@@ -1205,7 +1244,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   return (
       <div className="aurora-theme flex flex-col h-[100dvh] bg-background">
         <CalculatorNav
-          companyName={collectedData.companyName || 'Nieuwe Schatting'}
+          companyName={collectedData.companyName || t('newEstimation')}
           onBack={handleBack}
           onDownload={handleExport}
           onPreview={handlePreview}
@@ -1213,7 +1252,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onShowHistory={handleShowHistory}
           hasReport={!!report}
           rightPanelView={rightPanelView}
-          userName={user?.email || 'Guest'}
+          userName={user?.email || t('guest')}
           userInitials={(user?.email?.[0] || 'G').toUpperCase()}
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
@@ -1249,7 +1288,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   return (
     <div className="aurora-theme flex flex-col h-screen bg-background overflow-hidden">
       <CalculatorNav
-        companyName={collectedData.companyName || 'Nieuwe Schatting'}
+        companyName={collectedData.companyName || t('newEstimation')}
         onBack={handleBack}
         onDownload={handleExport}
         onFullscreen={handleFullscreen}
@@ -1257,7 +1296,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onShowHistory={handleShowHistory}
         hasReport={!!report}
         rightPanelView={rightPanelView}
-        userName={user?.email || 'Guest'}
+        userName={user?.email || t('guest')}
         userInitials={(user?.email?.[0] || 'G').toUpperCase()}
         onOpenAssistant={handleOpenAssistant}
         isAssistantOpen={chatDrawerOpen}
@@ -1270,7 +1309,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           if (item.url) {
             window.open(item.url, '_blank')
           } else {
-            toast.info('PDF wordt opnieuw gegenereerd...', { description: 'Dit kan even duren.' })
+            toast.info(t('pdfRegenerating'), { description: t('pdfRegeneratingDesc') })
           }
         }}
         valuationSummary={
@@ -1313,7 +1352,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       {/* Main Content: Resizable Panels */}
       <div className="flex-1 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
-        <ResizablePanelGroup orientation="horizontal" autoSaveId="calculator-panels" className="h-full">
+        <ResizablePanelGroup orientation="horizontal" className="h-full">
           {/* Left Panel: ManualInput or NormalizationHub */}
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
             <AnimatePresence mode="wait">
@@ -1328,7 +1367,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 >
                   <Suspense fallback={<PanelSkeleton />}>
                   <NormalizationHub
-                    companyName={collectedData.companyName || 'Bedrijf'}
+                    companyName={collectedData.companyName || t('company')}
                     originalEbitda={report?.ebitda || 0}
                     sourceIntegration="manual"
                     normalizations={normalizationItems}
@@ -1375,8 +1414,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       className="h-full overflow-y-auto p-8"
                     >
                       <div className="text-center text-foreground/50 py-20">
-                        <p className="text-lg font-medium">Rapport Preview</p>
-                        <p className="text-sm mt-2">De volledige rapport template wordt hier getoond.</p>
+                        <p className="text-lg font-medium">{t('reportPreview')}</p>
+                        <p className="text-sm mt-2">{t('reportPreviewDesc')}</p>
                       </div>
                     </motion.div>
                   ) : rightPanelView === 'history' ? (
@@ -1416,7 +1455,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           if (reportId) {
                             try { sessionStorage.removeItem(`pdf_${reportId}`) } catch {}
                           }
-                          toast.info('Klaar voor herberekening')
+                          toast.info(t('readyForRecalculation'))
                         }}
                         reportStatus={reportStatus}
                         onStatusChange={setReportStatus}
@@ -1457,7 +1496,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       <UnifiedNormalizationModal
         open={showUnifiedNormalizationModal}
         onOpenChange={setShowUnifiedNormalizationModal}
-        companyName={collectedData.companyName || 'Bedrijf'}
+        companyName={collectedData.companyName || t('company')}
         currentYear={new Date().getFullYear() - 1}
         originalEBITDA={report?.ebitda || 0}
         normalizations={normalizationItems}

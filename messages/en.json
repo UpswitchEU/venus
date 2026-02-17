@@ -860,6 +860,7 @@
     "reportPreview": "Report Preview",
     "reportPreviewDesc": "The full report template will be shown here.",
     "currentVersion": "Current version",
-    "guest": "Guest"
+    "guest": "Guest",
+    "retry": "Retry"
   }
 }

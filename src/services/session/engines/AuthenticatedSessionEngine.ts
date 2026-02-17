@@ -269,39 +269,78 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   
   /**
    * Execute the actual save operation (internal)
+   * 
+   * Includes retry with backoff (max 2 attempts) for transient network errors.
+   * Validation errors (4xx) are NOT retried.
    */
   private async executeSave(reason: 'user' | 'autosave' | 'system'): Promise<void> {
     if (!this.currentSession) return
     
-    try {
-      // Prepare updates from current session
-      const updates = {
-        ...(this.currentSession.sessionData || {}),
-        ...(this.currentSession.partialData || {}),
-      }
-      
-      // Save to backend
-      const updatedSession = await sessionService.saveSession(
-        this.currentSession.reportId,
-        updates
-      )
-      
-      // Update local session with backend response
-      if (updatedSession) {
-        this.currentSession = updatedSession
+    const MAX_ATTEMPTS = 2
+    const BACKOFF_MS = [1000, 3000]
+    
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        const updates = {
+          ...(this.currentSession.sessionData || {}),
+          ...(this.currentSession.partialData || {}),
+        }
         
-        generalLogger.debug('[AuthenticatedSessionEngine] Session saved to backend', {
-          reportId: this.currentSession.reportId,
-          reason,
+        const updatedSession = await sessionService.saveSession(
+          this.currentSession.reportId,
+          updates
+        )
+        
+        if (updatedSession) {
+          this.currentSession = updatedSession
+          
+          if (attempt > 0) {
+            generalLogger.info('[AuthenticatedSessionEngine] Session saved after retry', {
+              reportId: this.currentSession.reportId,
+              reason,
+              attempt: attempt + 1,
+            })
+          } else {
+            generalLogger.debug('[AuthenticatedSessionEngine] Session saved to backend', {
+              reportId: this.currentSession.reportId,
+              reason,
+            })
+          }
+        }
+        
+        return
+      } catch (error) {
+        const isNetworkError = error instanceof TypeError ||
+          (error instanceof Error && (
+            error.message.includes('fetch') ||
+            error.message.includes('network') ||
+            error.message.includes('ECONNREFUSED') ||
+            error.message.includes('ETIMEDOUT') ||
+            error.name === 'AbortError'
+          ))
+        
+        const isLastAttempt = attempt >= MAX_ATTEMPTS - 1
+        
+        if (!isNetworkError || isLastAttempt) {
+          generalLogger.error('[AuthenticatedSessionEngine] Failed to save session', {
+            reportId: this.currentSession?.reportId,
+            reason,
+            attempt: attempt + 1,
+            isNetworkError,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          throw error
+        }
+        
+        generalLogger.warn('[AuthenticatedSessionEngine] Transient save error, retrying', {
+          reportId: this.currentSession?.reportId,
+          attempt: attempt + 1,
+          backoffMs: BACKOFF_MS[attempt],
+          error: error instanceof Error ? error.message : String(error),
         })
+        
+        await new Promise(resolve => setTimeout(resolve, BACKOFF_MS[attempt]))
       }
-    } catch (error) {
-      generalLogger.error('[AuthenticatedSessionEngine] Failed to save session', {
-        reportId: this.currentSession?.reportId,
-        reason,
-        error: error instanceof Error ? error.message : String(error),
-      })
-      throw error
     }
   }
 
