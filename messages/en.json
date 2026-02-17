@@ -657,10 +657,12 @@
     },
     "notFound": {
       "title": "Not Found",
-      "description": "The page you're looking for doesn't exist",
+      "pageNotFound": "Page Not Found",
+      "description": "Sorry, the page you're looking for doesn't exist or has been moved.",
       "report": "Report not found",
       "valuation": "Valuation not found",
-      "goHome": "Go to homepage"
+      "goHome": "Go to Home",
+      "startValuation": "Start Valuation"
     },
     "serverError": {
       "title": "Server Error",

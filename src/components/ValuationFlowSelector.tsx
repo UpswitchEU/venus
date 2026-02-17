@@ -209,7 +209,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
         <div className="relative h-full w-full">
           {/* Render unified flow component based on session view */}
           {/* Smooth fade-in when skeleton transitions to content (smoother Mercury→Venus feel) */}
-          <div key={flowKey} className="absolute inset-0 animate-in fade-in duration-150 ease-out">
+          <div key={flowKey} className="absolute inset-0 aurora-fade-in">
             <Suspense
               fallback={null}
               // ✅ WORLD CLASS: Remove Suspense fallback - loading handled upstream by ValuationSessionManager

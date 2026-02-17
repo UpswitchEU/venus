@@ -52,11 +52,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <Toaster
         position="bottom-right"
         theme="dark"
+        richColors
+        closeButton
+        duration={4000}
         toastOptions={{
           classNames: {
-            toast: 'bg-card border border-foreground/10 shadow-lg',
+            toast: 'bg-card border border-foreground/10 shadow-lg rounded-xl',
             title: 'text-foreground',
-            description: 'text-foreground/70',
+            description: 'text-muted-foreground',
+            actionButton: 'bg-primary text-primary-foreground',
+            cancelButton: 'bg-muted text-muted-foreground',
           },
         }}
       />

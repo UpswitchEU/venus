@@ -200,19 +200,12 @@ const nextConfig = {
     ]
   },
 
-  // Configure rewrites for API routes and locale handling
+  // Configure rewrites for API routes
   async rewrites() {
     return [
       {
         source: '/api/:path*',
         destination: '/api/:path*',
-      },
-      // Rewrite /reports/:id to /en/reports/:id for iframe embedding (fallback)
-      // Mercury loads reports without locale, but Venus expects /[locale]/reports/[id]
-      // This is a fallback - middleware handles locale detection from Accept-Language header
-      {
-        source: '/reports/:id',
-        destination: '/en/reports/:id',
       },
     ]
   },

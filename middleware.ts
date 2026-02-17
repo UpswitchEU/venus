@@ -19,6 +19,31 @@ const intlMiddleware = createMiddleware({
 });
 
 /**
+ * Detect locale from cookie, query param, or Accept-Language header
+ */
+function detectLocale(request: NextRequest): string {
+	const localeParam = request.nextUrl.searchParams.get('locale');
+	if (localeParam && locales.includes(localeParam as typeof locales[number])) {
+		return localeParam;
+	}
+	const cookieLocale = request.cookies.get('NEXT_LOCALE')?.value;
+	if (cookieLocale && locales.includes(cookieLocale as typeof locales[number])) {
+		return cookieLocale;
+	}
+	const acceptLang = request.headers.get('accept-language');
+	if (acceptLang) {
+		// Parse Accept-Language (e.g. "nl-BE,nl;q=0.9,en;q=0.8") and pick first supported
+		const preferred = acceptLang.split(',').map((s) => s.split(';')[0].trim().slice(0, 2));
+		for (const lang of preferred) {
+			if (locales.includes(lang as typeof locales[number])) {
+				return lang;
+			}
+		}
+	}
+	return defaultLocale;
+}
+
+/**
  * Middleware function
  * Runs on every request
  */
@@ -35,6 +60,26 @@ export async function middleware(request: NextRequest) {
 		pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot)$/)
 	) {
 		return;
+	}
+
+	// Priority 0a: /calculate and /calculator without locale (Clarity Aurora parity)
+	const calculatorMatch = pathname === '/calculate' || pathname === '/calculator';
+	if (calculatorMatch) {
+		const locale = detectLocale(request);
+		const newUrl = request.nextUrl.clone();
+		newUrl.pathname = `/${locale}/reports/new`;
+		return NextResponse.redirect(newUrl);
+	}
+
+	// Priority 0b: /reports/:id without locale prefix (Mercury embedding)
+	// Redirect to /{locale}/reports/:id using detected locale instead of hardcoding /en/
+	const reportsMatch = pathname.match(/^\/reports\/([^/]+)$/);
+	if (reportsMatch) {
+		const reportId = reportsMatch[1];
+		const locale = detectLocale(request);
+		const newUrl = request.nextUrl.clone();
+		newUrl.pathname = `/${locale}/reports/${reportId}`;
+		return NextResponse.redirect(newUrl);
 	}
 
 	// Priority 1: Check for locale in URL params (from Mercury embedding)

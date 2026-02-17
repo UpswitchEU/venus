@@ -46,14 +46,16 @@
 |------|--------|
 | Left panel | Fixed, layout persistence, min 25%, max 50%, `collapsible={false}` |
 | Drag-to-resize | ResizableHandle with `withHandle`, `cursor-col-resize`, `hover:bg-primary/20` |
-| Animations | `springDefault` for panel transitions, ContextBar, ChatAssistantDrawer |
+| Animations | `springDefault` + Aurora spring easing (`cubic-bezier(0.34, 1.56, 0.64, 1)`) for panel transitions, fade-in, slide-in, scale-in |
 | Avatar | `user.avatar_url`/`user.avatar`, initials from `user.name`, Mercury/Titan |
 | Logout | Redirects to Mercury login with `returnUrl` |
 | Account settings | Mercury `/{locale}/accountant/settings` |
 | ContextBar | Client/business links to Mercury |
-| Locale | `useLocale()`, `LocaleHtmlSync`, Dutch `/nl/` |
+| Locale | `useLocale()`, `LocaleHtmlSync`, Dutch `/nl/`, `/calculate` → `/{locale}/reports/new` |
 | Toasts | Sonner Toaster, Aurora styling |
 | Keyboard | Escape, Cmd/Ctrl+K |
+| /calculate, /calculator | Clarity parity: `/{locale}/calculate`, `/{locale}/calculator`, `/calculate`, `/calculator` → new report |
+| 404 page | Aurora design tokens, locale-aware links (en/nl from path) |
 
 ---
 

@@ -253,11 +253,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const isMobile = useIsMobile()
 
   // Panel layout persistence with validation (fixes collapsed left panel)
+  // react-resizable-panels expects defaultLayout as Layout (Record<panelId, number>)
   const LAYOUT_KEY = 'venus-calculator-layout-v2'
   const MIN_LEFT_PANEL = 15
-  const PANEL_IDS = ['venus-left-panel', 'venus-right-panel']
+  const PANEL_IDS = ['venus-left-panel', 'venus-right-panel'] as const
   const DEFAULT_LAYOUT = { [PANEL_IDS[0]]: 35, [PANEL_IDS[1]]: 65 }
-  const [savedLayout, setSavedLayout] = useState<typeof DEFAULT_LAYOUT | null>(() => {
+  const [savedLayout, setSavedLayout] = useState<Record<string, number> | null>(() => {
     if (typeof window === 'undefined') return null
     try {
       const raw = localStorage.getItem(LAYOUT_KEY)
@@ -269,7 +270,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         localStorage.removeItem(LAYOUT_KEY)
         return null
       }
-      return layout
+      return layout && typeof layout === 'object' ? layout : null
     } catch {
       return null
     }
@@ -277,8 +278,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const defaultLayout = savedLayout ?? DEFAULT_LAYOUT
   const handleLayoutChanged = useCallback((layout: Record<string, number>) => {
     try {
-      localStorage.setItem(LAYOUT_KEY, JSON.stringify({ layout }))
-      setSavedLayout(layout)
+      const leftSize = layout?.[PANEL_IDS[0]]
+      if (typeof leftSize === 'number' && leftSize >= MIN_LEFT_PANEL) {
+        localStorage.setItem(LAYOUT_KEY, JSON.stringify({ layout }))
+        setSavedLayout(layout)
+      }
     } catch {}
   }, [])
 
@@ -287,6 +291,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     try {
       localStorage.removeItem('venus-calculator-panels')
       localStorage.removeItem('upswitch-panel-width')
+      // Clear layout if it has wrong structure (array instead of object keyed by panel id)
+      const raw = localStorage.getItem(LAYOUT_KEY)
+      if (raw) {
+        try {
+          const data = JSON.parse(raw)
+          const layout = data?.layout
+          if (Array.isArray(layout) || (layout && !layout[PANEL_IDS[0]])) {
+            localStorage.removeItem(LAYOUT_KEY)
+          }
+        } catch {
+          localStorage.removeItem(LAYOUT_KEY)
+        }
+      }
     } catch {}
   }, [])
 
@@ -1353,8 +1370,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onShowHistory={handleShowHistory}
         hasReport={!!report}
         rightPanelView={rightPanelView}
-        userName={user?.email || t('guest')}
-        userInitials={(user?.email?.[0] || 'G').toUpperCase()}
+        userName={user?.name || user?.email || t('guest')}
+        userInitials={getUserInitials(user)}
+        avatarUrl={user?.avatar_url || user?.avatar}
         onOpenAssistant={handleOpenAssistant}
         isAssistantOpen={chatDrawerOpen}
         onOpenNormalization={() => setShowUnifiedNormalizationModal(true)}

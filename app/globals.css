@@ -40,7 +40,7 @@
 }
 
 .bot-avatar {
-  animation: fadeInUp 0.3s ease-out;
+  animation: fadeInUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Typing Indicator Animation */
@@ -103,7 +103,7 @@
 
 @layer components {
   .gradient-primary {
-    @apply bg-gradient-to-r from-primary-600 to-primary-500;
+    @apply bg-gradient-to-r from-primary to-primary/90;
   }
 
   .gradient-hero {
@@ -131,13 +131,13 @@
     ring: none !important;
   }
 
-  /* Data collection animations — aligned with Aurora */
+  /* Data collection animations — aligned with Aurora spring */
   .data-collected-item {
-    animation: slideInUp 0.3s ease-out;
+    animation: slideInUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .valuation-preview-item {
-    animation: fadeInUp 0.5s ease-out;
+    animation: fadeInUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .progress-bar-animation {

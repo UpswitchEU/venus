@@ -656,10 +656,12 @@
     },
     "notFound": {
       "title": "Niet Gevonden",
-      "description": "De pagina die u zoekt bestaat niet",
+      "pageNotFound": "Pagina niet gevonden",
+      "description": "Sorry, de pagina die u zoekt bestaat niet of is verplaatst.",
       "report": "Rapport niet gevonden",
       "valuation": "Waardering niet gevonden",
-      "goHome": "Ga naar startpagina"
+      "goHome": "Ga naar Home",
+      "startValuation": "Start waardering"
     },
     "serverError": {
       "title": "Serverfout",

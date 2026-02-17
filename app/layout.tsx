@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { ViewTransitions } from 'next-view-transitions'
+import { getLocale } from 'next-intl/server'
 import './globals.css'
-import { locales } from '../i18n'
+import { locales, defaultLocale, type Locale } from '../i18n'
 import { Providers } from './providers'
 
 export function generateStaticParams() {
@@ -73,10 +74,18 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  let locale: Locale = defaultLocale
+  try {
+    const resolved = await getLocale()
+    locale = locales.includes(resolved as Locale) ? (resolved as Locale) : defaultLocale
+  } catch {
+    // getLocale can fail outside request context; use default
+  }
+
   return (
     <ViewTransitions>
-      <html suppressHydrationWarning className="aurora-theme dark">
+      <html lang={locale} suppressHydrationWarning className="aurora-theme dark">
       <head>
         {/* ✅ FIX: Use manual meta tag for viewport to support Next.js 13.5.6 */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
