@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { Toaster } from 'sonner'
 import { LogoutListener } from '../src/components/LogoutListener'
 import { ScrollToTop } from '../src/utils'
 import { ToastProvider } from '../src/hooks/useToast'
@@ -48,6 +49,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <LogoutListener />
       <ScrollToTop />
       {children}
+      <Toaster
+        position="bottom-right"
+        theme="dark"
+        toastOptions={{
+          classNames: {
+            toast: 'bg-card border border-foreground/10 shadow-lg',
+            title: 'text-foreground',
+            description: 'text-foreground/70',
+          },
+        }}
+      />
     </ToastProvider>
   )
 }

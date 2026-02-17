@@ -8,6 +8,7 @@
  */
 
 import { motion } from 'framer-motion';
+import { springDefault } from '@/design-system/components/motion';
 import { Building2, User, Clock, Check, ChevronRight, UserCheck, Send } from 'lucide-react';
 import { cn } from '@/design-system/utils';
 
@@ -52,6 +53,7 @@ export function ContextBar({
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={springDefault}
       className={cn(
         "flex items-center justify-between px-4 py-2",
         "bg-foreground/[0.02] border-b border-foreground/[0.06]"

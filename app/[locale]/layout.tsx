@@ -8,6 +8,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
 import { type Locale, locales } from '../../i18n'
 import { ClientContextBanner } from '../../src/components/ClientContextBanner'
+import { LocaleHtmlSync } from '../../src/components/LocaleHtmlSync'
 
 interface LocaleLayoutProps {
   children: React.ReactNode
@@ -149,6 +150,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
 
   return (
     <NextIntlClientProvider locale={validLocale} messages={messages}>
+      <LocaleHtmlSync locale={validLocale} />
       <ClientContextBanner />
       {children}
     </NextIntlClientProvider>

@@ -39,7 +39,7 @@ import {
 } from '@/design-system';
 import { useSessionStore } from '@/store/useSessionStore';
 import { useTransitionRouter } from 'next-view-transitions';
-import React from 'react';
+import React, { useState } from 'react';
 
 // ─────────────────────────────────────────
 // TYPES
@@ -83,6 +83,8 @@ export interface CalculatorNavProps {
   rightPanelView?: RightPanelView;
   userName?: string;
   userInitials?: string;
+  /** Avatar URL from Titan/Mercury auth - when set, shows profile image */
+  avatarUrl?: string | null;
   onAccountSettings?: () => void;
   onSwitchWorkspace?: () => void;
   onLogout?: () => void;
@@ -205,6 +207,7 @@ export function CalculatorNav({
   rightPanelView = 'report',
   userName = 'Guest User',
   userInitials = 'GL',
+  avatarUrl,
   onAccountSettings,
   onSwitchWorkspace,
   onLogout,
@@ -227,6 +230,8 @@ export function CalculatorNav({
 }: CalculatorNavProps) {
   const t = useTranslations();
   const router = useTransitionRouter();
+  const [avatarError, setAvatarError] = useState(false);
+  const showAvatar = avatarUrl && !avatarError;
 
   const activeVersion = valuationVersions.find(v => v.id === selectedVersionId) || valuationVersions[0];
   const displaySummary = valuationSummary || (activeVersion ? {
@@ -673,16 +678,24 @@ export function CalculatorNav({
             trigger={
               <button
                 className={cn(
-                  "relative flex items-center justify-center w-8 h-8 rounded-full",
-                  "bg-gradient-to-br from-primary/20 to-primary/10",
-                  "text-primary text-xs font-semibold",
+                  "relative flex items-center justify-center w-8 h-8 rounded-full overflow-hidden",
+                  !showAvatar && "bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-xs font-semibold",
                   "ring-1 ring-foreground/[0.08]",
                   "hover:ring-primary/30 transition-all",
                   "focus:outline-none focus:ring-2 focus:ring-primary/50",
                   "min-h-[44px] min-w-[44px] flex items-center justify-center"
                 )}
               >
-                <span>{userInitials}</span>
+                {showAvatar ? (
+                  <img
+                    src={avatarUrl}
+                    alt={userName}
+                    className="w-full h-full object-cover"
+                    onError={() => setAvatarError(true)}
+                  />
+                ) : (
+                  <span>{userInitials}</span>
+                )}
               </button>
             }
             align="end"

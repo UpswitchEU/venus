@@ -25,7 +25,7 @@
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react'
 import { useTransitionRouter } from 'next-view-transitions'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -93,6 +93,14 @@ interface CollectedData {
   yearFounded?: string
   ownerManagers?: number
   equityStake?: number
+}
+
+/** Compute display initials from user name (Titan/Mercury profile) */
+function getUserInitials(user: { name?: string; email?: string } | null): string {
+  if (!user?.name) return (user?.email?.[0] || 'G').toUpperCase()
+  const names = user.name.trim().split(/\s+/)
+  if (names.length >= 2) return `${names[0][0]}${names[1][0]}`.toUpperCase()
+  return user.name.substring(0, 2).toUpperCase()
 }
 
 // ─────────────────────────────────────────
@@ -244,6 +252,44 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const t = useTranslations('toast')
   const isMobile = useIsMobile()
 
+  // Panel layout persistence with validation (fixes collapsed left panel)
+  const LAYOUT_KEY = 'venus-calculator-layout-v2'
+  const MIN_LEFT_PANEL = 15
+  const PANEL_IDS = ['venus-left-panel', 'venus-right-panel']
+  const DEFAULT_LAYOUT = { [PANEL_IDS[0]]: 35, [PANEL_IDS[1]]: 65 }
+  const [savedLayout, setSavedLayout] = useState<typeof DEFAULT_LAYOUT | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const raw = localStorage.getItem(LAYOUT_KEY)
+      if (!raw) return null
+      const data = JSON.parse(raw)
+      const layout = data?.layout
+      const leftSize = layout?.[PANEL_IDS[0]]
+      if (typeof leftSize === 'number' && leftSize < MIN_LEFT_PANEL) {
+        localStorage.removeItem(LAYOUT_KEY)
+        return null
+      }
+      return layout
+    } catch {
+      return null
+    }
+  })
+  const defaultLayout = savedLayout ?? DEFAULT_LAYOUT
+  const handleLayoutChanged = useCallback((layout: Record<string, number>) => {
+    try {
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify({ layout }))
+      setSavedLayout(layout)
+    } catch {}
+  }, [])
+
+  // One-time migration: clear legacy/corrupted layout keys
+  useEffect(() => {
+    try {
+      localStorage.removeItem('venus-calculator-panels')
+      localStorage.removeItem('upswitch-panel-width')
+    } catch {}
+  }, [])
+
   // Provide i18n for normalization store toasts (store cannot use hooks)
   useEffect(() => {
     setNormalizationToastMessages((key) => t(key))
@@ -269,6 +315,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Accountant Mode Detection (hooks must be before any early returns) ───
   const [isAccountantMode, setIsAccountantMode] = useState(false)
   const [clientContextName, setClientContextName] = useState<string | undefined>(undefined)
+  const [clientContextId, setClientContextId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     // Detect accountant mode from client context store
@@ -277,6 +324,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (ctx.isActingAsClient && ctx.client) {
         setIsAccountantMode(true)
         setClientContextName(ctx.client.fullName || ctx.client.email || undefined)
+        setClientContextId(ctx.client.id)
       }
     }).catch(() => {
       // Non-critical
@@ -879,11 +927,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [recentValuations, setRecentValuations] = useState<Array<{ id: string; companyName: string; updatedAt: Date; isDraft?: boolean }>>([])
 
   useEffect(() => {
-    // Load recent valuations from reports API
+    // Load recent valuations from reports API (proxies to Titan)
     fetch('/api/reports?limit=5&offset=0', { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : { reports: [] }))
       .then((data) => {
-        const reports = data.reports || data.data || []
+        const reports = data.reports || data.data || data.items || []
         setRecentValuations(
           reports.slice(0, 5).map((r: any) => ({
             id: r.id || r.reportId,
@@ -898,10 +946,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
   }, [])
 
-  // Derive locale from current path (e.g. /nl/reports/... → nl)
-  const currentLocale = typeof window !== 'undefined'
-    ? (window.location.pathname.split('/')[1] || 'nl')
-    : 'nl'
+  const currentLocale = useLocale()
 
   const handleNewValuation = useCallback(() => {
     router.push(`/${currentLocale}/reports/new`)
@@ -917,11 +962,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleLogout = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
-      router.push(`/${currentLocale}`)
+      // Redirect to Mercury login (Venus uses Titan auth; accountants enter from Mercury)
+      const mercuryBaseUrl = getMercuryUrl()
+      window.location.href = `${mercuryBaseUrl}/${currentLocale}/auth/login?returnUrl=${encodeURIComponent(window.location.origin + `/${currentLocale}/reports/new`)}`
     } catch {
-      router.push(`/${currentLocale}`)
+      const mercuryBaseUrl = getMercuryUrl()
+      window.location.href = `${mercuryBaseUrl}/${currentLocale}`
     }
-  }, [router, currentLocale])
+  }, [currentLocale])
 
   const handleAccountSettings = useCallback(() => {
     // Settings page lives in Mercury (cross-app navigation)
@@ -1258,8 +1306,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onShowHistory={handleShowHistory}
           hasReport={!!report}
           rightPanelView={rightPanelView}
-          userName={user?.email || t('guest')}
-          userInitials={(user?.email?.[0] || 'G').toUpperCase()}
+          userName={user?.name || user?.email || t('guest')}
+          userInitials={getUserInitials(user)}
+          avatarUrl={user?.avatar_url || user?.avatar}
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
           onOpenNormalization={() => setShowUnifiedNormalizationModal(true)}
@@ -1355,14 +1404,37 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           lastSaved={lastSaved}
           pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending' as any).length}
           onShowNormalisationReview={handleShowNormalisationReview}
+          onClientClick={
+            clientContextId
+              ? () => {
+                  const mercuryBaseUrl = getMercuryUrl()
+                  window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+                }
+              : undefined
+          }
+          onBusinessClick={
+            clientContextId
+              ? () => {
+                  const mercuryBaseUrl = getMercuryUrl()
+                  window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/clients/${clientContextId}/valuations`
+                }
+              : undefined
+          }
         />
       )}
 
       {/* Main Content: Resizable Panels */}
       <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
-        <ResizablePanelGroup orientation="horizontal" className="h-full w-full" id="venus-calculator-panels">
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="h-full w-full"
+          id="venus-calculator-layout-v2"
+          defaultLayout={defaultLayout}
+          onLayoutChanged={handleLayoutChanged}
+          resizeTargetMinimumSize={{ coarse: 28, fine: 24 }}
+        >
           {/* Left Panel: ManualInput or NormalizationHub */}
-          <ResizablePanel defaultSize={35} minSize={25} maxSize={50} collapsible={false}>
+          <ResizablePanel id="venus-left-panel" defaultSize={35} minSize={25} maxSize={50} collapsible={false}>
             <AnimatePresence mode="wait">
               {leftPanelView === 'normalization-hub' ? (
                 <motion.div
@@ -1408,7 +1480,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           />
 
           {/* Right Panel: Report / Preview / History */}
-          <ResizablePanel defaultSize={65} minSize={40} collapsible={false}>
+          <ResizablePanel id="venus-right-panel" defaultSize={65} minSize={40} collapsible={false}>
             <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">
