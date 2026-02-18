@@ -78,6 +78,8 @@ interface SessionDataForPrefill {
   legal_form?: string;
   city?: string;
   postal_code?: string;
+  nace_code?: string;
+  nace_description?: string;
   year_data?: Record<number, { revenue?: number; ebitda?: number }>;
   _businessInfo?: Record<string, unknown>;
 }
@@ -398,6 +400,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       postalCode: merged.postal_code as string,
       countryCode: merged.country_code as string,
       foundingYear: merged.founding_year as number,
+      naceCode: merged.nace_code as string,
+      naceDescription: merged.nace_description as string,
     };
 
     const financials: PartialFinancials = {

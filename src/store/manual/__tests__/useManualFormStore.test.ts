@@ -86,6 +86,16 @@ describe('useManualFormStore', () => {
       expect(result.current.formData.ebitda).toBe(100000)
     })
 
+    it('should update business_type_id for business type dropdown', () => {
+      const { result } = renderHook(() => useManualFormStore())
+
+      act(() => {
+        result.current.updateFormData({ business_type_id: 'restaurant' })
+      })
+
+      expect(result.current.formData.business_type_id).toBe('restaurant')
+    })
+
     it('should preserve existing fields when updating', () => {
       const { result } = renderHook(() => useManualFormStore())
 

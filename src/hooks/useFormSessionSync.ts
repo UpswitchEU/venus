@@ -50,6 +50,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       'industry',
       'business_model',
       'founding_year',
+      'business_type_id',
     ]
 
     for (const field of keyFields) {

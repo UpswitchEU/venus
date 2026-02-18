@@ -19,6 +19,7 @@ import {
   Check, 
   Link2, 
   ChevronDown,
+  ChevronRight,
   X,
   Plus,
   Building2,
@@ -399,13 +400,26 @@ export function ManualInputPanel({
   // Business types from Titan API (instead of hardcoded)
   const { businessTypes } = useBusinessTypes();
   const businessTypesForSearch = useMemo((): BusinessType[] => {
-    return businessTypes.map((bt) => ({
-      id: bt.id,
-      code: bt.industryMapping || bt.id,
-      name: bt.title,
-      category: bt.category || 'other',
-      icon: categoryIcons[bt.category] ?? categoryIcons['other'] ?? Building2,
-    }));
+    const apiCategoryToIconKey: Record<string, string> = {
+      restaurant: 'food',
+      restaurants: 'food',
+      horeca: 'hospitality',
+      catering: 'food',
+      professional: 'consulting',
+      professionals: 'consulting',
+    };
+    return businessTypes.map((bt) => {
+      const rawCategory = (bt.category || 'other').toLowerCase().replace(/\s+/g, '-');
+      const iconKey = apiCategoryToIconKey[rawCategory] ?? rawCategory;
+      const category = categoryIcons[iconKey] ? iconKey : 'other';
+      return {
+        id: bt.id,
+        code: bt.industryMapping || bt.id,
+        name: bt.title,
+        category,
+        icon: categoryIcons[iconKey] ?? categoryIcons['other'] ?? Building2,
+      };
+    });
   }, [businessTypes]);
 
   const updateField = <K extends keyof ValuationFormData>(
@@ -533,7 +547,9 @@ export function ManualInputPanel({
       companyName: company.name,
       kboNumber: company.kboNumber,
       legalForm: company.legalForm,
-      address: `${company.address}, ${company.postalCode} ${company.city}`,
+      address: company.postalCode && !company.address.includes(company.postalCode)
+        ? `${company.address}, ${company.postalCode} ${company.city}`
+        : company.address,
       naceCode: company.naceCode || '',
       naceDescription: company.naceDescription || '',
       businessStructure: company.legalForm.toLowerCase() === 'bv' ? 'bv' 
@@ -578,13 +594,13 @@ export function ManualInputPanel({
   // Check if core fields are filled
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0;
   const hasBusinessType = !!selectedBusinessType || formData.businessType.length > 0;
-  const hasFinancials = formData.yearlyFinancials.some(yf => yf.revenue > 0 && yf.ebitda > 0);
+  const hasFinancials = formData.yearlyFinancials.some(yf => yf.revenue > 0 && yf.ebitda !== 0);
   const { canSave, reason: canSaveReason } = useCanSave();
   const canSubmit = hasCompanyInfo && hasBusinessType && hasFinancials && canSave;
 
   // Field-level: detect partially filled years (has one of revenue/ebitda but not both)
   const partialYears = formData.yearlyFinancials
-    .filter(yf => (yf.revenue > 0 && yf.ebitda <= 0) || (yf.ebitda > 0 && yf.revenue <= 0))
+    .filter(yf => (yf.revenue > 0 && yf.ebitda === 0) || (yf.ebitda !== 0 && yf.revenue <= 0))
     .map(yf => yf.year);
 
   // Get current year normalizations for display
@@ -629,40 +645,44 @@ export function ManualInputPanel({
             
             {/* Quick Actions moved to right panel for better UX */}
             
-            {/* Step 0: Integration CTA - Show when no integration connected and not dismissed (Coming soon, match Mercury design) */}
+            {/* Step 0: Integration CTA */}
             <AnimatePresence>
               {!connectedIntegration && !hideUploadHint && (
                 <motion.section
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                  className="rounded-xl p-4 bg-foreground/[0.03] border border-foreground/[0.08]"
+                  className="rounded-xl p-4 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 relative"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-foreground/[0.06] flex items-center justify-center shrink-0">
-                      <Link2 className="w-5 h-5 text-foreground/50" />
+                  <button
+                    type="button"
+                    onClick={() => setHideUploadHint(true)}
+                    className="absolute top-2 right-2 p-1.5 rounded-lg text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
+                    aria-label={t('common.actions.close')}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+
+                  <div className="flex items-start gap-3 pr-6">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Link2 className="w-5 h-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-semibold text-foreground">
-                          {mi('uploadHint.title')}
-                        </h3>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-foreground/10 text-foreground/60 border border-foreground/[0.08]">
-                          {mi('uploadHint.comingSoon')}
-                        </span>
-                      </div>
-                      <p className="text-xs text-foreground/50">
+                      <h3 className="text-sm font-semibold text-foreground mb-1">
+                        {mi('uploadHint.title')}
+                      </h3>
+                      <p className="text-xs text-foreground/60 mb-3">
                         {mi('uploadHint.description')}
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowConnectModal(true)}
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                      >
+                        {mi('uploadHint.action')}
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setHideUploadHint(true)}
-                      className="p-1 rounded-lg hover:bg-foreground/[0.05] transition-colors shrink-0"
-                      aria-label={t('common.actions.close')}
-                    >
-                      <X className="w-4 h-4 text-foreground/40" />
-                    </button>
                   </div>
                 </motion.section>
               )}

@@ -29,6 +29,7 @@ import { toast } from 'sonner'
 
 // Venus infrastructure (auth, session, stores, services)
 import { useAuth } from '../../../hooks/useAuth'
+import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
@@ -217,7 +218,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.naceCode && { nace_code: data.naceCode }),
     ...(data.naceDescription && { nace_description: data.naceDescription }),
     ...(data.legalForm && { legal_form: data.legalForm }),
-    ...(data.businessTypeCode && { business_type_id: data.businessTypeCode }),
+    ...((data.businessType || data.businessTypeCode) && { business_type_id: data.businessType || data.businessTypeCode }),
   }
 }
 
@@ -279,6 +280,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // Venus infrastructure
   const { user } = useAuth()
+  const { identity, isAccountantFlow } = useBootstrap()
   useBootstrapSync()
 
   const { isCalculating, error, result, trySetCalculating, setCalculating, setResult } = useManualResultsStore()
@@ -373,7 +375,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Collected Data (bi-directional sync) ───
   const formCompanyName = useManualFormStore((s) => s.formData.company_name)
-  const formBusinessType = useManualFormStore((s) => s.formData.business_type)
+  const formBusinessTypeId = useManualFormStore((s) => s.formData.business_type_id)
   const formIndustry = useManualFormStore((s) => s.formData.industry)
   const formCountry = useManualFormStore((s) => s.formData.country_code)
   const formYearFounded = useManualFormStore((s) => s.formData.founding_year)
@@ -390,7 +392,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     legalForm: formLegalForm || '',
     naceCode: formNaceCode || '',
     naceDescription: formNaceDescription || '',
-    businessType: formBusinessType || '',
+    businessType: formBusinessTypeId || '',
     industry: formIndustry || '',
     country: formCountry || 'BE',
     yearFounded: formYearFounded ? String(formYearFounded) : '',
@@ -403,7 +405,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setCollectedData((prev) => {
       const next = { ...prev }
       if (companyName && companyName !== prev.companyName) next.companyName = companyName
-      if (formBusinessType && formBusinessType !== prev.businessType) next.businessType = formBusinessType
+      if ((formBusinessTypeId ?? '') !== prev.businessType) next.businessType = formBusinessTypeId ?? ''
       if (formIndustry && formIndustry !== prev.industry) next.industry = formIndustry
       if (formCountry && formCountry !== prev.country) next.country = formCountry
       const yearStr = formYearFounded ? String(formYearFounded) : ''
@@ -414,7 +416,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (formNaceDescription && formNaceDescription !== prev.naceDescription) next.naceDescription = formNaceDescription
       return next
     })
-  }, [companyName, formBusinessType, formIndustry, formCountry, formYearFounded, formKboNumber, formLegalForm, formNaceCode, formNaceDescription])
+  }, [companyName, formBusinessTypeId, formIndustry, formCountry, formYearFounded, formKboNumber, formLegalForm, formNaceCode, formNaceDescription])
+
+  // Display name for top-left dropdown: collectedData > client context (accountant) > fallback
+  const displayCompanyName =
+    collectedData.companyName?.trim() ||
+    (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim()) ||
+    t('newEstimation')
 
   // Enable auto-persist for normalization store
   useEffect(() => {
@@ -696,13 +704,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Chat Handlers (bi-directional sync) ───
   const handleApplyFieldUpdate = useCallback((field: string, value: any) => {
-    setCollectedData((prev) => ({ ...prev, [field]: value }))
+    const dataKey = field === 'business_type_id' ? 'businessType' : field
+    setCollectedData((prev) => ({ ...prev, [dataKey]: value }))
+    // Sync businessType to form store (business_type_id) so form store stays in sync
+    if ((field === 'businessType' || field === 'business_type_id') && typeof value === 'string') {
+      updateFormData({ business_type_id: value })
+    }
     toast.success(t('fieldUpdated', { field, value: typeof value === 'number' ? `€${value.toLocaleString('nl-BE')}` : String(value) }))
     setChatMessages((prev) => [
       ...prev,
       { id: crypto.randomUUID(), role: 'system' as const, content: t('fieldApplied', { field }), timestamp: new Date() },
     ])
-  }, [])
+  }, [updateFormData])
 
   const handleChatMessage = useCallback(
     async (content: string, attachments?: File[], detectedValues?: any[], parsedCommands?: any[]) => {
@@ -995,8 +1008,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [])
 
   const handleNewValuation = useCallback(() => {
-    router.push(`/${currentLocale}/reports/new`)
-  }, [router, currentLocale])
+    const prefilled =
+      collectedData.companyName?.trim() ||
+      (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim())
+    const url = `/${currentLocale}/reports/new`
+    if (prefilled) {
+      router.push(`${url}?prefilledQuery=${encodeURIComponent(prefilled)}`)
+    } else {
+      router.push(url)
+    }
+  }, [
+    router,
+    currentLocale,
+    collectedData.companyName,
+    isAccountantFlow,
+    identity.clientContext?.clientCompanyName,
+  ])
 
   const handleSelectValuation = useCallback(
     (id: string) => {
@@ -1348,7 +1375,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   return (
       <div className="aurora-theme flex flex-col h-[100dvh] bg-background">
         <CalculatorNav
-          companyName={collectedData.companyName || t('newEstimation')}
+          companyName={displayCompanyName}
           onBack={handleBack}
           onDownload={handleExport}
           onPreview={handlePreview}
@@ -1397,7 +1424,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   return (
     <div className="aurora-theme flex flex-col h-screen bg-background overflow-hidden">
       <CalculatorNav
-        companyName={collectedData.companyName || t('newEstimation')}
+        companyName={displayCompanyName}
         onBack={handleBack}
         onDownload={handleExport}
         onFullscreen={handleFullscreen}
