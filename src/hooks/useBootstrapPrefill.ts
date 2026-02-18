@@ -94,6 +94,11 @@ export function useBootstrapPrefill(): {
     
     // Get current report ID to track which report we've prefilled
     const currentReportId = bootstrap.report.reportId;
+
+    // Reset prefill state when navigating to a different report (enables prefill for new report)
+    if (currentReportId && currentReportId !== globalPrefillReportId) {
+      resetBootstrapPrefillState();
+    }
     
     // Skip if already prefilled for THIS report (prevents re-prefill on re-mount)
     if (globalPrefillApplied && globalPrefillReportId === currentReportId) {

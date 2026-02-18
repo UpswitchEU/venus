@@ -219,7 +219,7 @@ export function useSessionDataPrefill() {
     if (mergedData.nace_code) updates.nace_code = mergedData.nace_code
     if (mergedData.nace_description) updates.nace_description = mergedData.nace_description
 
-    // business_context for KBO preview card
+    // business_context for KBO preview card (KBO fields extend ValuationRequest.business_context)
     if (mergedData.kbo_number) {
       updates.business_context = {
         kbo_registration: mergedData.kbo_number,
@@ -229,7 +229,7 @@ export function useSessionDataPrefill() {
         company_address: [mergedData.postal_code, mergedData.city].filter(Boolean).join(' '),
         company_status: 'Active',
         kbo_verified: true,
-      }
+      } as any
     }
 
     // Revenue prefill from latest valuation or current year data

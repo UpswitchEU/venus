@@ -148,13 +148,15 @@ function syncSession(state: SessionBootstrapState): void {
         reportId: report.reportId.substring(0, 20),
       });
 
-      // If bootstrap has prefill data, merge it into session
-      if (prefillData.confidence > 0 && prefillData.companyInfo) {
+      // If bootstrap has prefill data, merge it into session and hydrate form store
+      if (prefillData.confidence >= 0.05 && (prefillData.companyInfo || prefillData.kboData)) {
         const currentSession = sessionStore.session!;
         const currentSessionData = currentSession.sessionData || {};
-        
-        // Only update if session doesn't already have this data
-        if (!currentSessionData.company_name && prefillData.companyInfo.companyName) {
+        const formStore = useManualFormStore.getState();
+        const formHasData = !!(formStore.formData.company_name?.trim() || formStore.formData.kbo_number);
+
+        // Update session if it doesn't already have this data
+        if (!currentSessionData.company_name && prefillData.companyInfo?.companyName) {
           const updatedSessionData = {
             ...currentSessionData,
             company_name: prefillData.companyInfo.companyName,
@@ -163,16 +165,57 @@ function syncSession(state: SessionBootstrapState): void {
             founding_year: prefillData.companyInfo.foundingYear,
             _bootstrapPrefill: true,
           };
-          
+
           sessionStore.updateSession({
             ...currentSession,
             sessionData: updatedSessionData,
           });
-          
+
           logger.info('Updated session with bootstrap prefill data', {
             reportId: report.reportId.substring(0, 20),
             fieldsAdded: prefillData.fieldsPopulated.length,
           });
+        }
+
+        // Hydrate form store when form is empty but we have prefill (e.g. re-render before first paint)
+        if (!formHasData) {
+          const formDataUpdate: Record<string, unknown> = {};
+          if (prefillData.companyInfo?.companyName) formDataUpdate.company_name = prefillData.companyInfo.companyName;
+          if (prefillData.companyInfo?.countryCode) formDataUpdate.country_code = prefillData.companyInfo.countryCode;
+          if (prefillData.companyInfo?.foundingYear) formDataUpdate.founding_year = prefillData.companyInfo.foundingYear;
+          if (prefillData.companyInfo?.kboNumber) formDataUpdate.kbo_number = prefillData.companyInfo.kboNumber;
+          if (prefillData.companyInfo?.vatNumber) formDataUpdate.vat_number = prefillData.companyInfo.vatNumber;
+          if (prefillData.companyInfo?.legalForm) formDataUpdate.legal_form = prefillData.companyInfo.legalForm;
+          if (prefillData.companyInfo?.city) formDataUpdate.city = prefillData.companyInfo.city;
+          if (prefillData.companyInfo?.postalCode) formDataUpdate.postal_code = prefillData.companyInfo.postalCode;
+          if (prefillData.companyInfo?.naceCode) formDataUpdate.nace_code = prefillData.companyInfo.naceCode;
+          if (prefillData.companyInfo?.naceDescription) formDataUpdate.nace_description = prefillData.companyInfo.naceDescription;
+          if (prefillData.businessType?.id) formDataUpdate.business_type_id = prefillData.businessType.id;
+          if (prefillData.businessType?.industry) formDataUpdate.industry = prefillData.businessType.industry;
+          if (prefillData.financials?.revenue !== undefined) formDataUpdate.revenue = prefillData.financials.revenue;
+          if (prefillData.financials?.ebitda !== undefined) formDataUpdate.ebitda = prefillData.financials.ebitda;
+          if (prefillData.financials?.employeeCount !== undefined) formDataUpdate.number_of_employees = prefillData.financials.employeeCount;
+          const kboNum = prefillData.companyInfo?.kboNumber || prefillData.kboData?.kboNumber;
+          if (kboNum) {
+            formDataUpdate.business_context = {
+              kbo_registration: kboNum,
+              kbo_registration_number: kboNum,
+              legal_form: prefillData.companyInfo?.legalForm || prefillData.kboData?.legalForm,
+              company_id: kboNum,
+              company_address: [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city]
+                .filter(Boolean)
+                .join(' '),
+              company_status: 'Active',
+              kbo_verified: true,
+            };
+          }
+          if (Object.keys(formDataUpdate).length > 0) {
+            useManualFormStore.getState().updateFormData(formDataUpdate as any);
+            logger.info('Hydrated form store (session already in store, form was empty)', {
+              reportId: report.reportId.substring(0, 20),
+              formFieldsCount: Object.keys(formDataUpdate).length,
+            });
+          }
         }
       }
     } else if (report.mode === 'new') {
@@ -242,6 +285,47 @@ function syncSession(state: SessionBootstrapState): void {
         };
         
         sessionStore.updateSession(minimalSession);
+
+        // MERCURY FIX: Hydrate form store for new reports - form reads from useManualFormStore, not session store
+        if (prefillData.confidence >= 0.05) {
+          const formDataUpdate: Record<string, unknown> = {};
+          if (prefillData.companyInfo?.companyName) formDataUpdate.company_name = prefillData.companyInfo.companyName;
+          if (prefillData.companyInfo?.countryCode) formDataUpdate.country_code = prefillData.companyInfo.countryCode;
+          if (prefillData.companyInfo?.foundingYear) formDataUpdate.founding_year = prefillData.companyInfo.foundingYear;
+          if (prefillData.companyInfo?.kboNumber) formDataUpdate.kbo_number = prefillData.companyInfo.kboNumber;
+          if (prefillData.companyInfo?.vatNumber) formDataUpdate.vat_number = prefillData.companyInfo.vatNumber;
+          if (prefillData.companyInfo?.legalForm) formDataUpdate.legal_form = prefillData.companyInfo.legalForm;
+          if (prefillData.companyInfo?.city) formDataUpdate.city = prefillData.companyInfo.city;
+          if (prefillData.companyInfo?.postalCode) formDataUpdate.postal_code = prefillData.companyInfo.postalCode;
+          if (prefillData.companyInfo?.naceCode) formDataUpdate.nace_code = prefillData.companyInfo.naceCode;
+          if (prefillData.companyInfo?.naceDescription) formDataUpdate.nace_description = prefillData.companyInfo.naceDescription;
+          if (prefillData.businessType?.id) formDataUpdate.business_type_id = prefillData.businessType.id;
+          if (prefillData.businessType?.industry) formDataUpdate.industry = prefillData.businessType.industry;
+          if (prefillData.financials?.revenue !== undefined) formDataUpdate.revenue = prefillData.financials.revenue;
+          if (prefillData.financials?.ebitda !== undefined) formDataUpdate.ebitda = prefillData.financials.ebitda;
+          if (prefillData.financials?.employeeCount !== undefined) formDataUpdate.number_of_employees = prefillData.financials.employeeCount;
+          const kboNum = prefillData.companyInfo?.kboNumber || prefillData.kboData?.kboNumber;
+          if (kboNum) {
+            formDataUpdate.business_context = {
+              kbo_registration: kboNum,
+              kbo_registration_number: kboNum,
+              legal_form: prefillData.companyInfo?.legalForm || prefillData.kboData?.legalForm,
+              company_id: kboNum,
+              company_address: [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city]
+                .filter(Boolean)
+                .join(' '),
+              company_status: 'Active',
+              kbo_verified: true,
+            };
+          }
+          if (Object.keys(formDataUpdate).length > 0) {
+            useManualFormStore.getState().updateFormData(formDataUpdate as any);
+            logger.info('Hydrated form store from bootstrap prefill (new report)', {
+              reportId: report.reportId.substring(0, 20),
+              formFieldsCount: Object.keys(formDataUpdate).length,
+            });
+          }
+        }
         
         logger.info('Created minimal session for new report from bootstrap', {
           reportId: report.reportId.substring(0, 20),
