@@ -1,5 +1,6 @@
 import containerQueries from '@tailwindcss/container-queries'
 import forms from '@tailwindcss/forms'
+import typography from '@tailwindcss/typography'
 import type { Config } from 'tailwindcss'
 import { hybridAuroraPreset } from './src/design-system/tailwind.preset'
 
@@ -296,6 +297,7 @@ const config: Config = {
   plugins: [
     containerQueries,
     forms,
+    typography,
   ],
 }
 

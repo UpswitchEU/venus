@@ -13,6 +13,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { 
   X, 
   Send,
@@ -22,7 +23,12 @@ import {
   Loader2,
   ChevronRight,
   Check,
-  Bot
+  Bot,
+  Copy,
+  CheckCheck,
+  RotateCcw,
+  MessageSquarePlus,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/design-system/utils';
 import { springDefault } from '@/design-system/components/motion';
@@ -284,6 +290,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+  isError?: boolean;
   attachments?: { name: string; type: string; url: string }[];
   // YC-Standard: Structured cards with impact framing
   fieldUpdates?: FieldUpdate[];
@@ -332,6 +339,10 @@ interface ChatAssistantDrawerProps {
   hasUploadedData?: boolean;
   // Tool execution indicator (Claude is fetching data)
   toolInProgress?: string | null;
+  // Retry failed message
+  onRetry?: (messageId: string) => void;
+  // Start a new conversation
+  onNewConversation?: () => void;
 }
 
 // Contextual suggestions based on field (returns translation keys for flexibility)
@@ -376,6 +387,8 @@ export function ChatAssistantDrawer({
   onOpenNormalizationHub,
   hasUploadedData = false,
   toolInProgress,
+  onRetry,
+  onNewConversation,
 }: ChatAssistantDrawerProps) {
   const ca = useTranslations('chatAssistant');
   const [input, setInput] = useState('');
@@ -444,6 +457,22 @@ export function ChatAssistantDrawer({
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
   }, [open]);
+
+  // Global keyboard shortcuts: Escape to close, Cmd+Shift+L for new conversation
+  useEffect(() => {
+    if (!open) return;
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onOpenChange(false);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'l') {
+        e.preventDefault();
+        onNewConversation?.();
+      }
+    };
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [open, onOpenChange, onNewConversation]);
 
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
@@ -546,7 +575,24 @@ export function ChatAssistantDrawer({
                     {ca('openHub')}
                   </AuroraButton>
                 )}
-                {/* Close button - now on the right, centered vertically with proper touch target */}
+                {/* New conversation button */}
+                {onNewConversation && (
+                  <button
+                    onClick={onNewConversation}
+                    className={cn(
+                      "shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg",
+                      "flex items-center justify-center",
+                      "text-foreground/40 hover:text-foreground/70",
+                      "hover:bg-foreground/[0.06] active:bg-foreground/[0.08]",
+                      "transition-colors touch-manipulation"
+                    )}
+                    aria-label={ca('newConversation')}
+                    title={ca('newConversation')}
+                  >
+                    <MessageSquarePlus className="w-5 h-5 sm:w-4 sm:h-4" />
+                  </button>
+                )}
+                {/* Close button */}
                 <button
                   onClick={() => onOpenChange(false)}
                   className={cn(
@@ -619,7 +665,13 @@ export function ChatAssistantDrawer({
             )}
 
             {/* Messages Area - Scrollable with momentum */}
-            <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div
+              className="flex-1 overflow-y-auto overscroll-contain"
+              role="log"
+              aria-live="polite"
+              aria-busy={isGenerating}
+              aria-label={ca('title')}
+            >
               {isEmpty ? (
                 <EmptyState 
                   onSuggestionClick={(text) => setInput(text)} 
@@ -630,14 +682,16 @@ export function ChatAssistantDrawer({
               ) : (
                 <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
                   <AnimatePresence>
-                    {visibleMessages.map((message) => (
+                    {visibleMessages.map((message, idx) => (
                       <MessageBubble 
                         key={message.id} 
                         message={message}
+                        isStreaming={isGenerating && idx === visibleMessages.length - 1 && message.role === 'assistant'}
                         onApplyUpdate={onApplyFieldUpdate}
                         onAcceptNormalisation={onAcceptNormalisation}
                         onRejectNormalisation={onRejectNormalisation}
                         onCommandPillClick={handleCommandPillClick}
+                        onRetry={onRetry}
                       />
                     ))}
                   </AnimatePresence>
@@ -1039,23 +1093,76 @@ const categoryIcons: Record<string, string> = {
   other: '📊',
 };
 
+// Code Block with copy button
+function CodeBlock({ children, className }: { children: React.ReactNode; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const ca = useTranslations('chatAssistant');
+  const lang = className?.replace(/^language-/, '') || '';
+  const codeText = (Array.isArray(children) ? children.map(String).join('') : String(children)).replace(/\n$/, '');
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(codeText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative group/code my-3 rounded-xl overflow-hidden border border-foreground/[0.08]">
+      <div className="flex items-center justify-between px-4 py-2 bg-foreground/[0.06] border-b border-foreground/[0.06]">
+        <span className="text-[11px] font-mono text-foreground/40 uppercase tracking-wider">
+          {lang || 'code'}
+        </span>
+        <button
+          onClick={handleCopy}
+          className={cn(
+            "flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all",
+            copied
+              ? "text-primary bg-primary/10"
+              : "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]"
+          )}
+          aria-label={ca('copyCode')}
+        >
+          {copied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          {copied ? ca('copied') : ca('copy')}
+        </button>
+      </div>
+      <pre className="p-4 overflow-x-auto bg-foreground/[0.03]">
+        <code className="text-sm font-mono text-foreground/80 leading-relaxed">
+          {codeText}
+        </code>
+      </pre>
+    </div>
+  );
+}
+
 // Message Bubble Component
 function MessageBubble({ 
   message,
+  isStreaming = false,
   onApplyUpdate,
   onAcceptNormalisation,
   onRejectNormalisation,
   onCommandPillClick,
+  onRetry,
 }: { 
   message: ChatMessage;
+  isStreaming?: boolean;
   onApplyUpdate?: (field: string, value: any) => void;
   onAcceptNormalisation?: (id: string) => void;
   onRejectNormalisation?: (id: string) => void;
   onCommandPillClick?: (command: string) => void;
+  onRetry?: (messageId: string) => void;
 }) {
   const ca = useTranslations('chatAssistant');
+  const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
+
+  const handleCopyMessage = async () => {
+    await navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   
   if (isSystem) {
     return (
@@ -1075,7 +1182,7 @@ function MessageBubble({
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-      className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}
+      className={cn('flex gap-3 group/msg', isUser ? 'justify-end' : 'justify-start')}
     >
       {/* AI Avatar - Premium minimal design */}
       {!isUser && (
@@ -1136,14 +1243,12 @@ function MessageBubble({
         ) : (
           <div className="prose prose-sm prose-invert max-w-none">
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
-                // Premium typography for headings
                 h1: ({ children }) => <h1 className="text-lg font-semibold text-foreground mt-4 mb-2 first:mt-0">{children}</h1>,
                 h2: ({ children }) => <h2 className="text-base font-semibold text-foreground mt-3 mb-2 first:mt-0">{children}</h2>,
                 h3: ({ children }) => <h3 className="text-sm font-semibold text-foreground mt-2 mb-1 first:mt-0">{children}</h3>,
-                // Paragraphs with proper spacing
                 p: ({ children }) => <p className="text-[15px] sm:text-sm leading-relaxed text-foreground/90 mb-3 last:mb-0">{children}</p>,
-                // Styled lists
                 ul: ({ children }) => <ul className="space-y-1.5 mb-3 last:mb-0">{children}</ul>,
                 ol: ({ children }) => <ol className="space-y-1.5 mb-3 last:mb-0 list-decimal list-inside">{children}</ol>,
                 li: ({ children }) => (
@@ -1152,12 +1257,9 @@ function MessageBubble({
                     <span>{children}</span>
                   </li>
                 ),
-                // Bold text in primary color for emphasis
                 strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-                // Italic for commands/suggestions - styled as interactive pills
                 em: ({ children }) => {
                   const text = String(children);
-                  // Check if it looks like a command (quoted or starting with action word)
                   if (text.startsWith('"') || text.toLowerCase().startsWith('normalis') || text.toLowerCase().startsWith('zet ') || text.toLowerCase().startsWith('pas ')) {
                     return (
                       <button
@@ -1171,22 +1273,104 @@ function MessageBubble({
                   }
                   return <em className="italic text-foreground/70">{children}</em>;
                 },
-                // Code blocks for technical content
+                // Code: block code lives inside <pre>, inline does not
+                pre: ({ children }) => {
+                  // Extract the inner <code> and render as CodeBlock
+                  const child = Array.isArray(children) ? children[0] : children;
+                  if (child && typeof child === 'object' && 'props' in child) {
+                    return <CodeBlock className={child.props.className}>{child.props.children}</CodeBlock>;
+                  }
+                  return <pre>{children}</pre>;
+                },
                 code: ({ children }) => (
                   <code className="px-1.5 py-0.5 rounded bg-foreground/[0.08] text-sm font-mono text-foreground/80">
                     {children}
                   </code>
                 ),
-                // Blockquotes for callouts
                 blockquote: ({ children }) => (
                   <blockquote className="border-l-2 border-primary/40 pl-4 my-3 text-foreground/70 italic">
                     {children}
                   </blockquote>
                 ),
+                // GFM: Tables
+                table: ({ children }) => (
+                  <div className="my-3 overflow-x-auto rounded-lg border border-foreground/[0.08]">
+                    <table className="w-full text-sm">{children}</table>
+                  </div>
+                ),
+                thead: ({ children }) => (
+                  <thead className="bg-foreground/[0.04] border-b border-foreground/[0.08]">{children}</thead>
+                ),
+                th: ({ children }) => (
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-foreground/70 uppercase tracking-wider">{children}</th>
+                ),
+                td: ({ children }) => (
+                  <td className="px-3 py-2 text-sm text-foreground/80 border-t border-foreground/[0.04]">{children}</td>
+                ),
+                // GFM: Links
+                a: ({ children, href }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary hover:text-primary/80 underline underline-offset-2 decoration-primary/30 hover:decoration-primary/60 transition-colors"
+                  >
+                    {children}
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                  </a>
+                ),
+                // GFM: Horizontal rule
+                hr: () => <hr className="my-4 border-foreground/[0.08]" />,
+                // GFM: Strikethrough handled automatically
               }}
             >
               {message.content}
             </ReactMarkdown>
+            {/* Streaming cursor */}
+            {isStreaming && (
+              <motion.span
+                className="inline-block w-2 h-4 ml-0.5 bg-primary rounded-sm align-middle"
+                animate={{ opacity: [0.2, 1, 0.2] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              />
+            )}
+          </div>
+        )}
+        
+        {/* Error state with retry */}
+        {message.isError && onRetry && (
+          <motion.button
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => onRetry(message.id)}
+            className={cn(
+              "mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg",
+              "text-xs font-medium text-destructive",
+              "bg-destructive/10 border border-destructive/20",
+              "hover:bg-destructive/15 active:scale-[0.98] transition-all touch-manipulation"
+            )}
+          >
+            <RotateCcw className="w-3 h-3" />
+            {ca('retry')}
+          </motion.button>
+        )}
+
+        {/* Copy button - hover reveal for assistant messages */}
+        {!isUser && !isSystem && message.content && !message.isError && (
+          <div className="mt-2 flex items-center gap-1 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200">
+            <button
+              onClick={handleCopyMessage}
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all",
+                copied
+                  ? "text-primary bg-primary/10"
+                  : "text-foreground/35 hover:text-foreground/60 hover:bg-foreground/[0.06]"
+              )}
+              aria-label={ca('copyMessage')}
+            >
+              {copied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              {copied ? ca('copied') : ca('copy')}
+            </button>
           </div>
         )}
         

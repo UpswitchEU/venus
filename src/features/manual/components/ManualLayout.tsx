@@ -897,7 +897,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               handleNormalisationSuggestions(aiResponse.normalisationSuggestions)
             }).catch(() => {
               setChatMessages((prev) =>
-                prev.map((m) => m.id === streamingMsgId ? { ...m, content: t('chatError') } : m),
+                prev.map((m) => m.id === streamingMsgId ? { ...m, content: t('chatError'), isError: true } : m),
               )
               setIsChatGenerating(false)
             })
@@ -905,7 +905,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       } catch {
         conversationStore.setToolInProgress(null)
-        setChatMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant' as const, content: t('chatError'), timestamp: new Date() }])
+        setChatMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant' as const, content: t('chatError'), isError: true, timestamp: new Date() }])
         setIsChatGenerating(false)
       }
     },
@@ -955,6 +955,45 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setPendingUpdates((prev) => prev.filter((u) => u.field !== field))
     toast.info(t('suggestionRejected'))
   }, [])
+
+  // Retry a failed assistant message by resending the preceding user message
+  const handleRetry = useCallback((errorMessageId: string) => {
+    if (isChatGenerating || isLoadingHistory) return
+    const msgIndex = chatMessages.findIndex((m) => m.id === errorMessageId)
+    if (msgIndex < 0) return
+    // Abort any lingering stream
+    if (streamCleanupRef.current) {
+      streamCleanupRef.current()
+      streamCleanupRef.current = null
+    }
+    // Find the user message that preceded the error
+    let userMessage: string | undefined
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (chatMessages[i].role === 'user') {
+        userMessage = chatMessages[i].content
+        break
+      }
+    }
+    if (!userMessage) return
+    // Remove the error message
+    setChatMessages((prev) => prev.filter((m) => m.id !== errorMessageId))
+    // Resend
+    handleChatMessage(userMessage)
+  }, [chatMessages, handleChatMessage, isChatGenerating, isLoadingHistory])
+
+  // Start a fresh conversation — full state reset
+  const handleNewConversation = useCallback(() => {
+    if (streamCleanupRef.current) {
+      streamCleanupRef.current()
+      streamCleanupRef.current = null
+    }
+    setIsChatGenerating(false)
+    conversationStore.setToolInProgress(null)
+    setChatMessages([])
+    setPendingUpdates([])
+    conversationStore.clearMessages()
+    conversationStore.setConversationId(null)
+  }, [conversationStore])
 
   // ─── Export Handler (server-side primary, client-side fallback) ───
   const handleExport = useCallback(async () => {
@@ -1469,6 +1508,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setShowUnifiedNormalizationModal(true)
       setChatDrawerOpen(false)
     },
+    onRetry: handleRetry,
+    onNewConversation: handleNewConversation,
   }
 
   // ═══════════════════════════════════════

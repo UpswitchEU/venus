@@ -1037,6 +1037,12 @@
     "rejected": "✕ Afgewezen",
     "openTasks": "Open taken",
     "typing": "Aan het typen...",
+    "copy": "Kopiëren",
+    "copied": "Gekopieerd",
+    "copyMessage": "Bericht kopiëren",
+    "copyCode": "Code kopiëren",
+    "retry": "Opnieuw proberen",
+    "newConversation": "Nieuw gesprek",
     "tools": {
       "get_valuation_session": "Waarderingsdata ophalen...",
       "get_normalization_adjustments": "Normalisaties ophalen...",

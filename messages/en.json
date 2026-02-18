@@ -1038,6 +1038,12 @@
     "rejected": "✕ Rejected",
     "openTasks": "Open tasks",
     "typing": "Typing...",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyMessage": "Copy message",
+    "copyCode": "Copy code",
+    "retry": "Retry",
+    "newConversation": "New conversation",
     "tools": {
       "get_valuation_session": "Fetching valuation data...",
       "get_normalization_adjustments": "Loading normalizations...",
