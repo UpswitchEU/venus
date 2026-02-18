@@ -5,9 +5,13 @@
  * 
  * KBO Company Search and Business Type Search with fuzzy matching,
  * floating labels, and design system integration.
+ * 
+ * Clarity parity: Business type dropdown uses Portal + z-[9999] to escape
+ * overflow/stacking (ManualLayout has overflow-hidden). KBO uses z-[9999].
  */
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../utils";
@@ -288,22 +292,49 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     const [results, setResults] = React.useState<KBOCompany[]>([]);
     const [showDropdown, setShowDropdown] = React.useState(false);
     const [focusedIndex, setFocusedIndex] = React.useState(-1);
+    const [dropdownRect, setDropdownRect] = React.useState<{ top: number; left: number; width: number } | null>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
+    const containerRef = React.useRef<HTMLDivElement>(null);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
 
     React.useImperativeHandle(ref, () => inputRef.current!);
+
+    const canSearch = !selectedCompany && value.length >= minQueryLength;
+    const shouldShowDropdown = !disabled && !selectedCompany && isFocused && value.length >= minQueryLength;
+
+    // Update dropdown position when open (for Portal)
+    React.useLayoutEffect(() => {
+      if (shouldShowDropdown && canSearch && containerRef.current) {
+        const updateRect = () => {
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setDropdownRect({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+          }
+        };
+        updateRect();
+        window.addEventListener('scroll', updateRect, true);
+        window.addEventListener('resize', updateRect);
+        return () => {
+          window.removeEventListener('scroll', updateRect, true);
+          window.removeEventListener('resize', updateRect);
+        };
+      } else {
+        setDropdownRect(null);
+      }
+    }, [shouldShowDropdown, canSearch]);
 
     // Debounced search
     React.useEffect(() => {
       if (selectedCompany) {
         setResults([]);
         setShowDropdown(false);
+        setIsSearching(false);
         return;
       }
 
       if (value.length < minQueryLength) {
         setResults([]);
-        // Keep dropdown open to show helper text when typing
+        setIsSearching(false);
         return;
       }
 
@@ -319,15 +350,13 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       return () => clearTimeout(timeout);
     }, [value, selectedCompany, searchFn, minQueryLength, debounceMs]);
 
-    // Close on outside click
+    // Close on outside click (Portal: check both container and dropdown)
     React.useEffect(() => {
       function handleClickOutside(e: MouseEvent) {
-        if (
-          dropdownRef.current &&
-          !dropdownRef.current.contains(e.target as Node) &&
-          inputRef.current &&
-          !inputRef.current.contains(e.target as Node)
-        ) {
+        const target = e.target as Node;
+        const inContainer = containerRef.current?.contains(target);
+        const inDropdown = dropdownRef.current?.contains(target);
+        if (!inContainer && !inDropdown) {
           setShowDropdown(false);
         }
       }
@@ -386,11 +415,8 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     const showDidYouMean = results.length > 0 && value.length >= 3 && 
       !results.some(r => r.name.toLowerCase().startsWith(value.toLowerCase()));
 
-    const canSearch = !selectedCompany && value.length >= minQueryLength;
-    const shouldShowDropdown = !disabled && !selectedCompany && isFocused && value.length >= minQueryLength;
-
     return (
-      <div className={cn(searchContainerVariants({ size }), className)}>
+      <div ref={containerRef} className={cn(searchContainerVariants({ size }), className)}>
         <div
           className={cn(searchGroupVariants({ state, size }))}
           onMouseDown={(e) => {
@@ -410,10 +436,10 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
             "absolute left-3 top-1/2 -translate-y-1/2 z-10",
             state === "success" ? "text-success" : isFocused ? "text-primary" : "text-foreground/50"
           )}>
-            {isSearching ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : selectedCompany ? (
+            {selectedCompany ? (
               <Check className="w-5 h-5" />
+            ) : isSearching ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <Search className="w-5 h-5" />
             )}
@@ -482,79 +508,82 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           </p>
         )}
 
-        {/* Search Results Dropdown */}
-        <AnimatePresence>
-          {shouldShowDropdown && canSearch && (
-            <motion.div
-              ref={dropdownRef}
-              variants={dropdownVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className={cn(
-                "absolute top-full left-0 right-0 mt-2 z-50",
-                "bg-background border border-foreground/[0.10] rounded-xl shadow-xl",
-                "overflow-hidden max-h-80 overflow-y-auto"
-              )}
-            >
-              {/* Did you mean header */}
-              {showDidYouMean && (
-                <div className="px-3 py-2 border-b border-foreground/[0.06] bg-foreground/[0.02]">
-                  <span className="text-xs font-medium text-foreground/50">
-                    Bedoelde je:
-                  </span>
-                </div>
-              )}
+        {/* Search Results Dropdown - Portal to escape overflow (Clarity parity) */}
+        {typeof document !== 'undefined' && !disabled && !selectedCompany && isFocused && value.length >= minQueryLength && dropdownRect && createPortal(
+          <motion.div
+            ref={dropdownRef}
+            variants={dropdownVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className={cn(
+              "fixed z-[9999]",
+              "bg-background border border-foreground/[0.10] rounded-xl shadow-xl",
+              "overflow-hidden max-h-80 overflow-y-auto"
+            )}
+            style={{
+              top: dropdownRect.top,
+              left: dropdownRect.left,
+              width: dropdownRect.width,
+            }}
+          >
+            {showDidYouMean && (
+              <div className="px-3 py-2 border-b border-foreground/[0.06] bg-foreground/[0.02]">
+                <span className="text-xs font-medium text-foreground/50">
+                  Bedoelde je:
+                </span>
+              </div>
+            )}
 
-              {isSearching ? (
-                <div className="px-4 py-6 text-sm text-foreground/50 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Zoeken...
-                </div>
-              ) : results.length === 0 ? (
-                <div className="px-4 py-6 text-sm text-foreground/50">
-                  Geen bedrijven gevonden.
-                </div>
-              ) : (
-                results.map((company, index) => (
-                  <button
-                    key={company.id}
-                    type="button"
-                    onClick={() => handleSelect(company)}
-                    className={cn(
-                      "w-full flex items-start gap-3 px-3 py-3 text-left transition-colors",
-                      "hover:bg-foreground/[0.04]",
-                      focusedIndex === index && "bg-foreground/[0.06]",
-                      index !== results.length - 1 && "border-b border-foreground/[0.04]"
-                    )}
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                      <Building2 className="w-4 h-4 text-primary" />
+            {isSearching ? (
+              <div className="px-4 py-6 text-sm text-foreground/50 flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Zoeken...
+              </div>
+            ) : results.length === 0 ? (
+              <div className="px-4 py-6 text-sm text-foreground/50">
+                Geen bedrijven gevonden.
+              </div>
+            ) : (
+              results.map((company, index) => (
+                <button
+                  key={company.id}
+                  type="button"
+                  onClick={() => handleSelect(company)}
+                  className={cn(
+                    "w-full flex items-start gap-3 px-3 py-3 text-left transition-colors",
+                    "hover:bg-foreground/[0.04]",
+                    focusedIndex === index && "bg-foreground/[0.06]",
+                    index !== results.length - 1 && "border-b border-foreground/[0.04]"
+                  )}
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Building2 className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">
+                        {company.name}
+                      </span>
+                      <span className="text-[10px] font-mono text-foreground/40 bg-foreground/[0.04] px-1.5 py-0.5 rounded shrink-0">
+                        {company.legalForm}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground truncate">
-                          {company.name}
-                        </span>
-                        <span className="text-[10px] font-mono text-foreground/40 bg-foreground/[0.04] px-1.5 py-0.5 rounded shrink-0">
-                          {company.legalForm}
-                        </span>
-                      </div>
-                      <p className="text-xs text-foreground/50 mt-0.5">
-                        {company.kboNumber} · {company.city}
+                    <p className="text-xs text-foreground/50 mt-0.5">
+                      {company.kboNumber} · {company.city}
+                    </p>
+                    {company.naceDescription && (
+                      <p className="text-[11px] text-foreground/40 mt-0.5 truncate">
+                        {company.naceDescription}
                       </p>
-                      {company.naceDescription && (
-                        <p className="text-[11px] text-foreground/40 mt-0.5 truncate">
-                          {company.naceDescription}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                ))
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    )}
+                  </div>
+                </button>
+              ))
+            )}
+          </motion.div>,
+          document.body
+        )}
 
         {/* Selected Company Card */}
         <AnimatePresence>
@@ -615,6 +644,8 @@ export interface BusinessType {
   icon: LucideIcon;
   emoji?: string;
   description?: string;
+  /** When true, shown first when dropdown opens with empty search (Mercury/Clarity parity) */
+  popular?: boolean;
 }
 
 // Category to emoji mapping (same as BusinessCard)
@@ -758,10 +789,26 @@ export interface BusinessTypeSearchInputProps
   disabled?: boolean;
   /** Custom business types list */
   types?: BusinessType[];
+  /** NACE-matched type ID to show first when dropdown opens (from KBO) */
+  naceMatchedTypeId?: string;
 }
 
-function fuzzySearchBusinessTypes(query: string, types: BusinessType[]): { types: BusinessType[], isDidYouMean: boolean } {
-  if (!query) return { types, isDidYouMean: false };
+function fuzzySearchBusinessTypes(
+  query: string,
+  types: BusinessType[],
+  prioritizedId?: string
+): { types: BusinessType[], isDidYouMean: boolean } {
+  // When empty: NACE-matched first (from KBO), then popular, then rest, limit 15
+  if (!query) {
+    const sorted = [...types].sort((a, b) => {
+      if (prioritizedId) {
+        if (a.id === prioritizedId) return -1;
+        if (b.id === prioritizedId) return 1;
+      }
+      return (b.popular ? 1 : 0) - (a.popular ? 1 : 0);
+    });
+    return { types: sorted.slice(0, 15), isDidYouMean: false };
+  }
   
   const lower = query.toLowerCase();
   const words = lower.split(/\s+/).filter(w => w.length > 1);
@@ -812,11 +859,13 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
     className,
     disabled,
     types = businessTypes,
+    naceMatchedTypeId,
   }, ref) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const [isOpen, setIsOpen] = React.useState(false);
     const [search, setSearch] = React.useState('');
     const [focusedIndex, setFocusedIndex] = React.useState(-1);
+    const [dropdownRect, setDropdownRect] = React.useState<{ top: number; left: number; width: number } | null>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -829,14 +878,38 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
     );
 
     const { types: filteredTypes, isDidYouMean } = React.useMemo(() => 
-      fuzzySearchBusinessTypes(search, types),
-      [search, types]
+      fuzzySearchBusinessTypes(search, types, naceMatchedTypeId),
+      [search, types, naceMatchedTypeId]
     );
 
-    // Close on outside click
+    // Update dropdown position when open (for Portal)
+    React.useLayoutEffect(() => {
+      if (isOpen && containerRef.current) {
+        const updateRect = () => {
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setDropdownRect({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+          }
+        };
+        updateRect();
+        window.addEventListener('scroll', updateRect, true);
+        window.addEventListener('resize', updateRect);
+        return () => {
+          window.removeEventListener('scroll', updateRect, true);
+          window.removeEventListener('resize', updateRect);
+        };
+      } else {
+        setDropdownRect(null);
+      }
+    }, [isOpen]);
+
+    // Close on outside click (Portal: check both container and dropdown)
     React.useEffect(() => {
       function handleClickOutside(e: MouseEvent) {
-        if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        const target = e.target as Node;
+        const inContainer = containerRef.current?.contains(target);
+        const inDropdown = dropdownRef.current?.contains(target);
+        if (!inContainer && !inDropdown) {
           setIsOpen(false);
           setSearch('');
         }
@@ -972,22 +1045,25 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
           </div>
         </div>
 
-        {/* Dropdown */}
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              ref={dropdownRef}
-              variants={dropdownVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className={cn(
-                "absolute top-full left-0 right-0 mt-2 z-50",
-                "bg-background border border-foreground/[0.10] rounded-xl shadow-xl",
-                "overflow-hidden max-h-80 overflow-y-auto"
-              )}
-            >
-              {/* Did you mean header */}
+        {/* Dropdown - Portal to escape overflow (Clarity parity) */}
+        {typeof document !== 'undefined' && isOpen && dropdownRect && createPortal(
+          <motion.div
+            ref={dropdownRef}
+            variants={dropdownVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className={cn(
+              "fixed z-[9999]",
+              "bg-background border border-foreground/[0.10] rounded-xl shadow-xl",
+              "overflow-hidden max-h-80 overflow-y-auto"
+            )}
+            style={{
+              top: dropdownRect.top,
+              left: dropdownRect.left,
+              width: dropdownRect.width,
+            }}
+          >
               {isDidYouMean && (
                 <div className="px-3 py-2 border-b border-foreground/[0.06] bg-foreground/[0.02]">
                   <span className="text-xs font-medium text-foreground/50">
@@ -1042,9 +1118,9 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
                   );
                 })
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </motion.div>,
+          document.body
+        )}
       </div>
     );
   }

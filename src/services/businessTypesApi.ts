@@ -209,6 +209,46 @@ class BusinessTypesApiService {
   }
 
   /**
+   * Get business type for a NACE code (reverse lookup).
+   * Uses Titan's NACE→business type mapping (same as Mercury).
+   * Returns null if no mapping exists.
+   */
+  async getBusinessTypeForNaceCode(naceCode: string): Promise<BusinessType | null> {
+    if (!naceCode?.trim()) return null
+
+    try {
+      const url = `${this.baseUrl}/api/v2/nace/codes/${encodeURIComponent(naceCode.trim())}/business-type`
+      const response = await axios.get<{ business_type: any; confidence: number }>(url, {
+        timeout: 5000,
+        headers: { Accept: 'application/json' },
+      })
+
+      const bt = response.data?.business_type
+      if (!bt?.id) return null
+
+      return {
+        id: bt.id,
+        title: bt.title || bt.id,
+        description: bt.description || '',
+        short_description: bt.description || '',
+        icon: bt.emoji || '📦',
+        category: bt.category?.name ?? bt.category?.title ?? bt.category_id ?? 'other',
+        category_id: bt.category_id ?? 'other',
+        industryMapping: bt.industry_mapping ?? bt.id,
+        industry: bt.industry ?? bt.category_id,
+        keywords: [],
+        popular: false,
+        status: bt.status ?? 'active',
+        createdAt: bt.created_at ?? new Date().toISOString(),
+        updatedAt: bt.updated_at ?? new Date().toISOString(),
+      }
+    } catch (err) {
+      generalLogger.debug('[BusinessTypesAPI] No business type for NACE', { naceCode, error: err })
+      return null
+    }
+  }
+
+  /**
    * Get business types as options for dropdown
    */
   async getBusinessTypeOptions(): Promise<BusinessTypeOption[]> {

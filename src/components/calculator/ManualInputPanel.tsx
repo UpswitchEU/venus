@@ -12,7 +12,7 @@
  * - Each year can have its own set of adjustments
  */
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -57,6 +57,9 @@ import {
 import { useCanSave } from '../../hooks/useCanSave';
 import { useBusinessTypes } from '../../hooks/useBusinessTypes';
 import { registryService } from '../../services/registry/registryService';
+import { businessTypesApiService } from '../../services/businessTypesApi';
+import { naceBusinessTypeService } from '../../services/naceBusinessTypeService';
+import { useManualFormStore } from '../../store/manual/useManualFormStore';
 import type { CompanySearchResult } from '../../services/registry/types';
 
 // Types
@@ -486,9 +489,48 @@ export function ManualInputPanel({
         name: bt.title,
         category,
         icon: categoryIcons[iconKey] ?? categoryIcons['other'] ?? Building2,
+        popular: bt.popular ?? false,
       };
     });
   }, [businessTypes]);
+
+  // Auto-fill business type from NACE when we have naceCode but no businessType (mirror Mercury AddClient)
+  const naceAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const naceCode = formData.naceCode?.trim() || selectedCompany?.naceCode?.trim();
+    if (!naceCode || formData.businessType?.trim()) return;
+
+    if (naceAbortRef.current) naceAbortRef.current.abort();
+    const controller = new AbortController();
+    naceAbortRef.current = controller;
+
+    naceBusinessTypeService
+      .getBusinessTypeForNaceCode(naceCode, controller.signal)
+      .then((type) => {
+        if (controller.signal.aborted || !type) return;
+        setSelectedBusinessType(type);
+        setFormData((prev) => ({
+          ...prev,
+          businessType: type.id,
+          businessTypeCode: type.code || prev.businessTypeCode,
+          industry: type.category || prev.industry,
+        }));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!controller.signal.aborted) naceAbortRef.current = null;
+      });
+
+    return () => controller.abort();
+  }, [formData.naceCode, formData.businessType, selectedCompany?.naceCode]);
+
+  // Sync selectedBusinessType when formData.businessType is set from prefill/bootstrap (DB or KBO)
+  useEffect(() => {
+    const btId = formData.businessType?.trim();
+    if (!btId || selectedBusinessType?.id === btId) return;
+    const match = businessTypesForSearch.find((t) => t.id === btId);
+    if (match) setSelectedBusinessType(match);
+  }, [formData.businessType, businessTypesForSearch, selectedBusinessType?.id]);
 
   const updateField = <K extends keyof ValuationFormData>(
     field: K,
@@ -605,13 +647,14 @@ export function ManualInputPanel({
     });
   };
 
-  // Handle KBO company selection
-  const handleCompanySelect = (company: KBOCompany) => {
+  // Handle KBO company selection (Mercury parity: prefill business type from NACE)
+  const updateFormData = useManualFormStore((s) => s.updateFormData);
+
+  const handleCompanySelect = useCallback(async (company: KBOCompany) => {
     setSelectedCompany(company);
     setCompanySearchValue(company.name);
-    
-    setFormData(prev => ({
-      ...prev,
+
+    const baseUpdates: Partial<ValuationFormData> = {
       companyName: company.name,
       kboNumber: company.kboNumber,
       legalForm: company.legalForm,
@@ -620,13 +663,45 @@ export function ManualInputPanel({
         : company.address,
       naceCode: company.naceCode || '',
       naceDescription: company.naceDescription || '',
-      businessStructure: company.legalForm.toLowerCase() === 'bv' ? 'bv' 
+      businessStructure: company.legalForm.toLowerCase() === 'bv' ? 'bv'
         : company.legalForm.toLowerCase() === 'nv' ? 'nv'
         : company.legalForm.toLowerCase() === 'vof' ? 'vof'
         : company.legalForm.toLowerCase() === 'cvba' ? 'cvba'
         : '',
-    }));
-  };
+    };
+
+    setFormData((prev) => ({ ...prev, ...baseUpdates }));
+
+    // Mercury parity: fetch business type from NACE code (KBO) and prefill
+    if (company.naceCode?.trim()) {
+      try {
+        const bt = await businessTypesApiService.getBusinessTypeForNaceCode(company.naceCode);
+        if (bt) {
+          const cat: string = typeof bt.category === 'string'
+            ? bt.category
+            : String((bt.category as Record<string, unknown>)?.name ?? bt.category_id ?? 'other');
+          const mapped: BusinessType = businessTypesForSearch.find((t) => t.id === bt.id) ?? {
+            id: bt.id,
+            code: bt.industryMapping || bt.id,
+            name: bt.title,
+            category: cat,
+            icon: categoryIcons[cat] ?? categoryIcons['other'] ?? Building2,
+          };
+          setSelectedBusinessType(mapped);
+          setFormData((prev) => ({
+            ...prev,
+            ...baseUpdates,
+            businessType: bt.id,
+            businessTypeCode: bt.industryMapping || bt.id,
+            industry: bt.category_id || bt.category || 'services',
+          }));
+          updateFormData({ business_type_id: bt.id, industry: bt.category_id || bt.category });
+        }
+      } catch {
+        // No mapping for this NACE code – leave business type empty
+      }
+    }
+  }, [businessTypesForSearch, updateFormData]);
 
   const handleBusinessTypeSelect = (value: string, businessType?: BusinessType) => {
     setSelectedBusinessType(businessType || null);
@@ -634,6 +709,7 @@ export function ManualInputPanel({
     if (businessType) {
       updateField('businessTypeCode', businessType.code);
       updateField('industry', businessType.category);
+      updateFormData({ business_type_id: value, industry: businessType.category });
     }
   };
 
@@ -794,6 +870,7 @@ export function ManualInputPanel({
                       value={formData.businessType}
                       onChange={handleBusinessTypeSelect}
                       types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
+                      naceMatchedTypeId={formData.businessType?.trim() || undefined}
                       size="sm"
                     />
                     {selectedBusinessType && (
