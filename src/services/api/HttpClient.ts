@@ -22,6 +22,7 @@ import {
   getUserFriendlyErrorMessage,
 } from '../../utils/errorRecovery'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
+import { CLIENT_CONTEXT_HEADERS } from '../../constants/headers'
 
 // BANK-GRADE: Client version for API compatibility tracking
 const CLIENT_VERSION = '2.0.0'
@@ -213,8 +214,9 @@ export class HttpClient {
         const contextHeaders = useClientContext.getState().getContextHeaders()
 
         if (Object.keys(contextHeaders).length > 0) {
+          const clientUserId = contextHeaders[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID]
           apiLogger.debug('[HttpClient] Using client context headers', {
-            clientUserId: String(contextHeaders['x-client-context-user']).substring(0, 8) + '...',
+            clientUserId: clientUserId ? `${clientUserId.substring(0, 8)}...` : 'none',
           })
           return contextHeaders
         }
