@@ -45,6 +45,9 @@ export interface User {
   legal_form?: string
   nace_code?: string
   nace_description?: string
+
+  // Language preference (synced from Titan)
+  language_preference?: string
 }
 
 export interface AuthContextType {

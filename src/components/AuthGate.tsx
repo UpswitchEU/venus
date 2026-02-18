@@ -26,6 +26,7 @@ import { useAuthStore, waitForClientContext, getInitTraceId } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { getMercuryUrl, getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
+import { useLanguageSync } from '../hooks/useLanguageSync'
 import type { User } from '../contexts/AuthContextTypes'
 
 // ============================================================================
@@ -192,6 +193,8 @@ export function AuthGate({
   const [isReady, setIsReady] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const maxRetries = 2 // Maximum number of automatic retries for transient errors
+
+  useLanguageSync()
 
   // Auth state from store
   const authLoading = useAuthStore((s) => s.loading)

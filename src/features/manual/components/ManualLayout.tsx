@@ -84,6 +84,10 @@ type LeftPanelView = 'input' | 'normalization-hub'
 
 interface CollectedData {
   companyName?: string
+  kboNumber?: string
+  legalForm?: string
+  naceCode?: string
+  naceDescription?: string
   businessType?: string
   industry?: string
   country?: string
@@ -373,11 +377,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const formIndustry = useManualFormStore((s) => s.formData.industry)
   const formCountry = useManualFormStore((s) => s.formData.country_code)
   const formYearFounded = useManualFormStore((s) => s.formData.founding_year)
+  const formKboNumber = useManualFormStore((s) => s.formData.kbo_number)
+  const formLegalForm = useManualFormStore((s) => s.formData.legal_form)
+  const formNaceCode = useManualFormStore((s) => s.formData.nace_code)
+  const formNaceDescription = useManualFormStore((s) => s.formData.nace_description)
   const resultCompanyName = result?.company_name
   const companyName = formCompanyName || resultCompanyName
 
   const [collectedData, setCollectedData] = useState<CollectedData>({
     companyName: companyName || '',
+    kboNumber: formKboNumber || '',
+    legalForm: formLegalForm || '',
+    naceCode: formNaceCode || '',
+    naceDescription: formNaceDescription || '',
     businessType: formBusinessType || '',
     industry: formIndustry || '',
     country: formCountry || 'BE',
@@ -396,9 +408,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (formCountry && formCountry !== prev.country) next.country = formCountry
       const yearStr = formYearFounded ? String(formYearFounded) : ''
       if (yearStr && yearStr !== prev.yearFounded) next.yearFounded = yearStr
+      if (formKboNumber && formKboNumber !== prev.kboNumber) next.kboNumber = formKboNumber
+      if (formLegalForm && formLegalForm !== prev.legalForm) next.legalForm = formLegalForm
+      if (formNaceCode && formNaceCode !== prev.naceCode) next.naceCode = formNaceCode
+      if (formNaceDescription && formNaceDescription !== prev.naceDescription) next.naceDescription = formNaceDescription
       return next
     })
-  }, [companyName, formBusinessType, formIndustry, formCountry, formYearFounded])
+  }, [companyName, formBusinessType, formIndustry, formCountry, formYearFounded, formKboNumber, formLegalForm, formNaceCode, formNaceDescription])
 
   // Enable auto-persist for normalization store
   useEffect(() => {
@@ -1290,6 +1306,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onViewAllNormalizations: handleShowNormalisationReview,
     initialData: {
       companyName: collectedData.companyName,
+      kboNumber: collectedData.kboNumber,
+      legalForm: collectedData.legalForm,
+      naceCode: collectedData.naceCode,
+      naceDescription: collectedData.naceDescription,
       businessType: collectedData.businessType,
       industry: collectedData.industry,
       country: collectedData.country,
