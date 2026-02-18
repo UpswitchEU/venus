@@ -9,8 +9,6 @@
  * Layout (desktop):
  *   ┌───────────────────────────────────────────────────────┐
  *   │ CalculatorNav (top bar)                                │
- *   ├───────────────────────────────────────────────────────┤
- *   │ ContextBar (accountant mode only)                      │
  *   ├────────────┬──────────────────────────────────────────┤
  *   │ Left 35%   │ Right 65%                                 │
  *   │ ManualInput│ ValuationReportPanel / Preview / History  │
@@ -66,7 +64,6 @@ import {
   ChatAssistantDrawer,
   ValuationReportPanel,
   HistoryPanel,
-  ContextBar,
   FullscreenReportModal,
   NormalisationSuggestionModal,
   NormalizationHub,
@@ -291,6 +288,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
   const { generatePdf, downloadPdf, isGenerating: isPdfGenerating, isReady: isPdfReady } = usePdfGeneration(reportId)
 
+  const currentLocale = useLocale()
+
   // ─── Accountant Mode Detection (hooks must be before any early returns) ───
   const [isAccountantMode, setIsAccountantMode] = useState(false)
   const [clientContextName, setClientContextName] = useState<string | undefined>(undefined)
@@ -370,25 +369,36 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Collected Data (bi-directional sync) ───
   const formCompanyName = useManualFormStore((s) => s.formData.company_name)
+  const formBusinessType = useManualFormStore((s) => s.formData.business_type)
+  const formIndustry = useManualFormStore((s) => s.formData.industry)
+  const formCountry = useManualFormStore((s) => s.formData.country_code)
+  const formYearFounded = useManualFormStore((s) => s.formData.founding_year)
   const resultCompanyName = result?.company_name
   const companyName = formCompanyName || resultCompanyName
 
   const [collectedData, setCollectedData] = useState<CollectedData>({
     companyName: companyName || '',
-    businessType: '',
-    industry: '',
-    country: 'BE',
-    yearFounded: '',
+    businessType: formBusinessType || '',
+    industry: formIndustry || '',
+    country: formCountry || 'BE',
+    yearFounded: formYearFounded ? String(formYearFounded) : '',
     ownerManagers: 1,
     equityStake: 100,
   })
 
-  // Sync company name changes
+  // Sync form store changes into collectedData
   useEffect(() => {
-    if (companyName && companyName !== collectedData.companyName) {
-      setCollectedData((prev) => ({ ...prev, companyName }))
-    }
-  }, [companyName])
+    setCollectedData((prev) => {
+      const next = { ...prev }
+      if (companyName && companyName !== prev.companyName) next.companyName = companyName
+      if (formBusinessType && formBusinessType !== prev.businessType) next.businessType = formBusinessType
+      if (formIndustry && formIndustry !== prev.industry) next.industry = formIndustry
+      if (formCountry && formCountry !== prev.country) next.country = formCountry
+      const yearStr = formYearFounded ? String(formYearFounded) : ''
+      if (yearStr && yearStr !== prev.yearFounded) next.yearFounded = yearStr
+      return next
+    })
+  }, [companyName, formBusinessType, formIndustry, formCountry, formYearFounded])
 
   // Enable auto-persist for normalization store
   useEffect(() => {
@@ -897,6 +907,49 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     router.back()
   }, [router])
 
+  const handleExitClientView = useCallback(() => {
+    try {
+      import('../../../stores/clientContext').then(({ useClientContext }) => {
+        const ctx = useClientContext.getState()
+        ctx.clearClientContext()
+      }).catch(() => {})
+
+      // Try to close embedded mode (sends postMessage to parent)
+      try {
+        window.parent?.postMessage({ type: 'venus:close' }, '*')
+      } catch {}
+
+      // Navigate to Mercury
+      const mercuryUrl = getMercuryUrl()
+      const validLocale = currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
+
+      let returnUrl: string | null = null
+      try { returnUrl = sessionStorage.getItem('upswitch_return_url') } catch {}
+
+      if (returnUrl) {
+        if (returnUrl.startsWith('http')) {
+          window.location.href = returnUrl
+        } else {
+          window.location.href = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
+        }
+        return
+      }
+
+      if (clientContextId) {
+        window.location.href = `${mercuryUrl}/${validLocale}/accountant/clients/${clientContextId}/valuations`
+      } else {
+        window.location.href = `${mercuryUrl}/${validLocale}/accountant/dashboard`
+      }
+    } catch (error) {
+      generalLogger.error('[ManualLayout] handleExitClientView failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+      try {
+        window.location.href = `${getMercuryUrl()}/en/accountant/dashboard`
+      } catch {}
+    }
+  }, [clientContextId, currentLocale])
+
   const handlePreview = useCallback(() => setRightPanelView('preview'), [])
   const handleShowHistory = useCallback(() => setRightPanelView('history'), [])
   const handleFullscreen = useCallback(() => setShowFullscreenModal(true), [])
@@ -924,8 +977,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // Non-blocking: recent valuations are nice-to-have
       })
   }, [])
-
-  const currentLocale = useLocale()
 
   const handleNewValuation = useCallback(() => {
     router.push(`/${currentLocale}/reports/new`)
@@ -1300,6 +1351,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onLogout={handleLogout}
           onAccountSettings={handleAccountSettings}
           onSwitchWorkspace={handleSwitchWorkspace}
+          isAccountantMode={isAccountantMode}
+          onExitClientView={handleExitClientView}
         />
 
         <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)]">
@@ -1373,35 +1426,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onLogout={handleLogout}
         onAccountSettings={handleAccountSettings}
         onSwitchWorkspace={handleSwitchWorkspace}
+        isAccountantMode={isAccountantMode}
+        onExitClientView={handleExitClientView}
       />
-
-      {/* Context Bar - Accountant Mode (shows when acting as client) */}
-      {isAccountantMode && (
-        <ContextBar
-          clientName={clientContextName}
-          businessName={collectedData.companyName}
-          draftStatus={draftStatus}
-          lastSaved={lastSaved}
-          pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending' as any).length}
-          onShowNormalisationReview={handleShowNormalisationReview}
-          onClientClick={
-            clientContextId
-              ? () => {
-                  const mercuryBaseUrl = getMercuryUrl()
-                  window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/clients/${clientContextId}`
-                }
-              : undefined
-          }
-          onBusinessClick={
-            clientContextId
-              ? () => {
-                  const mercuryBaseUrl = getMercuryUrl()
-                  window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/clients/${clientContextId}/valuations`
-                }
-              : undefined
-          }
-        />
-      )}
 
       {/* Main Content: Resizable Panels */}
       <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">

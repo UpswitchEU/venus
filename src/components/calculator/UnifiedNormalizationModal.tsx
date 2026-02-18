@@ -1017,7 +1017,7 @@ export function UnifiedNormalizationModal({
               "backdrop-blur-sm",
               "border border-foreground/[0.08]",
               "transition-all duration-300",
-              "focus-within:border-primary/50 focus-within:shadow-[0_0_30px_-5px_hsl(var(--primary)/0.15)]"
+              "focus-within:border-foreground/20 focus-within:shadow-[0_0_20px_-8px_hsl(var(--foreground)/0.06)]"
             )}
           >
             {/* Hidden file input */}
@@ -1069,6 +1069,7 @@ export function UnifiedNormalizationModal({
                 }}
                 className={cn(
                   "flex-1 bg-transparent border-none outline-none",
+                  "focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none focus:border-transparent",
                   "text-sm text-foreground placeholder:text-foreground/35",
                   "min-w-0"
                 )}

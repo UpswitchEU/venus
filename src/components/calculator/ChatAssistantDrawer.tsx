@@ -774,7 +774,7 @@ export function ChatAssistantDrawer({
               <motion.div
                 initial={false}
                 animate={{ 
-                  borderColor: isInputFocused ? 'hsl(var(--primary) / 0.35)' : 'hsl(var(--foreground) / 0.08)',
+                  borderColor: isInputFocused ? 'hsl(var(--foreground) / 0.12)' : 'hsl(var(--foreground) / 0.08)',
                 }}
                 className={cn(
                   "relative w-full flex flex-col rounded-2xl sm:rounded-xl",
@@ -786,7 +786,7 @@ export function ChatAssistantDrawer({
                 )}
                 style={{
                   boxShadow: isInputFocused
-                    ? '0 0 40px -15px hsl(var(--primary) / 0.2), 0 8px 30px -12px hsl(var(--background) / 0.5)'
+                    ? '0 0 20px -8px hsl(var(--foreground) / 0.08), 0 4px 20px -8px hsl(var(--background) / 0.3)'
                     : '0 4px 20px -8px hsl(var(--background) / 0.3)',
                 }}
               >
@@ -862,6 +862,7 @@ export function ChatAssistantDrawer({
                     rows={1}
                     className={cn(
                       "flex-1 w-full bg-transparent border-none outline-none resize-none",
+                      "focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none focus:border-transparent",
                       // text-base on mobile prevents iOS auto-zoom
                       "text-base sm:text-sm min-h-[48px] sm:min-h-[44px] leading-relaxed",
                       "text-foreground placeholder:text-foreground/40",

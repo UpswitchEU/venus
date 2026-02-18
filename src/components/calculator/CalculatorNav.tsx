@@ -114,6 +114,9 @@ export interface CalculatorNavProps {
   isExporting?: boolean;
   downloadHistory?: DownloadHistoryItem[];
   onRedownload?: (item: DownloadHistoryItem) => void;
+  // Accountant mode — back button exits client view
+  isAccountantMode?: boolean;
+  onExitClientView?: () => void;
 }
 
 // ─────────────────────────────────────────
@@ -227,6 +230,8 @@ export function CalculatorNav({
   isExporting = false,
   downloadHistory = [],
   onRedownload,
+  isAccountantMode = false,
+  onExitClientView,
 }: CalculatorNavProps) {
   const t = useTranslations();
   const router = useTransitionRouter();
@@ -241,7 +246,9 @@ export function CalculatorNav({
   } : null);
 
   const handleBack = () => {
-    if (onBack) {
+    if (isAccountantMode && onExitClientView) {
+      onExitClientView();
+    } else if (onBack) {
       onBack();
     } else {
       router.back();
@@ -257,7 +264,7 @@ export function CalculatorNav({
       )}>
         {/* Left: Back + Title with Recent Valuations Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <Tooltip content={t('common.back') || 'Terug'}>
+          <Tooltip content={isAccountantMode ? (t('clientContext.exitClientView') || 'Exit Client View') : (t('common.back') || 'Terug')}>
             <button
               onClick={handleBack}
               className="p-2 -ml-1 sm:-ml-2 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
