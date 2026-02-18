@@ -553,9 +553,10 @@ export class SessionBootstrapService {
       // Mercury may send mode=accountant in the URL, but we should NOT send this to Titan
       const validMode = context.mode === 'edit' || context.mode === 'view' ? context.mode : undefined;
       
+      // CRITICAL: clientToken in body enables Titan to resolve delegated (accountant) flow identity
       const requestBody = {
         reportId: validReportId,
-        clientToken: context.clientToken,
+        clientToken: context.clientToken, // Required for Mercury/accountant flow - Titan resolves identity from this
         clientId: context.clientId, // Pass clientId for accountant flow verification
         prefilledQuery: context.prefilledQuery,
         flow: context.flow,

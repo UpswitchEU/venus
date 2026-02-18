@@ -258,21 +258,98 @@ function syncSession(state: SessionBootstrapState): void {
         });
       }
     } else if (report.mode === 'existing') {
-      // ✅ WORLD-CLASS FIX: For existing reports, trigger session load
-      // Bootstrap tells us the report exists, now we need to load the full session data
-      // (form fields, valuation result, HTML reports) from the backend
+      // MERCURY FIX: Merge prefill into session store IMMEDIATELY before loadSession
+      // loadSession is async - without this, form stays blank until it completes.
+      // Bootstrap prefill has data from Titan's buildPrefill (session_data) - apply it now.
+      const hasPrefill = prefillData.confidence >= 0.05;
+      if (hasPrefill) {
+        const now = new Date();
+        const sessionData: Record<string, any> = {
+          _bootstrapPrefill: true,
+        };
+        if (prefillData.companyInfo?.companyName) sessionData.company_name = prefillData.companyInfo.companyName;
+        if (prefillData.companyInfo?.countryCode) sessionData.country_code = prefillData.companyInfo.countryCode;
+        if (prefillData.companyInfo?.foundingYear) sessionData.founding_year = prefillData.companyInfo.foundingYear;
+        if (prefillData.companyInfo?.kboNumber) sessionData.kbo_number = prefillData.companyInfo.kboNumber;
+        if (prefillData.companyInfo?.vatNumber) sessionData.vat_number = prefillData.companyInfo.vatNumber;
+        if (prefillData.companyInfo?.legalForm) sessionData.legal_form = prefillData.companyInfo.legalForm;
+        if (prefillData.companyInfo?.city) sessionData.city = prefillData.companyInfo.city;
+        if (prefillData.companyInfo?.postalCode) sessionData.postal_code = prefillData.companyInfo.postalCode;
+        if (prefillData.companyInfo?.naceCode) sessionData.nace_code = prefillData.companyInfo.naceCode;
+        if (prefillData.companyInfo?.naceDescription) sessionData.nace_description = prefillData.companyInfo.naceDescription;
+        if (prefillData.businessType?.id) sessionData.business_type_id = prefillData.businessType.id;
+        if (prefillData.businessType?.industry) sessionData.industry = prefillData.businessType.industry;
+        if (prefillData.financials?.revenue !== undefined) sessionData.revenue = prefillData.financials.revenue;
+        if (prefillData.financials?.ebitda !== undefined) sessionData.ebitda = prefillData.financials.ebitda;
+        if (prefillData.financials?.employeeCount !== undefined) sessionData.number_of_employees = prefillData.financials.employeeCount;
+
+        const minimalSession: Partial<ValuationSession> = {
+          reportId: report.reportId,
+          currentView: 'manual' as const,
+          dataSource: 'manual' as const,
+          createdAt: now,
+          updatedAt: now,
+          partialData: {},
+          sessionData: sessionData as any,
+        };
+        sessionStore.updateSession(minimalSession);
+
+        // CRITICAL: Also hydrate form store - form reads from useManualFormStore, not session store
+        const formDataUpdate: Record<string, unknown> = {};
+        if (prefillData.companyInfo?.companyName) formDataUpdate.company_name = prefillData.companyInfo.companyName;
+        if (prefillData.companyInfo?.countryCode) formDataUpdate.country_code = prefillData.companyInfo.countryCode;
+        if (prefillData.companyInfo?.foundingYear) formDataUpdate.founding_year = prefillData.companyInfo.foundingYear;
+        if (prefillData.companyInfo?.kboNumber) formDataUpdate.kbo_number = prefillData.companyInfo.kboNumber;
+        if (prefillData.companyInfo?.vatNumber) formDataUpdate.vat_number = prefillData.companyInfo.vatNumber;
+        if (prefillData.companyInfo?.legalForm) formDataUpdate.legal_form = prefillData.companyInfo.legalForm;
+        if (prefillData.companyInfo?.city) formDataUpdate.city = prefillData.companyInfo.city;
+        if (prefillData.companyInfo?.postalCode) formDataUpdate.postal_code = prefillData.companyInfo.postalCode;
+        if (prefillData.companyInfo?.naceCode) formDataUpdate.nace_code = prefillData.companyInfo.naceCode;
+        if (prefillData.companyInfo?.naceDescription) formDataUpdate.nace_description = prefillData.companyInfo.naceDescription;
+        if (prefillData.businessType?.id) formDataUpdate.business_type_id = prefillData.businessType.id;
+        if (prefillData.businessType?.industry) formDataUpdate.industry = prefillData.businessType.industry;
+        if (prefillData.financials?.revenue !== undefined) formDataUpdate.revenue = prefillData.financials.revenue;
+        if (prefillData.financials?.ebitda !== undefined) formDataUpdate.ebitda = prefillData.financials.ebitda;
+        if (prefillData.financials?.employeeCount !== undefined) formDataUpdate.number_of_employees = prefillData.financials.employeeCount;
+        // Set business_context for KBO preview card when we have KBO data
+        const kboNum = prefillData.companyInfo?.kboNumber || prefillData.kboData?.kboNumber;
+        if (kboNum) {
+          formDataUpdate.business_context = {
+            kbo_registration: kboNum,
+            kbo_registration_number: kboNum,
+            legal_form: prefillData.companyInfo?.legalForm || prefillData.kboData?.legalForm,
+            company_id: kboNum,
+            company_address: [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city]
+              .filter(Boolean)
+              .join(' '),
+            company_status: 'Active',
+            kbo_verified: true,
+          };
+        }
+        if (Object.keys(formDataUpdate).length > 0) {
+          useManualFormStore.getState().updateFormData(formDataUpdate as any);
+          logger.info('Hydrated form store from bootstrap prefill (existing report)', {
+            reportId: report.reportId.substring(0, 20),
+            formFieldsCount: Object.keys(formDataUpdate).length,
+          });
+        }
+
+        logger.info('Merged bootstrap prefill into session for existing report (before loadSession)', {
+          reportId: report.reportId.substring(0, 20),
+          prefillFieldsCount: Object.keys(sessionData).length - 1,
+        });
+      }
+
+      // Trigger async load - will merge/override with full session data when complete
       logger.info('Triggering session load for existing report', {
         reportId: report.reportId.substring(0, 20),
         hasExistingData: report.hasExistingData,
         hasValuationResult: report.hasValuationResult,
       });
-      
-      // Load the full session data from backend
-      // This will populate form fields, valuation result, and HTML reports
       sessionStore.loadSession(
         report.reportId,
-        'manual', // Default to manual flow - will be updated from session data
-        undefined // No prefilled query for existing reports
+        'manual',
+        undefined
       ).catch((error) => {
         logger.error('Failed to load session for existing report', {
           reportId: report.reportId.substring(0, 20),

@@ -410,10 +410,15 @@ class SessionRestorationServiceImpl {
         updateFormData(data.formData as any)
         restoredFormFields = Object.keys(data.formData).length
         
-        generalLogger.debug('[SessionRestoration] Form data hydrated', {
-          reportId: data.reportId,
+        generalLogger.info('[SessionRestoration] Form data hydrated', {
+          reportId: data.reportId?.substring(0, 20),
           fieldCount: restoredFormFields,
           fields: Object.keys(data.formData),
+          kboFields: {
+            company_name: !!data.formData.company_name,
+            kbo_number: !!data.formData.kbo_number,
+            vat_number: !!data.formData.vat_number,
+          },
         })
       } catch (error) {
         generalLogger.error('[SessionRestoration] Form hydration failed', {

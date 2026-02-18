@@ -30,6 +30,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
+import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
@@ -281,6 +282,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const { user } = useAuth()
   const { identity, isAccountantFlow } = useBootstrap()
   useBootstrapSync()
+  useBootstrapPrefill() // Ensures form store gets Mercury/bootstrap data (Manual flow doesn't render ValuationForm)
 
   const { isCalculating, error, result, trySetCalculating, setCalculating, setResult } = useManualResultsStore()
   const { updateFormData } = useManualFormStore()

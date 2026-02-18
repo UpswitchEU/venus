@@ -44,16 +44,28 @@ export function useSessionDataPrefill() {
   const bootstrap = useBootstrapSafe()
 
   useEffect(() => {
-    // ✅ WORLD-CLASS FIX: Skip prefill for existing reports with data
-    // When viewing a completed report, we should NOT prefill the form
-    // The report data is already available - prefilling would overwrite it
-    if (bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData) {
-      generalLogger.info('[useSessionDataPrefill] Skipping - viewing existing report with data', {
-        reportMode: bootstrap.report.mode,
-        hasExistingData: bootstrap.report.hasExistingData,
-        hasValuationResult: bootstrap.report.hasValuationResult,
+    // MERCURY FIX: For existing reports, allow fallback when form is empty but session has data
+    // Restoration (loadSession) is async - form may stay blank until it completes.
+    // If session store has sessionData with company/KBO fields and form is empty, apply as fallback.
+    const isExistingReport = bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
+    const formIsEmpty = !formData.company_name?.trim() && !formData.kbo_number?.trim()
+    const sessionHasData = !!(
+      sessionData?.company_name?.trim() ||
+      sessionData?.kbo_number ||
+      sessionData?._businessInfo?.company_name?.trim()
+    )
+
+    if (isExistingReport && !formIsEmpty) {
+      // Form already has data - skip (restoration or bootstrap prefill already applied)
+      generalLogger.debug('[useSessionDataPrefill] Skipping - existing report, form already has data', {
+        reportMode: bootstrap?.report?.mode,
       })
       hasPrefilledRef.current = true
+      return
+    }
+
+    if (isExistingReport && formIsEmpty && !sessionHasData) {
+      // Form empty, session empty - wait for loadSession
       return
     }
 
@@ -206,6 +218,19 @@ export function useSessionDataPrefill() {
     if (mergedData.legal_form) updates.legal_form = mergedData.legal_form
     if (mergedData.nace_code) updates.nace_code = mergedData.nace_code
     if (mergedData.nace_description) updates.nace_description = mergedData.nace_description
+
+    // business_context for KBO preview card
+    if (mergedData.kbo_number) {
+      updates.business_context = {
+        kbo_registration: mergedData.kbo_number,
+        kbo_registration_number: mergedData.kbo_number,
+        legal_form: mergedData.legal_form,
+        company_id: mergedData.kbo_number,
+        company_address: [mergedData.postal_code, mergedData.city].filter(Boolean).join(' '),
+        company_status: 'Active',
+        kbo_verified: true,
+      }
+    }
 
     // Revenue prefill from latest valuation or current year data
     if (mergedData.current_year_data?.revenue) {

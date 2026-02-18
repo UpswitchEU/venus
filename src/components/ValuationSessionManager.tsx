@@ -30,6 +30,7 @@ import { generalLogger } from '../utils/logger'
 import { looksLikeExistingReportId } from '../utils/identifiers'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
+import { SessionRestorationService } from '../services/session/SessionRestorationService'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection'
 
@@ -268,11 +269,22 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
       // If bootstrap already resolved this session, session store should be synced
       // by useBootstrapSync hook - we can skip redundant API call
+      // CRITICAL: Still run restoration - form store must be hydrated from sessionData
+      // (loadSession normally does this, but we skip it here to avoid redundant API call)
       if (bootstrapHasExistingSession && session?.reportId === reportId) {
         generalLogger.debug('[SessionManager] Session load SKIPPED: already loaded via bootstrap', {
           reportId,
           bootstrapReportId,
         })
+        const sessionData = session?.sessionData
+        if (sessionData && Object.keys(sessionData).length > 0) {
+          SessionRestorationService.restore(reportId, session).catch((err) => {
+            generalLogger.warn('[SessionManager] Restoration failed when skipping loadSession', {
+              reportId,
+              error: err instanceof Error ? err.message : String(err),
+            })
+          })
+        }
         // Clear loading ref since we're done
         loadingInitiatedRef.current = null
         return

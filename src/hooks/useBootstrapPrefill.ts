@@ -63,21 +63,30 @@ export function useBootstrapPrefill(): {
       return;
     }
     
-    // ✅ WORLD-CLASS FIX: Skip prefill for existing reports with data
-    // When viewing an existing completed report, we should NOT prefill the form
-    // The report data is already available - prefilling would overwrite it
-    // ✅ CRITICAL FIX: Do NOT mark globalPrefillApplied = true here
-    // This allows ManualLayout to proceed with its session-based restoration
-    if (bootstrap.report.mode === 'existing' && bootstrap.report.hasExistingData) {
-      logger.info('Skipping prefill - viewing existing report with data (allowing session restoration)', {
+    // MERCURY FIX: For existing reports, apply prefill if bootstrap has meaningful data
+    // Previously we skipped entirely and deferred to restoration - but loadSession is async,
+    // so the form stayed blank until it completed. Bootstrap prefill has the data from
+    // Titan's buildPrefill (session_data) - apply it immediately for instant display.
+    // Restoration will run when loadSession completes and merge any additional data.
+    const hasMeaningfulPrefill =
+      bootstrap.hasPrefilledData &&
+      bootstrap.prefillData.confidence >= 0.05 &&
+      (!!bootstrap.prefillData.companyInfo?.companyName?.trim() ||
+        !!bootstrap.prefillData.companyInfo?.kboNumber ||
+        !!bootstrap.prefillData.kboData?.kboNumber ||
+        !!bootstrap.prefillData.companyInfo?.vatNumber);
+
+    if (
+      bootstrap.report.mode === 'existing' &&
+      bootstrap.report.hasExistingData &&
+      !hasMeaningfulPrefill
+    ) {
+      logger.info('Skipping prefill - existing report, no meaningful prefill data (deferring to restoration)', {
         reportId: bootstrap.report.reportId?.substring(0, 20),
         mode: bootstrap.report.mode,
         hasExistingData: bootstrap.report.hasExistingData,
-        status: bootstrap.report.status,
+        confidence: bootstrap.prefillData.confidence,
       });
-      // ✅ FIX: Only set local state - DO NOT set globalPrefillApplied
-      // This signals that this hook is done but did NOT prefill anything
-      // ManualLayout can then proceed with session-based restoration
       hasPrefilledRef.current = true;
       setHasPrefilled(true);
       return;

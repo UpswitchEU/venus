@@ -201,21 +201,46 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           sessionAny.latestValuation ||
           sessionAny.latest_valuation
         )
+        // CRITICAL: Broaden check to include KBO and other form fields from Mercury
+        // Empty company_name is falsy but kbo_number, vat_number, etc. may exist
         const hasExistingFormData = !!(
-          sessionData.formData || 
-          sessionData.form_data || 
-          sessionData.companyName || 
-          sessionData.company_name
+          sessionData.formData ||
+          sessionData.form_data ||
+          (sessionData.companyName && sessionData.companyName.trim() !== '') ||
+          (sessionData.company_name && sessionData.company_name.trim() !== '') ||
+          sessionData.kboNumber ||
+          sessionData.kbo_number ||
+          sessionData.vatNumber ||
+          sessionData.vat_number ||
+          sessionData.businessTypeId ||
+          sessionData.business_type_id ||
+          sessionData.revenue ||
+          sessionData.ebitda ||
+          sessionData.foundingYear ||
+          sessionData.founding_year ||
+          (sessionData.postalCode && sessionData.postalCode.trim() !== '') ||
+          (sessionData.postal_code && sessionData.postal_code.trim() !== '') ||
+          (sessionData.legalForm && sessionData.legalForm.trim() !== '') ||
+          (sessionData.legal_form && sessionData.legal_form.trim() !== '') ||
+          sessionData.naceCode ||
+          sessionData.nace_code
         )
         const isExistingSession = hasExistingValuationResult || hasExistingFormData
 
         // STATE TRANSITION: -> LOADED
+        // DIAGNOSTIC: Log sessionData for Mercury data flow tracing
+        const sessionDataForLog = (session.sessionData || {}) as Record<string, unknown>;
         storeLogger.info('[Session] Loaded successfully', {
-          reportId: session.reportId,
+          reportId: session.reportId?.substring(0, 20),
           hasSessionData: !!session.sessionData,
           isExistingSession,
           hasExistingValuationResult,
           hasExistingFormData,
+          sessionDataKboFields: {
+            company_name: !!sessionDataForLog.company_name,
+            kbo_number: !!sessionDataForLog.kbo_number,
+            vat_number: !!sessionDataForLog.vat_number,
+          },
         })
         
         // ✅ WORLD-CLASS: Trigger centralized restoration
