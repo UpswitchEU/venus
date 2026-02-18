@@ -47,12 +47,6 @@ const nextConfig = {
         (plugin) => plugin.constructor.name !== 'ReactRefreshPlugin' || !dev
       )
     }
-    // Exclude vitest.config.ts from being processed by Next.js
-    config.module.rules.push({
-      test: /vitest\.config\.ts$/,
-      loader: 'ignore-loader',
-    })
-
     // Production optimizations
     if (!dev && !isServer) {
       // Enable webpack optimizations for better tree-shaking
