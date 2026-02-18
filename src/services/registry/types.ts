@@ -17,6 +17,14 @@ export interface CompanySearchResult {
   registry_name: string
   registry_url: string
   website?: string
+  /** KBO number (Titan registry returns this) */
+  kbo_number?: string
+  /** NACE industry code (Titan KBO returns this) */
+  nace_code?: string
+  /** NACE activity description (Titan KBO returns this) */
+  nace_description?: string
+  postal_code?: string
+  city?: string
 }
 
 export interface CompanyFinancialData {

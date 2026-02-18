@@ -261,6 +261,7 @@ export type {
 export {
   KBOSearchInput,
   BusinessTypeSearchInput,
+  categoryIcons,
 } from './EntitySearch'
 export type {
   KBOCompany,

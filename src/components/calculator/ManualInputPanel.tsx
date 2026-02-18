@@ -12,7 +12,7 @@
  * - Each year can have its own set of adjustments
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -46,6 +46,7 @@ import {
 import { 
   KBOSearchInput, 
   BusinessTypeSearchInput,
+  categoryIcons,
   type KBOCompany, 
   type BusinessType 
 } from '@/design-system';
@@ -54,6 +55,9 @@ import {
   type NormalizationItem as UnifiedNormalizationItem,
 } from './UnifiedNormalizationModal';
 import { useCanSave } from '../../hooks/useCanSave';
+import { useBusinessTypes } from '../../hooks/useBusinessTypes';
+import { registryService } from '../../services/registry/registryService';
+import type { CompanySearchResult } from '../../services/registry/types';
 
 // Types
 export interface YearlyFinancials {
@@ -310,6 +314,40 @@ export function ManualInputPanel({
       totalYearsWithData: validYears.length,
     };
   }, [formData.yearlyFinancials]);
+
+  // KBO search: real registry API (Titan) instead of mock data
+  const kboSearchFn = useCallback(async (query: string): Promise<KBOCompany[]> => {
+    if (!query || query.trim().length < 2) return [];
+    try {
+      const response = await registryService.searchCompanies(query.trim(), 'BE', 15);
+      if (!response.success || !response.results) return [];
+      return response.results.map((r: CompanySearchResult) => ({
+        id: r.company_id,
+        name: r.company_name,
+        kboNumber: r.kbo_number || r.registration_number,
+        legalForm: r.legal_form,
+        address: [r.address, r.postal_code, r.city].filter(Boolean).join(', '),
+        postalCode: r.postal_code || '',
+        city: r.city || '',
+        naceCode: r.nace_code || '',
+        naceDescription: r.nace_description || '',
+      }));
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Business types from Titan API (instead of hardcoded)
+  const { businessTypes } = useBusinessTypes();
+  const businessTypesForSearch = useMemo((): BusinessType[] => {
+    return businessTypes.map((bt) => ({
+      id: bt.id,
+      code: bt.industryMapping || bt.id,
+      name: bt.title,
+      category: bt.category || 'other',
+      icon: categoryIcons[bt.category] ?? categoryIcons['other'] ?? Building2,
+    }));
+  }, [businessTypes]);
 
   const updateField = <K extends keyof ValuationFormData>(
     field: K,
@@ -597,6 +635,7 @@ export function ManualInputPanel({
                 onCompanySelect={handleCompanySelect}
                 selectedCompany={selectedCompany}
                 onClear={handleClearCompany}
+                searchFn={kboSearchFn}
                 size="sm"
               />
 
@@ -612,6 +651,7 @@ export function ManualInputPanel({
                       label={mi('fields.businessType')}
                       value={formData.businessType}
                       onChange={handleBusinessTypeSelect}
+                      types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
                       size="sm"
                     />
                     {selectedBusinessType && (
