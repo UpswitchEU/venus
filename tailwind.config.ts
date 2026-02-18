@@ -16,7 +16,7 @@ const config: Config = {
       // ═══════════════════════════════════════════════════════
       fontFamily: {
         // Aurora Design System — Satoshi as primary
-        sans: ['Satoshi', 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Satoshi', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         display: ['Satoshi', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
         // Legacy aliases

@@ -1,8 +1,8 @@
 /**
  * Grootboek Reference Data Proxy
  *
- * Proxies Belgian MAR grootboek code requests to Titan.
- * Public reference data — no authentication required.
+ * Proxies Belgian MAR grootboek code requests to Titan's
+ * ReferenceDataController. Public reference data — no auth required.
  *
  * @module api/reference/grootboek
  */
@@ -14,26 +14,27 @@ const TITAN_API_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   'https://api.upswitch.app';
 
-const TIMEOUT_MS = 10_000; // 10s — static data, should be fast
+const TIMEOUT_MS = 10_000;
 
 /**
  * GET /api/reference/grootboek
  *
  * Returns Belgian grootboek codes for normalization UI.
- * Cached in-memory on Titan side (static data, rarely changes).
  */
 export async function GET() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const titanResponse = await fetch(`${TITAN_API_URL}/api/v2/reference/grootboek`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      // Cache for 1 hour — reference data changes infrequently
-      next: { revalidate: 3600 },
-    });
+    const titanResponse = await fetch(
+      `${TITAN_API_URL}/api/v2/reference-data/grootboek`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        next: { revalidate: 3600 },
+      },
+    );
 
     clearTimeout(timeout);
 

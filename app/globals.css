@@ -1,6 +1,5 @@
 /* Font imports - MUST be first (CSS spec) */
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* Import animations */
@@ -87,7 +86,7 @@
   }
 
   html {
-    font-family: "Satoshi", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: "Satoshi", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -96,12 +95,11 @@
 
   body {
     @apply bg-background text-foreground;
-    font-weight: 400;
     line-height: 1.5;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Satoshi", "Inter", system-ui, sans-serif;
+    font-family: "Satoshi", system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.025em;
   }
@@ -307,7 +305,7 @@
   --border-light: hsl(var(--report-slate-200));
 
   /* Base Font settings */
-  font-family: "Satoshi", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: "Satoshi", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 11pt;
   line-height: 1.5;
   color: hsl(var(--report-text));
@@ -322,7 +320,7 @@
 
 /* Headers */
 .valuation-report-preview h1 {
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Satoshi", sans-serif;
   font-size: 28pt;
   font-weight: 800;
   color: var(--text-dark);
@@ -345,7 +343,7 @@
 }
 
 .valuation-report-preview h2 {
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Satoshi", sans-serif;
   font-size: 18pt;
   font-weight: 700;
   color: var(--text-dark);
@@ -357,7 +355,7 @@
 }
 
 .valuation-report-preview h3 {
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Satoshi", sans-serif;
   font-size: 14pt;
   font-weight: 600;
   color: var(--text-dark);
@@ -473,7 +471,7 @@
   border-spacing: 0;
   margin-top: 24pt;
   margin-bottom: 24pt;
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Satoshi", sans-serif;
   font-size: 10pt;
   line-height: 1.6;
   border: none;
@@ -507,7 +505,7 @@
   color: hsl(var(--report-slate-900));
   padding: 12pt 12pt;
   text-align: left;
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Satoshi", sans-serif;
   text-transform: uppercase;
   font-size: 9pt;
   letter-spacing: 0.05em;
@@ -567,7 +565,7 @@
   font-weight: 800;
   margin: 12pt 0 16pt 0;
   color: hsl(var(--report-slate-900));
-  font-family: "Satoshi", "Inter", sans-serif;
+  font-family: "Satoshi", sans-serif;
   letter-spacing: -1pt;
 }
 

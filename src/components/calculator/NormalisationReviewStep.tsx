@@ -40,6 +40,7 @@ import { cn } from '@/design-system/utils';
 import { AuroraButton as Button } from '@/design-system/components/Button';
 import { AuroraInput as Input } from '@/design-system/components/Input';
 import { Checkbox } from '@/design-system/components/Checkbox';
+import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek';
 
 // ─────────────────────────────────────────
 // TYPES
@@ -61,12 +62,6 @@ export interface SuggestedNormalisation {
   type?: NormalizationType;
   applyAllYears?: boolean;
   marketBenchmark?: string;
-}
-
-interface LedgerAccount {
-  code: string;
-  name: string;
-  category?: string;
 }
 
 export interface NormalisationReviewStepProps {
@@ -140,18 +135,7 @@ const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus 
   { value: 'absolute', label: 'ABS', icon: Hash },
 ];
 
-// Default ledger accounts for quick additions
-const defaultLedgerAccounts: LedgerAccount[] = [
-  { code: '620', name: 'Bezoldigingen bestuurders', category: 'Personeelskosten' },
-  { code: '621', name: 'Werkgeversbijdragen RSZ', category: 'Personeelskosten' },
-  { code: '613', name: 'Huurkosten', category: 'Diensten en diverse goederen' },
-  { code: '614', name: 'Energie en water', category: 'Diensten en diverse goederen' },
-  { code: '615', name: 'Voertuigkosten', category: 'Diensten en diverse goederen' },
-  { code: '617', name: 'Erelonen en vergoedingen', category: 'Diensten en diverse goederen' },
-  { code: '640', name: 'Eenmalige kosten', category: 'Andere bedrijfskosten' },
-  { code: '650', name: 'Privékosten zaakvoerder', category: 'Andere bedrijfskosten' },
-  { code: '660', name: 'Afschrijvingen', category: 'Afschrijvingen' },
-];
+const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS;
 
 // Quick presets with market-conform defaults
 interface NormalizationPreset {

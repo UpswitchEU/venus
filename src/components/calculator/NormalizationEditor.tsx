@@ -38,17 +38,13 @@ import { AuroraInput as Input } from '@/design-system/components/Input';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/design-system/components/Modal';
 import { Checkbox } from '@/design-system/components/Checkbox';
 import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from '@/design-system/components/Tooltip';
+import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek';
 
 // Types for normalization data
 export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute';
 export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv';
 
-export interface LedgerAccount {
-  code: string;
-  name: string;
-  category?: string;
-  balance?: number;
-}
+export type { LedgerAccount } from '../../constants/grootboek';
 
 export interface Normalization {
   id: string;
@@ -75,20 +71,7 @@ export interface NormalizationEditorProps {
   companyName?: string;
 }
 
-// Mock ledger accounts for demo (when no data uploaded)
-const defaultLedgerAccounts: LedgerAccount[] = [
-  { code: '620', name: 'Bezoldigingen bestuurders', category: 'Personeelskosten' },
-  { code: '621', name: 'Werkgeversbijdragen RSZ', category: 'Personeelskosten' },
-  { code: '613', name: 'Huurkosten', category: 'Diensten en diverse goederen' },
-  { code: '614', name: 'Energie en water', category: 'Diensten en diverse goederen' },
-  { code: '615', name: 'Voertuigkosten', category: 'Diensten en diverse goederen' },
-  { code: '616', name: 'Verzekeringen', category: 'Diensten en diverse goederen' },
-  { code: '617', name: 'Erelonen en vergoedingen', category: 'Diensten en diverse goederen' },
-  { code: '640', name: 'Eenmalige kosten', category: 'Andere bedrijfskosten' },
-  { code: '650', name: 'Privékosten zaakvoerder', category: 'Andere bedrijfskosten' },
-  { code: '660', name: 'Afschrijvingen', category: 'Afschrijvingen' },
-  { code: '661', name: 'Waardeverminderingen', category: 'Afschrijvingen' },
-];
+const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS;
 
 const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus; description: string }[] = [
   { value: 'add', label: '+€', icon: Plus, description: 'Bedrag toevoegen' },

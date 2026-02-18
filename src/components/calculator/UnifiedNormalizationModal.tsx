@@ -64,12 +64,8 @@ export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_p
 export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv' | 'ai';
 export type NormalizationStatus = 'pending' | 'accepted' | 'rejected';
 
-export interface LedgerAccount {
-  code: string;
-  name: string;
-  category?: string;
-  balance?: number;
-}
+import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek';
+export type { LedgerAccount } from '../../constants/grootboek';
 
 export interface NormalizationItem {
   id: string;
@@ -134,46 +130,7 @@ const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus 
   { value: 'absolute', label: 'ABS', icon: Hash },
 ];
 
-const defaultLedgerAccounts: LedgerAccount[] = [
-  // Personeelskosten (62x)
-  { code: '620', name: 'Bezoldigingen bestuurders', category: 'Personeelskosten' },
-  { code: '621', name: 'Werkgeversbijdragen RSZ', category: 'Personeelskosten' },
-  { code: '622', name: 'Bezoldigingen personeel', category: 'Personeelskosten' },
-  { code: '623', name: 'Pensioenpremies', category: 'Personeelskosten' },
-  { code: '624', name: 'Vorming en opleiding', category: 'Personeelskosten' },
-  { code: '625', name: 'Maaltijdcheques', category: 'Personeelskosten' },
-  // Diensten en diverse goederen (61x)
-  { code: '610', name: 'Aankopen handelsgoederen', category: 'Aankopen' },
-  { code: '611', name: 'Aankopen grondstoffen', category: 'Aankopen' },
-  { code: '612', name: 'Onderhoudskosten', category: 'Diensten en diverse goederen' },
-  { code: '613', name: 'Huurkosten', category: 'Diensten en diverse goederen' },
-  { code: '614', name: 'Energie en water', category: 'Diensten en diverse goederen' },
-  { code: '615', name: 'Voertuigkosten', category: 'Diensten en diverse goederen' },
-  { code: '616', name: 'Verzekeringen', category: 'Diensten en diverse goederen' },
-  { code: '617', name: 'Erelonen en vergoedingen', category: 'Diensten en diverse goederen' },
-  { code: '618', name: 'Telecom en IT', category: 'Diensten en diverse goederen' },
-  { code: '619', name: 'Kantoorkosten', category: 'Diensten en diverse goederen' },
-  // Andere bedrijfskosten (64x, 65x)
-  { code: '640', name: 'Eenmalige kosten', category: 'Andere bedrijfskosten' },
-  { code: '641', name: 'Representatiekosten', category: 'Andere bedrijfskosten' },
-  { code: '642', name: 'Reclame en publiciteit', category: 'Andere bedrijfskosten' },
-  { code: '643', name: 'Bankkosten', category: 'Andere bedrijfskosten' },
-  { code: '644', name: 'Juridische kosten', category: 'Andere bedrijfskosten' },
-  { code: '645', name: 'Boetes en sancties', category: 'Andere bedrijfskosten' },
-  { code: '650', name: 'Privékosten zaakvoerder', category: 'Andere bedrijfskosten' },
-  { code: '651', name: 'Restaurantkosten', category: 'Andere bedrijfskosten' },
-  { code: '652', name: 'Reiskosten', category: 'Andere bedrijfskosten' },
-  // Afschrijvingen (66x)
-  { code: '660', name: 'Afschrijvingen', category: 'Afschrijvingen' },
-  { code: '661', name: 'Afschrijvingen gebouwen', category: 'Afschrijvingen' },
-  { code: '662', name: 'Afschrijvingen machines', category: 'Afschrijvingen' },
-  { code: '663', name: 'Afschrijvingen voertuigen', category: 'Afschrijvingen' },
-  { code: '664', name: 'Afschrijvingen inventaris', category: 'Afschrijvingen' },
-  // Financiële kosten (65x, 67x)
-  { code: '657', name: 'Interestkosten', category: 'Financiële kosten' },
-  { code: '658', name: 'Wisselkoersverschillen', category: 'Financiële kosten' },
-  { code: '670', name: 'Financiële kosten leningen', category: 'Financiële kosten' },
-];
+const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS;
 
 // Fuzzy search helper - matches characters in order but not necessarily adjacent
 const fuzzyMatch = (text: string, query: string): { matches: boolean; score: number; indices: number[] } => {
@@ -482,7 +439,7 @@ export function UnifiedNormalizationModal({
           })),
         );
       })
-      .catch(() => {}); // Fallback to defaults silently
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
