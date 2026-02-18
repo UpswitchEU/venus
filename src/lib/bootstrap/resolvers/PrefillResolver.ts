@@ -131,8 +131,23 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         profileResult?.financials
       );
 
-      const businessType = sessionResult?.businessType || 
-                           profileResult?.businessType;
+      let businessType = sessionResult?.businessType || 
+                         profileResult?.businessType;
+
+      // Fallback: Look up business type from NACE code when we have nace_code but no businessType
+      const naceCode = companyInfo?.naceCode || 
+                       (companyInfo as any)?.nace_code ||
+                       kboResult?.kboData?.naceCode;
+      if (!businessType && naceCode?.trim()) {
+        const naceBusinessType = await this.fetchBusinessTypeForNaceCode(naceCode.trim());
+        if (naceBusinessType) {
+          businessType = naceBusinessType;
+          this.logger.info('[PrefillResolver] Resolved business type from NACE fallback', {
+            naceCode: naceCode.trim(),
+            businessTypeId: businessType.id,
+          });
+        }
+      }
 
       const kboData = kboResult?.kboData;
 
@@ -345,6 +360,41 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     } catch (error) {
       this.logger.error('[PrefillResolver] Profile fetch error:', error);
       return null;
+    }
+  }
+
+  /**
+   * Fetch business type for a NACE code (reverse lookup).
+   * Uses Titan's NACE→business type mapping.
+   */
+  private async fetchBusinessTypeForNaceCode(naceCode: string): Promise<BusinessTypeInfo | undefined> {
+    try {
+      const response = await fetch(`${API_URL}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (!response.ok) return undefined;
+
+      const data = await response.json();
+      const bt = data.business_type;
+      const confidence = data.confidence ?? 0;
+
+      // Only use mapping if confidence is high enough
+      if (!bt?.id || confidence < 0.85) return undefined;
+
+      return {
+        id: bt.id,
+        code: bt.id,
+        title: bt.title || bt.name,
+        category: bt.category?.name ?? bt.category?.title ?? bt.category_id,
+        industry: bt.industry ?? bt.category_id,
+        industryMapping: bt.industry_mapping ?? bt.id,
+        multiples: bt.multiples,
+      };
+    } catch {
+      return undefined;
     }
   }
 

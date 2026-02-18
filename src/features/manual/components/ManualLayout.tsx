@@ -40,6 +40,7 @@ import { useConversationStore } from '../../../store/useConversationStore'
 import { CalculatorShellSkeleton } from '../../../components/calculator'
 import { valuationService, reportService } from '../../../services'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
+import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { DownloadService } from '../../../services/downloadService'
 import { generalLogger } from '../../../utils/logger'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
@@ -87,6 +88,7 @@ interface CollectedData {
   companyName?: string
   kboNumber?: string
   legalForm?: string
+  businessStructure?: string
   address?: string
   naceCode?: string
   naceDescription?: string
@@ -437,6 +439,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     companyName: companyName || '',
     kboNumber: formKboNumber || '',
     legalForm: formLegalForm || '',
+    businessStructure: mapLegalFormToBusinessStructure(formLegalForm || '') || undefined,
     address: formAddress || '',
     naceCode: formNaceCode || '',
     naceDescription: formNaceDescription || '',
@@ -460,6 +463,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (yearStr && yearStr !== prev.yearFounded) next.yearFounded = yearStr
       if (formKboNumber && formKboNumber !== prev.kboNumber) next.kboNumber = formKboNumber
       if (formLegalForm && formLegalForm !== prev.legalForm) next.legalForm = formLegalForm
+      const derivedBusinessStructure = mapLegalFormToBusinessStructure(formLegalForm || '')
+      next.businessStructure = derivedBusinessStructure || prev.businessStructure || undefined
       if (formAddress && formAddress !== prev.address) next.address = formAddress
       if (formNaceCode && formNaceCode !== prev.naceCode) next.naceCode = formNaceCode
       if (formNaceDescription && formNaceDescription !== prev.naceDescription) next.naceDescription = formNaceDescription
@@ -497,7 +502,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const sessionNaceDesc = (merged.nace_description || merged.naceDescription) as string
       if (sessionCompany && !prev.companyName) next.companyName = sessionCompany
       if (sessionKbo && !prev.kboNumber) next.kboNumber = sessionKbo
-      if (sessionLegal && !prev.legalForm) next.legalForm = sessionLegal
+      if (sessionLegal && !prev.legalForm) {
+        next.legalForm = sessionLegal
+        const mapped = mapLegalFormToBusinessStructure(sessionLegal)
+        if (mapped && !prev.businessStructure) next.businessStructure = mapped
+      }
       if (sessionAddress && !prev.address) next.address = sessionAddress
       if (sessionNace && !prev.naceCode) next.naceCode = sessionNace
       if (sessionNaceDesc && !prev.naceDescription) next.naceDescription = sessionNaceDesc
@@ -1535,6 +1544,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,
       legalForm: collectedData.legalForm,
+      businessStructure: collectedData.businessStructure || mapLegalFormToBusinessStructure(collectedData.legalForm || ''),
       address: collectedData.address,
       naceCode: collectedData.naceCode,
       naceDescription: collectedData.naceDescription,

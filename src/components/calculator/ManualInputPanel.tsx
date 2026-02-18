@@ -59,6 +59,7 @@ import { useBusinessTypes } from '../../hooks/useBusinessTypes';
 import { registryService } from '../../services/registry/registryService';
 import { businessTypesApiService } from '../../services/businessTypesApi';
 import { naceBusinessTypeService } from '../../services/naceBusinessTypeService';
+import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping';
 import { useManualFormStore } from '../../store/manual/useManualFormStore';
 import type { CompanySearchResult } from '../../services/registry/types';
 
@@ -271,19 +272,6 @@ export function ManualInputPanel({
   // KBO verification state
   const [selectedCompany, setSelectedCompany] = useState<KBOCompany | null>(null);
   const [companySearchValue, setCompanySearchValue] = useState(formData.companyName || '');
-
-  // Map legal_form (e.g. "BV", "VZW") to businessStructure dropdown value ("bv", "vzw")
-  const mapLegalFormToBusinessStructure = (legalForm: string | undefined): string => {
-    if (!legalForm || typeof legalForm !== 'string') return '';
-    const lower = legalForm.toLowerCase();
-    if (['bv', 'bvba'].includes(lower)) return 'bv';
-    if (lower === 'nv') return 'nv';
-    if (lower === 'vof') return 'vof';
-    if (lower === 'cvba') return 'cvba';
-    if (lower === 'vzw') return 'vzw';
-    if (lower === 'eenmanszaak') return 'eenmanszaak';
-    return lower;
-  };
 
   // Sync prefill from bootstrap/session when initialData arrives after mount
   // Dependencies on key fields ensure we re-run when prefill arrives late (e.g. async store hydration)
@@ -663,11 +651,7 @@ export function ManualInputPanel({
         : company.address,
       naceCode: company.naceCode || '',
       naceDescription: company.naceDescription || '',
-      businessStructure: company.legalForm.toLowerCase() === 'bv' ? 'bv'
-        : company.legalForm.toLowerCase() === 'nv' ? 'nv'
-        : company.legalForm.toLowerCase() === 'vof' ? 'vof'
-        : company.legalForm.toLowerCase() === 'cvba' ? 'cvba'
-        : '',
+      businessStructure: mapLegalFormToBusinessStructure(company.legalForm),
     };
 
     setFormData((prev) => ({ ...prev, ...baseUpdates }));
@@ -870,7 +854,7 @@ export function ManualInputPanel({
                       value={formData.businessType}
                       onChange={handleBusinessTypeSelect}
                       types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
-                      naceMatchedTypeId={formData.businessType?.trim() || undefined}
+                      naceMatchedTypeId={selectedCompany?.naceCode && formData.businessType?.trim() ? formData.businessType.trim() : undefined}
                       size="sm"
                     />
                     {selectedBusinessType && (

@@ -13,14 +13,17 @@
  * @module components/ValuationForm/ValuationForm
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useBootstrapSafe } from '../../lib/bootstrap'
 import { useBootstrapPrefill } from '../../hooks/useBootstrapPrefill'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
 import { useSessionDataPrefill } from '../../hooks/useSessionDataPrefill'
-import type { BusinessType } from '../../services/businessTypesApi'
+import {
+  businessTypesApiService,
+  type BusinessType,
+} from '../../services/businessTypesApi'
 import { useManualFormStore, useManualResultsStore } from '../../store/manual'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
@@ -458,46 +461,70 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   ])
 
   // PRE-FILL: Priority 3 - NACE code to business type suggestion
-  // Auto-suggest business type from NACE code (from KBO registry)
-  // This runs after session data prefill and provides intelligent suggestions
-  const [hasProcessedNaceCode, setHasProcessedNaceCode] = useState(false)
+  // Auto-suggest business type from NACE code (from KBO registry) via Titan's NACE mapping
+  const lastProcessedNaceRef = useRef<string | null>(null)
   useEffect(() => {
-    // Only process if:
-    // 1. NACE code exists in form data
-    // 2. Business type not already set (don't override user selection)
-    // 3. Business types are loaded
-    // 4. Haven't processed yet
+    const naceCode = formData.nace_code?.trim()
     if (
-      formData.nace_code &&
-      !formData.business_type_id &&
-      businessTypes.length > 0 &&
-      !hasProcessedNaceCode
+      !naceCode ||
+      formData.business_type_id ||
+      businessTypes.length === 0 ||
+      lastProcessedNaceRef.current === naceCode
     ) {
-      // Try to find matching business type by NACE code
-      // Note: This assumes NACE mappings are synced to business types
-      // or we query them separately. For now, we'll use a simple approach
-      // where business_type might have nace_code field or we do a lookup
-      
-      generalLogger.info('[ValuationForm] Auto-suggesting business type from NACE', {
-        nace_code: formData.nace_code,
-      })
-
-      // For now, mark as processed
-      // TODO: Implement NACE lookup via API or include in business types data
-      // This would require either:
-      // 1. Adding nace_code to business_types table
-      // 2. Creating a separate API endpoint to lookup NACE mappings
-      // 3. Including NACE mappings in business types API response
-      
-      setHasProcessedNaceCode(true)
-      
-      // Future implementation would look like:
-      // const matchingType = businessTypes.find(bt => bt.nace_codes?.includes(formData.nace_code))
-      // if (matchingType) {
-      //   updateFormData({ business_type_id: matchingType.id, ... })
-      // }
+      return
     }
-  }, [formData.nace_code, formData.business_type_id, businessTypes, hasProcessedNaceCode])
+
+    lastProcessedNaceRef.current = naceCode
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const bt = await businessTypesApiService.getBusinessTypeForNaceCode(naceCode)
+        if (cancelled || !bt) return
+
+        const matchedType = businessTypes.find((t) => t.id === bt.id)
+        if (matchedType) {
+          generalLogger.info('[ValuationForm] Prefilled business type from NACE', {
+            nace_code: naceCode,
+            business_type_id: bt.id,
+            title: bt.title,
+          })
+          updateFormData({
+            business_type_id: bt.id,
+            business_model: bt.id,
+            industry: bt.category_id || bt.industry || 'services',
+            subIndustry: bt.category,
+            _internal_dcf_preference: matchedType.dcfPreference,
+            _internal_multiples_preference: matchedType.multiplesPreference,
+            _internal_owner_dependency_impact: matchedType.ownerDependencyImpact,
+            _internal_key_metrics: matchedType.keyMetrics,
+            _internal_typical_employee_range: matchedType.typicalEmployeeRange,
+            _internal_typical_revenue_range: matchedType.typicalRevenueRange,
+          } as any)
+        } else {
+          updateFormData({
+            business_type_id: bt.id,
+            business_model: bt.id,
+            industry: bt.category_id || bt.industry || 'services',
+            subIndustry: bt.category,
+          } as any)
+        }
+      } catch {
+        // No mapping for this NACE code – leave business type empty
+      } finally {
+        if (cancelled) lastProcessedNaceRef.current = null
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    formData.nace_code,
+    formData.business_type_id,
+    businessTypes,
+    updateFormData,
+  ])
 
   // PRE-FILL: Priority 4 - prefilledQuery (URL parameter)
   // This runs after restoration and business types are loaded

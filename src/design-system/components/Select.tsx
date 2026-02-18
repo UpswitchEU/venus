@@ -9,6 +9,7 @@
  */
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
@@ -167,11 +168,13 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
     const [searchQuery, setSearchQuery] = React.useState('')
     const [internalValue, setInternalValue] = React.useState(defaultValue || '')
     const [focusedIndex, setFocusedIndex] = React.useState(-1)
+    const [dropdownRect, setDropdownRect] = React.useState<{ top: number; left: number; width: number } | null>(null)
 
     const internalRef = React.useRef<HTMLDivElement>(null)
     const containerRef = dropdownRef || internalRef
     const searchInputRef = React.useRef<HTMLInputElement>(null)
     const listRef = React.useRef<HTMLDivElement>(null)
+    const portalDropdownRef = React.useRef<HTMLDivElement>(null)
 
     // Combine refs
     React.useImperativeHandle(ref, () => containerRef.current!)
@@ -279,10 +282,34 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
       }
     }
 
-    // Close on outside click
+    // Update dropdown position when open (for Portal)
+    React.useLayoutEffect(() => {
+      if (isOpen && containerRef.current) {
+        const updateRect = () => {
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect()
+            setDropdownRect({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+          }
+        }
+        updateRect()
+        window.addEventListener('scroll', updateRect, true)
+        window.addEventListener('resize', updateRect)
+        return () => {
+          window.removeEventListener('scroll', updateRect, true)
+          window.removeEventListener('resize', updateRect)
+        }
+      } else {
+        setDropdownRect(null)
+      }
+    }, [isOpen])
+
+    // Close on outside click (Portal: check both container and dropdown)
     React.useEffect(() => {
       const handleClickOutside = (e: MouseEvent) => {
-        if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        const target = e.target as Node
+        const inContainer = containerRef.current?.contains(target)
+        const inDropdown = portalDropdownRef.current?.contains(target)
+        if (!inContainer && !inDropdown) {
           setIsOpen(false)
           setSearchQuery('')
           setFocusedIndex(-1)
@@ -291,7 +318,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
 
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [containerRef])
+    }, [])
 
     // Focus search input when opened
     React.useEffect(() => {
@@ -377,20 +404,28 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
             </div>
           </div>
 
-          {/* Dropdown */}
-          <AnimatePresence>
-            {isOpen && (
+          {/* Dropdown - Portal to escape overflow (Clarity parity) */}
+          {typeof document !== 'undefined' &&
+            isOpen &&
+            dropdownRect &&
+            createPortal(
               <motion.div
+                ref={portalDropdownRef}
                 variants={dropdownVariants}
                 initial="hidden"
                 animate="visible"
                 exit="exit"
                 className={cn(
-                  'absolute z-[100] w-full mt-2',
+                  'fixed z-[9999]',
                   'bg-background border border-foreground/[0.10] rounded-xl',
                   'shadow-2xl shadow-black/20',
                   'overflow-hidden'
                 )}
+                style={{
+                  top: dropdownRect.top,
+                  left: dropdownRect.left,
+                  width: dropdownRect.width,
+                }}
               >
                 {/* Search Input */}
                 {searchable && (
@@ -469,9 +504,9 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                     ))
                   )}
                 </div>
-              </motion.div>
+              </motion.div>,
+              document.body
             )}
-          </AnimatePresence>
         </div>
 
         {/* Help Text */}
