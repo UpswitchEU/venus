@@ -839,6 +839,8 @@ async function initializeAuth(): Promise<void> {
           // This ensures client context is fully loaded before any API requests are made
           try {
             await clientContextPromise
+            // CRITICAL: Success - user and client context are set, don't fall through to setUser(null)
+            return
           } catch (error) {
             // Client context exchange failed - log and continue to normal auth flow
             const lastError = error instanceof Error ? error : new Error(String(error))
