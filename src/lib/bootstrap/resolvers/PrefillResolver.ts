@@ -71,6 +71,7 @@ interface SessionDataForPrefill {
   country_code?: string;
   founding_year?: number;
   employee_count?: number;
+  number_of_employees?: number;
   revenue?: number;
   ebitda?: number;
   kbo_number?: string;
@@ -407,7 +408,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     const financials: PartialFinancials = {
       revenue: merged.revenue as number,
       ebitda: merged.ebitda as number,
-      employeeCount: merged.employee_count as number,
+      employeeCount: (merged.employee_count ?? merged.number_of_employees) as number,
       yearData: merged.year_data as Record<number, { revenue?: number; ebitda?: number }>,
     };
 

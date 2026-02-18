@@ -374,6 +374,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [lastSaved, setLastSaved] = useState<Date | undefined>(undefined)
 
   // ─── Collected Data (bi-directional sync) ───
+  // business_type_id = Titan API business type ID (e.g. "restaurant"); business_type = legal structure ("company")
   const formCompanyName = useManualFormStore((s) => s.formData.company_name)
   const formBusinessTypeId = useManualFormStore((s) => s.formData.business_type_id)
   const formIndustry = useManualFormStore((s) => s.formData.industry)

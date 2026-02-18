@@ -6,7 +6,7 @@
  * @module store/manual/__tests__/useManualFormStore.test.ts
  */
 
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useManualFormStore } from '../useManualFormStore'
 
@@ -186,7 +186,7 @@ describe('useManualFormStore', () => {
   })
 
   describe('prefillFromBusinessCard', () => {
-    it('should prefill form data from business card', () => {
+    it('should prefill form data from business card', async () => {
       const { result } = renderHook(() => useManualFormStore())
 
       const businessCard = {
@@ -202,15 +202,20 @@ describe('useManualFormStore', () => {
         result.current.prefillFromBusinessCard(businessCard)
       })
 
-      expect(result.current.formData.company_name).toBe('Business Card Corp')
-      expect(result.current.formData.industry).toBe('technology')
-      expect(result.current.formData.business_model).toBe('b2b_saas')
-      expect(result.current.formData.founding_year).toBe(2020)
-      expect(result.current.formData.country_code).toBe('US')
-      expect(result.current.formData.number_of_employees).toBe(50)
+      await waitFor(
+        () => {
+          expect(result.current.formData.company_name).toBe('Business Card Corp')
+          expect(result.current.formData.industry).toBe('technology')
+          expect(result.current.formData.business_model).toBe('b2b_saas')
+          expect(result.current.formData.founding_year).toBe(2020)
+          expect(result.current.formData.country_code).toBe('US')
+          expect(result.current.formData.number_of_employees).toBe(50)
+        },
+        { timeout: 500 }
+      )
     })
 
-    it('should mark form as dirty after prefill', () => {
+    it('should mark form as dirty after prefill', async () => {
       const { result } = renderHook(() => useManualFormStore())
 
       const businessCard = {
@@ -221,11 +226,16 @@ describe('useManualFormStore', () => {
         country_code: 'US',
       }
 
+      // Wait for any previous prefill's guard to reset (prefillInProgress uses setTimeout(100))
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 150))
+      })
+
       act(() => {
         result.current.prefillFromBusinessCard(businessCard)
       })
 
-      expect(result.current.isDirty).toBe(true)
+      await waitFor(() => expect(result.current.isDirty).toBe(true), { timeout: 500 })
     })
   })
 
