@@ -16,6 +16,8 @@ import {
 	AuroraButton,
 	Modal,
 	ModalContent,
+	ModalTitle,
+	ModalDescription,
 	springGentle,
 } from '@/design-system';
 
@@ -123,6 +125,10 @@ export function ErrorFallback({
 		return (
 			<Modal open={true} onOpenChange={(open) => !open && reset()}>
 				<ModalContent size="md" showClose={true}>
+					<ModalTitle className="sr-only">{title}</ModalTitle>
+					<ModalDescription id="error-fallback-description" className="sr-only">
+						{message}
+					</ModalDescription>
 					<motion.div
 						initial={{ opacity: 0, y: 8 }}
 						animate={{ opacity: 1, y: 0 }}

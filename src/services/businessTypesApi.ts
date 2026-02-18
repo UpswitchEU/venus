@@ -227,28 +227,32 @@ class BusinessTypesApiService {
    * Uses the centralized fallback configuration
    */
   private getHardcodedBusinessTypes(): BusinessType[] {
-    return BUSINESS_TYPES_FALLBACK.map((bt: ConfigBusinessTypeOption) => ({
-      id: bt.value,
-      title: bt.label.replace(/^[^\s]+\s/, ''), // Remove emoji
-      description: `${bt.category} business`,
-      short_description: `${bt.category} business`,
-      icon: bt.icon || '📦',
-      category: bt.category,
-      category_id: bt.category.toLowerCase().replace(/\s+/g, '-'),
-      industryMapping: bt.category,
-      keywords: [bt.category.toLowerCase()],
-      popular: true,
-      // Add default preferences for fallback data
-      dcfPreference: 0.47,
-      multiplesPreference: 0.53,
-      ownerDependencyImpact: 0.5,
-      keyMetrics: ['revenue', 'ebitda', 'growth_rate'],
-      typicalEmployeeRange: { min: 1, max: 50 },
-      typicalRevenueRange: { min: 100000, max: 5000000 },
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }))
+    return BUSINESS_TYPES_FALLBACK.map((bt: ConfigBusinessTypeOption) => {
+      const cat = typeof bt.category === 'string' ? bt.category : String(bt.category ?? '')
+      const catLower = cat.toLowerCase().replace(/\s+/g, '-')
+      return {
+        id: bt.value,
+        title: bt.label.replace(/^[^\s]+\s/, ''), // Remove emoji
+        description: `${cat} business`,
+        short_description: `${cat} business`,
+        icon: bt.icon || '📦',
+        category: cat,
+        category_id: catLower,
+        industryMapping: cat,
+        keywords: [cat.toLowerCase()],
+        popular: true,
+        // Add default preferences for fallback data
+        dcfPreference: 0.47,
+        multiplesPreference: 0.53,
+        ownerDependencyImpact: 0.5,
+        keyMetrics: ['revenue', 'ebitda', 'growth_rate'],
+        typicalEmployeeRange: { min: 1, max: 50 },
+        typicalRevenueRange: { min: 100000, max: 5000000 },
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    })
   }
 
   // ==========================================================================

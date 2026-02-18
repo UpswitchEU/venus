@@ -2,6 +2,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { ErrorFallback } from '@/components/ErrorFallback'
+import { businessTypesCache } from '@/services/cache/businessTypesCache'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -16,6 +17,7 @@ interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
   errorInfo: ErrorInfo | null
+  retryCount: number
 }
 
 /**
@@ -31,6 +33,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       hasError: false,
       error: null,
       errorInfo: null,
+      retryCount: 0,
     }
   }
 
@@ -43,7 +46,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error('[ErrorBoundary] Caught error:', error, errorInfo)
-    
+
+    // Clear business types cache when category/toLowerCase crash - allows Try Again to fetch fresh data
+    if (error.message?.includes('toLowerCase') && error.message?.includes('category')) {
+      businessTypesCache.clearBusinessTypes()
+    }
+
     this.setState({
       error,
       errorInfo,
@@ -56,11 +64,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   handleReset = (): void => {
-    this.setState({
+    this.setState((prev) => ({
       hasError: false,
       error: null,
       errorInfo: null,
-    })
+      retryCount: prev.retryCount + 1,
+    }))
   }
 
   render(): ReactNode {
@@ -91,6 +100,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       )
     }
 
-    return this.props.children
+    // Render children with key to force remount on retry - useBusinessTypes will re-fetch (cache cleared)
+    const child = React.Children.only(this.props.children)
+    return React.isValidElement(child)
+      ? React.cloneElement(child, { key: this.state.retryCount } as { key: number })
+      : this.props.children
   }
 }
