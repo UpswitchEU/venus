@@ -87,6 +87,7 @@ interface CollectedData {
   companyName?: string
   kboNumber?: string
   legalForm?: string
+  address?: string
   naceCode?: string
   naceDescription?: string
   businessType?: string
@@ -424,15 +425,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const formYearFounded = useManualFormStore((s) => s.formData.founding_year)
   const formKboNumber = useManualFormStore((s) => s.formData.kbo_number)
   const formLegalForm = useManualFormStore((s) => s.formData.legal_form)
+  const formCity = useManualFormStore((s) => s.formData.city)
+  const formPostalCode = useManualFormStore((s) => s.formData.postal_code)
   const formNaceCode = useManualFormStore((s) => s.formData.nace_code)
   const formNaceDescription = useManualFormStore((s) => s.formData.nace_description)
   const resultCompanyName = result?.company_name
   const companyName = formCompanyName || resultCompanyName
 
+  const formAddress = [formPostalCode, formCity].filter(Boolean).join(' ')
   const [collectedData, setCollectedData] = useState<CollectedData>({
     companyName: companyName || '',
     kboNumber: formKboNumber || '',
     legalForm: formLegalForm || '',
+    address: formAddress || '',
     naceCode: formNaceCode || '',
     naceDescription: formNaceDescription || '',
     businessType: formBusinessTypeId || '',
@@ -455,11 +460,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (yearStr && yearStr !== prev.yearFounded) next.yearFounded = yearStr
       if (formKboNumber && formKboNumber !== prev.kboNumber) next.kboNumber = formKboNumber
       if (formLegalForm && formLegalForm !== prev.legalForm) next.legalForm = formLegalForm
+      if (formAddress && formAddress !== prev.address) next.address = formAddress
       if (formNaceCode && formNaceCode !== prev.naceCode) next.naceCode = formNaceCode
       if (formNaceDescription && formNaceDescription !== prev.naceDescription) next.naceDescription = formNaceDescription
       return next
     })
-  }, [companyName, formBusinessTypeId, formIndustry, formCountry, formYearFounded, formKboNumber, formLegalForm, formNaceCode, formNaceDescription])
+  }, [companyName, formBusinessTypeId, formIndustry, formCountry, formYearFounded, formKboNumber, formLegalForm, formAddress, formNaceCode, formNaceDescription])
 
   // Display name for top-left dropdown: collectedData > client context (accountant) > fallback
   const displayCompanyName =
@@ -1478,6 +1484,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,
       legalForm: collectedData.legalForm,
+      address: collectedData.address,
       naceCode: collectedData.naceCode,
       naceDescription: collectedData.naceDescription,
       businessType: collectedData.businessType,
@@ -1573,7 +1580,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         )}
 
         <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)]">
-          <ManualInputPanel {...manualInputProps} />
+          <ManualInputPanel key={reportId} {...manualInputProps} />
         </div>
 
         <ChatAssistantDrawer {...chatDrawerProps} />
@@ -1677,7 +1684,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           {/* Left Panel: Always ManualInputPanel (Clarity parity - no view switching) */}
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
             <div className="h-full">
-              <ManualInputPanel {...manualInputProps} />
+              <ManualInputPanel key={reportId} {...manualInputProps} />
             </div>
           </ResizablePanel>
 

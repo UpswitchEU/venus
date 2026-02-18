@@ -269,12 +269,27 @@ export function ManualInputPanel({
   const [selectedCompany, setSelectedCompany] = useState<KBOCompany | null>(null);
   const [companySearchValue, setCompanySearchValue] = useState(formData.companyName || '');
 
+  // Map legal_form (e.g. "BV", "VZW") to businessStructure dropdown value ("bv", "vzw")
+  const mapLegalFormToBusinessStructure = (legalForm: string | undefined): string => {
+    if (!legalForm || typeof legalForm !== 'string') return '';
+    const lower = legalForm.toLowerCase();
+    if (['bv', 'bvba'].includes(lower)) return 'bv';
+    if (lower === 'nv') return 'nv';
+    if (lower === 'vof') return 'vof';
+    if (lower === 'cvba') return 'cvba';
+    if (lower === 'vzw') return 'vzw';
+    if (lower === 'eenmanszaak') return 'eenmanszaak';
+    return lower;
+  };
+
   // Sync prefill from bootstrap/session when initialData arrives after mount
+  // Dependencies on key fields ensure we re-run when prefill arrives late (e.g. async store hydration)
   useEffect(() => {
     const prefill = initialData;
     if (!prefill || typeof prefill !== 'object') return;
 
-    const applyIfEmpty = (
+    // Apply when prefill has value and (current is empty OR differs) - handles prefill arriving after mount
+    const applyPrefill = (
       prev: ValuationFormData,
       updates: Record<string, unknown>,
       key: keyof ValuationFormData,
@@ -289,32 +304,37 @@ export function ManualInputPanel({
         (typeof current === 'string' && current === '') ||
         (typeof current === 'number' && key === 'ownerManagers' && current === 1) ||
         (typeof current === 'number' && key === 'equityStake' && current === 100);
-      if (isEmpty) (updates as Record<string, unknown>)[key] = value;
+      const differs = String(current) !== String(value);
+      if (isEmpty || differs) (updates as Record<string, unknown>)[key] = value;
     };
+
+    const businessStructure = mapLegalFormToBusinessStructure(prefill.legalForm);
 
     let companyNameUpdate: string | undefined;
     setFormData((prev) => {
       const updates: Record<string, unknown> = {};
-      applyIfEmpty(prev, updates, 'companyName', prefill.companyName);
-      applyIfEmpty(prev, updates, 'kboNumber', prefill.kboNumber);
-      applyIfEmpty(prev, updates, 'legalForm', prefill.legalForm);
-      applyIfEmpty(prev, updates, 'address', prefill.address);
-      applyIfEmpty(prev, updates, 'naceCode', prefill.naceCode);
-      applyIfEmpty(prev, updates, 'naceDescription', prefill.naceDescription);
-      applyIfEmpty(prev, updates, 'businessType', prefill.businessType);
-      applyIfEmpty(prev, updates, 'businessTypeCode', prefill.businessTypeCode);
-      applyIfEmpty(prev, updates, 'industry', prefill.industry);
-      applyIfEmpty(prev, updates, 'country', prefill.country);
-      applyIfEmpty(prev, updates, 'yearFounded', prefill.yearFounded);
-      applyIfEmpty(prev, updates, 'ownerManagers', prefill.ownerManagers);
-      applyIfEmpty(prev, updates, 'equityStake', prefill.equityStake);
+      applyPrefill(prev, updates, 'companyName', prefill.companyName);
+      applyPrefill(prev, updates, 'kboNumber', prefill.kboNumber);
+      applyPrefill(prev, updates, 'legalForm', prefill.legalForm);
+      applyPrefill(prev, updates, 'businessStructure', prefill.businessStructure || businessStructure);
+      applyPrefill(prev, updates, 'address', prefill.address);
+      applyPrefill(prev, updates, 'naceCode', prefill.naceCode);
+      applyPrefill(prev, updates, 'naceDescription', prefill.naceDescription);
+      applyPrefill(prev, updates, 'businessType', prefill.businessType);
+      applyPrefill(prev, updates, 'businessTypeCode', prefill.businessTypeCode);
+      applyPrefill(prev, updates, 'industry', prefill.industry);
+      applyPrefill(prev, updates, 'country', prefill.country);
+      applyPrefill(prev, updates, 'yearFounded', prefill.yearFounded);
+      applyPrefill(prev, updates, 'ownerManagers', prefill.ownerManagers);
+      applyPrefill(prev, updates, 'equityStake', prefill.equityStake);
       if (updates.companyName) companyNameUpdate = String(updates.companyName);
       if (Object.keys(updates).length === 0) return prev;
       return { ...prev, ...updates };
     });
     if (companyNameUpdate) setCompanySearchValue(companyNameUpdate);
-    // Set selectedCompany when we applied prefill and have enough KBO data (avoids overwriting user selection)
-    if (companyNameUpdate && (prefill.kboNumber || prefill.legalForm)) {
+    // Set selectedCompany when we have company name + any business data - expands the form to show Business Type, Legal Form, etc.
+    const hasExpandData = prefill.kboNumber || prefill.legalForm || prefill.businessType || prefill.industry;
+    if (companyNameUpdate && hasExpandData) {
       setSelectedCompany({
         id: prefill.kboNumber || 'prefill',
         name: companyNameUpdate,
@@ -327,7 +347,28 @@ export function ManualInputPanel({
         naceDescription: prefill.naceDescription,
       });
     }
-  }, [initialData]);
+  }, [
+    initialData?.companyName,
+    initialData?.kboNumber,
+    initialData?.legalForm,
+    initialData?.businessType,
+    initialData?.industry,
+    initialData?.country,
+    initialData?.yearFounded,
+    initialData?.naceCode,
+    initialData?.naceDescription,
+    initialData?.address,
+    initialData?.businessStructure,
+  ]);
+
+  // Ensure companySearchValue is synced when initialData.companyName arrives late (e.g. after async store hydration)
+  // Only updates when companySearchValue is empty to avoid overwriting user input
+  useEffect(() => {
+    const name = initialData?.companyName?.trim();
+    if (name) {
+      setCompanySearchValue((prev) => (prev?.trim() ? prev : name));
+    }
+  }, [initialData?.companyName]);
 
   // Business type state
   const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessType | null>(null);
