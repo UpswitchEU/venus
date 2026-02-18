@@ -94,7 +94,10 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
           )
 
           // Backend returns new access_token + refresh_token in Set-Cookie headers
-          if (response.data && response.data.user) {
+          // Venus proxy: { success, data: { user, token, message } }; Titan direct: { user, token, message }
+          const user = response.data?.user ?? response.data?.data?.user
+          const success = response.data?.success === true || !!user
+          if (success) {
             console.log('✅ Access token refreshed successfully (token rotation complete)')
             onRefreshSuccess?.()
             return true
@@ -172,13 +175,13 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
    */
   useEffect(() => {
     console.log(
-      '🔐 Starting token refresh checks (interval: 5 minutes, access token TTL: 15 minutes)'
+      '🔐 Starting token refresh checks (initial: 1.5s, interval: 5 min, access token TTL: 15 min)'
     )
 
-    // Initial check after 5 seconds (give app time to initialize)
+    // Initial check after 1.5s (reduce auth/me 401 race - refresh before bootstrap/auth checks)
     const initialTimeout = setTimeout(() => {
       checkAndRefresh()
-    }, 5000)
+    }, 1500)
 
     // Set up periodic checks
     intervalRef.current = setInterval(() => {
@@ -240,7 +243,10 @@ export const useManualTokenRefresh = () => {
         )
 
         // Backend returns new access_token + refresh_token in Set-Cookie headers
-        if (response.data && response.data.user) {
+        // Venus proxy: { success, data: { user, token, message } }; Titan direct: { user, token, message }
+        const user = response.data?.user ?? response.data?.data?.user
+        const success = response.data?.success === true || !!user
+        if (success) {
           console.log('✅ Manual token refresh successful (dual-token rotation complete)')
           return true
         } else {
