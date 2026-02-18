@@ -23,7 +23,7 @@
  * @module features/manual/components/ManualLayout
  */
 
-import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react'
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
 import { useTransitionRouter } from 'next-view-transitions'
 import { useTranslations, useLocale } from 'next-intl'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -57,57 +57,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from '../../../design-system/components/Resizable'
-import { useDefaultLayout } from 'react-resizable-panels'
 import { springDefault } from '../../../design-system/components/motion'
-
-const LAYOUT_KEY = 'venus-calculator-layout-v2'
-const MIN_LEFT = 15
-const MAX_LEFT = 50
-const MIN_RIGHT = 40
-
-function isValidLayout(layout: unknown): layout is Record<string, number> {
-  if (!layout || typeof layout !== 'object' || Array.isArray(layout)) return false
-  const obj = layout as Record<string, unknown>
-  const left = obj['venus-left-panel']
-  const right = obj['venus-right-panel']
-  return (
-    typeof left === 'number' &&
-    typeof right === 'number' &&
-    left >= MIN_LEFT &&
-    left <= MAX_LEFT &&
-    right >= MIN_RIGHT
-  )
-}
-
-function createSafeLayoutStorage(): { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void } {
-  if (typeof window === 'undefined') {
-    return { getItem: () => null, setItem: () => {} }
-  }
-  return {
-    getItem: (key: string) => {
-      try {
-        const raw = localStorage.getItem(key)
-        if (!raw) return null
-        const parsed = JSON.parse(raw) as unknown
-        const layout = typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : (parsed as { layout?: unknown })?.layout
-        if (!isValidLayout(layout)) {
-          localStorage.removeItem(key)
-          return null
-        }
-        return JSON.stringify(layout)
-      } catch {
-        localStorage.removeItem(key)
-        return null
-      }
-    },
-    setItem: (key: string, value: string) => {
-      try {
-        const layout = JSON.parse(value) as unknown
-        if (isValidLayout(layout)) localStorage.setItem(key, value)
-      } catch {}
-    },
-  }
-}
 
 // Calculator Components (full Clarity parity)
 import {
@@ -302,25 +252,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const t = useTranslations('toast')
   const isMobile = useIsMobile()
 
-  // Panel layout: useDefaultLayout with validated storage (fixes collapsed left panel + stuck handle)
-  const layoutStorage = React.useMemo(createSafeLayoutStorage, [])
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: LAYOUT_KEY,
-    storage: layoutStorage,
-    panelIds: ['venus-left-panel', 'venus-right-panel'],
-  })
-
-  // One-time migration: clear legacy/corrupted layout keys
-  useEffect(() => {
+  // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
+  useLayoutEffect(() => {
     try {
-      localStorage.removeItem('venus-calculator-panels')
-      localStorage.removeItem('upswitch-panel-width')
-      const raw = localStorage.getItem(LAYOUT_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown
-        const layout = typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : (parsed as { layout?: unknown })?.layout
-        if (!isValidLayout(layout)) localStorage.removeItem(LAYOUT_KEY)
-      }
+      const keysToRemove = [
+        'venus-calculator-layout-v2',
+        'venus-calculator-panels',
+        'upswitch-panel-width',
+        'react-resizable-panels:venus-calculator-layout-v2',
+        'react-resizable-panels:venus-calculator-panels',
+      ]
+      keysToRemove.forEach((k) => localStorage.removeItem(k))
+      Object.keys(localStorage)
+        .filter((k) => k.includes('react-resizable-panels') || k.includes('venus-calculator'))
+        .forEach((k) => localStorage.removeItem(k))
     } catch {}
   }, [])
 
@@ -1460,16 +1405,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       {/* Main Content: Resizable Panels */}
       <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
-        <ResizablePanelGroup
-          id="venus-calculator-panels"
-          orientation="horizontal"
-          className="h-full w-full"
-          defaultLayout={defaultLayout ?? undefined}
-          onLayoutChanged={onLayoutChanged}
-          resizeTargetMinimumSize={{ coarse: 28, fine: 24 }}
-        >
+        <ResizablePanelGroup className="h-full w-full">
           {/* Left Panel: ManualInput or NormalizationHub */}
-          <ResizablePanel id="venus-left-panel" defaultSize={35} minSize={25} maxSize={50} collapsible={false}>
+          <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
             <AnimatePresence mode="wait">
               {leftPanelView === 'normalization-hub' ? (
                 <motion.div
@@ -1515,7 +1453,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           />
 
           {/* Right Panel: Report / Preview / History */}
-          <ResizablePanel id="venus-right-panel" defaultSize={65} minSize={40} collapsible={false}>
+          <ResizablePanel defaultSize={65} minSize={40}>
             <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">

@@ -40,7 +40,7 @@ export function CalculatorShellSkeleton() {
       <NavSkeleton />
 
       <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
-        <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
+        <ResizablePanelGroup className="h-full w-full">
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
             <div className="h-full overflow-y-auto p-6">
               <InputFieldsSkeleton />

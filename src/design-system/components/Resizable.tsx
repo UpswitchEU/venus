@@ -3,44 +3,42 @@
 /**
  * Resizable Panel Components
  *
- * Wrapper around react-resizable-panels providing drag-to-resize
- * split panel layouts. Used for calculator left/right panel layout.
- * Aligned with Clarity's resizable for consistent hit targets and styling.
+ * Wrapper around react-resizable-panels v2 (Clarity parity).
+ * Uses PanelGroup, Panel, PanelResizeHandle with direction="horizontal".
  */
 
-import {
-  Panel,
-  Group,
-  Separator,
-  type GroupProps,
-} from 'react-resizable-panels'
+import * as ResizablePrimitive from 'react-resizable-panels'
 import { GripVertical } from 'lucide-react'
 import { cn } from '../utils'
 
+type PanelGroupProps = React.ComponentProps<typeof ResizablePrimitive.PanelGroup>
+
 const ResizablePanelGroup = ({
   className,
+  direction = 'horizontal',
   ...props
-}: GroupProps) => (
-  <Group
+}: Omit<PanelGroupProps, 'direction'> & { direction?: PanelGroupProps['direction'] }) => (
+  <ResizablePrimitive.PanelGroup
     className={cn(
       'flex h-full w-full data-[panel-group-direction=vertical]:flex-col',
       className
     )}
+    direction={direction}
     {...props}
   />
 )
 ResizablePanelGroup.displayName = 'ResizablePanelGroup'
 
-const ResizablePanel = Panel
+const ResizablePanel = ResizablePrimitive.Panel
 
 const ResizableHandle = ({
   withHandle,
   className,
   ...props
-}: React.ComponentProps<typeof Separator> & {
+}: React.ComponentProps<typeof ResizablePrimitive.PanelResizeHandle> & {
   withHandle?: boolean
 }) => (
-  <Separator
+  <ResizablePrimitive.PanelResizeHandle
     className={cn(
       'relative flex w-px items-center justify-center bg-border',
       'after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2',
@@ -50,7 +48,7 @@ const ResizableHandle = ({
       'data-[panel-group-direction=vertical]:after:translate-x-0',
       'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1',
       '[&[data-panel-group-direction=vertical]>div]:rotate-90',
-      'cursor-col-resize hover:bg-primary/30 data-[state=dragging]:bg-primary/50 transition-colors',
+      'cursor-col-resize hover:bg-primary/30 transition-colors',
       className
     )}
     {...props}
@@ -60,7 +58,7 @@ const ResizableHandle = ({
         <GripVertical className="h-2.5 w-2.5" />
       </div>
     )}
-  </Separator>
+  </ResizablePrimitive.PanelResizeHandle>
 )
 ResizableHandle.displayName = 'ResizableHandle'
 
