@@ -125,11 +125,10 @@ export function useBootstrapPrefill(): {
     // Get form store actions directly to avoid stale closures
     const { updateFormData, prefillFromBusinessCard } = formStore.getState();
     
-    // ✅ FIX: Defer ALL state updates to prevent React error #185
-    // React error #185 occurs when updating state during render
-    // useLayoutEffect runs synchronously during commit phase, so we defer to next event loop tick
-    // This ensures state updates happen after render completes
-    setTimeout(() => {
+    // ✅ FIX: Defer state updates to prevent React error #185
+    // useLayoutEffect runs during commit phase; queueMicrotask runs earlier than setTimeout(0)
+    // so form store is populated sooner, reducing timing issues with collectedData/initialData
+    queueMicrotask(() => {
       // Apply prefill data to form AFTER render completes
       applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard);
       
@@ -158,7 +157,7 @@ export function useBootstrapPrefill(): {
           hasBusinessContext: !!formDataAfterPrefill.business_context,
         },
       });
-    }, 0);
+    });
   }, [bootstrap, formStore]);
   
   return {

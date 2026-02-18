@@ -370,6 +370,30 @@ export function ManualInputPanel({
     }
   }, [initialData?.companyName]);
 
+  // Fallback: set selectedCompany when we have companyName + KBO data but selectedCompany is still null
+  // Handles case where first prefill effect's companyNameUpdate was not set (e.g. formData already had companyName)
+  useEffect(() => {
+    const name = initialData?.companyName?.trim();
+    const hasExpandData =
+      initialData?.kboNumber || initialData?.legalForm || initialData?.businessType || initialData?.industry;
+    if (!name || !hasExpandData) return;
+
+    setSelectedCompany((prev) => {
+      if (prev) return prev;
+      return {
+        id: initialData?.kboNumber || 'prefill',
+        name,
+        kboNumber: initialData?.kboNumber || '',
+        legalForm: initialData?.legalForm || '',
+        address: initialData?.address || '',
+        postalCode: '',
+        city: '',
+        naceCode: initialData?.naceCode,
+        naceDescription: initialData?.naceDescription,
+      };
+    });
+  }, [initialData?.companyName, initialData?.kboNumber, initialData?.legalForm, initialData?.businessType, initialData?.industry]);
+
   // Business type state
   const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessType | null>(null);
 

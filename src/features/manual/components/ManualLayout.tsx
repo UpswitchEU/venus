@@ -467,6 +467,57 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [companyName, formBusinessTypeId, formIndustry, formCountry, formYearFounded, formKboNumber, formLegalForm, formAddress, formNaceCode, formNaceDescription])
 
+  // Hydrate collectedData from session when form store is empty (e.g. before useBootstrapPrefill has run)
+  // Ensures initialData is populated on first render so ManualInputPanel can set selectedCompany from prefill
+  useEffect(() => {
+    const sessionData = (session?.sessionData || {}) as Record<string, unknown>
+    const businessInfo = (sessionData._businessInfo || {}) as Record<string, unknown>
+    const merged = { ...businessInfo, ...sessionData }
+    const hasSessionPrefill =
+      (merged.company_name as string)?.trim() ||
+      (merged.companyName as string)?.trim() ||
+      merged.kbo_number ||
+      merged.kboNumber ||
+      (merged.legal_form as string)?.trim() ||
+      (merged.legalForm as string)?.trim()
+    const formStoreEmpty =
+      !formCompanyName?.trim() && !formKboNumber?.trim() && !formLegalForm?.trim()
+    if (!hasSessionPrefill || !formStoreEmpty) return
+
+    setCollectedData((prev) => {
+      const next = { ...prev }
+      const sessionCompany =
+        (merged.company_name as string)?.trim() || (merged.companyName as string)?.trim()
+      const sessionKbo = (merged.kbo_number || merged.kboNumber) as string
+      const sessionLegal = (merged.legal_form || merged.legalForm) as string
+      const sessionAddress = [merged.postal_code || merged.postalCode, merged.city]
+        .filter(Boolean)
+        .join(' ')
+      const sessionNace = (merged.nace_code || merged.naceCode) as string
+      const sessionNaceDesc = (merged.nace_description || merged.naceDescription) as string
+      if (sessionCompany && !prev.companyName) next.companyName = sessionCompany
+      if (sessionKbo && !prev.kboNumber) next.kboNumber = sessionKbo
+      if (sessionLegal && !prev.legalForm) next.legalForm = sessionLegal
+      if (sessionAddress && !prev.address) next.address = sessionAddress
+      if (sessionNace && !prev.naceCode) next.naceCode = sessionNace
+      if (sessionNaceDesc && !prev.naceDescription) next.naceDescription = sessionNaceDesc
+      const sessionCountry = (merged.country_code || merged.countryCode || merged.country) as string
+      if (sessionCountry && !prev.country) next.country = sessionCountry
+      const sessionYear = merged.founding_year ?? merged.founded_year
+      if (sessionYear && !prev.yearFounded) next.yearFounded = String(sessionYear)
+      const sessionBusinessType = (merged.business_type_id || merged.businessTypeId || merged.business_type) as string
+      if (sessionBusinessType && !prev.businessType) next.businessType = sessionBusinessType
+      const sessionIndustry = (merged.industry as string)
+      if (sessionIndustry && !prev.industry) next.industry = sessionIndustry
+      return next
+    })
+  }, [
+    session?.sessionData,
+    formCompanyName,
+    formKboNumber,
+    formLegalForm,
+  ])
+
   // Display name for top-left dropdown: collectedData > client context (accountant) > fallback
   const displayCompanyName =
     collectedData.companyName?.trim() ||
