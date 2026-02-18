@@ -57,8 +57,57 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from '../../../design-system/components/Resizable'
-import { useGroupRef } from 'react-resizable-panels'
+import { useDefaultLayout } from 'react-resizable-panels'
 import { springDefault } from '../../../design-system/components/motion'
+
+const LAYOUT_KEY = 'venus-calculator-layout-v2'
+const MIN_LEFT = 15
+const MAX_LEFT = 50
+const MIN_RIGHT = 40
+
+function isValidLayout(layout: unknown): layout is Record<string, number> {
+  if (!layout || typeof layout !== 'object' || Array.isArray(layout)) return false
+  const obj = layout as Record<string, unknown>
+  const left = obj['venus-left-panel']
+  const right = obj['venus-right-panel']
+  return (
+    typeof left === 'number' &&
+    typeof right === 'number' &&
+    left >= MIN_LEFT &&
+    left <= MAX_LEFT &&
+    right >= MIN_RIGHT
+  )
+}
+
+function createSafeLayoutStorage(): { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void } {
+  if (typeof window === 'undefined') {
+    return { getItem: () => null, setItem: () => {} }
+  }
+  return {
+    getItem: (key: string) => {
+      try {
+        const raw = localStorage.getItem(key)
+        if (!raw) return null
+        const parsed = JSON.parse(raw) as unknown
+        const layout = typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : (parsed as { layout?: unknown })?.layout
+        if (!isValidLayout(layout)) {
+          localStorage.removeItem(key)
+          return null
+        }
+        return JSON.stringify(layout)
+      } catch {
+        localStorage.removeItem(key)
+        return null
+      }
+    },
+    setItem: (key: string, value: string) => {
+      try {
+        const layout = JSON.parse(value) as unknown
+        if (isValidLayout(layout)) localStorage.setItem(key, value)
+      } catch {}
+    },
+  }
+}
 
 // Calculator Components (full Clarity parity)
 import {
@@ -253,34 +302,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const t = useTranslations('toast')
   const isMobile = useIsMobile()
 
-  // Panel layout: persist via defaultLayout + onLayoutChanged (Clarity parity)
-  const LAYOUT_KEY = 'venus-calculator-layout-v2'
-  const panelGroupRef = useGroupRef()
+  // Panel layout: useDefaultLayout with validated storage (fixes collapsed left panel + stuck handle)
+  const layoutStorage = React.useMemo(createSafeLayoutStorage, [])
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: LAYOUT_KEY,
+    storage: layoutStorage,
+    panelIds: ['venus-left-panel', 'venus-right-panel'],
+  })
 
-  const [savedLayout, setSavedLayout] = useState<Record<string, number> | null>(null)
+  // One-time migration: clear legacy/corrupted layout keys
   useEffect(() => {
     try {
+      localStorage.removeItem('venus-calculator-panels')
+      localStorage.removeItem('upswitch-panel-width')
       const raw = localStorage.getItem(LAYOUT_KEY)
       if (raw) {
-        const parsed = JSON.parse(raw) as Record<string, number>
-        const left = parsed['venus-left-panel']
-        const right = parsed['venus-right-panel']
-        if (typeof left === 'number' && typeof right === 'number' && left >= 25 && left <= 50 && right >= 40) {
-          setSavedLayout(parsed)
-        }
+        const parsed = JSON.parse(raw) as unknown
+        const layout = typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : (parsed as { layout?: unknown })?.layout
+        if (!isValidLayout(layout)) localStorage.removeItem(LAYOUT_KEY)
       }
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    if (savedLayout && panelGroupRef.current) {
-      panelGroupRef.current.setLayout(savedLayout)
-    }
-  }, [savedLayout])
-
-  const handleLayoutChanged = useCallback((layout: Record<string, number>) => {
-    try {
-      localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
     } catch {}
   }, [])
 
@@ -1424,10 +1464,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           id="venus-calculator-panels"
           orientation="horizontal"
           className="h-full w-full"
+          defaultLayout={defaultLayout ?? undefined}
+          onLayoutChanged={onLayoutChanged}
           resizeTargetMinimumSize={{ coarse: 28, fine: 24 }}
-          groupRef={panelGroupRef}
-          defaultLayout={savedLayout ?? undefined}
-          onLayoutChanged={handleLayoutChanged}
         >
           {/* Left Panel: ManualInput or NormalizationHub */}
           <ResizablePanel id="venus-left-panel" defaultSize={35} minSize={25} maxSize={50} collapsible={false}>
