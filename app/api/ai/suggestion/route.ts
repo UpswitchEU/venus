@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const data = await titanResponse.json();
     return NextResponse.json(data);
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       return NextResponse.json(
         { success: false, error: 'Suggestion request timed out' },
         { status: 504 }

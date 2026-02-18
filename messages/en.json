@@ -940,7 +940,8 @@
     "reportPreviewDesc": "The full report template will be shown here.",
     "currentVersion": "Current version",
     "guest": "Guest",
-    "retry": "Retry"
+    "retry": "Retry",
+    "reminderSent": "Reminder sent to client"
   },
   "versionCompare": {
     "typeInitial": "Initial",
@@ -1037,6 +1038,16 @@
     "rejected": "✕ Rejected",
     "openTasks": "Open tasks",
     "typing": "Typing...",
+    "tools": {
+      "get_valuation_session": "Fetching valuation data...",
+      "get_normalization_adjustments": "Loading normalizations...",
+      "get_valuation_results": "Fetching valuation results...",
+      "get_company_info": "Loading company info...",
+      "get_industry_benchmarks": "Fetching industry benchmarks...",
+      "suggest_normalization": "Preparing normalization...",
+      "update_field_value": "Proposing field update...",
+      "default": "Processing data..."
+    },
     "suggestions": {
       "whatWorth": "What is this company worth?",
       "whichNorms": "Which normalizations are relevant?",

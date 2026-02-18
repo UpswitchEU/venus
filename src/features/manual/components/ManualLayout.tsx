@@ -9,11 +9,10 @@
  * Layout (desktop):
  *   ┌───────────────────────────────────────────────────────┐
  *   │ CalculatorNav (top bar)                                │
+ *   │ ContextBar (accountant mode)                           │
  *   ├────────────┬──────────────────────────────────────────┤
  *   │ Left 35%   │ Right 65%                                 │
  *   │ ManualInput│ ValuationReportPanel / Preview / History  │
- *   │ OR         │                                           │
- *   │ NormHub    │                                           │
  *   └────────────┴──────────────────────────────────────────┘
  *   + ChatAssistantDrawer (slide-in from right)
  *   + FullscreenReportModal, NormalisationSuggestionModal, UnifiedNormalizationModal
@@ -36,6 +35,7 @@ import { useManualFormStore, useManualResultsStore } from '../../../store/manual
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useNormalizationStore, enableNormalizationAutoPersist, mapBackendCategoryToFrontend, setNormalizationToastMessages } from '../../../store/useNormalizationStore'
+import { useConversationStore } from '../../../store/useConversationStore'
 import { CalculatorShellSkeleton } from '../../../components/calculator'
 import { valuationService, reportService } from '../../../services'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
@@ -64,11 +64,12 @@ import {
   ManualInputPanel,
   ChatAssistantDrawer,
   ValuationReportPanel,
+  ReportPreviewPanel,
   HistoryPanel,
   FullscreenReportModal,
   NormalisationSuggestionModal,
-  NormalizationHub,
   UnifiedNormalizationModal,
+  ContextBar,
   type RightPanelView,
   type ValuationReportData,
   type ChatMessage,
@@ -80,8 +81,6 @@ import {
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
-
-type LeftPanelView = 'input' | 'normalization-hub'
 
 interface CollectedData {
   companyName?: string
@@ -349,12 +348,53 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Panel View State ───
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>('report')
-  const [leftPanelView, setLeftPanelView] = useState<LeftPanelView>('input')
 
   // ─── Chat Co-pilot State ───
   const [chatDrawerOpen, setChatDrawerOpen] = useState(initialDrawerOpen)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isChatGenerating, setIsChatGenerating] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const conversationStore = useConversationStore()
+  const streamCleanupRef = useRef<(() => void) | null>(null)
+
+  // Load conversation history from server and sync to local chat state
+  useEffect(() => {
+    if (reportId && chatDrawerOpen && !conversationStore.historyLoaded && !isLoadingHistory) {
+      setIsLoadingHistory(true)
+      conversationStore.loadHistory(reportId).then(() => {
+        const storeMessages = useConversationStore.getState().messages
+        if (storeMessages.length > 0) {
+          setChatMessages(storeMessages.map((m) => ({
+            id: m.id,
+            role: (m.role || (m.type === 'ai' ? 'assistant' : m.type)) as 'user' | 'assistant' | 'system',
+            content: m.content,
+            timestamp: m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp),
+          })))
+        }
+      }).finally(() => setIsLoadingHistory(false))
+    }
+  }, [reportId, chatDrawerOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup streaming on unmount
+  useEffect(() => {
+    return () => { streamCleanupRef.current?.() }
+  }, [])
+
+  // Safety timeout: reset isChatGenerating if it's been stuck for 2 minutes
+  const generatingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (isChatGenerating) {
+      generatingTimeoutRef.current = setTimeout(() => {
+        setIsChatGenerating(false)
+        conversationStore.setToolInProgress(null)
+      }, 120_000)
+    } else if (generatingTimeoutRef.current) {
+      clearTimeout(generatingTimeoutRef.current)
+      generatingTimeoutRef.current = null
+    }
+    return () => { if (generatingTimeoutRef.current) clearTimeout(generatingTimeoutRef.current) }
+  }, [isChatGenerating]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [fieldContext, setFieldContext] = useState<FieldContext | undefined>(undefined)
   const [pendingUpdates, setPendingUpdates] = useState<{ field: string; value: any; label: string }[]>([])
 
@@ -720,6 +760,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handleChatMessage = useCallback(
     async (content: string, attachments?: File[], detectedValues?: any[], parsedCommands?: any[]) => {
+      if (isLoadingHistory) return
+
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'user',
@@ -731,7 +773,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setIsChatGenerating(true)
 
       try {
-        // Handle parsed commands
+        // Handle parsed commands (local, no AI call needed)
         if (parsedCommands?.length) {
           parsedCommands.forEach((cmd: any) => handleApplyFieldUpdate(cmd.field, cmd.value))
           await new Promise((r) => setTimeout(r, 500))
@@ -744,13 +786,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           return
         }
 
-        // Handle detected values
         if (detectedValues?.length) {
           setPendingUpdates((prev) => [...prev, ...detectedValues.map((dv: any) => ({ field: dv.field, value: dv.value, label: dv.label }))])
         }
 
-        // Call real AI service (with automatic fallback to local responses)
-        // Enrich context with normalization summary and form completeness
+        // Build enriched context for Claude
         const accepted = normalizationItems.filter((n) => n.status === 'accepted')
         const pending = normalizationItems.filter((n) => n.status === 'pending')
         const totalAdjustment = accepted.reduce((sum, n) => sum + n.adjustment, 0)
@@ -773,89 +813,139 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         const { aiChatService } = await import('../../../services/ai/AIChatService')
-        const aiResponse = await aiChatService.sendMessage({
+
+        const aiRequest = {
           message: content,
           sessionId: reportId || undefined,
+          reportId: reportId || undefined,
           companyName: collectedData.companyName,
+          conversationId: conversationStore.conversationId || undefined,
           fieldContext: fieldContext || undefined,
           normalizations: normalizationItems,
           formData: enrichedFormData,
-          // Send last 10 messages as context for Claude (filter to user/assistant only)
           history: chatMessages
             .filter((m) => m.role === 'user' || m.role === 'assistant')
             .slice(-10)
             .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        }
+
+        // Use streaming for real-time response + tool indicators
+        const streamingMsgId = crypto.randomUUID()
+        let streamedContent = ''
+
+        setChatMessages((prev) => [
+          ...prev,
+          { id: streamingMsgId, role: 'assistant' as const, content: '', timestamp: new Date() },
+        ])
+
+        if (streamCleanupRef.current) {
+          streamCleanupRef.current()
+          streamCleanupRef.current = null
+        }
+
+        streamCleanupRef.current = aiChatService.streamMessage(aiRequest, {
+          onText: (text) => {
+            streamedContent += text
+            setChatMessages((prev) =>
+              prev.map((m) => m.id === streamingMsgId ? { ...m, content: streamedContent } : m),
+            )
+          },
+          onToolStart: (toolName) => {
+            conversationStore.setToolInProgress(toolName)
+          },
+          onToolResult: (_toolName, _result) => {
+            conversationStore.setToolInProgress(null)
+          },
+          onDone: (responseConversationId) => {
+            streamCleanupRef.current = null
+            conversationStore.setToolInProgress(null)
+            setIsChatGenerating(false)
+
+            if (responseConversationId && !conversationStore.conversationId) {
+              conversationStore.setConversationId(responseConversationId)
+            }
+          },
+          onError: (error) => {
+            streamCleanupRef.current = null
+            conversationStore.setToolInProgress(null)
+            setIsChatGenerating(false)
+
+            // If streaming fails, fall back to non-streaming
+            generalLogger.warn('Streaming failed, falling back to non-streaming', { error })
+            aiChatService.sendMessage({ ...aiRequest, stream: false }).then((aiResponse) => {
+              if (aiResponse.conversationId && !conversationStore.conversationId) {
+                conversationStore.setConversationId(aiResponse.conversationId)
+              }
+
+              setChatMessages((prev) =>
+                prev.map((m) => m.id === streamingMsgId ? {
+                  ...m,
+                  content: aiResponse.content,
+                  fieldUpdates: aiResponse.fieldUpdates,
+                  normalisationSuggestions: aiResponse.normalisationSuggestions?.map((s: any) => ({
+                    ...s, id: crypto.randomUUID(), status: 'pending', multiple: 5.2,
+                  })),
+                } : m),
+              )
+
+              if (aiResponse.fallback) {
+                toast.info(t('aiUnavailable'), { description: t('aiUnavailableDesc'), duration: 4000 })
+              }
+              if (aiResponse.fieldUpdates) {
+                setPendingUpdates((prev) => [...prev, ...aiResponse.fieldUpdates!])
+              }
+              handleNormalisationSuggestions(aiResponse.normalisationSuggestions)
+            }).catch(() => {
+              setChatMessages((prev) =>
+                prev.map((m) => m.id === streamingMsgId ? { ...m, content: t('chatError') } : m),
+              )
+              setIsChatGenerating(false)
+            })
+          },
         })
-
-        const assistantMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: aiResponse.content,
-          timestamp: new Date(),
-          fieldUpdates: aiResponse.fieldUpdates,
-          normalisationSuggestions: aiResponse.normalisationSuggestions?.map((s: any) => ({
-            ...s,
-            id: crypto.randomUUID(),
-            status: 'pending',
-            multiple: 5.2,
-          })),
-        }
-        setChatMessages((prev) => [...prev, assistantMsg])
-
-        // Notify user if AI fell back to local responses
-        if (aiResponse.fallback) {
-          toast.info(t('aiUnavailable'), {
-            description: t('aiUnavailableDesc'),
-            duration: 4000,
-          })
-        }
-
-        if (aiResponse.fieldUpdates) {
-          setPendingUpdates((prev) => [...prev, ...aiResponse.fieldUpdates!])
-        }
-
-        // Add AI normalization suggestions to the unified normalizations list
-        if (aiResponse.normalisationSuggestions?.length) {
-          const newItems: NormalizationItem[] = aiResponse.normalisationSuggestions.map((s: any) => ({
-            id: crypto.randomUUID(),
-            ledgerCode: s.ledgerCode || '',
-            ledgerName: s.description,
-            category: mapBackendCategoryToFrontend(s.category) || 'other',
-            type: (s.isAddback ? 'add' : 'subtract') as 'add' | 'subtract',
-            value: Math.abs(s.amount),
-            adjustment: s.amount,
-            reason: s.reason,
-            source: 'ai' as any,
-            sourceRef: 'Claude AI',
-            status: 'pending' as any,
-            applyAllYears: false,
-            year: new Date().getFullYear() - 1,
-          }))
-          normalizationActions.addItems(newItems)
-          // Also persist AI suggestions to session
-          if (reportId) normalizationActions.persistToSession(reportId)
-          setSuggestedNormalisations((prev: any[]) => [
-            ...prev,
-            ...newItems.map((n) => ({
-              id: n.id,
-              code: n.ledgerCode,
-              description: n.ledgerName,
-              category: n.category,
-              amount: n.adjustment,
-              reason: n.reason,
-              sourceRef: 'Claude AI',
-              status: 'pending',
-            })),
-          ])
-        }
       } catch {
+        conversationStore.setToolInProgress(null)
         setChatMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant' as const, content: t('chatError'), timestamp: new Date() }])
-      } finally {
         setIsChatGenerating(false)
       }
     },
-    [collectedData, handleApplyFieldUpdate, reportId, fieldContext, normalizationItems, chatMessages]
+    [collectedData, handleApplyFieldUpdate, reportId, fieldContext, normalizationItems, chatMessages, conversationStore, isLoadingHistory] // eslint-disable-line react-hooks/exhaustive-deps
   )
+
+  // Extract normalization suggestion handling to avoid duplication
+  const handleNormalisationSuggestions = useCallback((suggestions: any[] | undefined) => {
+    if (!suggestions?.length) return
+    const newItems: NormalizationItem[] = suggestions.map((s: any) => ({
+      id: crypto.randomUUID(),
+      ledgerCode: s.ledgerCode || '',
+      ledgerName: s.description,
+      category: mapBackendCategoryToFrontend(s.category) || 'other',
+      type: (s.isAddback ? 'add' : 'subtract') as 'add' | 'subtract',
+      value: Math.abs(s.amount),
+      adjustment: s.amount,
+      reason: s.reason,
+      source: 'ai' as any,
+      sourceRef: 'Claude AI',
+      status: 'pending' as any,
+      applyAllYears: false,
+      year: new Date().getFullYear() - 1,
+    }))
+    normalizationActions.addItems(newItems)
+    if (reportId) normalizationActions.persistToSession(reportId)
+    setSuggestedNormalisations((prev: any[]) => [
+      ...prev,
+      ...newItems.map((n) => ({
+        id: n.id,
+        code: n.ledgerCode,
+        description: n.ledgerName,
+        category: n.category,
+        amount: n.adjustment,
+        reason: n.reason,
+        sourceRef: 'Claude AI',
+        status: 'pending',
+      })),
+    ])
+  }, [normalizationActions, reportId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAcceptUpdate = useCallback((field: string) => {
     setPendingUpdates((prev) => prev.filter((u) => u.field !== field))
@@ -1055,26 +1145,53 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     router.push(`/${currentLocale}/home`)
   }, [router, currentLocale])
 
-  // ─── Field Help (opens Chat with context) ───
+  // ─── Field Help (opens Chat with context) - Clarity parity: full getContextualQuestion ───
   const handleFieldHelpRequest = useCallback(
     (context: any) => {
       setFieldContext({ field: context.field, label: context.label, value: context.value, hint: context.hint })
       setChatDrawerOpen(true)
-      const q =
-        context.normalizationType === 'salary'
-          ? `Wat is een marktconform salaris voor ${context.label.toLowerCase()}?`
-          : context.normalizationType === 'rent'
-            ? `Is de huurprijs voor ${context.label.toLowerCase()} marktconform?`
-            : context.field === 'ownerManagers'
-              ? 'Hoeveel eigenaar-managers is gebruikelijk voor dit type bedrijf?'
-              : `Help me met ${context.label.toLowerCase()}`
-      setTimeout(() => handleChatMessage(q), 300)
+
+      const getContextualQuestion = (): string => {
+        if (context.normalizationType) {
+          switch (context.normalizationType) {
+            case 'salary':
+              return `Wat is een marktconform salaris voor ${context.label.toLowerCase()}?`
+            case 'rent':
+              return `Is de huurprijs voor ${context.label.toLowerCase()} marktconform?`
+            case 'vehicle':
+              return `Hoeveel privégebruik kan genormaliseerd worden voor ${context.label.toLowerCase()}?`
+            case 'one-time':
+              return `Is ${context.label.toLowerCase()} een eenmalige kost die genormaliseerd moet worden?`
+            case 'personal':
+              return `Welk deel van ${context.label.toLowerCase()} is privégerelateerd?`
+          }
+        }
+        switch (context.field) {
+          case 'ownerManagers':
+            return 'Hoeveel eigenaar-managers is gebruikelijk voor dit type bedrijf?'
+          case 'ebitda':
+            return `Welke normalisaties zijn relevant voor de EBITDA van ${context.label}?`
+          case 'ownerSalary':
+            return 'Wat is een marktconform eigenaarssalaris voor dit bedrijf?'
+          case 'rent':
+            return 'Is deze huurprijs marktconform?'
+          case 'vehicle':
+            return 'Hoeveel privégebruik kan genormaliseerd worden voor autokosten?'
+          default:
+            if (context.grootboekCode) {
+              return `Analyseer grootboekrekening ${context.grootboekCode} (${context.label}) voor normalisatie`
+            }
+            return `Help me met ${context.label.toLowerCase()}`
+        }
+      }
+
+      setTimeout(() => handleChatMessage(getContextualQuestion()), 300)
     },
     [handleChatMessage]
   )
 
-  // ─── Normalization Handlers (unified store) ───
-  const handleShowNormalisationReview = useCallback(() => setLeftPanelView('normalization-hub'), [])
+  // ─── Normalization Handlers (unified store) - Clarity parity: open modal, do not replace left panel ───
+  const handleShowNormalisationReview = useCallback(() => setShowUnifiedNormalizationModal(true), [])
 
   const handleAcceptNormalisation = useCallback((id: string) => {
     normalizationActions.acceptItem(id)
@@ -1136,22 +1253,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
     }
   }, [report, reportId, formStoreData, buildValuationRequest, valuationService, setResult])
-
-  const handleNormalisationReviewContinue = useCallback(() => {
-    setLeftPanelView('input')
-    const items = useNormalizationStore.getState().items
-    // Persist to both session and Titan
-    if (reportId) {
-      normalizationActions.persistToSession(reportId)
-      const years = [...new Set(items.map((n) => n.year))]
-      years.forEach((y) => normalizationActions.persistToTitan(reportId, y))
-    }
-    // Trigger automatic re-valuation with accepted normalizations
-    recalculateWithNormalizations(items)
-    toast.success(t('normalizationsSaved'))
-  }, [reportId, normalizationActions, recalculateWithNormalizations])
-
-  const handleNormalisationReviewBack = useCallback(() => setLeftPanelView('input'), [])
 
   // ─── Version Restore ───
   // Receives full ValuationVersion from HistoryPanel (looked up from store)
@@ -1261,7 +1362,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       setSuggestedNormalisations(suggestions)
       normalizationActions.setItems(unifiedItems)
-      setLeftPanelView('normalization-hub')
+      setShowUnifiedNormalizationModal(true)
       setChatDrawerOpen(true)
 
       // Save normalizations to backend (auto-persist handles session)
@@ -1353,7 +1454,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onOpenChange: setChatDrawerOpen,
     messages: chatMessages,
     onSendMessage: handleChatMessage,
-    isGenerating: isChatGenerating,
+    isGenerating: isChatGenerating || isLoadingHistory,
     companyName: collectedData.companyName,
     fieldContext,
     onApplyFieldUpdate: handleApplyFieldUpdate,
@@ -1363,8 +1464,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onAcceptNormalisation: handleAcceptNormalisation,
     onRejectNormalisation: handleRejectNormalisation,
     hasUploadedData: suggestedNormalisations.length > 0,
+    toolInProgress: conversationStore.toolInProgress,
     onOpenNormalizationHub: () => {
-      setLeftPanelView('normalization-hub')
+      setShowUnifiedNormalizationModal(true)
       setChatDrawerOpen(false)
     },
   }
@@ -1402,6 +1504,30 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           isAccountantMode={isAccountantMode}
           onExitClientView={handleExitClientView}
         />
+
+        {/* Context Bar - Accountant Mode (mobile, Clarity parity) */}
+        {isAccountantMode && (clientContextName || collectedData.companyName) && (
+          <ContextBar
+            clientName={clientContextName?.split(' ')[0]}
+            businessName={collectedData.companyName}
+            draftStatus={draftStatus}
+            lastSaved={lastSaved}
+            onClientClick={() => {
+              if (clientContextId) {
+                const mercuryUrl = getMercuryUrl()
+                window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+              }
+            }}
+            onBusinessClick={clientContextId ? () => {
+              const mercuryUrl = getMercuryUrl()
+              window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+            } : undefined}
+            clientApprovalStatus="pending"
+            onResendApproval={() => toast.info(t('reminderSent'))}
+            pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending').length}
+            onShowNormalisationReview={handleShowNormalisationReview}
+          />
+        )}
 
         <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)]">
           <ManualInputPanel {...manualInputProps} />
@@ -1478,47 +1604,38 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onExitClientView={handleExitClientView}
       />
 
+      {/* Context Bar - Accountant Mode (Clarity parity) */}
+      {isAccountantMode && (clientContextName || collectedData.companyName) && (
+        <ContextBar
+          clientName={clientContextName?.split(' ')[0]}
+          businessName={collectedData.companyName}
+          draftStatus={draftStatus}
+          lastSaved={lastSaved}
+          onClientClick={() => {
+            if (clientContextId) {
+              const mercuryUrl = getMercuryUrl()
+              window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+            }
+          }}
+          onBusinessClick={clientContextId ? () => {
+            const mercuryUrl = getMercuryUrl()
+            window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+          } : undefined}
+          clientApprovalStatus="pending"
+          onResendApproval={() => toast.info(t('reminderSent'))}
+          pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending').length}
+          onShowNormalisationReview={handleShowNormalisationReview}
+        />
+      )}
+
       {/* Main Content: Resizable Panels */}
       <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
         <ResizablePanelGroup className="h-full w-full">
-          {/* Left Panel: ManualInput or NormalizationHub */}
+          {/* Left Panel: Always ManualInputPanel (Clarity parity - no view switching) */}
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
-            <AnimatePresence mode="wait">
-              {leftPanelView === 'normalization-hub' ? (
-                <motion.div
-                  key="normalization-hub"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={springDefault}
-                  className="h-full"
-                >
-                  <Suspense fallback={<PanelSkeleton />}>
-                  <NormalizationHub
-                    companyName={collectedData.companyName || t('company')}
-                    originalEbitda={report?.ebitda || 0}
-                    sourceIntegration="manual"
-                    normalizations={normalizationItems}
-                    onNormalizationsChange={(norms) => normalizationActions.setItems(norms)}
-                    onContinue={handleNormalisationReviewContinue}
-                    onBack={handleNormalisationReviewBack}
-                    hasUploadedData={suggestedNormalisations.length > 0}
-              />
-            </Suspense>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="manual"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={springDefault}
-                  className="h-full"
-                >
-                  <ManualInputPanel {...manualInputProps} />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div className="h-full">
+              <ManualInputPanel {...manualInputProps} />
+            </div>
           </ResizablePanel>
 
           {/* Resize Handle */}
@@ -1529,7 +1646,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
           {/* Right Panel: Report / Preview / History */}
           <ResizablePanel defaultSize={65} minSize={40}>
-            <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
+            <div ref={reportPanelRef} className="h-full bg-white flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">
                   {rightPanelView === 'preview' ? (
@@ -1539,12 +1656,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="h-full overflow-y-auto p-8"
+                      className="h-full overflow-y-auto"
                     >
-                      <div className="text-center text-foreground/50 py-20">
-                        <p className="text-lg font-medium">{t('reportPreview')}</p>
-                        <p className="text-sm mt-2">{t('reportPreviewDesc')}</p>
-                      </div>
+                      <ReportPreviewPanel
+                        report={report ? {
+                          companyName: report.companyName,
+                          valuation: report.valuation,
+                          ebitda: report.ebitda ?? 0,
+                          multiple: report.multiple ?? 0,
+                          generatedAt: report.generatedAt,
+                          metrics: report.metrics,
+                        } : null}
+                      />
                     </motion.div>
                   ) : rightPanelView === 'history' ? (
                     <motion.div

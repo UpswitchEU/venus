@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const data = await titanResponse.json();
     return NextResponse.json(data);
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       console.warn('[AI Normalize Route] Request timed out after 15s');
     } else {
       console.error('[AI Normalize Route] Error:', error instanceof Error ? error.message : error);

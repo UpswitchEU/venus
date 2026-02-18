@@ -939,7 +939,8 @@
     "guest": "Gast",
     "retry": "Opnieuw proberen",
     "normalizationNotSaved": "Normalisatie niet opgeslagen op server",
-    "normalizationNotSavedDesc": "Uw wijzigingen zijn lokaal bewaard. Server-opslag wordt opnieuw geprobeerd."
+    "normalizationNotSavedDesc": "Uw wijzigingen zijn lokaal bewaard. Server-opslag wordt opnieuw geprobeerd.",
+    "reminderSent": "Herinnering verstuurd naar klant"
   },
   "versionCompare": {
     "typeInitial": "Initieel",
@@ -1036,6 +1037,16 @@
     "rejected": "✕ Afgewezen",
     "openTasks": "Open taken",
     "typing": "Aan het typen...",
+    "tools": {
+      "get_valuation_session": "Waarderingsdata ophalen...",
+      "get_normalization_adjustments": "Normalisaties ophalen...",
+      "get_valuation_results": "Waarderingsresultaten ophalen...",
+      "get_company_info": "Bedrijfsgegevens ophalen...",
+      "get_industry_benchmarks": "Sector benchmarks ophalen...",
+      "suggest_normalization": "Normalisatie voorstel maken...",
+      "update_field_value": "Veldwijziging voorstellen...",
+      "default": "Data verwerken..."
+    },
     "suggestions": {
       "whatWorth": "Wat is dit bedrijf waard?",
       "whichNorms": "Welke normalisaties zijn relevant?",

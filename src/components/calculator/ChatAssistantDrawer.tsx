@@ -330,6 +330,8 @@ interface ChatAssistantDrawerProps {
   // Open Normalization Hub - redirects to central hub when CSV is uploaded
   onOpenNormalizationHub?: () => void;
   hasUploadedData?: boolean;
+  // Tool execution indicator (Claude is fetching data)
+  toolInProgress?: string | null;
 }
 
 // Contextual suggestions based on field (returns translation keys for flexibility)
@@ -373,6 +375,7 @@ export function ChatAssistantDrawer({
   onCommandPillClick,
   onOpenNormalizationHub,
   hasUploadedData = false,
+  toolInProgress,
 }: ChatAssistantDrawerProps) {
   const ca = useTranslations('chatAssistant');
   const [input, setInput] = useState('');
@@ -401,10 +404,11 @@ export function ChatAssistantDrawer({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom on new messages and during streaming content updates
+  const lastMsgContent = messages[messages.length - 1]?.content;
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages.length, lastMsgContent]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -474,7 +478,12 @@ export function ChatAssistantDrawer({
     }
   };
 
-  const isEmpty = messages.length === 0;
+  // Filter out empty streaming placeholders (content will appear via streaming)
+  const visibleMessages = messages.filter((m) => m.role !== 'assistant' || m.content);
+  const isEmpty = visibleMessages.length === 0;
+  // Only show the loading skeleton when there's no assistant message actively receiving content
+  const lastVisible = visibleMessages[visibleMessages.length - 1];
+  const showLoadingSkeleton = isGenerating && (!lastVisible || lastVisible.role !== 'assistant');
 
   // Track focus state for premium glow effect
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -621,7 +630,7 @@ export function ChatAssistantDrawer({
               ) : (
                 <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
                   <AnimatePresence>
-                    {messages.map((message) => (
+                    {visibleMessages.map((message) => (
                       <MessageBubble 
                         key={message.id} 
                         message={message}
@@ -633,7 +642,7 @@ export function ChatAssistantDrawer({
                     ))}
                   </AnimatePresence>
 
-                  {isGenerating && (
+                  {showLoadingSkeleton && (
                     <motion.div 
                       initial={{ opacity: 0, y: 8, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -644,28 +653,37 @@ export function ChatAssistantDrawer({
                       <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center">
                         <Bot className="w-4 h-4 text-primary animate-pulse" />
                       </div>
-                      {/* Streaming skeleton - Klarna-inspired */}
+                      {/* Streaming skeleton */}
                       <div className="flex-1 max-w-[82%] space-y-2">
                         <div className="rounded-2xl rounded-tl-md px-5 py-4 bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02] border border-foreground/[0.08] backdrop-blur-sm space-y-3">
-                          {/* Typing indicator */}
-                          <div className="flex items-center gap-1.5">
-                            <motion.div 
-                              className="w-2 h-2 rounded-full bg-primary"
-                              animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-                              transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-                            />
-                            <motion.div 
-                              className="w-2 h-2 rounded-full bg-primary"
-                              animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-                              transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
-                            />
-                            <motion.div 
-                              className="w-2 h-2 rounded-full bg-primary"
-                              animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-                              transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-                            />
-                            <span className="ml-2 text-xs text-foreground/40">{ca('typing')}</span>
-                          </div>
+                          {/* Tool execution indicator */}
+                          {toolInProgress ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+                              <span className="text-xs text-primary/80 font-medium">
+                                {ca.has(`tools.${toolInProgress}`) ? ca(`tools.${toolInProgress}` as any) : ca('tools.default')}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <motion.div 
+                                className="w-2 h-2 rounded-full bg-primary"
+                                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                              />
+                              <motion.div 
+                                className="w-2 h-2 rounded-full bg-primary"
+                                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
+                              />
+                              <motion.div 
+                                className="w-2 h-2 rounded-full bg-primary"
+                                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                              />
+                              <span className="ml-2 text-xs text-foreground/40">{ca('typing')}</span>
+                            </div>
+                          )}
                           {/* Content skeleton lines */}
                           <div className="space-y-2">
                             <motion.div 
