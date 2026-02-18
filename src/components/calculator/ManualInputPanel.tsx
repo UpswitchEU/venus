@@ -12,14 +12,13 @@
  * - Each year can have its own set of adjustments
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Check, 
   Link2, 
   ChevronDown,
-  ChevronRight,
   X,
   Plus,
   Building2,
@@ -268,6 +267,66 @@ export function ManualInputPanel({
   // KBO verification state
   const [selectedCompany, setSelectedCompany] = useState<KBOCompany | null>(null);
   const [companySearchValue, setCompanySearchValue] = useState(formData.companyName || '');
+
+  // Sync prefill from bootstrap/session when initialData arrives after mount
+  useEffect(() => {
+    const prefill = initialData;
+    if (!prefill || typeof prefill !== 'object') return;
+
+    const applyIfEmpty = (
+      prev: ValuationFormData,
+      updates: Record<string, unknown>,
+      key: keyof ValuationFormData,
+      value: string | number | undefined
+    ) => {
+      if (value === undefined || value === null) return;
+      if (typeof value === 'string' && value === '') return;
+      const current = prev[key];
+      const isEmpty =
+        current === undefined ||
+        current === null ||
+        (typeof current === 'string' && current === '') ||
+        (typeof current === 'number' && key === 'ownerManagers' && current === 1) ||
+        (typeof current === 'number' && key === 'equityStake' && current === 100);
+      if (isEmpty) (updates as Record<string, unknown>)[key] = value;
+    };
+
+    let companyNameUpdate: string | undefined;
+    setFormData((prev) => {
+      const updates: Record<string, unknown> = {};
+      applyIfEmpty(prev, updates, 'companyName', prefill.companyName);
+      applyIfEmpty(prev, updates, 'kboNumber', prefill.kboNumber);
+      applyIfEmpty(prev, updates, 'legalForm', prefill.legalForm);
+      applyIfEmpty(prev, updates, 'address', prefill.address);
+      applyIfEmpty(prev, updates, 'naceCode', prefill.naceCode);
+      applyIfEmpty(prev, updates, 'naceDescription', prefill.naceDescription);
+      applyIfEmpty(prev, updates, 'businessType', prefill.businessType);
+      applyIfEmpty(prev, updates, 'businessTypeCode', prefill.businessTypeCode);
+      applyIfEmpty(prev, updates, 'industry', prefill.industry);
+      applyIfEmpty(prev, updates, 'country', prefill.country);
+      applyIfEmpty(prev, updates, 'yearFounded', prefill.yearFounded);
+      applyIfEmpty(prev, updates, 'ownerManagers', prefill.ownerManagers);
+      applyIfEmpty(prev, updates, 'equityStake', prefill.equityStake);
+      if (updates.companyName) companyNameUpdate = String(updates.companyName);
+      if (Object.keys(updates).length === 0) return prev;
+      return { ...prev, ...updates };
+    });
+    if (companyNameUpdate) setCompanySearchValue(companyNameUpdate);
+    // Set selectedCompany when we applied prefill and have enough KBO data (avoids overwriting user selection)
+    if (companyNameUpdate && (prefill.kboNumber || prefill.legalForm)) {
+      setSelectedCompany({
+        id: prefill.kboNumber || 'prefill',
+        name: companyNameUpdate,
+        kboNumber: prefill.kboNumber || '',
+        legalForm: prefill.legalForm || '',
+        address: prefill.address || '',
+        postalCode: '',
+        city: '',
+        naceCode: prefill.naceCode,
+        naceDescription: prefill.naceDescription,
+      });
+    }
+  }, [initialData]);
 
   // Business type state
   const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessType | null>(null);
@@ -570,45 +629,40 @@ export function ManualInputPanel({
             
             {/* Quick Actions moved to right panel for better UX */}
             
-            {/* Step 0: Integration CTA - Show when no integration connected and not dismissed */}
+            {/* Step 0: Integration CTA - Show when no integration connected and not dismissed (Coming soon, match Mercury design) */}
             <AnimatePresence>
               {!connectedIntegration && !hideUploadHint && (
                 <motion.section
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                  className="rounded-xl p-4 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 relative"
+                  className="rounded-xl p-4 bg-foreground/[0.03] border border-foreground/[0.08]"
                 >
-                  {/* Dismiss button */}
-                  <button
-                    type="button"
-                    onClick={() => setHideUploadHint(true)}
-                    className="absolute top-2 right-2 p-1.5 rounded-lg text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
-                    aria-label={t('common.actions.close')}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                  
-                  <div className="flex items-start gap-3 pr-6">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Link2 className="w-5 h-5 text-primary" />
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-foreground/[0.06] flex items-center justify-center shrink-0">
+                      <Link2 className="w-5 h-5 text-foreground/50" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-foreground mb-1">
-                        {mi('uploadHint.title')}
-                      </h3>
-                      <p className="text-xs text-foreground/60 mb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          {mi('uploadHint.title')}
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-foreground/10 text-foreground/60 border border-foreground/[0.08]">
+                          {mi('uploadHint.comingSoon')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-foreground/50">
                         {mi('uploadHint.description')}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => setShowConnectModal(true)}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                      >
-                        {mi('uploadHint.action')}
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setHideUploadHint(true)}
+                      className="p-1 rounded-lg hover:bg-foreground/[0.05] transition-colors shrink-0"
+                      aria-label={t('common.actions.close')}
+                    >
+                      <X className="w-4 h-4 text-foreground/40" />
+                    </button>
                   </div>
                 </motion.section>
               )}

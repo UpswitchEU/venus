@@ -838,7 +838,8 @@
     "uploadHint": {
       "title": "Sneller met grootboek upload?",
       "description": "Upload een grootboekexport (CSV) van Yuki, Exact of Odoo om rekeningen automatisch te categoriseren.",
-      "action": "Upload CSV"
+      "action": "Upload CSV",
+      "comingSoon": "Binnenkort"
     },
     "normalized": "Genormaliseerd",
     "year": "jaar",

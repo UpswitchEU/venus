@@ -839,7 +839,8 @@
     "uploadHint": {
       "title": "Faster with ledger upload?",
       "description": "Upload a ledger export (CSV) from Yuki, Exact or Odoo to automatically categorize accounts.",
-      "action": "Upload CSV"
+      "action": "Upload CSV",
+      "comingSoon": "Coming soon"
     },
     "normalized": "Normalized",
     "year": "year",
