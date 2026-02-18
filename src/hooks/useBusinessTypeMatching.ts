@@ -34,11 +34,16 @@ export const useBusinessTypeMatching = () => {
         return exactMatch.value
       }
 
-      // 2. Match on category
+      // 2. Match on category (category may be string or object from API)
+      const safeCatLower = (bt: { category?: unknown }) => {
+        const raw = typeof bt.category === 'string' ? bt.category : (bt.category as Record<string, unknown>)?.name ?? (bt.category as Record<string, unknown>)?.title ?? '';
+        return String(raw).toLowerCase();
+      };
       const categoryMatch = businessTypes.find(
-        (bt) =>
-          bt.category.toLowerCase().includes(queryLower) ||
-          queryLower.includes(bt.category.toLowerCase())
+        (bt) => {
+          const catLower = safeCatLower(bt);
+          return catLower && (catLower.includes(queryLower) || queryLower.includes(catLower));
+        }
       )
       if (categoryMatch) {
         generalLogger.info('Matched business type (category)', {

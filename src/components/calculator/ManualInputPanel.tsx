@@ -409,7 +409,10 @@ export function ManualInputPanel({
       professionals: 'consulting',
     };
     return businessTypes.map((bt) => {
-      const rawCategory = (bt.category || 'other').toLowerCase().replace(/\s+/g, '-');
+      const cat = typeof bt.category === 'string'
+        ? bt.category
+        : (bt.category as Record<string, unknown>)?.name ?? (bt.category as Record<string, unknown>)?.title ?? 'other';
+      const rawCategory = String(cat).toLowerCase().replace(/\s+/g, '-');
       const iconKey = apiCategoryToIconKey[rawCategory] ?? rawCategory;
       const category = categoryIcons[iconKey] ? iconKey : 'other';
       return {

@@ -770,7 +770,8 @@ function fuzzySearchBusinessTypes(query: string, types: BusinessType[]): { types
     const nameLower = t.name.toLowerCase();
     const codeLower = t.code.toLowerCase();
     const descLower = (t.description || '').toLowerCase();
-    const catLower = t.category.toLowerCase();
+    const cat = typeof t.category === 'string' ? t.category : (t.category as Record<string, unknown>)?.name ?? (t.category as Record<string, unknown>)?.title ?? '';
+    const catLower = String(cat).toLowerCase();
     
     let score = 0;
     if (nameLower.startsWith(lower)) score += 100;
