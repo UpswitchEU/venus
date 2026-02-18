@@ -370,7 +370,7 @@ export class SessionBootstrapService {
    * PERFORMANCE OPTIMIZATION:
    * - Skip wait if auth already loaded
    * - When clientToken present: wait for isInitializing=false AND isActingAsClient (client context in store)
-   * - Otherwise: 1s max for cookie-based auth
+   * - Otherwise: maxWaitMs for cookie-based auth (auth/me → 401 → refresh → retry can take ~1–2s)
    */
   private async waitForAuth(maxWaitMs: number, hasClientToken?: boolean): Promise<boolean> {
     const { useAuthStore } = await import('../auth');
@@ -381,7 +381,8 @@ export class SessionBootstrapService {
 
     const isAuthAndContextReady = (): boolean => {
       const authState = useAuthStore.getState();
-      const authReady = !authState.loading && !authState.isInitializing && (authState.user || authState.error);
+      // Require user (not just error) - bootstrap needs valid auth; error means unauthenticated
+      const authReady = !authState.loading && !authState.isInitializing && !!authState.user;
       if (!authReady) return false;
       // When clientToken present, also require client context in store (headers needed for Titan delegated flow)
       if (hasClientToken && !useClientContext.getState().isActingAsClient) {
@@ -534,13 +535,13 @@ export class SessionBootstrapService {
 
     try {
       // When clientToken present, wait for client context exchange to complete (up to 5s)
-      // Otherwise short wait (1s) for cookie-based auth
+      // Otherwise wait up to 2.5s for cookie-based auth (auth/me → 401 → refresh → retry can take ~1–2s)
       const authWaitStart = performance.now();
-      const authReady = await this.waitForAuth(1000, hints.hasClientToken);
+      const authReady = await this.waitForAuth(2500, hints.hasClientToken);
       const authWaitMs = Math.round(performance.now() - authWaitStart);
       this.logger.info(`[Bootstrap:${traceId}] Auth wait complete`, { durationMs: authWaitMs, ready: authReady });
       if (!authReady) {
-        this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after 1s timeout, proceeding anyway`);
+        this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after timeout, proceeding anyway`);
       }
 
       // Build request body
