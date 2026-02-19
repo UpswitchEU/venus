@@ -45,12 +45,17 @@ export interface ValuationReportData {
   ebitda: number;
   normalizedEbitda?: number;
   multiple: number;
-  multipleRange?: { min: number; max: number };
+  multipleRange?: { low: number; high: number };
   generatedAt: Date;
-  confidence?: 'high' | 'medium' | 'low';
+  confidenceLevel?: 'high' | 'medium' | 'low';
+  confidenceScore?: number;
   metrics?: ReportMetric[];
   /** Full HTML report from ValuationIQ */
   htmlReport?: string;
+  /** Info tab HTML from ValuationIQ */
+  infoTabHtml?: string;
+  /** Recommended asking price */
+  recommendedAskingPrice?: number;
 }
 
 export interface ReportMetric {
@@ -376,10 +381,11 @@ export function ValuationReportPanel({
                     {t('report.fullReport') || 'Volledig rapport'}
                   </span>
                 </div>
-                <div
-                  className="p-4 prose prose-sm max-w-none dark:prose-invert [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted/50"
-                  dangerouslySetInnerHTML={{ __html: HTMLProcessor.sanitize(report!.htmlReport!) }}
-                />
+                <div className="valuation-report">
+                  <div
+                    dangerouslySetInnerHTML={{ __html: HTMLProcessor.sanitize(report!.htmlReport!) }}
+                  />
+                </div>
               </motion.div>
             )}
 

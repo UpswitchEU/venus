@@ -430,11 +430,11 @@ class SessionRestorationServiceImpl {
     // 2. Hydrate results store
     if (data.valuationResult) {
       try {
-        // Build complete result with HTML report merged in
+        // Build complete result with HTML reports merged in
         const fullResult = {
           ...data.valuationResult,
-          // Ensure HTML report is in the result object
           html_report: data.htmlReport || data.valuationResult.html_report,
+          info_tab_html: data.infoTabHtml || data.valuationResult.info_tab_html,
         }
         
         if (isConversational) {

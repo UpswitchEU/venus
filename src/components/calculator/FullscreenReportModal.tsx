@@ -62,6 +62,7 @@ export function FullscreenReportModal({
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 200));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50));
+  const handlePrint = onPrint ?? (() => window.print());
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
@@ -121,17 +122,15 @@ export function FullscreenReportModal({
             </button>
           </div>
 
-          <div className="h-5 w-px bg-foreground/10 mx-1" aria-hidden />
+          <div className="hidden sm:block h-5 w-px bg-foreground/10 mx-1" aria-hidden />
 
-          {onPrint && (
-            <button
-              type="button"
-              onClick={onPrint}
-              className="p-2 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04] transition-colors"
-            >
-              <Printer className="w-4 h-4" aria-hidden />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="hidden sm:block p-2 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04] transition-colors"
+          >
+            <Printer className="w-4 h-4" aria-hidden />
+          </button>
 
           {onShare && (
             <AuroraButton variant="ghost" size="sm" onClick={onShare}>
@@ -180,9 +179,8 @@ export function FullscreenReportModal({
           }}
         >
           {report?.htmlReport ? (
-            <div className="max-w-5xl mx-auto p-6 md:p-10">
+            <div className="valuation-report">
               <div
-                className="prose prose-sm md:prose-base max-w-none dark:prose-invert [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted/50"
                 dangerouslySetInnerHTML={{
                   __html: HTMLProcessor.sanitize(report.htmlReport),
                 }}

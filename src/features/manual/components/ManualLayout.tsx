@@ -44,6 +44,7 @@ import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { DownloadService } from '../../../services/downloadService'
 import { generalLogger } from '../../../utils/logger'
+import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import {
   areChangesSignificant,
@@ -620,14 +621,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
     return versions.map((v) => {
       const vr = v.valuationResult as any
+      const low = Number(vr?.equity_value_low || vr?.valuation_low || 0)
+      const high = Number(vr?.equity_value_high || vr?.valuation_high || 0)
       return {
         id: v.id,
         label: v.versionLabel,
-        priceRange: {
-          min: vr?.valuation_low || vr?.valuation_result?.valuation_low || 0,
-          max: vr?.valuation_high || vr?.valuation_result?.valuation_high || 0,
-        },
-        askPrice: vr?.valuation_high || vr?.valuation_result?.valuation_high || 0,
+        priceRange: { min: low, max: high },
+        askPrice: high,
         timestamp: v.createdAt,
         isActive: v.isActive,
       }
@@ -638,7 +638,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setSelectedVersionId(id)
     const version = versions.find((v) => v.id === id)
     if (version?.valuationResult) {
-      setResult(version.valuationResult)
+      const enrichedResult = {
+        ...version.valuationResult,
+        html_report: version.valuationResult.html_report || version.htmlReport || undefined,
+        info_tab_html: version.valuationResult.info_tab_html || version.infoTabHtml || undefined,
+      }
+      setResult(enrichedResult)
       toast.info(t('versionLoaded', { label: version.versionLabel }))
     }
   }, [versions, setResult])
@@ -647,38 +652,56 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useEffect(() => {
     if (result) {
       onComplete(result)
-      const r = result as any
+
+      const equityMid = Number(result.equity_value_mid) || 0
+      const equityLow = Number(result.equity_value_low) || 0
+      const equityHigh = Number(result.equity_value_high) || 0
+      const ebitda = result.current_year_data?.ebitda || 0
+      const normalizedEbitda = Number(result.latest_normalized_ebitda) || ebitda
+      const revenue = result.current_year_data?.revenue || 0
+      const ebitdaMultiple = result.multiples_valuation?.ebitda_multiple || 0
+      const p25 = result.multiples_valuation?.p25_ebitda_multiple
+      const p75 = result.multiples_valuation?.p75_ebitda_multiple
+      const confidence = result.overall_confidence?.toLowerCase() as 'high' | 'medium' | 'low' | undefined
+
+      const askingPrice = Number(result.recommended_asking_price) || 0
+
       setReport({
-        id: r.id || 'draft',
-        companyName: r.company_name || 'Bedrijfsschatting',
-        valuation: r.valuation_result?.valuation_high || 0,
-        valuationLow: r.valuation_result?.valuation_low,
-        valuationHigh: r.valuation_result?.valuation_high,
-        ebitda: r.valuation_result?.normalized_ebitda || 0,
-        normalizedEbitda: r.valuation_result?.normalized_ebitda,
-        multiple: r.valuation_result?.multiple_high || 0,
-        multipleRange: r.valuation_result?.multiple_low
-          ? { min: r.valuation_result.multiple_low, max: r.valuation_result.multiple_high }
-          : undefined,
+        id: result.valuation_id || 'draft',
+        companyName: result.company_name || 'Bedrijfsschatting',
+        valuation: equityMid,
+        valuationLow: equityLow || undefined,
+        valuationHigh: equityHigh || undefined,
+        ebitda,
+        normalizedEbitda: normalizedEbitda || undefined,
+        multiple: ebitdaMultiple,
+        multipleRange: p25 != null && p75 != null ? { low: p25, high: p75 } : undefined,
         generatedAt: new Date(),
-        confidence: 'medium',
-        htmlReport: r.html_report || undefined,
+        confidenceLevel: confidence || 'medium',
+        htmlReport: result.html_report || undefined,
+        infoTabHtml: result.info_tab_html || undefined,
+        recommendedAskingPrice: askingPrice || undefined,
         metrics: [
-          { label: 'Gem. Omzet', value: `€${((r.financials?.revenue || 0) / 1_000_000).toFixed(2)}M` },
-          { label: 'EBITDA Marge', value: `${(((r.valuation_result?.normalized_ebitda || 0) / (r.financials?.revenue || 1)) * 100).toFixed(1)}%` },
-          { label: 'Sector', value: r.business_type || 'Services' },
+          { label: 'Gem. Omzet', value: `€${(revenue / 1_000_000).toFixed(2)}M` },
+          { label: 'EBITDA Marge', value: `${((ebitda / (revenue || 1)) * 100).toFixed(1)}%` },
+          { label: 'Sector', value: (result as any).business_type || 'Services' },
         ],
       })
       setDraftStatus('saved')
       setLastSaved(new Date())
-      setShowFullscreenModal(true)
 
-      // Auto-trigger PDF generation in background (fire and forget)
-      if (reportId && r.html_report) {
+      setRightPanelView('report')
+
+      // On mobile, auto-open fullscreen modal since there's no right panel
+      if (isMobile && result.html_report) {
+        setShowFullscreenModal(true)
+      }
+
+      if (reportId && result.html_report) {
         generatePdf?.().catch(() => {})
       }
     }
-  }, [result, onComplete, reportId, generatePdf])
+  }, [result, onComplete, reportId, generatePdf, isMobile])
 
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
@@ -816,8 +839,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           await reportService.saveReportAssets(reportId, {
             sessionData: storeSnapshot,
             valuationResult: calcResult,
-            htmlReport: calcResult.html_report,
-            infoTabHtml: calcResult.info_tab_html,
+            htmlReport: calcResult.html_report || undefined,
+            infoTabHtml: calcResult.info_tab_html || undefined,
             name: sessionName,
           })
           useSessionStore.getState().markSaved()
@@ -1478,9 +1501,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         updateFormData(version.formData)
       }
 
-      // 3. Set valuation result (ValuationVersion.valuationResult)
+      // 3. Set valuation result with htmlReport merged from version
       if (version.valuationResult) {
-        setResult(version.valuationResult)
+        const enrichedResult = {
+          ...version.valuationResult,
+          html_report: version.valuationResult.html_report || version.htmlReport || undefined,
+          info_tab_html: version.valuationResult.info_tab_html || version.infoTabHtml || undefined,
+        }
+        setResult(enrichedResult)
       }
 
       // 4. Restore normalizations from normalization_data snapshot
@@ -1889,6 +1917,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                         <HistoryPanel report={report} onVersionRestore={handleVersionRestore} />
                       </Suspense>
                     </motion.div>
+                  ) : report?.htmlReport ? (
+                    <motion.div
+                      key="html-report"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={springDefault}
+                      className="h-full overflow-y-auto"
+                    >
+                      <div className="valuation-report">
+                        <div
+                          dangerouslySetInnerHTML={{ __html: HTMLProcessor.sanitize(report.htmlReport) }}
+                        />
+                      </div>
+                    </motion.div>
                   ) : (
                     <motion.div
                       key="report"
@@ -1904,12 +1947,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                         isExporting={isExporting}
                         onExport={handleExport}
                         onRegenerate={() => {
-                          // Clean reset for regeneration
                           setReport(null)
                           setResult(null as any)
                           setReportStatus('draft')
                           setRightPanelView('report')
-                          // Clear PDF cache if any
                           if (reportId) {
                             try { sessionStorage.removeItem(`pdf_${reportId}`) } catch {}
                           }
@@ -1921,7 +1962,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     </motion.div>
                   )}
                 </AnimatePresence>
-        </div>
+              </div>
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>

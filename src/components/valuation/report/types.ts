@@ -104,35 +104,51 @@ export interface ValuationReportData {
   confidenceScore?: number;
   riskFactors?: string[];
   valueDrivers?: string[];
+
+  // Python-generated HTML report (main 5-page report)
+  htmlReport?: string;
+  // Python-generated info tab HTML (summary panel)
+  infoTabHtml?: string;
+
+  // Recommended asking price (premium over equity mid)
+  recommendedAskingPrice?: number;
 }
 
 /**
- * Convert API response to report data format.
- * Handles snake_case to camelCase conversion.
+ * Convert ValuationResponse API response to report data format.
+ *
+ * Maps from the actual ValuationResponse fields (equity_value_mid, multiples_valuation, etc.)
+ * to the ValuationReportData shape consumed by UI components.
  */
 export function convertApiResponseToReportData(
   apiResponse: Record<string, unknown>
 ): ValuationReportData {
+  const multiples = apiResponse.multiples_valuation as Record<string, unknown> | undefined
+  const currentYear = apiResponse.current_year_data as Record<string, unknown> | undefined
+  const financialMetrics = apiResponse.financial_metrics as Record<string, unknown> | undefined
+
+  const ebitda = Number(currentYear?.ebitda || 0)
+  const revenue = Number(currentYear?.revenue || 0)
+  const ebitdaMultiple = Number(multiples?.ebitda_multiple || 0)
+
   return {
-    id: String(apiResponse.id || ''),
+    id: String(apiResponse.valuation_id || apiResponse.id || ''),
     companyName: String(apiResponse.company_name || apiResponse.companyName || ''),
-    generatedAt: apiResponse.generated_at 
-      ? new Date(String(apiResponse.generated_at))
-      : apiResponse.generatedAt 
-        ? new Date(String(apiResponse.generatedAt))
+    generatedAt: apiResponse.timestamp
+      ? new Date(String(apiResponse.timestamp))
+      : apiResponse.generated_at
+        ? new Date(String(apiResponse.generated_at))
         : new Date(),
-    valuation: Number(apiResponse.valuation || 0),
-    valuationLow: apiResponse.valuation_low != null 
-      ? Number(apiResponse.valuation_low) 
-      : apiResponse.valuationLow != null 
-        ? Number(apiResponse.valuationLow)
-        : undefined,
-    valuationHigh: apiResponse.valuation_high != null
-      ? Number(apiResponse.valuation_high)
-      : apiResponse.valuationHigh != null
-        ? Number(apiResponse.valuationHigh)
-        : undefined,
-    ebitda: Number(apiResponse.ebitda || 0),
+
+    valuation: Number(apiResponse.equity_value_mid || 0),
+    valuationLow: apiResponse.equity_value_low != null
+      ? Number(apiResponse.equity_value_low)
+      : undefined,
+    valuationHigh: apiResponse.equity_value_high != null
+      ? Number(apiResponse.equity_value_high)
+      : undefined,
+
+    ebitda,
     reportedEbitda: apiResponse.reported_ebitda != null
       ? Number(apiResponse.reported_ebitda)
       : undefined,
@@ -153,16 +169,15 @@ export function convertApiResponseToReportData(
           approvedBy: adj.approved_by ? String(adj.approved_by) : undefined,
         }))
       : [],
-    multiple: Number(apiResponse.multiple || 0),
-    multipleLow: apiResponse.multiple_low != null
-      ? Number(apiResponse.multiple_low)
+
+    multiple: ebitdaMultiple,
+    multipleRange: multiples?.p25_ebitda_multiple != null && multiples?.p75_ebitda_multiple != null
+      ? { low: Number(multiples.p25_ebitda_multiple), high: Number(multiples.p75_ebitda_multiple) }
       : undefined,
-    multipleHigh: apiResponse.multiple_high != null
-      ? Number(apiResponse.multiple_high)
-      : undefined,
+
     industry: apiResponse.industry ? String(apiResponse.industry) : undefined,
     industryEmoji: apiResponse.industry_emoji ? String(apiResponse.industry_emoji) : undefined,
-    revenue: apiResponse.revenue != null ? Number(apiResponse.revenue) : undefined,
+    revenue: revenue || undefined,
     employeeCount: apiResponse.employee_count != null
       ? Number(apiResponse.employee_count)
       : undefined,
@@ -180,17 +195,25 @@ export function convertApiResponseToReportData(
       : [],
     methodology: apiResponse.methodology ? String(apiResponse.methodology) : undefined,
     methodologyNotes: apiResponse.methodology_notes ? String(apiResponse.methodology_notes) : undefined,
-    confidenceLevel: apiResponse.confidence_level
-      ? String(apiResponse.confidence_level) as ValuationReportData['confidenceLevel']
-      : undefined,
+    confidenceLevel: apiResponse.overall_confidence
+      ? String(apiResponse.overall_confidence).toLowerCase() as ValuationReportData['confidenceLevel']
+      : apiResponse.confidence_level
+        ? String(apiResponse.confidence_level) as ValuationReportData['confidenceLevel']
+        : undefined,
     confidenceScore: apiResponse.confidence_score != null
       ? Number(apiResponse.confidence_score)
       : undefined,
     riskFactors: Array.isArray(apiResponse.risk_factors)
       ? apiResponse.risk_factors.map(String)
       : undefined,
-    valueDrivers: Array.isArray(apiResponse.value_drivers)
-      ? apiResponse.value_drivers.map(String)
+    valueDrivers: Array.isArray(apiResponse.value_drivers) ? apiResponse.value_drivers.map(String)
+      : Array.isArray(apiResponse.key_value_drivers) ? (apiResponse.key_value_drivers as string[]).map(String)
+      : undefined,
+
+    htmlReport: apiResponse.html_report ? String(apiResponse.html_report) : undefined,
+    infoTabHtml: apiResponse.info_tab_html ? String(apiResponse.info_tab_html) : undefined,
+    recommendedAskingPrice: apiResponse.recommended_asking_price != null
+      ? Number(apiResponse.recommended_asking_price)
       : undefined,
   } as ValuationReportData;
 }

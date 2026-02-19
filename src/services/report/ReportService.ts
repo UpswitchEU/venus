@@ -175,10 +175,11 @@ export class ReportService {
       // Save complete package to backend in single API call
       const putResultStartTime = performance.now()
       await sessionAPI.saveValuationResult(reportId, {
-        sessionData: sessionDataWithContext, // ✅ FIX: Include _client_context if available
+        sessionData: sessionDataWithContext,
         valuationResult: assets.valuationResult,
         htmlReport: assets.htmlReport,
-        name: assets.name, // ✅ NEW: Send custom valuation name
+        infoTabHtml: assets.infoTabHtml,
+        name: assets.name,
       })
       const putResultDuration = performance.now() - putResultStartTime
 

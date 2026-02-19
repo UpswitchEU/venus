@@ -227,6 +227,13 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       if (data.jobId) {
         setState((prev) => ({ ...prev, progress: 30 }));
         startPolling(data.jobId);
+      } else {
+        setState({
+          status: 'error',
+          url: null,
+          error: 'No PDF URL or job ID returned — please try again',
+          progress: 0,
+        });
       }
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
