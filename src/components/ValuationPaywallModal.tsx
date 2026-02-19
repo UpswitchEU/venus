@@ -53,7 +53,7 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           </button>
           <button
             onClick={onUpgrade}
-            className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-sm font-semibold rounded-lg transition-colors"
+            className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg transition-colors"
           >
             {t('modals.paywall.upgrade')}
           </button>

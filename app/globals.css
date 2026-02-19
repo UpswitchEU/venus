@@ -111,11 +111,11 @@
   }
 
   .gradient-hero {
-    @apply bg-gradient-to-br from-canvas via-white to-canvas;
+    @apply bg-gradient-to-br from-background via-card to-background;
   }
 
   .glass-effect {
-    @apply bg-canvas/80 backdrop-blur-sm border border-white/20;
+    @apply bg-card/80 backdrop-blur-sm border border-foreground/10;
   }
 
   /* Seamless textarea - completely remove borders like Ilara */

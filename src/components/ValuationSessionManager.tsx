@@ -20,7 +20,7 @@
 
 'use client'
 
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, usePathname } from 'next/navigation'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
@@ -63,6 +63,7 @@ interface ValuationSessionManagerProps {
 export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = React.memo(
   ({ reportId, children }) => {
     const searchParams = useSearchParams()
+    const pathname = usePathname()
     const router = useTransitionRouter()
 
     // OPTIMISTIC: Detect Mercury flow to render form immediately during bootstrap
@@ -535,8 +536,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
                 ? 'Pro plan required to create valuations for clients. Please upgrade to Pro to continue.'
                 : 'Insufficient credits to create valuation. Upgrade to Premium for unlimited valuations.')}
             onUpgrade={() => {
-              // Redirect to Mercury pricing page (full URL for cross-app navigation)
-              window.location.href = `${getMercuryUrl()}/pricing`
+              // Accountants: redirect to trial-setup (Pro-only flow). Others: pricing.
+              const locale = (pathname?.match(/^\/(en|nl)/)?.[1]) || 'en'
+              const upgradePath = bootstrapCreditStatus.upgrade_path === 'accountant_pro'
+                ? `/${locale}/accountant/trial-setup`
+                : '/pricing'
+              window.location.href = `${getMercuryUrl()}${upgradePath}`
             }}
           />
         )}
@@ -552,7 +557,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             limit={paywallData?.limit || 1}
             message={paywallData?.message}
             onUpgrade={() => {
-              // Redirect to Mercury pricing page (full URL for cross-app navigation)
+              // Session paywall: default to pricing (client/guest). Accountant flow uses showCreditError modal.
               window.location.href = `${getMercuryUrl()}/pricing`
             }}
           />

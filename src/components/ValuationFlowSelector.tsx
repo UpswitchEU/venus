@@ -185,7 +185,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
         <div className="flex items-center justify-center h-full p-4">
           <ErrorState
             title="Session Error"
-            message={error}
+            message={error ?? undefined}
             onRetry={onRetry}
             onBack={onStartOver ?? (!onRetry ? () => window.location.reload() : undefined)}
           />

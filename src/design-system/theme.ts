@@ -1,20 +1,20 @@
-// 🎨 Upswitch Design System Theme
-// Adapted from main frontend for valuation tester
+// 🎨 Aurora by Upswitch Design System Theme
+// Clarity-aligned: Aurora Teal primary, Burnt Clay accent, Deep Slate canvas
 
 export const BrandColors = {
-  // Primary Brand (Sage Foundation)
+  // Primary: Aurora Teal (30% - tech-forward)
   primary: {
-    50: '#F2F5F3',
-    100: '#E1E8E3',
-    200: '#C4D1C9',
-    300: '#A2B6A9',
-    400: '#7E9888',
-    500: '#607C6B',
-    600: '#4A5D4F', // Sage Foundation - Primary
-    700: '#3D4D41',
-    800: '#323E35',
-    900: '#28312B',
-    DEFAULT: '#4A5D4F',
+    50: '#E8F8F7',
+    100: '#D1F1EF',
+    200: '#A3E3DF',
+    300: '#75D5CF',
+    400: '#4CC7BF',
+    500: '#3DBDB0',
+    600: '#319A8F',
+    700: '#25776E',
+    800: '#19544D',
+    900: '#0D312C',
+    DEFAULT: '#3DBDB0',
   },
 
   // Accent (Burnt Clay)
@@ -105,9 +105,9 @@ export const BrandColors = {
     DEFAULT: '#ef4444',
   },
 
-  // Business/Finance specific
+  // Business/Finance specific (Clarity Aurora)
   business: {
-    trust: '#4A5D4F', // Sage
+    trust: '#3DBDB0', // Aurora Teal
     growth: '#059669',
     premium: '#C87F63', // Burnt Clay
     secure: '#2B303A', // Slate Ink
