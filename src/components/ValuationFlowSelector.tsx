@@ -21,7 +21,7 @@ import { ErrorState } from './ErrorState'
 /**
  * Valuation flow stage types
  */
-type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection'
+type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
 
 /**
  * ValuationFlowSelector Component Props
@@ -177,11 +177,10 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
 
     // Render based on stage
     if (stage === 'loading') {
-      // ✅ Async loading: Show calculator shell skeleton instead of blocking LoadingState
       return <CalculatorShellSkeleton />
     }
 
-    if (error) {
+    if (stage === 'error' || error) {
       return (
         <div className="flex items-center justify-center h-full p-4">
           <ErrorState

@@ -32,7 +32,7 @@ import { ValuationPaywallModal } from './ValuationPaywallModal'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 
-type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection'
+type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
 
 interface ValuationSessionManagerProps {
   reportId: string
@@ -224,6 +224,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       // Mercury optimistic: render form during bootstrap instead of loading screen
       if (isFromMercury && isBootstrapping && !isLoading) {
         return 'data-entry'
+      }
+      // Surface errors so the UI shows an error screen instead of loading forever
+      if (status === 'error' && !isBootstrapping) {
+        return 'error'
       }
       // Default: loading until everything is ready
       if (isBootstrapping || isLoading || isInitializing || !session || session.reportId !== reportId) {
@@ -429,6 +433,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           const isNetworkError = errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('Failed to fetch')
           const isUuidError = errorMessage.includes('uuid') || errorMessage.includes('operator does not exist')
           const isAuthError = errorMessage.includes('401') || errorMessage.includes('Unauthorized')
+          const isForbidden = errorMessage.includes('403') || errorMessage.includes('Forbidden')
           
           // Set user-friendly error message
           let userFriendlyError = 'Failed to load session. Please try again.'
@@ -446,13 +451,14 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             })
           } else if (isAuthError) {
             userFriendlyError = 'Authentication error. Please log in again.'
+          } else if (isForbidden) {
+            userFriendlyError = 'Access denied. Please ensure you have permission to view this report.'
           }
 
-          // Ensure store state is reset on error
+          // Ensure store state is reset on error (status + errorMessage drive stage derivation)
           useSessionStore.setState({
-            isInitializing: false,
-            isLoading: false,
-            error: userFriendlyError,
+            status: 'error',
+            errorMessage: userFriendlyError,
           })
 
           generalLogger.error('[SessionManager] Load failed', {
@@ -463,6 +469,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             isNetworkError,
             isUuidError,
             isAuthError,
+            isForbidden,
             userFriendlyError,
           })
         })
