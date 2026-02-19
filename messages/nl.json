@@ -410,7 +410,9 @@
       "active": "actief",
       "verifyCompany": "Bedrijfsgegevens verifiëren",
       "useThisCompany": "Dit bedrijf gebruiken",
-      "manualEntry": "In plaats daarvan handmatig invoeren"
+      "manualEntry": "In plaats daarvan handmatig invoeren",
+      "searchFailed": "Zoeken mislukt",
+      "retry": "Opnieuw proberen"
     }
   },
   "businessProfile": {

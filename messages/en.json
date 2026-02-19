@@ -410,7 +410,9 @@
       "active": "active",
       "verifyCompany": "Verify company details",
       "useThisCompany": "Use this company",
-      "manualEntry": "Enter manually instead"
+      "manualEntry": "Enter manually instead",
+      "searchFailed": "Search failed",
+      "retry": "Try again"
     }
   },
   "businessProfile": {

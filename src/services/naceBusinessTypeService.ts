@@ -15,7 +15,7 @@ export function looksLikeNaceCode(value: string): boolean {
 import { Building2 } from 'lucide-react';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const TIMEOUT = 8000;
+const TIMEOUT = 6000; // Match Mercury businessTypeService for consistency
 
 interface CacheEntry {
   data: BusinessType | null;
@@ -133,7 +133,9 @@ class NaceBusinessTypeService {
       const mapped = mapToBusinessType(bt);
       this.cache.set(cacheKey, { data: mapped, timestamp: Date.now() });
       return mapped;
-    } catch {
+    } catch (err) {
+      // Re-throw network/timeout errors so caller can show retry UI
+      if (err instanceof Error && err.name !== 'AbortError') throw err;
       return null;
     }
   }

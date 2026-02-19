@@ -517,33 +517,50 @@ export function ManualInputPanel({
 
   // Auto-fill business type from NACE when we have naceCode but no businessType (mirror Mercury AddClient)
   const naceAbortRef = useRef<AbortController | null>(null);
+  const [nacePrefillError, setNacePrefillError] = useState<string | null>(null);
+  const [naceRetryTrigger, setNaceRetryTrigger] = useState(0);
   useEffect(() => {
     const naceCode = formData.naceCode?.trim() || selectedCompany?.naceCode?.trim();
-    if (!naceCode || formData.businessType?.trim()) return;
+    if (!naceCode || formData.businessType?.trim()) {
+      setNacePrefillError(null);
+      return;
+    }
 
     if (naceAbortRef.current) naceAbortRef.current.abort();
     const controller = new AbortController();
     naceAbortRef.current = controller;
+    setNacePrefillError(null);
 
     naceBusinessTypeService
       .getBusinessTypeForNaceCode(naceCode, controller.signal)
       .then((type) => {
-        if (controller.signal.aborted || !type) return;
-        setSelectedBusinessType(type);
-        setFormData((prev) => ({
-          ...prev,
-          businessType: type.id,
-          businessTypeCode: type.code || prev.businessTypeCode,
-          industry: type.category || prev.industry,
-        }));
+        if (controller.signal.aborted) return;
+        if (type) {
+          setSelectedBusinessType(type);
+          setFormData((prev) => ({
+            ...prev,
+            businessType: type.id,
+            businessTypeCode: type.code || prev.businessTypeCode,
+            industry: type.category || prev.industry,
+          }));
+          setNacePrefillError(null);
+        } else {
+          setNacePrefillError('Geen bedrijfstype gevonden voor dit NACE-code. Selecteer handmatig.');
+        }
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (!controller.signal.aborted) {
+          setNacePrefillError(
+            err instanceof Error ? err.message : 'Bedrijfstype ophalen mislukt. Probeer het later opnieuw.'
+          );
+        }
+      })
       .finally(() => {
         if (!controller.signal.aborted) naceAbortRef.current = null;
       });
 
     return () => controller.abort();
-  }, [formData.naceCode, formData.businessType, selectedCompany?.naceCode]);
+  }, [formData.naceCode, formData.businessType, selectedCompany?.naceCode, naceRetryTrigger]);
 
   // Sync selectedBusinessType when formData.businessType is set from prefill/bootstrap (DB or KBO)
   useEffect(() => {
@@ -671,26 +688,32 @@ export function ManualInputPanel({
   // Handle KBO company selection (Mercury parity: prefill business type from NACE)
   const handleCompanySelect = useCallback(async (company: KBOCompany) => {
     setSelectedCompany(company);
-    setCompanySearchValue(company.name);
+    setCompanySearchValue(company.name ?? '');
+
+    const addr = company.address ?? '';
+    const postal = company.postalCode ?? '';
+    const city = company.city ?? '';
+    const addressStr =
+      postal && addr && !addr.includes(postal) ? `${addr}, ${postal} ${city}` : addr;
 
     const baseUpdates: Partial<ValuationFormData> = {
-      companyName: company.name,
-      kboNumber: company.kboNumber,
-      legalForm: company.legalForm,
-      address: company.postalCode && !company.address.includes(company.postalCode)
-        ? `${company.address}, ${company.postalCode} ${company.city}`
-        : company.address,
-      naceCode: company.naceCode || '',
-      naceDescription: company.naceDescription || '',
-      businessStructure: mapLegalFormToBusinessStructure(company.legalForm),
+      companyName: company.name ?? '',
+      kboNumber: company.kboNumber ?? '',
+      legalForm: company.legalForm ?? '',
+      address: addressStr,
+      naceCode: company.naceCode ?? '',
+      naceDescription: company.naceDescription ?? '',
+      businessStructure: mapLegalFormToBusinessStructure(company.legalForm ?? ''),
     };
 
     setFormData((prev) => ({ ...prev, ...baseUpdates }));
+    setNacePrefillError(null); // Clear when selecting new company; set below if NACE lookup fails
 
     // Mercury parity: fetch business type from NACE code (KBO) and prefill
-    if (company.naceCode?.trim()) {
+    const naceCode = company.naceCode?.trim();
+    if (naceCode) {
       try {
-        const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(company.naceCode);
+        const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(naceCode);
         if (bt) {
           const mapped: BusinessType = businessTypesForSearch.find((t) => t.id === bt.id) ?? bt;
           setSelectedBusinessType(mapped);
@@ -702,9 +725,14 @@ export function ManualInputPanel({
             industry: bt.category || 'services',
           }));
           updateFormData({ business_type_id: bt.id, industry: bt.category });
+          setNacePrefillError(null);
+        } else {
+          setNacePrefillError('Geen bedrijfstype gevonden voor dit NACE-code. Selecteer handmatig.');
         }
-      } catch {
-        // No mapping for this NACE code – leave business type empty
+      } catch (err) {
+        setNacePrefillError(
+          err instanceof Error ? err.message : 'Bedrijfstype ophalen mislukt. Probeer het later opnieuw.'
+        );
       }
     }
   }, [businessTypesForSearch, updateFormData]);
@@ -722,6 +750,7 @@ export function ManualInputPanel({
   const handleClearCompany = () => {
     setSelectedCompany(null);
     setCompanySearchValue('');
+    setNacePrefillError(null);
     setFormData(prev => ({
       ...prev,
       companyName: '',
@@ -888,6 +917,18 @@ export function ManualInputPanel({
                       }
                       size="sm"
                     />
+                    {nacePrefillError && (
+                      <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-destructive/5 border border-destructive/20 -mt-1">
+                        <p className="text-[11px] text-destructive/80">{nacePrefillError}</p>
+                        <button
+                          type="button"
+                          onClick={() => setNaceRetryTrigger((p) => p + 1)}
+                          className="text-[11px] font-medium text-primary hover:text-primary/80 shrink-0"
+                        >
+                          Opnieuw proberen
+                        </button>
+                      </div>
+                    )}
                     {selectedBusinessType && (
                       <p className="text-[11px] text-foreground/40 -mt-1">
                         {mi('businessTypeHint')}

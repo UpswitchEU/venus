@@ -40,6 +40,8 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
   const [searchResults, setSearchResults] = useState<CompanySearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [retryTrigger, setRetryTrigger] = useState(0)
   const [exactMatch, setExactMatch] = useState<CompanySearchResult | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -56,6 +58,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         if (!query || query.trim().length < 3) {
           setSearchResults([])
           setExactMatch(null)
+          setSearchError(null)
           setIsLoading(false)
           setShowSuggestions(false)
           return
@@ -65,11 +68,13 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         if (country !== 'BE') {
           setSearchResults([])
           setExactMatch(null)
+          setSearchError(null)
           setIsLoading(false)
           return
         }
 
         setIsLoading(true)
+        setSearchError(null)
         if (abortControllerRef.current) {
           abortControllerRef.current.abort()
         }
@@ -81,6 +86,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           if (response.success && response.results) {
             const results = response.results
             setSearchResults(results)
+            setSearchError(null)
 
             // Check for exact match (for highlighting/display only)
             const match = results.find(
@@ -110,6 +116,10 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           })
           setSearchResults([])
           setExactMatch(null)
+          setSearchError(
+            error instanceof Error ? error.message : 'Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.'
+          )
+          setShowSuggestions(true)
         } finally {
           if (!controller.signal.aborted) {
             abortControllerRef.current = null
@@ -141,10 +151,11 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
     } else {
       setSearchResults([])
       setExactMatch(null)
+      setSearchError(null)
       setShowSuggestions(false)
       setHighlightedIndex(-1)
     }
-  }, [value, countryCode, performSearch, selectedCompany])
+  }, [value, countryCode, performSearch, selectedCompany, retryTrigger])
 
   // Reset highlighted index when search results change
   useEffect(() => {
@@ -329,7 +340,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
 
   // Render suggestions dropdown
   const renderSuggestions = () => {
-    if (!showSuggestions || searchResults.length === 0 || isLoading || selectedCompany) return null
+    if (!showSuggestions || (searchResults.length === 0 && !searchError) || isLoading || selectedCompany) return null
 
     return (
       <div
@@ -337,6 +348,20 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         role="listbox"
         className="absolute top-full left-0 right-0 mt-2 bg-background border border-foreground/[0.10] rounded-xl shadow-2xl shadow-black/20 z-[9999] max-h-72 overflow-y-auto transform transition-all duration-200 origin-top"
       >
+        {searchError ? (
+          <div className="px-4 py-4 text-sm">
+            <p className="text-destructive/80 mb-1">{t('forms.kboLookup.searchFailed')}</p>
+            <p className="text-foreground/40 text-xs mb-3">{searchError}</p>
+            <button
+              type="button"
+              onClick={() => setRetryTrigger((p) => p + 1)}
+              className="text-xs font-medium text-primary hover:text-primary/80"
+            >
+              {t('forms.kboLookup.retry')}
+            </button>
+          </div>
+        ) : (
+          <>
         <div className="px-4 py-2.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider bg-background/95 border-b border-foreground/[0.05] sticky top-0 backdrop-blur-md z-10">
           {t('forms.kboLookup.didYouMean')}
         </div>
@@ -394,6 +419,8 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
             )
           })}
         </div>
+          </>
+        )}
       </div>
     )
   }
