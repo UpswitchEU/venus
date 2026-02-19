@@ -13,6 +13,9 @@ import {
   BusinessTypeOption,
   businessTypesApiService,
 } from '../services/businessTypesApi'
+import { createContextLogger } from '../utils/logger'
+
+const logger = createContextLogger('business-types')
 
 // ============================================================================
 // TYPES
@@ -44,8 +47,7 @@ export function useBusinessTypes(): UseBusinessTypesState {
       const types = await businessTypesApiService.getBusinessTypes()
       const options = await businessTypesApiService.getBusinessTypeOptions()
 
-      // DIAGNOSTIC: Log what hook received
-      console.log('🔍 [BUSINESS-TYPES-HOOK] Loaded in hook', {
+      logger.debug('Loaded business types', {
         typesCount: types.length,
         optionsCount: options.length,
       })
@@ -55,7 +57,7 @@ export function useBusinessTypes(): UseBusinessTypesState {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch business types'
       setError(errorMessage)
-      console.error('[useBusinessTypes] Error:', errorMessage)
+      logger.error('Failed to fetch business types', { error: errorMessage })
     } finally {
       setLoading(false)
     }

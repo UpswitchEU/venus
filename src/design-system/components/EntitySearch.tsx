@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../utils";
+import { looksLikeNaceCode } from "@/services/naceBusinessTypeService";
 import { 
   Search, 
   X, 
@@ -775,6 +776,14 @@ const categoryLabels: Record<string, string> = {
   other: 'Overig',
 };
 
+/** Humanize slug for display when types not yet loaded (e.g. "restaurant" -> "Restaurant") */
+function humanizeBusinessTypeSlug(slug: string): string {
+  if (!slug?.trim()) return '';
+  return slug
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export interface BusinessTypeSearchInputProps 
   extends VariantProps<typeof searchFieldVariants> {
   /** Floating label text */
@@ -791,6 +800,8 @@ export interface BusinessTypeSearchInputProps
   types?: BusinessType[];
   /** NACE-matched type ID to show first when dropdown opens (from KBO) */
   naceMatchedTypeId?: string;
+  /** Loading state (e.g. types API not yet loaded) - shows subtle pulse when value exists */
+  loading?: boolean;
 }
 
 function fuzzySearchBusinessTypes(
@@ -860,6 +871,7 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
     disabled,
     types = businessTypes,
     naceMatchedTypeId,
+    loading = false,
   }, ref) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const [isOpen, setIsOpen] = React.useState(false);
@@ -876,6 +888,12 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
       types.find(t => t.id === value), 
       [value, types]
     );
+
+    const displayFallback = React.useMemo(() => {
+      if (selectedType || !value?.trim()) return null;
+      if (looksLikeNaceCode(value)) return null;
+      return humanizeBusinessTypeSlug(value.trim());
+    }, [selectedType, value]);
 
     const { types: filteredTypes, isDidYouMean } = React.useMemo(() => 
       fuzzySearchBusinessTypes(search, types, naceMatchedTypeId),
@@ -954,7 +972,7 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
       setSearch('');
     };
 
-    const hasValue = Boolean(selectedType);
+    const hasValue = Boolean(selectedType) || Boolean(displayFallback);
     const isFloated = isFocused || hasValue || isOpen;
     const state = disabled ? "disabled" : isFocused || isOpen ? "focus" : "default";
 
@@ -992,10 +1010,15 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
           {!isOpen && (
             <div className={cn(
               searchFieldVariants({ size }),
-              "flex items-center pointer-events-none"
+              "flex items-center pointer-events-none",
+              loading && displayFallback && "animate-pulse"
             )}>
               {selectedType ? (
                 <span className="truncate">{selectedType.name}</span>
+              ) : displayFallback ? (
+                <span className={cn("truncate", loading ? "text-foreground/60" : "text-foreground")}>
+                  {displayFallback}
+                </span>
               ) : (
                 <span className="text-foreground/40"> </span>
               )}
@@ -1037,6 +1060,16 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
                   <X className="w-4 h-4" />
                 </button>
               </>
+            )}
+            {displayFallback && !selectedType && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="p-1 rounded-full text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
+                aria-label="Clear"
+              >
+                <X className="w-4 h-4" />
+              </button>
             )}
             <ChevronDown className={cn(
               "w-4 h-4 text-foreground/40 transition-transform",

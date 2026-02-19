@@ -41,6 +41,7 @@ import { CalculatorShellSkeleton } from '../../../components/calculator'
 import { valuationService, reportService } from '../../../services'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
+import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { DownloadService } from '../../../services/downloadService'
 import { generalLogger } from '../../../utils/logger'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
@@ -472,8 +473,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [companyName, formBusinessTypeId, formIndustry, formCountry, formYearFounded, formKboNumber, formLegalForm, formAddress, formNaceCode, formNaceDescription])
 
-  // Hydrate collectedData from session when form store is empty (e.g. before useBootstrapPrefill has run)
+  // Hydrate collectedData and form store from session when form store is empty or missing NACE/business_type
   // Ensures initialData is populated on first render so ManualInputPanel can set selectedCompany from prefill
+  // Relaxed: also run when session has nace_code or business_type_id but form does not (even if form has company_name)
   useEffect(() => {
     const sessionData = (session?.sessionData || {}) as Record<string, unknown>
     const businessInfo = (sessionData._businessInfo || {}) as Record<string, unknown>
@@ -487,19 +489,52 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       (merged.legalForm as string)?.trim()
     const formStoreEmpty =
       !formCompanyName?.trim() && !formKboNumber?.trim() && !formLegalForm?.trim()
-    if (!hasSessionPrefill || !formStoreEmpty) return
+    const sessionHasNace = !!(merged.nace_code || merged.naceCode)
+    const sessionHasBusinessType = !!(merged.business_type_id || merged.businessTypeId || merged.business_type)
+    const formMissingNace = sessionHasNace && !formNaceCode?.trim()
+    const formMissingBusinessType = sessionHasBusinessType && !formBusinessTypeId?.trim()
+    const shouldHydrate =
+      hasSessionPrefill && (formStoreEmpty || formMissingNace || formMissingBusinessType)
+    if (!shouldHydrate) return
+
+    const sessionCompany =
+      (merged.company_name as string)?.trim() || (merged.companyName as string)?.trim()
+    const sessionKbo = (merged.kbo_number || merged.kboNumber) as string
+    const sessionLegal = (merged.legal_form || merged.legalForm) as string
+    const sessionAddress = [merged.postal_code || merged.postalCode, merged.city]
+      .filter(Boolean)
+      .join(' ')
+    const sessionNace = (merged.nace_code || merged.naceCode) as string
+    const sessionNaceDesc = (merged.nace_description || merged.naceDescription) as string
+    const sessionCountry = (merged.country_code || merged.countryCode || merged.country) as string
+    const sessionYear = merged.founding_year ?? merged.founded_year
+    const sessionBusinessType = (merged.business_type_id || merged.businessTypeId || merged.business_type) as string
+    const sessionIndustry = (merged.industry as string)
+    // Skip NACE-shaped values: session may have "56.101" in business_type_id; let bootstrap/NACE lookup handle it
+    const shouldUseSessionBusinessType =
+      sessionBusinessType && !looksLikeNaceCode(sessionBusinessType)
+
+    // Sync to form store: only fill missing fields to avoid overwriting user input or bootstrap data
+    const formUpdates: Record<string, unknown> = {}
+    if (sessionCompany && !formCompanyName?.trim()) formUpdates.company_name = sessionCompany
+    if (sessionKbo && !formKboNumber?.trim()) formUpdates.kbo_number = sessionKbo
+    if (sessionLegal && !formLegalForm?.trim()) formUpdates.legal_form = sessionLegal
+    const sessionPostalCode = (merged.postal_code || merged.postalCode) as string
+    const sessionCity = (merged.city as string)
+    if (sessionPostalCode && !formPostalCode?.trim()) formUpdates.postal_code = sessionPostalCode
+    if (sessionCity && !formCity?.trim()) formUpdates.city = sessionCity
+    if (sessionNace && !formNaceCode?.trim()) formUpdates.nace_code = sessionNace
+    if (sessionNaceDesc && !formNaceDescription?.trim()) formUpdates.nace_description = sessionNaceDesc
+    if (sessionCountry && !formCountry?.trim()) formUpdates.country_code = sessionCountry
+    if (sessionYear != null && formYearFounded == null) formUpdates.founding_year = Number(sessionYear)
+    if (shouldUseSessionBusinessType && !formBusinessTypeId?.trim()) formUpdates.business_type_id = sessionBusinessType
+    if (sessionIndustry && !formIndustry?.trim()) formUpdates.industry = sessionIndustry
+    if (Object.keys(formUpdates).length > 0) {
+      updateFormData(formUpdates)
+    }
 
     setCollectedData((prev) => {
       const next = { ...prev }
-      const sessionCompany =
-        (merged.company_name as string)?.trim() || (merged.companyName as string)?.trim()
-      const sessionKbo = (merged.kbo_number || merged.kboNumber) as string
-      const sessionLegal = (merged.legal_form || merged.legalForm) as string
-      const sessionAddress = [merged.postal_code || merged.postalCode, merged.city]
-        .filter(Boolean)
-        .join(' ')
-      const sessionNace = (merged.nace_code || merged.naceCode) as string
-      const sessionNaceDesc = (merged.nace_description || merged.naceDescription) as string
       if (sessionCompany && !prev.companyName) next.companyName = sessionCompany
       if (sessionKbo && !prev.kboNumber) next.kboNumber = sessionKbo
       if (sessionLegal && !prev.legalForm) {
@@ -510,13 +545,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (sessionAddress && !prev.address) next.address = sessionAddress
       if (sessionNace && !prev.naceCode) next.naceCode = sessionNace
       if (sessionNaceDesc && !prev.naceDescription) next.naceDescription = sessionNaceDesc
-      const sessionCountry = (merged.country_code || merged.countryCode || merged.country) as string
       if (sessionCountry && !prev.country) next.country = sessionCountry
-      const sessionYear = merged.founding_year ?? merged.founded_year
-      if (sessionYear && !prev.yearFounded) next.yearFounded = String(sessionYear)
-      const sessionBusinessType = (merged.business_type_id || merged.businessTypeId || merged.business_type) as string
-      if (sessionBusinessType && !prev.businessType) next.businessType = sessionBusinessType
-      const sessionIndustry = (merged.industry as string)
+      if (sessionYear != null && !prev.yearFounded) next.yearFounded = String(sessionYear)
+      if (shouldUseSessionBusinessType && !prev.businessType) next.businessType = sessionBusinessType
       if (sessionIndustry && !prev.industry) next.industry = sessionIndustry
       return next
     })
@@ -525,6 +556,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formCompanyName,
     formKboNumber,
     formLegalForm,
+    formNaceCode,
+    formBusinessTypeId,
+    formPostalCode,
+    formCity,
+    formYearFounded,
+    formIndustry,
+    updateFormData,
   ])
 
   // Display name for top-left dropdown: collectedData > client context (accountant) > fallback
@@ -813,11 +851,69 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Chat Handlers (bi-directional sync) ───
   const handleApplyFieldUpdate = useCallback((field: string, value: any) => {
-    const dataKey = field === 'business_type_id' ? 'businessType' : field
-    setCollectedData((prev) => ({ ...prev, [dataKey]: value }))
-    // Sync businessType to form store (business_type_id) so form store stays in sync
-    if ((field === 'businessType' || field === 'business_type_id') && typeof value === 'string') {
-      updateFormData({ business_type_id: value })
+    const fieldToDataKey: Record<string, string> = {
+      business_type_id: 'businessType',
+      nace_code: 'naceCode',
+      nace_description: 'naceDescription',
+      company_name: 'companyName',
+      kbo_number: 'kboNumber',
+      legal_form: 'legalForm',
+      country_code: 'country',
+      founding_year: 'yearFounded',
+      address: 'address',
+      ownerManagers: 'ownerManagers',
+      equityStake: 'equityStake',
+    }
+    const dataKey = fieldToDataKey[field] ?? field
+    // Address fields (postal_code, city) update form store only; collectedData syncs via form store
+    const isAddressOnlyField = field === 'postal_code' || field === 'postalCode' || field === 'city'
+    if (!isAddressOnlyField) {
+      setCollectedData((prev) => ({ ...prev, [dataKey]: value }))
+    }
+    // Sync to form store so form store stays in sync with chat/AI updates
+    const strVal = typeof value === 'string' ? value.trim() : ''
+    const hasStr = strVal.length > 0
+    const yearVal = typeof value === 'number' ? value : parseInt(String(value), 10)
+    const hasYear = !Number.isNaN(yearVal)
+
+    if (field === 'businessType' || field === 'business_type_id') {
+      if (hasStr) updateFormData({ business_type_id: strVal })
+    } else if (field === 'nace_code' || field === 'naceCode') {
+      if (hasStr) updateFormData({ nace_code: strVal })
+    } else if (field === 'nace_description' || field === 'naceDescription') {
+      if (hasStr) updateFormData({ nace_description: strVal })
+    } else if (field === 'company_name' || field === 'companyName') {
+      if (hasStr) updateFormData({ company_name: strVal })
+    } else if (field === 'kbo_number' || field === 'kboNumber') {
+      if (hasStr) updateFormData({ kbo_number: strVal })
+    } else if (field === 'legal_form' || field === 'legalForm') {
+      if (hasStr) updateFormData({ legal_form: strVal })
+    } else if (field === 'country_code' || field === 'country') {
+      if (hasStr) updateFormData({ country_code: strVal })
+    } else if (field === 'founding_year' || field === 'yearFounded') {
+      if (hasYear) updateFormData({ founding_year: yearVal })
+    } else if (field === 'industry') {
+      if (hasStr) updateFormData({ industry: strVal })
+    } else if (field === 'postal_code' || field === 'postalCode') {
+      if (hasStr) updateFormData({ postal_code: strVal })
+    } else if (field === 'city') {
+      if (hasStr) updateFormData({ city: strVal })
+    } else if (field === 'address') {
+      if (hasStr) {
+        // Belgian format often "1234 City" - try to split postal code from city
+        const match = strVal.match(/^(\d{4})\s+(.+)$/)
+        if (match) {
+          updateFormData({ postal_code: match[1], city: match[2].trim() })
+        } else {
+          updateFormData({ city: strVal })
+        }
+      }
+    } else if (field === 'ownerManagers' || field === 'owner_managers') {
+      const n = typeof value === 'number' ? value : parseInt(String(value), 10)
+      if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_owners: n })
+    } else if (field === 'equityStake' || field === 'equity_stake') {
+      const n = typeof value === 'number' ? value : parseInt(String(value), 10)
+      if (!Number.isNaN(n) && n >= 0 && n <= 100) updateFormData({ shares_for_sale: n })
     }
     toast.success(t('fieldUpdated', { field, value: typeof value === 'number' ? `€${value.toLocaleString('nl-BE')}` : String(value) }))
     setChatMessages((prev) => [

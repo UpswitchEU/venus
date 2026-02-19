@@ -7,6 +7,11 @@
  */
 
 import type { BusinessType } from '@/design-system/components/EntitySearch';
+
+/** NACE-BEL pattern: digits, dot, digits (e.g. 56.101, 62.01). Use to reject NACE-shaped values from business_type_id. */
+export function looksLikeNaceCode(value: string): boolean {
+  return /^\d{2}\.\d{2,3}$/.test(String(value || '').trim());
+}
 import { Building2 } from 'lucide-react';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes

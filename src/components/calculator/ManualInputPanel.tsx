@@ -57,8 +57,7 @@ import {
 import { useCanSave } from '../../hooks/useCanSave';
 import { useBusinessTypes } from '../../hooks/useBusinessTypes';
 import { registryService } from '../../services/registry/registryService';
-import { businessTypesApiService } from '../../services/businessTypesApi';
-import { naceBusinessTypeService } from '../../services/naceBusinessTypeService';
+import { naceBusinessTypeService, looksLikeNaceCode } from '../../services/naceBusinessTypeService';
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping';
 import { useManualFormStore } from '../../store/manual/useManualFormStore';
 import type { CompanySearchResult } from '../../services/registry/types';
@@ -272,14 +271,19 @@ export function ManualInputPanel({
   // KBO verification state
   const [selectedCompany, setSelectedCompany] = useState<KBOCompany | null>(null);
   const [companySearchValue, setCompanySearchValue] = useState(formData.companyName || '');
+  const updateFormData = useManualFormStore((s) => s.updateFormData);
 
   // Sync prefill from bootstrap/session when initialData arrives after mount
   // Dependencies on key fields ensure we re-run when prefill arrives late (e.g. async store hydration)
+  const prefillAbortRef = useRef<boolean>(false);
   useEffect(() => {
     const prefill = initialData;
     if (!prefill || typeof prefill !== 'object') return;
 
-    // Apply when prefill has value and (current is empty OR differs) - handles prefill arriving after mount
+    prefillAbortRef.current = false;
+    const isCurrent = () => !prefillAbortRef.current;
+
+    // Apply only when field is empty - never overwrite user-entered data
     const applyPrefill = (
       prev: ValuationFormData,
       updates: Record<string, unknown>,
@@ -295,49 +299,74 @@ export function ManualInputPanel({
         (typeof current === 'string' && current === '') ||
         (typeof current === 'number' && key === 'ownerManagers' && current === 1) ||
         (typeof current === 'number' && key === 'equityStake' && current === 100);
-      const differs = String(current) !== String(value);
-      if (isEmpty || differs) (updates as Record<string, unknown>)[key] = value;
+      if (isEmpty) (updates as Record<string, unknown>)[key] = value;
     };
 
     const businessStructure = mapLegalFormToBusinessStructure(prefill.legalForm);
 
-    let companyNameUpdate: string | undefined;
-    setFormData((prev) => {
-      const updates: Record<string, unknown> = {};
-      applyPrefill(prev, updates, 'companyName', prefill.companyName);
-      applyPrefill(prev, updates, 'kboNumber', prefill.kboNumber);
-      applyPrefill(prev, updates, 'legalForm', prefill.legalForm);
-      applyPrefill(prev, updates, 'businessStructure', prefill.businessStructure || businessStructure);
-      applyPrefill(prev, updates, 'address', prefill.address);
-      applyPrefill(prev, updates, 'naceCode', prefill.naceCode);
-      applyPrefill(prev, updates, 'naceDescription', prefill.naceDescription);
-      applyPrefill(prev, updates, 'businessType', prefill.businessType);
-      applyPrefill(prev, updates, 'businessTypeCode', prefill.businessTypeCode);
-      applyPrefill(prev, updates, 'industry', prefill.industry);
-      applyPrefill(prev, updates, 'country', prefill.country);
-      applyPrefill(prev, updates, 'yearFounded', prefill.yearFounded);
-      applyPrefill(prev, updates, 'ownerManagers', prefill.ownerManagers);
-      applyPrefill(prev, updates, 'equityStake', prefill.equityStake);
-      if (updates.companyName) companyNameUpdate = String(updates.companyName);
-      if (Object.keys(updates).length === 0) return prev;
-      return { ...prev, ...updates };
-    });
-    if (companyNameUpdate) setCompanySearchValue(companyNameUpdate);
-    // Set selectedCompany when we have company name + any business data - expands the form to show Business Type, Legal Form, etc.
-    const hasExpandData = prefill.kboNumber || prefill.legalForm || prefill.businessType || prefill.industry;
-    if (companyNameUpdate && hasExpandData) {
-      setSelectedCompany({
-        id: prefill.kboNumber || 'prefill',
-        name: companyNameUpdate,
-        kboNumber: prefill.kboNumber || '',
-        legalForm: prefill.legalForm || '',
-        address: prefill.address || '',
-        postalCode: '',
-        city: '',
-        naceCode: prefill.naceCode,
-        naceDescription: prefill.naceDescription,
+    const runPrefill = async () => {
+      let businessTypeToApply = prefill.businessType;
+      let industryToApply = prefill.industry;
+      if (businessTypeToApply && looksLikeNaceCode(businessTypeToApply)) {
+        const resolved = await naceBusinessTypeService.getBusinessTypeForNaceCode(
+          businessTypeToApply.trim()
+        );
+        if (!isCurrent()) return;
+        if (resolved?.id) {
+          businessTypeToApply = resolved.id;
+          industryToApply = resolved.category || prefill.industry;
+          updateFormData({ business_type_id: resolved.id, industry: industryToApply });
+        } else {
+          businessTypeToApply = '';
+        }
+      }
+      if (businessTypeToApply && looksLikeNaceCode(businessTypeToApply)) {
+        businessTypeToApply = '';
+      }
+
+      if (!isCurrent()) return;
+      let companyNameUpdate: string | undefined;
+      setFormData((prev) => {
+        const updates: Record<string, unknown> = {};
+        applyPrefill(prev, updates, 'companyName', prefill.companyName);
+        applyPrefill(prev, updates, 'kboNumber', prefill.kboNumber);
+        applyPrefill(prev, updates, 'legalForm', prefill.legalForm);
+        applyPrefill(prev, updates, 'businessStructure', prefill.businessStructure || businessStructure);
+        applyPrefill(prev, updates, 'address', prefill.address);
+        applyPrefill(prev, updates, 'naceCode', prefill.naceCode);
+        applyPrefill(prev, updates, 'naceDescription', prefill.naceDescription);
+        applyPrefill(prev, updates, 'businessType', businessTypeToApply || undefined);
+        applyPrefill(prev, updates, 'businessTypeCode', prefill.businessTypeCode);
+        applyPrefill(prev, updates, 'industry', industryToApply);
+        applyPrefill(prev, updates, 'country', prefill.country);
+        applyPrefill(prev, updates, 'yearFounded', prefill.yearFounded);
+        applyPrefill(prev, updates, 'ownerManagers', prefill.ownerManagers);
+        applyPrefill(prev, updates, 'equityStake', prefill.equityStake);
+        if (updates.companyName) companyNameUpdate = String(updates.companyName);
+        if (Object.keys(updates).length === 0) return prev;
+        return { ...prev, ...updates };
       });
-    }
+      if (companyNameUpdate) setCompanySearchValue(companyNameUpdate);
+      const hasExpandData =
+        prefill.kboNumber || prefill.legalForm || businessTypeToApply || prefill.industry;
+      if (companyNameUpdate && hasExpandData) {
+        setSelectedCompany({
+          id: prefill.kboNumber || 'prefill',
+          name: companyNameUpdate,
+          kboNumber: prefill.kboNumber || '',
+          legalForm: prefill.legalForm || '',
+          address: prefill.address || '',
+          postalCode: '',
+          city: '',
+          naceCode: prefill.naceCode,
+          naceDescription: prefill.naceDescription,
+        });
+      }
+    };
+    runPrefill();
+    return () => {
+      prefillAbortRef.current = true;
+    };
   }, [
     initialData?.companyName,
     initialData?.kboNumber,
@@ -350,6 +379,9 @@ export function ManualInputPanel({
     initialData?.naceDescription,
     initialData?.address,
     initialData?.businessStructure,
+    initialData?.ownerManagers,
+    initialData?.equityStake,
+    updateFormData,
   ]);
 
   // Ensure companySearchValue is synced when initialData.companyName arrives late (e.g. after async store hydration)
@@ -454,7 +486,7 @@ export function ManualInputPanel({
   }, []);
 
   // Business types from Titan API (instead of hardcoded)
-  const { businessTypes } = useBusinessTypes();
+  const { businessTypes, loading: businessTypesLoading } = useBusinessTypes();
   const businessTypesForSearch = useMemo((): BusinessType[] => {
     const apiCategoryToIconKey: Record<string, string> = {
       restaurant: 'food',
@@ -636,8 +668,6 @@ export function ManualInputPanel({
   };
 
   // Handle KBO company selection (Mercury parity: prefill business type from NACE)
-  const updateFormData = useManualFormStore((s) => s.updateFormData);
-
   const handleCompanySelect = useCallback(async (company: KBOCompany) => {
     setSelectedCompany(company);
     setCompanySearchValue(company.name);
@@ -659,27 +689,18 @@ export function ManualInputPanel({
     // Mercury parity: fetch business type from NACE code (KBO) and prefill
     if (company.naceCode?.trim()) {
       try {
-        const bt = await businessTypesApiService.getBusinessTypeForNaceCode(company.naceCode);
+        const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(company.naceCode);
         if (bt) {
-          const cat: string = typeof bt.category === 'string'
-            ? bt.category
-            : String((bt.category as Record<string, unknown>)?.name ?? bt.category_id ?? 'other');
-          const mapped: BusinessType = businessTypesForSearch.find((t) => t.id === bt.id) ?? {
-            id: bt.id,
-            code: bt.industryMapping || bt.id,
-            name: bt.title,
-            category: cat,
-            icon: categoryIcons[cat] ?? categoryIcons['other'] ?? Building2,
-          };
+          const mapped: BusinessType = businessTypesForSearch.find((t) => t.id === bt.id) ?? bt;
           setSelectedBusinessType(mapped);
           setFormData((prev) => ({
             ...prev,
             ...baseUpdates,
             businessType: bt.id,
-            businessTypeCode: bt.industryMapping || bt.id,
-            industry: bt.category_id || bt.category || 'services',
+            businessTypeCode: bt.code || bt.id,
+            industry: bt.category || 'services',
           }));
-          updateFormData({ business_type_id: bt.id, industry: bt.category_id || bt.category });
+          updateFormData({ business_type_id: bt.id, industry: bt.category });
         }
       } catch {
         // No mapping for this NACE code – leave business type empty
@@ -854,7 +875,14 @@ export function ManualInputPanel({
                       value={formData.businessType}
                       onChange={handleBusinessTypeSelect}
                       types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
-                      naceMatchedTypeId={selectedCompany?.naceCode && formData.businessType?.trim() ? formData.businessType.trim() : undefined}
+                      loading={businessTypesLoading}
+                      naceMatchedTypeId={
+                        selectedCompany?.naceCode &&
+                        formData.businessType?.trim() &&
+                        !looksLikeNaceCode(formData.businessType)
+                          ? formData.businessType.trim()
+                          : undefined
+                      }
                       size="sm"
                     />
                     {selectedBusinessType && (

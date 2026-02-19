@@ -44,6 +44,8 @@ const ALL_PREFILL_FIELDS = [
   'legal_form',
   'city',
   'postal_code',
+  'nace_code',
+  'nace_description',
 ];
 
 interface UserProfile {
@@ -522,6 +524,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       if (companyInfo.postalCode) populated.push('postal_code');
       if (companyInfo.countryCode) populated.push('country_code');
       if (companyInfo.foundingYear) populated.push('founding_year');
+      if (companyInfo.naceCode) populated.push('nace_code');
+      if (companyInfo.naceDescription) populated.push('nace_description');
     }
 
     if (financials) {

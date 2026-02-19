@@ -22,6 +22,7 @@ import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
+import { naceBusinessTypeService, looksLikeNaceCode } from '../services/naceBusinessTypeService'
 
 /**
  * Hook to prefill form from session data
@@ -41,9 +42,11 @@ export function useSessionDataPrefill() {
   const sessionData = useSessionStore((state) => state.session?.sessionData) as any
   const { updateFormData, formData } = useManualFormStore()
   const hasPrefilledRef = useRef(false)
+  const cancelledRef = useRef(false)
   const bootstrap = useBootstrapSafe()
 
   useEffect(() => {
+    cancelledRef.current = false
     // MERCURY FIX: For existing reports, allow fallback when form is empty but session has data
     // Restoration (loadSession) is async - form may stay blank until it completes.
     // If session store has sessionData with company/KBO fields and form is empty, apply as fallback.
@@ -161,97 +164,124 @@ export function useSessionDataPrefill() {
       return
     }
 
-    // Build updates object with all available fields from merged data
-    const updates: Partial<ValuationFormData> = {}
+    const runPrefill = async () => {
+      const updates: Partial<ValuationFormData> = {}
 
-    // ✅ FIX: Always prefill critical fields if they're missing, even if form has other data
-    // Basic company information
-    // ✅ CRITICAL FIX: Check mergedData.company_name exists and is not empty before prefilling
-    if (mergedData.company_name && mergedData.company_name.trim() !== '' && !hasCompanyName) {
-      updates.company_name = mergedData.company_name.trim()
-      generalLogger.debug('[useSessionDataPrefill] Will prefill company_name', {
-        company_name: mergedData.company_name,
-        hasCompanyName,
-        mergedDataKeys: Object.keys(mergedData),
-      })
-    } else {
-      generalLogger.debug('[useSessionDataPrefill] Skipping company_name prefill', {
-        hasMergedDataCompanyName: !!mergedData.company_name,
-        mergedDataCompanyName: mergedData.company_name,
-        hasCompanyName,
-        formCompanyName: formData.company_name,
-      })
-    }
-    if (mergedData.business_type_id && !hasBusinessTypeId) {
-      updates.business_type_id = mergedData.business_type_id
-    }
-    if (mergedData.business_type && !updates.business_type_id) {
-      // Fallback: use business_type if business_type_id not available
-      updates.business_type_id = mergedData.business_type
-    }
-    if (mergedData.founding_year) updates.founding_year = mergedData.founding_year
-    if (mergedData.founded_year && !updates.founding_year) {
-      // Fallback: use founded_year if founding_year not available
-      updates.founding_year = mergedData.founded_year
-    }
-    if (mergedData.country_code) updates.country_code = mergedData.country_code
-    if (mergedData.country && !updates.country_code) {
-      // Fallback: use country if country_code not available
-      updates.country_code = mergedData.country
-    }
-    if (mergedData.city) updates.city = mergedData.city
-    if (mergedData.postal_code) updates.postal_code = mergedData.postal_code
-    if (mergedData.number_of_employees)
-      updates.number_of_employees = mergedData.number_of_employees
-    if (mergedData.employee_count && !updates.number_of_employees) {
-      // Fallback: use employee_count if number_of_employees not available
-      updates.number_of_employees = mergedData.employee_count
-    }
-    if (mergedData.business_description)
-      updates.business_description = mergedData.business_description
-    if (mergedData.industry) updates.industry = mergedData.industry
-    if (mergedData.business_model) updates.business_model = mergedData.business_model
+      // ✅ FIX: Always prefill critical fields if they're missing, even if form has other data
+      // Basic company information
+      // ✅ CRITICAL FIX: Check mergedData.company_name exists and is not empty before prefilling
+      if (mergedData.company_name && mergedData.company_name.trim() !== '' && !hasCompanyName) {
+        updates.company_name = mergedData.company_name.trim()
+        generalLogger.debug('[useSessionDataPrefill] Will prefill company_name', {
+          company_name: mergedData.company_name,
+          hasCompanyName,
+          mergedDataKeys: Object.keys(mergedData),
+        })
+      } else {
+        generalLogger.debug('[useSessionDataPrefill] Skipping company_name prefill', {
+          hasMergedDataCompanyName: !!mergedData.company_name,
+          mergedDataCompanyName: mergedData.company_name,
+          hasCompanyName,
+          formCompanyName: formData.company_name,
+        })
+      }
+      // Reject NACE-shaped values: resolve via API instead of using raw value
+      const rawBusinessType =
+        mergedData.business_type_id || mergedData.business_type
+      if (rawBusinessType && !hasBusinessTypeId) {
+        if (looksLikeNaceCode(rawBusinessType)) {
+          try {
+            const resolved = await naceBusinessTypeService.getBusinessTypeForNaceCode(
+              rawBusinessType.trim()
+            )
+            if (cancelledRef.current) return
+            if (resolved?.id) {
+              updates.business_type_id = resolved.id
+              if (resolved.category) {
+                updates.industry = resolved.category
+              }
+              generalLogger.debug('[useSessionDataPrefill] Resolved business_type_id from NACE', {
+                nace_code: rawBusinessType,
+                business_type_id: resolved.id,
+              })
+            }
+          } catch (err) {
+            generalLogger.debug('[useSessionDataPrefill] NACE lookup failed, skipping business_type_id', {
+              nace_code: rawBusinessType,
+            })
+          }
+        } else {
+          updates.business_type_id = rawBusinessType
+        }
+      }
+      if (mergedData.founding_year) updates.founding_year = mergedData.founding_year
+      if (mergedData.founded_year && !updates.founding_year) {
+        // Fallback: use founded_year if founding_year not available
+        updates.founding_year = mergedData.founded_year
+      }
+      if (mergedData.country_code) updates.country_code = mergedData.country_code
+      if (mergedData.country && !updates.country_code) {
+        // Fallback: use country if country_code not available
+        updates.country_code = mergedData.country
+      }
+      if (mergedData.city) updates.city = mergedData.city
+      if (mergedData.postal_code) updates.postal_code = mergedData.postal_code
+      if (mergedData.number_of_employees)
+        updates.number_of_employees = mergedData.number_of_employees
+      if (mergedData.employee_count && !updates.number_of_employees) {
+        // Fallback: use employee_count if number_of_employees not available
+        updates.number_of_employees = mergedData.employee_count
+      }
+      if (mergedData.business_description)
+        updates.business_description = mergedData.business_description
+      if (mergedData.industry && !updates.industry) updates.industry = mergedData.industry
+      if (mergedData.business_model) updates.business_model = mergedData.business_model
 
-    // KBO registry fields (Phase 1.1 enhancement)
-    if (mergedData.kbo_number) updates.kbo_number = mergedData.kbo_number
-    if (mergedData.vat_number) updates.vat_number = mergedData.vat_number
-    if (mergedData.legal_form) updates.legal_form = mergedData.legal_form
-    if (mergedData.nace_code) updates.nace_code = mergedData.nace_code
-    if (mergedData.nace_description) updates.nace_description = mergedData.nace_description
+      // KBO registry fields (Phase 1.1 enhancement)
+      if (mergedData.kbo_number) updates.kbo_number = mergedData.kbo_number
+      if (mergedData.vat_number) updates.vat_number = mergedData.vat_number
+      if (mergedData.legal_form) updates.legal_form = mergedData.legal_form
+      if (mergedData.nace_code) updates.nace_code = mergedData.nace_code
+      if (mergedData.nace_description) updates.nace_description = mergedData.nace_description
 
-    // business_context for KBO preview card (KBO fields extend ValuationRequest.business_context)
-    if (mergedData.kbo_number) {
-      updates.business_context = {
-        kbo_registration: mergedData.kbo_number,
-        kbo_registration_number: mergedData.kbo_number,
-        legal_form: mergedData.legal_form,
-        company_id: mergedData.kbo_number,
-        company_address: [mergedData.postal_code, mergedData.city].filter(Boolean).join(' '),
-        company_status: 'Active',
-        kbo_verified: true,
-      } as any
+      // business_context for KBO preview card (KBO fields extend ValuationRequest.business_context)
+      if (mergedData.kbo_number) {
+        updates.business_context = {
+          kbo_registration: mergedData.kbo_number,
+          kbo_registration_number: mergedData.kbo_number,
+          legal_form: mergedData.legal_form,
+          company_id: mergedData.kbo_number,
+          company_address: [mergedData.postal_code, mergedData.city].filter(Boolean).join(' '),
+          company_status: 'Active',
+          kbo_verified: true,
+        } as any
+      }
+
+      // Revenue prefill from latest valuation or current year data
+      if (mergedData.current_year_data?.revenue) {
+        updates.revenue = mergedData.current_year_data.revenue
+      }
+
+      // Apply updates if we have any (skip if effect re-ran or unmounted)
+      if (!cancelledRef.current && Object.keys(updates).length > 0) {
+        updateFormData(updates)
+        hasPrefilledRef.current = true
+
+        generalLogger.info('[useSessionDataPrefill] Form prefilled from Mercury session data', {
+          fields: Object.keys(updates),
+          source: businessInfo.company_name ? '_businessInfo' : 'top_level',
+          company_name: updates.company_name,
+          has_kbo_data: !!(updates.kbo_number || updates.vat_number),
+          data_source: {
+            from_business_info: Object.keys(businessInfo).length,
+            from_top_level: Object.keys(topLevelData).filter(k => !k.startsWith('_')).length,
+          },
+        })
+      }
     }
-
-    // Revenue prefill from latest valuation or current year data
-    if (mergedData.current_year_data?.revenue) {
-      updates.revenue = mergedData.current_year_data.revenue
-    }
-
-    // Apply updates if we have any
-    if (Object.keys(updates).length > 0) {
-      updateFormData(updates)
-      hasPrefilledRef.current = true
-
-      generalLogger.info('[useSessionDataPrefill] Form prefilled from Mercury session data', {
-        fields: Object.keys(updates),
-        source: businessInfo.company_name ? '_businessInfo' : 'top_level',
-        company_name: updates.company_name,
-        has_kbo_data: !!(updates.kbo_number || updates.vat_number),
-        data_source: {
-          from_business_info: Object.keys(businessInfo).length,
-          from_top_level: Object.keys(topLevelData).filter(k => !k.startsWith('_')).length,
-        },
-      })
+    runPrefill()
+    return () => {
+      cancelledRef.current = true
     }
   }, [sessionData, formData.company_name, formData.business_type_id, updateFormData, bootstrap?.report?.mode, bootstrap?.report?.hasExistingData, bootstrap?.report?.hasValuationResult, bootstrap?.hasPrefilledData, bootstrap?.prefillData?.confidence])
 }
