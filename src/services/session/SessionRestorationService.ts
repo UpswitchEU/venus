@@ -635,6 +635,7 @@ class SessionRestorationServiceImpl {
     reportId: string,
     pkg: {
       htmlReport: string | null;
+      infoTabHtml?: string | null;
       pricingRange: { min: number; mid: number; max: number; currency: string } | null;
       versions: { current: number; total: number; history?: Array<{ version: number; createdAt: Date; summary: string | null; createdBy: string | null }> };
       pdf: { url: string | null; status: 'ready' | 'generating' | 'none' };
@@ -646,49 +647,63 @@ class SessionRestorationServiceImpl {
     generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration from package', {
       reportId: reportId.substring(0, 20),
       hasHtmlReport: !!pkg.htmlReport,
+      hasInfoTab: !!pkg.infoTabHtml,
       hasPricing: !!pkg.pricingRange,
       versionCount: pkg.versions.total,
       pdfStatus: pkg.pdf.status,
     })
 
     try {
-      // Hydrate HTML report
-      if (pkg.htmlReport) {
-        if (flow === 'manual') {
-          useManualResultsStore.getState().setHtmlReport(pkg.htmlReport)
-        } else {
-          // CONVERSATIONAL STORE REMOVED: Conversational flow no longer supported
-          // The conversational stores have been removed from the codebase
-          generalLogger.debug('[SessionRestoration] Skipping conversational HTML report hydration - stores removed', {
-            reportId: reportId.substring(0, 20),
-          })
-        }
+      // WORLD-CLASS: Build complete result for ManualLayout report display
+      // Must include html_report so the report useEffect builds the ValuationReportData
+      const pricingResult = pkg.pricingRange ? {
+        equity_value_low: pkg.pricingRange.min,
+        equity_value_mid: pkg.pricingRange.mid,
+        equity_value_high: pkg.pricingRange.max,
+        currency: pkg.pricingRange.currency,
+      } : {}
+      
+      const fullResult = {
+        valuation_id: reportId,
+        ...pricingResult,
+        html_report: pkg.htmlReport || undefined,
+        info_tab_html: pkg.infoTabHtml || undefined,
       }
 
-      // Hydrate pricing range into result object
-      if (pkg.pricingRange) {
-        const pricingResult = {
-          equity_value_low: pkg.pricingRange.min,
-          equity_value_mid: pkg.pricingRange.mid,
-          equity_value_high: pkg.pricingRange.max,
-          currency: pkg.pricingRange.currency,
+      if (flow === 'manual') {
+        const manualStore = useManualResultsStore.getState()
+        const existingResult = manualStore.result || {}
+        manualStore.setResult({
+          ...existingResult,
+          ...fullResult,
+        } as any)
+        // Also set htmlReport for components that read it directly
+        if (pkg.htmlReport) {
+          manualStore.setHtmlReport(pkg.htmlReport)
         }
-        
-        if (flow === 'manual') {
-          const manualStore = useManualResultsStore.getState()
-          // Merge with existing result or create new
-          const existingResult = manualStore.result || {}
-          manualStore.setResult({
-            ...existingResult,
-            ...pricingResult,
-          } as any)
-        } else {
-          // CONVERSATIONAL STORE REMOVED: Conversational flow no longer supported
-          // The conversational stores have been removed from the codebase
-          generalLogger.debug('[SessionRestoration] Skipping conversational pricing range hydration - stores removed', {
-            reportId: reportId.substring(0, 20),
-          })
+        // Sync session store for instant display (Results component reads session.htmlReport)
+        // Include pdfUrl in sessionData so usePdfGeneration shows "ready" on refresh when PDF exists
+        try {
+          const { useSessionStore } = require('../../store/useSessionStore')
+          const session = useSessionStore.getState().session
+          if (session) {
+            useSessionStore.getState().updateSession({
+              htmlReport: pkg.htmlReport || undefined,
+              infoTabHtml: pkg.infoTabHtml || undefined,
+              valuationResult: { ...existingResult, ...fullResult },
+              sessionData: {
+                ...(session.sessionData || {}),
+                pdfUrl: pkg.pdf?.url || undefined,
+              },
+            } as any)
+          }
+        } catch {
+          // Non-critical: session may not be loaded yet
         }
+      } else {
+        generalLogger.debug('[SessionRestoration] Skipping conversational hydration - stores removed', {
+          reportId: reportId.substring(0, 20),
+        })
       }
 
       // WORLD-CLASS: Hydrate version history for instant version tab

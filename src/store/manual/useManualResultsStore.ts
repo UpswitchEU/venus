@@ -21,6 +21,7 @@ interface ManualResultsStore {
   // Results state
   result: ValuationResponse | null
   htmlReport: string | null
+  infoTabHtml: string | null
 
   // Calculation state
   isCalculating: boolean
@@ -32,7 +33,7 @@ interface ManualResultsStore {
   // Actions (all atomic with functional updates)
   setResult: (result: ValuationResponse | null) => void
   setHtmlReport: (html: string) => void
-  setInfoTabHtml: (html: string) => void // Legacy - info tab removed, no-op for restoration compatibility
+  setInfoTabHtml: (html: string) => void
   setError: (error: string | null) => void
   clearError: () => void
   clearResults: () => void
@@ -52,6 +53,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   // Initial state
   result: null,
   htmlReport: null,
+  infoTabHtml: null,
   isCalculating: false,
   error: null,
   calculationProgress: 0,
@@ -100,6 +102,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           ...state,
           result,
           htmlReport: result.html_report || state.htmlReport,
+          infoTabHtml: result.info_tab_html || state.infoTabHtml,
         }
       } else {
         storeLogger.debug('[Manual] Valuation result cleared')
@@ -107,13 +110,33 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         return {
           ...state,
           result: null,
+          htmlReport: null,
+          infoTabHtml: null,
         }
       }
     })
   },
 
-  // Legacy: Info tab removed - no-op for restoration compatibility
-  setInfoTabHtml: (_html: string) => {},
+  setInfoTabHtml: (html: string) => {
+    set((state) => {
+      const currentResult = state.result
+
+      if (currentResult) {
+        const updatedResult = { ...currentResult, info_tab_html: html }
+
+        return {
+          ...state,
+          result: updatedResult,
+          infoTabHtml: html,
+        }
+      }
+
+      return {
+        ...state,
+        infoTabHtml: html,
+      }
+    })
+  },
 
   // Set HTML report separately (atomic)
   setHtmlReport: (html: string) => {
@@ -177,6 +200,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
       ...state,
       result: null,
       htmlReport: null,
+      infoTabHtml: null,
       error: null,
       calculationProgress: 0,
     }))
@@ -275,6 +299,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         ...state,
         result,
         htmlReport: result.html_report || null,
+        infoTabHtml: result.info_tab_html || null,
         isCalculating: false,
         calculationProgress: 100,
         error: null,

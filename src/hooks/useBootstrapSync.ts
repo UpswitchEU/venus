@@ -342,15 +342,23 @@ function syncSession(state: SessionBootstrapState): void {
         });
       }
     } else if (report.mode === 'existing') {
-      // MERCURY FIX: Merge prefill into session store IMMEDIATELY before loadSession
+      // MERCURY FIX: Merge prefill AND valuationPackage into session store IMMEDIATELY before loadSession
       // loadSession is async - without this, form stays blank until it completes.
-      // Bootstrap prefill has data from Titan's buildPrefill (session_data) - apply it now.
+      // valuationPackage enables instant report display on refresh (htmlReport, versions, pdf).
       const hasPrefill = prefillData.confidence >= 0.05;
+      const pkg = state.valuationPackage;
+      const hasPackage = pkg && (pkg.htmlReport || pkg.pricingRange);
+      const now = new Date();
+      const sessionData: Record<string, any> = {
+        _bootstrapPrefill: hasPrefill,
+      };
+      if (hasPackage) {
+        sessionData._htmlReport = pkg.htmlReport;
+        sessionData._infoTabHtml = pkg.infoTabHtml;
+        sessionData._pricingRange = pkg.pricingRange;
+        if (pkg.pdf?.url) sessionData.pdfUrl = pkg.pdf.url;
+      }
       if (hasPrefill) {
-        const now = new Date();
-        const sessionData: Record<string, any> = {
-          _bootstrapPrefill: true,
-        };
         if (prefillData.companyInfo?.companyName) sessionData.company_name = prefillData.companyInfo.companyName;
         if (prefillData.companyInfo?.countryCode) sessionData.country_code = prefillData.companyInfo.countryCode;
         if (prefillData.companyInfo?.foundingYear) sessionData.founding_year = prefillData.companyInfo.foundingYear;
@@ -366,7 +374,10 @@ function syncSession(state: SessionBootstrapState): void {
         if (prefillData.financials?.revenue !== undefined) sessionData.revenue = prefillData.financials.revenue;
         if (prefillData.financials?.ebitda !== undefined) sessionData.ebitda = prefillData.financials.ebitda;
         if (prefillData.financials?.employeeCount !== undefined) sessionData.number_of_employees = prefillData.financials.employeeCount;
+      }
 
+      // Create minimal session when we have prefill OR valuationPackage (enables instant report display)
+      if (hasPrefill || hasPackage) {
         const minimalSession: Partial<ValuationSession> = {
           reportId: report.reportId,
           currentView: 'manual' as const,
@@ -376,50 +387,66 @@ function syncSession(state: SessionBootstrapState): void {
           partialData: {},
           sessionData: sessionData as any,
         };
+        // Merge valuationPackage into session for instant display (htmlReport, pdfUrl, etc.)
+        if (hasPackage && pkg.htmlReport) {
+          (minimalSession as any).htmlReport = pkg.htmlReport;
+          (minimalSession as any).infoTabHtml = pkg.infoTabHtml;
+          if (pkg.pdf?.url) (minimalSession as any).pdfUrl = pkg.pdf.url;
+          if (pkg.pricingRange) {
+            (minimalSession as any).valuationResult = {
+              equity_value_low: pkg.pricingRange.min,
+              equity_value_mid: pkg.pricingRange.mid,
+              equity_value_high: pkg.pricingRange.max,
+              currency: pkg.pricingRange.currency,
+            };
+          }
+        }
         sessionStore.updateSession(minimalSession);
 
-        // CRITICAL: Also hydrate form store - form reads from useManualFormStore, not session store
-        const formDataUpdate: Record<string, unknown> = {};
-        if (prefillData.companyInfo?.companyName) formDataUpdate.company_name = prefillData.companyInfo.companyName;
-        if (prefillData.companyInfo?.countryCode) formDataUpdate.country_code = prefillData.companyInfo.countryCode;
-        if (prefillData.companyInfo?.foundingYear) formDataUpdate.founding_year = prefillData.companyInfo.foundingYear;
-        if (prefillData.companyInfo?.kboNumber) formDataUpdate.kbo_number = prefillData.companyInfo.kboNumber;
-        if (prefillData.companyInfo?.vatNumber) formDataUpdate.vat_number = prefillData.companyInfo.vatNumber;
-        if (prefillData.companyInfo?.legalForm) formDataUpdate.legal_form = prefillData.companyInfo.legalForm;
-        if (prefillData.companyInfo?.city) formDataUpdate.city = prefillData.companyInfo.city;
-        if (prefillData.companyInfo?.postalCode) formDataUpdate.postal_code = prefillData.companyInfo.postalCode;
-        if (prefillData.companyInfo?.naceCode) formDataUpdate.nace_code = prefillData.companyInfo.naceCode;
-        if (prefillData.companyInfo?.naceDescription) formDataUpdate.nace_description = prefillData.companyInfo.naceDescription;
-        if (prefillData.businessType?.id) formDataUpdate.business_type_id = prefillData.businessType.id;
-        if (prefillData.businessType?.industry) formDataUpdate.industry = prefillData.businessType.industry;
-        if (prefillData.financials?.revenue !== undefined) formDataUpdate.revenue = prefillData.financials.revenue;
-        if (prefillData.financials?.ebitda !== undefined) formDataUpdate.ebitda = prefillData.financials.ebitda;
-        if (prefillData.financials?.employeeCount !== undefined) formDataUpdate.number_of_employees = prefillData.financials.employeeCount;
-        // Set business_context for KBO preview card when we have KBO data
-        const kboNum = prefillData.companyInfo?.kboNumber || prefillData.kboData?.kboNumber;
-        if (kboNum) {
-          formDataUpdate.business_context = {
-            kbo_registration: kboNum,
-            kbo_registration_number: kboNum,
-            legal_form: prefillData.companyInfo?.legalForm || prefillData.kboData?.legalForm,
-            company_id: kboNum,
-            company_address: [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city]
-              .filter(Boolean)
-              .join(' '),
-            company_status: 'Active',
-            kbo_verified: true,
-          };
-        }
-        if (Object.keys(formDataUpdate).length > 0) {
-          useManualFormStore.getState().updateFormData(formDataUpdate as any);
-          logger.info('Hydrated form store from bootstrap prefill (existing report)', {
-            reportId: report.reportId.substring(0, 20),
-            formFieldsCount: Object.keys(formDataUpdate).length,
-          });
+        if (hasPrefill) {
+          const formDataUpdate: Record<string, unknown> = {};
+          if (prefillData.companyInfo?.companyName) formDataUpdate.company_name = prefillData.companyInfo.companyName;
+          if (prefillData.companyInfo?.countryCode) formDataUpdate.country_code = prefillData.companyInfo.countryCode;
+          if (prefillData.companyInfo?.foundingYear) formDataUpdate.founding_year = prefillData.companyInfo.foundingYear;
+          if (prefillData.companyInfo?.kboNumber) formDataUpdate.kbo_number = prefillData.companyInfo.kboNumber;
+          if (prefillData.companyInfo?.vatNumber) formDataUpdate.vat_number = prefillData.companyInfo.vatNumber;
+          if (prefillData.companyInfo?.legalForm) formDataUpdate.legal_form = prefillData.companyInfo.legalForm;
+          if (prefillData.companyInfo?.city) formDataUpdate.city = prefillData.companyInfo.city;
+          if (prefillData.companyInfo?.postalCode) formDataUpdate.postal_code = prefillData.companyInfo.postalCode;
+          if (prefillData.companyInfo?.naceCode) formDataUpdate.nace_code = prefillData.companyInfo.naceCode;
+          if (prefillData.companyInfo?.naceDescription) formDataUpdate.nace_description = prefillData.companyInfo.naceDescription;
+          if (prefillData.businessType?.id) formDataUpdate.business_type_id = prefillData.businessType.id;
+          if (prefillData.businessType?.industry) formDataUpdate.industry = prefillData.businessType.industry;
+          if (prefillData.financials?.revenue !== undefined) formDataUpdate.revenue = prefillData.financials.revenue;
+          if (prefillData.financials?.ebitda !== undefined) formDataUpdate.ebitda = prefillData.financials.ebitda;
+          if (prefillData.financials?.employeeCount !== undefined) formDataUpdate.number_of_employees = prefillData.financials.employeeCount;
+          const kboNum = prefillData.companyInfo?.kboNumber || prefillData.kboData?.kboNumber;
+          if (kboNum) {
+            formDataUpdate.business_context = {
+              kbo_registration: kboNum,
+              kbo_registration_number: kboNum,
+              legal_form: prefillData.companyInfo?.legalForm || prefillData.kboData?.legalForm,
+              company_id: kboNum,
+              company_address: [prefillData.companyInfo?.postalCode, prefillData.companyInfo?.city]
+                .filter(Boolean)
+                .join(' '),
+              company_status: 'Active',
+              kbo_verified: true,
+            };
+          }
+          if (Object.keys(formDataUpdate).length > 0) {
+            useManualFormStore.getState().updateFormData(formDataUpdate as any);
+            logger.info('Hydrated form store from bootstrap prefill (existing report)', {
+              reportId: report.reportId.substring(0, 20),
+              formFieldsCount: Object.keys(formDataUpdate).length,
+            });
+          }
         }
 
-        logger.info('Merged bootstrap prefill into session for existing report (before loadSession)', {
+        logger.info('Merged bootstrap into session for existing report (before loadSession)', {
           reportId: report.reportId.substring(0, 20),
+          hasPrefill,
+          hasPackage,
           prefillFieldsCount: Object.keys(sessionData).length - 1,
         });
       }

@@ -653,22 +653,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (result) {
       onComplete(result)
 
-      const equityMid = Number(result.equity_value_mid) || 0
-      const equityLow = Number(result.equity_value_low) || 0
-      const equityHigh = Number(result.equity_value_high) || 0
-      const ebitda = result.current_year_data?.ebitda || 0
-      const normalizedEbitda = Number(result.latest_normalized_ebitda) || ebitda
-      const revenue = result.current_year_data?.revenue || 0
-      const ebitdaMultiple = result.multiples_valuation?.ebitda_multiple || 0
-      const p25 = result.multiples_valuation?.p25_ebitda_multiple
-      const p75 = result.multiples_valuation?.p75_ebitda_multiple
-      const confidence = result.overall_confidence?.toLowerCase() as 'high' | 'medium' | 'low' | undefined
+      const r = result as any
+      const equityMid = Number(r.equity_value_mid ?? r.valuation_midpoint ?? r.details?.equity_value_mid) || 0
+      const equityLow = Number(r.equity_value_low ?? r.valuation_min ?? r.details?.equity_value_low) || 0
+      const equityHigh = Number(r.equity_value_high ?? r.valuation_max ?? r.details?.equity_value_high) || 0
+      const ebitda = r.current_year_data?.ebitda || 0
+      const normalizedEbitda = Number(r.latest_normalized_ebitda) || ebitda
+      const revenue = r.current_year_data?.revenue || 0
+      const ebitdaMultiple = r.multiples_valuation?.ebitda_multiple || 0
+      const p25 = r.multiples_valuation?.p25_ebitda_multiple
+      const p75 = r.multiples_valuation?.p75_ebitda_multiple
+      const confidence = (r.overall_confidence ?? r.details?.overall_confidence)?.toLowerCase() as 'high' | 'medium' | 'low' | undefined
 
-      const askingPrice = Number(result.recommended_asking_price) || 0
+      const askingPrice = Number(r.recommended_asking_price ?? r.details?.recommended_asking_price) || 0
+      const htmlReport = r.html_report ?? r.details?.html_report
+      const infoTabHtml = r.info_tab_html ?? r.details?.info_tab_html
 
       setReport({
-        id: result.valuation_id || 'draft',
-        companyName: result.company_name || 'Bedrijfsschatting',
+        id: r.valuation_id ?? r.id ?? 'draft',
+        companyName: r.company_name ?? r.business_name ?? 'Bedrijfsschatting',
         valuation: equityMid,
         valuationLow: equityLow || undefined,
         valuationHigh: equityHigh || undefined,
@@ -678,13 +681,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         multipleRange: p25 != null && p75 != null ? { low: p25, high: p75 } : undefined,
         generatedAt: new Date(),
         confidenceLevel: confidence || 'medium',
-        htmlReport: result.html_report || undefined,
-        infoTabHtml: result.info_tab_html || undefined,
+        htmlReport: htmlReport || undefined,
+        infoTabHtml: infoTabHtml || undefined,
         recommendedAskingPrice: askingPrice || undefined,
         metrics: [
           { label: 'Gem. Omzet', value: `€${(revenue / 1_000_000).toFixed(2)}M` },
           { label: 'EBITDA Marge', value: `${((ebitda / (revenue || 1)) * 100).toFixed(1)}%` },
-          { label: 'Sector', value: (result as any).business_type || 'Services' },
+          { label: 'Sector', value: r.business_type ?? r.details?.business_type ?? 'Services' },
         ],
       })
       setDraftStatus('saved')
@@ -693,11 +696,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setRightPanelView('report')
 
       // On mobile, auto-open fullscreen modal since there's no right panel
-      if (isMobile && result.html_report) {
+      if (isMobile && htmlReport) {
         setShowFullscreenModal(true)
       }
 
-      if (reportId && result.html_report) {
+      if (reportId && htmlReport) {
         generatePdf?.().catch(() => {})
       }
     }
