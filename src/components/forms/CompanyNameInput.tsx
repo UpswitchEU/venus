@@ -44,6 +44,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Debounced search function - memoized with useRef to persist across renders
   const performSearchRef = useRef<((query: string, country: string) => void) | null>(null)
@@ -69,8 +70,13 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         }
 
         setIsLoading(true)
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        const controller = new AbortController()
+        abortControllerRef.current = controller
         try {
-          const response = await registryService.searchCompanies(query.trim(), country, 200)
+          const response = await registryService.searchCompanies(query.trim(), country, 200, controller.signal)
 
           if (response.success && response.results) {
             const results = response.results
@@ -96,15 +102,18 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
             setExactMatch(null)
           }
         } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') return
           generalLogger.warn('KBO search failed', {
             error: error instanceof Error ? error.message : 'Unknown error',
             query,
             country,
           })
-          // Silently fail - don't block user input
           setSearchResults([])
           setExactMatch(null)
         } finally {
+          if (!controller.signal.aborted) {
+            abortControllerRef.current = null
+          }
           setIsLoading(false)
         }
       }, 800) // Increased from 500ms to reduce rate limit errors

@@ -214,6 +214,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     kboData?: KBOCompanyEntity;
   } | null> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       const response = await fetch(`${API_URL}/api/v2/registry/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -223,7 +225,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
           country_code: 'BE',
           limit: 1,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         this.logger.warn('[PrefillResolver] KBO search failed', {
@@ -371,11 +375,15 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    */
   private async fetchBusinessTypeForNaceCode(naceCode: string): Promise<BusinessTypeInfo | undefined> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       const response = await fetch(`${API_URL}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type`, {
         method: 'GET',
         credentials: 'include',
         headers: { 'Accept': 'application/json' },
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) return undefined;
 
@@ -405,11 +413,15 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    */
   private async fetchBusinessType(businessTypeId: string): Promise<BusinessTypeInfo | undefined> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       const response = await fetch(`${API_URL}/api/v2/business-types/${businessTypeId}`, {
         method: 'GET',
         credentials: 'include',
         headers: { 'Accept': 'application/json' },
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         return undefined;

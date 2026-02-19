@@ -84,7 +84,7 @@ class BusinessTypesApiService {
     // Use correct Titan endpoint: /api/v2/business-types
     this.api = axios.create({
       baseURL: `${this.baseUrl}/api/v2/business-types`,
-      timeout: 10000,
+      timeout: 6000,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -109,7 +109,7 @@ class BusinessTypesApiService {
    * Get all business types from API with enhanced caching
    * Uses batched fetching like Mercury to ensure all 168+ types are loaded
    */
-  async getBusinessTypes(): Promise<BusinessType[]> {
+  async getBusinessTypes(signal?: AbortSignal): Promise<BusinessType[]> {
     try {
       const locale = this.getLocaleFromPathname()
 
@@ -146,7 +146,8 @@ class BusinessTypesApiService {
       
       // First batch: 0-100
       const batch1Response = await this.api.get('/types', { 
-        params: { limit: 100, offset: 0, locale, _t: cacheBuster } 
+        params: { limit: 100, offset: 0, locale, _t: cacheBuster },
+        signal,
       })
       
       if (!batch1Response.data.success || !batch1Response.data.data) {
@@ -163,7 +164,8 @@ class BusinessTypesApiService {
       // Second batch: 100-200 (if there are more)
       if (batch1Response.data.data.has_more) {
         const batch2Response = await this.api.get('/types', {
-          params: { limit: 100, offset: 100, locale, _t: cacheBuster }
+          params: { limit: 100, offset: 100, locale, _t: cacheBuster },
+          signal,
         })
         
         if (batch2Response.data.success && batch2Response.data.data) {
@@ -176,7 +178,7 @@ class BusinessTypesApiService {
       }
 
       // Fetch categories
-      const categoriesResponse = await this.api.get('/categories', { params: { locale } })
+      const categoriesResponse = await this.api.get('/categories', { params: { locale }, signal })
       const categories = categoriesResponse.data.success ? categoriesResponse.data.data : []
 
       // DIAGNOSTIC: Log final results
@@ -199,12 +201,7 @@ class BusinessTypesApiService {
       return allBusinessTypes
     } catch (error) {
       generalLogger.error('[BusinessTypesAPI] Failed to fetch business types', { error })
-
-      // Return hardcoded fallback
-      generalLogger.warn('[BusinessTypesAPI] Using hardcoded fallback data')
-      const fallbackData = this.getHardcodedBusinessTypes()
-
-      return fallbackData
+      throw error instanceof Error ? error : new Error('Bedrijfstypes laden mislukt. Probeer het later opnieuw.')
     }
   }
 

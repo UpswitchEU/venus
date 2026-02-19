@@ -31,7 +31,7 @@ export class RegistryService {
     // Use local Next.js API proxy route to avoid CORS issues
     // This proxies to Titan backend API (similar to Mercury pattern)
     this.baseURL = config?.baseURL || ''
-    this.timeout = config?.timeout || 10000
+    this.timeout = config?.timeout || 6000
     this.cache = new RegistryCache(config?.maxCacheSize, config?.cacheTTL)
     this.pendingRequests = new Map()
 
@@ -43,12 +43,14 @@ export class RegistryService {
   }
 
   /**
-   * Search for companies by name
+   * Search for companies by name.
+   * Accepts optional AbortSignal to cancel in-flight requests (e.g. on rapid typing).
    */
   async searchCompanies(
     query: string,
     country: string = 'BE',
-    limit: number = 10
+    limit: number = 10,
+    signal?: AbortSignal
   ): Promise<CompanySearchResponse> {
     // Validate input
     if (!query || query.trim().length < 2) {
@@ -75,7 +77,7 @@ export class RegistryService {
     }
 
     // Create new request
-    const requestPromise = this._searchCompanies(query, country, limit)
+    const requestPromise = this._searchCompanies(query, country, limit, signal)
     this.pendingRequests.set(cacheKey, requestPromise)
 
     try {
@@ -100,12 +102,14 @@ export class RegistryService {
   }
 
   /**
-   * Internal search implementation
+   * Internal search implementation.
+   * Uses caller's AbortSignal when provided; applies timeout as safety net.
    */
   private async _searchCompanies(
     query: string,
     country: string,
-    limit: number
+    limit: number,
+    externalSignal?: AbortSignal
   ): Promise<CompanySearchResponse> {
     const requestId = `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
@@ -114,6 +118,9 @@ export class RegistryService {
 
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+      if (externalSignal) {
+        externalSignal.addEventListener('abort', () => controller.abort(), { once: true })
+      }
 
       // Use local Next.js proxy route (proxies to Titan /api/v1/registry/search)
       const response = await fetch(`${this.baseURL}/api/registry/search`, {

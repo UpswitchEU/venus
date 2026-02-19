@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const titanUrl = getTitanApiUrl(request);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 6000);
 
     try {
       let url: string;

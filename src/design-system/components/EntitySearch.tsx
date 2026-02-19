@@ -216,8 +216,8 @@ export interface KBOSearchInputProps
   selectedCompany: KBOCompany | null;
   /** Clear selection handler */
   onClear: () => void;
-  /** Custom search function */
-  searchFn?: (query: string) => Promise<KBOCompany[]> | KBOCompany[];
+  /** Custom search function (signal for request cancellation on rapid typing) */
+  searchFn?: (query: string, signal?: AbortSignal) => Promise<KBOCompany[]> | KBOCompany[];
   /** Minimum query length to trigger search */
   minQueryLength?: number;
   /** Debounce delay in ms */
@@ -291,12 +291,16 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     const [isFocused, setIsFocused] = React.useState(false);
     const [isSearching, setIsSearching] = React.useState(false);
     const [results, setResults] = React.useState<KBOCompany[]>([]);
+    const [searchError, setSearchError] = React.useState<string | null>(null);
+    const [retryTrigger, setRetryTrigger] = React.useState(0);
     const [showDropdown, setShowDropdown] = React.useState(false);
     const [focusedIndex, setFocusedIndex] = React.useState(-1);
     const [dropdownRect, setDropdownRect] = React.useState<{ top: number; left: number; width: number } | null>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
+    const abortControllerRef = React.useRef<AbortController | null>(null);
+    const timedOutRef = React.useRef(false);
 
     React.useImperativeHandle(ref, () => inputRef.current!);
 
@@ -324,32 +328,74 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       }
     }, [shouldShowDropdown, canSearch]);
 
-    // Debounced search
+    // Debounced search with request cancellation and 8s timeout
+    const REQUEST_TIMEOUT_MS = 8000;
     React.useEffect(() => {
       if (selectedCompany) {
         setResults([]);
         setShowDropdown(false);
-        setIsSearching(false);
+        setSearchError(null);
         return;
       }
 
       if (value.length < minQueryLength) {
         setResults([]);
-        setIsSearching(false);
+        setSearchError(null);
         return;
       }
 
       setIsSearching(true);
-      setShowDropdown(true); // Show dropdown immediately when searching
+      setSearchError(null);
+      setShowDropdown(true);
+
       const timeout = setTimeout(async () => {
-        const found = await searchFn(value);
-        setResults(found);
-        setShowDropdown(true); // Keep dropdown open even with 0 results to show "no results"
-        setIsSearching(false);
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        timedOutRef.current = false;
+
+        const timeoutId = setTimeout(() => {
+          timedOutRef.current = true;
+          controller.abort();
+        }, REQUEST_TIMEOUT_MS);
+
+        try {
+          const found = await searchFn(value, controller.signal);
+          clearTimeout(timeoutId);
+          if (!controller.signal.aborted) {
+            setResults(found);
+            setShowDropdown(true);
+            setSearchError(null);
+          }
+        } catch (err) {
+          clearTimeout(timeoutId);
+          if (err instanceof DOMException && err.name === 'AbortError' && !timedOutRef.current) return;
+          if (controller.signal.aborted && !timedOutRef.current) return;
+
+          setResults([]);
+          setSearchError(
+            timedOutRef.current
+              ? 'Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.'
+              : err instanceof Error && err.message
+                ? err.message
+                : 'Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.'
+          );
+          setShowDropdown(true);
+        } finally {
+          setIsSearching(false);
+        }
       }, debounceMs);
 
-      return () => clearTimeout(timeout);
-    }, [value, selectedCompany, searchFn, minQueryLength, debounceMs]);
+      return () => {
+        clearTimeout(timeout);
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+        }
+      };
+    }, [value, selectedCompany, searchFn, minQueryLength, debounceMs, retryTrigger]);
 
     // Close on outside click (Portal: check both container and dropdown)
     React.useEffect(() => {
@@ -540,6 +586,21 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
               <div className="px-4 py-6 text-sm text-foreground/50 flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Zoeken...
+              </div>
+            ) : searchError ? (
+              <div className="px-4 py-4 text-sm">
+                <p className="text-destructive/80 mb-1">Zoeken mislukt</p>
+                <p className="text-foreground/40 text-xs mb-3">{searchError}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchError(null);
+                    setRetryTrigger((prev) => prev + 1);
+                  }}
+                  className="text-xs font-medium text-primary hover:text-primary/80"
+                >
+                  Opnieuw proberen
+                </button>
               </div>
             ) : results.length === 0 ? (
               <div className="px-4 py-6 text-sm text-foreground/50">
@@ -802,6 +863,10 @@ export interface BusinessTypeSearchInputProps
   naceMatchedTypeId?: string;
   /** Loading state (e.g. types API not yet loaded) - shows subtle pulse when value exists */
   loading?: boolean;
+  /** Error when loading types failed - shows retry UI in dropdown */
+  loadError?: string | null;
+  /** Callback to retry loading types */
+  onRetryLoad?: () => void;
 }
 
 function fuzzySearchBusinessTypes(
@@ -872,6 +937,8 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
     types = businessTypes,
     naceMatchedTypeId,
     loading = false,
+    loadError = null,
+    onRetryLoad,
   }, ref) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const [isOpen, setIsOpen] = React.useState(false);
@@ -1105,7 +1172,21 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
                 </div>
               )}
 
-              {filteredTypes.length === 0 ? (
+              {loadError && filteredTypes.length === 0 ? (
+                <div className="px-4 py-4 text-sm">
+                  <p className="text-destructive/80 mb-1">Laden mislukt</p>
+                  <p className="text-foreground/40 text-xs mb-3">{loadError}</p>
+                  {onRetryLoad && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onRetryLoad(); }}
+                      className="text-xs font-medium text-primary hover:text-primary/80"
+                    >
+                      Opnieuw proberen
+                    </button>
+                  )}
+                </div>
+              ) : filteredTypes.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-foreground/50">
                   Geen bedrijfstypes gevonden
                 </div>

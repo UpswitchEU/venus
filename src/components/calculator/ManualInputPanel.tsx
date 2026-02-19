@@ -463,30 +463,31 @@ export function ManualInputPanel({
     };
   }, [formData.yearlyFinancials]);
 
-  // KBO search: real registry API (Titan) instead of mock data
-  const kboSearchFn = useCallback(async (query: string): Promise<KBOCompany[]> => {
+  // KBO search: real registry API (Titan) with AbortSignal, throws on failure for retry UI
+  const kboSearchFn = useCallback(async (query: string, signal?: AbortSignal): Promise<KBOCompany[]> => {
     if (!query || query.trim().length < 2) return [];
-    try {
-      const response = await registryService.searchCompanies(query.trim(), 'BE', 15);
-      if (!response.success || !response.results) return [];
-      return response.results.map((r: CompanySearchResult) => ({
-        id: r.company_id,
-        name: r.company_name,
-        kboNumber: r.kbo_number || r.registration_number,
-        legalForm: r.legal_form,
-        address: [r.address, r.postal_code, r.city].filter(Boolean).join(', '),
-        postalCode: r.postal_code || '',
-        city: r.city || '',
-        naceCode: r.nace_code || '',
-        naceDescription: r.nace_description || '',
-      }));
-    } catch {
-      return [];
+    const response = await registryService.searchCompanies(query.trim(), 'BE', 15, signal);
+    if (!response.success) {
+      throw new Error(
+        response.error || 'Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.'
+      );
     }
+    if (!response.results) return [];
+    return response.results.map((r: CompanySearchResult, index: number) => ({
+      id: r.company_id || (r.kbo_number || r.registration_number || `kbo-${index}`).replace(/[.\s]/g, ''),
+      name: r.company_name,
+      kboNumber: r.kbo_number || r.registration_number,
+      legalForm: r.legal_form,
+      address: [r.address, r.postal_code, r.city].filter(Boolean).join(', '),
+      postalCode: r.postal_code || '',
+      city: r.city || '',
+      naceCode: r.nace_code || '',
+      naceDescription: r.nace_description || '',
+    }));
   }, []);
 
   // Business types from Titan API (instead of hardcoded)
-  const { businessTypes, loading: businessTypesLoading } = useBusinessTypes();
+  const { businessTypes, loading: businessTypesLoading, error: businessTypesError, refetch: refetchBusinessTypes } = useBusinessTypes();
   const businessTypesForSearch = useMemo((): BusinessType[] => {
     const apiCategoryToIconKey: Record<string, string> = {
       restaurant: 'food',
@@ -876,6 +877,8 @@ export function ManualInputPanel({
                       onChange={handleBusinessTypeSelect}
                       types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
                       loading={businessTypesLoading}
+                      loadError={businessTypesError}
+                      onRetryLoad={refetchBusinessTypes}
                       naceMatchedTypeId={
                         selectedCompany?.naceCode &&
                         formData.businessType?.trim() &&

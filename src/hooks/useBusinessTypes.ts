@@ -40,11 +40,16 @@ export function useBusinessTypes(): UseBusinessTypesState {
   const [error, setError] = useState<string | null>(null)
 
   const fetchBusinessTypes = useCallback(async () => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined
     try {
       setLoading(true)
       setError(null)
 
-      const types = await businessTypesApiService.getBusinessTypes()
+      const controller = new AbortController()
+      timeoutId = setTimeout(() => controller.abort(), 6000)
+
+      const types = await businessTypesApiService.getBusinessTypes(controller.signal)
+      if (timeoutId) clearTimeout(timeoutId)
       const options = await businessTypesApiService.getBusinessTypeOptions()
 
       logger.debug('Loaded business types', {
@@ -55,7 +60,9 @@ export function useBusinessTypes(): UseBusinessTypesState {
       setBusinessTypes(types)
       setBusinessTypeOptions(options)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch business types'
+      if (timeoutId) clearTimeout(timeoutId)
+      if (err instanceof Error && err.name === 'AbortError') return
+      const errorMessage = err instanceof Error ? err.message : 'Bedrijfstypes laden mislukt. Probeer het later opnieuw.'
       setError(errorMessage)
       logger.error('Failed to fetch business types', { error: errorMessage })
     } finally {

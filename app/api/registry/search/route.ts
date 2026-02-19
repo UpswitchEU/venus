@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 		};
 
 		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), 10000);
+		const timeout = setTimeout(() => controller.abort(), 6000);
 
 		const fetchOptions = {
 			method: 'POST' as const,
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 			const isTimeout =
 				fetchError instanceof Error && fetchError.name === 'AbortError';
 			const errorMsg = isTimeout
-				? 'Backend request timed out after 10s'
+				? 'Backend request timed out after 6s'
 				: `Cannot reach backend at ${titanUrl}`;
 
 			console.error('[Venus Registry API] Connection error:', {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 			clearTimeout(timeout);
 			try {
 				const fallbackController = new AbortController();
-				const fallbackTimeout = setTimeout(() => fallbackController.abort(), 10000);
+				const fallbackTimeout = setTimeout(() => fallbackController.abort(), 6000);
 				const fallbackRes = await fetch(`${titanUrl}/api/v1/registry/search`, {
 					...fetchOptions,
 					signal: fallbackController.signal,
