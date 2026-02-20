@@ -14,7 +14,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "../utils";
+import { cn, safeString } from "../utils";
 import { looksLikeNaceCode } from "@/services/naceBusinessTypeService";
 import { 
   Search, 
@@ -437,7 +437,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
 
     const handleSelect = (company: KBOCompany) => {
       onCompanySelect(company);
-      onChange(company.name);
+      onChange(safeString(company.name));
       setShowDropdown(false);
       setFocusedIndex(-1);
     };
@@ -497,7 +497,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
             ref={inputRef}
             id={inputId}
             type="text"
-            value={selectedCompany ? selectedCompany.name : value}
+            value={selectedCompany ? safeString(selectedCompany.name) : value}
             onChange={(e) => onChange(e.target.value)}
             onFocus={() => {
               setIsFocused(true);
@@ -563,6 +563,13 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
             initial="hidden"
             animate="visible"
             exit="exit"
+            role="listbox"
+            aria-label={label}
+            aria-activedescendant={
+              focusedIndex >= 0 && results[focusedIndex]
+                ? `kbo-option-${results[focusedIndex].id}`
+                : undefined
+            }
             className={cn(
               "fixed z-[9999]",
               "bg-background border border-foreground/[0.10] rounded-xl shadow-xl",
@@ -619,7 +626,13 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
               results.map((company, index) => (
                 <button
                   key={company.id}
+                  id={`kbo-option-${company.id}`}
                   type="button"
+                  ref={
+                    index === focusedIndex
+                      ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "auto" })
+                      : undefined
+                  }
                   onClick={() => handleSelect(company)}
                   className={cn(
                     "w-full flex items-start gap-3 px-3 py-3 text-left transition-colors",
@@ -627,6 +640,8 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                     focusedIndex === index && "bg-foreground/[0.06]",
                     index !== results.length - 1 && "border-b border-foreground/[0.04]"
                   )}
+                  role="option"
+                  aria-selected={focusedIndex === index}
                 >
                   <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                     <Building2 className="w-4 h-4 text-primary" />
@@ -634,18 +649,18 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground truncate">
-                        {company.name}
+                        {safeString(company.name)}
                       </span>
                       <span className="text-[10px] font-mono text-foreground/40 bg-foreground/[0.04] px-1.5 py-0.5 rounded shrink-0">
-                        {company.legalForm}
+                        {safeString(company.legalForm)}
                       </span>
                     </div>
                     <p className="text-xs text-foreground/50 mt-0.5">
-                      {company.kboNumber} · {company.city}
+                      {safeString(company.kboNumber)} · {safeString(company.city)}
                     </p>
-                    {company.naceDescription && (
+                    {safeString(company.naceDescription) && (
                       <p className="text-[11px] text-foreground/40 mt-0.5 truncate">
-                        {company.naceDescription}
+                        {safeString(company.naceDescription)}
                       </p>
                     )}
                   </div>
@@ -671,24 +686,24 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">{selectedCompany.name}</p>
+                    <p className="text-sm font-medium text-foreground">{safeString(selectedCompany.name)}</p>
                     <span className="text-[10px] font-mono text-foreground/40 bg-foreground/[0.04] px-1.5 py-0.5 rounded">
-                      {selectedCompany.legalForm}
+                      {safeString(selectedCompany.legalForm)}
                     </span>
                   </div>
                   <p className="text-xs text-foreground/50 mt-0.5">
-                    {selectedCompany.kboNumber}
+                    {safeString(selectedCompany.kboNumber)}
                   </p>
                   <p className="text-xs text-foreground/40 mt-0.5">
-                    {selectedCompany.address}, {selectedCompany.postalCode} {selectedCompany.city}
+                    {safeString(selectedCompany.address)}, {safeString(selectedCompany.postalCode)} {safeString(selectedCompany.city)}
                   </p>
-                  {selectedCompany.naceDescription && (
+                  {safeString(selectedCompany.naceDescription) && (
                     <div className="flex items-center gap-1.5 mt-2">
                       <span className="text-[10px] font-mono text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
-                        NACE {selectedCompany.naceCode}
+                        NACE {safeString(selectedCompany.naceCode)}
                       </span>
                       <span className="text-[11px] text-foreground/50 truncate">
-                        {selectedCompany.naceDescription}
+                        {safeString(selectedCompany.naceDescription)}
                       </span>
                     </div>
                   )}
@@ -1090,7 +1105,7 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
               loading && displayFallback && "animate-pulse"
             )}>
               {selectedType ? (
-                <span className="truncate">{selectedType.name}</span>
+                <span className="truncate">{safeString(selectedType.name)}</span>
               ) : displayFallback ? (
                 <span className={cn("truncate", loading ? "text-foreground/60" : "text-foreground")}>
                   {displayFallback}
@@ -1162,6 +1177,13 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
             initial="hidden"
             animate="visible"
             exit="exit"
+            role="listbox"
+            aria-label={label}
+            aria-activedescendant={
+              focusedIndex >= 0 && filteredTypes[focusedIndex]
+                ? `biztype-option-${filteredTypes[focusedIndex].id}`
+                : undefined
+            }
             className={cn(
               "fixed z-[9999]",
               "bg-background border border-foreground/[0.10] rounded-xl shadow-xl",
@@ -1205,7 +1227,13 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
                   return (
                     <button
                       key={type.id}
+                      id={`biztype-option-${type.id}`}
                       type="button"
+                      ref={
+                        index === focusedIndex
+                          ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "auto" })
+                          : undefined
+                      }
                       onClick={() => handleSelect(type)}
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors",
@@ -1213,6 +1241,8 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
                         focusedIndex === index && "bg-foreground/[0.06]",
                         index !== Math.min(filteredTypes.length, 10) - 1 && "border-b border-foreground/[0.04]"
                       )}
+                      role="option"
+                      aria-selected={focusedIndex === index}
                     >
                       <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                         <span className="text-base" role="img" aria-label={type.category}>
@@ -1222,15 +1252,15 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground truncate">
-                            {type.name}
+                            {safeString(type.name)}
                           </span>
                           <span className="text-[10px] font-mono text-foreground/40 bg-foreground/[0.04] px-1.5 py-0.5 rounded shrink-0">
-                            {type.code}
+                            {safeString(type.code)}
                           </span>
                         </div>
-                        {type.description && (
+                        {safeString(type.description) && (
                           <p className="text-[11px] text-foreground/40 truncate">
-                            {type.description}
+                            {safeString(type.description)}
                           </p>
                         )}
                       </div>

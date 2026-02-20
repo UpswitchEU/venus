@@ -113,6 +113,22 @@ export function mapRange(
 }
 
 // ─────────────────────────────────────────
+// SAFE RENDERING
+// ─────────────────────────────────────────
+
+/**
+ * Coerce to string for safe React rendering.
+ * Prevents React error #130 (Objects are not valid as a React child).
+ */
+export function safeString(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' && !Number.isNaN(v)) return String(v);
+  if (typeof v === 'boolean') return String(v);
+  return '';
+}
+
+// ─────────────────────────────────────────
 // ACCESSIBILITY UTILITIES
 // ─────────────────────────────────────────
 
