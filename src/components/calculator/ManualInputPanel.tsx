@@ -517,14 +517,27 @@ export function ManualInputPanel({
 
   // Auto-fill business type from NACE when we have naceCode but no businessType (mirror Mercury AddClient)
   const naceAbortRef = useRef<AbortController | null>(null);
+  const companySelectAbortRef = useRef<AbortController | null>(null);
   const [nacePrefillError, setNacePrefillError] = useState<string | null>(null);
   const [naceRetryTrigger, setNaceRetryTrigger] = useState(0);
+
+  // Cleanup all NACE-related abort controllers on unmount
+  useEffect(() => {
+    return () => {
+      naceAbortRef.current?.abort();
+      companySelectAbortRef.current?.abort();
+    };
+  }, []);
+
   useEffect(() => {
     const naceCode = formData.naceCode?.trim() || selectedCompany?.naceCode?.trim();
     if (!naceCode || formData.businessType?.trim()) {
       setNacePrefillError(null);
       return;
     }
+
+    // Skip if handleCompanySelect is already doing its own NACE fetch
+    if (companySelectAbortRef.current && !companySelectAbortRef.current.signal.aborted) return;
 
     if (naceAbortRef.current) naceAbortRef.current.abort();
     const controller = new AbortController();
@@ -536,13 +549,17 @@ export function ManualInputPanel({
       .then((type) => {
         if (controller.signal.aborted) return;
         if (type) {
-          setSelectedBusinessType(type);
-          setFormData((prev) => ({
-            ...prev,
-            businessType: type.id,
-            businessTypeCode: type.code || prev.businessTypeCode,
-            industry: type.category || prev.industry,
-          }));
+          // Only apply if user hasn't manually selected a type while we were fetching
+          setSelectedBusinessType((prev) => prev ?? type);
+          setFormData((prev) => {
+            if (prev.businessType?.trim()) return prev;
+            return {
+              ...prev,
+              businessType: type.id,
+              businessTypeCode: type.code || prev.businessTypeCode,
+              industry: type.category || prev.industry,
+            };
+          });
           setNacePrefillError(null);
         } else {
           setNacePrefillError('Geen bedrijfstype gevonden voor dit NACE-code. Selecteer handmatig.');
@@ -556,7 +573,7 @@ export function ManualInputPanel({
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) naceAbortRef.current = null;
+        if (naceAbortRef.current === controller) naceAbortRef.current = null;
       });
 
     return () => controller.abort();
@@ -687,6 +704,12 @@ export function ManualInputPanel({
 
   // Handle KBO company selection (Mercury parity: prefill business type from NACE)
   const handleCompanySelect = useCallback(async (company: KBOCompany) => {
+    // Cancel any in-flight NACE lookups (from useEffect or previous company select)
+    if (naceAbortRef.current) naceAbortRef.current.abort();
+    if (companySelectAbortRef.current) companySelectAbortRef.current.abort();
+    const controller = new AbortController();
+    companySelectAbortRef.current = controller;
+
     setSelectedCompany(company);
     setCompanySearchValue(company.name ?? '');
 
@@ -707,13 +730,13 @@ export function ManualInputPanel({
     };
 
     setFormData((prev) => ({ ...prev, ...baseUpdates }));
-    setNacePrefillError(null); // Clear when selecting new company; set below if NACE lookup fails
+    setNacePrefillError(null);
 
-    // Mercury parity: fetch business type from NACE code (KBO) and prefill
     const naceCode = company.naceCode?.trim();
     if (naceCode) {
       try {
-        const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(naceCode);
+        const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(naceCode, controller.signal);
+        if (controller.signal.aborted) return;
         if (bt) {
           const mapped: BusinessType = businessTypesForSearch.find((t) => t.id === bt.id) ?? bt;
           setSelectedBusinessType(mapped);
@@ -730,6 +753,7 @@ export function ManualInputPanel({
           setNacePrefillError('Geen bedrijfstype gevonden voor dit NACE-code. Selecteer handmatig.');
         }
       } catch (err) {
+        if (controller.signal.aborted) return;
         setNacePrefillError(
           err instanceof Error ? err.message : 'Bedrijfstype ophalen mislukt. Probeer het later opnieuw.'
         );
@@ -744,6 +768,10 @@ export function ManualInputPanel({
       updateField('businessTypeCode', businessType.code);
       updateField('industry', businessType.category);
       updateFormData({ business_type_id: value, industry: businessType.category });
+    } else {
+      updateField('businessTypeCode', '');
+      updateField('industry', '');
+      updateFormData({ business_type_id: undefined, industry: undefined });
     }
   };
 
@@ -751,6 +779,7 @@ export function ManualInputPanel({
     setSelectedCompany(null);
     setCompanySearchValue('');
     setNacePrefillError(null);
+    setSelectedBusinessType(null);
     setFormData(prev => ({
       ...prev,
       companyName: '',
@@ -760,7 +789,11 @@ export function ManualInputPanel({
       naceCode: '',
       naceDescription: '',
       businessStructure: '',
+      businessType: '',
+      businessTypeCode: '',
+      industry: '',
     }));
+    updateFormData({ business_type_id: undefined, industry: undefined });
   };
 
   const handleConnect = (integrationId: string) => {

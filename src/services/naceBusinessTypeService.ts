@@ -69,6 +69,10 @@ interface TitanBusinessTypeResponse {
 }
 
 function mapToBusinessType(bt: TitanBusinessTypeResponse): BusinessType {
+  if (!bt?.id || !bt?.title) {
+    return { id: bt?.id || 'unknown', code: '', name: bt?.title || 'Unknown', category: 'other', icon: Building2 };
+  }
+
   const category = bt.category_id
     ? categoryMap[bt.category_id] || bt.category_id
     : 'other';
@@ -79,8 +83,8 @@ function mapToBusinessType(bt: TitanBusinessTypeResponse): BusinessType {
     name: bt.title,
     category,
     description: bt.description,
-    emoji: bt.emoji,
-    icon: Building2, // EntitySearch uses categoryIcons when rendering
+    emoji: bt.icon || bt.emoji,
+    icon: Building2,
   };
 }
 
@@ -107,14 +111,14 @@ class NaceBusinessTypeService {
 
     if (signal?.aborted) return null;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+    if (signal) {
+      signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
-
-      if (signal) {
-        signal.addEventListener('abort', () => controller.abort(), { once: true });
-      }
-
       const params = new URLSearchParams({ naceCode: trimmed });
       const response = await fetch(`/api/nace/search?${params}`, {
         method: 'GET',
@@ -122,9 +126,10 @@ class NaceBusinessTypeService {
         credentials: 'include',
         signal: controller.signal,
       });
-      clearTimeout(timeoutId);
 
-      if (!response.ok) return null;
+      if (!response.ok) {
+        throw new Error('Bedrijfstype ophalen mislukt. Probeer het later opnieuw.');
+      }
 
       const data = await response.json();
       const bt = data?.business_type;
@@ -134,9 +139,10 @@ class NaceBusinessTypeService {
       this.cache.set(cacheKey, { data: mapped, timestamp: Date.now() });
       return mapped;
     } catch (err) {
-      // Re-throw network/timeout errors so caller can show retry UI
       if (err instanceof Error && err.name !== 'AbortError') throw err;
       return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
