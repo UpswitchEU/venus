@@ -563,6 +563,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
             initial="hidden"
             animate="visible"
             exit="exit"
+            onMouseDown={(e) => e.preventDefault()}
             role="listbox"
             aria-label={label}
             aria-activedescendant={
@@ -1177,6 +1178,7 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
             initial="hidden"
             animate="visible"
             exit="exit"
+            onMouseDown={(e) => e.preventDefault()}
             role="listbox"
             aria-label={label}
             aria-activedescendant={
