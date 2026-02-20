@@ -757,13 +757,20 @@ export function ManualInputPanel({
         setNacePrefillError(
           err instanceof Error ? err.message : 'Bedrijfstype ophalen mislukt. Probeer het later opnieuw.'
         );
+      } finally {
+        if (companySelectAbortRef.current === controller) {
+          companySelectAbortRef.current = null;
+        }
       }
+    } else {
+      companySelectAbortRef.current = null;
     }
   }, [businessTypesForSearch, updateFormData]);
 
   const handleBusinessTypeSelect = (value: string, businessType?: BusinessType) => {
     setSelectedBusinessType(businessType || null);
     updateField('businessType', value);
+    setNacePrefillError(null);
     if (businessType) {
       updateField('businessTypeCode', businessType.code);
       updateField('industry', businessType.category);

@@ -65,6 +65,7 @@ interface TitanBusinessTypeResponse {
   description?: string;
   category_id?: string;
   emoji?: string;
+  icon?: string;
   code?: string;
 }
 
