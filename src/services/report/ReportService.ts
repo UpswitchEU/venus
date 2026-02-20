@@ -114,14 +114,6 @@ export class ReportService {
     const startTime = performance.now()
 
     try {
-      console.log('[ReportService] DIAGNOSTIC: saveReportAssets called', {
-        reportId,
-        hasSessionData: !!assets.sessionData,
-        hasResult: !!assets.valuationResult,
-        hasHtmlReport: !!assets.htmlReport,
-        htmlLength: assets.htmlReport?.length || 0,
-      })
-
       logger.info('Saving complete report package', {
         reportId,
         hasSessionData: !!assets.sessionData,
@@ -167,11 +159,6 @@ export class ReportService {
         })
       }
 
-      console.log('[ReportService] DIAGNOSTIC: About to call sessionAPI.saveValuationResult', {
-        reportId,
-        hasClientContext: !!(sessionDataWithContext as any)?._client_context,
-      })
-
       // Save complete package to backend in single API call
       const putResultStartTime = performance.now()
       await sessionAPI.saveValuationResult(reportId, {
@@ -182,14 +169,6 @@ export class ReportService {
         name: assets.name,
       })
       const putResultDuration = performance.now() - putResultStartTime
-
-      console.log('[ReportService] DIAGNOSTIC: PUT /result completed successfully', {
-        reportId,
-        timestamp: new Date().toISOString(),
-        duration_ms: putResultDuration.toFixed(2),
-        hasHtmlReport: !!assets.htmlReport,
-        htmlReportLength: assets.htmlReport?.length || 0,
-      })
 
       logger.info('Complete report package saved successfully (PUT /result)', {
         reportId,
@@ -232,8 +211,8 @@ export class ReportService {
           reportId,
         })
 
-        // Small delay to ensure database write is visible (eventual consistency)
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        // Delay to ensure database write is visible (eventual consistency on Railway Postgres)
+        await new Promise((resolve) => setTimeout(resolve, 300))
 
         // ✅ FIX: Reload session from backend AFTER PUT /result completes
         // This ensures cache has latest data including HTML reports
@@ -363,15 +342,6 @@ export class ReportService {
               note: 'HTML reports excluded from cache, but sessionData (form fields) included for restoration',
             })
 
-            console.log('[ReportService] DIAGNOSTIC: Complete save flow finished', {
-              reportId,
-              putResultDuration_ms,
-              reloadDuration_ms: reloadDuration.toFixed(2),
-              cacheDuration_ms: cacheDuration.toFixed(2),
-              totalDuration_ms: (performance.now() - startTime).toFixed(2),
-              hasHtmlReportInBackend,
-              htmlReportLength: freshSession.htmlReport?.length || 0,
-            })
           }
         } else {
           logger.error(

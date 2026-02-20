@@ -246,8 +246,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         // ✅ WORLD-CLASS: Trigger centralized restoration
         // For EXISTING sessions: Hydrate ALL stores (form, results, versions, normalizations)
         // For NEW sessions: Skip restoration (nothing to restore)
+        // BANK-GRADE: Clear prior restoration so full API session wins over bootstrap/minimal.
+        // Bootstrap may have triggered restore(minimalSession); loadSession has authoritative data.
         if (isExistingSession) {
           storeLogger.debug('[Session] Existing session detected - triggering full restoration', { reportId })
+          SessionRestorationService.clearRestorationState(session.reportId)
           const restorationResult = await SessionRestorationService.restore(session.reportId, session)
           
           storeLogger.debug('[Session] Restoration complete', {

@@ -129,24 +129,10 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
       onSave?.()
       onClose()
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      const errorType = error instanceof Error ? error.constructor.name : typeof error
-      console.error('[Modal] Save error details', {
-        error,
-        errorType,
-        errorMessage,
-        isAPIError: error instanceof NormalizationAPIError,
-      })
-
-      // Check if the error is a real API error or just state update issue
       if (error instanceof NormalizationAPIError) {
-        // Real API error - show error message, keep modal open
-        // Error is already in store state, will be displayed
         return
       }
 
-      // Unknown error - log it but still close modal since save might have succeeded
-      console.warn('Unknown error during save, closing modal anyway', error)
       onClose()
     }
   }

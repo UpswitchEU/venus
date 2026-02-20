@@ -102,16 +102,14 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           company_name: data.company_name,
           country_code: data.country_code,
           industry: data.industry,
-          subIndustry: data.subIndustry, // ✅ NEW: Include sub-industry field
+          subIndustry: data.subIndustry,
           business_model: data.business_model,
           founding_year: data.founding_year,
-          // ✅ NEW: Include business details fields
           business_description: data.business_description,
           business_highlights: data.business_highlights,
           reason_for_selling: data.reason_for_selling,
           city: data.city,
           current_year_data: {
-            // ALWAYS use last full year, ignore session data to fix year 2026 bug
             year: new Date().getFullYear() - 1,
             revenue: data.revenue || data.current_year_data?.revenue || 0,
             ebitda: data.ebitda || data.current_year_data?.ebitda || 0,
@@ -132,6 +130,12 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           business_type: data.business_type,
           shares_for_sale: data.shares_for_sale,
           business_context: data.business_context,
+          kbo_number: data.kbo_number,
+          vat_number: data.vat_number,
+          postal_code: data.postal_code,
+          legal_form: data.legal_form,
+          nace_code: data.nace_code,
+          nace_description: data.nace_description,
         }
 
         // Remove undefined values

@@ -31,8 +31,29 @@ import { looksLikeExistingReportId } from '../utils/identifiers'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
+import { sessionService } from '../services/session/SessionService'
+import { useManualResultsStore } from '../store/manual/useManualResultsStore'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
+
+/** Check if session has report assets (HTML, valuation result) for display */
+function hasAssetsInSession(session: ValuationSession | null): boolean {
+  if (!session) return false
+  const sd = (session.sessionData || {}) as Record<string, unknown>
+  return !!(
+    session.htmlReport?.trim() ||
+    session.infoTabHtml?.trim() ||
+    session.valuationResult ||
+    sd._htmlReport ||
+    sd.htmlReport ||
+    sd.html_report ||
+    sd._infoTabHtml ||
+    sd.infoTabHtml ||
+    sd.info_tab_html ||
+    sd.valuation_result ||
+    sd.valuationResult
+  )
+}
 
 interface ValuationSessionManagerProps {
   reportId: string
@@ -272,27 +293,53 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         return
       }
 
-      // If bootstrap already resolved this session, session store should be synced
-      // by useBootstrapSync hook - we can skip redundant API call
-      // CRITICAL: Still run restoration - form store must be hydrated from sessionData
-      // (loadSession normally does this, but we skip it here to avoid redundant API call)
+      // If bootstrap already resolved this session, session store should be synced by useBootstrapSync
+      // G1/G2 FIX: Trigger loadSession when session lacks assets OR package hydration failed (isPendingRestoration)
       if (bootstrapHasExistingSession && session?.reportId === reportId) {
-        generalLogger.debug('[SessionManager] Session load SKIPPED: already loaded via bootstrap', {
-          reportId,
-          bootstrapReportId,
-        })
-        const sessionData = session?.sessionData
-        if (sessionData && Object.keys(sessionData).length > 0) {
-          SessionRestorationService.restore(reportId, session).catch((err) => {
-            generalLogger.warn('[SessionManager] Restoration failed when skipping loadSession', {
-              reportId,
-              error: err instanceof Error ? err.message : String(err),
-            })
+        const needsFullLoad =
+          SessionRestorationService.isPendingRestoration(reportId) ||
+          (bootstrap.report.hasExistingData && !hasAssetsInSession(session))
+
+        if (needsFullLoad) {
+          generalLogger.info('[SessionManager] Bootstrap session lacks assets - forcing fresh load', {
+            reportId,
+            isPendingRestoration: SessionRestorationService.isPendingRestoration(reportId),
+            hasAssets: hasAssetsInSession(session),
+            hasExistingData: bootstrap.report.hasExistingData,
           })
+          // Clear restoration + session state so loadSession actually runs
+          // (useSessionStore.loadSession skips when status === 'loaded' for same reportId)
+          SessionRestorationService.clearRestorationState(reportId)
+          useSessionStore.setState({ status: 'idle' as const, session: null })
+          // Fall through to loadSession below (don't return)
+        } else {
+          generalLogger.debug('[SessionManager] Session load SKIPPED: already loaded via bootstrap', {
+            reportId,
+            bootstrapReportId,
+          })
+          // Restore from session - form and output assets hydrated from sessionData
+          SessionRestorationService.restore(reportId, session)
+            .then((result) => {
+              // Phase 3.1: If restore completed but assets still missing, fetch from backend
+              if (bootstrap.report.hasExistingData && result.success && !result.restoredHtmlReport) {
+                const hasHtml = useManualResultsStore.getState().htmlReport || useManualResultsStore.getState().result?.html_report
+                if (!hasHtml) {
+                  generalLogger.debug('[SessionManager] Assets missing after restore - revalidating in background', {
+                    reportId,
+                  })
+                  sessionService.revalidateSessionInBackground(reportId)
+                }
+              }
+            })
+            .catch((err) => {
+              generalLogger.warn('[SessionManager] Restoration failed when skipping loadSession', {
+                reportId,
+                error: err instanceof Error ? err.message : String(err),
+              })
+            })
+          loadingInitiatedRef.current = null
+          return
         }
-        // Clear loading ref since we're done
-        loadingInitiatedRef.current = null
-        return
       }
 
       // CRITICAL FIX: For new reports, bootstrap provides the reportId but session doesn't exist yet

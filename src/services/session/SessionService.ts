@@ -602,23 +602,41 @@ export class SessionService {
 
       logger.debug('Cache miss - loading from backend', { reportId })
 
+      // Helper: fetch session with optional retry when completed report has no valuation result
+      const fetchSessionWithRetry = async (attempt = 0): Promise<typeof sessionResponse> => {
+        const sessionResponse = await backendAPI.getValuationSession(reportId)
+        if (!sessionResponse?.session) return sessionResponse
+
+        const session = sessionResponse.session as any
+        const sessionData = session?.sessionData || session?.session_data || {}
+        const hasValuationResult = !!(
+          session?.valuationResult ||
+          sessionData?.valuation_result ||
+          sessionData?.valuationResult ||
+          sessionData?._htmlReport ||
+          sessionData?.html_report ||
+          session?.htmlReport
+        )
+        const hasReportId = !!(session?.report_id || session?.reportId)
+        const looksCompleted = hasReportId || (session?.status === 'completed')
+
+        if (looksCompleted && !hasValuationResult && attempt === 0) {
+          logger.info('Completed report missing valuation result - retrying once', {
+            reportId: reportId.substring(0, 20),
+            hasReportId,
+            status: session?.status,
+          })
+          await new Promise((r) => setTimeout(r, 300))
+          return fetchSessionWithRetry(1)
+        }
+        return sessionResponse
+      }
+
       // Wrap the entire load operation with an absolute timeout
       const loadPromise = retrySessionOperation(
         async () => {
           return await sessionCircuitBreaker.execute(async () => {
-            const sessionResponse = await backendAPI.getValuationSession(reportId)
-
-            // DIAGNOSTIC: Log what we received from backendAPI
-            console.log('[SessionService] GET response from backendAPI:', {
-              reportId,
-              hasResponse: !!sessionResponse,
-              responseType: typeof sessionResponse,
-              hasSession: !!sessionResponse?.session,
-              sessionType: typeof sessionResponse?.session,
-              sessionKeys: sessionResponse?.session ? Object.keys(sessionResponse.session) : [],
-              hasHtmlReport: !!(sessionResponse?.session as any)?.htmlReport,
-              htmlReportLength: (sessionResponse?.session as any)?.htmlReport?.length || 0,
-            })
+            const sessionResponse = await fetchSessionWithRetry()
 
             if (!sessionResponse?.session) {
               // ✅ CRITICAL: Only create session if bootstrap indicates it's a new report
@@ -1623,6 +1641,19 @@ export class SessionService {
   }
 
   /**
+   * Trigger background revalidation (public API)
+   * Use when bootstrap path has session but lacks HTML assets - fetches from backend.
+   */
+  revalidateSessionInBackground(reportId: string): void {
+    this.revalidateInBackground(reportId).catch((err) => {
+      logger.warn('Background revalidation failed', {
+        reportId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    })
+  }
+
+  /**
    * Revalidate session cache in background
    *
    * Fetches fresh data from backend and updates cache without blocking UI.
@@ -1680,7 +1711,7 @@ export class SessionService {
           hasInfoTabHtml: !!mergedSession.infoTabHtml,
         })
 
-        // ✅ CRITICAL FIX: Also update session store to trigger reactive UI updates
+        // ✅ CRITICAL FIX: Also update session store AND results store to trigger reactive UI updates
         // Without this, the HTML reports fetched in background won't appear in the UI
         // until the user navigates away and back
         try {
@@ -1697,6 +1728,33 @@ export class SessionService {
               // Also update sessionData with merged fields
               sessionData: mergedSession.sessionData,
             })
+
+            // Hydrate results store so report panel displays HTML (ManualLayout reads from useManualResultsStore)
+            if (mergedSession.htmlReport || mergedSession.infoTabHtml || mergedSession.valuationResult) {
+              try {
+                const { useManualResultsStore } = await import('../../store/manual/useManualResultsStore')
+                const existingResult = useManualResultsStore.getState().result
+                const fullResult = {
+                  ...(existingResult || {}),
+                  ...(mergedSession.valuationResult || {}),
+                  html_report: mergedSession.htmlReport || (existingResult as any)?.html_report,
+                  info_tab_html: mergedSession.infoTabHtml || (existingResult as any)?.info_tab_html,
+                }
+                useManualResultsStore.getState().setResult(fullResult as any)
+                if (mergedSession.htmlReport) {
+                  useManualResultsStore.getState().setHtmlReport(mergedSession.htmlReport)
+                }
+                if (mergedSession.infoTabHtml) {
+                  useManualResultsStore.getState().setInfoTabHtml(mergedSession.infoTabHtml)
+                }
+              } catch (resultsStoreError) {
+                logger.warn('Failed to hydrate results store after revalidation', {
+                  reportId,
+                  error: resultsStoreError instanceof Error ? resultsStoreError.message : String(resultsStoreError),
+                })
+              }
+            }
+
             logger.info('Session store updated with revalidated HTML reports', {
               reportId,
               hasHtmlReport: !!mergedSession.htmlReport,

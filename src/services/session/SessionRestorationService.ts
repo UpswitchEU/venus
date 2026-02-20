@@ -258,6 +258,11 @@ class SessionRestorationServiceImpl {
    * - Version history (useVersionHistoryStore)
    * - EBITDA normalizations (useEbitdaNormalizationStore)
    * 
+   * **Idempotent per reportId:** Once restored, subsequent calls for the same reportId
+   * return early without re-hydrating. To force re-hydration (e.g. after recalculation),
+   * call `clearRestorationState(reportId)` first, or use `revalidateSessionInBackground()`
+   * which bypasses the idempotency guard and hydrates stores directly.
+   * 
    * @param reportId - The report ID being restored
    * @param backendSession - Raw session data from backend
    * @returns Restoration result with details of what was restored
@@ -347,8 +352,9 @@ class SessionRestorationServiceImpl {
         })
       }
       
-      // 6. Mark as restored
+      // 6. Mark as restored and clear pending restoration (G2 fix)
       this.restoredReportIds.add(reportId)
+      this.clearPendingRestoration(reportId)
       
       const duration = performance.now() - startTime
       generalLogger.info('[SessionRestoration] Restoration complete', {
@@ -428,38 +434,50 @@ class SessionRestorationServiceImpl {
     }
     
     // 2. Hydrate results store
-    if (data.valuationResult) {
+    // CRITICAL: Restore BOTH valuation result AND output assets (htmlReport, infoTabHtml)
+    // Sessions may have: (a) full result, (b) output-only, or (c) input-only
+    const hasOutputAssets = !!(data.htmlReport?.trim() || data.infoTabHtml?.trim())
+    const hasResult = !!data.valuationResult
+
+    if (hasResult || hasOutputAssets) {
       try {
         // Build complete result with HTML reports merged in
         const fullResult = {
-          ...data.valuationResult,
-          html_report: data.htmlReport || data.valuationResult.html_report,
-          info_tab_html: data.infoTabHtml || data.valuationResult.info_tab_html,
+          ...(data.valuationResult || {}),
+          valuation_id: (data.valuationResult as any)?.valuation_id || data.reportId,
+          html_report: data.htmlReport || (data.valuationResult as any)?.html_report,
+          info_tab_html: data.infoTabHtml || (data.valuationResult as any)?.info_tab_html,
+          ...(data.pricingRange && {
+            equity_value_low: data.pricingRange.min,
+            equity_value_mid: data.pricingRange.mid,
+            equity_value_high: data.pricingRange.max,
+            currency: data.pricingRange.currency,
+          }),
         }
-        
+
         if (isConversational) {
           // CONVERSATIONAL STORE REMOVED: Conversational flow no longer supported
-          // The conversational stores have been removed from the codebase
-          // Skip updating conversational store
           generalLogger.debug('[SessionRestoration] Skipping conversational results hydration - stores removed', {
             reportId: data.reportId,
           })
         } else {
-          const { setResult } = useManualResultsStore.getState()
-          setResult(fullResult as any)
+          const manualStore = useManualResultsStore.getState()
+          manualStore.setResult(fullResult as any)
+          // Explicitly set HTML assets so components reading htmlReport/infoTabHtml directly get them
+          if (data.htmlReport) manualStore.setHtmlReport(data.htmlReport)
+          if (data.infoTabHtml) manualStore.setInfoTabHtml(data.infoTabHtml)
         }
-        
-        restoredValuationResult = true
-        restoredHtmlReport = !!fullResult.html_report
+
+        restoredValuationResult = !!data.valuationResult
+        restoredHtmlReport = !!fullResult.html_report || !!data.htmlReport
         restoredPricingRange = !!data.pricingRange
-        
+
         generalLogger.debug('[SessionRestoration] Results hydrated', {
           reportId: data.reportId,
-          valuationId: (data.valuationResult as any)?.valuation_id,
+          hasValuationResult: restoredValuationResult,
           hasHtmlReport: restoredHtmlReport,
+          hasInfoTabHtml: !!data.infoTabHtml,
           hasPricingRange: restoredPricingRange,
-          htmlReportLength: fullResult.html_report?.length || 0,
-          pricingRange: data.pricingRange,
         })
       } catch (error) {
         generalLogger.error('[SessionRestoration] Results hydration failed', {
@@ -540,36 +558,40 @@ class SessionRestorationServiceImpl {
       ebitdaNormalizations: false, // Lazy loaded on demand
     }
     
-    // Verify form data (only for manual flow)
+    // Verify form data was actually applied (only for manual flow)
     if (manifest.formData) {
       const formStore = useManualFormStore.getState()
-      const formDataKeys = Object.keys(formStore.formData)
-      if (formDataKeys.length === 0) {
-        warnings.push('Form data missing from store')
+      const expectedCompanyName = data.formData.company_name
+      const actualCompanyName = (formStore.formData as any).company_name
+      if (expectedCompanyName && (!actualCompanyName || actualCompanyName.trim() === '')) {
+        warnings.push('Form data company_name not restored to store')
         allVerified = false
       }
     }
     
-    // Verify valuation result
-    if (manifest.valuationResult) {
+    // Verify valuation result and output assets
+    if (manifest.valuationResult || manifest.htmlReport) {
       if (isConversational) {
-        // CONVERSATIONAL STORE REMOVED: Skip verification for conversational flow
-        // The conversational stores have been removed from the codebase
         generalLogger.debug('[SessionRestoration] Skipping conversational results verification - stores removed', {
           reportId: data.reportId,
         })
       } else {
         const resultsStore = useManualResultsStore.getState()
-        
-        if (!resultsStore.result) {
+        const hasResult = !!resultsStore.result
+        const hasHtmlReport = !!(resultsStore.result?.html_report || resultsStore.htmlReport)
+        const hasInfoTabHtml = !!(resultsStore.result?.info_tab_html || resultsStore.infoTabHtml)
+
+        if (manifest.valuationResult && !hasResult) {
           warnings.push('Valuation result missing from store')
           allVerified = false
-        } else {
-          // Verify HTML report if it was in the data
-          if (manifest.htmlReport && !resultsStore.result.html_report) {
-            warnings.push('HTML report missing from results store')
-            allVerified = false
-          }
+        }
+        if (manifest.htmlReport && !hasHtmlReport) {
+          warnings.push('HTML report missing from results store')
+          allVerified = false
+        }
+        if (data.infoTabHtml && !hasInfoTabHtml) {
+          warnings.push('Info tab HTML missing from results store')
+          allVerified = false
         }
       }
     }
@@ -639,6 +661,7 @@ class SessionRestorationServiceImpl {
       pricingRange: { min: number; mid: number; max: number; currency: string } | null;
       versions: { current: number; total: number; history?: Array<{ version: number; createdAt: Date; summary: string | null; createdBy: string | null }> };
       pdf: { url: string | null; status: 'ready' | 'generating' | 'none' };
+      formData?: Record<string, unknown>;
     },
     flow: 'manual' | 'conversational' = 'manual'
   ): void {
@@ -649,11 +672,28 @@ class SessionRestorationServiceImpl {
       hasHtmlReport: !!pkg.htmlReport,
       hasInfoTab: !!pkg.infoTabHtml,
       hasPricing: !!pkg.pricingRange,
+      formFieldCount: pkg.formData ? Object.keys(pkg.formData).length : 0,
       versionCount: pkg.versions.total,
       pdfStatus: pkg.pdf.status,
     })
 
     try {
+      // WORLD-CLASS: Hydrate form store first (enables instant form display on refresh)
+      if (flow === 'manual' && pkg.formData && Object.keys(pkg.formData).length > 0) {
+        try {
+          const { updateFormData } = useManualFormStore.getState()
+          updateFormData(pkg.formData as any)
+          generalLogger.info('[SessionRestoration] Form data hydrated from package', {
+            reportId: reportId.substring(0, 20),
+            fieldCount: Object.keys(pkg.formData).length,
+          })
+        } catch (formError) {
+          generalLogger.warn('[SessionRestoration] Form hydration from package failed (non-critical)', {
+            error: formError instanceof Error ? formError.message : String(formError),
+          })
+        }
+      }
+
       // WORLD-CLASS: Build complete result for ManualLayout report display
       // Must include html_report so the report useEffect builds the ValuationReportData
       const pricingResult = pkg.pricingRange ? {
@@ -677,25 +717,26 @@ class SessionRestorationServiceImpl {
           ...existingResult,
           ...fullResult,
         } as any)
-        // Also set htmlReport for components that read it directly
-        if (pkg.htmlReport) {
-          manualStore.setHtmlReport(pkg.htmlReport)
-        }
+        // Explicitly set both HTML assets for components that read them directly
+        if (pkg.htmlReport) manualStore.setHtmlReport(pkg.htmlReport)
+        if (pkg.infoTabHtml) manualStore.setInfoTabHtml(pkg.infoTabHtml)
         // Sync session store for instant display (Results component reads session.htmlReport)
         // Include pdfUrl in sessionData so usePdfGeneration shows "ready" on refresh when PDF exists
         try {
-          const { useSessionStore } = require('../../store/useSessionStore')
-          const session = useSessionStore.getState().session
-          if (session) {
-            useSessionStore.getState().updateSession({
-              htmlReport: pkg.htmlReport || undefined,
-              infoTabHtml: pkg.infoTabHtml || undefined,
-              valuationResult: { ...existingResult, ...fullResult },
-              sessionData: {
-                ...(session.sessionData || {}),
-                pdfUrl: pkg.pdf?.url || undefined,
-              },
-            } as any)
+          if (typeof window !== 'undefined') {
+            const { useSessionStore } = require('../../store/useSessionStore')
+            const session = useSessionStore.getState().session
+            if (session) {
+              useSessionStore.getState().updateSession({
+                htmlReport: pkg.htmlReport || undefined,
+                infoTabHtml: pkg.infoTabHtml || undefined,
+                valuationResult: { ...existingResult, ...fullResult },
+                sessionData: {
+                  ...(session.sessionData || {}),
+                  pdfUrl: pkg.pdf?.url || undefined,
+                },
+              } as any)
+            }
           }
         } catch {
           // Non-critical: session may not be loaded yet

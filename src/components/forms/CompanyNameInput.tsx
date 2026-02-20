@@ -126,7 +126,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           }
           setIsLoading(false)
         }
-      }, 800) // Increased from 500ms to reduce rate limit errors
+      }, 400)
     }
   }, [])
 

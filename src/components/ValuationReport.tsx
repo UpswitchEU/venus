@@ -77,16 +77,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     // URL state management for browser navigation support
     const { urlState, updateUrl } = useUrlState({
       reportId,
-      onStateChange: (state) => {
-        // URL changed via browser navigation - component will re-render with new props
-        // The ValuationFlowSelector will handle the state change
-        console.log('[ValuationReport] URL state changed', {
-          reportId,
-          mode: state.mode,
-          version: state.version,
-          flow: state.flow,
-        })
-      },
+      onStateChange: () => {},
     })
 
     // Sync initial mode and version to URL on mount
@@ -201,13 +192,9 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
             },
             venusOrigin
           )
-          console.log('[ValuationReport] Signaled Mercury via postMessage', { reportId })
         } else {
-          // Same-window navigation - update URL hash
-          // Use replaceState to avoid adding to browser history
           if (window.location.hash !== '#ready' && window.location.hash !== '#venus-ready') {
             window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#venus-ready`)
-            console.log('[ValuationReport] Signaled Mercury via URL hash', { reportId })
           }
         }
       }

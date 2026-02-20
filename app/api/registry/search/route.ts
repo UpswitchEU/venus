@@ -14,12 +14,12 @@ export async function POST(request: NextRequest) {
 		const body = await request.json();
 
 		// Validate required fields
-		if (!body.company_name || body.company_name.length < 2) {
+		if (!body.company_name || body.company_name.length < 3) {
 			return NextResponse.json(
 				{
 					success: false,
 					results: [],
-					error: 'Company name must be at least 2 characters long',
+					error: 'Company name must be at least 3 characters long',
 				},
 				{ status: 400 }
 			);

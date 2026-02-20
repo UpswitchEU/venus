@@ -231,6 +231,8 @@ export interface ValuationPackage {
     url: string | null;
     status: 'ready' | 'generating' | 'none';
   };
+  /** Form inputs for instant restoration (company_name, revenue, ebitda, etc.) */
+  formData?: Record<string, unknown>;
 }
 
 // ============================================================================

@@ -155,11 +155,6 @@ class BusinessTypesApiService {
       }
 
       let allBusinessTypes = [...batch1Response.data.data.business_types]
-      console.log('🔍 [BUSINESS-TYPES-API] First batch loaded', {
-        count: allBusinessTypes.length,
-        hasMore: batch1Response.data.data.has_more,
-        total: batch1Response.data.data.total,
-      })
 
       // Second batch: 100-200 (if there are more)
       if (batch1Response.data.data.has_more) {
@@ -170,25 +165,12 @@ class BusinessTypesApiService {
         
         if (batch2Response.data.success && batch2Response.data.data) {
           allBusinessTypes = [...allBusinessTypes, ...batch2Response.data.data.business_types]
-          console.log('🔍 [BUSINESS-TYPES-API] Second batch loaded', {
-            count: batch2Response.data.data.business_types.length,
-            totalNow: allBusinessTypes.length,
-          })
         }
       }
 
       // Fetch categories
       const categoriesResponse = await this.api.get('/categories', { params: { locale }, signal })
       const categories = categoriesResponse.data.success ? categoriesResponse.data.data : []
-
-      // DIAGNOSTIC: Log final results
-      console.log('🔍 [BUSINESS-TYPES-API] All batches complete', {
-        totalCount: allBusinessTypes.length,
-        categoriesCount: categories.length,
-        hasTitleContainingRestaurant: allBusinessTypes.some(t => 
-          t.title?.toLowerCase().includes('restaurant')
-        ),
-      })
 
       // Cache the complete data
       await businessTypesCache.setBusinessTypes({

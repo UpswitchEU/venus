@@ -275,9 +275,15 @@ export class ValuationAPI extends HttpClient {
       throw new ValidationError(message)
     }
 
-    if (axiosError?.code === 'ECONNABORTED' || axiosError?.code === 'ENOTFOUND') {
+    if (
+      axiosError?.code === 'ECONNABORTED' ||
+      axiosError?.code === 'ENOTFOUND' ||
+      axiosError?.code === 'ECONNREFUSED' ||
+      axiosError?.code === 'ECONNRESET' ||
+      status === 503
+    ) {
       throw new NetworkError(
-        'Network error during valuation calculation. Please check your connection.'
+        'Service temporarily unavailable. Please try again in a moment.'
       )
     }
 

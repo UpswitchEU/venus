@@ -53,8 +53,8 @@ export class RegistryService {
     signal?: AbortSignal
   ): Promise<CompanySearchResponse> {
     // Validate input
-    if (!query || query.trim().length < 2) {
-      throw new ValidationError('Query must be at least 2 characters long', { query, country })
+    if (!query || query.trim().length < 3) {
+      throw new ValidationError('Query must be at least 3 characters long', { query, country })
     }
 
     if (limit < 1 || limit > 200) {

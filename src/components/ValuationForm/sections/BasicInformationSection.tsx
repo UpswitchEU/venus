@@ -305,7 +305,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
               // Validate that business type has industry classification
               if (!businessType.industry && !businessType.industryMapping) {
-                console.error('Business type missing industry classification:', businessType)
+                generalLogger.warn('Business type missing industry classification', { id: businessType.id })
                 return
               }
 

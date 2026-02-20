@@ -47,18 +47,6 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
     }
   }, [isOpen, isSaving, onClose])
 
-  // Debug logging
-  React.useEffect(() => {
-    if (isOpen) {
-      console.log('[ExitReportConfirmationModal] Modal opened', {
-        hasUnsavedChanges,
-        hasValuationResults,
-        isSaving,
-        hasSaveOption: !!onSaveAndExit,
-      })
-    }
-  }, [isOpen, hasUnsavedChanges, hasValuationResults, isSaving, onSaveAndExit])
-
   if (!isOpen) {
     return null
   }

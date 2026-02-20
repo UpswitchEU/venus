@@ -105,6 +105,7 @@ export const useReportsStore = create<ReportsStore>((set, get) => ({
 
       // ✅ CRITICAL: Clear localStorage cache AND session store for this report
       // This ensures the report doesn't reappear after page refresh
+      let didClearSession = false
       try {
         const { globalSessionCache } = await import('../utils/sessionCacheManager')
         globalSessionCache.remove(reportId)
@@ -115,6 +116,7 @@ export const useReportsStore = create<ReportsStore>((set, get) => ({
         const currentSession = useSessionStore.getState().session
         if (currentSession?.reportId === reportId) {
           useSessionStore.getState().clearSession()
+          didClearSession = true
           reportsLogger.info('Active session cleared for deleted report', { reportId })
         }
       } catch (cacheError) {
@@ -129,6 +131,31 @@ export const useReportsStore = create<ReportsStore>((set, get) => ({
       set((state) => ({
         reports: state.reports.filter((r) => r.reportId !== reportId),
       }))
+
+      // Broadcast for same-origin tab sync and notify Mercury when embedded
+      try {
+        const { broadcastReportDeleted } = await import('../utils/auth/cross-domain-logout')
+        broadcastReportDeleted({ reportId })
+
+        if (typeof window !== 'undefined' && window !== window.parent) {
+          const isEmbedded = sessionStorage.getItem('upswitch_venus_embedded') === 'true'
+          if (isEmbedded) {
+            window.parent.postMessage(
+              { type: 'venus-report-deleted', data: { reportId }, source: 'venus' },
+              '*'
+            )
+            if (didClearSession) {
+              const { closeEmbeddedIfActive } = await import('../hooks/useEmbeddedMode')
+              closeEmbeddedIfActive()
+            }
+          }
+        }
+      } catch (syncError) {
+        reportsLogger.warn('Failed to broadcast report deleted', {
+          reportId,
+          error: syncError instanceof Error ? syncError.message : String(syncError),
+        })
+      }
 
       reportsLogger.info('Report deleted successfully', {
         reportId,

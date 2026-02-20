@@ -108,21 +108,6 @@ export class SessionAPI extends HttpClient {
         return null
       }
 
-      // DIAGNOSTIC: Log what we received and parsed
-      console.log('[SessionAPI] GET response received and parsed:', {
-        reportId,
-        hasResponse: !!response,
-        responseType: typeof response,
-        responseKeys: response ? Object.keys(response) : [],
-        hasSessionData: !!sessionData,
-        sessionDataKeys: sessionData ? Object.keys(sessionData) : [],
-        hasHtmlReport: !!(sessionData as any)?.htmlReport,
-        htmlReportLength: (sessionData as any)?.htmlReport?.length || 0,
-        hasInfoTabHtml: !!(sessionData as any)?.infoTabHtml,
-        infoTabHtmlLength: (sessionData as any)?.infoTabHtml?.length || 0,
-        hasValuationResult: !!(sessionData as any)?.valuationResult,
-      })
-
       if (!sessionData) {
         apiLogger.debug('Session not found', { reportId })
         return null
@@ -208,25 +193,6 @@ export class SessionAPI extends HttpClient {
         _isNormalized: true,
       }
       
-      // ✅ DIAGNOSTIC: Log what we're returning (including sessionData/partialData mapping)
-      console.log('[SessionAPI] GET returning session:', {
-        reportId,
-        hasSession: !!enrichedSessionData,
-        sessionKeys: enrichedSessionData ? Object.keys(enrichedSessionData) : [],
-        hasSessionData: !!enrichedSessionData.sessionData,
-        sessionDataKeys: enrichedSessionData.sessionData ? Object.keys(enrichedSessionData.sessionData) : [],
-        hasPartialData: !!enrichedSessionData.partialData,
-        partialDataKeys: enrichedSessionData.partialData ? Object.keys(enrichedSessionData.partialData) : [],
-        hasBackendSessionData: !!enrichedSessionData.session_data,
-        backendSessionDataKeys: enrichedSessionData.session_data ? Object.keys(enrichedSessionData.session_data) : [],
-        hasHtmlReport: !!enrichedSessionData.htmlReport,
-        htmlReportLength: enrichedSessionData.htmlReport?.length || 0,
-        hasInfoTabHtml: !!enrichedSessionData.infoTabHtml,
-        infoTabHtmlLength: enrichedSessionData.infoTabHtml?.length || 0,
-        hasValuationResult: !!enrichedSessionData.valuationResult,
-        isNormalized: enrichedSessionData._isNormalized,
-      })
-
       // Return in expected format
       return {
         success,
@@ -256,16 +222,10 @@ export class SessionAPI extends HttpClient {
       // Max retries reached or non-retryable error
       const axiosError = error as any
 
-      // DIAGNOSTIC: Log the error in detail
-      console.error('[SessionAPI] GET session error:', {
+      apiLogger.error('[SessionAPI] GET session error', {
         reportId,
-        errorType: typeof error,
-        errorConstructor: error?.constructor?.name,
-        hasResponse: !!axiosError?.response,
-        responseStatus: axiosError?.response?.status,
-        responseData: axiosError?.response?.data,
-        errorMessage: axiosError?.message,
-        errorCode: axiosError?.code,
+        status: axiosError?.response?.status,
+        code: axiosError?.code,
       })
 
       // Handle 404 gracefully - session doesn't exist yet
@@ -963,18 +923,6 @@ export class SessionAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<{ success: boolean; message: string }> {
     try {
-      console.log('[SessionAPI] DIAGNOSTIC: saveValuationResult called', {
-        reportId,
-        hasSessionData: !!data.sessionData,
-        hasValuationResult: !!data.valuationResult,
-        hasHtmlReport: !!data.htmlReport,
-        htmlReportLength: data.htmlReport?.length || 0,
-        hasInfoTabHtml: !!data.infoTabHtml,
-        infoTabHtmlLength: data.infoTabHtml?.length || 0,
-        hasName: !!data.name,
-        name: data.name || undefined,
-      })
-
       const response = await this.executeRequest<{ success: boolean; message: string }>(
         {
           method: 'PUT',
@@ -991,11 +939,6 @@ export class SessionAPI extends HttpClient {
         options
       )
 
-      console.log('[SessionAPI] DIAGNOSTIC: PUT /result succeeded', {
-        reportId,
-        responseSuccess: response?.success,
-      })
-
       apiLogger.info('Complete valuation package saved to session', {
         reportId,
         hasSessionData: !!data.sessionData,
@@ -1009,12 +952,6 @@ export class SessionAPI extends HttpClient {
 
       return response
     } catch (error) {
-      console.error('[SessionAPI] DIAGNOSTIC: PUT /result FAILED', {
-        reportId,
-        error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-      })
-
       apiLogger.error('Failed to save valuation result to session', {
         reportId,
         error: error instanceof Error ? error.message : String(error),

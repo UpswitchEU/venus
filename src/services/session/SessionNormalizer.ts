@@ -122,6 +122,11 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['business_context', 'businessContext'],
     ['government_bond_yield', 'governmentBondYield'],
     ['long_term_gdp_growth', 'longTermGdpGrowth'],
+    ['ebitda'],
+    ['use_dcf', 'useDcf'],
+    ['use_multiples', 'useMultiples'],
+    ['projection_years', 'projectionYears'],
+    ['comparables'],
   ]
   
   const formData: Partial<ValuationRequest> = {}
@@ -308,19 +313,31 @@ function extractClientContext(sessionData: any): NormalizedSessionData['clientCo
 
 /**
  * Check if session has meaningful existing data
+ * Includes form inputs, valuation result, and HTML output for complete restoration
  */
-function hasExistingData(formData: Partial<ValuationRequest>, valuationResult: any): boolean {
+function hasExistingData(
+  formData: Partial<ValuationRequest>,
+  valuationResult: any,
+  htmlReport?: string | null,
+  infoTabHtml?: string | null
+): boolean {
   // Has form data if company_name or key financial data exists
   const hasFormData = !!(
     formData.company_name ||
     formData.revenue ||
-    formData.current_year_data
+    formData.current_year_data ||
+    formData.historical_years_data ||
+    formData.kbo_number ||
+    formData.business_type_id
   )
-  
+
   // Has valuation result
   const hasResult = !!valuationResult
-  
-  return hasFormData || hasResult
+
+  // Has output assets (HTML reports)
+  const hasOutput = !!(htmlReport?.trim() || infoTabHtml?.trim())
+
+  return hasFormData || hasResult || hasOutput
 }
 
 /**
@@ -355,7 +372,7 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
   const infoTabHtml = extractInfoTabHtml(sessionData, backendSession)
   const pricingRange = extractPricingRange(sessionData, backendSession)
   const clientContext = extractClientContext(sessionData)
-  
+
   const normalized: NormalizedSessionData = {
     // Metadata
     reportId,
@@ -379,7 +396,7 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     // Context
     clientContext,
     dataSource: normalizeFlowType(backendSession.dataSource || sessionData.dataSource),
-    hasExistingData: hasExistingData(formData, valuationResult),
+    hasExistingData: hasExistingData(formData, valuationResult, htmlReport, infoTabHtml),
   }
   
   generalLogger.debug('[SessionNormalizer] Normalized session data', {

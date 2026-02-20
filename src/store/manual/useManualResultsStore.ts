@@ -79,17 +79,19 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         // ✅ OPTIMISTIC: Update session cache immediately for instant refresh UX
         // This ensures page refresh shows the result without waiting for backend save
         try {
-          const { useSessionStore } = require('../useSessionStore')
-          const session = useSessionStore.getState().session
-          if (session) {
-            useSessionStore.getState().updateSession({
-              valuationResult: result as any,
-              htmlReport: result.html_report,
-              infoTabHtml: result.info_tab_html,
-            })
-            storeLogger.debug('[Manual] Session cache updated optimistically', {
-              valuationId: result.valuation_id,
-            })
+          if (typeof window !== 'undefined') {
+            const { useSessionStore } = require('../useSessionStore')
+            const session = useSessionStore.getState().session
+            if (session) {
+              useSessionStore.getState().updateSession({
+                valuationResult: result as any,
+                htmlReport: result.html_report,
+                infoTabHtml: result.info_tab_html,
+              })
+              storeLogger.debug('[Manual] Session cache updated optimistically', {
+                valuationId: result.valuation_id,
+              })
+            }
           }
         } catch (error) {
           // Don't fail if optimistic update fails

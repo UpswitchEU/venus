@@ -54,15 +54,9 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   } = useEbitdaNormalizationStore()
 
   const handleOpenNormalization = async (year: number) => {
-    if (!sessionId) {
-      console.error('No session ID available')
-      return
-    }
+    if (!sessionId) return
     const ebitdaValue = year === lastFullYear ? formData.ebitda : 0
-    if (ebitdaValue === undefined) {
-      console.warn('EBITDA value not set')
-      return
-    }
+    if (ebitdaValue === undefined) return
     await openNormalizationModal(year, ebitdaValue, sessionId)
   }
 
@@ -70,8 +64,8 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
     if (!sessionId) return
     try {
       await removeNormalization(sessionId, year)
-    } catch (error) {
-      console.error('Failed to remove normalization', error)
+    } catch {
+      // Removal error handled by the store
     }
   }
   return (

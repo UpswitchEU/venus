@@ -281,7 +281,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     selectedCompany,
     onClear,
     searchFn = defaultKBOSearch,
-    minQueryLength = 2,
+    minQueryLength = 3,
     debounceMs = 300,
     size = "md",
     className,
@@ -603,8 +603,17 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                 </button>
               </div>
             ) : results.length === 0 ? (
-              <div className="px-4 py-6 text-sm text-foreground/50">
-                Geen bedrijven gevonden.
+              <div className="px-4 py-4 text-sm text-foreground/50">
+                <p>Geen bedrijven gevonden.</p>
+                {value.length >= 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setRetryTrigger((prev) => prev + 1)}
+                    className="mt-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Niet wat u verwachtte? Opnieuw proberen
+                  </button>
+                )}
               </div>
             ) : (
               results.map((company, index) => (

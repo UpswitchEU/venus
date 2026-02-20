@@ -58,20 +58,15 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
     async (retryCount = 0): Promise<boolean> => {
       // MUTEX PATTERN: If refresh already in progress globally, wait for it
       if (globalRefreshPromise) {
-        console.log('Token refresh already in progress (global mutex), waiting...')
         return globalRefreshPromise
       }
 
-      // Prevent concurrent refresh attempts in this component
       if (isRefreshingRef.current) {
-        console.log('Token refresh already in progress (local), skipping...')
         return false
       }
 
-      // Rate limiting: Don't attempt refresh more than once per minute
       const now = Date.now()
       if (now - lastRefreshAttemptRef.current < 60 * 1000) {
-        console.log('Token refresh rate limited, skipping...')
         return false
       }
 
@@ -81,7 +76,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       // Create global refresh promise for mutex
       globalRefreshPromise = (async () => {
         try {
-          console.log('🔄 Attempting to refresh access token (dual-token system)...')
+          
 
           // Use local API proxy route which forwards to Titan with cookies
           const response = await axios.post(
@@ -98,7 +93,6 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
           const user = response.data?.user ?? response.data?.data?.user
           const success = response.data?.success === true || !!user
           if (success) {
-            console.log('✅ Access token refreshed successfully (token rotation complete)')
             onRefreshSuccess?.()
             return true
           } else {

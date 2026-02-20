@@ -1,7 +1,22 @@
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-const EMBEDDED_STORAGE_KEY = 'upswitch_venus_embedded'
+export const EMBEDDED_STORAGE_KEY = 'upswitch_venus_embedded'
+
+/**
+ * Close embedded view by posting venus-close to parent.
+ * Callable from non-React code (e.g. Zustand store).
+ */
+export function closeEmbeddedIfActive(): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true') {
+      window.parent.postMessage({ type: 'venus-close', source: 'venus' }, '*')
+    }
+  } catch {
+    // Ignore
+  }
+}
 
 /**
  * Hook to detect if Venus is running in embedded mode (iframe within Mercury)

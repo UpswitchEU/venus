@@ -71,9 +71,8 @@ export function buildValuationRequest(
   // If industry is missing but business_type_id is present, log warning
   // (industry should have been set when business type was selected)
   if (!industry && formData.business_type_id) {
-    console.warn('[buildValuationRequest] Industry missing despite business_type_id being set', {
+    generalLogger.warn('[buildValuationRequest] Industry missing despite business_type_id being set', {
       business_type_id: formData.business_type_id,
-      formDataKeys: Object.keys(formData),
     })
   }
 

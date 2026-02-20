@@ -91,13 +91,22 @@ export class SessionCacheManager {
       // Validate before caching
       validateSessionData(session)
 
-      // ✅ FIX: Exclude large HTML reports from cache to prevent quota errors
-      // HTML reports are fetched from backend on demand
-      // Use destructuring to completely exclude HTML reports (more efficient than setting to undefined)
+      // Exclude large HTML reports from cache to prevent localStorage quota errors.
+      // HTML reports are fetched from backend on demand via background revalidation.
       const { htmlReport, infoTabHtml, ...sessionWithoutHtml } = session
 
-      // Note: htmlReport and infoTabHtml are excluded from sessionWithoutHtml
-      // They exist in backend and are fetched on demand when needed
+      // Also strip HTML from nested sessionData (backend stores htmlReport/html_report inside session_data JSONB)
+      // Plan: strip _htmlReport and _infoTabHtml (Titan-injected) to avoid localStorage bloat
+      if (sessionWithoutHtml.sessionData && typeof sessionWithoutHtml.sessionData === 'object') {
+        const sd = { ...sessionWithoutHtml.sessionData } as Record<string, unknown>
+        delete sd.htmlReport
+        delete sd.html_report
+        delete sd.infoTabHtml
+        delete sd.info_tab_html
+        delete sd._htmlReport
+        delete sd._infoTabHtml
+        sessionWithoutHtml.sessionData = sd
+      }
 
       const cached: CachedSession = {
         session: sessionWithoutHtml,

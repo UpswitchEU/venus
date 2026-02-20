@@ -139,7 +139,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         const normalization = normalizations[year]
 
         if (!normalization) {
-          console.error(`No normalization found for year ${year}`)
+          generalLogger.warn(`No normalization found for year ${year}`)
           return
         }
 
@@ -195,7 +195,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         const normalization = normalizations[year]
 
         if (!normalization) {
-          console.error(`No normalization found for year ${year}`)
+          generalLogger.warn(`No normalization found for year ${year}`)
           return
         }
 
@@ -232,7 +232,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         const normalization = normalizations[year]
 
         if (!normalization) {
-          console.error(`No normalization found for year ${year}`)
+          generalLogger.warn(`No normalization found for year ${year}`)
           return
         }
 
@@ -264,7 +264,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         const normalization = normalizations[year]
 
         if (!normalization) {
-          console.error(`No normalization found for year ${year}`)
+          generalLogger.warn(`No normalization found for year ${year}`)
           return
         }
 
@@ -347,7 +347,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           } catch (stateUpdateError) {
             // State update failed, but API save succeeded
             // Log the error but don't throw - modal should still close
-            console.warn('State update failed after successful save', {
+            generalLogger.warn('State update failed after successful save', {
               error: stateUpdateError,
               year,
               sessionId,
@@ -364,7 +364,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           set({ errors: newErrors })
         } catch (apiError) {
           // API call failed - this is a real error
-          console.error('API error saving normalization', apiError)
+          generalLogger.error('API error saving normalization', { error: apiError })
 
           set({
             isSaving: false,
@@ -425,7 +425,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
               generalLogger.debug('No normalization found for year, will create template', { year })
             } else {
               // 500 or other server errors - log but allow UI to continue with template
-              console.warn('Error loading normalization from backend, will create template', {
+              generalLogger.warn('Error loading normalization from backend, will create template', {
                 year,
                 status: error.status,
                 message: error.message,
@@ -435,7 +435,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             throw error
           } else {
             // Unknown error - log and throw
-            console.error('Unexpected error loading normalization', error)
+            generalLogger.error('Unexpected error loading normalization', { error })
             set({
               errors: {
                 ...get().errors,
@@ -484,7 +484,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
           generalLogger.debug('All normalizations loaded', { count: responses.length })
         } catch (error) {
-          console.error('Error loading all normalizations', error)
+          generalLogger.error('Error loading all normalizations', { error })
           set({
             isLoading: false,
             errors: {
@@ -510,7 +510,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           await normalizationService.deleteNormalization(sessionId, year)
           generalLogger.debug('Normalization removed successfully', { year })
         } catch (error) {
-          console.error('Error removing normalization', error)
+          generalLogger.error('Error removing normalization', { error })
 
           // Rollback on error
           set({
@@ -594,7 +594,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
           generalLogger.debug('Market rates fetched successfully', { year, count: suggestions.length })
         } catch (error) {
-          console.error('Error fetching market rates', error)
+          generalLogger.error('Error fetching market rates', { error })
           // Don't fail - market rates are suggestions, not required
           set({
             marketRateSuggestions: {

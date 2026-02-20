@@ -810,6 +810,7 @@ export class SessionBootstrapService {
           pricingRange: valuationPackage.pricingRange || null,
           versions: valuationPackage.versions || { current: 1, total: 1 },
           pdf: valuationPackage.pdf || { url: null, status: 'none' },
+          formData: valuationPackage.formData || undefined,
         } : undefined,
         bootstrapVersion: BOOTSTRAP_VERSION,
         bootstrappedAt: new Date(),
@@ -859,7 +860,7 @@ export class SessionBootstrapService {
           const retryData = await retryResponse.json();
           
           if (retryData.success && retryData.data) {
-            const { identity: retryIdentity, report: retryReport, prefill: retryPrefill, ui: retryUi, creditStatus: retryCreditStatus } = retryData.data;
+            const { identity: retryIdentity, report: retryReport, prefill: retryPrefill, ui: retryUi, creditStatus: retryCreditStatus, valuationPackage: retryValuationPackage } = retryData.data;
             
             // If retry found the session, use that instead
             if (retryReport.mode === 'existing') {
@@ -867,6 +868,7 @@ export class SessionBootstrapService {
                 reportId: retryReport.reportId?.substring(0, 25),
               });
               
+              // Phase 2 (G4): Include valuationPackage so report assets are not lost on retry
               const retryState: SessionBootstrapState = {
                 identity: {
                   type: retryIdentity.type,
@@ -880,6 +882,7 @@ export class SessionBootstrapService {
                   mode: retryReport.mode,
                   reportId: retryReport.reportId,
                   hasExistingData: retryReport.hasExistingData,
+                  hasValuationResult: retryReport.hasValuationResult || !!retryValuationPackage?.htmlReport,
                   version: retryReport.version,
                   status: retryReport.status,
                   createdAt: retryReport.createdAt ? new Date(retryReport.createdAt) : undefined,
@@ -909,6 +912,14 @@ export class SessionBootstrapService {
                   sourceApp: context.sourceApp,
                 },
                 creditStatus: retryCreditStatus,
+                valuationPackage: retryValuationPackage ? {
+                  htmlReport: retryValuationPackage.htmlReport || null,
+                  infoTabHtml: retryValuationPackage.infoTabHtml || null,
+                  pricingRange: retryValuationPackage.pricingRange || null,
+                  versions: retryValuationPackage.versions || { current: 1, total: 1 },
+                  pdf: retryValuationPackage.pdf || { url: null, status: 'none' },
+                  formData: retryValuationPackage.formData || undefined,
+                } : undefined,
                 bootstrapVersion: BOOTSTRAP_VERSION,
                 bootstrappedAt: new Date(),
                 bootstrapDurationMs: performance.now() - startTime,
