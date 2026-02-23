@@ -335,15 +335,19 @@ export function AuthGate({
             try {
               const API_URL = getApiUrl()
               
-              // Fetch report to get accountant_customer_id
+              const reportAbort = new AbortController()
+              const reportTimeout = setTimeout(() => reportAbort.abort(), 5000)
+
               const reportResponse = await fetch(
                 `${API_URL}/api/v2/valuations/reports/by-session/${reportId}`,
                 {
                   method: 'GET',
                   credentials: 'include',
                   headers: { 'Accept': 'application/json' },
+                  signal: reportAbort.signal,
                 }
               )
+              clearTimeout(reportTimeout)
               
               if (reportResponse.ok) {
                 const reportData = await reportResponse.json()

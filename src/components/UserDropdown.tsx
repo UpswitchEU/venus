@@ -9,6 +9,7 @@ import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import { generalLogger } from '../utils/logger'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '@/lib/return-url'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
 
@@ -157,51 +158,26 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   const handleBackToDashboard = () => {
     setIsOpen(false)
-    
-    // ✅ FIX: Use same logic as ValuationToolbar - check returnUrl and construct proper Mercury URL
-    const returnUrl = typeof window !== 'undefined' 
+
+    const returnUrl = typeof window !== 'undefined'
       ? sessionStorage.getItem('upswitch_return_url')
       : null
     const sourceApp = typeof window !== 'undefined'
       ? sessionStorage.getItem('upswitch_source')
       : null
-    
-    const mercuryUrl = getMercuryUrl()
-    
-    let targetUrl: string
-    
-    if (returnUrl) {
-      if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
-        const url = new URL(returnUrl)
-        if (url.origin.includes('upswitch.app')) {
-          targetUrl = returnUrl
-        } else {
-          const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-          targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
-        }
-      } else {
-        targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
-      }
-    } else {
-      // No return URL - try parent window message first, then fallback
+    const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+
+    if (!returnUrl || isLegacyReturnUrl(returnUrl)) {
       if (window.parent && window.parent !== window) {
         window.parent.postMessage({ type: 'NAVIGATE_TO_DASHBOARD' }, '*')
         return
       }
-      
-      // Fallback: determine dashboard based on source or default
-      const currentLocale = typeof window !== 'undefined'
-        ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-        : 'en'
-      
-      // ✅ FIX: Mercury sends 'mercury' as source, not 'mercury-accountant'
-      if (sourceApp?.includes('mercury')) {
-        targetUrl = `${mercuryUrl}/${currentLocale}/accountant/dashboard`
-      } else {
-        targetUrl = `${mercuryUrl}/${currentLocale}/my-business/overview`
-      }
     }
-    
+
+    const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+      locale,
+      sourceApp: sourceApp ?? undefined,
+    })
     window.location.href = targetUrl
   }
 
@@ -250,16 +226,16 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       return
     }
 
-    // Check for return URL (Mercury integration - direct access with return URL)
+    // Check for return URL (Mercury integration - skip legacy routes to avoid 404)
     if (typeof window !== 'undefined') {
       const returnUrl = sessionStorage.getItem('upswitch_return_url')
       const sourceApp = sessionStorage.getItem('upswitch_source')
-      
-      if (returnUrl) {
+      const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+
+      if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
         generalLogger.info('[UserDropdown] Return URL found, redirecting to Mercury', {
           returnUrl,
         })
-        // Broadcast report update before leaving
         if (reportId) {
           try {
             const event = new CustomEvent('upswitch-report-updated', {
@@ -271,8 +247,6 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
               },
             })
             window.dispatchEvent(event)
-
-            // Also try BroadcastChannel if available
             if (typeof BroadcastChannel !== 'undefined') {
               const channel = new BroadcastChannel('upswitch-report-sync')
               channel.postMessage({
@@ -290,24 +264,10 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             generalLogger.warn('[UserDropdown] Failed to broadcast before return:', error)
           }
         }
-        
-        // ✅ FIX: Construct full Mercury URL from returnUrl
-        const mercuryUrl = getMercuryUrl()
-        let targetUrl: string
-        
-        if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
-          const url = new URL(returnUrl)
-          if (url.origin.includes('upswitch.app')) {
-            targetUrl = returnUrl
-          } else {
-            const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-            targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
-          }
-        } else {
-          targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
-        }
-        
-        // Navigate back to Mercury
+        const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+          locale,
+          sourceApp: sourceApp ?? undefined,
+        })
         window.location.href = targetUrl
         return
       }
@@ -376,32 +336,20 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         return
       }
 
-      // Check for return URL (Mercury integration - direct access with return URL)
+      // Check for return URL (Mercury integration - skip legacy routes to avoid 404)
       if (typeof window !== 'undefined') {
         const returnUrl = sessionStorage.getItem('upswitch_return_url')
         const sourceApp = sessionStorage.getItem('upswitch_source')
-        
-        if (returnUrl) {
+        const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+
+        if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
           generalLogger.info('[UserDropdown] Return URL found, redirecting to Mercury', {
             returnUrl,
           })
-          
-          // ✅ FIX: Construct full Mercury URL from returnUrl
-          const mercuryUrl = getMercuryUrl()
-          let targetUrl: string
-          
-          if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
-            const url = new URL(returnUrl)
-            if (url.origin.includes('upswitch.app')) {
-              targetUrl = returnUrl
-            } else {
-              const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-              targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
-            }
-          } else {
-            targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
-          }
-          
+          const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+            locale,
+            sourceApp: sourceApp ?? undefined,
+          })
           window.location.href = targetUrl
           return
         }
@@ -425,28 +373,17 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         return
       }
 
-      // Check for return URL even on error
+      // Check for return URL even on error (skip legacy routes)
       if (typeof window !== 'undefined') {
         const returnUrl = sessionStorage.getItem('upswitch_return_url')
         const sourceApp = sessionStorage.getItem('upswitch_source')
-        
-        if (returnUrl) {
-          // ✅ FIX: Construct full Mercury URL from returnUrl
-          const mercuryUrl = getMercuryUrl()
-          let targetUrl: string
-          
-          if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
-            const url = new URL(returnUrl)
-            if (url.origin.includes('upswitch.app')) {
-              targetUrl = returnUrl
-            } else {
-              const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-              targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
-            }
-          } else {
-            targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
-          }
-          
+        const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+
+        if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
+          const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+            locale,
+            sourceApp: sourceApp ?? undefined,
+          })
           window.location.href = targetUrl
           return
         }

@@ -46,6 +46,7 @@ import { DownloadService } from '../../../services/downloadService'
 import { generalLogger } from '../../../utils/logger'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
+import { getSafeMercuryReturnUrl } from '../../../lib/return-url'
 import {
   areChangesSignificant,
   detectVersionChanges,
@@ -257,6 +258,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 }) => {
   const router = useTransitionRouter()
   const t = useTranslations('toast')
+  const tReport = useTranslations('report')
   const isMobile = useIsMobile()
 
   // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
@@ -1205,7 +1207,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setIsExporting(true)
 
     try {
-      const filename = `${report.companyName?.replace(/\s+/g, '-') || 'Rapport'}-Waardering.pdf`
+      const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-Waardering.pdf`
       let succeeded = false
 
       // Path 1: Server-side PDF via Titan API (Python-generated)
@@ -1294,7 +1296,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsExporting(false)
     }
-  }, [report, reportId, result, isPdfReady, downloadPdf, generatePdf, rightPanelView])
+  }, [report, reportId, result, isPdfReady, downloadPdf, generatePdf, rightPanelView, tReport])
 
   // ─── Navigation Handlers ───
   const handleBack = useCallback(() => {
@@ -1315,27 +1317,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         window.parent?.postMessage({ type: 'venus:close' }, '*')
       } catch {}
 
-      // Navigate to Mercury
-      const mercuryUrl = getMercuryUrl()
       const validLocale = currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
-
       let returnUrl: string | null = null
-      try { returnUrl = sessionStorage.getItem('upswitch_return_url') } catch {}
+      let sourceApp: string | null = null
+      try {
+        returnUrl = sessionStorage.getItem('upswitch_return_url')
+        sourceApp = sessionStorage.getItem('upswitch_source')
+      } catch {}
 
-      if (returnUrl) {
-        if (returnUrl.startsWith('http')) {
-          window.location.href = returnUrl
-        } else {
-          window.location.href = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
-        }
-        return
-      }
-
-      if (clientContextId) {
-        window.location.href = `${mercuryUrl}/${validLocale}/accountant/clients/${clientContextId}/valuations`
-      } else {
-        window.location.href = `${mercuryUrl}/${validLocale}/accountant/dashboard`
-      }
+      const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+        clientContextId: clientContextId ?? undefined,
+        locale: validLocale,
+        sourceApp: sourceApp ?? undefined,
+      })
+      window.location.href = targetUrl
     } catch (error) {
       generalLogger.error('[ManualLayout] handleExitClientView failed', {
         error: error instanceof Error ? error.message : String(error),

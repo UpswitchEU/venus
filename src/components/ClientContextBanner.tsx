@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { getSafeMercuryReturnUrl } from '@/lib/return-url'
 import { generalLogger } from '@/utils/logger'
 
 /**
@@ -90,7 +91,8 @@ export function ClientContextBanner() {
   }
 
   /**
-   * Navigate back to Mercury (accountant dashboard or return URL)
+   * Navigate back to Mercury (accountant dashboard or return URL).
+   * Uses getSafeMercuryReturnUrl to avoid legacy routes (e.g. accountant_listings) that 404.
    */
   const navigateToMercury = () => {
     if (typeof window === 'undefined') {
@@ -99,105 +101,31 @@ export function ClientContextBanner() {
     }
 
     try {
-      // Check for return URL first (set when Venus is opened from Mercury)
       let returnUrl: string | null = null
+      let sourceApp: string | null = null
       try {
         returnUrl = sessionStorage.getItem('upswitch_return_url')
+        sourceApp = sessionStorage.getItem('upswitch_source')
       } catch (error) {
-        // sessionStorage might not be available (e.g., private browsing)
         generalLogger.warn('[ClientContextBanner] Failed to read sessionStorage', {
           error: error instanceof Error ? error.message : String(error),
         })
       }
 
-      if (returnUrl) {
-        // Validate and construct full URL for navigation
-        // Return URL from Mercury is relative (e.g., /en/accountant/clients/...)
-        // We need to construct full URL using Mercury domain
-        try {
-          const mercuryUrl = getMercuryUrl()
-          
-          // If returnUrl is already a full URL, use it as-is
-          // Otherwise, construct full URL using Mercury domain
-          let fullReturnUrl: string | null = null
-          
-          if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
-            // Already a full URL - validate it
-            const url = new URL(returnUrl)
-            if (url.origin.includes('upswitch.app')) {
-              fullReturnUrl = returnUrl
-            } else {
-              generalLogger.warn('[ClientContextBanner] Return URL from different domain, using dashboard', {
-                returnUrl,
-              })
-            }
-          } else {
-            // Relative URL - construct full URL
-            fullReturnUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
-          }
-          
-          if (fullReturnUrl) {
-            generalLogger.debug('[ClientContextBanner] Navigating to return URL', {
-              fullReturnUrl,
-            })
-            window.location.href = fullReturnUrl
-            return
-          }
-          // If fullReturnUrl is null, fall through to dashboard URL construction
-        } catch (error) {
-          generalLogger.warn('[ClientContextBanner] Invalid return URL, falling back to dashboard', {
-            returnUrl,
-            error: error instanceof Error ? error.message : String(error),
-          })
-          // Fall through to dashboard URL construction
-        }
-      }
-
-      // If no return URL, try to construct one from client context
-      // This provides a better fallback than just going to dashboard
-      const clientContext = useClientContext.getState()
-      let fallbackUrl: string | null = null
-      
-      if (clientContext.relationshipId) {
-        // Try to extract clientId from relationshipId or construct URL
-        // Relationship ID format might be UUID, but we can try to construct URL
-        // Note: This is a best-effort fallback - ideally return_url should always be set
-        const mercuryUrl = getMercuryUrl()
-        const validLocale = locale && (locale === 'en' || locale === 'nl') ? locale : 'en'
-        
-        // If we have relationshipId, try to navigate to client valuations page
-        // This is better than dashboard but requires clientId which we might not have
-        // For now, fall back to dashboard - but log for debugging
-        generalLogger.warn('[ClientContextBanner] No return_url found, but relationshipId exists:', {
-          relationshipId: clientContext.relationshipId,
-          clientId: clientContext.client?.id,
-        })
-        
-        // If we have client ID from context, construct client valuations URL
-        if (clientContext.client?.id) {
-          fallbackUrl = `${mercuryUrl}/${validLocale}/accountant/clients/${clientContext.client.id}/valuations`
-        }
-      }
-      
-      // If no fallback URL from context, use dashboard
-      if (!fallbackUrl) {
-        const mercuryUrl = getMercuryUrl()
-        const validLocale = locale && (locale === 'en' || locale === 'nl') ? locale : 'en'
-        fallbackUrl = `${mercuryUrl}/${validLocale}/accountant/dashboard`
-      }
-      
-      generalLogger.debug('[ClientContextBanner] Navigating to fallback URL', {
-        fallbackUrl,
+      const validLocale = locale && ['en', 'nl', 'fr', 'de'].includes(locale) ? locale : 'en'
+      const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+        clientContextId: client?.id,
+        locale: validLocale,
+        sourceApp: sourceApp ?? undefined,
       })
-      window.location.href = fallbackUrl
+      generalLogger.debug('[ClientContextBanner] Navigating to Mercury', { targetUrl })
+      window.location.href = targetUrl
     } catch (error) {
       generalLogger.error('[ClientContextBanner] Error in navigateToMercury', {
         error: error instanceof Error ? error.message : String(error),
       })
-      // Last resort fallback
       try {
-        const mercuryUrl = getMercuryUrl()
-        window.location.href = `${mercuryUrl}/en/accountant/dashboard`
+        window.location.href = `${getMercuryUrl()}/en/accountant/dashboard`
       } catch (fallbackError) {
         generalLogger.error('[ClientContextBanner] Fallback navigation also failed', {
           error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),

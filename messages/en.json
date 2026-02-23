@@ -510,6 +510,7 @@
     "recentDownloads": "Recent Downloads",
     "fullscreen": "Fullscreen",
     "download": "Download",
+    "defaultFilename": "Report",
     "placeholder": {
       "title": "Your report will appear here",
       "description": "Fill in the business details and click 'Calculate Valuation' to generate your valuation report.",

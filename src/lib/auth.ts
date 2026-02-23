@@ -23,6 +23,7 @@ import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from '.
 
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
+import { isLegacyReturnUrl } from './return-url'
 
 // Backend API URL - environment-aware (shared utility)
 const API_URL = getApiUrl()
@@ -662,7 +663,7 @@ async function initializeAuth(): Promise<void> {
       const returnUrl = params.get('return_url')
       const sourceApp = params.get('source')
 
-      if (returnUrl) {
+      if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
         // Store in sessionStorage for later use when user wants to return (always overwrite stale values)
         sessionStorage.setItem('upswitch_return_url', returnUrl)
         if (sourceApp) {
@@ -675,8 +676,7 @@ async function initializeAuth(): Promise<void> {
           })
         }
       } else {
-        // No return_url in URL params: clear any stale value from previous sessions to prevent
-        // navigating to a legacy route when clicking "Continue"
+        // No return_url, or legacy route (accountant_listings etc.): clear to prevent 404 on "Continue"
         sessionStorage.removeItem('upswitch_return_url')
         sessionStorage.removeItem('upswitch_source')
       }
@@ -956,16 +956,19 @@ async function initializeAuth(): Promise<void> {
                 generalLogger.debug(`[Auth:${traceId}] Checking report for accountant_customer_id to restore context`)
                 
                 try {
-                  // Fetch report metadata to get accountant_customer_id
-                  // Use the report lookup endpoint that accepts both UUID and session key
+                  const reportAbort = new AbortController()
+                  const reportTimeout = setTimeout(() => reportAbort.abort(), 5000)
+
                   const reportResponse = await fetch(
                     `${API_URL}/api/v2/valuations/reports/by-session/${reportId}`,
                     {
                       method: 'GET',
                       credentials: 'include',
                       headers: { 'Accept': 'application/json' },
+                      signal: reportAbort.signal,
                     }
                   )
+                  clearTimeout(reportTimeout)
                   
                   if (reportResponse.ok) {
                     const reportData = await reportResponse.json()

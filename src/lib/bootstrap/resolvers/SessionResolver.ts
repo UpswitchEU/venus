@@ -434,19 +434,27 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
         headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId;
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
       const response = await fetch(
         `${API_URL}/api/v2/valuations/reports/by-session/${sessionKey}`,
         {
           method: 'GET',
           credentials: 'include',
           headers,
+          signal: controller.signal,
         }
       );
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         return {
           success: false,
-          error: `Failed to fetch existing report (${response.status})`,
+          error: response.status === 404
+            ? 'Report not created yet'
+            : `Failed to fetch existing report (${response.status})`,
         };
       }
 

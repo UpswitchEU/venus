@@ -509,6 +509,7 @@
     "recentDownloads": "Recente Downloads",
     "fullscreen": "Volledig scherm",
     "download": "Download",
+    "defaultFilename": "Rapport",
     "placeholder": {
       "title": "Uw rapport verschijnt hier",
       "description": "Vul de bedrijfsgegevens in en klik op 'Bereken Schatting' om uw waarderingsrapport te genereren.",
