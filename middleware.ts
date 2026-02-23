@@ -85,22 +85,31 @@ export async function middleware(request: NextRequest) {
 	// Priority 1: Check for locale in URL params (from Mercury embedding)
 	const localeParam = request.nextUrl.searchParams.get('locale');
 	if (localeParam && locales.includes(localeParam as typeof locales[number])) {
-		// Set locale cookie to persist across navigation
-		const response = intlMiddleware(request);
-		if (response instanceof Response) {
-			response.cookies.set('NEXT_LOCALE', localeParam, {
+		if (pathname.startsWith(`/${localeParam}/`)) {
+			// Path already has the correct locale — strip the query param and return
+			// to prevent intlMiddleware from overriding via Accept-Language header
+			const cleanUrl = request.nextUrl.clone();
+			cleanUrl.searchParams.delete('locale');
+			const res = NextResponse.redirect(cleanUrl);
+			res.cookies.set('NEXT_LOCALE', localeParam, {
 				path: '/',
-				maxAge: 60 * 60 * 24 * 365, // 1 year
+				maxAge: 60 * 60 * 24 * 365,
 				sameSite: 'lax',
 			});
-			// Rewrite URL to include locale prefix if not already present
-			if (!pathname.startsWith(`/${localeParam}/`)) {
-				const newUrl = request.nextUrl.clone();
-				newUrl.pathname = `/${localeParam}${pathname}`;
-				newUrl.searchParams.delete('locale'); // Remove locale param after using it
-				return NextResponse.redirect(newUrl);
-			}
+			return res;
 		}
+
+		// Path does NOT have the locale prefix — redirect to /{locale}/...
+		const newUrl = request.nextUrl.clone();
+		newUrl.pathname = `/${localeParam}${pathname}`;
+		newUrl.searchParams.delete('locale');
+		const res = NextResponse.redirect(newUrl);
+		res.cookies.set('NEXT_LOCALE', localeParam, {
+			path: '/',
+			maxAge: 60 * 60 * 24 * 365,
+			sameSite: 'lax',
+		});
+		return res;
 	}
 
 	// Let next-intl middleware handle all routing (including locale detection)

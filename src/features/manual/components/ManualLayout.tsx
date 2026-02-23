@@ -259,6 +259,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const router = useTransitionRouter()
   const t = useTranslations('toast')
   const tReport = useTranslations('report')
+  const tHistory = useTranslations('historyPanel')
   const isMobile = useIsMobile()
 
   // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
@@ -308,6 +309,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [isAccountantMode, setIsAccountantMode] = useState(false)
   const [clientContextName, setClientContextName] = useState<string | undefined>(undefined)
   const [clientContextId, setClientContextId] = useState<string | undefined>(undefined)
+  const [accountantDisplayName, setAccountantDisplayName] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     // Detect accountant mode from client context store
@@ -316,7 +318,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (ctx.isActingAsClient && ctx.client) {
         setIsAccountantMode(true)
         setClientContextName(ctx.client.fullName || ctx.client.email || undefined)
-        setClientContextId(ctx.client.id)
+        // CRITICAL: Only use relationshipId (accountant_customers.id) for navigation.
+        // ctx.client.id is the Supabase Auth user UUID (owner_user_id) which is NOT
+        // a valid accountant_customers ID and would cause 404 on Mercury client detail pages.
+        setClientContextId(ctx.relationshipId ?? undefined)
+        // Use the accountant's own name for the toolbar identity display
+        if (ctx.accountant) {
+          setAccountantDisplayName(ctx.accountant.fullName || ctx.accountant.email || undefined)
+        }
       }
     }).catch(() => {
       // Non-critical
@@ -812,31 +821,37 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setLastSaved(new Date())
 
       // Step 6: Create version (M&A workflow)
+      // Titan creates V1 automatically during the calculate call.
+      // Venus only creates a NEW version when there was already a previous version
+      // BEFORE this calculation started AND the user made significant changes.
       if (reportId) {
         try {
-          if (previousVersion && changes && areChangesSignificant(changes)) {
-            const newVersion = await createVersion({
-              reportId,
-              formData: request,
-              valuationResult: calcResult,
-              htmlReport: calcResult.html_report || undefined,
-              infoTabHtml: calcResult.info_tab_html || undefined,
-              changesSummary: changes,
-              versionLabel: generateAutoLabel(previousVersion.versionNumber + 1, changes),
-            })
-            await snapshotNormalizationsToVersion(reportId, newVersion.id)
-          } else if (!previousVersion) {
-            const firstVersion = await createVersion({
-              reportId,
-              formData: request,
-              valuationResult: calcResult,
-              htmlReport: calcResult.html_report || undefined,
-              infoTabHtml: calcResult.info_tab_html || undefined,
-              changesSummary: { totalChanges: 0, significantChanges: [] },
-              versionLabel: 'v1 - Initial valuation',
-            })
-            await snapshotNormalizationsToVersion(reportId, firstVersion.id)
+          await useVersionHistoryStore.getState().fetchVersions(reportId)
+
+          if (previousVersion) {
+            // Re-calculation: a version existed BEFORE we called calculate.
+            // Titan created a new version server-side. Check if Venus should
+            // also snapshot (only if the changes are significant vs the pre-calc state).
+            const latestAfterSync = useVersionHistoryStore.getState().getLatestVersion(reportId)
+            const effectivePrevious = latestAfterSync ?? previousVersion
+
+            // Only create a Venus-side version when there are significant form-data changes
+            // relative to the version that existed BEFORE the calculation.
+            const effectiveChanges = detectVersionChanges(previousVersion.formData, request)
+            if (areChangesSignificant(effectiveChanges) && effectivePrevious.versionNumber === previousVersion.versionNumber) {
+              const newVersion = await createVersion({
+                reportId,
+                formData: request,
+                valuationResult: calcResult,
+                htmlReport: calcResult.html_report || undefined,
+                infoTabHtml: calcResult.info_tab_html || undefined,
+                changesSummary: effectiveChanges,
+                versionLabel: generateAutoLabel(effectivePrevious.versionNumber + 1, effectiveChanges),
+              })
+              await snapshotNormalizationsToVersion(reportId, newVersion.id)
+            }
           }
+          // else: first calculation — Titan already created V1, nothing to do
         } catch (versionError) {
           generalLogger.error('Failed to create version', {
             reportId,
@@ -1768,9 +1783,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onShowHistory={handleShowHistory}
           hasReport={!!report}
           rightPanelView={rightPanelView}
-          userName={user?.name || user?.email || t('guest')}
-          userInitials={getUserInitials(user)}
-          avatarUrl={user?.avatar_url || user?.avatar}
+          userName={isAccountantMode && accountantDisplayName ? accountantDisplayName : (user?.name || user?.email || t('guest'))}
+          userInitials={getUserInitials(isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user)}
+          avatarUrl={isAccountantMode ? null : (user?.avatar_url || user?.avatar)}
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
           onOpenNormalization={() => setShowUnifiedNormalizationModal(true)}
@@ -1779,6 +1794,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           isExporting={isExporting}
           recentValuations={recentValuations}
           onNewValuation={handleNewValuation}
+          isCalculating={isGenerating || isCalculating || isRestoringExistingReport}
           onSelectValuation={handleSelectValuation}
           onLogout={handleLogout}
           onAccountSettings={handleAccountSettings}
@@ -1841,9 +1857,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onShowHistory={handleShowHistory}
         hasReport={!!report}
         rightPanelView={rightPanelView}
-        userName={user?.name || user?.email || t('guest')}
-        userInitials={getUserInitials(user)}
-        avatarUrl={user?.avatar_url || user?.avatar}
+        userName={isAccountantMode && accountantDisplayName ? accountantDisplayName : (user?.name || user?.email || t('guest'))}
+        userInitials={getUserInitials(isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user)}
+        avatarUrl={isAccountantMode ? null : (user?.avatar_url || user?.avatar)}
         onOpenAssistant={handleOpenAssistant}
         isAssistantOpen={chatDrawerOpen}
         onOpenNormalization={() => setShowUnifiedNormalizationModal(true)}
@@ -1881,6 +1897,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }}
         recentValuations={recentValuations}
         onNewValuation={handleNewValuation}
+        isCalculating={isGenerating || isCalculating || isRestoringExistingReport}
         onSelectValuation={handleSelectValuation}
         onLogout={handleLogout}
         onAccountSettings={handleAccountSettings}
@@ -1931,7 +1948,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
           {/* Right Panel: Report / Preview / History */}
           <ResizablePanel defaultSize={65} minSize={40}>
-            <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
+            <div ref={reportPanelRef} className="h-full bg-card flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">
                   {rightPanelView === 'preview' ? (

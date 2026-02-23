@@ -7,6 +7,7 @@
  */
 
 import React from 'react'
+import { useTranslations } from 'next-intl'
 
 /**
  * Mobile Panel Switcher Props
@@ -27,6 +28,7 @@ interface MobilePanelSwitcherProps {
  */
 export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.memo(
   ({ activePanel, onPanelChange }) => {
+    const t = useTranslations('navigation.tabs')
     return (
       <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 bg-muted p-1 rounded-full shadow-lg z-50">
         <button
@@ -35,7 +37,7 @@ export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.mem
             activePanel === 'form' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          Form
+          {t('form')}
         </button>
         <button
           onClick={() => onPanelChange('preview')}
@@ -45,7 +47,7 @@ export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.mem
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          Preview
+          {t('preview')}
         </button>
       </div>
     )

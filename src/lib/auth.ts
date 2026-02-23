@@ -898,12 +898,16 @@ async function initializeAuth(): Promise<void> {
             initClientContextPromise()
             
             try {
+              const ctxAbort = new AbortController()
+              const ctxTimeout = setTimeout(() => ctxAbort.abort(), 8000)
               const response = await fetch(`${API_URL}/api/v2/auth/get-client-context`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({ clientId: clientIdParam }),
+                signal: ctxAbort.signal,
               })
+              clearTimeout(ctxTimeout)
               
               if (response.ok) {
                 const context = await response.json()
@@ -981,13 +985,16 @@ async function initializeAuth(): Promise<void> {
                       // Initialize deferred promise for client context
                       initClientContextPromise()
                       
-                      // Fetch client context using accountant_customer_id
+                      const ctxAbort2 = new AbortController()
+                      const ctxTimeout2 = setTimeout(() => ctxAbort2.abort(), 5000)
                       const contextResponse = await fetch(`${API_URL}/api/v2/auth/get-client-context`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
                         body: JSON.stringify({ clientId: accountantCustomerId }),
+                        signal: ctxAbort2.signal,
                       })
+                      clearTimeout(ctxTimeout2)
                       
                       if (contextResponse.ok) {
                         const context = await contextResponse.json()

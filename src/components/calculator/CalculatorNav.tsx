@@ -92,6 +92,8 @@ export interface CalculatorNavProps {
   recentValuations?: RecentValuation[];
   onSelectValuation?: (id: string) => void;
   onNewValuation?: () => void;
+  /** Hide "New Valuation" when calculation is in progress */
+  isCalculating?: boolean;
   // Chat Co-pilot drawer
   onOpenAssistant?: () => void;
   isAssistantOpen?: boolean;
@@ -217,6 +219,7 @@ export function CalculatorNav({
   recentValuations = [],
   onSelectValuation,
   onNewValuation,
+  isCalculating = false,
   onOpenAssistant,
   isAssistantOpen = false,
   onOpenNormalization,
@@ -316,12 +319,14 @@ export function CalculatorNav({
                 </div>
               )}
               <div className="h-px bg-foreground/[0.06] my-2" />
-              <button
-                onClick={onNewValuation}
-                className="w-full px-2 py-2 rounded-lg text-primary font-medium hover:bg-primary/10 transition-colors text-left"
-              >
-                + {t('valuation.new')}
-              </button>
+              {!isCalculating && (
+                <button
+                  onClick={onNewValuation}
+                  className="w-full px-2 py-2 rounded-lg text-primary font-medium hover:bg-primary/10 transition-colors text-left"
+                >
+                  + {t('valuation.new')}
+                </button>
+              )}
             </div>
           </Dropdown>
         </div>

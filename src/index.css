@@ -199,11 +199,24 @@
   }
 }
 
+/* Valuation Report (inline HTML from Python engine) — dark mode container */
+.valuation-report {
+  background-color: hsl(var(--card));
+  padding: 24px;
+  min-height: 100%;
+  overflow-y: auto;
+}
+
 /* Valuation Report Preview Styles (Google Docs / Print Preview Style) */
 .valuation-report-preview {
   background-color: #f3f4f6; /* Gray-100 background for the preview area */
   padding: 40px;
   min-height: 100%;
+}
+
+/* Dark mode: darken the preview area background */
+.dark .valuation-report-preview {
+  background-color: hsl(var(--card));
 }
 
 .valuation-report-preview .page {

@@ -343,9 +343,17 @@ export const useValuationFormSubmission = (
           setResult(result)
 
           // M&A Workflow: Create version for first calculation or regeneration
+          // FIX: Sync from backend first - Titan may have created V1 during calculate (avoids V1/V2 race)
           if (reportId) {
             try {
-              if (previousVersion && changes && areChangesSignificant(changes)) {
+              await fetchVersions(reportId)
+              const latestAfterSync = getLatestVersion(reportId)
+              const effectivePrevious = latestAfterSync ?? previousVersion
+              const effectiveChanges = effectivePrevious
+                ? detectVersionChanges(effectivePrevious.formData, request)
+                : null
+
+              if (effectivePrevious && effectiveChanges && areChangesSignificant(effectiveChanges)) {
                 // Regeneration - create new version with changes
                 const newVersion = await createVersion({
                   reportId,
@@ -353,8 +361,8 @@ export const useValuationFormSubmission = (
                   valuationResult: result,
                   htmlReport: result.html_report || undefined,
                   infoTabHtml: result.info_tab_html || undefined,
-                  changesSummary: changes,
-                  versionLabel: generateAutoLabel(previousVersion.versionNumber + 1, changes),
+                  changesSummary: effectiveChanges,
+                  versionLabel: generateAutoLabel(effectivePrevious.versionNumber + 1, effectiveChanges),
                 })
 
                 generalLogger.info('New version created on regeneration', {
@@ -370,13 +378,13 @@ export const useValuationFormSubmission = (
                 valuationAuditService.logRegeneration(
                   reportId,
                   newVersion.versionNumber,
-                  changes,
+                  effectiveChanges,
                   calculationDuration
                 )
 
                 // ✅ FIX: Don't refetch versions immediately - version is already in local state
                 // Versions will be synced when version history panel opens or on next mount
-              } else if (!previousVersion) {
+              } else if (!effectivePrevious) {
                 // First calculation - create initial version
                 const firstVersion = await createVersion({
                   reportId,

@@ -112,6 +112,7 @@
   },
   "navigation": {
     "tabs": {
+      "form": "Form",
       "preview": "Preview",
       "info": "Info",
       "source": "Source",
@@ -1006,7 +1007,8 @@
     "typeNormalization": "Normalization",
     "typeDataUpdate": "Data update",
     "typeMethodology": "Methodology",
-    "typeRevision": "Revision"
+    "typeRevision": "Revision",
+    "initialVersionLabel": "v1 - Initial valuation"
   },
   "chatAssistant": {
     "title": "Assistant",

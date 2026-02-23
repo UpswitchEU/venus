@@ -355,13 +355,16 @@ export function AuthGate({
                 const accountantCustomerId = report.accountant_customer_id
                 
                 if (accountantCustomerId) {
-                  // Fetch client context using accountant_customer_id
+                  const ctxAbort = new AbortController()
+                  const ctxTimeout = setTimeout(() => ctxAbort.abort(), 5000)
                   const contextResponse = await fetch(`${API_URL}/api/v2/auth/get-client-context`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify({ clientId: accountantCustomerId }),
+                    signal: ctxAbort.signal,
                   })
+                  clearTimeout(ctxTimeout)
                   
                   if (contextResponse.ok) {
                     const context = await contextResponse.json()

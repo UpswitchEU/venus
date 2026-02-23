@@ -112,15 +112,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   // Get user initials for placeholder
   const getUserInitials = () => {
-    // Show client initials when acting as client
-    if (isActingAsClient && client) {
-      const names = client.fullName.split(' ')
-      if (names.length >= 2) {
-        return `${names[0][0]}${names[1][0]}`.toUpperCase()
-      }
-      return client.fullName.substring(0, 2).toUpperCase()
-    }
-
+    // Always show accountant initials in toolbar
     if (!user?.name) return '?'
     const names = user.name.split(' ')
     if (names.length >= 2) {
@@ -132,7 +124,8 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   // Use client avatar when acting as client, otherwise use user avatar
   const avatarUrl = isActingAsClient && client ? client.avatarUrl : user?.avatar_url || user?.avatar
   const hasAvatar = !!avatarUrl
-  const displayName = isActingAsClient && client ? client.fullName : user?.name || user?.email
+  // Always show accountant identity in toolbar; client name belongs in breadcrumb/context bar
+  const displayName = user?.name || user?.email
 
   const handleUserClick = () => {
     setIsOpen((prev) => !prev)
@@ -174,7 +167,9 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       }
     }
 
+    const { relationshipId } = useClientContext.getState()
     const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+      clientContextId: relationshipId ?? undefined,
       locale,
       sourceApp: sourceApp ?? undefined,
     })
@@ -264,7 +259,9 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             generalLogger.warn('[UserDropdown] Failed to broadcast before return:', error)
           }
         }
+        const { relationshipId: relId } = useClientContext.getState()
         const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+          clientContextId: relId ?? undefined,
           locale,
           sourceApp: sourceApp ?? undefined,
         })
@@ -346,7 +343,9 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           generalLogger.info('[UserDropdown] Return URL found, redirecting to Mercury', {
             returnUrl,
           })
+          const { relationshipId: relId2 } = useClientContext.getState()
           const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+            clientContextId: relId2 ?? undefined,
             locale,
             sourceApp: sourceApp ?? undefined,
           })
@@ -380,7 +379,9 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
 
         if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
+          const { relationshipId: relId3 } = useClientContext.getState()
           const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+            clientContextId: relId3 ?? undefined,
             locale,
             sourceApp: sourceApp ?? undefined,
           })

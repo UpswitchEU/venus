@@ -22,7 +22,7 @@ import { generalLogger } from '@/utils/logger'
 export function ClientContextBanner() {
   const [mounted, setMounted] = useState(false)
   const { isAuthenticated } = useAuth()
-  const { isActingAsClient, client, clearClientContext } = useClientContext()
+  const { isActingAsClient, client, clearClientContext, relationshipId } = useClientContext()
   const { isEmbedded, closeEmbedded } = useEmbeddedMode()
   const locale = useLocale()
   const t = useTranslations() // ✅ Venus pattern: NO namespace
@@ -114,7 +114,7 @@ export function ClientContextBanner() {
 
       const validLocale = locale && ['en', 'nl', 'fr', 'de'].includes(locale) ? locale : 'en'
       const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
-        clientContextId: client?.id,
+        clientContextId: relationshipId ?? client?.id,
         locale: validLocale,
         sourceApp: sourceApp ?? undefined,
       })

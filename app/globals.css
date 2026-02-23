@@ -311,6 +311,40 @@
   color: hsl(var(--report-text));
 }
 
+/* Dark mode: report panels use dark theme tokens (app uses .dark on html) */
+.dark .valuation-report-preview,
+.dark .valuation-report {
+  --report-bg: 224 18% 8%;
+  --report-surface: 224 16% 12%;
+  --report-text: 224 12% 96%;
+  --report-text-muted: 224 10% 70%;
+  --report-slate-900: 224 12% 96%;
+  --report-slate-800: 224 10% 88%;
+  --report-slate-700: 224 10% 75%;
+  --report-slate-600: 224 10% 65%;
+  --report-slate-500: 224 8% 55%;
+  --report-slate-400: 224 8% 45%;
+  --report-slate-300: 224 8% 35%;
+  --report-slate-200: 224 10% 24%;
+  --report-slate-100: 224 12% 16%;
+  --report-slate-50: 224 14% 12%;
+  --text-dark: hsl(224 12% 96%);
+  --text-body: hsl(224 10% 80%);
+  --text-muted: hsl(224 10% 70%);
+  --bg-subtle: hsl(224 16% 12%);
+  --border-light: hsl(224 16% 24%);
+}
+
+.dark .valuation-report-preview .cover-sheet,
+.dark .valuation-report-preview .table-card {
+  background: hsl(var(--report-surface));
+  border-color: hsl(var(--report-slate-200));
+}
+
+.dark .valuation-report-preview .table-card {
+  box-shadow: 0 1px 2px hsl(0 0% 0% / 0.2);
+}
+
 /* Reset internal elements */
 .valuation-report-preview .page * {
   margin: 0;

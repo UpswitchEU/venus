@@ -112,6 +112,7 @@
   },
   "navigation": {
     "tabs": {
+      "form": "Formulier",
       "preview": "Voorbeeld",
       "info": "Info",
       "source": "Bron",
@@ -1005,7 +1006,8 @@
     "typeNormalization": "Normalisatie",
     "typeDataUpdate": "Data update",
     "typeMethodology": "Methodologie",
-    "typeRevision": "Revisie"
+    "typeRevision": "Revisie",
+    "initialVersionLabel": "v1 - Initiële waardering"
   },
   "chatAssistant": {
     "title": "Assistent",

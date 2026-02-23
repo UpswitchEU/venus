@@ -172,7 +172,7 @@ export function FullscreenReportModal({
 
         {/* Report Content */}
         <div
-          className="flex-1 min-h-0 overflow-y-auto pt-2"
+          className="flex-1 min-h-0 overflow-y-auto pt-2 bg-card"
           style={{
             transform: `scale(${zoom / 100})`,
             transformOrigin: 'top center',
