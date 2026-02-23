@@ -1,5 +1,6 @@
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { generalLogger } from '../utils/logger'
 
 export const EMBEDDED_STORAGE_KEY = 'upswitch_venus_embedded'
 
@@ -41,7 +42,7 @@ export function useEmbeddedMode() {
         sessionStorage.setItem(EMBEDDED_STORAGE_KEY, 'true')
         setIsEmbedded(true)
       } catch (error) {
-        console.warn('[useEmbeddedMode] Failed to persist embedded state:', error)
+        generalLogger.warn('[useEmbeddedMode] Failed to persist embedded state', { error })
         setIsEmbedded(true) // Still set state even if storage fails
       }
     } else {
@@ -50,7 +51,7 @@ export function useEmbeddedMode() {
         const persistedEmbedded = sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true'
         setIsEmbedded(persistedEmbedded)
       } catch (error) {
-        console.warn('[useEmbeddedMode] Failed to read persisted embedded state:', error)
+        generalLogger.warn('[useEmbeddedMode] Failed to read persisted embedded state', { error })
         setIsEmbedded(false)
       }
     }
@@ -65,7 +66,7 @@ export function useEmbeddedMode() {
       const inIframe = window.self !== window.top
       if (inIframe && !isEmbedded) {
         // We're in an iframe but didn't detect embedded mode - set it
-        console.log('[useEmbeddedMode] Detected iframe context, enabling embedded mode')
+        generalLogger.debug('[useEmbeddedMode] Detected iframe context, enabling embedded mode')
         sessionStorage.setItem(EMBEDDED_STORAGE_KEY, 'true')
         setIsEmbedded(true)
       }
@@ -73,7 +74,7 @@ export function useEmbeddedMode() {
       // Can't access window.top due to same-origin policy = we're in cross-origin iframe
       // This is expected when Venus is embedded in Mercury
       if (!isEmbedded) {
-        console.log('[useEmbeddedMode] Cross-origin iframe detected, enabling embedded mode')
+        generalLogger.debug('[useEmbeddedMode] Cross-origin iframe detected, enabling embedded mode')
         try {
           sessionStorage.setItem(EMBEDDED_STORAGE_KEY, 'true')
         } catch (storageError) {
@@ -104,7 +105,7 @@ export function useEmbeddedMode() {
     try {
       sessionStorage.removeItem(EMBEDDED_STORAGE_KEY)
     } catch (error) {
-      console.warn('[useEmbeddedMode] Failed to clear embedded state:', error)
+      generalLogger.warn('[useEmbeddedMode] Failed to clear embedded state', { error })
     }
 
     // Send close message to parent (always try, even if we're not sure we're embedded)
@@ -117,9 +118,9 @@ export function useEmbeddedMode() {
         },
         '*'
       )
-      console.log('[useEmbeddedMode] Sent venus-close message to parent')
+      generalLogger.debug('[useEmbeddedMode] Sent venus-close message to parent')
     } catch (error) {
-      console.warn('[useEmbeddedMode] Failed to send venus-close message:', error)
+      generalLogger.warn('[useEmbeddedMode] Failed to send venus-close message', { error })
     }
   }
 
@@ -137,7 +138,7 @@ export function useEmbeddedMode() {
         '*'
       )
     } catch (error) {
-      console.warn('[useEmbeddedMode] Failed to send valuation complete message:', error)
+      generalLogger.warn('[useEmbeddedMode] Failed to send valuation complete message', { error })
     }
   }
 

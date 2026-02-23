@@ -413,7 +413,7 @@ export function ValuationReportPanel({
                   className="gap-2"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  {t('report.regenerate') || 'Analyse opnieuw genereren'}
+                  {t('report.regenerate')}
                 </AuroraButton>
               )}
               {onContinue && (
@@ -423,7 +423,7 @@ export function ValuationReportPanel({
                   onClick={onContinue}
                   className="gap-2"
                 >
-                  {t('common.continue') || 'Doorgaan'}
+                  {t('common.continue')}
                   <ArrowRight className="w-4 h-4" />
                 </AuroraButton>
               )}
@@ -460,18 +460,15 @@ function PlaceholderPreview() {
           <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
         </div>
         <h3 className="mt-4 text-lg font-semibold text-foreground">
-          {t('report.placeholder.title') || 'Uw rapport verschijnt hier'}
+          {t('report.placeholder.title')}
         </h3>
         <p className="mt-2 text-sm text-foreground/50 max-w-sm mx-auto leading-relaxed">
-          {t('report.placeholder.description') || 
-            `Vul links de bedrijfsgegevens in. Zodra u klaar bent, genereert het systeem
-            automatisch een verdedigbaar schattingsrapport met audit trail.`
-          }
+          {t('report.placeholder.description')}
         </p>
         <div className="mt-6 flex items-center justify-center gap-3 text-xs text-foreground/40">
           <span className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-primary/40" />
-            {t('report.placeholder.time') || '±15 min gemiddelde doorlooptijd'}
+            {t('report.placeholder.time')}
           </span>
         </div>
       </motion.div>
@@ -522,18 +519,18 @@ function GeneratingState() {
         </div>
 
         <h3 className="text-xl font-bold text-foreground mb-2 tracking-tight">
-          {t('report.generating.title') || 'Rapport genereren'}
+          {t('report.generating.title')}
         </h3>
         <p className="text-sm text-foreground/50 max-w-xs mx-auto mb-6">
-          {t('report.generating.description') || 'Financiële gegevens analyseren en schattingsmetrics berekenen...'}
+          {t('report.generating.description')}
         </p>
 
         {/* Progress steps */}
         <div className="flex flex-col items-start text-left max-w-[200px] mx-auto space-y-2">
-          <ProgressStep label={t('report.generating.step1') || 'Documenten verwerken'} status="complete" />
-          <ProgressStep label={t('report.generating.step2') || 'EBITDA berekenen'} status="active" />
-          <ProgressStep label={t('report.generating.step3') || 'Multiples toepassen'} status="pending" />
-          <ProgressStep label={t('report.generating.step4') || 'Rapport genereren'} status="pending" />
+          <ProgressStep label={t('report.generating.step1')} status="complete" />
+          <ProgressStep label={t('report.generating.step2')} status="active" />
+          <ProgressStep label={t('report.generating.step3')} status="pending" />
+          <ProgressStep label={t('report.generating.step4')} status="pending" />
         </div>
       </motion.div>
     </div>

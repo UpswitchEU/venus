@@ -791,7 +791,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         toast.error(t('calculationFailed'), {
           description: t('calculationFailedNoResult'),
           action: {
-            label: t('retry') || 'Retry',
+            label: t('retry'),
             onClick: () => {
               if (lastSubmittedDataRef.current) {
                 handleManualSubmit(lastSubmittedDataRef.current)
@@ -877,7 +877,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       toast.error(t('calculationFailed'), {
         description: message,
         action: {
-          label: t('retry') || 'Retry',
+          label: t('retry'),
           onClick: () => {
             if (lastSubmittedDataRef.current) {
               handleManualSubmit(lastSubmittedDataRef.current)

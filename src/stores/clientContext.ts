@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CLIENT_CONTEXT_HEADERS } from '../constants/headers'
+import { generalLogger } from '../utils/logger'
 import { getApiUrl } from '../utils/getMercuryUrl'
 
 interface ClientContextResponseDto {
@@ -57,7 +58,7 @@ export const useClientContext = create<ClientContextState>()(
       setClientContext: (context) => {
         // Validate context structure before setting
         if (!context.accountantUser?.id || !context.clientUser?.id || !context.relationship?.id) {
-          console.warn('[ClientContext] Invalid context structure, clearing')
+          generalLogger.warn('[ClientContext] Invalid context structure, clearing')
           get().clearClientContext()
           return
         }
@@ -100,14 +101,14 @@ export const useClientContext = create<ClientContextState>()(
 
         // Check if context is expired (older than TTL)
         if (state.lastValidatedAt && Date.now() - state.lastValidatedAt > CONTEXT_VALIDITY_TTL) {
-          console.warn('[ClientContext] Context expired, clearing')
+          generalLogger.warn('[ClientContext] Context expired, clearing')
           get().clearClientContext()
           return false
         }
 
         // Validate context structure
         if (!state.accountant?.id || !state.client?.id || !state.relationshipId) {
-          console.warn('[ClientContext] Invalid context structure, clearing', {
+          generalLogger.warn('[ClientContext] Invalid context structure, clearing', {
             hasAccountant: !!state.accountant?.id,
             hasClient: !!state.client?.id,
             hasRelationshipId: !!state.relationshipId,
@@ -130,7 +131,7 @@ export const useClientContext = create<ClientContextState>()(
           set({ lastValidatedAt: Date.now() })
           return true
         } catch (error) {
-          console.warn('[ClientContext] Validation failed, clearing context', error)
+          generalLogger.warn('[ClientContext] Validation failed, clearing context', { error })
           get().clearClientContext()
           return false
         }
@@ -142,7 +143,7 @@ export const useClientContext = create<ClientContextState>()(
 
         // Validate before returning headers
         if (!state.client?.id || !state.accountant?.id || !state.relationshipId) {
-          console.warn('[ClientContext] Invalid context for headers, clearing')
+          generalLogger.warn('[ClientContext] Invalid context for headers, clearing')
           get().clearClientContext()
           return {} as Record<string, string>
         }
