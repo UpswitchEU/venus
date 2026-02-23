@@ -663,18 +663,22 @@ async function initializeAuth(): Promise<void> {
       const sourceApp = params.get('source')
 
       if (returnUrl) {
-        // Store in sessionStorage for later use when user wants to return
+        // Store in sessionStorage for later use when user wants to return (always overwrite stale values)
         sessionStorage.setItem('upswitch_return_url', returnUrl)
         if (sourceApp) {
           sessionStorage.setItem('upswitch_source', sourceApp)
         }
-        // Silent - only log in development
         if (process.env.NODE_ENV === 'development') {
           generalLogger.debug('[Auth] Return URL captured', {
             returnUrl,
             source: sourceApp,
           })
         }
+      } else {
+        // No return_url in URL params: clear any stale value from previous sessions to prevent
+        // navigating to a legacy route when clicking "Continue"
+        sessionStorage.removeItem('upswitch_return_url')
+        sessionStorage.removeItem('upswitch_source')
       }
 
       if (clientToken) {

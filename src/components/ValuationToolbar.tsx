@@ -292,14 +292,19 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     
     let targetUrl: string
     
-    if (returnUrl) {
+    // Detect legacy/invalid route patterns that no longer exist in Mercury
+    const LEGACY_ROUTE_PATTERNS = ['_listings', 'accountant_listings', 'seller_listings']
+    const isLegacyRoute = (url: string) =>
+      LEGACY_ROUTE_PATTERNS.some((pattern) => url.includes(pattern))
+
+    if (returnUrl && !isLegacyRoute(returnUrl)) {
       if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
         // Already a full URL - use as-is if it's from upswitch.app domain
         const url = new URL(returnUrl)
-        if (url.origin.includes('upswitch.app')) {
+        if (url.origin.includes('upswitch.app') && !isLegacyRoute(url.pathname)) {
           targetUrl = returnUrl
         } else {
-          // Different domain - fall back to dashboard
+          // Different domain or legacy path - fall back to dashboard
           const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
           targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
         }

@@ -248,14 +248,26 @@ export class BusinessDataTransformationService {
 
     if (range.includes('1-5')) {
       return 3 // Mid-point of 1-5
+    } else if (range.includes('6-10')) {
+      return 8 // Mid-point of 6-10
+    } else if (range.includes('11-25')) {
+      return 18 // Mid-point of 11-25
     } else if (range.includes('6-20')) {
-      return 13 // Mid-point of 6-20
+      return 13 // Mid-point of 6-20 (legacy range)
     } else if (range.includes('21-50')) {
       return 35 // Mid-point of 21-50
     } else if (range.includes('51-100')) {
       return 75 // Mid-point of 51-100
     } else if (range.includes('100+')) {
       return 150 // Representative value for 100+
+    }
+
+    // Fallback: parse min-max pattern and compute midpoint
+    const match = range.match(/(\d+)-(\d+)/)
+    if (match) {
+      const min = parseInt(match[1])
+      const max = parseInt(match[2])
+      return Math.floor((min + max) / 2)
     }
 
     return null

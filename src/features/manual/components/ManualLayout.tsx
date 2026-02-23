@@ -670,7 +670,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const infoTabHtml = r.info_tab_html ?? r.details?.info_tab_html
 
       setReport({
-        id: r.valuation_id ?? r.id ?? 'draft',
+        id: reportId || r.valuation_id || r.id || 'draft',
         companyName: r.company_name ?? r.business_name ?? 'Bedrijfsschatting',
         valuation: equityMid,
         valuationLow: equityLow || undefined,
@@ -701,7 +701,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
 
       if (reportId && htmlReport) {
-        generatePdf?.().catch(() => {})
+        generatePdf?.().catch((err) => {
+          generalLogger.warn('[ManualLayout] Background PDF generation failed', { error: err instanceof Error ? err.message : String(err) })
+        })
       }
     }
   }, [result, onComplete, reportId, generatePdf, isMobile])
@@ -833,6 +835,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             reportId,
             error: versionError instanceof Error ? versionError.message : String(versionError),
           })
+        } finally {
+          // Always re-sync version history from backend after calculation so panels show latest
+          setTimeout(() => {
+            useVersionHistoryStore.getState().fetchVersions(reportId).catch((err) => {
+              generalLogger.warn('[ManualLayout] Version history sync failed', { error: err instanceof Error ? err.message : String(err) })
+            })
+          }, 1500)
         }
       }
 
@@ -1185,56 +1194,85 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     conversationStore.setConversationId(null)
   }, [conversationStore])
 
-  // ─── Export Handler (server-side primary, client-side fallback) ───
+  // ─── Export Handler (DOM capture primary, server-side secondary) ───
   const handleExport = useCallback(async () => {
     if (!report) return
     setIsExporting(true)
 
-    let serverPdfSucceeded = false
-
     try {
-      // Path 1: Server-side PDF via Titan API (primary)
-      try {
-        if (isPdfReady) {
-          await downloadPdf()
-          serverPdfSucceeded = true
-        } else if (reportId) {
-          toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
-          await generatePdf()
-          toast.dismiss('pdf-gen')
-          if (isPdfReady) {
-            await downloadPdf()
-            serverPdfSucceeded = true
-          }
+      const filename = `${report.companyName?.replace(/\s+/g, '-') || 'Rapport'}-Waardering.pdf`
+      let succeeded = false
+
+      // Path 1: Capture the rendered report panel directly from the DOM
+      if (reportPanelRef.current) {
+        try {
+          const html2pdfModule = await import('html2pdf.js')
+          const html2pdf = html2pdfModule.default
+
+          await html2pdf()
+            .set({
+              margin: [10, 10, 10, 10],
+              filename,
+              image: { type: 'jpeg', quality: 0.95 },
+              html2canvas: {
+                scale: 2,
+                useCORS: true,
+                letterRendering: true,
+                scrollY: 0,
+                windowWidth: reportPanelRef.current.scrollWidth,
+              },
+              jsPDF: {
+                unit: 'mm',
+                format: 'a4',
+                orientation: 'portrait' as const,
+              },
+            })
+            .from(reportPanelRef.current)
+            .save()
+
+          succeeded = true
+        } catch (domError) {
+          generalLogger.warn('[ManualLayout] DOM PDF capture failed', {
+            error: domError instanceof Error ? domError.message : String(domError),
+          })
         }
-      } catch (serverError) {
-        toast.dismiss('pdf-gen')
-        generalLogger.warn('[ManualLayout] Server PDF failed, falling back to client-side', {
-          error: serverError instanceof Error ? serverError.message : String(serverError),
-        })
       }
 
-      // Path 2: Client-side PDF fallback (server unavailable or failed)
-      if (!serverPdfSucceeded) {
-        toast.info(t('pdfServerUnavailable'))
-        const htmlContent = result?.html_report || ''
+      // Path 2: Server-side PDF via Titan API
+      if (!succeeded) {
+        try {
+          if (isPdfReady) {
+            await downloadPdf()
+            succeeded = true
+          } else if (reportId) {
+            toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
+            await generatePdf()
+            toast.dismiss('pdf-gen')
+          }
+        } catch (serverError) {
+          toast.dismiss('pdf-gen')
+          generalLogger.warn('[ManualLayout] Server PDF failed', {
+            error: serverError instanceof Error ? serverError.message : String(serverError),
+          })
+        }
+      }
+
+      // Path 3: Generic template fallback
+      if (!succeeded) {
         await DownloadService.downloadPDF(
           {
             companyName: report.companyName,
             valuationAmount: report.valuation,
-            htmlContent,
+            htmlContent: result?.html_report || '',
           },
-          {
-            format: 'pdf',
-            filename: `${report.companyName?.replace(/\s+/g, '-') || 'Rapport'}-Waardering.pdf`,
-          }
+          { format: 'pdf', filename }
         )
       }
 
       setDownloadHistory((prev) => [
         {
           id: crypto.randomUUID(),
-          fileName: `${report.companyName?.replace(/\s+/g, '-') || 'Rapport'}-Waardering.pdf`,
+          fileName: filename,
           timestamp: new Date(),
           size: 'PDF',
         },
@@ -1249,7 +1287,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsExporting(false)
     }
-  }, [report, reportId, result, isPdfReady, isPdfGenerating, downloadPdf, generatePdf])
+  }, [report, reportId, result, isPdfReady, downloadPdf, generatePdf])
 
   // ─── Navigation Handlers ───
   const handleBack = useCallback(() => {
@@ -1261,7 +1299,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       import('../../../stores/clientContext').then(({ useClientContext }) => {
         const ctx = useClientContext.getState()
         ctx.clearClientContext()
-      }).catch(() => {})
+      }).catch((err) => {
+        generalLogger.warn('[ManualLayout] Client context cleanup failed', { error: err instanceof Error ? err.message : String(err) })
+      })
 
       // Try to close embedded mode (sends postMessage to parent)
       try {
@@ -1322,8 +1362,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }))
         )
       })
-      .catch(() => {
-        // Non-blocking: recent valuations are nice-to-have
+      .catch((err) => {
+        generalLogger.warn('[ManualLayout] Failed to load recent valuations', { error: err instanceof Error ? err.message : String(err) })
       })
   }, [])
 
@@ -1496,7 +1536,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           api.restoreVersion(reportId, versionNumber).catch(() => {
             generalLogger.warn('[ManualLayout] Backend restore notification failed (non-blocking)')
           })
-        }).catch(() => {})
+        }).catch((err) => {
+          generalLogger.warn('[ManualLayout] VersionAPI import failed', { error: err instanceof Error ? err.message : String(err) })
+        })
       }
 
       // 2. Hydrate form with version's form data (ValuationVersion.formData)
@@ -1760,7 +1802,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               const mercuryUrl = getMercuryUrl()
               window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
             } : undefined}
-            clientApprovalStatus="pending"
+            clientApprovalStatus="none"
             onResendApproval={() => toast.info(t('reminderSent'))}
             pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending').length}
             onShowNormalisationReview={handleShowNormalisationReview}
@@ -1830,7 +1872,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onSelectVersion={handleSelectVersion}
         onContinueToListing={() => {
           const mercuryBaseUrl = getMercuryUrl()
-          window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/listings`
+          const returnPath = clientContextId
+            ? `${mercuryBaseUrl}/${currentLocale}/accountant/clients/${clientContextId}?from=venus`
+            : `${mercuryBaseUrl}/${currentLocale}/accountant/clients`
+          window.location.href = returnPath
         }}
         recentValuations={recentValuations}
         onNewValuation={handleNewValuation}
@@ -1859,7 +1904,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             const mercuryUrl = getMercuryUrl()
             window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
           } : undefined}
-          clientApprovalStatus="pending"
+          clientApprovalStatus="none"
           onResendApproval={() => toast.info(t('reminderSent'))}
           pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending').length}
           onShowNormalisationReview={handleShowNormalisationReview}
@@ -1884,7 +1929,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
           {/* Right Panel: Report / Preview / History */}
           <ResizablePanel defaultSize={65} minSize={40}>
-            <div ref={reportPanelRef} className="h-full bg-white flex flex-col">
+            <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">
                   {rightPanelView === 'preview' ? (

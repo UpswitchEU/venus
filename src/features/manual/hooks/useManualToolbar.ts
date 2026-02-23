@@ -119,7 +119,6 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
           valuationId: currentResult.valuation_id,
         })
       }
-      // TODO: Show user-friendly error message with retry option
     } finally {
       setIsDownloading(false)
     }

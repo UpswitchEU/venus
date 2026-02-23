@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { Toaster } from 'sonner'
+import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { LogoutListener } from '../src/components/LogoutListener'
 import { ScrollToTop } from '../src/utils'
 import { ToastProvider } from '../src/hooks/useToast'
@@ -46,9 +47,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ToastProvider>
-      <LogoutListener />
-      <ScrollToTop />
-      {children}
+      <ErrorBoundary>
+        <>
+          <LogoutListener />
+          <ScrollToTop />
+          {children}
+        </>
+      </ErrorBoundary>
       <Toaster
         position="bottom-right"
         theme="dark"
