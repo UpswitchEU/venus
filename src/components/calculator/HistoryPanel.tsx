@@ -305,9 +305,25 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
   }, [reportId, fetchVersions])
 
   // Map store versions to HistoryVersion format for display
-  // No mock fallback — show real data or empty state
+  // When no backend versions exist but a report is available, synthesize a "Current" entry
   const historyVersions: HistoryVersion[] = useMemo(() => {
-    if (storeVersions.length === 0) return []
+    if (storeVersions.length === 0) {
+      if (!report) return []
+      return [{
+        id: 'current',
+        version: 1,
+        timestamp: new Date(),
+        author: hp('user'),
+        authorInitials: 'V1',
+        type: 'initial' as const,
+        summary: hp('versionN', { number: 1 }),
+        changes: [],
+        valuation: report.valuation,
+        ebitda: report.ebitda,
+        multiple: report.multiple,
+        isCurrent: true,
+      }]
+    }
 
     return storeVersions
       .sort((a, b) => (b.versionNumber || 0) - (a.versionNumber || 0))
@@ -327,7 +343,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
         multiple: (v as any).valuationResult?.ebitda_multiple || (v as any).valuationResult?.revenue_multiple,
         isCurrent: v.versionNumber === activeVersionNumber || v.isActive,
       }))
-  }, [storeVersions, activeVersionNumber, hp])
+  }, [storeVersions, activeVersionNumber, hp, report])
 
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set()); // Current version expanded by default
   const [restoringVersion, setRestoringVersion] = useState<string | null>(null);

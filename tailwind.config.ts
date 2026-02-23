@@ -152,18 +152,18 @@ const config: Config = {
           900: '#582320',
         },
         moss: {
-          DEFAULT: '#6B8E72', // Moss - Success/Valid
-          tint: '#E9F0EB', // Moss Tint - Success backgrounds
-          50: '#E9F0EB',
-          100: '#D3E1D7',
-          200: '#A7C3AF',
-          300: '#7BA587',
-          400: '#6B8E72',
-          500: '#6B8E72',
-          600: '#5A7A5F',
-          700: '#49664C',
-          800: '#385239',
-          900: '#273E26',
+          DEFAULT: '#22C55E', // Aurora Green - Success/Valid
+          tint: '#F0FDF4', // Aurora Green Tint - Success backgrounds
+          50: '#F0FDF4',
+          100: '#DCFCE7',
+          200: '#BBF7D0',
+          300: '#86EFAC',
+          400: '#4ADE80',
+          500: '#22C55E',
+          600: '#16A34A',
+          700: '#15803D',
+          800: '#166534',
+          900: '#14532D',
         },
         harvest: {
           DEFAULT: '#D9A558', // Harvest - Warning/Pending
@@ -201,10 +201,10 @@ const config: Config = {
         },
         // Legacy aliases for backward compatibility (using new colors)
         success: {
-          DEFAULT: '#6B8E72', // Moss
-          50: '#E9F0EB', // Moss Tint
-          500: '#6B8E72',
-          600: '#5A7A5F',
+          DEFAULT: '#22C55E', // Aurora Green
+          50: '#F0FDF4', // Aurora Green Tint
+          500: '#22C55E',
+          600: '#16A34A',
         },
         warning: {
           DEFAULT: '#D9A558', // Harvest

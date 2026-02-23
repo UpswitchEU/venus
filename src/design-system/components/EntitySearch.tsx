@@ -84,7 +84,7 @@ const searchGroupVariants = cva(
       state: {
         default: "border-foreground/[0.10] hover:border-foreground/[0.20]",
         focus: "border-primary ring-2 ring-primary/20 ring-offset-0",
-        success: "border-success ring-2 ring-success/20",
+        success: "border-primary ring-2 ring-primary/20",
         error: "border-destructive",
         disabled: "border-foreground/[0.05] opacity-60 cursor-not-allowed",
       },
@@ -135,7 +135,7 @@ const floatingLabelVariants = cva(
       state: {
         default: "text-foreground/50",
         focus: "text-primary",
-        success: "text-success",
+        success: "text-primary",
         error: "text-destructive",
         disabled: "text-foreground/30",
       },
@@ -481,7 +481,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           {/* Search Icon */}
           <div className={cn(
             "absolute left-3 top-1/2 -translate-y-1/2 z-10",
-            state === "success" ? "text-success" : isFocused ? "text-primary" : "text-foreground/50"
+            state === "success" ? "text-primary" : isFocused ? "text-primary" : "text-foreground/50"
           )}>
             {selectedCompany ? (
               <Check className="w-5 h-5" />
@@ -679,11 +679,11 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="mt-3 p-3 rounded-xl bg-success/5 border border-success/20"
+              className="mt-3 p-3 rounded-xl bg-primary/5 border border-primary/20"
             >
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
-                  <Check className="w-4 h-4 text-success" />
+                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Check className="w-4 h-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

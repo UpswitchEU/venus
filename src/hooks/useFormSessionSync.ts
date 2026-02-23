@@ -175,7 +175,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           // Only update if name hasn't been manually edited (matches auto-generated pattern or is default)
           const shouldUpdateName =
             !currentName || // No name yet
-            currentName === 'Valuation test123' || // Still using default
+            currentName === '__new_valuation__' || // Still using default
             currentName.includes('Valuation Report') || // Using default pattern
             currentName === newName || // Already matches
             (currentName.endsWith('business valuation') && newName !== currentName) // Ends with pattern but different company

@@ -495,6 +495,8 @@
     "normalizedEbitda": "Genormaliseerde EBITDA",
     "appliedMultiple": "Toegepaste multiple",
     "indicativeRange": "Indicatief bereik",
+    "suggestedListingPrice": "Voorgestelde vraagprijs",
+    "negotiationBuffer": "Strategische buffer voor onderhandeling",
     "methodology": "Methodologie",
     "methodologyText": "De waardering is gebaseerd op een EBITDA-multiplier methode, waarbij de genormaliseerde EBITDA wordt vermenigvuldigd met een branche-specifieke multiple.",
     "fullReport": "Volledig rapport",

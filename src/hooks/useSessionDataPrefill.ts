@@ -127,26 +127,7 @@ export function useSessionDataPrefill() {
       mergedData.founded_year
     )
 
-    // ✅ DEBUG: Log what we found in sessionData
-    generalLogger.debug('[useSessionDataPrefill] Checking sessionData for business card fields', {
-      hasBusinessCardData,
-      hasTopLevelCompanyName: !!topLevelData.company_name,
-      topLevelCompanyName: topLevelData.company_name,
-      hasBusinessInfoCompanyName: !!businessInfo.company_name,
-      businessInfoCompanyName: businessInfo.company_name,
-      mergedDataCompanyName: mergedData.company_name,
-      mergedDataBusinessTypeId: mergedData.business_type_id,
-      sessionDataKeys: Object.keys(sessionData).slice(0, 10),
-      topLevelKeys: Object.keys(topLevelData).filter(k => !k.startsWith('_')).slice(0, 10),
-      businessInfoKeys: Object.keys(businessInfo).slice(0, 10),
-    })
-
     if (!hasBusinessCardData) {
-      generalLogger.debug('[useSessionDataPrefill] No business card data in sessionData', {
-        hasTopLevel: !!topLevelData.company_name,
-        hasBusinessInfo: !!businessInfo.company_name,
-        keys: Object.keys(sessionData),
-      })
       return
     }
 

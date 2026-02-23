@@ -9,6 +9,7 @@
 
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useSessionStore } from '../store/useSessionStore';
+import { generalLogger } from '../utils/logger';
 
 export type PdfStatus = 'none' | 'generating' | 'ready' | 'error';
 
@@ -142,7 +143,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             error: null,
             progress: 100,
           });
-          console.log('[PDF] PDF ready after polling', {
+          generalLogger.info('[PDF] PDF ready after polling', {
             reportId: reportId.substring(0, 20),
             pollCount,
           });
@@ -164,7 +165,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         }
       } catch (error) {
         // Don't fail on polling errors - keep trying
-        console.warn('[PDF] Polling error:', error);
+        generalLogger.warn('[PDF] Polling error', { error });
       }
     }, 5000);
   }, [reportId]);
@@ -308,7 +309,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         }
       } catch (error) {
         // Don't fail on polling errors - keep trying
-        console.warn('[PDF] Polling error:', error);
+        generalLogger.warn('[PDF] Polling error', { error });
       }
     }, 5000);
   }, []);
@@ -347,7 +348,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('[PDF] Download error:', error);
+      generalLogger.error('[PDF] Download error', { error });
       setState((prev) => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Download failed',

@@ -13,6 +13,8 @@ import { useSessionStore } from '../../store/useSessionStore'
 import { generalLogger } from '../../utils/logger'
 import { NameGenerator } from '../../utils/nameGenerator'
 
+const DEFAULT_PLACEHOLDER_NAME = '__new_valuation__'
+
 export interface UseValuationToolbarNameReturn {
   isEditingName: boolean
   editedName: string
@@ -37,7 +39,7 @@ export interface UseValuationToolbarNameOptions {
 export const useValuationToolbarName = (
   options: UseValuationToolbarNameOptions = {}
 ): UseValuationToolbarNameReturn => {
-  const { initialName = 'Valuation test123', companyName, reportId } = options
+  const { initialName = DEFAULT_PLACEHOLDER_NAME, companyName, reportId } = options
 
   // ROOT CAUSE FIX: Only subscribe to reportId, not entire session object
   const sessionReportId = useSessionStore((state) => state.session?.reportId)
@@ -56,7 +58,7 @@ export const useValuationToolbarName = (
     if (sessionName) {
       return sessionName
     }
-    if (initialName && initialName !== 'Valuation test123') {
+    if (initialName && initialName !== DEFAULT_PLACEHOLDER_NAME) {
       return initialName
     }
     if (companyName) {

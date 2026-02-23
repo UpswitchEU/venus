@@ -49,7 +49,7 @@ const inputGroupVariants = cva(
         default: 'border-foreground/[0.10] hover:border-foreground/[0.20]',
         focus: 'border-primary ring-2 ring-primary/20 ring-offset-0',
         error: 'border-destructive',
-        success: 'border-success',
+        success: 'border-primary',
         disabled: 'border-foreground/[0.05] opacity-60 cursor-not-allowed',
       },
       size: {
@@ -115,7 +115,7 @@ const floatingLabelVariants = cva(
         default: 'text-foreground/50',
         focus: 'text-primary',
         error: 'text-destructive',
-        success: 'text-success',
+        success: 'text-primary',
         disabled: 'text-foreground/30',
       },
       floated: {
@@ -332,7 +332,7 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
                 'text-foreground/50',
                 isFocused && 'text-primary',
                 hasError && 'text-destructive',
-                success && 'text-success'
+                success && 'text-primary'
               )}
             >
               {leftIcon}
@@ -395,7 +395,7 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
               (hasError ? (
                 <CircleX className="w-5 h-5 text-destructive" aria-hidden="true" />
               ) : success ? (
-                <CircleCheck className="w-5 h-5 text-success" aria-hidden="true" />
+                <CircleCheck className="w-5 h-5 text-primary" aria-hidden="true" />
               ) : null)}
             {rightIcon && !showStateIcon && !showClearButton && (
               <span className="text-foreground/40">{rightIcon}</span>
@@ -619,7 +619,7 @@ const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
               {hasError ? (
                 <CircleX className="w-5 h-5 text-destructive" aria-hidden="true" />
               ) : success ? (
-                <CircleCheck className="w-5 h-5 text-success" aria-hidden="true" />
+                <CircleCheck className="w-5 h-5 text-primary" aria-hidden="true" />
               ) : null}
             </div>
           )}

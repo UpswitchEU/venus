@@ -176,17 +176,17 @@ export function ValuationReportPanel({
                       ? "bg-success/15 text-success border border-success/30"
                       : "bg-warning/15 text-warning border border-warning/30"
                   )}
-                  title={canChangeStatus ? (t('report.clickToChangeStatus') || 'Klik om status te wijzigen') : undefined}
+                  title={canChangeStatus ? t('report.clickToChangeStatus') : undefined}
                 >
                   {reportStatus === 'final' ? (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      {t('report.finalReport') || 'Definitief rapport'}
+                      {t('report.finalReport')}
                     </>
                   ) : (
                     <>
                       <Clock className="w-3.5 h-3.5" />
-                      {t('report.draftReport') || 'Concept rapport'}
+                      {t('report.draftReport')}
                     </>
                   )}
                 </button>
@@ -194,7 +194,7 @@ export function ValuationReportPanel({
                   {report!.companyName}
                 </h2>
                 <p className="text-sm text-foreground/50 mt-1">
-                  {t('report.valuation') || 'Bedrijfsschatting'} • {report!.generatedAt.toLocaleDateString('nl-BE', {
+                  {t('report.valuation')} • {report!.generatedAt.toLocaleDateString('nl-BE', {
                     day: 'numeric',
                     month: 'long',
                     year: 'numeric',
@@ -211,7 +211,7 @@ export function ValuationReportPanel({
                     className="gap-1.5"
                   >
                     <Share2 className="w-4 h-4" />
-                    <span className="hidden sm:inline">{t('common.share') || 'Delen'}</span>
+                    <span className="hidden sm:inline">{t('common.share')}</span>
                   </AuroraButton>
                 )}
                 {onExport && (
@@ -227,7 +227,7 @@ export function ValuationReportPanel({
                     ) : (
                       <Download className="w-4 h-4" />
                     )}
-                    {isExporting ? (t('common.exporting') || 'Exporteren...') : (t('report.exportPDF') || 'Exporteer PDF')}
+                    {isExporting ? t('common.exporting') : t('report.exportPDF')}
                   </AuroraButton>
                 )}
               </div>
@@ -258,7 +258,7 @@ export function ValuationReportPanel({
 
               <div className="relative">
                 <p className="text-xs text-foreground/50 uppercase tracking-wider mb-2">
-                  {t('report.estimatedValue') || 'Geschatte ondernemingswaarde'}
+                  {t('report.estimatedValue')}
                 </p>
                 <div className="flex items-baseline gap-3">
                   <span className="text-5xl md:text-6xl font-bold text-foreground font-mono tabular-nums tracking-tight">
@@ -272,7 +272,7 @@ export function ValuationReportPanel({
                 <div className="flex items-center gap-6 lg:gap-8 text-sm flex-wrap">
                   <div>
                     <span className="text-foreground/50 text-xs uppercase tracking-wider">
-                      {t('report.normalizedEbitda') || 'Genormaliseerde EBITDA'}
+                      {t('report.normalizedEbitda')}
                     </span>
                     <p className="font-bold text-foreground font-mono text-xl mt-1 tabular-nums">
                       {formatCurrency(report!.normalizedEbitda ?? report!.ebitda ?? 0)}
@@ -281,7 +281,7 @@ export function ValuationReportPanel({
                   <div className="w-px h-12 bg-foreground/[0.08] hidden sm:block" />
                   <div>
                     <span className="text-foreground/50 text-xs uppercase tracking-wider">
-                      {t('report.appliedMultiple') || 'Toegepaste multiple'}
+                      {t('report.appliedMultiple')}
                     </span>
                     <p className="font-bold text-foreground font-mono text-xl mt-1 tabular-nums">
                       {report!.multiple.toFixed(2)}x
@@ -290,7 +290,7 @@ export function ValuationReportPanel({
                   <div className="w-px h-12 bg-foreground/[0.08] hidden sm:block" />
                   <div>
                     <span className="text-foreground/50 text-xs uppercase tracking-wider">
-                      {t('report.indicativeRange') || 'Indicatief bereik'}
+                      {t('report.indicativeRange')}
                     </span>
                     <p className="font-bold text-foreground font-mono text-xl mt-1 tabular-nums">
                       {formatCurrency(valuationLow)} - {formatCurrency(valuationHigh)}
@@ -305,14 +305,14 @@ export function ValuationReportPanel({
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="text-foreground/50 text-xs uppercase tracking-wider">
-                          {t('report.suggestedListingPrice') || 'Voorgestelde vraagprijs'}
+                          {t('report.suggestedListingPrice')}
                         </span>
                         <p className="font-bold text-primary font-mono text-2xl mt-1 tabular-nums">
                           {formatCurrency(report!.recommendedAskingPrice)}
                         </p>
                       </div>
                       <span className="text-xs text-foreground/40 max-w-[140px] text-right">
-                        {t('report.negotiationBuffer') || 'Strategische buffer voor onderhandeling'}
+                        {t('report.negotiationBuffer')}
                       </span>
                     </div>
                   </>
@@ -372,16 +372,10 @@ export function ValuationReportPanel({
                 </div>
                 <div>
                   <h4 className="text-sm font-semibold text-foreground mb-1">
-                    {t('report.methodology') || 'Methodologie'}
+                    {t('report.methodology')}
                   </h4>
                   <p className="text-xs text-foreground/50 leading-relaxed">
-                    {t('report.methodologyText') || 
-                      `Deze indicatieve bedrijfsschatting is gebaseerd op vergelijkbare transactieanalyse met
-                      sectorspecifieke EBITDA-multiples (IVS 2022, Damodaran). Het bereik houdt rekening met 
-                      huidige marktomstandigheden en bedrijfsspecifieke risicofactoren.
-                      Exporteer de PDF voor het volledige rapport inclusief EBITDA-bridge en
-                      juridische disclaimers.`
-                    }
+                    {t('report.methodologyText')}
                   </p>
                 </div>
               </div>
@@ -398,7 +392,7 @@ export function ValuationReportPanel({
                 <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center gap-2">
                   <FileText className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium text-foreground">
-                    {t('report.fullReport') || 'Volledig rapport'}
+                    {t('report.fullReport')}
                   </span>
                 </div>
                 <div className="valuation-report">

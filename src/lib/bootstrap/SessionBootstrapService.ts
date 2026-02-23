@@ -566,7 +566,6 @@ export class SessionBootstrapService {
         locale: context.locale,
       };
       
-      // ✅ DEBUG LOGGING: Log mode filtering to trace issues
       if (context.mode && !validMode) {
         this.logger.warn('[Bootstrap] Filtered out invalid mode value', {
           invalidMode: context.mode,

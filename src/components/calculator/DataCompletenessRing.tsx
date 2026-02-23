@@ -59,7 +59,7 @@ export function DataCompletenessRing({
           <span className="text-xs font-medium text-foreground">Data Volledigheid</span>
           <span className={cn(
             "text-xs font-semibold",
-            isComplete ? "text-success" : hasIssues ? "text-warning" : "text-primary"
+            isComplete ? "text-primary" : hasIssues ? "text-warning" : "text-primary"
           )}>
             {percentage}%
           </span>
@@ -90,7 +90,7 @@ export function DataCompletenessRing({
             )}
           >
             {field.completed ? (
-              <Check className="w-3 h-3 text-success shrink-0" />
+              <Check className="w-3 h-3 text-primary shrink-0" />
             ) : field.required ? (
               <AlertCircle className="w-3 h-3 shrink-0" />
             ) : (
@@ -154,7 +154,7 @@ export function DataCompletenessRing({
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
             {isComplete ? (
-              <Check className="text-success" style={{ width: config.icon, height: config.icon }} />
+              <Check className="text-primary" style={{ width: config.icon, height: config.icon }} />
             ) : hasIssues ? (
               <AlertCircle className="text-warning" style={{ width: config.icon, height: config.icon }} />
             ) : (

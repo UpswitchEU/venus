@@ -831,7 +831,7 @@ export function ChatAssistantDrawer({
                           <span className="text-sm sm:text-xs font-mono font-semibold text-foreground">
                             €{detected.value.toLocaleString('nl-BE')}
                           </span>
-                          <Check className="w-4 h-4 sm:w-3 sm:h-3 text-success" />
+                          <Check className="w-4 h-4 sm:w-3 sm:h-3 text-primary" />
                         </div>
                       ))}
                     </div>

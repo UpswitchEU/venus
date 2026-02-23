@@ -44,30 +44,6 @@ export class ValuationAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      // CRITICAL DEBUG: Check client context before making request
-      try {
-        const { useClientContext } = await import('../../../stores/clientContext')
-        const { useAuthStore } = await import('../../../lib/auth')
-        const contextState = useClientContext.getState()
-        const authState = useAuthStore.getState()
-        const contextHeaders = contextState.getContextHeaders()
-        
-        apiLogger.info('[ValuationAPI] Calculate manual valuation - Context check', {
-          isActingAsClient: contextState.isActingAsClient,
-          hasClientContext: Object.keys(contextHeaders).length > 0,
-          hasAuth: !!authState.user,
-          accountantId: contextState.accountant?.id?.substring(0, 8) + '...',
-          clientId: contextState.client?.id?.substring(0, 8) + '...',
-          relationshipId: contextState.relationshipId?.substring(0, 8) + '...',
-        })
-        
-        if (contextState.isActingAsClient && Object.keys(contextHeaders).length === 0) {
-          apiLogger.error('[ValuationAPI] Client context enabled but headers are empty!')
-        }
-      } catch (debugError) {
-        apiLogger.warn('[ValuationAPI] Failed to check client context', { error: debugError })
-      }
-      
       return await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
@@ -159,34 +135,6 @@ export class ValuationAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      // CRITICAL DEBUG: Check client context before making request
-      try {
-        const { useClientContext } = await import('../../../stores/clientContext')
-        const { useAuthStore } = await import('../../../lib/auth')
-        const contextState = useClientContext.getState()
-        const authState = useAuthStore.getState()
-        const contextHeaders = contextState.getContextHeaders()
-        
-        apiLogger.info('[ValuationAPI] Calculate unified valuation - Context check', {
-          isActingAsClient: contextState.isActingAsClient,
-          hasClientContext: Object.keys(contextHeaders).length > 0,
-          hasAuth: !!authState.user,
-          accountantId: contextState.accountant?.id?.substring(0, 8) + '...',
-          clientId: contextState.client?.id?.substring(0, 8) + '...',
-          relationshipId: contextState.relationshipId?.substring(0, 8) + '...',
-          headers: contextHeaders, // Log actual headers being sent
-        })
-        
-        if (contextState.isActingAsClient && Object.keys(contextHeaders).length === 0) {
-          apiLogger.error('[ValuationAPI] CRITICAL: Client context enabled but headers are EMPTY!', {
-            accountantExists: !!contextState.accountant,
-            clientExists: !!contextState.client,
-            relationshipExists: !!contextState.relationshipId,
-          })
-        }
-      } catch (debugError) {
-        apiLogger.warn('[ValuationAPI] Failed to check client context', { error: debugError })
-      }
       
       // Map frontend 'conversational' to backend 'ai-guided'
       // Note: dataSource is not part of ValuationRequest type, so we add it to the request data

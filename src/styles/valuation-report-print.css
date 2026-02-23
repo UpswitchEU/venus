@@ -402,6 +402,17 @@
     display: none !important;
   }
   
+  /* Repeat table headers on every printed page */
+  .valuation-report thead {
+    display: table-header-group;
+  }
+  .valuation-report tfoot {
+    display: table-footer-group;
+  }
+  .valuation-report tr {
+    page-break-inside: avoid;
+  }
+  
   /* Ensure color accuracy globally */
   .valuation-report * {
     -webkit-print-color-adjust: exact !important;

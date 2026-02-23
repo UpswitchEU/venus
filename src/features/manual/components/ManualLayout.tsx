@@ -349,6 +349,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Report & Generation State ───
   const [report, setReport] = useState<ValuationReportData | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
+  const isRestoringExistingReport = !report && !isGenerating && !!session && (() => {
+    const sd = (session.sessionData || session) as any
+    return !!(sd.valuationResult || sd.valuation_result || sd.htmlReport || sd.html_report)
+  })()
   const [reportStatus, setReportStatus] = useState<'draft' | 'final'>('draft')
   const [isExporting, setIsExporting] = useState(false)
   const [downloadHistory, setDownloadHistory] = useState<{ id: string; fileName: string; timestamp: Date; size: string }[]>([])
@@ -1194,7 +1199,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     conversationStore.setConversationId(null)
   }, [conversationStore])
 
-  // ─── Export Handler (DOM capture primary, server-side secondary) ───
+  // ─── Export Handler (server-side primary, DOM capture fallback) ───
   const handleExport = useCallback(async () => {
     if (!report) return
     setIsExporting(true)
@@ -1203,8 +1208,29 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const filename = `${report.companyName?.replace(/\s+/g, '-') || 'Rapport'}-Waardering.pdf`
       let succeeded = false
 
-      // Path 1: Capture the rendered report panel directly from the DOM
-      if (reportPanelRef.current) {
+      // Path 1: Server-side PDF via Titan API (Python-generated)
+      try {
+        if (isPdfReady) {
+          await downloadPdf()
+          succeeded = true
+        } else if (reportId) {
+          toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
+          await generatePdf()
+          toast.dismiss('pdf-gen')
+          if (isPdfReady) {
+            await downloadPdf()
+          }
+          succeeded = true
+        }
+      } catch (serverError) {
+        toast.dismiss('pdf-gen')
+        generalLogger.warn('[ManualLayout] Server PDF failed, falling back to DOM capture', {
+          error: serverError instanceof Error ? serverError.message : String(serverError),
+        })
+      }
+
+      // Path 2: DOM capture fallback (only when report view is active — never capture history/preview panels)
+      if (!succeeded && reportPanelRef.current && (rightPanelView === 'report' || report?.htmlReport)) {
         try {
           const html2pdfModule = await import('html2pdf.js')
           const html2pdf = html2pdfModule.default
@@ -1234,26 +1260,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         } catch (domError) {
           generalLogger.warn('[ManualLayout] DOM PDF capture failed', {
             error: domError instanceof Error ? domError.message : String(domError),
-          })
-        }
-      }
-
-      // Path 2: Server-side PDF via Titan API
-      if (!succeeded) {
-        try {
-          if (isPdfReady) {
-            await downloadPdf()
-            succeeded = true
-          } else if (reportId) {
-            toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
-            await generatePdf()
-            toast.dismiss('pdf-gen')
-            succeeded = true
-          }
-        } catch (serverError) {
-          toast.dismiss('pdf-gen')
-          generalLogger.warn('[ManualLayout] Server PDF failed', {
-            error: serverError instanceof Error ? serverError.message : String(serverError),
           })
         }
       }
@@ -1288,7 +1294,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsExporting(false)
     }
-  }, [report, reportId, result, isPdfReady, downloadPdf, generatePdf])
+  }, [report, reportId, result, isPdfReady, downloadPdf, generatePdf, rightPanelView])
 
   // ─── Navigation Handlers ───
   const handleBack = useCallback(() => {
@@ -1942,16 +1948,24 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       transition={springDefault}
                       className="h-full overflow-y-auto"
                     >
-                      <ReportPreviewPanel
-                        report={report ? {
-                          companyName: report.companyName,
-                          valuation: report.valuation,
-                          ebitda: report.ebitda ?? 0,
-                          multiple: report.multiple ?? 0,
-                          generatedAt: report.generatedAt,
-                          metrics: report.metrics,
-                        } : null}
-                      />
+                      {report?.htmlReport ? (
+                        <div className="valuation-report">
+                          <div
+                            dangerouslySetInnerHTML={{ __html: HTMLProcessor.sanitize(report.htmlReport) }}
+                          />
+                        </div>
+                      ) : (
+                        <ReportPreviewPanel
+                          report={report ? {
+                            companyName: report.companyName,
+                            valuation: report.valuation,
+                            ebitda: report.ebitda ?? 0,
+                            multiple: report.multiple ?? 0,
+                            generatedAt: report.generatedAt,
+                            metrics: report.metrics,
+                          } : null}
+                        />
+                      )}
                     </motion.div>
                   ) : rightPanelView === 'history' ? (
                     <motion.div
@@ -1992,7 +2006,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     >
                       <ValuationReportPanel
                         report={report}
-                        isGenerating={isGenerating || isCalculating}
+                        isGenerating={isGenerating || isCalculating || isRestoringExistingReport}
                         isExporting={isExporting}
                         onExport={handleExport}
                         onRegenerate={() => {

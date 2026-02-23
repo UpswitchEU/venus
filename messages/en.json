@@ -496,6 +496,8 @@
     "normalizedEbitda": "Normalized EBITDA",
     "appliedMultiple": "Applied multiple",
     "indicativeRange": "Indicative range",
+    "suggestedListingPrice": "Suggested listing price",
+    "negotiationBuffer": "Strategic negotiation buffer",
     "methodology": "Methodology",
     "methodologyText": "The valuation is based on an EBITDA multiplier method, where the normalized EBITDA is multiplied by an industry-specific multiple.",
     "fullReport": "Full report",

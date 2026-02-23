@@ -279,7 +279,7 @@
 /* CSS Variables for Colors */
 .valuation-report-preview {
   --upswitch-navy: #2b303a; /* Slate Ink - Primary Text */
-  --upswitch-blue: #4a5d4f; /* Sage Foundation - Primary Brand */
+  --upswitch-blue: #3B82F6; /* Aurora Blue - Primary Brand */
   --text-dark: #2b303a; /* Slate Ink */
   --text-body: #4b5563; /* Slate-600 */
   --text-muted: #6b7280; /* Slate-500 */
@@ -739,8 +739,8 @@
 }
 
 .valuation-report-preview .status-badge.completed {
-  background-color: #e9f0eb; /* Moss Tint */
-  color: #6b8e72; /* Moss */
+  background-color: #F0FDF4; /* Aurora Green Tint */
+  color: #22C55E; /* Aurora Green */
 }
 
 .valuation-report-preview .status-badge.skipped {

@@ -264,7 +264,7 @@ export function CalculatorNav({
       )}>
         {/* Left: Back + Title with Recent Valuations Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <Tooltip content={isAccountantMode ? (t('clientContext.exitClientView') || 'Exit Client View') : (t('common.back') || 'Terug')}>
+          <Tooltip content={isAccountantMode ? t('clientContext.exitClientView') : t('common.back')}>
             <button
               onClick={handleBack}
               className="p-2 -ml-1 sm:-ml-2 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -284,7 +284,7 @@ export function CalculatorNav({
           >
             <div className="p-2">
               <div className="text-xs text-foreground/50 uppercase tracking-wider px-2 py-1.5">
-                {t('valuation.recentValuations') || 'Recente Schattingen'}
+                {t('valuation.recentValuations')}
               </div>
               {recentValuations.length > 0 ? (
                 recentValuations.slice(0, 5).map((val) => (
@@ -303,7 +303,7 @@ export function CalculatorNav({
                         <span>{formatTimeAgo(val.updatedAt, t)}</span>
                         {val.isDraft && (
                           <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[10px] font-medium">
-                            {t('valuation.draft') || 'Concept'}
+                            {t('valuation.draft')}
                           </span>
                         )}
                       </div>
@@ -312,7 +312,7 @@ export function CalculatorNav({
                 ))
               ) : (
                 <div className="px-3 py-4 text-center">
-                  <p className="text-sm text-foreground/40">{t('valuation.noRecent') || 'Geen recente schattingen'}</p>
+                  <p className="text-sm text-foreground/40">{t('valuation.noRecent')}</p>
                 </div>
               )}
               <div className="h-px bg-foreground/[0.06] my-2" />
@@ -320,7 +320,7 @@ export function CalculatorNav({
                 onClick={onNewValuation}
                 className="w-full px-2 py-2 rounded-lg text-primary font-medium hover:bg-primary/10 transition-colors text-left"
               >
-                + {t('valuation.new') || 'Nieuwe Schatting'}
+                + {t('valuation.new')}
               </button>
             </div>
           </Dropdown>
@@ -373,7 +373,7 @@ export function CalculatorNav({
                   >
                     <div className="p-2 w-72">
                       <div className="text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
-                        {t('valuation.versions') || 'Schattingsversies'}
+                        {t('valuation.versions')}
                       </div>
                       {valuationVersions.length > 0 ? (
                         valuationVersions.map((version) => (
@@ -411,7 +411,7 @@ export function CalculatorNav({
                         ))
                       ) : (
                         <div className="px-3 py-3 text-center">
-                          <p className="text-sm text-foreground/40">{t('valuation.currentVersion') || 'Huidige versie'}</p>
+                          <p className="text-sm text-foreground/40">{t('valuation.currentVersion')}</p>
                         </div>
                       )}
                     </div>
@@ -428,7 +428,7 @@ export function CalculatorNav({
                       "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
                     )}
                   >
-                    <span>{t('common.continue') || 'Doorgaan'}</span>
+                    <span>{t('common.continue')}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -454,7 +454,7 @@ export function CalculatorNav({
               )}
             >
               <MessageCircle className="w-4 h-4" />
-              <span>{t('assistant.ask') || 'Vraag Assistent'}</span>
+              <span>{t('assistant.ask')}</span>
               {openTasksCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-secondary text-secondary-foreground shadow-sm">
                   {openTasksCount > 9 ? '9+' : openTasksCount}
@@ -474,7 +474,7 @@ export function CalculatorNav({
                 )}
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                <span>{t('normalization.title') || 'Normalisaties'}</span>
+                <span>{t('normalization.title')}</span>
                 {normalizationCount > 0 && (
                   <span className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-primary/15 text-primary">
                     {normalizationCount}
@@ -485,7 +485,7 @@ export function CalculatorNav({
             
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
             
-            <Tooltip content={hasReport ? (t('report.preview') || 'Preview') : (t('report.noReport') || 'Nog geen rapport')}>
+            <Tooltip content={hasReport ? t('report.preview') : t('report.noReport')}>
               <button
                 onClick={onPreview}
                 disabled={!hasReport}
@@ -497,14 +497,14 @@ export function CalculatorNav({
                       ? "text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06]"
                       : "text-foreground/20 cursor-not-allowed"
                 )}
-                aria-label={t('report.preview') || 'Preview'}
+                aria-label={t('report.preview')}
                 aria-pressed={rightPanelView === 'preview'}
               >
                 <Eye className="w-4 h-4" />
               </button>
             </Tooltip>
             
-            <Tooltip content={hasReport ? (t('report.history') || 'Versiegeschiedenis') : (t('report.noReport') || 'Nog geen rapport')}>
+            <Tooltip content={hasReport ? t('report.history') : t('report.noReport')}>
               <button
                 onClick={onShowHistory}
                 disabled={!hasReport}
@@ -516,7 +516,7 @@ export function CalculatorNav({
                       ? "text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06]"
                       : "text-foreground/20 cursor-not-allowed"
                 )}
-                aria-label={t('report.history') || 'Versiegeschiedenis'}
+                aria-label={t('report.history')}
                 aria-pressed={rightPanelView === 'history'}
               >
                 <History className="w-4 h-4" />
@@ -562,12 +562,12 @@ export function CalculatorNav({
                   {isExporting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                      <span className="text-sm">{t('report.generatingPDF') || 'PDF wordt gegenereerd...'}</span>
+                      <span className="text-sm">{t('report.generatingPDF')}</span>
                     </>
                   ) : (
                     <>
                       <Download className="w-4 h-4 text-foreground/50" />
-                      <span className="text-sm">{t('report.downloadPDF') || 'Download PDF'}</span>
+                      <span className="text-sm">{t('report.downloadPDF')}</span>
                     </>
                   )}
                 </button>
@@ -577,7 +577,7 @@ export function CalculatorNav({
                   <>
                     <div className="h-px bg-foreground/[0.06] my-2" />
                     <div className="text-[10px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
-                      {t('report.recentDownloads') || 'Recente Downloads'}
+                      {t('report.recentDownloads')}
                     </div>
                     {downloadHistory.slice(0, 5).map((item) => (
                       <button
@@ -585,8 +585,8 @@ export function CalculatorNav({
                         onClick={() => onRedownload?.(item)}
                         className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0 text-left">
                           <p className="text-xs font-medium text-foreground truncate">{item.fileName}</p>
@@ -601,7 +601,7 @@ export function CalculatorNav({
               </div>
             </Dropdown>
             
-            <Tooltip content={hasReport ? (t('report.fullscreen') || 'Volledig scherm') : (t('report.noReport') || 'Nog geen rapport')}>
+            <Tooltip content={hasReport ? t('report.fullscreen') : t('report.noReport')}>
               <button
                 onClick={onFullscreen}
                 disabled={!hasReport}
@@ -642,7 +642,7 @@ export function CalculatorNav({
               )}
             </AnimatePresence>
             
-            <Tooltip content={t('assistant.title') || 'Assistent'}>
+            <Tooltip content={t('assistant.title')}>
               <button
                 onClick={onOpenAssistant}
                 className={cn(
@@ -655,7 +655,7 @@ export function CalculatorNav({
                 <MessageCircle className="w-4 h-4" />
               </button>
             </Tooltip>
-            <Tooltip content={isExporting ? (t('common.exporting') || 'Exporteren...') : hasReport ? (t('report.download') || 'Download') : (t('report.noReport') || 'Nog geen rapport')}>
+            <Tooltip content={isExporting ? t('common.exporting') : hasReport ? t('report.download') : t('report.noReport')}>
               <button
                 onClick={onDownload}
                 disabled={!hasReport || isExporting}
@@ -718,14 +718,14 @@ export function CalculatorNav({
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
               >
                 <Settings className="w-4 h-4 text-foreground/50" />
-                <span className="text-sm">{t('account.settings') || 'Account instellingen'}</span>
+                <span className="text-sm">{t('account.settings')}</span>
               </button>
               <button
                 onClick={onSwitchWorkspace}
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
               >
                 <Building2 className="w-4 h-4 text-foreground/50" />
-                <span className="text-sm">{t('account.switchWorkspace') || 'Wissel workspace'}</span>
+                <span className="text-sm">{t('account.switchWorkspace')}</span>
               </button>
               <div className="h-px bg-foreground/[0.06] my-2" />
               <button
@@ -733,7 +733,7 @@ export function CalculatorNav({
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="text-sm">{t('auth.logout') || 'Uitloggen'}</span>
+                <span className="text-sm">{t('auth.logout')}</span>
               </button>
             </div>
           </Dropdown>

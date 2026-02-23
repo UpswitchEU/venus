@@ -68,20 +68,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // This prevents re-renders when session data updates
   const reportId = useSessionStore((state) => state.session?.reportId)
 
-  // DEBUG: Log formData changes to diagnose restoration display issue
-  useEffect(() => {
-    generalLogger.debug('[ValuationForm] Form data changed', {
-      reportId,
-      hasCompanyName: !!formData.company_name,
-      companyName: formData.company_name,
-      companyNameLength: formData.company_name?.length || 0,
-      revenue: formData.revenue,
-      ebitda: formData.ebitda,
-      industry: formData.industry,
-      formDataKeys: Object.keys(formData),
-      formDataObjectId: formData ? Object.keys(formData).length : 0,
-    })
-  }, [formData.company_name, formData.revenue, formData.ebitda, formData.industry, reportId])
   const { businessTypes } = useBusinessTypes()
   const { businessCard, isAuthenticated } = useAuth()
   const { getVersion } = useVersionHistoryStore()
@@ -632,7 +618,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
   // Get current version number
   const currentVersion = reportId ? getLatestVersion(reportId) : null
-  const currentVersionNumber = currentVersion?.versionNumber || 0
+  const currentVersionNumber = currentVersion?.versionNumber || 1
 
   // Check if user has an existing completed valuation (version >= 1)
   // This is used to determine if we should show the "Create New Version" popup

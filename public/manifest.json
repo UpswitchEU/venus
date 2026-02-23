@@ -1,11 +1,11 @@
 {
-  "name": "Upswitch Valuation Tester",
-  "short_name": "Valuation Tester",
-  "description": "Professional business valuation tool for testing and demonstration",
+  "name": "Upswitch Valuation",
+  "short_name": "Upswitch",
+  "description": "Professional business valuation platform",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F4F1EA",
-  "theme_color": "#4A5D4F",
+  "theme_color": "#3DBDB0",
   "orientation": "portrait-primary",
   "icons": [
     {

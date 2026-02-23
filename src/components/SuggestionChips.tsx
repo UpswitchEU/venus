@@ -56,8 +56,8 @@ export const SuggestionChips: React.FC<SuggestionChipsProps> = ({
 
               {/* Confidence Indicator */}
               {suggestion.confidence > 0.9 && (
-                <span className="flex items-center justify-center w-4 h-4 rounded-full bg-success/10">
-                  <CheckCircle className="w-3 h-3 text-success" />
+                <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary/10">
+                  <CheckCircle className="w-3 h-3 text-primary" />
                 </span>
               )}
 

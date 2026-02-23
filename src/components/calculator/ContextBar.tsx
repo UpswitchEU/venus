@@ -80,8 +80,8 @@ export function ContextBar({
             onClick={onClientClick}
             className="flex items-center gap-1.5 text-foreground/60 hover:text-foreground transition-colors"
           >
-            <User className="w-3.5 h-3.5" />
-            <span>{clientName}</span>
+            <User className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate max-w-[200px]">{clientName}</span>
           </button>
         )}
         
@@ -94,8 +94,8 @@ export function ContextBar({
             onClick={onBusinessClick}
             className="flex items-center gap-1.5 text-foreground hover:text-primary transition-colors font-medium"
           >
-            <Building2 className="w-3.5 h-3.5" />
-            <span>{businessName}</span>
+            <Building2 className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate max-w-[200px]">{businessName}</span>
           </button>
         )}
       </div>

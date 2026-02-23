@@ -30,8 +30,7 @@ import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { ValuationToolbarProps } from '../types/valuation'
 import { formatVersionLabel } from '../utils/formatters'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
-// FlowSwitchWarningModal removed - conversational flow no longer exists
-// import { FlowSwitchWarningModal } from './FlowSwitchWarningModal'
+import { generalLogger } from '@/utils/logger'
 import { UserDropdown } from './UserDropdown'
 import { Tooltip } from '@/design-system'
 
@@ -41,7 +40,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   onFullScreen,
   isGenerating = false,
   user,
-  valuationName = 'Valuation test123',
+  valuationName,
   activeTab = 'preview',
   onTabChange,
   companyName,
@@ -281,7 +280,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
           channel.close()
         }
       } catch (error) {
-        console.warn('[Toolbar] Failed to broadcast before return:', error)
+        generalLogger.warn('[Toolbar] Failed to broadcast before return', { error })
       }
     }
 
@@ -362,7 +361,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     ) : (
                       <button
                         onClick={handleNameEdit}
-                        className="hidden md:block font-semibold text-secondary hover:text-secondary/90 transition-all duration-200 cursor-pointer hover:scale-105"
+                        className="hidden md:block font-semibold text-secondary hover:text-secondary/90 transition-all duration-200 cursor-pointer hover:scale-105 truncate max-w-[200px]"
                         title={t('toolbar.tooltips.editName')}
                       >
                         {generatedName}

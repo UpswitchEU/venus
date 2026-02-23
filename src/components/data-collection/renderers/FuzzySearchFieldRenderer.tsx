@@ -112,7 +112,7 @@ export const FuzzySearchFieldRenderer: React.FC<FieldRendererProps> = ({
               <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                 {getDisplayLabel()}
               </span>
-              <Check className="w-4 h-4 text-success" />
+              <Check className="w-4 h-4 text-primary" />
             </div>
           )}
         </div>

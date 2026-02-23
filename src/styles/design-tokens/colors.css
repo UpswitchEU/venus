@@ -42,8 +42,8 @@
   /* ─────────────────────────────────────────
      SEMANTIC COLORS
      ───────────────────────────────────────── */
-  /* Sage-inspired success — muted earthy green */
-  --success: 143 40% 42%;
+  /* Aurora success — clean modern green */
+  --success: 142 71% 45%;
   --success-foreground: 0 0% 100%;
   
   --destructive: 6 55% 50%;
@@ -131,8 +131,8 @@
   --accent: 270 40% 50%;
   --accent-foreground: 0 0% 100%;
   
-  /* Sage-inspired success */
-  --success: 143 35% 38%;
+  /* Aurora success — clean modern green */
+  --success: 142 71% 45%;
   --success-foreground: 0 0% 100%;
   
   --destructive: 6 50% 48%;

@@ -1894,7 +1894,7 @@ export function UnifiedNormalizationModal({
                     {/* Inner icon container */}
                     <div className="absolute inset-3 rounded-full bg-background/90 backdrop-blur-sm border border-foreground/[0.08] shadow-sm flex items-center justify-center">
                       {activeTab === 'pending' ? (
-                        <CheckCircle2 className="w-8 h-8 text-success/70" />
+                        <CheckCircle2 className="w-8 h-8 text-primary/70" />
                       ) : activeTab === 'rejected' ? (
                         <XCircle className="w-8 h-8 text-foreground/30" />
                       ) : activeTab === 'accepted' ? (
