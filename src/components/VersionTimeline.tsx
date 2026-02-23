@@ -378,6 +378,7 @@ function VersionTimelineItem({
                             </td>
 
                             {/* Suggested Listing Price */}
+                            {recommendedAskingPrice > 0 && (
                             <td className="w-1/2 align-top pl-4">
                               <p
                                 className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
@@ -409,6 +410,7 @@ function VersionTimelineItem({
                                 Strategic buffer for negotiation
                               </p>
                             </td>
+                            )}
                           </tr>
                         </tbody>
                       </table>

@@ -275,7 +275,7 @@ export function ValuationReportPanel({
                       {t('report.normalizedEbitda') || 'Genormaliseerde EBITDA'}
                     </span>
                     <p className="font-bold text-foreground font-mono text-xl mt-1 tabular-nums">
-                      {formatCurrency(report!.normalizedEbitda || report!.ebitda)}
+                      {formatCurrency(report!.normalizedEbitda ?? report!.ebitda ?? 0)}
                     </p>
                   </div>
                   <div className="w-px h-12 bg-foreground/[0.08] hidden sm:block" />
@@ -284,7 +284,7 @@ export function ValuationReportPanel({
                       {t('report.appliedMultiple') || 'Toegepaste multiple'}
                     </span>
                     <p className="font-bold text-foreground font-mono text-xl mt-1 tabular-nums">
-                      {report!.multiple.toFixed(1)}x
+                      {report!.multiple.toFixed(2)}x
                     </p>
                   </div>
                   <div className="w-px h-12 bg-foreground/[0.08] hidden sm:block" />
@@ -297,6 +297,26 @@ export function ValuationReportPanel({
                     </p>
                   </div>
                 </div>
+
+                {/* Recommended Asking Price */}
+                {report!.recommendedAskingPrice != null && report!.recommendedAskingPrice > 0 && (
+                  <>
+                    <div className="h-px bg-foreground/[0.08] mt-5 mb-4" />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-foreground/50 text-xs uppercase tracking-wider">
+                          {t('report.suggestedListingPrice') || 'Voorgestelde vraagprijs'}
+                        </span>
+                        <p className="font-bold text-primary font-mono text-2xl mt-1 tabular-nums">
+                          {formatCurrency(report!.recommendedAskingPrice)}
+                        </p>
+                      </div>
+                      <span className="text-xs text-foreground/40 max-w-[140px] text-right">
+                        {t('report.negotiationBuffer') || 'Strategische buffer voor onderhandeling'}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </motion.div>
 
@@ -383,7 +403,7 @@ export function ValuationReportPanel({
                 </div>
                 <div className="valuation-report">
                   <div
-                    dangerouslySetInnerHTML={{ __html: HTMLProcessor.sanitize(report!.htmlReport!) }}
+                    dangerouslySetInnerHTML={{ __html: HTMLProcessor.sanitize(report!.htmlReport ?? '') }}
                   />
                 </div>
               </motion.div>

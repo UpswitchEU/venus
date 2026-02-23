@@ -1248,6 +1248,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
             await generatePdf()
             toast.dismiss('pdf-gen')
+            succeeded = true
           }
         } catch (serverError) {
           toast.dismiss('pdf-gen')
