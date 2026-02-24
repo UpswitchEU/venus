@@ -391,6 +391,7 @@ export function ChatAssistantDrawer({
   onNewConversation,
 }: ChatAssistantDrawerProps) {
   const ca = useTranslations('chatAssistant');
+  const nh = useTranslations('normalizationHub');
   const locale = useLocale();
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
   const [input, setInput] = useState('');
@@ -794,7 +795,9 @@ export function ChatAssistantDrawer({
                           key={index}
                           className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-md bg-primary/15 border border-primary/25"
                         >
-                          <span className="text-sm sm:text-xs font-medium text-primary">{cmd.label}</span>
+                          <span className="text-sm sm:text-xs font-medium text-primary">
+                            {nh(`fieldLabels.${cmd.field}` as any) || cmd.label}
+                          </span>
                           <span className="text-sm sm:text-xs text-foreground/60">→</span>
                           <span className="text-sm sm:text-xs font-mono font-semibold text-foreground">
                             €{cmd.value.toLocaleString(currencyLocale)}
@@ -829,7 +832,9 @@ export function ChatAssistantDrawer({
                           key={index}
                           className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-md bg-success/15 border border-success/25"
                         >
-                          <span className="text-sm sm:text-xs font-medium text-success">{detected.label}</span>
+                          <span className="text-sm sm:text-xs font-medium text-success">
+                            {nh(`fieldLabels.${detected.field}` as any) || detected.label}
+                          </span>
                           <span className="text-sm sm:text-xs font-mono font-semibold text-foreground">
                             €{detected.value.toLocaleString(currencyLocale)}
                           </span>

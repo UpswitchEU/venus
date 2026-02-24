@@ -50,7 +50,9 @@ export interface IntegrationStepPanelProps {
 // MOCK NORMALISATION SUGGESTIONS
 // ─────────────────────────────────────────
 
-const generateNormalisations = (accounts: MappedAccount[]): SuggestedNormalisation[] => {
+type TranslateFn = (key: string) => string;
+
+const generateNormalisations = (accounts: MappedAccount[], t: TranslateFn): SuggestedNormalisation[] => {
   // Generate smart normalisation suggestions based on account data
   const suggestions: SuggestedNormalisation[] = [];
   
@@ -68,9 +70,9 @@ const generateNormalisations = (accounts: MappedAccount[]): SuggestedNormalisati
       suggestions.push({
         id: `norm-${i}`,
         category: account.description,
-        description: 'Potentiële normalisatie',
+        description: t('potentialNormalisation'),
         amount: Math.round(avgValue * 0.4), // Suggest 40% normalisation
-        reason: 'Privégebruik component gedetecteerd op basis van branchevergelijking',
+        reason: t('privateUseDetected'),
         status: 'pending',
       });
     }
@@ -81,18 +83,18 @@ const generateNormalisations = (accounts: MappedAccount[]): SuggestedNormalisati
     suggestions.push(
       {
         id: 'n1',
-        category: 'Eigenaarssalaris',
-        description: 'Marktconforme correctie',
+        category: t('defaultSuggestion1Category'),
+        description: t('defaultSuggestion1Description'),
         amount: 25000,
-        reason: 'Verschil tussen huidig en marktconform salaris voor vergelijkbare functie',
+        reason: t('defaultSuggestion1Reason'),
         status: 'pending',
       },
       {
         id: 'n2',
-        category: 'Huurkosten',
-        description: 'Onder-marktwaarde huur',
+        category: t('defaultSuggestion2Category'),
+        description: t('defaultSuggestion2Description'),
         amount: 8400,
-        reason: 'Huur € 700/maand onder marktwaarde voor vergelijkbaar pand',
+        reason: t('defaultSuggestion2Reason'),
         status: 'pending',
       },
     );
@@ -124,7 +126,7 @@ export function IntegrationStepPanel({
 
   const handleMappingConfirmed = (accounts: MappedAccount[]) => {
     setMappedAccounts(accounts);
-    setSuggestions(generateNormalisations(accounts));
+    setSuggestions(generateNormalisations(accounts, t));
     setStep('review');
   };
 
@@ -259,7 +261,7 @@ export function IntegrationStepPanel({
                 onClick={onSkip}
                 className="text-sm text-foreground/40 hover:text-foreground/60 transition-colors"
               >
-                Sla over en begin direct →
+                {t('skipAndStart')}
               </button>
             </div>
           )}
@@ -280,7 +282,7 @@ export function IntegrationStepPanel({
           
           <div className="mt-4">
             <Button variant="ghost" onClick={() => setStep('select')}>
-              ← Terug naar opties
+              {t('backToOptions')}
             </Button>
           </div>
         </motion.div>
@@ -311,7 +313,7 @@ export function IntegrationStepPanel({
           <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
             <Check className="w-5 h-5 text-primary" />
             <Body size="sm" className="font-medium">
-              {mappedAccounts.length} rekeningen geïmporteerd — {parsedCSV?.fiscalYears.length || 0} boekja{(parsedCSV?.fiscalYears.length || 0) === 1 ? 'ar' : 'ren'} geanalyseerd
+              {t('accountsImported', { accounts: mappedAccounts.length, years: parsedCSV?.fiscalYears.length || 0 })}
             </Body>
           </div>
 
@@ -326,10 +328,10 @@ export function IntegrationStepPanel({
           {/* Navigation */}
           <div className="flex justify-between">
             <Button variant="ghost" onClick={handleBackToMapping}>
-              ← Terug naar mapping
+              {t('backToMapping')}
             </Button>
             <Button variant="primary" onClick={handleContinue}>
-              Doorgaan naar schatting
+              {t('continueToEstimate')}
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           </div>

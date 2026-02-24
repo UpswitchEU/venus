@@ -16,6 +16,7 @@
 'use client'
 
 import { AlertCircle, Check, Loader2, Save } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import React, { useEffect, useState } from 'react'
 
 export interface SaveStatusIndicatorProps {
@@ -34,20 +35,23 @@ export interface SaveStatusIndicatorProps {
 /**
  * Calculates relative time string (e.g., "2m ago", "just now")
  */
-function getRelativeTime(date: Date): string {
+function getRelativeTime(
+  date: Date,
+  t: (key: string, values?: Record<string, number>) => string
+): string {
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffSec = Math.floor(diffMs / 1000)
   const diffMin = Math.floor(diffSec / 60)
   const diffHour = Math.floor(diffMin / 60)
 
-  if (diffSec < 10) return 'just now'
-  if (diffSec < 60) return `${diffSec}s ago`
-  if (diffMin < 60) return `${diffMin}m ago`
-  if (diffHour < 24) return `${diffHour}h ago`
+  if (diffSec < 10) return t('justNow')
+  if (diffSec < 60) return t('secondsAgo', { count: diffSec })
+  if (diffMin < 60) return t('minutesAgo', { count: diffMin })
+  if (diffHour < 24) return t('hoursAgo', { count: diffHour })
 
-  // More than 24 hours - show date
-  return date.toLocaleDateString('en-US', {
+  // More than 24 hours - show date (locale handled by browser)
+  return date.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -78,6 +82,7 @@ export function SaveStatusIndicator({
   error,
   compact = false,
 }: SaveStatusIndicatorProps) {
+  const t = useTranslations('saveStatus')
   const [relativeTime, setRelativeTime] = useState<string>('')
 
   // Update relative time every 10 seconds
@@ -88,14 +93,14 @@ export function SaveStatusIndicator({
     }
 
     const updateTime = () => {
-      setRelativeTime(getRelativeTime(lastSaved))
+      setRelativeTime(getRelativeTime(lastSaved, t))
     }
 
     updateTime()
     const interval = setInterval(updateTime, 10000) // Update every 10s
 
     return () => clearInterval(interval)
-  }, [lastSaved])
+  }, [lastSaved, t])
 
   // Determine state
   let icon: React.ReactNode
@@ -105,27 +110,29 @@ export function SaveStatusIndicator({
   if (error) {
     // Error state
     icon = <AlertCircle className="w-4 h-4" />
-    text = compact ? '' : 'Save failed'
+    text = compact ? '' : t('saveFailed')
     colorClasses = 'text-accent-600 bg-accent-50 border-accent-200'
   } else if (isSaving) {
     // Saving state
     icon = <Loader2 className="w-4 h-4 animate-spin" />
-    text = compact ? '' : 'Saving...'
+    text = compact ? '' : t('saving')
     colorClasses = 'text-primary bg-primary/10 border-primary/20'
   } else if (hasUnsavedChanges) {
     // Unsaved changes state
     icon = <Save className="w-4 h-4" />
-    text = compact ? '' : 'Unsaved changes'
+    text = compact ? '' : t('unsavedChanges')
     colorClasses = 'text-harvest-600 bg-harvest-50 border-harvest-200'
   } else if (lastSaved) {
     // Saved state
     icon = <Check className="w-4 h-4" />
-    text = compact ? '' : `Saved ${relativeTime}`
+    text = compact ? '' : t('saved', { time: relativeTime })
     colorClasses = 'text-primary bg-primary/10 border-primary/20'
   } else {
     // Initial state (no changes yet)
     return null
   }
+
+  const titleText = error || (isSaving ? t('saving') : hasUnsavedChanges ? t('unsavedChanges') : t('saved', { time: relativeTime }))
 
   if (compact) {
     return (
@@ -135,10 +142,7 @@ export function SaveStatusIndicator({
           transition-all duration-200
           ${colorClasses}
         `}
-        title={
-          error ||
-          (isSaving ? 'Saving...' : hasUnsavedChanges ? 'Unsaved changes' : `Saved ${relativeTime}`)
-        }
+        title={titleText}
       >
         {icon}
       </div>
@@ -165,7 +169,7 @@ export function SaveStatusIndicator({
           }}
           className="ml-2 text-xs underline hover:no-underline"
         >
-          Retry
+          {t('retry')}
         </button>
       )}
     </div>

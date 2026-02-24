@@ -94,27 +94,27 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
       {/* Header with statistics */}
       <div className="p-6 border-b border-foreground/10">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-semibold text-foreground">Audit Trail</h2>
+          <h2 className="text-2xl font-semibold text-foreground">{t('title')}</h2>
           <button
             onClick={handleExport}
             className="px-4 py-2 text-sm font-medium text-primary hover:text-primary/90 hover:bg-primary/10 rounded-lg transition-colors"
           >
-            Export CSV
+            {t('exportCsv')}
           </button>
         </div>
 
         {/* Statistics */}
         <div className="grid grid-cols-3 gap-4">
           <div className="p-3 bg-primary/10 rounded-lg">
-            <p className="text-sm text-primary font-medium mb-1">Total Edits</p>
+            <p className="text-sm text-primary font-medium mb-1">{t('totalEdits')}</p>
             <p className="text-2xl font-bold text-primary">{stats.totalEdits}</p>
           </div>
           <div className="p-3 bg-moss-50 rounded-lg">
-            <p className="text-sm text-moss-600 font-medium mb-1">Regenerations</p>
+            <p className="text-sm text-moss-600 font-medium mb-1">{t('regenerations')}</p>
             <p className="text-2xl font-bold text-moss-700">{stats.totalRegenerations}</p>
           </div>
           <div className="p-3 bg-accent/10 rounded-lg">
-            <p className="text-sm text-accent font-medium mb-1">Versions</p>
+            <p className="text-sm text-accent font-medium mb-1">{t('versions')}</p>
             <p className="text-2xl font-bold text-accent">{stats.totalVersions}</p>
           </div>
         </div>
@@ -122,7 +122,7 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
         {/* Most edited fields */}
         {stats.mostEditedFields.length > 0 && (
           <div className="mt-4">
-            <p className="text-sm text-muted-foreground font-medium mb-2">Most Edited Fields:</p>
+            <p className="text-sm text-muted-foreground font-medium mb-2">{t('mostEditedFields')}</p>
             <div className="flex flex-wrap gap-2">
               {stats.mostEditedFields.map((item) => (
                 <span
@@ -143,11 +143,11 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
             onChange={(e) => setFilterOperation(e.target.value)}
             className="px-3 py-2 border border-foreground/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            <option value="all">All Operations</option>
-            <option value="EDIT">Field Edits</option>
-            <option value="REGENERATE">Regenerations</option>
-            <option value="VERSION_CREATE">Version Creations</option>
-            <option value="SWITCH_VIEW">Flow Switches</option>
+            <option value="all">{t('filterAll')}</option>
+            <option value="EDIT">{t('filterFieldEdits')}</option>
+            <option value="REGENERATE">{t('filterRegenerations')}</option>
+            <option value="VERSION_CREATE">{t('filterVersionCreations')}</option>
+            <option value="SWITCH_VIEW">{t('filterFlowSwitches')}</option>
           </select>
         </div>
       </div>
@@ -175,6 +175,8 @@ interface AuditLogEntryProps {
 }
 
 function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactElement {
+  const t = useTranslations('auditLog')
+
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -217,13 +219,13 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
   const getLabel = (): string => {
     switch (entry.operation) {
       case 'EDIT':
-        return 'Field Edited'
+        return t('operationEdit')
       case 'REGENERATE':
-        return 'Valuation Regenerated'
+        return t('operationRegenerate')
       case 'VERSION_CREATE':
-        return 'Version Created'
+        return t('operationVersionCreate')
       case 'SWITCH_VIEW':
-        return 'Flow Switched'
+        return t('operationSwitchView')
       default:
         return entry.operation
     }
@@ -273,7 +275,7 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
                 <span className="font-medium text-foreground">
                   {String(entry.metadata?.fieldLabel || entry.metadata?.field || '')}
                 </span>
-                {' changed'}
+                {t('changed')}
               </p>
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-muted-foreground">{formatValue(entry.metadata.oldValue)}</span>
@@ -298,15 +300,15 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
           {entry.operation === 'REGENERATE' && entry.metadata ? (
             <div className="text-sm text-muted-foreground mt-2">
               <p className="mb-1">
-                Created{' '}
+                {t('createdVersion')}{' '}
                 <span className="font-medium">
-                  Version {String(entry.metadata.versionNumber || '')}
+                  {t('version')} {String(entry.metadata.versionNumber || '')}
                 </span>
               </p>
               {Array.isArray(entry.metadata.significantChanges) &&
                 entry.metadata.significantChanges.length > 0 && (
                   <p className="text-muted-foreground">
-                    Significant changes: {entry.metadata.significantChanges.join(', ')}
+                    {t('significantChanges')} {entry.metadata.significantChanges.join(', ')}
                   </p>
                 )}
             </div>
@@ -316,7 +318,7 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
             <div className="text-sm text-muted-foreground mt-2">
               <p>
                 <span className="font-medium">{String(entry.metadata.versionLabel || '')}</span>
-                {' saved'}
+                {t('saved')}
               </p>
             </div>
           ) : null}

@@ -8,6 +8,7 @@
  */
 
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { Check, AlertCircle } from 'lucide-react';
 import { cn } from '@/design-system/utils';
 import { Tooltip } from '@/design-system';
@@ -39,6 +40,7 @@ export function DataCompletenessRing({
   showLabel = true,
   size = 'md',
 }: DataCompletenessRingProps) {
+  const t = useTranslations('dataCompleteness')
   const totalFields = fields.length;
   const completedFields = fields.filter(f => f.completed).length;
   const percentage = totalFields > 0 ? Math.round((completedFields / totalFields) * 100) : 0;
@@ -56,7 +58,7 @@ export function DataCompletenessRing({
     <div className="w-56">
       <div className="p-3 border-b border-foreground/[0.06]">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-foreground">Data Volledigheid</span>
+          <span className="text-xs font-medium text-foreground">{t('title')}</span>
           <span className={cn(
             "text-xs font-semibold",
             isComplete ? "text-primary" : hasIssues ? "text-warning" : "text-primary"
@@ -114,7 +116,7 @@ export function DataCompletenessRing({
       {requiredIncomplete.length > 0 && (
         <div className="p-2 border-t border-foreground/[0.06] bg-warning/[0.02]">
           <p className="text-[10px] text-warning">
-            {requiredIncomplete.length} verplicht veld{requiredIncomplete.length > 1 ? 'en' : ''} ontbreekt
+            {t('requiredFieldsMissing', { count: requiredIncomplete.length })}
           </p>
         </div>
       )}
@@ -170,11 +172,11 @@ export function DataCompletenessRing({
               "font-medium text-foreground leading-tight",
               size === 'sm' ? 'text-[10px]' : size === 'md' ? 'text-xs' : 'text-sm'
             )}>
-              {isComplete ? 'Compleet' : `${completedFields}/${totalFields}`}
+              {isComplete ? t('complete') : `${completedFields}/${totalFields}`}
             </p>
             {!isComplete && (
               <p className={cn("text-foreground/50", size === 'sm' ? 'text-[9px]' : 'text-[10px]')}>
-                Data ingevuld
+                {t('dataFilled')}
               </p>
             )}
           </div>

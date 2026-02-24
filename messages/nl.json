@@ -472,7 +472,50 @@
     "noAuditTrailYet": "Nog geen audit trail",
     "changesWillAppearHere": "Wijzigingen en regeneraties verschijnen hier",
     "noChangesYet": "Nog geen wijzigingen",
-    "editOrRegenerateDesc": "Bewerk velden of genereer de waardering opnieuw om de audit trail hier te zien"
+    "editOrRegenerateDesc": "Bewerk velden of genereer de waardering opnieuw om de audit trail hier te zien",
+    "title": "Audit Trail",
+    "exportCsv": "Exporteer CSV",
+    "totalEdits": "Totaal Bewerkingen",
+    "regenerations": "Regeneraties",
+    "versions": "Versies",
+    "mostEditedFields": "Meest Bewerkte Velden:",
+    "filterAll": "Alle Bewerkingen",
+    "filterFieldEdits": "Veldbewerkingen",
+    "filterRegenerations": "Regeneraties",
+    "filterVersionCreations": "Versie Aanmaak",
+    "filterFlowSwitches": "Flow Wissels",
+    "operationEdit": "Veld Bewerkt",
+    "operationRegenerate": "Waardering Regenereren",
+    "operationVersionCreate": "Versie Aangemaakt",
+    "operationSwitchView": "Flow Gewisseld",
+    "changed": " gewijzigd",
+    "createdVersion": "Aangemaakt",
+    "version": "Versie",
+    "saved": " opgeslagen",
+    "significantChanges": "Significante wijzigingen:"
+  },
+  "dataCompleteness": {
+    "title": "Data Volledigheid",
+    "requiredFieldsMissing": "{count, plural, one {# verplicht veld ontbreekt} other {# verplichte velden ontbreken}}",
+    "complete": "Compleet",
+    "dataFilled": "Data ingevuld"
+  },
+  "saveStatus": {
+    "saveFailed": "Opslaan mislukt",
+    "saving": "Opslaan...",
+    "unsavedChanges": "Niet-opgeslagen wijzigingen",
+    "saved": "Opgeslagen {time}",
+    "retry": "Opnieuw",
+    "justNow": "zojuist",
+    "secondsAgo": "{count}s geleden",
+    "minutesAgo": "{count}m geleden",
+    "hoursAgo": "{count}h geleden"
+  },
+  "relativeTime": {
+    "justNow": "Zojuist",
+    "minutesAgo": "{count, plural, one {# minuut geleden} other {# minuten geleden}}",
+    "hoursAgo": "{count, plural, one {# uur geleden} other {# uur geleden}}",
+    "daysAgo": "{count, plural, one {# dag geleden} other {# dagen geleden}}"
   },
   "valuationEmptyState": {
     "reportsWillAppearHere": "Rapporten verschijnen hier",
@@ -645,6 +688,18 @@
       "preparedBy": "Voorbereid door",
       "validUntil": "Geldig tot"
     }
+  },
+  "htmlView": {
+    "title": "HTML Rapport",
+    "notAvailable": "HTML Rapport Niet Beschikbaar",
+    "notAvailableDesc": "Het door de server gegenereerde HTML-rapport is niet beschikbaar. Dit wijst op een probleem met de waarderingsrespons. Fallback HTML-generatie is verwijderd volgens bankstandaarden.",
+    "valuationId": "Waarderings-ID",
+    "htmlReport": "HTML Rapport",
+    "htmlLength": "HTML Lengte",
+    "copyHtml": "HTML Kopiëren",
+    "presentButEmpty": "Aanwezig maar leeg",
+    "notPresent": "Niet aanwezig",
+    "characters": "tekens"
   },
   "versions": {
     "title": "Versiegeschiedenis",
@@ -1300,6 +1355,7 @@
     "title": "Normalisatie Hub",
     "original": "Origineel",
     "adjustment": "Aanpassing",
+    "outcome": "Uitkomst",
     "normalized": "Genormaliseerd",
     "statusOverview": "Status Overzicht",
     "normalizationsCount": "{count} normalisaties",
@@ -1355,10 +1411,11 @@
       "kosten": "Kosten"
     },
     "sources": {
-      "manual": "Manueel",
-      "yuki": "Yuki",
-      "exact": "Exact",
-      "csv": "CSV",
+      "manual": "Handmatig",
+      "yuki": "Yuki Export",
+      "exact": "Exact Online",
+      "odoo": "Odoo",
+      "csv": "CSV Upload",
       "ai": "AI"
     },
     "table": {
@@ -1465,6 +1522,7 @@
       "legal": "Juridische kosten",
       "legalDesc": "Eenmalige juridische kosten",
       "legalReason": "Rechtszaak of schikking",
+      "depreciation": "Afschrijvingen",
       "advisory": "Advieskosten",
       "advisoryDesc": "Eenmalige advieskosten",
       "advisoryReason": "Consultancy of due diligence",
@@ -1484,7 +1542,13 @@
       "housingCosts": "Huisvestingskosten",
       "vehicleCosts": "Autokosten",
       "oneTimeCosts": "Eenmalige kosten",
-      "oneTimeRevenue": "Eenmalige baten"
+      "oneTimeRevenue": "Eenmalige baten",
+      "salary": "Eigenaarssalaris",
+      "rent": "Huurkosten",
+      "vehicle": "Autokosten",
+      "oneTime": "Eenmalige kosten",
+      "personal": "Privékosten",
+      "other": "Overige"
     },
     "orSearch": "of zoek",
     "manualCorrection": "Handmatige correctie {name}",
@@ -1495,6 +1559,67 @@
       "geboekt": "Geboekt",
       "correctie": "Correctie",
       "genorm": "Genorm."
+    },
+    "fieldLabels": {
+      "ownerSalary": "Eigenaarssalaris",
+      "rent": "Huurkosten",
+      "vehicle": "Autokosten",
+      "ebitda": "EBITDA",
+      "oneTime": "Eenmalige kosten",
+      "personal": "Privékosten",
+      "revenue": "Omzet",
+      "depreciation": "Afschrijvingen",
+      "other": "Overige"
+    },
+    "presetLabels": {
+      "ownerSalary": "Eigenaarssalaris",
+      "familySalary": "Familielid salaris",
+      "rent": "Huurkosten",
+      "vehicle": "Autokosten",
+      "oneTimeLegal": "Juridische kosten",
+      "oneTimeAdvisory": "Advieskosten",
+      "restructuring": "Herstructurering",
+      "depreciation": "Afschrijvingen",
+      "personalExpenses": "Privékosten",
+      "assetSale": "Verkoop activa"
+    },
+    "presetDescriptions": {
+      "ownerSalary": "Correctie naar marktconform niveau",
+      "familySalary": "Salaris boven marktwaarde familielid",
+      "rent": "Huur boven/onder marktwaarde",
+      "vehicle": "Privégebruik bedrijfsvoertuig",
+      "oneTimeLegal": "Rechtszaak of schikking",
+      "oneTimeAdvisory": "Consultancy of due diligence",
+      "restructuring": "Eenmalige reorganisatiekosten",
+      "depreciation": "Versnelde of abnormale afschrijving",
+      "personalExpenses": "Persoonlijke uitgaven via bedrijf",
+      "assetSale": "Eenmalige opbrengst verkoop"
+    },
+    "presetLedgerNames": {
+      "directorCompensation": "Bezoldigingen bestuurders",
+      "familyCompensation": "Bezoldigingen familieleden",
+      "rent": "Huurkosten",
+      "vehicle": "Voertuigkosten",
+      "oneTime": "Eenmalige kosten",
+      "fees": "Erelonen en vergoedingen",
+      "restructuring": "Herstructureringskosten",
+      "depreciation": "Afschrijvingen",
+      "personal": "Privékosten zaakvoerder",
+      "assetGains": "Meerwaarden op activa"
+    },
+    "defaultSuggestions": {
+      "ownerSalaryAboveMarket": "Eigenaarssalaris boven marktwaarde",
+      "officeRent": "Huurkosten kantoorpand",
+      "directorVehicle": "Autokosten directie",
+      "oneTimeLegal": "Eenmalige juridische kosten",
+      "familyOnPayroll": "Familielid op payroll",
+      "marketConformCorrection": "Marktconforme correctie",
+      "rentBelowMarket": "Onder-marktwaarde huur",
+      "rentDiffReason": "Huur € 700/maand onder marktwaarde voor vergelijkbaar pand",
+      "salaryDiffReason": "Verschil tussen huidig en marktconform salaris voor vergelijkbare functie",
+      "vehicleReason": "Privégebruik directievoertuig: 50%",
+      "acquisitionDispute": "Overnamegeschil 2023",
+      "partnerNoRole": "Partner zonder operationele functie"
     },
     "suggestionModal": {
       "title": "Normalisatie Suggestie",
@@ -1542,7 +1667,20 @@
     "tryAgain": "Opnieuw proberen",
     "noBusinessTypesFound": "Geen bedrijfstypes gevonden",
     "unexpectedResultRetry": "Niet wat u verwachtte? Opnieuw proberen",
-    "clear": "Wissen"
+    "clear": "Wissen",
+    "backToOptions": "← Terug naar opties",
+    "backToMapping": "← Terug naar mapping",
+    "continueToEstimate": "Doorgaan naar schatting",
+    "accountsImported": "{accounts} rekeningen geïmporteerd — {years, plural, one {# boekjaar} other {# boekjaren}} geanalyseerd",
+    "skipAndStart": "Sla over en begin direct →",
+    "defaultSuggestion1Category": "Eigenaarssalaris",
+    "defaultSuggestion1Description": "Marktconforme correctie",
+    "defaultSuggestion1Reason": "Verschil tussen huidig en marktconform salaris voor vergelijkbare functie",
+    "defaultSuggestion2Category": "Huurkosten",
+    "defaultSuggestion2Description": "Onder-marktwaarde huur",
+    "defaultSuggestion2Reason": "Huur € 700/maand onder marktwaarde voor vergelijkbaar pand",
+    "potentialNormalisation": "Potentiële normalisatie",
+    "privateUseDetected": "Privégebruik component gedetecteerd op basis van branchevergelijking"
   },
   "csvUpload": {
     "title": "Yuki Export Uploaden",

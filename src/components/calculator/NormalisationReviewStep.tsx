@@ -210,11 +210,12 @@ export function NormalisationReviewStep({
   
   const normalizedEbitda = originalEbitda + totalAcceptedAdjustment;
   
+  const nh = useTranslations('normalizationHub');
   const integrationLabels: Record<string, string> = {
-    yuki: 'Yuki Export',
-    exact: 'Exact Online',
-    odoo: 'Odoo Export',
-    manual: 'Handmatig',
+    yuki: nh('sources.yuki'),
+    exact: nh('sources.exact'),
+    odoo: nh('sources.odoo'),
+    manual: nh('sources.manual'),
   };
   
   // Filter ledger accounts based on search

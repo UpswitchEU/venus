@@ -151,14 +151,14 @@ function useIsMobile() {
 // These represent the most common normalization categories for Belgian SMEs.
 // ─────────────────────────────────────────
 
-function generateDefaultNormalizationSuggestions(source: 'yuki' | 'exact' | 'odoo') {
+function generateDefaultNormalizationSuggestions(source: 'yuki' | 'exact' | 'odoo', nh: (key: string) => string) {
   const labels = { yuki: 'Yuki', exact: 'Exact Online', odoo: 'Odoo' }
   return [
-    { id: `${source}-1`, code: '620', description: 'Eigenaarssalaris boven marktwaarde', category: 'salary', amount: 60000, reason: 'Marktconform salaris: €120.000 vs €180.000', sourceRef: `${labels[source]} 620xxx`, status: 'pending' },
-    { id: `${source}-2`, code: '613', description: 'Huurkosten kantoorpand', category: 'rent', amount: 24000, reason: 'Huurprijs boven marktwaarde', sourceRef: `${labels[source]} 613xxx`, status: 'pending' },
-    { id: `${source}-3`, code: '615', description: 'Autokosten directie', category: 'vehicle', amount: 18000, reason: 'Privégebruik directievoertuig: 50%', sourceRef: 'Manueel', status: 'pending' },
-    { id: `${source}-4`, code: '640', description: 'Eenmalige juridische kosten', category: 'one-time', amount: 35000, reason: 'Overnamegeschil 2023', sourceRef: `${labels[source]}`, status: 'pending' },
-    { id: `${source}-5`, code: '650', description: 'Familielid op payroll', category: 'personal', amount: 45000, reason: 'Partner zonder operationele functie', sourceRef: 'Manueel', status: 'pending' },
+    { id: `${source}-1`, code: '620', description: nh('defaultSuggestions.ownerSalaryAboveMarket'), category: 'salary', amount: 60000, reason: nh('defaultSuggestions.salaryDiffReason'), sourceRef: `${labels[source]} 620xxx`, status: 'pending' },
+    { id: `${source}-2`, code: '613', description: nh('defaultSuggestions.officeRent'), category: 'rent', amount: 24000, reason: nh('defaultSuggestions.rentBelowMarket'), sourceRef: `${labels[source]} 613xxx`, status: 'pending' },
+    { id: `${source}-3`, code: '615', description: nh('defaultSuggestions.directorVehicle'), category: 'vehicle', amount: 18000, reason: nh('defaultSuggestions.vehicleReason'), sourceRef: nh('sources.manual'), status: 'pending' },
+    { id: `${source}-4`, code: '640', description: nh('defaultSuggestions.oneTimeLegal'), category: 'one-time', amount: 35000, reason: nh('defaultSuggestions.acquisitionDispute'), sourceRef: `${labels[source]}`, status: 'pending' },
+    { id: `${source}-5`, code: '650', description: nh('defaultSuggestions.familyOnPayroll'), category: 'personal', amount: 45000, reason: nh('defaultSuggestions.partnerNoRole'), sourceRef: nh('sources.manual'), status: 'pending' },
   ]
 }
 

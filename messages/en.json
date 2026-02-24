@@ -472,7 +472,50 @@
     "noAuditTrailYet": "No audit trail yet",
     "changesWillAppearHere": "Changes and regenerations will appear here",
     "noChangesYet": "No changes yet",
-    "editOrRegenerateDesc": "Edit fields or regenerate the valuation to see the audit trail here"
+    "editOrRegenerateDesc": "Edit fields or regenerate the valuation to see the audit trail here",
+    "title": "Audit Trail",
+    "exportCsv": "Export CSV",
+    "totalEdits": "Total Edits",
+    "regenerations": "Regenerations",
+    "versions": "Versions",
+    "mostEditedFields": "Most Edited Fields:",
+    "filterAll": "All Operations",
+    "filterFieldEdits": "Field Edits",
+    "filterRegenerations": "Regenerations",
+    "filterVersionCreations": "Version Creations",
+    "filterFlowSwitches": "Flow Switches",
+    "operationEdit": "Field Edited",
+    "operationRegenerate": "Valuation Regenerated",
+    "operationVersionCreate": "Version Created",
+    "operationSwitchView": "Flow Switched",
+    "changed": " changed",
+    "createdVersion": "Created",
+    "version": "Version",
+    "saved": " saved",
+    "significantChanges": "Significant changes:"
+  },
+  "dataCompleteness": {
+    "title": "Data Completeness",
+    "requiredFieldsMissing": "{count, plural, one {# required field missing} other {# required fields missing}}",
+    "complete": "Complete",
+    "dataFilled": "Data filled"
+  },
+  "saveStatus": {
+    "saveFailed": "Save failed",
+    "saving": "Saving...",
+    "unsavedChanges": "Unsaved changes",
+    "saved": "Saved {time}",
+    "retry": "Retry",
+    "justNow": "just now",
+    "secondsAgo": "{count}s ago",
+    "minutesAgo": "{count}m ago",
+    "hoursAgo": "{count}h ago"
+  },
+  "relativeTime": {
+    "justNow": "Just now",
+    "minutesAgo": "{count, plural, one {# min ago} other {# mins ago}}",
+    "hoursAgo": "{count, plural, one {# hour ago} other {# hours ago}}",
+    "daysAgo": "{count, plural, one {# day ago} other {# days ago}}"
   },
   "valuationEmptyState": {
     "reportsWillAppearHere": "Reports will appear here",
@@ -645,6 +688,18 @@
       "preparedBy": "Prepared by",
       "validUntil": "Valid until"
     }
+  },
+  "htmlView": {
+    "title": "HTML Report",
+    "notAvailable": "HTML Report Not Available",
+    "notAvailableDesc": "The server-generated HTML report is not available. This indicates an issue with the valuation response. Fallback HTML generation has been removed per bank-grade standards.",
+    "valuationId": "Valuation ID",
+    "htmlReport": "HTML Report",
+    "htmlLength": "HTML Length",
+    "copyHtml": "Copy HTML",
+    "presentButEmpty": "Present but empty",
+    "notPresent": "Not present",
+    "characters": "characters"
   },
   "versions": {
     "title": "Version History",
@@ -1300,6 +1355,7 @@
     "title": "Normalization Hub",
     "original": "Original",
     "adjustment": "Adjustment",
+    "outcome": "Outcome",
     "normalized": "Normalized",
     "statusOverview": "Status Overview",
     "normalizationsCount": "{count} normalizations",
@@ -1356,9 +1412,10 @@
     },
     "sources": {
       "manual": "Manual",
-      "yuki": "Yuki",
-      "exact": "Exact",
-      "csv": "CSV",
+      "yuki": "Yuki Export",
+      "exact": "Exact Online",
+      "odoo": "Odoo",
+      "csv": "CSV Upload",
       "ai": "AI"
     },
     "table": {
@@ -1374,8 +1431,13 @@
       "remove": "Remove",
       "removeAdjustment": "Remove adjustment",
       "restore": "Restore",
-      "undo": "Undo"
+      "undo": "Undo",
+      "cancel": "Cancel",
+      "save": "Save",
+      "add": "Add"
     },
+    "marketPrefix": "Market:",
+    "pendingToReview": "to review",
     "importLedger": "Import ledger",
     "closeImportPicker": "Close import picker",
     "closeLedgerDropdown": "Close ledger dropdown",
@@ -1465,6 +1527,7 @@
       "legal": "Legal costs",
       "legalDesc": "One-off legal costs",
       "legalReason": "Lawsuit or settlement",
+      "depreciation": "Depreciation",
       "advisory": "Advisory costs",
       "advisoryDesc": "One-off advisory costs",
       "advisoryReason": "Consultancy or due diligence",
@@ -1484,7 +1547,13 @@
       "housingCosts": "Housing costs",
       "vehicleCosts": "Vehicle costs",
       "oneTimeCosts": "One-off costs",
-      "oneTimeRevenue": "One-off revenue"
+      "oneTimeRevenue": "One-off revenue",
+      "salary": "Owner salary",
+      "rent": "Rent costs",
+      "vehicle": "Vehicle costs",
+      "oneTime": "One-off costs",
+      "personal": "Personal expenses",
+      "other": "Other"
     },
     "orSearch": "or search",
     "manualCorrection": "Manual correction {name}",
@@ -1495,6 +1564,67 @@
       "geboekt": "Booked",
       "correctie": "Adjustment",
       "genorm": "Normalized"
+    },
+    "fieldLabels": {
+      "ownerSalary": "Owner salary",
+      "rent": "Rent costs",
+      "vehicle": "Vehicle costs",
+      "ebitda": "EBITDA",
+      "oneTime": "One-off costs",
+      "personal": "Personal expenses",
+      "revenue": "Revenue",
+      "depreciation": "Depreciation",
+      "other": "Other"
+    },
+    "presetLabels": {
+      "ownerSalary": "Owner salary",
+      "familySalary": "Family member salary",
+      "rent": "Rent costs",
+      "vehicle": "Vehicle costs",
+      "oneTimeLegal": "Legal costs",
+      "oneTimeAdvisory": "Advisory costs",
+      "restructuring": "Restructuring",
+      "depreciation": "Depreciation",
+      "personalExpenses": "Personal expenses",
+      "assetSale": "Asset sale"
+    },
+    "presetDescriptions": {
+      "ownerSalary": "Correction to market-conform level",
+      "familySalary": "Family member salary above market value",
+      "rent": "Rent above/below market value",
+      "vehicle": "Private use of company vehicle",
+      "oneTimeLegal": "Lawsuit or settlement",
+      "oneTimeAdvisory": "Consultancy or due diligence",
+      "restructuring": "One-off restructuring costs",
+      "depreciation": "Accelerated or abnormal depreciation",
+      "personalExpenses": "Personal expenses via company",
+      "assetSale": "One-off asset sale proceeds"
+    },
+    "presetLedgerNames": {
+      "directorCompensation": "Director compensation",
+      "familyCompensation": "Family member compensation",
+      "rent": "Rent costs",
+      "vehicle": "Vehicle costs",
+      "oneTime": "One-off costs",
+      "fees": "Fees and allowances",
+      "restructuring": "Restructuring costs",
+      "depreciation": "Depreciation",
+      "personal": "Director personal expenses",
+      "assetGains": "Gains on assets"
+    },
+    "defaultSuggestions": {
+      "ownerSalaryAboveMarket": "Owner salary above market value",
+      "officeRent": "Office building rent",
+      "directorVehicle": "Director vehicle costs",
+      "oneTimeLegal": "One-off legal costs",
+      "familyOnPayroll": "Family member on payroll",
+      "marketConformCorrection": "Market-conform correction",
+      "rentBelowMarket": "Below-market rent",
+      "rentDiffReason": "Rent €700/month below market value for comparable building",
+      "salaryDiffReason": "Difference between current and market-conform salary for comparable role",
+      "vehicleReason": "Private use director vehicle: 50%",
+      "acquisitionDispute": "Acquisition dispute 2023",
+      "partnerNoRole": "Partner without operational role"
     },
     "suggestionModal": {
       "title": "Normalization Suggestion",
@@ -1546,8 +1676,16 @@
     "backToOptions": "← Back to options",
     "backToMapping": "← Back to mapping",
     "continueToEstimate": "Continue to estimate",
-    "accountsImported": "{accounts} accounts imported — {years} fiscal year(s) analyzed",
-    "skipAndStart": "Skip and start directly →"
+    "accountsImported": "{accounts} accounts imported — {years, plural, one {# fiscal year} other {# fiscal years}} analyzed",
+    "skipAndStart": "Skip and start directly →",
+    "defaultSuggestion1Category": "Owner salary",
+    "defaultSuggestion1Description": "Market-rate adjustment",
+    "defaultSuggestion1Reason": "Difference between current and market-rate salary for comparable role",
+    "defaultSuggestion2Category": "Rent costs",
+    "defaultSuggestion2Description": "Below-market rent",
+    "defaultSuggestion2Reason": "Rent €700/month below market for comparable property",
+    "potentialNormalisation": "Potential normalisation",
+    "privateUseDetected": "Private use component detected based on industry comparison"
   },
   "csvUpload": {
     "title": "Upload Yuki Export",

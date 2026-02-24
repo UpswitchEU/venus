@@ -10,6 +10,7 @@ interface HTMLViewProps {
 
 export const HTMLView: React.FC<HTMLViewProps> = ({ result }) => {
   const t = useTranslations('common')
+  const tHtml = useTranslations('htmlView')
   if (!result) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
@@ -56,19 +57,18 @@ export const HTMLView: React.FC<HTMLViewProps> = ({ result }) => {
     return (
       <div className="h-full flex flex-col bg-background">
         <div className="p-4 border-b border-foreground/10 flex items-center justify-between">
-          <h3 className="text-white font-medium">HTML Report</h3>
+          <h3 className="text-white font-medium">{tHtml('title')}</h3>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-8">
           <Code className="w-16 h-16 text-rust-400 mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-2">HTML Report Not Available</h3>
+          <h3 className="text-lg font-semibold text-white mb-2">{tHtml('notAvailable')}</h3>
           <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-            The server-generated HTML report is not available. This indicates an issue with the
-            valuation response. Fallback HTML generation has been removed per bank-grade standards.
+            {tHtml('notAvailableDesc')}
           </p>
           <div className="text-xs text-muted-foreground text-center">
-            <p>Valuation ID: {result.valuation_id || 'N/A'}</p>
-            <p>HTML Report: {result.html_report ? 'Present but empty' : 'Not present'}</p>
-            <p>HTML Length: {result.html_report?.length || 0} characters</p>
+            <p>{tHtml('valuationId')}: {result.valuation_id || 'N/A'}</p>
+            <p>{tHtml('htmlReport')}: {result.html_report ? tHtml('presentButEmpty') : tHtml('notPresent')}</p>
+            <p>{tHtml('htmlLength')}: {result.html_report?.length || 0} {tHtml('characters')}</p>
           </div>
         </div>
       </div>
@@ -78,13 +78,13 @@ export const HTMLView: React.FC<HTMLViewProps> = ({ result }) => {
   return (
     <div className="h-full flex flex-col bg-background">
       <div className="p-4 border-b border-foreground/10 flex items-center justify-between">
-        <h3 className="text-white font-medium">HTML Report</h3>
+        <h3 className="text-white font-medium">{tHtml('title')}</h3>
         <button
           onClick={handleCopyHTML}
           className="px-3 py-1.5 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 flex items-center gap-2 transition-colors"
         >
           <Copy className="w-4 h-4" />
-          Copy HTML
+          {tHtml('copyHtml')}
         </button>
       </div>
       <div className="flex-1 overflow-auto p-4">

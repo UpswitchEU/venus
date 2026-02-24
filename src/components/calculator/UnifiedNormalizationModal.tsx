@@ -1688,7 +1688,7 @@ export function UnifiedNormalizationModal({
                       </div>
                       <div className="text-foreground/30">→</div>
                       <div>
-                        <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5">Aanpassing</p>
+                        <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5">{nh('adjustment')}</p>
                         <p className={cn(
                           "text-sm font-mono font-semibold",
                           newType === 'add_percent' ? "text-success" : "text-secondary"
@@ -1698,7 +1698,7 @@ export function UnifiedNormalizationModal({
                       </div>
                       <div className="text-foreground/30">→</div>
                       <div>
-                        <p className="text-[9px] font-medium text-primary uppercase tracking-wider mb-0.5">Uitkomst</p>
+                        <p className="text-[9px] font-medium text-primary uppercase tracking-wider mb-0.5">{nh('outcome')}</p>
                         <p className="text-sm font-mono font-bold text-foreground">
                           {formatCurrency(
                             originalEBITDA + (newType === 'add_percent' ? 1 : -1) * originalEBITDA * (parseFloat(newValue.replace(/[^0-9.-]/g, '')) || 0) / 100

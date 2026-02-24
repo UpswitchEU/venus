@@ -75,12 +75,12 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const sourceLabels: Record<string, { label: string; icon: string }> = {
-  yuki: { label: 'Yuki Export', icon: '🟣' },
-  exact: { label: 'Exact Online', icon: '🔵' },
-  odoo: { label: 'Odoo', icon: '🟠' },
-  csv: { label: 'CSV Upload', icon: '📄' },
-  manual: { label: 'Handmatig', icon: '✏️' },
+const sourceIcons: Record<string, string> = {
+  yuki: '🟣',
+  exact: '🔵',
+  odoo: '🟠',
+  csv: '📄',
+  manual: '✏️',
 };
 
 // ─────────────────────────────────────────
@@ -123,7 +123,11 @@ export function NormalizationHub({
     };
   }, [normalizations, originalEbitda]);
 
-  const source = sourceLabels[sourceIntegration] || sourceLabels.manual;
+  const sourceKey = ['yuki', 'exact', 'odoo', 'csv', 'manual'].includes(sourceIntegration) ? sourceIntegration : 'manual';
+  const source = {
+    label: nh(`sources.${sourceKey}`),
+    icon: sourceIcons[sourceKey] ?? '✏️',
+  };
 
   return (
     <>
