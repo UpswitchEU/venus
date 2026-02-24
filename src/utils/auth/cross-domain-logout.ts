@@ -49,9 +49,8 @@ export function broadcastLogout(): void {
     // Also use postMessage for compatibility
     window.postMessage(message, window.location.origin)
 
-    console.log('[CrossDomainLogout] Logout event broadcasted to same-origin tabs')
-  } catch (error) {
-    console.error('[CrossDomainLogout] Error broadcasting logout:', error)
+  } catch (_error) {
+    // Broadcast failed — non-critical, tab sync is best-effort
   }
 }
 
@@ -75,8 +74,7 @@ export function listenForLogout(callback: () => void): () => void {
       isSameOrigin &&
       event.data.source !== window.location.hostname // Don't react to our own messages
     ) {
-      console.log('[CrossDomainLogout] Received logout event from another tab')
-      callback() // Just clear state, don't redirect
+      callback()
     }
   }
 
@@ -108,18 +106,15 @@ export function listenForLogin(callback: () => void): () => void {
       channel = new BroadcastChannel('upswitch-auth-sync')
       channel.onmessage = (event) => {
         if (event.data?.type === LOGIN_EVENT && event.data.source !== window.location.hostname) {
-          console.log('[CrossDomainLogout] Received login event via BroadcastChannel')
           callback()
         }
       }
-    } catch (error) {
-      console.warn('[CrossDomainLogout] BroadcastChannel not available, using postMessage')
+    } catch (_error) {
+      // BroadcastChannel not available, fall through to postMessage
     }
   }
 
-  // Fallback to postMessage for compatibility
   const handleMessage = (event: MessageEvent) => {
-    // STRICT: Only accept messages from same origin
     const isSameOrigin = event.origin === window.location.origin
 
     if (
@@ -127,14 +122,11 @@ export function listenForLogin(callback: () => void): () => void {
       isSameOrigin &&
       event.data.source !== window.location.hostname
     ) {
-      console.log('[CrossDomainLogout] Received login event via postMessage')
       callback()
     }
   }
 
-  // Listen for Mercury's custom event pattern
-  const handleCustomEvent = (event: Event) => {
-    console.log('[CrossDomainLogout] Received user-login custom event')
+  const handleCustomEvent = () => {
     callback()
   }
 
@@ -185,9 +177,8 @@ export function broadcastLogin(): void {
     // Also dispatch custom event for Mercury compatibility
     window.dispatchEvent(new CustomEvent('user-login', { detail: {} }))
 
-    console.log('[CrossDomainLogout] Login event broadcasted to same-origin tabs')
-  } catch (error) {
-    console.error('[CrossDomainLogout] Error broadcasting login:', error)
+  } catch (_error) {
+    // Broadcast failed — non-critical, tab sync is best-effort
   }
 }
 
@@ -271,8 +262,8 @@ export function setupAuthStateWatcher(
     try {
       const isAuthenticated = await checkAuthState()
       onAuthStateChange(isAuthenticated)
-    } catch (error) {
-      console.warn('[CrossDomainLogout] Auth check error:', error)
+    } catch (_error) {
+      // Auth check failed — will be retried on next visibility change
     }
   }
 
@@ -327,11 +318,8 @@ export function broadcastReportCreated(reportData: {
     // Also use postMessage for compatibility
     window.postMessage(message, window.location.origin)
 
-    console.log('[CrossDomainSync] Report created event broadcasted', {
-      reportId: reportData.reportId,
-    })
-  } catch (error) {
-    console.error('[CrossDomainSync] Error broadcasting report created:', error)
+  } catch (_error) {
+    // Broadcast failed — non-critical
   }
 }
 
@@ -384,13 +372,8 @@ export function broadcastReportUpdated(reportData: {
 
     window.postMessage(message, window.location.origin)
 
-    console.log('[CrossDomainSync] Report updated event broadcasted', {
-      reportId: reportData.reportId,
-      hasValuationResult: !!reportData.valuationResult,
-      versionCount: reportData.versionCount,
-    })
-  } catch (error) {
-    console.error('[CrossDomainSync] Error broadcasting report updated:', error)
+  } catch (_error) {
+    // Broadcast failed — non-critical
   }
 }
 
@@ -421,11 +404,8 @@ export function broadcastReportDeleted(reportData: { reportId: string; clientId?
 
     window.postMessage(message, window.location.origin)
 
-    console.log('[CrossDomainSync] Report deleted event broadcasted', {
-      reportId: reportData.reportId,
-    })
-  } catch (error) {
-    console.error('[CrossDomainSync] Error broadcasting report deleted:', error)
+  } catch (_error) {
+    // Broadcast failed — non-critical
   }
 }
 
@@ -487,8 +467,8 @@ export function listenForReportEvents(callbacks: {
           callbacks.onReportDeleted(data)
         }
       }
-    } catch (error) {
-      console.warn('[CrossDomainSync] BroadcastChannel not available, using postMessage')
+    } catch (_error) {
+      // BroadcastChannel not available, fall through to postMessage
     }
   }
 
