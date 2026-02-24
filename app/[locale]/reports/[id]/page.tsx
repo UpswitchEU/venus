@@ -1,6 +1,7 @@
 import nextDynamic from 'next/dynamic'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { generalLogger } from '@/utils/logger'
+import { ReportNotFoundMessage } from './ReportNotFoundMessage'
 
 // Dynamically import the client component with no SSR
 // ssr: false means it only renders on the client, so no Suspense needed
@@ -67,14 +68,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   // Return error UI if no ID
   if (!id) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Invalid Report URL</h1>
-          <p className="text-muted-foreground">Missing report ID</p>
-        </div>
-      </div>
-    )
+    return <ReportNotFoundMessage />
   }
 
   // Return component - loading handled by dynamic import

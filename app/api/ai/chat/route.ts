@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/);
+    const accessToken = accessTokenMatch?.[1]?.trim();
+
     const useStream = body.stream !== false;
 
     const titanEndpoint = useStream
@@ -73,7 +76,7 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         Accept: useStream ? 'text/event-stream' : 'application/json',
-        Authorization: `Bearer ${authCookie.value}`,
+        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         ...(cookieHeader && { Cookie: cookieHeader }),
       },
       body: JSON.stringify(titanPayload),

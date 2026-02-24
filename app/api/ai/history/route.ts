@@ -32,12 +32,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/);
+    const accessToken = accessTokenMatch?.[1]?.trim();
+
     const titanResponse = await fetchWithTimeout(
       `${TITAN_API_URL}/api/v2/ai/conversations/${encodeURIComponent(reportId)}/history`,
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authCookie.value}`,
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
           ...(cookieHeader && { Cookie: cookieHeader }),
         },
       },

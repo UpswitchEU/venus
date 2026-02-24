@@ -21,7 +21,7 @@
 import { useCallback, useEffect } from 'react'
 import { backendAPI } from '../services/backendApi'
 import { useSessionStore } from '../store/useSessionStore'
-import { debounce } from '../utils/debounce'
+import { debounceWithFlush } from '../utils/debounce'
 import { generalLogger } from '../utils/logger'
 import { NameGenerator } from '../utils/nameGenerator'
 
@@ -73,8 +73,9 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
   // Debounced sync: form data → session store (500ms delay)
   // CRITICAL: Read session state inside the debounced function, not as a dependency
   // This prevents the component from re-rendering when session updates
+  // Uses debounceWithFlush for page unload - flush() saves pending changes before tab close
   const debouncedSyncToSession = useCallback(
-    debounce(async (data: typeof formData) => {
+    debounceWithFlush(async (data: typeof formData) => {
       // Read session state inside the debounced function (not subscribed)
       const currentSession = useSessionStore.getState().session
       const updateSessionData = useSessionStore.getState().updateSessionData

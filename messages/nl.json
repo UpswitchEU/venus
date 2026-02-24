@@ -782,6 +782,10 @@
       "login": "Inloggen",
       "logout": "Uitloggen"
     },
+    "reportPage": {
+      "invalidUrl": "Ongeldige rapport-URL",
+      "missingId": "Rapport-ID ontbreekt"
+    },
     "notFound": {
       "title": "Niet Gevonden",
       "pageNotFound": "Pagina niet gevonden",

@@ -782,6 +782,10 @@
       "login": "Login",
       "logout": "Logout"
     },
+    "reportPage": {
+      "invalidUrl": "Invalid Report URL",
+      "missingId": "Missing report ID"
+    },
     "notFound": {
       "title": "Not Found",
       "pageNotFound": "Page Not Found",

@@ -36,11 +36,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/);
+    const accessToken = accessTokenMatch?.[1]?.trim();
+
     const titanResponse = await fetch(`${TITAN_API_URL}/api/v2/orchestration/gap-analysis`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authCookie.value}`,
+        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         ...(cookieHeader && { Cookie: cookieHeader }),
       },
       body: JSON.stringify({

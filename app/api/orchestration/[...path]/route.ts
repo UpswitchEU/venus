@@ -49,13 +49,17 @@ async function proxyToTitan(
       );
     }
 
+    // Extract access token from cookie for Authorization header
+    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/);
+    const accessToken = accessTokenMatch?.[1]?.trim();
+
     const url = buildTitanUrl(params.path, request.nextUrl.searchParams);
 
     const fetchOptions: RequestInit = {
       method,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authCookie.value}`,
+        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         ...(cookieHeader && { Cookie: cookieHeader }),
       },
     };
