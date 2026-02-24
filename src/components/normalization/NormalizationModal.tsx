@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories'
 import { NormalizationAPIError } from '../../services/ebitdaNormalizationService'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
@@ -28,6 +29,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const t = useTranslations('userDropdown')
   const {
     normalizations,
     marketRateSuggestions,
@@ -265,7 +267,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                             onClick={() => toggleCategory(categoryDef.id)}
                             className="text-sm text-primary hover:text-primary/90 mt-2"
                           >
-                            {isExpanded ? 'Show less' : 'Learn more'}
+                            {isExpanded ? t('showLess') : t('learnMore')}
                           </button>
                         </div>
                       </div>

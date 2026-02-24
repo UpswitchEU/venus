@@ -451,12 +451,13 @@ export function MappingTable({
   mappings: MappingRow[];
   className?: string;
 }) {
+  const t = useTranslations('yukiIntegration');
   return (
     <GlassCard className={cn("overflow-hidden", className)}>
       <div className="px-6 py-4 border-b border-foreground/[0.06]">
-        <Heading level={3} className="text-lg">Grootboek Mapping</Heading>
+        <Heading level={3} className="text-lg">{t('mappingTitle')}</Heading>
         <Caption className="text-foreground/50">
-          {mappings.length} rekeningen gematcht
+          {t('accountsMatched', { count: mappings.length })}
         </Caption>
       </div>
 
@@ -465,16 +466,16 @@ export function MappingTable({
           <thead>
             <tr className="border-b border-foreground/[0.06]">
               <th className="px-6 py-3 text-left text-xs font-medium text-foreground/40 uppercase tracking-wider">
-                Yuki Code
+                {t('yukiCode')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-foreground/40 uppercase tracking-wider">
-                Omschrijving
+                {t('description')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-foreground/40 uppercase tracking-wider">
-                Categorie
+                {t('category')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-foreground/40 uppercase tracking-wider">
-                Gematcht naar
+                {t('mappedTo')}
               </th>
             </tr>
           </thead>
@@ -500,9 +501,9 @@ export function MappingTable({
                     } 
                     size="sm"
                   >
-                    {mapping.category === 'revenue' ? 'Omzet' :
-                     mapping.category === 'expense' ? 'Kosten' :
-                     mapping.category === 'asset' ? 'Activa' : 'Passiva'}
+                    {mapping.category === 'revenue' ? t('revenue') :
+                     mapping.category === 'expense' ? t('expense') :
+                     mapping.category === 'asset' ? t('asset') : t('liability')}
                   </Badge>
                 </td>
                 <td className="px-6 py-3">
@@ -530,6 +531,7 @@ export function ManualInputFallback({
   onManualInput: () => void;
   className?: string;
 }) {
+  const t = useTranslations('yukiIntegration');
   return (
     <div className={cn(
       "flex items-center justify-between p-4 rounded-xl",
@@ -538,14 +540,14 @@ export function ManualInputFallback({
     )}>
       <div>
         <Body size="sm" className="font-medium mb-0.5">
-          Geen boekhoudpakket?
+          {t('noAccountingPackage')}
         </Body>
         <Caption className="text-foreground/40">
-          Voer uw financiële gegevens handmatig in.
+          {t('manualInputDesc')}
         </Caption>
       </div>
       <Button variant="secondary" size="sm" onClick={onManualInput}>
-        Handmatig invoeren
+        {t('manualInput')}
         <ChevronRight className="w-4 h-4 ml-1" />
       </Button>
     </div>

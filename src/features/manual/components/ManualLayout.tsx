@@ -155,7 +155,7 @@ function generateDefaultNormalizationSuggestions(source: 'yuki' | 'exact' | 'odo
   const labels = { yuki: 'Yuki', exact: 'Exact Online', odoo: 'Odoo' }
   return [
     { id: `${source}-1`, code: '620', description: nh('defaultSuggestions.ownerSalaryAboveMarket'), category: 'salary', amount: 60000, reason: nh('defaultSuggestions.salaryDiffReason'), sourceRef: `${labels[source]} 620xxx`, status: 'pending' },
-    { id: `${source}-2`, code: '613', description: nh('defaultSuggestions.officeRent'), category: 'rent', amount: 24000, reason: nh('defaultSuggestions.rentBelowMarket'), sourceRef: `${labels[source]} 613xxx`, status: 'pending' },
+    { id: `${source}-2`, code: '613', description: nh('defaultSuggestions.officeRent'), category: 'rent', amount: 24000, reason: nh('defaultSuggestions.rentAboveMarketReason'), sourceRef: `${labels[source]} 613xxx`, status: 'pending' },
     { id: `${source}-3`, code: '615', description: nh('defaultSuggestions.directorVehicle'), category: 'vehicle', amount: 18000, reason: nh('defaultSuggestions.vehicleReason'), sourceRef: nh('sources.manual'), status: 'pending' },
     { id: `${source}-4`, code: '640', description: nh('defaultSuggestions.oneTimeLegal'), category: 'one-time', amount: 35000, reason: nh('defaultSuggestions.acquisitionDispute'), sourceRef: `${labels[source]}`, status: 'pending' },
     { id: `${source}-5`, code: '650', description: nh('defaultSuggestions.familyOnPayroll'), category: 'personal', amount: 45000, reason: nh('defaultSuggestions.partnerNoRole'), sourceRef: nh('sources.manual'), status: 'pending' },
@@ -261,6 +261,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const tReport = useTranslations('report')
   const tHistory = useTranslations('historyPanel')
   const tErrors = useTranslations('errors')
+  const nh = useTranslations('normalizationHub')
   const isMobile = useIsMobile()
 
   // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
@@ -975,12 +976,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const n = typeof value === 'number' ? value : parseInt(String(value), 10)
       if (!Number.isNaN(n) && n >= 0 && n <= 100) updateFormData({ shares_for_sale: n })
     }
-    toast.success(t('fieldUpdated', { field, value: typeof value === 'number' ? `€${value.toLocaleString('nl-BE')}` : String(value) }))
+    const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE';
+    toast.success(t('fieldUpdated', { field, value: typeof value === 'number' ? `€${value.toLocaleString(currencyLocale)}` : String(value) }))
     setChatMessages((prev) => [
       ...prev,
       { id: crypto.randomUUID(), role: 'system' as const, content: t('fieldApplied', { field }), timestamp: new Date() },
     ])
-  }, [updateFormData])
+  }, [updateFormData, currentLocale, t])
 
   const handleChatMessage = useCallback(
     async (content: string, attachments?: File[], detectedValues?: any[], parsedCommands?: any[]) => {
@@ -1001,7 +1003,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (parsedCommands?.length) {
           parsedCommands.forEach((cmd: any) => handleApplyFieldUpdate(cmd.field, cmd.value))
           await new Promise((r) => setTimeout(r, 500))
-          const commandsList = parsedCommands.map((cmd: any) => `- **${cmd.label}** → €${cmd.value.toLocaleString('nl-BE')}`).join('\n')
+          const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE';
+          const commandsList = parsedCommands.map((cmd: any) => `- **${cmd.label}** → €${cmd.value.toLocaleString(currencyLocale)}`).join('\n')
           setChatMessages((prev) => [
             ...prev,
             { id: crypto.randomUUID(), role: 'assistant' as const, content: `${t('normApplied')}\n\n${commandsList}`, timestamp: new Date() },
@@ -1709,7 +1712,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       // If AI returns no suggestions, generate sensible defaults based on source
       if (suggestions.length === 0) {
-        suggestions = generateDefaultNormalizationSuggestions(source)
+        suggestions = generateDefaultNormalizationSuggestions(source, nh)
       }
 
       const unifiedItems: NormalizationItem[] = suggestions.map((s: any, idx: number) => ({
@@ -1771,7 +1774,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
       toast.error(t('importAnalysisFailed'), { description: t('importAnalysisFailedDesc') })
     }
-  }, [reportId, collectedData, normalizationActions])
+  }, [reportId, collectedData, normalizationActions, nh, t])
 
   // ─── Normalisation Suggestion Modal ───
   const handleNormalisationSuggestionAccept = useCallback(
@@ -1780,9 +1783,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       handleApplyFieldUpdate(suggestion.field, value)
       setShowNormalisationModal(false)
       setCurrentNormalisationSuggestion(null)
-      toast.success(t('normNormalized', { label: suggestion.label, value: value.toLocaleString('nl-BE') }))
+      const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE';
+      toast.success(t('normNormalized', { label: suggestion.label, value: value.toLocaleString(currencyLocale) }))
     },
-    [handleApplyFieldUpdate]
+    [handleApplyFieldUpdate, currentLocale, t]
   )
 
   const handleNormalisationSuggestionReject = useCallback(() => {

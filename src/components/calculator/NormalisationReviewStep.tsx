@@ -15,7 +15,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Check, 
@@ -83,21 +83,6 @@ export interface NormalisationReviewStepProps {
 // ─────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────
-
-const formatCurrency = (amount: number) => {
-  if (Math.abs(amount) >= 1000000) {
-    return `€${(amount / 1000000).toFixed(2)}M`;
-  }
-  if (Math.abs(amount) >= 1000) {
-    return `€${(amount / 1000).toFixed(0)}K`;
-  }
-  return new Intl.NumberFormat('nl-BE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
 
 const categoryLabelKeys: Record<SuggestedNormalisation['category'], string> = {
   salary: 'categories.salary',
@@ -180,6 +165,13 @@ export function NormalisationReviewStep({
 }: NormalisationReviewStepProps) {
   const nh = useTranslations('normalizationHub');
   const ca = useTranslations('chatAssistant');
+  const locale = useLocale();
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
+  const formatCurrency = useCallback((amount: number) => {
+    if (Math.abs(amount) >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`;
+    if (Math.abs(amount) >= 1000) return `€${(amount / 1000).toFixed(0)}K`;
+    return new Intl.NumberFormat(currencyLocale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+  }, [currencyLocale]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -516,7 +508,7 @@ export function NormalisationReviewStep({
                         />
                         <span className="text-xs text-foreground/60 flex items-center gap-1">
                           <CalendarRange className="w-3 h-3" />
-                          Toepassen op alle jaren
+                          {nh('applyToAllYears')}
                         </span>
                       </label>
                       
@@ -873,7 +865,7 @@ export function NormalisationReviewStep({
                       />
                       <span className="text-xs text-foreground/60 flex items-center gap-1">
                         <CalendarRange className="w-3 h-3" />
-                        Toepassen op alle jaren
+                        {nh('applyToAllYears')}
                       </span>
                     </label>
 

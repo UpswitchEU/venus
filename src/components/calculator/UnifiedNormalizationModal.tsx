@@ -646,7 +646,7 @@ export function UnifiedNormalizationModal({
       // Warn if adjustment exceeds 30% of EBITDA
       if (pctOfEbitda > 30) {
         import('sonner').then(({ toast }) =>
-          toast.warning('Hoge normalisatie', {
+          toast.warning(nh('warnToastTitle'), {
             description: nh('warnToastDesc', { pct: pctOfEbitda.toFixed(0) }),
           })
         );
@@ -1980,13 +1980,13 @@ function CompactTableRow({
         {item.status === 'pending' && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-warning/10 text-warning">
             <Clock className="w-2.5 h-2.5" />
-            Pending
+            {nh('statusPending')}
           </span>
         )}
         {item.status === 'accepted' && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/10 text-success">
             <Check className="w-2.5 h-2.5" />
-            OK
+            {nh('statusOk')}
           </span>
         )}
         {item.status === 'rejected' && (
@@ -2158,6 +2158,9 @@ function NormalizationRow({
   onCancelEdit,
   typeOptions,
 }: NormalizationRowProps) {
+  const locale = useLocale();
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
+  const formatCurrency = useCallback((amount: number) => new Intl.NumberFormat(currencyLocale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount), [currencyLocale]);
   const ca = useTranslations('chatAssistant');
   const nh = useTranslations('normalizationHub');
   const tCommon = useTranslations('common.actions');
