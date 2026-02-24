@@ -55,7 +55,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
     // Create debounced function once
     if (!performSearchRef.current) {
       performSearchRef.current = debounce(async (query: string, country: string) => {
-        if (!query || query.trim().length < 3) {
+        if (!query || query.trim().length < 2) {
           setSearchResults([])
           setExactMatch(null)
           setSearchError(null)

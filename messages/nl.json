@@ -877,7 +877,10 @@
       "totalAdjustments": "Totale Aanpassingen",
       "normalizedEBITDA": "Genormaliseerde EBITDA",
       "apply": "Toepassen",
-      "cancel": "Annuleren"
+      "cancel": "Annuleren",
+      "placeholderAddBack": "bijv. 10000 (terug toevoegen)",
+      "placeholderSubtract": "bijv. -10000 (aftrekken)",
+      "placeholderBoth": "bijv. 10000 of -10000"
     },
     "outOfCredits": {
       "title": "U heeft alle 3 gratis credits gebruikt!",
@@ -892,6 +895,18 @@
       "upgrade": "Plan Upgraden",
       "buyCredits": "Meer Credits Kopen",
       "cancel": "Annuleren"
+    },
+    "creditBadge": {
+      "outOfCredits": "Geen Credits",
+      "creditsLeft": "{count, plural, one {# Credit over} other {# Credits over}}",
+      "credits": "{count, plural, one {# Credit} other {# Credits}}",
+      "upgradeNow": "Upgrade nu",
+      "upgrade": "Upgrade",
+      "unlimitedAccess": "Onbeperkte toegang",
+      "unlimited": "Onbeperkt",
+      "generateUnlimited": "Genereer onbeperkt waarderingen",
+      "unlimitedAccessAria": "Onbeperkte toegang tot waarderingen",
+      "premium": "Premium"
     },
     "paywall": {
       "title": "Upgrade naar Premium",
@@ -1233,6 +1248,7 @@
     "selectVersionTitle": "Selecteer een versie",
     "selectVersionDesc": "Kies een versie uit de tijdlijn om de details te bekijken",
     "noFieldChangesDetected": "Geen veldwijzigingen gedetecteerd",
+    "invalidDate": "Ongeldige datum",
     "loadMore": "Meer laden ({displayed} van {total})",
     "valuationFlow": "Waarderingsverloop",
     "indicativeEV": "Indicatieve Ondernemingswaarde (EV)",

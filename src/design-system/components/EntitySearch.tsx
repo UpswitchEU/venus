@@ -229,47 +229,8 @@ export interface KBOSearchInputProps
   disabled?: boolean;
 }
 
-// Mock companies for demo (with sample websites)
-const mockKBOCompanies: KBOCompany[] = [
-  { id: '1', name: 'Vansteenkiste Manufacturing NV', kboNumber: 'BE 0123.456.789', legalForm: 'NV', address: 'Industrielaan 45', postalCode: '2000', city: 'Antwerpen', naceCode: '25.110', naceDescription: 'Vervaardiging van metalen constructiewerken', website: 'https://vansteenkiste.be' },
-  { id: '2', name: 'Van der Berg Retail BV', kboNumber: 'BE 0234.567.890', legalForm: 'BV', address: 'Winkelstraat 12', postalCode: '8000', city: 'Brugge', naceCode: '47.710', naceDescription: 'Detailhandel in kleding', website: 'https://vanderberg.be' },
-  { id: '3', name: 'Vandevelde IT Solutions', kboNumber: 'BE 0345.678.901', legalForm: 'BV', address: 'Technopark 5', postalCode: '3000', city: 'Leuven', naceCode: '62.010', naceDescription: 'Ontwikkeling van software', website: 'https://vandevelde.tech' },
-  { id: '4', name: 'Restaurant De Gouden Leeuw', kboNumber: 'BE 0456.789.012', legalForm: 'BV', address: 'Grote Markt 8', postalCode: '9000', city: 'Gent', naceCode: '56.101', naceDescription: 'Restaurants en mobiele eetgelegenheden', website: 'https://degoudenleeuw.be' },
-  { id: '5', name: 'Bakkerij Janssens', kboNumber: 'BE 0567.890.123', legalForm: 'BV', address: 'Broodstraat 15', postalCode: '2000', city: 'Antwerpen', naceCode: '10.710', naceDescription: 'Vervaardiging van brood en vers banketbakkerswerk' },
-  { id: '6', name: 'De Groote Dental Practice', kboNumber: 'BE 0678.901.234', legalForm: 'BV', address: 'Zorgstraat 22', postalCode: '9000', city: 'Gent', naceCode: '86.230', naceDescription: 'Tandartspraktijken', website: 'https://degroote-dental.be' },
-  { id: '7', name: 'Peeters Consulting BVBA', kboNumber: 'BE 0789.012.345', legalForm: 'BVBA', address: 'Businesspark 3', postalCode: '1000', city: 'Brussel', naceCode: '70.220', naceDescription: 'Overige adviesbureaus op het gebied van bedrijfsbeheer', website: 'https://peeters-consulting.be' },
-  { id: '8', name: 'Digital Agency Gent', kboNumber: 'BE 0890.123.456', legalForm: 'BV', address: 'Groot-Brittanniëlaan 64', postalCode: '9000', city: 'Gent', naceCode: '62.010', naceDescription: 'Ontwikkeling van software', website: 'https://digitalagencygent.be' },
-  { id: '9', name: 'Transport Martens NV', kboNumber: 'BE 0901.234.567', legalForm: 'NV', address: 'Havenstraat 200', postalCode: '2030', city: 'Antwerpen', naceCode: '49.410', naceDescription: 'Goederenvervoer over de weg' },
-  { id: '10', name: 'Kapsalon Beauty & Style', kboNumber: 'BE 0012.345.678', legalForm: 'BV', address: 'Modestraat 5', postalCode: '9000', city: 'Gent', naceCode: '96.021', naceDescription: 'Haarverzorging', website: 'https://beautystyle.be' },
-];
-
-function defaultKBOSearch(query: string): KBOCompany[] {
-  if (!query || query.length < 2) return [];
-  
-  const lower = query.toLowerCase().replace(/[.\s-]/g, '');
-  const words = query.toLowerCase().split(/\s+/).filter(w => w.length > 1);
-  
-  const scored = mockKBOCompanies
-    .map(c => {
-      const nameLower = c.name.toLowerCase();
-      const kboClean = c.kboNumber.replace(/[.\s]/g, '').toLowerCase();
-      
-      let score = 0;
-      if (nameLower.startsWith(lower)) score += 100;
-      if (nameLower.includes(lower)) score += 50;
-      if (kboClean.includes(lower)) score += 40;
-      words.forEach(word => {
-        if (nameLower.includes(word)) score += 20;
-      });
-      if (c.naceDescription?.toLowerCase().includes(lower)) score += 10;
-      
-      return { company: c, score };
-    })
-    .filter(item => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
-  
-  return scored.map(item => item.company);
+function defaultKBOSearch(_query: string, _signal?: AbortSignal): KBOCompany[] {
+  return [];
 }
 
 export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputProps>(
@@ -282,7 +243,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     selectedCompany,
     onClear,
     searchFn = defaultKBOSearch,
-    minQueryLength = 3,
+    minQueryLength = 2,
     debounceMs = 300,
     size = "md",
     className,

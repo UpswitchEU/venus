@@ -6,6 +6,7 @@
 
 import { Tooltip } from '@/design-system'
 import React from 'react'
+import { useTranslations } from 'next-intl'
 import { useAuth } from '@/hooks/useAuth'
 import { useCredits } from '@/hooks/useCredits'
 // AUTH-FIRST: guestCreditService removed - all users must authenticate
@@ -34,6 +35,7 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
   onClick,
   variant = 'default',
 }) => {
+  const t = useTranslations('modals.creditBadge')
   const { isAuthenticated } = useAuth()
   const { creditsRemaining, isPremium, isLoading } = useCredits()
 
@@ -47,8 +49,8 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
   // SOFT DISABLE: Show unlimited access badge for all users
   if (UNLIMITED_CREDITS_MODE) {
     const content = {
-      default: { icon: '♾️', text: 'Unlimited Access' },
-      compact: { icon: '♾️', text: 'Unlimited' },
+      default: { icon: '♾️', text: t('unlimitedAccess') },
+      compact: { icon: '♾️', text: t('unlimited') },
       inline: { icon: '♾️', text: '' },
     }[variant]
 
@@ -58,7 +60,7 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
         onClick={onClick}
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
-        aria-label="Unlimited access to valuations"
+        aria-label={t('unlimitedAccessAria')}
       >
         <span aria-hidden="true">{content.icon}</span>
         {content.text && <span>{content.text}</span>}
@@ -67,7 +69,7 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
 
     if (showTooltip && !onClick) {
       return (
-        <Tooltip content="Generate unlimited valuations" side="bottom">
+        <Tooltip content={t('generateUnlimited')} side="bottom">
           {badgeContent}
         </Tooltip>
       )
@@ -84,7 +86,7 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
       <div
         className={`flex items-center gap-2 px-3 py-1 bg-accent text-accent-foreground rounded-full text-sm font-medium ${className}`}
       >
-        <span>✨ Premium</span>
+        <span>✨ {t('premium')}</span>
       </div>
     )
   }
@@ -113,15 +115,15 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
 
   // Text content
   const getText = () => {
-    if (isOut) return 'Out of Credits'
-    if (isLow) return `${creditsRemaining} Credit${creditsRemaining === 1 ? '' : 's'} Left`
-    return `${creditsRemaining} Credit${creditsRemaining === 1 ? '' : 's'}`
+    if (isOut) return t('outOfCredits')
+    if (isLow) return t('creditsLeft', { count: creditsRemaining })
+    return t('credits', { count: creditsRemaining })
   }
 
   // Upgrade prompt
   const getUpgradeText = () => {
-    if (isOut) return 'Upgrade Now'
-    if (isLow) return 'Upgrade'
+    if (isOut) return t('upgradeNow')
+    if (isLow) return t('upgrade')
     return null
   }
 

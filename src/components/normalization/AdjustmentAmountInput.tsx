@@ -10,6 +10,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { NormalizationCategoryDefinition } from '../../types/ebitdaNormalization'
 
 interface AdjustmentAmountInputProps {
@@ -25,6 +26,7 @@ export function AdjustmentAmountInput({
   onChange,
   disabled = false,
 }: AdjustmentAmountInputProps) {
+  const t = useTranslations('modals.normalization')
   const [inputValue, setInputValue] = useState<string>('')
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -76,11 +78,11 @@ export function AdjustmentAmountInput({
 
   const getPlaceholder = () => {
     if (category.adjustmentDirection === 'add') {
-      return 'e.g., 10000 (add back)'
+      return t('placeholderAddBack')
     } else if (category.adjustmentDirection === 'subtract') {
-      return 'e.g., -10000 (subtract)'
+      return t('placeholderSubtract')
     } else {
-      return 'e.g., 10000 or -10000'
+      return t('placeholderBoth')
     }
   }
 

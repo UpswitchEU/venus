@@ -204,10 +204,11 @@ function VersionTimelineItem({
   onPin: _onPin, // Kept for backward compatibility but not used in rendering
   compact,
 }: VersionTimelineItemProps) {
+  const t = useTranslations('historyPanel')
   const formatDate = (date: Date | string) => {
     try {
       const dateObj = date instanceof Date ? date : new Date(date)
-      return dateObj.toLocaleDateString('en-US', {
+      return dateObj.toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
@@ -215,7 +216,7 @@ function VersionTimelineItem({
         minute: '2-digit',
       })
     } catch (error) {
-      return 'Invalid date'
+      return t('invalidDate')
     }
   }
 

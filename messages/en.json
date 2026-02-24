@@ -877,7 +877,10 @@
       "totalAdjustments": "Total Adjustments",
       "normalizedEBITDA": "Normalized EBITDA",
       "apply": "Apply",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "placeholderAddBack": "e.g., 10000 (add back)",
+      "placeholderSubtract": "e.g., -10000 (subtract)",
+      "placeholderBoth": "e.g., 10000 or -10000"
     },
     "outOfCredits": {
       "title": "You've Used All 3 Free Credits!",
@@ -892,6 +895,18 @@
       "upgrade": "Upgrade Plan",
       "buyCredits": "Buy More Credits",
       "cancel": "Cancel"
+    },
+    "creditBadge": {
+      "outOfCredits": "Out of Credits",
+      "creditsLeft": "{count, plural, one {# Credit Left} other {# Credits Left}}",
+      "credits": "{count, plural, one {# Credit} other {# Credits}}",
+      "upgradeNow": "Upgrade Now",
+      "upgrade": "Upgrade",
+      "unlimitedAccess": "Unlimited Access",
+      "unlimited": "Unlimited",
+      "generateUnlimited": "Generate unlimited valuations",
+      "unlimitedAccessAria": "Unlimited access to valuations",
+      "premium": "Premium"
     },
     "paywall": {
       "title": "Upgrade to Premium",
@@ -1233,6 +1248,7 @@
     "selectVersionTitle": "Select a Version",
     "selectVersionDesc": "Choose a version from the timeline to view its details",
     "noFieldChangesDetected": "No field changes detected",
+    "invalidDate": "Invalid date",
     "loadMore": "Load More ({displayed} of {total})",
     "valuationFlow": "Valuation progression",
     "indicativeEV": "Indicative Enterprise Value (EV)",
