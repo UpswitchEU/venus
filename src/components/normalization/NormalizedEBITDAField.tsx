@@ -107,7 +107,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
               <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-popover border border-foreground/10 text-foreground text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-moss-400 text-xs uppercase tracking-wider">
-                    EBITDA Normalized
+                    {t('ebitdaNormalized')}
                   </span>
                 </div>
                 <div className="space-y-2 text-muted-foreground border-t border-foreground/10 pt-2">
@@ -168,10 +168,10 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
             </div>
             <div>
               <p className="text-xs font-semibold text-moss-700 uppercase tracking-wider">
-                EBITDA Normalized
+                {t('ebitdaNormalized')}
               </p>
               <p className="text-sm font-medium text-muted-foreground">
-                {adjustmentCount} adjustment{adjustmentCount !== 1 ? 's' : ''} •{' '}
+                {t('adjustmentsCount', { count: adjustmentCount })} •{' '}
                 {formatRelativeTime(lastUpdated)}
               </p>
             </div>
@@ -181,13 +181,13 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
         {/* Values Breakdown */}
         <div className="space-y-2 mb-4">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Original EBITDA:</span>
+            <span className="text-muted-foreground">{t('originalEbitdaLabel')}</span>
             <span className="font-mono font-medium text-foreground">
               {formatCurrency(originalValue)}
             </span>
           </div>
           <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Net Adjustment:</span>
+            <span className="text-muted-foreground">{t('netAdjustment')}</span>
             <span className={`font-mono font-semibold ${adjustmentColor}`}>
               {adjustmentSign}
               {formatCurrency(totalAdjustments)}
@@ -195,13 +195,13 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
           </div>
           <div className="pt-2 border-t border-moss-200/50">
             <div className="flex justify-between items-center text-base">
-              <span className="font-semibold text-foreground">Normalized EBITDA:</span>
+              <span className="font-semibold text-foreground">{t('normalizedEbitdaLabel')}</span>
               <div className="flex items-center gap-2">
                 <span className="font-mono font-bold text-foreground">
                   {formatCurrency(normalizedValue)}
                 </span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-moss-100 text-moss-800">
-                  Used ✓
+                  {t('usedBadge')}
                 </span>
               </div>
             </div>
@@ -215,14 +215,14 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
             onClick={onEdit}
             className="flex-1 px-4 py-2 text-sm font-medium text-river-600 hover:text-river-700 hover:bg-river-50 rounded-lg transition-colors"
           >
-            Edit Normalization
+            {t('editNormalization')}
           </button>
           <button
             type="button"
             onClick={onRemove}
             className="flex-1 px-4 py-2 text-sm font-medium text-rust-600 hover:text-rust-700 hover:bg-rust-50 rounded-lg transition-colors"
           >
-            Remove Normalization
+            {t('removeNormalization')}
           </button>
         </div>
       </div>

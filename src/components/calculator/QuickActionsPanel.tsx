@@ -8,6 +8,7 @@
  */
 
 import { motion } from 'framer-motion';
+import { useTranslations, useLocale } from 'next-intl';
 import { Check, X, TrendingUp, Zap } from 'lucide-react';
 import { cn } from '@/design-system/utils';
 import { AuroraButton as Button } from '@/design-system/components/Button';
@@ -45,16 +46,6 @@ export interface QuickActionsPanelProps {
   className?: string;
 }
 
-const formatCurrency = (amount: number) => {
-  if (amount >= 1000000) {
-    return `€${(amount / 1000000).toFixed(1)}M`;
-  }
-  if (amount >= 1000) {
-    return `€${Math.round(amount / 1000)}K`;
-  }
-  return `€${amount.toLocaleString('nl-BE')}`;
-};
-
 export function QuickActionsPanel({
   actions,
   onAccept,
@@ -63,6 +54,14 @@ export function QuickActionsPanel({
   multiple = 5.2,
   className,
 }: QuickActionsPanelProps) {
+  const ca = useTranslations('chatAssistant');
+  const locale = useLocale();
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
+  const formatCurrency = (amount: number) => {
+    if (amount >= 1000000) return `€${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `€${Math.round(amount / 1000)}K`;
+    return `€${amount.toLocaleString(currencyLocale)}`;
+  };
   // Filter pending actions and sort by impact (amount * multiple)
   const pendingActions = actions
     .filter(a => a.status === 'pending')
@@ -94,10 +93,10 @@ export function QuickActionsPanel({
           </div>
           <div>
             <h3 className="text-sm font-semibold text-foreground">
-              Snelle Acties
+              {ca('quickActionsTitle')}
             </h3>
             <p className="text-[10px] text-foreground/50">
-              Top {pendingActions.length} hoge-impact normalisaties
+              {ca('quickActionsSubtitle', { count: pendingActions.length })}
             </p>
           </div>
         </div>
@@ -106,7 +105,7 @@ export function QuickActionsPanel({
             +{formatCurrency(totalValuationImpact)}
           </p>
           <p className="text-[10px] text-foreground/40">
-            potentiële waarde
+            {ca('potentialValue')}
           </p>
         </div>
       </div>
@@ -161,7 +160,7 @@ export function QuickActionsPanel({
                     </span>
                   </div>
                   <p className="text-[10px] text-foreground/40">
-                    +{formatCurrency(valuationImpact)} waarde
+                    +{formatCurrency(valuationImpact)} {ca('valueSuffix')}
                   </p>
                 </div>
 
@@ -175,7 +174,7 @@ export function QuickActionsPanel({
                       "text-foreground/30 hover:text-destructive hover:bg-destructive/10",
                       "transition-colors"
                     )}
-                    aria-label="Afwijzen"
+                    aria-label={ca('reject')}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -187,7 +186,7 @@ export function QuickActionsPanel({
                       "bg-success/15 text-success hover:bg-success/25",
                       "transition-colors"
                     )}
-                    aria-label="Accepteren"
+                    aria-label={ca('accept')}
                   >
                     <Check className="w-4 h-4" />
                   </button>
@@ -202,7 +201,7 @@ export function QuickActionsPanel({
       {onViewAll && actions.filter(a => a.status === 'pending').length > 3 && (
         <div className="mt-3 pt-3 border-t border-foreground/[0.06] flex items-center justify-between">
           <p className="text-xs text-foreground/50">
-            {actions.filter(a => a.status === 'pending').length - 3} meer te beoordelen
+            {actions.filter(a => a.status === 'pending').length - 3} {ca('moreToReview')}
           </p>
           <Button
             variant="ghost"
@@ -210,7 +209,7 @@ export function QuickActionsPanel({
             onClick={onViewAll}
             className="text-xs"
           >
-            Bekijk alle →
+            {ca('viewAll')}
           </Button>
         </div>
       )}

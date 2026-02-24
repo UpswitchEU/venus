@@ -14,7 +14,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { 
@@ -170,145 +170,29 @@ const fuzzyMatch = (text: string, query: string): { matches: boolean; score: num
   return { matches: false, score: -1, indices: [] };
 };
 
-// Quick presets for common normalizations with market-conform defaults
-interface NormalizationPreset {
+// Preset definitions with translation keys (resolved in component)
+const PRESET_CONFIGS: Array<{
   id: string;
-  label: string;
-  icon: string;
+  labelKey: string;
   ledgerCode: string;
-  ledgerName: string;
+  ledgerNameKey: string;
   category: NormalizationItem['category'];
   defaultType: NormalizationType;
   defaultValue: number;
-  description: string;
+  descriptionKey: string;
   marketBenchmark?: string;
-}
-
-const normalizationPresets: NormalizationPreset[] = [
-  {
-    id: 'owner-salary',
-    label: 'Eigenaarssalaris',
-    icon: '', // Text-only for B2B professional feel
-    ledgerCode: '620',
-    ledgerName: 'Bezoldigingen bestuurders',
-    category: 'salary',
-    defaultType: 'add',
-    defaultValue: 60000,
-    description: 'Correctie naar marktconform niveau',
-    marketBenchmark: '€55K - €75K',
-  },
-  {
-    id: 'family-salary',
-    label: 'Familielid salaris',
-    icon: '',
-    ledgerCode: '620',
-    ledgerName: 'Bezoldigingen familieleden',
-    category: 'personal',
-    defaultType: 'add',
-    defaultValue: 35000,
-    description: 'Salaris boven marktwaarde familielid',
-    marketBenchmark: '€25K - €40K',
-  },
-  {
-    id: 'rent-office',
-    label: 'Huurkosten',
-    icon: '',
-    ledgerCode: '613',
-    ledgerName: 'Huurkosten',
-    category: 'rent',
-    defaultType: 'add',
-    defaultValue: 24000,
-    description: 'Huur boven/onder marktwaarde',
-    marketBenchmark: '€150 - €250/m²',
-  },
-  {
-    id: 'vehicle-costs',
-    label: 'Autokosten',
-    icon: '',
-    ledgerCode: '615',
-    ledgerName: 'Voertuigkosten',
-    category: 'vehicle',
-    defaultType: 'add',
-    defaultValue: 18000,
-    description: 'Privégebruik bedrijfsvoertuig',
-    marketBenchmark: '€12K - €24K/jaar',
-  },
-  {
-    id: 'one-time-legal',
-    label: 'Juridische kosten',
-    icon: '',
-    ledgerCode: '640',
-    ledgerName: 'Eenmalige kosten',
-    category: 'one-time',
-    defaultType: 'add',
-    defaultValue: 25000,
-    description: 'Rechtszaak of schikking',
-  },
-  {
-    id: 'one-time-advisory',
-    label: 'Advieskosten',
-    icon: '',
-    ledgerCode: '617',
-    ledgerName: 'Erelonen en vergoedingen',
-    category: 'one-time',
-    defaultType: 'add',
-    defaultValue: 15000,
-    description: 'Consultancy of due diligence',
-  },
-  {
-    id: 'restructuring',
-    label: 'Herstructurering',
-    icon: '',
-    ledgerCode: '640',
-    ledgerName: 'Herstructureringskosten',
-    category: 'one-time',
-    defaultType: 'add',
-    defaultValue: 50000,
-    description: 'Eenmalige reorganisatiekosten',
-  },
-  {
-    id: 'depreciation',
-    label: 'Afschrijvingen',
-    icon: '',
-    ledgerCode: '660',
-    ledgerName: 'Afschrijvingen',
-    category: 'depreciation',
-    defaultType: 'add',
-    defaultValue: 20000,
-    description: 'Versnelde of abnormale afschrijving',
-  },
-  {
-    id: 'personal-expenses',
-    label: 'Privékosten',
-    icon: '',
-    ledgerCode: '650',
-    ledgerName: 'Privékosten zaakvoerder',
-    category: 'personal',
-    defaultType: 'add',
-    defaultValue: 12000,
-    description: 'Persoonlijke uitgaven via bedrijf',
-  },
-  {
-    id: 'asset-sale',
-    label: 'Verkoop activa',
-    icon: '',
-    ledgerCode: '740',
-    ledgerName: 'Meerwaarden op activa',
-    category: 'one-time',
-    defaultType: 'subtract',
-    defaultValue: 30000,
-    description: 'Eenmalige opbrengst verkoop',
-  },
+}> = [
+  { id: 'owner-salary', labelKey: 'presetLabels.ownerSalary', ledgerCode: '620', ledgerNameKey: 'presetLedgerNames.directorCompensation', category: 'salary', defaultType: 'add', defaultValue: 60000, descriptionKey: 'presetDescriptions.ownerSalary', marketBenchmark: '€55K - €75K' },
+  { id: 'family-salary', labelKey: 'presetLabels.familySalary', ledgerCode: '620', ledgerNameKey: 'presetLedgerNames.familyCompensation', category: 'personal', defaultType: 'add', defaultValue: 35000, descriptionKey: 'presetDescriptions.familySalary', marketBenchmark: '€25K - €40K' },
+  { id: 'rent-office', labelKey: 'presetLabels.rent', ledgerCode: '613', ledgerNameKey: 'presetLedgerNames.rent', category: 'rent', defaultType: 'add', defaultValue: 24000, descriptionKey: 'presetDescriptions.rent', marketBenchmark: '€150 - €250/m²' },
+  { id: 'vehicle-costs', labelKey: 'presetLabels.vehicle', ledgerCode: '615', ledgerNameKey: 'presetLedgerNames.vehicle', category: 'vehicle', defaultType: 'add', defaultValue: 18000, descriptionKey: 'presetDescriptions.vehicle', marketBenchmark: '€12K - €24K/jaar' },
+  { id: 'one-time-legal', labelKey: 'presetLabels.oneTimeLegal', ledgerCode: '640', ledgerNameKey: 'presetLedgerNames.oneTime', category: 'one-time', defaultType: 'add', defaultValue: 25000, descriptionKey: 'presetDescriptions.oneTimeLegal' },
+  { id: 'one-time-advisory', labelKey: 'presetLabels.oneTimeAdvisory', ledgerCode: '617', ledgerNameKey: 'presetLedgerNames.fees', category: 'one-time', defaultType: 'add', defaultValue: 15000, descriptionKey: 'presetDescriptions.oneTimeAdvisory' },
+  { id: 'restructuring', labelKey: 'presetLabels.restructuring', ledgerCode: '640', ledgerNameKey: 'presetLedgerNames.restructuring', category: 'one-time', defaultType: 'add', defaultValue: 50000, descriptionKey: 'presetDescriptions.restructuring' },
+  { id: 'depreciation', labelKey: 'presetLabels.depreciation', ledgerCode: '660', ledgerNameKey: 'presetLedgerNames.depreciation', category: 'depreciation', defaultType: 'add', defaultValue: 20000, descriptionKey: 'presetDescriptions.depreciation' },
+  { id: 'personal-expenses', labelKey: 'presetLabels.personalExpenses', ledgerCode: '650', ledgerNameKey: 'presetLedgerNames.personal', category: 'personal', defaultType: 'add', defaultValue: 12000, descriptionKey: 'presetDescriptions.personalExpenses' },
+  { id: 'asset-sale', labelKey: 'presetLabels.assetSale', ledgerCode: '740', ledgerNameKey: 'presetLedgerNames.assetGains', category: 'one-time', defaultType: 'subtract', defaultValue: 30000, descriptionKey: 'presetDescriptions.assetSale' },
 ];
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('nl-BE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
 
 const generateId = () => Math.random().toString(36).substring(2, 11);
 
@@ -332,6 +216,21 @@ export function UnifiedNormalizationModal({
   const nh = useTranslations('normalizationHub');
   const ca = useTranslations('chatAssistant');
   const tCommon = useTranslations('common.actions');
+  const locale = useLocale();
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
+  const formatCurrency = useCallback((amount: number) => new Intl.NumberFormat(currencyLocale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount), [currencyLocale]);
+  const normalizationPresets = useMemo(() => PRESET_CONFIGS.map(c => ({
+    id: c.id,
+    label: nh(c.labelKey as any),
+    icon: '',
+    ledgerCode: c.ledgerCode,
+    ledgerName: nh(c.ledgerNameKey as any),
+    category: c.category,
+    defaultType: c.defaultType,
+    defaultValue: c.defaultValue,
+    description: nh(c.descriptionKey as any),
+    marketBenchmark: c.marketBenchmark,
+  })), [nh]);
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
   
   // View mode: bento (cards), compact (table rows), or financial (multi-year table)
@@ -927,13 +826,13 @@ export function UnifiedNormalizationModal({
           {/* Inline EBITDA Summary - Compact */}
           <div className="flex items-center gap-4 lg:gap-6">
             <div className="text-right">
-              <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">Origineel</p>
+              <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">{nh('original')}</p>
               <p className="text-sm font-mono font-medium text-foreground/50">
                 {formatCurrency(totals.original)}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">Aanpassing</p>
+              <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">{nh('adjustment')}</p>
               <motion.p 
                 key={totals.adjustment}
                 initial={{ opacity: 0.5 }}
@@ -948,7 +847,7 @@ export function UnifiedNormalizationModal({
             </div>
             <div className="w-px h-8 bg-foreground/10" />
             <div className="text-right">
-              <p className="text-[9px] font-medium text-primary uppercase tracking-wider">Genormaliseerd</p>
+              <p className="text-[9px] font-medium text-primary uppercase tracking-wider">{nh('normalized')}</p>
               <motion.p 
                 key={totals.normalized}
                 initial={{ opacity: 0.5, scale: 0.97 }}
@@ -1998,6 +1897,9 @@ function CompactTableRow({
   onEdit,
   hideYear = false,
 }: CompactTableRowProps) {
+  const locale = useLocale();
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
+  const formatCurrency = useCallback((amount: number) => new Intl.NumberFormat(currencyLocale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount), [currencyLocale]);
   const ca = useTranslations('chatAssistant');
   const nh = useTranslations('normalizationHub');
   const tCommon = useTranslations('common.actions');

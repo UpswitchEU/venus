@@ -336,6 +336,7 @@ export function NormalisationReviewPanel({
   onAcceptAll,
   className,
 }: NormalisationReviewProps) {
+  const ca = useTranslations('chatAssistant');
   const pendingCount = suggestions.filter(s => s.status === 'pending').length;
   const acceptedCount = suggestions.filter(s => s.status === 'accepted').length;
 
@@ -344,18 +345,18 @@ export function NormalisationReviewPanel({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <Heading level={3} className="text-lg mb-1">Voorgestelde Normalisaties</Heading>
+          <Heading level={3} className="text-lg mb-1">{ca('suggestedNormalizations')}</Heading>
           <Caption className="text-foreground/50">
             {pendingCount > 0 
-              ? `${pendingCount} normalisaties te beoordelen`
-              : `${acceptedCount} normalisaties geaccepteerd`
+              ? ca('normalizationsToReview', { count: pendingCount })
+              : ca('normalizationsAccepted', { count: acceptedCount })
             }
           </Caption>
         </div>
         
         {pendingCount > 0 && (
           <Button variant="primary" size="sm" onClick={onAcceptAll}>
-            Alles accepteren
+            {ca('acceptAll')}
           </Button>
         )}
       </div>
@@ -403,14 +404,14 @@ export function NormalisationReviewPanel({
                   <button
                     onClick={() => onReject(suggestion.id)}
                     className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                    aria-label="Afwijzen"
+                    aria-label={ca('reject')}
                   >
                     <X className="w-4 h-4 text-foreground/40" />
                   </button>
                   <button
                     onClick={() => onAccept(suggestion.id)}
                     className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
-                    aria-label="Accepteren"
+                    aria-label={ca('accept')}
                   >
                     <Check className="w-4 h-4 text-primary" />
                   </button>
@@ -419,10 +420,10 @@ export function NormalisationReviewPanel({
 
               {/* Status Badges */}
               {suggestion.status === 'accepted' && (
-                <Badge variant="primary" size="sm">Geaccepteerd</Badge>
+                <Badge variant="primary" size="sm">{ca('accepted')}</Badge>
               )}
               {suggestion.status === 'rejected' && (
-                <Badge variant="neutral" size="sm">Afgewezen</Badge>
+                <Badge variant="neutral" size="sm">{ca('rejected')}</Badge>
               )}
             </motion.div>
           ))}

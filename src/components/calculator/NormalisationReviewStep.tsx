@@ -210,7 +210,6 @@ export function NormalisationReviewStep({
   
   const normalizedEbitda = originalEbitda + totalAcceptedAdjustment;
   
-  const nh = useTranslations('normalizationHub');
   const integrationLabels: Record<string, string> = {
     yuki: nh('sources.yuki'),
     exact: nh('sources.exact'),
@@ -370,7 +369,7 @@ export function NormalisationReviewStep({
         <div className="grid grid-cols-3 gap-2 md:gap-4">
           <div className="text-center">
             <p className="text-[8px] md:text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5 md:mb-1">
-              Origineel
+              {nh('original')}
             </p>
             <p className="text-sm md:text-lg font-mono font-semibold text-foreground/70 line-through">
               {formatCurrency(originalEbitda)}
@@ -392,7 +391,7 @@ export function NormalisationReviewStep({
           
           <div className="text-center">
             <p className="text-[8px] md:text-[10px] font-medium text-primary uppercase tracking-wider mb-0.5 md:mb-1">
-              Genormaliseerd
+              {nh('normalized')}
             </p>
             <p className="text-sm md:text-lg font-mono font-bold text-foreground">
               {formatCurrency(normalizedEbitda)}
@@ -532,11 +531,11 @@ export function NormalisationReviewStep({
                       {/* Actions */}
                       <div className="flex gap-2">
                         <Button variant="secondary" size="sm" onClick={cancelEdit} className="flex-1">
-                          Annuleren
+                          {nh('actions.cancel')}
                         </Button>
                         <Button variant="primary" size="sm" onClick={saveEdit} className="flex-1 gap-1">
                           <Check className="w-3.5 h-3.5" />
-                          Opslaan
+                          {nh('actions.save')}
                         </Button>
                       </div>
                     </div>
@@ -591,7 +590,7 @@ export function NormalisationReviewStep({
                           </p>
                           {suggestion.marketBenchmark && (
                             <p className="text-[9px] text-foreground/40">
-                              Markt: {suggestion.marketBenchmark}
+                              {nh('marketPrefix')} {suggestion.marketBenchmark}
                             </p>
                           )}
                         </div>
@@ -893,7 +892,7 @@ export function NormalisationReviewStep({
                       className="w-full gap-2"
                     >
                       <Plus className="w-4 h-4" />
-                      Toevoegen
+                      {nh('actions.add')}
                     </Button>
                   </motion.div>
                 )}
@@ -922,7 +921,7 @@ export function NormalisationReviewStep({
             disabled={pendingCount > 0}
           >
             {pendingCount > 0 
-              ? `${pendingCount} nog te beoordelen`
+              ? `${pendingCount} ${nh('pendingToReview')}`
               : nh('continueToEstimate')
             }
             {pendingCount === 0 && <ChevronRight className="w-4 h-4" />}
