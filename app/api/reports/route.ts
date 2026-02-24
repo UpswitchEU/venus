@@ -15,6 +15,7 @@
 
 import { cookies, headers } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 
 // Force dynamic rendering - this route uses cookies(), headers(), and searchParams which are dynamic
 export const dynamic = 'force-dynamic'
@@ -111,16 +112,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Forward request to Titan API with optimized parameters
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${titanApiUrl}/api/v2/valuations/reports?skip=${skip}&take=${take}&status=${status}`,
       {
         method: 'GET',
         headers: titanHeaders,
-        // Add cache headers for Titan request
-        next: {
-          revalidate: 30, // Revalidate every 30 seconds
-        },
-      }
+      },
+      10_000,
     )
 
     if (!response.ok) {
@@ -131,7 +129,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch reports' }, { status: response.status })
     }
 
-    const data = await response.json()
+    const data = await response.json().catch(() => ({ success: false }))
 
     // Cache the response
     setCache(cacheKey, data)
@@ -147,6 +145,10 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('[Venus /api/reports] Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const isTimeout = error instanceof Error && error.message.includes('timeout')
+    return NextResponse.json(
+      { error: isTimeout ? 'Request timed out' : 'Internal server error' },
+      { status: isTimeout ? 504 : 500 },
+    )
   }
 }

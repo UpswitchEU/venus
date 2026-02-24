@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
 export const dynamic = 'force-dynamic'
@@ -44,11 +45,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { repor
       ;(headers as Record<string, string>)['x-guest-session-id'] = guestSessionId
     }
 
-    const response = await fetch(`${titanApiUrl}/api/v2/valuations/reports/${reportId}`, {
+    const response = await fetchWithTimeout(`${titanApiUrl}/api/v2/valuations/reports/${reportId}`, {
       method: 'DELETE',
       headers,
       credentials: 'include',
-    })
+    }, 10_000)
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Failed to delete report' }))
@@ -65,6 +66,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { repor
     return NextResponse.json(data)
   } catch (error) {
     console.error('[Venus /api/reports/[reportId]] Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const isTimeout = error instanceof Error && error.message.includes('timeout')
+    return NextResponse.json(
+      { error: isTimeout ? 'Request timed out' : 'Internal server error' },
+      { status: isTimeout ? 504 : 500 },
+    )
   }
 }

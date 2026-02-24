@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({ success: false }));
       return NextResponse.json(data, {
         headers: {
           'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',

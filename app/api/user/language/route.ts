@@ -6,6 +6,7 @@
 
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 
 // Force dynamic rendering - this route uses cookies
 export const dynamic = 'force-dynamic'
@@ -57,15 +58,14 @@ export async function PUT(request: NextRequest) {
     // Forward request to Titan API with cookies
     const titanApiUrl = `${backendUrl}/api/v2/users/language`
 
-    const response = await fetch(titanApiUrl, {
+    const response = await fetchWithTimeout(titanApiUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        // Forward cookies from request headers (contains all cookies sent by browser)
         Cookie: cookieHeader,
       },
       body: JSON.stringify({ language }),
-    })
+    }, 10_000)
 
     if (!response.ok) {
       const error = await response
@@ -82,6 +82,10 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(data, { status: 200 })
   } catch (error) {
     console.error('[Venus /api/user/language] Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const isTimeout = error instanceof Error && error.message.includes('timeout')
+    return NextResponse.json(
+      { error: isTimeout ? 'Request timed out' : 'Internal server error' },
+      { status: isTimeout ? 504 : 500 },
+    )
   }
 }

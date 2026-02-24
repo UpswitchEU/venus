@@ -7,7 +7,6 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 const TITAN_API_URL = process.env.NEXT_PUBLIC_TITAN_API_URL || 'https://api.upswitch.app';
 
@@ -25,24 +24,22 @@ export async function GET(
       );
     }
 
-    // Get authentication cookie
-    const cookieStore = await cookies();
-    const authCookie = cookieStore.get('sb-access-token') || cookieStore.get('accessToken');
+    const cookieHeader = request.headers.get('cookie') || '';
+    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/);
 
-    if (!authCookie) {
+    if (!accessTokenMatch) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Check job status via Titan API
     const titanUrl = `${TITAN_API_URL}/api/v2/valuations/pdf/status/${jobId}`;
 
     const response = await fetch(titanUrl, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${authCookie.value}`,
+        Cookie: cookieHeader,
       },
       signal: AbortSignal.timeout(5000),
     });

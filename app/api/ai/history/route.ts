@@ -5,8 +5,8 @@
  * GET /api/ai/history?reportId=xxx
  */
 
-import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,18 +22,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'reportId is required' }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const authCookie = cookieStore.get('sb-access-token') || cookieStore.get('accessToken');
     const cookieHeader = request.headers.get('cookie') || '';
+    const hasAuth = cookieHeader.includes('upswitch_access_token=');
 
-    if (!authCookie) {
+    if (!hasAuth) {
       return NextResponse.json(
         { success: true, conversationId: null, messages: [] },
         { status: 200 },
       );
     }
 
-    const titanResponse = await fetch(
+    const titanResponse = await fetchWithTimeout(
       `${TITAN_API_URL}/api/v2/ai/conversations/${encodeURIComponent(reportId)}/history`,
       {
         headers: {
@@ -42,6 +41,7 @@ export async function GET(request: NextRequest) {
           ...(cookieHeader && { Cookie: cookieHeader }),
         },
       },
+      10_000,
     );
 
     if (!titanResponse.ok) {
@@ -51,13 +51,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await titanResponse.json();
+    const data = await titanResponse.json().catch(() => ({ success: false, messages: [] }));
     return NextResponse.json(data);
   } catch (error) {
     console.error('[AI History Route] Error:', error instanceof Error ? error.message : error);
+    const isTimeout = error instanceof Error && error.message.includes('timeout');
     return NextResponse.json(
       { success: true, conversationId: null, messages: [] },
-      { status: 200 },
+      { status: isTimeout ? 504 : 200 },
     );
   }
 }

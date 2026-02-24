@@ -9,7 +9,6 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 const TITAN_API_URL = process.env.NEXT_PUBLIC_TITAN_API_URL || 'https://api.upswitch.app';
 
@@ -30,22 +29,19 @@ export async function POST(
       );
     }
 
-    // Get authentication cookie
-    const cookieStore = await cookies();
-    const authCookie = cookieStore.get('sb-access-token') || cookieStore.get('accessToken');
+    const cookieHeader = request.headers.get('cookie') || '';
+    const hasAuth = cookieHeader.includes('upswitch_access_token=');
 
-    if (!authCookie) {
+    if (!hasAuth) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Parse options from request body
     const body = await request.json().catch(() => ({}));
-    const async = body.async ?? true; // Default to async generation
+    const async = body.async ?? true;
 
-    // Call Titan API to generate PDF
     const titanUrl = async
       ? `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf/async`
       : `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf`;
@@ -54,7 +50,7 @@ export async function POST(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authCookie.value}`,
+        Cookie: cookieHeader,
       },
       body: JSON.stringify(body),
       // Longer timeout for sync PDF generation
@@ -103,24 +99,22 @@ export async function GET(
       );
     }
 
-    // Get authentication cookie
-    const cookieStore = await cookies();
-    const authCookie = cookieStore.get('sb-access-token') || cookieStore.get('accessToken');
+    const cookieHeader = request.headers.get('cookie') || '';
+    const hasAuth = cookieHeader.includes('upswitch_access_token=');
 
-    if (!authCookie) {
+    if (!hasAuth) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Check if PDF exists via Titan API
     const titanUrl = `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf`;
 
     const response = await fetch(titanUrl, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${authCookie.value}`,
+        Cookie: cookieHeader,
       },
       signal: AbortSignal.timeout(5000),
     });

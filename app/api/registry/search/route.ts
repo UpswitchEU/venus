@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const data = await backendResponse.json();
+		const data = await backendResponse.json().catch(() => ({ success: false }));
 		return NextResponse.json(data);
 	} catch (error) {
 		console.error('[Venus Registry API] Error:', error);

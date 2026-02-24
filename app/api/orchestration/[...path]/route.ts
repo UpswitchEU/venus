@@ -19,8 +19,9 @@
  * @module api/orchestration
  */
 
-import { cookies } from 'next/headers';
+
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout';
 
 const TITAN_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
                       process.env.NEXT_PUBLIC_API_BASE_URL || 
@@ -38,11 +39,10 @@ async function proxyToTitan(
   method: string
 ): Promise<NextResponse> {
   try {
-    const cookieStore = await cookies();
-    const authCookie = cookieStore.get('sb-access-token') || cookieStore.get('accessToken');
     const cookieHeader = request.headers.get('cookie') || '';
+    const hasAuth = cookieHeader.includes('upswitch_access_token=');
 
-    if (!authCookie) {
+    if (!hasAuth) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 },
@@ -65,7 +65,7 @@ async function proxyToTitan(
       fetchOptions.body = JSON.stringify(body);
     }
 
-    const titanResponse = await fetch(url, fetchOptions);
+    const titanResponse = await fetchWithTimeout(url, fetchOptions, 15_000);
 
     // Handle streaming responses
     if (titanResponse.headers.get('content-type')?.includes('text/event-stream') && titanResponse.body) {
@@ -86,9 +86,10 @@ async function proxyToTitan(
     return NextResponse.json(data, { status: titanResponse.status });
   } catch (error) {
     console.error(`[Orchestration Route] ${method} error:`, error instanceof Error ? error.message : error);
+    const isTimeout = error instanceof Error && error.message.includes('timeout');
     return NextResponse.json(
-      { success: false, error: 'Orchestration service unavailable' },
-      { status: 503 }
+      { success: false, error: isTimeout ? 'Orchestration request timed out' : 'Orchestration service unavailable' },
+      { status: isTimeout ? 504 : 503 }
     );
   }
 }

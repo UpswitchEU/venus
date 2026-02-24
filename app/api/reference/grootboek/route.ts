@@ -45,7 +45,7 @@ export async function GET() {
       );
     }
 
-    const data = await titanResponse.json();
+    const data = await titanResponse.json().catch(() => ({ success: false }));
     return NextResponse.json(data);
   } catch (error) {
     clearTimeout(timeout);
