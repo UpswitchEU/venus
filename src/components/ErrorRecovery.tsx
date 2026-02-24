@@ -6,6 +6,7 @@
 
 import { AlertTriangle, RefreshCw, X } from 'lucide-react'
 import React from 'react'
+import { useTranslations } from 'next-intl'
 import { AuroraButton } from '@/design-system'
 import { ErrorType, extractErrorInfo } from '../utils/errorHandler'
 
@@ -24,6 +25,7 @@ export const ErrorRecovery: React.FC<ErrorRecoveryProps> = ({
   showPartialResults = false,
   partialResults,
 }) => {
+  const t = useTranslations('common.errorRecovery')
   const errorInfo = extractErrorInfo(error instanceof Error ? error : new Error(error))
 
   if (errorInfo.type === ErrorType.CANCELLED) {
@@ -39,16 +41,16 @@ export const ErrorRecovery: React.FC<ErrorRecoveryProps> = ({
         </div>
         <div className="ml-3 flex-1">
           <h3 className="text-sm font-medium text-foreground">
-            {errorInfo.type === ErrorType.TIMEOUT ? 'Calculation Timeout' : 'Error Occurred'}
+            {errorInfo.type === ErrorType.TIMEOUT ? t('calculationTimeout') : t('errorOccurred')}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">{errorInfo.userMessage}</p>
 
           {/* Show partial results if available */}
           {showPartialResults && partialResults && (
             <div className="mt-3 p-3 bg-success/10 border border-success/30 rounded-lg">
-              <p className="text-sm text-success font-medium mb-1">Partial results available</p>
+              <p className="text-sm text-success font-medium mb-1">{t('partialResultsAvailable')}</p>
               <p className="text-xs text-muted-foreground">
-                Some sections were generated before the error occurred. You can view them below.
+                {t('partialResultsDesc')}
               </p>
             </div>
           )}
@@ -63,7 +65,7 @@ export const ErrorRecovery: React.FC<ErrorRecoveryProps> = ({
                 className="gap-2"
               >
                 <RefreshCw className="h-4 w-4" />
-                Retry
+                {t('retry')}
               </AuroraButton>
             )}
             {onDismiss && (
@@ -74,7 +76,7 @@ export const ErrorRecovery: React.FC<ErrorRecoveryProps> = ({
                 className="gap-2"
               >
                 <X className="h-4 w-4" />
-                Dismiss
+                {t('dismiss')}
               </AuroraButton>
             )}
           </div>

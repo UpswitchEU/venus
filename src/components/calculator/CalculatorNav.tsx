@@ -202,7 +202,7 @@ const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start' 
 // ─────────────────────────────────────────
 
 export function CalculatorNav({
-  companyName = 'Nieuwe Schatting',
+  companyName,
   onBack,
   onDownload,
   onFullscreen,
@@ -210,7 +210,7 @@ export function CalculatorNav({
   onShowHistory,
   hasReport = false,
   rightPanelView = 'report',
-  userName = 'Guest User',
+  userName,
   userInitials = 'GL',
   avatarUrl,
   onAccountSettings,
@@ -266,7 +266,7 @@ export function CalculatorNav({
         "pt-[env(safe-area-inset-top)]"
       )}>
         {/* Left: Back + Title with Recent Valuations Dropdown */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <Tooltip content={isAccountantMode ? t('clientContext.exitClientView') : t('common.back')}>
             <button
               onClick={handleBack}
@@ -279,8 +279,8 @@ export function CalculatorNav({
           {/* Title with Recent Valuations Dropdown */}
           <Dropdown
             trigger={
-              <button className="flex items-center gap-1 sm:gap-1.5 font-medium text-foreground hover:text-primary transition-colors group max-w-[140px] sm:max-w-[220px] min-h-[44px]">
-                <span className="truncate text-sm sm:text-base">{companyName}</span>
+              <button className="flex items-center gap-1 sm:gap-1.5 font-medium text-foreground hover:text-primary transition-colors group min-w-0 flex-1 max-w-[200px] sm:max-w-[320px] min-h-[44px]">
+                <span className="truncate text-sm sm:text-base">{companyName || t('toast.newEstimation')}</span>
                 <ChevronDown className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-foreground/40 group-hover:text-primary shrink-0" />
               </button>
             }
@@ -714,7 +714,7 @@ export function CalculatorNav({
           >
             <div className="p-2 w-56">
               <div className="px-2 py-2">
-                <p className="text-sm font-medium text-foreground">{userName}</p>
+                <p className="text-sm font-medium text-foreground">{userName || t('historyPanel.guest')}</p>
                 <p className="text-xs text-foreground/50">Accountant Pro</p>
               </div>
               <div className="h-px bg-foreground/[0.06] my-2" />

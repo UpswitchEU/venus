@@ -127,6 +127,7 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['use_multiples', 'useMultiples'],
     ['projection_years', 'projectionYears'],
     ['comparables'],
+    ['_normalizations'],
   ]
   
   const formData: Partial<ValuationRequest> = {}

@@ -8,6 +8,7 @@
 'use client'
 
 import { Calendar, Clock, Trash2, TrendingUp } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import React, { useState } from 'react'
 import { formatCurrency } from '../../../config/countries'
 import type { ValuationSession } from '../../../types/valuation'
@@ -28,11 +29,12 @@ export interface ReportCardProps {
  * - Like Figma projects: always editable, previews are secondary
  */
 export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
+  const t = useTranslations('valuation')
   const [isHovered, setIsHovered] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Extract data from report
-  const companyName = report.partialData?.company_name || 'Untitled Valuation'
+  const companyName = report.partialData?.company_name || t('untitledValuation')
   const industry = report.partialData?.industry || 'business'
   const countryCode = report.partialData?.country_code || 'BE'
   const createdAt = report.createdAt
@@ -92,7 +94,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
 
-    if (!confirm(`Delete "${companyName}"? This action cannot be undone.`)) {
+    if (!confirm(t('deleteReportConfirm', { name: companyName }))) {
       return
     }
 
@@ -102,7 +104,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
       await onDelete()
     } catch (error) {
       console.error('Failed to delete report:', error)
-      alert('Failed to delete report. Please try again.')
+      alert(t('deleteReportFailed'))
       setIsDeleting(false)
     }
   }
@@ -147,7 +149,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
           ${getStatusColor()}
         `}
         >
-          {status === 'completed' ? 'Completed' : 'In Progress'}
+          {status === 'completed' ? t('statusCompleted') : t('statusInProgress')}
         </div>
 
         {/* Delete button (visible on hover) */}
@@ -160,7 +162,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
             transition-all duration-200 shadow-sm
             ${isHovered ? 'opacity-100' : 'opacity-0'}
           `}
-          title="Delete report"
+          title={t('deleteReportTitle')}
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -188,7 +190,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
         {status === 'in_progress' && (
           <div className="mb-3">
             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-              <span>Completeness</span>
+              <span>{t('completeness')}</span>
               <span>{completeness}%</span>
             </div>
             <div className="w-full bg-foreground/10 rounded-full h-2 overflow-hidden">
@@ -203,7 +205,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
         {/* Valuation result preview (for completed reports) */}
         {status === 'completed' && valuationResult && (
           <div className="mt-3 p-3 bg-success/10 border border-success/30 rounded-lg">
-            <p className="text-xs text-muted-foreground mb-1">Estimated Value</p>
+            <p className="text-xs text-muted-foreground mb-1">{t('estimatedValue')}</p>
             <p className="text-xl font-bold text-success">
               {formatCurrency(
                 (valuationResult as any).valuation_summary?.final_valuation ||
@@ -218,7 +220,7 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
         {/* Hover indicator */}
         {isHovered && (
           <div className="mt-3 text-sm text-primary font-medium flex items-center gap-1">
-            <span>Open report</span>
+            <span>{t('openReport')}</span>
             <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
           </div>
         )}

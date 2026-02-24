@@ -233,7 +233,13 @@ export const useNormalizationStore = create<NormalizationStore>()(
         set({ isSaving: true })
         try {
           const { normalizationService } = await import('../services/ebitdaNormalizationService')
-          const yearItems = items.filter((n) => n.year === year)
+          // Include accepted items that apply to this year: applyAllYears, applyYears, or year match
+          const yearItems = items.filter((n) => {
+            if (n.status !== 'accepted') return false
+            if (n.applyAllYears) return true
+            if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(year)
+            return n.year === year
+          })
           const adjustments = yearItems.map((n) => ({
             category: mapFrontendCategoryToBackend(n.category),
             amount: n.adjustment,
@@ -295,7 +301,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 source: 'manual' as NormalizationSource,
                 sourceRef: '',
                 status: 'accepted' as NormalizationStatus,
-                applyAllYears: false,
+                applyAllYears: false, // Titan stores per-year; no multi-year metadata
                 year: resp.year,
                 confidence: adj.confidence as any,
               })
@@ -313,7 +319,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 source: 'manual' as NormalizationSource,
                 sourceRef: '',
                 status: 'accepted' as NormalizationStatus,
-                applyAllYears: false,
+                applyAllYears: false, // Titan stores per-year
                 year: resp.year,
               })
             }

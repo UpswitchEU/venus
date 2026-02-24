@@ -32,6 +32,8 @@ export interface AIChatRequest {
   normalizations?: any[]
   formData?: any
   stream?: boolean
+  /** Locale for fallback responses when AI is unavailable (en | nl) */
+  locale?: 'en' | 'nl'
   /** Previous messages for conversation context (used as fallback if server history unavailable) */
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
 }
@@ -305,8 +307,11 @@ class AIChatServiceImpl {
       industry?: string
       revenue?: number
       value?: any
+      locale?: 'en' | 'nl'
     },
   ): Promise<AIChatResponse> {
+    const locale = context.locale || 'nl'
+    const helpMsg = locale === 'en' ? `Help me with ${label}` : `Help me met ${label}`
     try {
       const response = await fetch('/api/ai/suggestion', {
         method: 'POST',
@@ -317,8 +322,9 @@ class AIChatServiceImpl {
 
       if (!response.ok) {
         return this.generateLocalResponse({
-          message: `Help me met ${label}`,
+          message: helpMsg,
           fieldContext: { field, label, value: context.value },
+          locale,
         })
       }
 
@@ -330,8 +336,9 @@ class AIChatServiceImpl {
       }
     } catch {
       return this.generateLocalResponse({
-        message: `Help me met ${label}`,
+        message: helpMsg,
         fieldContext: { field, label, value: context.value },
+        locale,
       })
     }
   }
@@ -341,6 +348,7 @@ class AIChatServiceImpl {
   // ─────────────────────────────────────────
 
   private generateLocalResponse(request: AIChatRequest): AIChatResponse {
+    const locale = request.locale === 'en' ? 'en' : 'nl'
     const content = request.message.toLowerCase()
     const calcImpact = (ebitdaDelta: number, m = 5.2) => ({
       ebitdaDelta,
@@ -348,15 +356,31 @@ class AIChatServiceImpl {
       multiple: m,
     })
 
-    if (content.includes('eigenaarssalaris') || content.includes('salaris')) {
+    const F = locale === 'en' ? {
+      ownerSalary: 'Owner salary',
+      rent: 'Rent costs',
+      salaryContent: 'Based on sector data, a market-rate owner salary is between €100,000 and €140,000.\n\nI suggest €120,000 as the normalization basis.',
+      rentContent: 'Average office rent in Belgium: €80-150/m² per year.\nIndustrial space: €40-80/m² per year.',
+      normsContent: 'Relevant normalizations:\n\n1. **Owner salary** - Market rate\n2. **Rent costs** - Market value\n3. **Vehicle costs** - Private use\n4. **One-time costs** - Legal etc.\n\n**Quick commands:**\n- *"Normalize owner salary to €60k"*\n- *"Set rent costs to €24k"*',
+      defaultContent: (name: string) => `Thanks for your question about ${name}.\n\n**Quick normalization commands:**\n• *"Normalize owner salary to €60k"*\n• *"Set rent costs to €24k"*\n• *"Adjust vehicle costs to €18k"*`,
+    } : {
+      ownerSalary: 'Eigenaarssalaris',
+      rent: 'Huurkosten',
+      salaryContent: 'Op basis van sectordata is een marktconform eigenaarssalaris tussen €100.000 en €140.000.\n\nIk stel €120.000 als normalisatiebasis voor.',
+      rentContent: 'Gemiddelde kantoorhuur in België: €80-150/m² per jaar.\nIndustriële ruimte: €40-80/m² per jaar.',
+      normsContent: 'Relevante normalisaties:\n\n1. **Eigenaarssalaris** - Marktconform niveau\n2. **Huurkosten** - Marktwaarde\n3. **Autokosten** - Privégebruik\n4. **Eenmalige kosten** - Juridisch etc.\n\n**Snelle commando\'s:**\n- *"Normaliseer eigenaarssalaris naar €60k"*\n- *"Zet huurkosten op €24k"*',
+      defaultContent: (name: string) => `Bedankt voor je vraag over ${name}.\n\n**Snelle normalisatie commando's:**\n• *"Normaliseer eigenaarssalaris naar €60k"*\n• *"Zet huurkosten op €24k"*\n• *"Pas autokosten aan naar €18k"*`,
+    }
+
+    if (content.includes('eigenaarssalaris') || content.includes('salaris') || content.includes('owner') && content.includes('salary')) {
       return {
         success: true,
-        content: `Op basis van sectordata is een marktconform eigenaarssalaris tussen €100.000 en €140.000.\n\nIk stel €120.000 als normalisatiebasis voor.`,
+        content: F.salaryContent,
         fieldUpdates: [
           {
             field: 'ownerSalary',
             value: 120000,
-            label: 'Eigenaarssalaris',
+            label: F.ownerSalary,
             grootboekCode: '620',
             source: 'ai',
             confidence: 'high',
@@ -367,15 +391,15 @@ class AIChatServiceImpl {
       }
     }
 
-    if (content.includes('huur') || content.includes('kantoor')) {
+    if (content.includes('huur') || content.includes('kantoor') || content.includes('rent')) {
       return {
         success: true,
-        content: `Gemiddelde kantoorhuur in België: €80-150/m² per jaar.\nIndustriële ruimte: €40-80/m² per jaar.`,
+        content: F.rentContent,
         fieldUpdates: [
           {
             field: 'rent',
             value: 48000,
-            label: 'Huurkosten',
+            label: F.rent,
             grootboekCode: '613',
             source: 'ai',
             confidence: 'medium',
@@ -386,17 +410,18 @@ class AIChatServiceImpl {
       }
     }
 
-    if (content.includes('normalis')) {
+    if (content.includes('normalis') || content.includes('normalize')) {
       return {
         success: true,
-        content: `Relevante normalisaties:\n\n1. **Eigenaarssalaris** - Marktconform niveau\n2. **Huurkosten** - Marktwaarde\n3. **Autokosten** - Privégebruik\n4. **Eenmalige kosten** - Juridisch etc.\n\n**Snelle commando's:**\n- *"Normaliseer eigenaarssalaris naar €60k"*\n- *"Zet huurkosten op €24k"*`,
+        content: F.normsContent,
         fallback: true,
       }
     }
 
+    const companyName = request.companyName || (locale === 'en' ? 'this company' : 'dit bedrijf')
     return {
       success: true,
-      content: `Bedankt voor je vraag over ${request.companyName || 'dit bedrijf'}.\n\n**Snelle normalisatie commando's:**\n• *"Normaliseer eigenaarssalaris naar €60k"*\n• *"Zet huurkosten op €24k"*\n• *"Pas autokosten aan naar €18k"*`,
+      content: F.defaultContent(companyName),
       fallback: true,
     }
   }

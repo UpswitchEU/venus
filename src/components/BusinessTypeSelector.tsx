@@ -9,6 +9,7 @@
  */
 
 import React, { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import type { BusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypes } from '../hooks/useBusinessTypes'
@@ -36,6 +37,7 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
   showPreview = true,
   className = '',
 }) => {
+  const t = useTranslations('common')
   const { businessTypeOptions, loading: loadingTypes } = useBusinessTypes()
   const [selectedId, setSelectedId] = useState<string | null>(value)
 
@@ -86,7 +88,7 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
           className="block w-full rounded-md border-foreground/10 shadow-sm focus:border-primary focus:ring-primary"
         >
           <option value="">
-            {loadingTypes ? 'Loading business types...' : 'Select your business type...'}
+            {loadingTypes ? t('loadingBusinessTypes') : t('selectBusinessType')}
           </option>
           {businessTypeOptions.map((type) => (
             <option key={type.value} value={type.value}>

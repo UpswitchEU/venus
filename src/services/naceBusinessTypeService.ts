@@ -129,7 +129,7 @@ class NaceBusinessTypeService {
       });
 
       if (!response.ok) {
-        throw new Error('Bedrijfstype ophalen mislukt. Probeer het later opnieuw.');
+        throw new Error('BUSINESS_TYPE_FETCH_FAILED');
       }
 
       const data = await response.json();

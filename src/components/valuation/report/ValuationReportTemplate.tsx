@@ -443,29 +443,29 @@ function DisclaimersPage({ data, t, locale }: { data: ValuationReportData; t: Re
       <h1 className="text-3xl font-bold text-slate-900 mb-8">{t('disclaimers')}</h1>
 
       <DisclaimerBox
-        title="Indicatieve Waardering"
-        text="Dit rapport bevat een indicatieve waardering gebaseerd op de verstrekte financiële gegevens en marktstandaarden. De uitkomst is geen garantie voor een definitieve transactieprijs en kan afwijken op basis van verdere due diligence, onderhandelingen en marktomstandigheden."
+        title={t('disclaimer1Title')}
+        text={t('disclaimer1Text')}
       />
 
       <DisclaimerBox
-        title="Gegevensbronnen"
-        text="De waardering is gebaseerd op door de gebruiker aangeleverde financiële data. Upswitch heeft de nauwkeurigheid van deze gegevens niet onafhankelijk geverifieerd. De betrouwbaarheid van de waardering is direct afhankelijk van de kwaliteit en volledigheid van de aangeleverde informatie."
+        title={t('disclaimer2Title')}
+        text={t('disclaimer2Text')}
       />
 
       <DisclaimerBox
-        title="Geen Financieel Advies"
-        text="Dit rapport vormt geen financieel, juridisch of fiscaal advies. Wij raden aan om voor belangrijke zakelijke beslissingen onafhankelijk advies in te winnen bij een gekwalificeerde adviseur."
+        title={t('disclaimer3Title')}
+        text={t('disclaimer3Text')}
       />
 
       <DisclaimerBox
-        title="Intellectueel Eigendom"
-        text="Dit rapport en de onderliggende methodologie zijn eigendom van Upswitch BV. Reproductie of distributie zonder schriftelijke toestemming is niet toegestaan."
+        title={t('disclaimer4Title')}
+        text={t('disclaimer4Text')}
       />
 
       {/* Accountant Branding */}
       {data.accountant && (
         <div className="bg-teal-50 border border-teal-200 rounded-lg p-6 mt-8">
-          <h3 className="font-semibold text-teal-800 mb-2">Opgesteld in samenwerking met</h3>
+          <h3 className="font-semibold text-teal-800 mb-2">{t('accountantPreparedWith')}</h3>
           <p className="text-xl font-semibold text-slate-800">{data.accountant.firmName}</p>
           {(data.accountant.website || data.accountant.email) && (
             <p className="text-sm text-slate-500 mt-2">

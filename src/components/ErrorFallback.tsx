@@ -1,5 +1,7 @@
 'use client';
 
+'use client';
+
 /**
  * ErrorFallback — Venus Aurora design system error UI
  *
@@ -9,6 +11,7 @@
  */
 
 import { useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { AlertCircle, Home, RefreshCw } from 'lucide-react';
 import {
@@ -35,11 +38,15 @@ export function ErrorFallback({
 	error,
 	reset,
 	homeHref = '/',
-	title = 'Something went wrong',
-	message = 'We encountered an unexpected error. Please try again or return to the homepage.',
+	title,
+	message,
 	variant = 'fullPage',
 	showDetailsInDev = true,
 }: ErrorFallbackProps) {
+	const t = useTranslations('errors.boundary');
+	const displayTitle = title ?? t('somethingWentWrong');
+	const displayMessage = message ?? t('genericDesc');
+
 	useEffect(() => {
 		console.error('[ErrorFallback]', {
 			message: error.message,
@@ -67,13 +74,13 @@ export function ErrorFallback({
 				/>
 			</div>
 
-			<h2 className={`${titleClass} text-foreground mb-2`}>{title}</h2>
-			<p className="text-sm text-muted-foreground mb-6">{message}</p>
+			<h2 className={`${titleClass} text-foreground mb-2`}>{displayTitle}</h2>
+			<p className="text-sm text-muted-foreground mb-6">{displayMessage}</p>
 
 			{showDetails && (
 				<div className="mb-6 p-4 rounded-lg bg-muted/50 border border-foreground/[0.06] text-left">
 					<p className="text-xs font-medium text-foreground/80 mb-1">
-						Error Details
+						{t('errorDetails')}
 					</p>
 					<p className="text-xs font-mono text-muted-foreground break-all mb-1">
 						{error.message}
@@ -86,7 +93,7 @@ export function ErrorFallback({
 					{error.stack && (
 						<details className="mt-2">
 							<summary className="text-xs text-muted-foreground/70 cursor-pointer">
-								Stack trace
+								{t('stackTrace')}
 							</summary>
 							<pre className="text-[10px] text-muted-foreground/60 mt-2 overflow-auto max-h-32">
 								{error.stack}
@@ -104,7 +111,7 @@ export function ErrorFallback({
 					className="flex items-center justify-center gap-2"
 				>
 					<RefreshCw className="w-4 h-4" />
-					Try Again
+					{t('tryAgain')}
 				</AuroraButton>
 				<AuroraButton
 					onClick={() => {
@@ -115,7 +122,7 @@ export function ErrorFallback({
 					className="flex items-center justify-center gap-2"
 				>
 					<Home className="w-4 h-4" />
-					Return to Homepage
+					{t('returnToHomepage')}
 				</AuroraButton>
 			</div>
 		</>
@@ -125,10 +132,10 @@ export function ErrorFallback({
 		return (
 			<Modal open={true} onOpenChange={(open) => !open && reset()}>
 				<ModalContent size="md" showClose={true}>
-					<ModalTitle className="sr-only">{title}</ModalTitle>
-					<ModalDescription id="error-fallback-description" className="sr-only">
-						{message}
-					</ModalDescription>
+				<ModalTitle className="sr-only">{displayTitle}</ModalTitle>
+				<ModalDescription id="error-fallback-description" className="sr-only">
+					{displayMessage}
+				</ModalDescription>
 					<motion.div
 						initial={{ opacity: 0, y: 8 }}
 						animate={{ opacity: 1, y: 0 }}

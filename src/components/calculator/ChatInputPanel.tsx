@@ -135,7 +135,7 @@ export function ChatInputPanel({
             {hasContext && messages.length === 0 && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10 text-sm">
                 <Building2 className="w-4 h-4 text-primary" />
-                <span className="text-foreground/70">Context: {collectedData.companyName}</span>
+                <span className="text-foreground/70">{ca('contextPrefix')} {collectedData.companyName}</span>
               </div>
             )}
 

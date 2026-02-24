@@ -12,6 +12,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn, safeString } from "../utils";
@@ -273,8 +274,8 @@ function defaultKBOSearch(query: string): KBOCompany[] {
 
 export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputProps>(
   ({
-    label = "Bedrijfsnaam of KBO-nummer",
-    placeholder = "Zoek...",
+    label,
+    placeholder,
     value,
     onChange,
     onCompanySelect,
@@ -287,7 +288,10 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     className,
     disabled,
   }, ref) => {
+    const t = useTranslations('integrationStep');
     const inputId = React.useId();
+    const displayLabel = label ?? t('companyNameOrKbo');
+    const displayPlaceholder = placeholder ?? t('searchPlaceholder');
     const [isFocused, setIsFocused] = React.useState(false);
     const [isSearching, setIsSearching] = React.useState(false);
     const [results, setResults] = React.useState<KBOCompany[]>([]);
@@ -377,10 +381,10 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           setResults([]);
           setSearchError(
             timedOutRef.current
-              ? 'Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.'
+              ? t('searchUnavailable')
               : err instanceof Error && err.message
                 ? err.message
-                : 'Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.'
+                : t('searchUnavailable')
           );
           setShowDropdown(true);
         } finally {
@@ -520,7 +524,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
               "pointer-events-auto cursor-text"
             )}
           >
-            {label}
+            {displayLabel}
           </label>
 
           {/* Right Side Icons */}
@@ -530,7 +534,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                 type="button"
                 onClick={handleClear}
                 className="p-1 rounded-full text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
-                aria-label="Wissen"
+                aria-label={t('clear')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -540,7 +544,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                 type="button"
                 onClick={() => onChange('')}
                 className="p-1 rounded-full text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
-                aria-label="Wissen"
+                aria-label={t('clear')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -551,7 +555,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
         {/* Helper text to avoid "nothing happens" dead-end */}
         {!selectedCompany && !disabled && value.length > 0 && value.length < minQueryLength && (
           <p className="mt-2 text-xs text-foreground/50">
-            Typ minstens {minQueryLength} karakters om te zoeken.
+            {t('minCharsHint', { count: minQueryLength })}
           </p>
         )}
 
@@ -565,7 +569,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
             exit="exit"
             onMouseDown={(e) => e.preventDefault()}
             role="listbox"
-            aria-label={label}
+            aria-label={displayLabel}
             aria-activedescendant={
               focusedIndex >= 0 && results[focusedIndex]
                 ? `kbo-option-${results[focusedIndex].id}`
@@ -585,7 +589,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
             {showDidYouMean && (
               <div className="px-3 py-2 border-b border-foreground/[0.06] bg-foreground/[0.02]">
                 <span className="text-xs font-medium text-foreground/50">
-                  Bedoelde je:
+                  {t('didYouMean')}
                 </span>
               </div>
             )}
@@ -593,11 +597,11 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
             {isSearching ? (
               <div className="px-4 py-6 text-sm text-foreground/50 flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Zoeken...
+                {t('searching')}
               </div>
             ) : searchError ? (
               <div className="px-4 py-4 text-sm">
-                <p className="text-destructive/80 mb-1">Zoeken mislukt</p>
+                <p className="text-destructive/80 mb-1">{t('searchFailed')}</p>
                 <p className="text-foreground/40 text-xs mb-3">{searchError}</p>
                 <button
                   type="button"
@@ -607,19 +611,19 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                   }}
                   className="text-xs font-medium text-primary hover:text-primary/80"
                 >
-                  Opnieuw proberen
+                  {t('tryAgain')}
                 </button>
               </div>
             ) : results.length === 0 ? (
               <div className="px-4 py-4 text-sm text-foreground/50">
-                <p>Geen bedrijven gevonden.</p>
+                <p>{t('noCompaniesFound')}</p>
                 {value.length >= 3 && (
                   <button
                     type="button"
                     onClick={() => setRetryTrigger((prev) => prev + 1)}
                     className="mt-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                   >
-                    Niet wat u verwachtte? Opnieuw proberen
+                    {t('unexpectedResultRetry')}
                   </button>
                 )}
               </div>
@@ -953,7 +957,7 @@ function fuzzySearchBusinessTypes(
 
 export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, BusinessTypeSearchInputProps>(
   ({
-    label = "Bedrijfstype",
+    label,
     value,
     onChange,
     size = "md",
@@ -965,6 +969,10 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
     loadError = null,
     onRetryLoad,
   }, ref) => {
+    const t = useTranslations('forms.fields');
+    const tInt = useTranslations('integrationStep');
+    const tCommon = useTranslations('common.states');
+    const displayLabel = label ?? t('businessType');
     const [isFocused, setIsFocused] = React.useState(false);
     const [isOpen, setIsOpen] = React.useState(false);
     const [search, setSearch] = React.useState('');
@@ -1134,7 +1142,7 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
 
           {/* Floating Label */}
           <label className={cn(floatingLabelVariants({ state, floated: isFloated, size }))}>
-            {label}
+            {displayLabel}
           </label>
 
           {/* Right Side */}
@@ -1200,14 +1208,14 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
               {isDidYouMean && (
                 <div className="px-3 py-2 border-b border-foreground/[0.06] bg-foreground/[0.02]">
                   <span className="text-xs font-medium text-foreground/50">
-                    Bedoelde je:
+                    {tInt('didYouMean')}
                   </span>
                 </div>
               )}
 
               {loadError && filteredTypes.length === 0 ? (
                 <div className="px-4 py-4 text-sm">
-                  <p className="text-destructive/80 mb-1">Laden mislukt</p>
+                  <p className="text-destructive/80 mb-1">{tCommon('loadFailed')}</p>
                   <p className="text-foreground/40 text-xs mb-3">{loadError}</p>
                   {onRetryLoad && (
                     <button
@@ -1215,13 +1223,13 @@ export const BusinessTypeSearchInput = React.forwardRef<HTMLInputElement, Busine
                       onClick={(e) => { e.stopPropagation(); onRetryLoad(); }}
                       className="text-xs font-medium text-primary hover:text-primary/80"
                     >
-                      Opnieuw proberen
+                      {tInt('tryAgain')}
                     </button>
                   )}
                 </div>
               ) : filteredTypes.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-foreground/50">
-                  Geen bedrijfstypes gevonden
+                  {tInt('noBusinessTypesFound')}
                 </div>
               ) : (
                 filteredTypes.slice(0, 10).map((type, index) => {

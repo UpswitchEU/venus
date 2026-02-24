@@ -1,4 +1,7 @@
+'use client'
+
 import React from 'react'
+import { useTranslations } from 'next-intl'
 import { createPortal } from 'react-dom'
 
 interface RegenerationWarningModalProps {
@@ -14,6 +17,7 @@ export const RegenerationWarningModal: React.FC<RegenerationWarningModalProps> =
   onConfirm,
   onCancel,
 }) => {
+  const t = useTranslations('modals.regeneration')
   if (!isOpen) return null
 
   // Format the timestamp if available
@@ -47,22 +51,18 @@ export const RegenerationWarningModal: React.FC<RegenerationWarningModalProps> =
             <div className="w-10 h-10 bg-harvest-500/20 rounded-full flex items-center justify-center">
               <span className="text-harvest-400 text-xl">⚠️</span>
             </div>
-            <h3 className="text-xl font-bold text-white">Overwrite Existing Report?</h3>
+            <h3 className="text-xl font-bold text-white">{t('overwriteTitle')}</h3>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-6 space-y-4">
           <div className="space-y-2">
-            <p className="text-foreground">
-              You have an{' '}
-              <span className="font-semibold text-white">existing valuation report</span> that will
-              be <span className="font-semibold text-harvest-400">permanently overwritten</span>.
-            </p>
+            <p className="text-foreground">{t('overwriteDesc')}</p>
 
             {completedAt && (
               <p className="text-muted-foreground text-sm">
-                Previous report was generated on{' '}
+                {t('overwritePrevious')}{' '}
                 <span className="font-medium text-foreground">{formatTimestamp(completedAt)}</span>
               </p>
             )}
@@ -70,19 +70,13 @@ export const RegenerationWarningModal: React.FC<RegenerationWarningModalProps> =
 
           {/* Warning Box */}
           <div className="p-4 bg-harvest-tint border border-harvest-500/30 rounded-lg space-y-2">
-            <p className="text-sm font-medium text-harvest-700">⚠️ This action cannot be undone</p>
-            <p className="text-xs text-harvest-600/80">
-              The previous valuation report will be replaced with a new one based on your current
-              inputs.
-            </p>
+            <p className="text-sm font-medium text-harvest-700">⚠️ {t('overwriteCannotUndo')}</p>
+            <p className="text-xs text-harvest-600/80">{t('overwriteReplace')}</p>
           </div>
 
           {/* Info Box */}
           <div className="p-3 bg-muted/50 rounded-lg border border-foreground/10">
-            <p className="text-xs text-muted-foreground">
-              💡 <span className="font-medium">Tip:</span> If you want to compare different
-              valuations, consider downloading the current report first.
-            </p>
+            <p className="text-xs text-muted-foreground">💡 {t('overwriteTip')}</p>
           </div>
         </div>
 
@@ -92,13 +86,13 @@ export const RegenerationWarningModal: React.FC<RegenerationWarningModalProps> =
             onClick={onCancel}
             className="flex-1 px-4 py-3 bg-muted hover:bg-foreground/10 text-foreground rounded-lg font-medium transition-colors"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={onConfirm}
             className="flex-1 px-4 py-3 bg-rust-500 hover:bg-rust-600 text-white rounded-lg font-medium transition-colors"
           >
-            Regenerate Report
+            {t('confirm')}
           </button>
         </div>
       </div>

@@ -260,6 +260,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const t = useTranslations('toast')
   const tReport = useTranslations('report')
   const tHistory = useTranslations('historyPanel')
+  const tErrors = useTranslations('errors')
   const isMobile = useIsMobile()
 
   // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
@@ -343,13 +344,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="max-w-md mx-auto text-center">
           <div className="bg-destructive/20 border border-destructive/30 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-destructive mb-2">Session Error</h3>
+            <h3 className="text-lg font-semibold text-destructive mb-2">{tErrors('session.title')}</h3>
             <p className="text-destructive/80 mb-6">{sessionError}</p>
             <button
               onClick={() => window.location.reload()}
               className="px-6 py-2.5 bg-destructive hover:bg-destructive/90 text-white rounded-lg transition-colors font-medium"
             >
-              Reload Page
+              {tErrors('session.reloadPage')}
             </button>
           </div>
         </div>
@@ -370,7 +371,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [downloadHistory, setDownloadHistory] = useState<{ id: string; fileName: string; timestamp: Date; size: string }[]>([])
 
   // ─── Panel View State ───
-  const [rightPanelView, setRightPanelView] = useState<RightPanelView>('report')
+  const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab ?? 'preview')
 
   // ─── Chat Co-pilot State ───
   const [chatDrawerOpen, setChatDrawerOpen] = useState(initialDrawerOpen)
@@ -637,13 +638,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
     return versions.map((v) => {
       const vr = v.valuationResult as any
-      const low = Number(vr?.equity_value_low || vr?.valuation_low || 0)
-      const high = Number(vr?.equity_value_high || vr?.valuation_high || 0)
+      const mid = Number(vr?.valuation_midpoint || vr?.equity_value_mid || vr?.details?.valuation_midpoint || vr?.details?.equity_value_mid || 0)
+      const low = Number(vr?.valuation_min || vr?.equity_value_low || vr?.details?.valuation_min || vr?.details?.equity_value_low || 0)
+      const high = Number(vr?.valuation_max || vr?.equity_value_high || vr?.details?.valuation_max || vr?.details?.equity_value_high || 0)
+      const ask = Number(vr?.recommended_asking_price || vr?.details?.recommended_asking_price || mid || 0)
       return {
         id: v.id,
         label: v.versionLabel,
         priceRange: { min: low, max: high },
-        askPrice: high,
+        askPrice: ask,
         timestamp: v.createdAt,
         isActive: v.isActive,
       }
@@ -1035,6 +1038,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         const { aiChatService } = await import('../../../services/ai/AIChatService')
 
+        const validLocale = (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'nl'
         const aiRequest = {
           message: content,
           sessionId: reportId || undefined,
@@ -1044,6 +1048,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           fieldContext: fieldContext || undefined,
           normalizations: normalizationItems,
           formData: enrichedFormData,
+          locale: validLocale as 'en' | 'nl',
           history: chatMessages
             .filter((m) => m.role === 'user' || m.role === 'assistant')
             .slice(-10)
@@ -1130,10 +1135,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setIsChatGenerating(false)
       }
     },
-    [collectedData, handleApplyFieldUpdate, reportId, fieldContext, normalizationItems, chatMessages, conversationStore, isLoadingHistory] // eslint-disable-line react-hooks/exhaustive-deps
+    [collectedData, handleApplyFieldUpdate, reportId, fieldContext, normalizationItems, chatMessages, conversationStore, isLoadingHistory, currentLocale] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  // Extract normalization suggestion handling to avoid duplication
+  // AI suggestions: add as pending; Titan persist happens on accept (handleAcceptNormalisation)
   const handleNormalisationSuggestions = useCallback((suggestions: any[] | undefined) => {
     if (!suggestions?.length) return
     const newItems: NormalizationItem[] = suggestions.map((s: any) => ({
@@ -1437,43 +1442,70 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setFieldContext({ field: context.field, label: context.label, value: context.value, hint: context.hint })
       setChatDrawerOpen(true)
 
+      const label = (context.label || '').toLowerCase()
+      const isEN = currentLocale === 'en'
+
       const getContextualQuestion = (): string => {
         if (context.normalizationType) {
           switch (context.normalizationType) {
             case 'salary':
-              return `Wat is een marktconform salaris voor ${context.label.toLowerCase()}?`
+              return isEN
+                ? `What is a market-rate salary for ${label}?`
+                : `Wat is een marktconform salaris voor ${label}?`
             case 'rent':
-              return `Is de huurprijs voor ${context.label.toLowerCase()} marktconform?`
+              return isEN
+                ? `Is the rent for ${label} at market rate?`
+                : `Is de huurprijs voor ${label} marktconform?`
             case 'vehicle':
-              return `Hoeveel privégebruik kan genormaliseerd worden voor ${context.label.toLowerCase()}?`
+              return isEN
+                ? `How much private use can be normalized for ${label}?`
+                : `Hoeveel privégebruik kan genormaliseerd worden voor ${label}?`
             case 'one-time':
-              return `Is ${context.label.toLowerCase()} een eenmalige kost die genormaliseerd moet worden?`
+              return isEN
+                ? `Is ${label} a one-time cost that should be normalized?`
+                : `Is ${label} een eenmalige kost die genormaliseerd moet worden?`
             case 'personal':
-              return `Welk deel van ${context.label.toLowerCase()} is privégerelateerd?`
+              return isEN
+                ? `What portion of ${label} is personal?`
+                : `Welk deel van ${label} is privégerelateerd?`
           }
         }
         switch (context.field) {
           case 'ownerManagers':
-            return 'Hoeveel eigenaar-managers is gebruikelijk voor dit type bedrijf?'
+            return isEN
+              ? 'How many owner-managers is typical for this type of business?'
+              : 'Hoeveel eigenaar-managers is gebruikelijk voor dit type bedrijf?'
           case 'ebitda':
-            return `Welke normalisaties zijn relevant voor de EBITDA van ${context.label}?`
+            return isEN
+              ? `Which normalizations are relevant for the EBITDA of ${context.label}?`
+              : `Welke normalisaties zijn relevant voor de EBITDA van ${context.label}?`
           case 'ownerSalary':
-            return 'Wat is een marktconform eigenaarssalaris voor dit bedrijf?'
+            return isEN
+              ? 'What is a market-rate owner salary for this business?'
+              : 'Wat is een marktconform eigenaarssalaris voor dit bedrijf?'
           case 'rent':
-            return 'Is deze huurprijs marktconform?'
+            return isEN
+              ? 'Is this rent at market rate?'
+              : 'Is deze huurprijs marktconform?'
           case 'vehicle':
-            return 'Hoeveel privégebruik kan genormaliseerd worden voor autokosten?'
+            return isEN
+              ? 'How much private use can be normalized for vehicle costs?'
+              : 'Hoeveel privégebruik kan genormaliseerd worden voor autokosten?'
           default:
             if (context.grootboekCode) {
-              return `Analyseer grootboekrekening ${context.grootboekCode} (${context.label}) voor normalisatie`
+              return isEN
+                ? `Analyze ledger account ${context.grootboekCode} (${context.label}) for normalization`
+                : `Analyseer grootboekrekening ${context.grootboekCode} (${context.label}) voor normalisatie`
             }
-            return `Help me met ${context.label.toLowerCase()}`
+            return isEN
+              ? `Help me with ${label}`
+              : `Help me met ${label}`
         }
       }
 
       setTimeout(() => handleChatMessage(getContextualQuestion()), 300)
     },
-    [handleChatMessage]
+    [handleChatMessage, currentLocale]
   )
 
   // ─── Normalization Handlers (unified store) - Clarity parity: open modal, do not replace left panel ───
@@ -1484,28 +1516,50 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setSuggestedNormalisations((prev: any[]) =>
       prev.map((n: any) => (n.id === id ? { ...n, status: 'accepted' } : n)),
     )
-    // Immediate persist to Titan on accept
+    // Immediate persist to Titan on accept — persist for each year the item applies to
     if (reportId) {
       const item = useNormalizationStore.getState().items.find((n) => n.id === id)
-      if (item) normalizationActions.persistToTitan(reportId, item.year)
+      if (item) {
+        const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+        const historicalYears =
+          formStoreData.historical_years_data
+            ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+            .map((y: any) => y.year) ?? []
+        const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+        const yearsToPersist = item.applyAllYears
+          ? allDataYears
+          : (item.applyYears?.length ? item.applyYears : [item.year])
+        yearsToPersist.forEach((y) => normalizationActions.persistToTitan(reportId!, y))
+      }
     }
     // Real-time recalculation
     recalculateWithNormalizations(useNormalizationStore.getState().items)
-  }, [reportId, normalizationActions])
+  }, [reportId, normalizationActions, formStoreData])
 
   const handleRejectNormalisation = useCallback((id: string) => {
     normalizationActions.rejectItem(id)
     setSuggestedNormalisations((prev: any[]) =>
       prev.map((n: any) => (n.id === id ? { ...n, status: 'rejected' } : n)),
     )
-    // Immediate persist to Titan on reject
+    // Immediate persist to Titan on reject — persist for each year the item applies to
     if (reportId) {
       const item = useNormalizationStore.getState().items.find((n) => n.id === id)
-      if (item) normalizationActions.persistToTitan(reportId, item.year)
+      if (item) {
+        const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+        const historicalYears =
+          formStoreData.historical_years_data
+            ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+            .map((y: any) => y.year) ?? []
+        const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+        const yearsToPersist = item.applyAllYears
+          ? allDataYears
+          : (item.applyYears?.length ? item.applyYears : [item.year])
+        yearsToPersist.forEach((y) => normalizationActions.persistToTitan(reportId!, y))
+      }
     }
     // Real-time recalculation
     recalculateWithNormalizations(useNormalizationStore.getState().items)
-  }, [reportId, normalizationActions])
+  }, [reportId, normalizationActions, formStoreData])
 
   // ─── Auto-recalculate valuation with normalized EBITDA ───
   // IMPORTANT: Do NOT manually mutate EBITDA here. buildValuationRequest reads accepted
@@ -1577,13 +1631,32 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (version.normalization_data && typeof version.normalization_data === 'object') {
         // Convert year-keyed normalization_data back to NormalizationItem[]
         const items: NormalizationItem[] = []
-        for (const [year, data] of Object.entries(version.normalization_data as Record<string, any>)) {
+        for (const [yearStr, data] of Object.entries(version.normalization_data as Record<string, any>)) {
           if (data?.adjustments && Array.isArray(data.adjustments)) {
-            items.push(...data.adjustments.map((adj: any) => ({
-              ...adj,
-              year: Number(year),
-              status: adj.status || 'accepted',
-            })))
+            const year = Number(yearStr)
+            for (let idx = 0; idx < data.adjustments.length; idx++) {
+              const adj = data.adjustments[idx]
+              const amount = Number(adj.amount ?? adj.adjustment ?? 0)
+              const rawCat = adj.category || ''
+              const category: NormalizationItem['category'] = ['salary', 'rent', 'vehicle', 'one-time', 'personal', 'depreciation', 'other'].includes(rawCat)
+                ? (rawCat as NormalizationItem['category'])
+                : (mapBackendCategoryToFrontend(rawCat) || 'other')
+              items.push({
+                id: `version-${year}-${idx}-${Math.random().toString(36).substring(2, 8)}`,
+                ledgerCode: adj.ledger_code || '',
+                ledgerName: adj.ledger_name || adj.note || adj.category || '',
+                category,
+                type: amount >= 0 ? 'add' : 'subtract',
+                value: Math.abs(amount),
+                adjustment: amount,
+                reason: adj.note || adj.reason,
+                source: 'manual',
+                sourceRef: 'version',
+                status: 'accepted',
+                applyAllYears: false,
+                year,
+              })
+            }
           }
         }
         if (items.length > 0) {
@@ -1591,9 +1664,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
       }
 
-      // 5. Update version history active version
+      // 5. Update version history active version and re-fetch from backend
+      //    (restore creates a new version copy on the backend)
       if (reportId && versionNumber) {
         useVersionHistoryStore.getState().setActiveVersion(reportId, versionNumber)
+        await useVersionHistoryStore.getState().fetchVersions(reportId)
       }
 
       setRightPanelView('report')
@@ -1649,7 +1724,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         source: source as any,
         sourceRef: s.sourceRef || `${labels[source]}`,
         status: (s.status || 'pending') as any,
-        applyAllYears: false,
+        applyAllYears: false, // Default single year; user can change in modal
         year: new Date().getFullYear() - 1,
       }))
 

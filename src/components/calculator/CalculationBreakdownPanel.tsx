@@ -23,6 +23,7 @@ import {
   FileText,
   BookOpen
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/design-system/utils';
 
 export interface CalculationBreakdownPanelProps {
@@ -48,24 +49,25 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-// Sample EBITDA adjustments for demo
+// Sample EBITDA adjustments for demo (use labelKey/descriptionKey for i18n)
 const ebitdaAdjustments: Array<{
   id: string;
-  label: string;
+  labelKey: string;
   value: number;
   type: 'base' | 'add' | 'subtract' | 'result';
-  description?: string;
+  descriptionKey?: string;
 }> = [
-  { id: '1', label: 'Gerapporteerde EBITDA', value: 680000, type: 'base' },
-  { id: '2', label: 'Eigenaarssalaris normalisatie', value: 60000, type: 'add', description: 'Aanpassing naar marktconform salaris' },
-  { id: '3', label: 'Eenmalige marketingkosten', value: 25000, type: 'add', description: 'Niet-terugkerende campagnekosten' },
-  { id: '4', label: 'Privékosten directie', value: 18000, type: 'add', description: 'Auto en representatie' },
-  { id: '5', label: 'Genormaliseerde EBITDA', value: 783000, type: 'result' },
+  { id: '1', labelKey: 'reportedEbitda', value: 680000, type: 'base' },
+  { id: '2', labelKey: 'ownerSalaryNorm', value: 60000, type: 'add', descriptionKey: 'ownerSalaryNormDesc' },
+  { id: '3', labelKey: 'oneTimeMarketing', value: 25000, type: 'add', descriptionKey: 'oneTimeMarketingDesc' },
+  { id: '4', labelKey: 'directorPersonal', value: 18000, type: 'add', descriptionKey: 'directorPersonalDesc' },
+  { id: '5', labelKey: 'normalizedEbitda', value: 783000, type: 'result' },
 ];
 
 export function CalculationBreakdownPanel({
   report,
 }: CalculationBreakdownPanelProps) {
+  const t = useTranslations('calculationBreakdown');
   if (!report) {
     return (
       <div className="h-full flex items-center justify-center p-8 bg-background">
@@ -73,10 +75,8 @@ export function CalculationBreakdownPanel({
           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
             <BarChart3 className="w-6 h-6 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground">Geen berekening beschikbaar</h3>
-          <p className="text-sm text-muted-foreground mt-2">
-            Vul de bedrijfsgegevens in en bereken de schatting om de berekeningsdetails te zien.
-          </p>
+          <h3 className="text-lg font-semibold text-foreground">{t('noCalculationAvailable')}</h3>
+          <p className="text-sm text-muted-foreground mt-2">{t('noCalculationDesc')}</p>
         </div>
       </div>
     );
@@ -100,10 +100,10 @@ export function CalculationBreakdownPanel({
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
               <Calculator className="w-4 h-4 text-primary" />
             </div>
-            <h2 className="text-xl font-bold text-foreground">Berekeningsdetails</h2>
+            <h2 className="text-xl font-bold text-foreground">{t('calculationDetails')}</h2>
           </div>
           <p className="text-sm text-muted-foreground ml-10">
-            Volledige transparantie over de schattingsmethodologie voor {report.companyName}
+            {t('methodologyTransparency', { companyName: report.companyName })}
           </p>
         </motion.div>
 
@@ -116,7 +116,7 @@ export function CalculationBreakdownPanel({
         >
           <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-muted-foreground" />
-            EBITDA Normalisatie Bridge
+            {t('ebitdaBridge')}
           </h3>
           
           <div className="bg-muted/50 rounded-xl p-4 space-y-2">
@@ -154,10 +154,10 @@ export function CalculationBreakdownPanel({
                     "text-sm font-medium",
                     item.type === 'result' ? "text-primary-foreground" : "text-foreground"
                   )}>
-                    {item.label}
+                    {t(item.labelKey)}
                   </p>
-                  {item.description && (
-                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                  {item.descriptionKey && (
+                    <p className="text-xs text-muted-foreground">{t(item.descriptionKey)}</p>
                   )}
                 </div>
 
@@ -187,13 +187,13 @@ export function CalculationBreakdownPanel({
         >
           <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-muted-foreground" />
-            Indicatieve Berekening
+            {t('indicativeCalculation')}
           </h3>
 
           <div className="grid grid-cols-3 gap-4">
             {/* EBITDA */}
             <div className="bg-muted/50 rounded-xl p-4 text-center">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Genorm. EBITDA</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t('normEbitda')}</p>
               <p className="text-xl font-bold font-mono text-foreground">{formatCurrency(report.ebitda)}</p>
             </div>
 
@@ -206,7 +206,7 @@ export function CalculationBreakdownPanel({
 
             {/* Multiple with explanation */}
             <div className="bg-muted/50 rounded-xl p-4 text-center relative group">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Sector Multiple</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{t('sectorMultiple')}</p>
               <p className="text-xl font-bold font-mono text-foreground">{report.multiple.toFixed(1)}x</p>
               <div className="absolute left-0 right-0 -bottom-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <span className="text-[10px] bg-muted text-foreground px-2 py-0.5 rounded-full">
@@ -223,10 +223,10 @@ export function CalculationBreakdownPanel({
 
           {/* Result */}
           <div className="bg-gradient-to-r from-primary to-primary/90 rounded-xl p-6 text-center text-primary-foreground">
-            <p className="text-xs text-primary-foreground/80 uppercase tracking-wider mb-1">Ondernemingswaarde</p>
+            <p className="text-xs text-primary-foreground/80 uppercase tracking-wider mb-1">{t('enterpriseValue')}</p>
             <p className="text-3xl font-bold font-mono">{formatCurrency(report.valuation)}</p>
             <p className="text-xs text-primary-foreground/70 mt-2">
-              Bereik: {formatCurrency(valuationLow)} – {formatCurrency(valuationHigh)}
+              {t('rangeLabel', { low: formatCurrency(valuationLow), high: formatCurrency(valuationHigh) })}
             </p>
           </div>
         </motion.section>
@@ -240,7 +240,7 @@ export function CalculationBreakdownPanel({
         >
           <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-muted-foreground" />
-            Waarom deze Multiple?
+            {t('whyThisMultiple')}
           </h3>
 
           <div className="space-y-3">
@@ -248,23 +248,20 @@ export function CalculationBreakdownPanel({
               <div className="flex gap-3">
                 <Info className="w-5 h-5 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm text-warning font-medium">Sector: Industrial Manufacturing • 5.0× – 6.0× bereik</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Manufacturing bedrijven in België met €1-5M omzet worden typisch gewaardeerd tegen 5.0×-6.0× EBITDA. 
-                    De 5.5× is gebaseerd op recente transacties en houdt rekening met:
-                  </p>
+                  <p className="text-sm text-warning font-medium">{t('sectorRange')}</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{t('methodologyIntro')}</p>
                   <ul className="text-xs text-muted-foreground mt-2 space-y-1">
                     <li className="flex items-start gap-1.5">
                       <span className="text-warning">•</span>
-                      <span><strong>Omvangpremie:</strong> Kleinere bedrijven (&lt;€5M omzet) krijgen lagere multiples vanwege concentratierisico</span>
+                      <span>{t('sizePremium')}</span>
                     </li>
                     <li className="flex items-start gap-1.5">
                       <span className="text-warning">•</span>
-                      <span><strong>Eigenaar-afhankelijkheid:</strong> 2 eigenaar-managers betekent beperkte afhankelijkheid (-0.2×)</span>
+                      <span>{t('ownerDependency')}</span>
                     </li>
                     <li className="flex items-start gap-1.5">
                       <span className="text-warning">•</span>
-                      <span><strong>Sector stabiliteit:</strong> Manufacturing is minder volatiel dan tech (+0.3×)</span>
+                      <span>{t('sectorStability')}</span>
                     </li>
                   </ul>
                 </div>
@@ -272,11 +269,7 @@ export function CalculationBreakdownPanel({
             </div>
 
             <div className="bg-muted/50 border border-foreground/10 rounded-xl p-4">
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                <strong>Bronnen:</strong> Damodaran Dataset 2024, PitchBook Benelux, BDO M&A Monitor. 
-                De methodologie volgt de Koller/McKinsey 'Valuation' benadering 
-                met aanpassingen voor SME-context.
-              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{t('sources')}</p>
             </div>
           </div>
         </motion.section>
@@ -289,27 +282,27 @@ export function CalculationBreakdownPanel({
         >
           <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
             <Scale className="w-4 h-4 text-muted-foreground" />
-            Vergelijkbare Transacties
+            {t('comparableTransactions')}
           </h3>
 
           <div className="overflow-hidden rounded-xl border border-foreground/10">
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">Bedrijf</th>
-                  <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">Multiple</th>
-                  <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">Omzet</th>
-                  <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">Datum</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">{t('company')}</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">{t('multiple')}</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">{t('revenue')}</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground uppercase">{t('date')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-foreground/5">
                 {[
-                  { company: 'Vergelijkbaar A (Geanonimiseerd)', multiple: 5.8, revenue: 1500000, date: '2025-Q3' },
-                  { company: 'Vergelijkbaar B (Geanonimiseerd)', multiple: 5.2, revenue: 850000, date: '2025-Q2' },
-                  { company: 'Vergelijkbaar C (Geanonimiseerd)', multiple: 5.5, revenue: 1200000, date: '2025-Q1' },
+                  { companyKey: 'comparableA' as const, multiple: 5.8, revenue: 1500000, date: '2025-Q3' },
+                  { companyKey: 'comparableB' as const, multiple: 5.2, revenue: 850000, date: '2025-Q2' },
+                  { companyKey: 'comparableC' as const, multiple: 5.5, revenue: 1200000, date: '2025-Q1' },
                 ].map((comp, i) => (
                   <tr key={i} className="hover:bg-muted/50">
-                    <td className="px-4 py-3 text-foreground">{comp.company}</td>
+                    <td className="px-4 py-3 text-foreground">{t(comp.companyKey)}</td>
                     <td className="px-4 py-3 text-right font-mono text-foreground">{comp.multiple.toFixed(1)}x</td>
                     <td className="px-4 py-3 text-right font-mono text-muted-foreground">{formatCurrency(comp.revenue)}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground">{comp.date}</td>

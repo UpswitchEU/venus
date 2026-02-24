@@ -5,7 +5,10 @@
  * Handles basic form inputs for manual valuation flows.
  */
 
+'use client'
+
 import React, { useCallback, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { BUSINESS_DATA_FIELDS, DataResponse, FieldValue } from '../../types/data-collection'
 import { FieldRenderer } from './FieldRenderer'
 
@@ -32,6 +35,7 @@ export const DataCollection: React.FC<DataCollectionProps> = ({
   disabled = false,
   className = '',
 }) => {
+  const t = useTranslations()
   // Simple state for collected responses
   const [responses, setResponses] = useState<Map<string, DataResponse>>(() => {
     const initialResponses = new Map<string, DataResponse>()
@@ -112,9 +116,9 @@ export const DataCollection: React.FC<DataCollectionProps> = ({
       {/* Progress Indicator */}
       <div className="bg-muted/50 rounded-lg p-4 border border-foreground/10">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-white">Complete the Form</h3>
+          <h3 className="text-sm font-medium text-white">{t('dataCollection.completeForm')}</h3>
           <span className="text-xs text-muted-foreground">
-            {completedFields}/{totalFields} fields
+            {t('dataCollection.fieldsProgress', { completed: completedFields, total: totalFields })}
           </span>
         </div>
 

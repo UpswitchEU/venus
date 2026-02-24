@@ -1,5 +1,6 @@
 import { Building2, X } from 'lucide-react'
 import React, { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import type { KBOSuggestion } from './utils/kboParsing'
 
 interface KBOSuggestionsListProps {
@@ -11,6 +12,7 @@ export const KBOSuggestionsList: React.FC<KBOSuggestionsListProps> = ({
   suggestions,
   onSelect,
 }) => {
+  const t = useTranslations('forms.kboLookup')
   const [isDismissed, setIsDismissed] = useState(false)
 
   const handleSelect = (selection: string) => {
@@ -25,7 +27,7 @@ export const KBOSuggestionsList: React.FC<KBOSuggestionsListProps> = ({
 
   return (
     <div className="mt-4 space-y-2">
-      <div className="text-xs text-muted-foreground mb-3">Select a company from the list below:</div>
+      <div className="text-xs text-muted-foreground mb-3">{t('selectCompanyFromList')}</div>
 
       {/* Suggestion Cards */}
       <div className="space-y-2">
@@ -74,7 +76,7 @@ export const KBOSuggestionsList: React.FC<KBOSuggestionsListProps> = ({
       >
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
-          <span>None of these match</span>
+          <span>{t('noneOfTheseMatch')}</span>
         </div>
       </button>
     </div>

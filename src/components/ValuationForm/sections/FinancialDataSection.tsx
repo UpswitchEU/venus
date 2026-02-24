@@ -8,6 +8,7 @@
  */
 
 import React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   getIndustryGuidance,
   validateEbitdaMargin,
@@ -37,6 +38,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   formData,
   updateFormData,
 }) => {
+  const t = useTranslations('forms.fields')
   const lastFullYear = Math.min(new Date().getFullYear() - 1, 2100)
   const reportId = useSessionStore((state) => state.session?.reportId)
   const sessionId = reportId // Use reportId as sessionId
@@ -103,8 +105,8 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
 
             return (
               <AuroraNumberInput
-                label="Revenue (Required)"
-                placeholder="e.g., 2,500,000"
+                label={t('revenueRequired')}
+                placeholder={t('revenueExamplePlaceholder')}
                 value={formData.revenue || ''}
                 onChange={(e) =>
                   updateFormData({
@@ -153,7 +155,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                 formData.ebitda !== undefined &&
                 formData.ebitda !== null ? (
                   <NormalizedEBITDAField
-                    label="EBITDA (Required)"
+                    label={t('ebitdaRequired')}
                     originalValue={formData.ebitda}
                     normalizedValue={getNormalizedEbitda(lastFullYear)}
                     totalAdjustments={getTotalAdjustments(lastFullYear)}
@@ -166,8 +168,8 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                 ) : (
                   <>
                     <AuroraNumberInput
-                      label="EBITDA (Required)"
-                      placeholder="e.g., 500,000"
+                      label={t('ebitdaRequired')}
+                      placeholder={t('ebitdaExamplePlaceholder')}
                       value={
                         formData.ebitda !== undefined && formData.ebitda !== null
                           ? formData.ebitda
@@ -210,7 +212,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                               d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                             />
                           </svg>
-                          Normalize EBITDA for {lastFullYear}
+                          {t('normalizeEbitdaFor', { year: lastFullYear })}
                         </button>
                       </div>
                     )}

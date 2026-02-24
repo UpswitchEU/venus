@@ -7,6 +7,7 @@
  * Firm branding, Client, Business, Draft status, Client approval status
  */
 
+import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { springDefault } from '@/design-system/components/motion';
 import { Building2, User, Clock, Check, ChevronRight, UserCheck, Send } from 'lucide-react';
@@ -43,6 +44,7 @@ export function ContextBar({
   pendingNormalisations = 0,
   onShowNormalisationReview,
 }: ContextBarProps) {
+  const t = useTranslations('calculator.contextBar');
   if (!clientName && !businessName) return null;
 
   const formatTime = (date: Date) => {
@@ -81,7 +83,7 @@ export function ContextBar({
             className="flex items-center gap-1.5 text-foreground/60 hover:text-foreground transition-colors"
           >
             <User className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate max-w-[200px]">{clientName}</span>
+            <span className="truncate max-w-[260px]">{clientName}</span>
           </button>
         )}
         
@@ -95,7 +97,7 @@ export function ContextBar({
             className="flex items-center gap-1.5 text-foreground hover:text-primary transition-colors font-medium"
           >
             <Building2 className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate max-w-[200px]">{businessName}</span>
+            <span className="truncate max-w-[260px]">{businessName}</span>
           </button>
         )}
       </div>
@@ -111,7 +113,7 @@ export function ContextBar({
               "hover:bg-primary/15 transition-colors"
             )}
           >
-            <span>{pendingNormalisations} normalisaties te reviewen</span>
+            <span>{t('pendingToReview', { count: pendingNormalisations })}</span>
             <ChevronRight className="w-3 h-3" />
           </button>
         )}
@@ -132,9 +134,9 @@ export function ContextBar({
             {clientApprovalStatus === 'pending' ? (
               <>
                 <Clock className="w-3 h-3" />
-                <span>Wachtend op klant</span>
+                <span>{t('awaitingClient')}</span>
                 {onResendApproval && (
-                  <button onClick={onResendApproval} className="ml-1 p-0.5 rounded hover:bg-foreground/[0.06] transition-colors" title="Herinnering versturen">
+                  <button onClick={onResendApproval} className="ml-1 p-0.5 rounded hover:bg-foreground/[0.06] transition-colors" title={t('sendReminder')}>
                     <Send className="w-3 h-3" />
                   </button>
                 )}
@@ -142,12 +144,12 @@ export function ContextBar({
             ) : clientApprovalStatus === 'approved' ? (
               <>
                 <UserCheck className="w-3 h-3" />
-                <span>Klant akkoord</span>
+                <span>{t('clientApproved')}</span>
               </>
             ) : (
               <>
                 <User className="w-3 h-3" />
-                <span>Wijzigingen gevraagd</span>
+                <span>{t('changesRequested')}</span>
               </>
             )}
           </div>
@@ -166,16 +168,16 @@ export function ContextBar({
               : "bg-foreground/[0.04] text-foreground/40"
         )}>
           {draftStatus === 'saved' ? (
-            <><Check className="w-3 h-3" />Opgeslagen</>
+            <><Check className="w-3 h-3" />{t('saved')}</>
           ) : draftStatus === 'saving' ? (
             <>
               <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
                 <Clock className="w-3 h-3" />
               </motion.div>
-              Opslaan...
+              {t('saving')}
             </>
           ) : (
-            <><Clock className="w-3 h-3" />Concept</>
+            <><Clock className="w-3 h-3" />{t('draft')}</>
           )}
         </div>
 

@@ -1,6 +1,7 @@
 import { Maximize2, X } from 'lucide-react'
 import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslations } from 'next-intl'
 
 interface FullScreenModalProps {
   isOpen: boolean
@@ -12,9 +13,12 @@ interface FullScreenModalProps {
 export const FullScreenModal: React.FC<FullScreenModalProps> = ({
   isOpen,
   onClose,
-  title = 'Valuation Report',
+  title,
   children,
 }) => {
+  const rt = useTranslations('reports')
+  const displayTitle = title || rt('title')
+
   // Handle escape key
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -65,13 +69,13 @@ export const FullScreenModal: React.FC<FullScreenModalProps> = ({
         <div className="flex items-center justify-between p-4 border-b border-foreground/10 bg-card">
           <div className="flex items-center gap-3">
             <Maximize2 className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold text-white">{title}</h2>
+            <h2 className="text-xl font-semibold text-white">{displayTitle}</h2>
           </div>
 
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-            title="Close (ESC)"
+            title={rt('closeEsc')}
           >
             <X className="w-5 h-5" />
           </button>

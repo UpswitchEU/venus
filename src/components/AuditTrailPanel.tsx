@@ -10,6 +10,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { generalLogger } from '../utils/logger'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { VersionTimeline } from './VersionTimeline'
@@ -28,6 +29,7 @@ export interface AuditTrailPanelProps {
  * - Responsive layout (vertical split on desktop, stacked on mobile)
  */
 export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelProps) {
+  const t = useTranslations('historyPanel')
   const {
     versions: allVersions,
     getActiveVersion,
@@ -113,7 +115,7 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
       <div className={`flex items-center justify-center h-full bg-background ${className}`}>
         <div className="text-center text-muted-foreground p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-sm">Loading version history...</p>
+          <p className="text-sm">{t('loadingVersionHistory')}</p>
         </div>
       </div>
     )
@@ -137,10 +139,9 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Versions Yet</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t('noVersionsTitle')}</h3>
           <p className="text-sm leading-relaxed">
-            Versions are created automatically when you regenerate valuations with updated data.
-            Make changes to your valuation inputs and recalculate to create version history.
+            {t('noVersionsDescLong')}
           </p>
         </div>
       </div>

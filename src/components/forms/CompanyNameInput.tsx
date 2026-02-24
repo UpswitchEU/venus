@@ -117,7 +117,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           setSearchResults([])
           setExactMatch(null)
           setSearchError(
-            error instanceof Error ? error.message : 'Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.'
+            error instanceof Error ? error.message : t('forms.kboLookup.searchUnavailable')
           )
           setShowSuggestions(true)
         } finally {

@@ -7,7 +7,10 @@
  * @module components/ValuationForm/sections/OwnershipStructureSection
  */
 
+'use client'
+
 import React from 'react'
+import { useTranslations } from 'next-intl'
 import type { ValuationFormData } from '../../../types/valuation'
 import { AuroraSelect, AuroraNumberInput, AuroraFormSection, AuroraFormGrid, AuroraFormAlert } from '../../../design-system/components'
 
@@ -34,16 +37,17 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
   employeeCountError,
   setEmployeeCountError,
 }) => {
+  const t = useTranslations('forms.sections')
   return (
-    <AuroraFormSection title="Ownership Structure">
+    <AuroraFormSection title={t('ownershipStructure')}>
       <AuroraFormGrid columns={2}>
         {/* Business Type */}
         <AuroraSelect
-          label="Business Structure"
-          placeholder="Select structure..."
+          label={t('businessStructure')}
+          placeholder={t('selectStructure')}
           options={[
-            { value: 'sole-trader', label: 'Sole Trader (100% owned)' },
-            { value: 'company', label: 'Company (with shareholders)' },
+            { value: 'sole-trader', label: t('soleTrader') },
+            { value: 'company', label: t('companyWithShareholders') },
           ]}
           value={formData.business_type || 'company'}
           onChange={(value) =>
@@ -54,8 +58,8 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
         {/* Shares for Sale */}
         {formData.business_type === 'company' && (
           <AuroraNumberInput
-            label="Equity Stake for Sale (%)"
-            placeholder="e.g., 51 (majority control) or 25 (minority stake)"
+            label={t('equityStakeForSale')}
+            placeholder={t('equityStakePlaceholder')}
             value={formData.shares_for_sale || 100}
             onChange={(e) => updateFormData({ shares_for_sale: parseFloat(e.target.value) || 100 })}
             onBlur={() => {}}
@@ -64,7 +68,7 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
             max={100}
             step={0.1}
             suffix="%"
-            helpText="Equity interest to be valued. Minority stakes (<50%) often incur a 'Discount for Lack of Control' (DLOC) of 15-30%. Majority stakes (>50%) may command a 'Control Premium' reflecting the value of strategic decision-making power."
+            helpText={t('equityStakeHelp')}
           />
         )}
       </AuroraFormGrid>
@@ -73,8 +77,8 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
       {formData.business_type === 'company' && (
         <AuroraFormGrid columns={2} className="mt-6">
           <AuroraNumberInput
-            label="Active Owner-Managers"
-            placeholder="e.g., 2 (founder + COO who owns equity)"
+            label={t('activeOwnerManagers')}
+            placeholder={t('ownerManagersPlaceholder')}
             value={formData.number_of_owners !== undefined ? String(formData.number_of_owners) : ''}
             onChange={(e) => {
               // Allow empty string during editing
@@ -100,12 +104,12 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
             max={100}
             step={1}
             showArrows={true}
-            helpText="Number of equity holders with critical operational roles. Used to assess 'Key Person Risk'. High dependency on owner-operators (vs. professional management) increases the Specific Risk Premium, reducing the valuation multiple by 5-20%."
+            helpText={t('ownerManagersHelp')}
           />
 
           <AuroraNumberInput
-            label="Full-Time Equivalent (FTE) Employees"
-            placeholder="e.g., 12 (include part-time as FTE)"
+            label={t('fteEmployees')}
+            placeholder={t('ftePlaceholder')}
             value={
               formData.number_of_employees !== undefined
                 ? formData.number_of_employees.toString()
@@ -138,11 +142,11 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
               formData.business_type === 'company' &&
               !!(formData.number_of_owners && formData.number_of_owners > 0)
             }
-            helpText={`Normalized workforce count (Full-Time Equivalents). Critical for calculating Revenue/Employee efficiency ratios and assessing 'Key Person Dependency'. A higher ratio of employees to owners indicates transferable organizational value.${
+            helpText={`${t('fteHelp')}${
               formData.business_type === 'company' &&
               formData.number_of_owners &&
               formData.number_of_owners > 0
-                ? ' Required for Key Person Risk calculation. 0 is valid for owner-only entities.'
+                ? t('fteHelpRequired')
                 : ''
             }`}
           />

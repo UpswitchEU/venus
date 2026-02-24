@@ -9,6 +9,7 @@
 
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { ArrowDownRight, ArrowUpRight, Calendar, Clock, Tag, User } from 'lucide-react'
 import type { ValuationVersion } from '../types/ValuationVersion'
 import { formatCurrency } from '../utils/formatters'
@@ -28,13 +29,14 @@ export interface AuditDetailsViewProps {
  * - Metadata (tags, notes)
  */
 export function AuditDetailsView({ version, className = '' }: AuditDetailsViewProps) {
+  const t = useTranslations('historyPanel')
   if (!version) {
     return (
       <div className={`flex items-center justify-center h-full ${className}`}>
         <div className="text-center text-muted-foreground p-8">
           <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-semibold mb-2">Select a Version</h3>
-          <p className="text-sm">Choose a version from the timeline to view its details</p>
+          <h3 className="text-lg font-semibold mb-2">{t('selectVersionTitle')}</h3>
+          <p className="text-sm">{t('selectVersionDesc')}</p>
         </div>
       </div>
     )
@@ -64,7 +66,7 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
                 {version.createdBy && (
                   <div className="flex items-center gap-1.5">
                     <User className="w-4 h-4" />
-                    <span>{version.createdBy === 'guest' ? 'Guest User' : 'User'}</span>
+                    <span>{version.createdBy === 'guest' ? t('guest') : t('user')}</span>
                   </div>
                 )}
                 {version.calculationDuration_ms && (
@@ -77,7 +79,7 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
             </div>
             {version.isActive && (
               <span className="px-3 py-1 text-xs font-medium bg-moss-500/10 text-moss-500 rounded-full border border-moss-500/20">
-                Active
+                {t('active')}
               </span>
             )}
           </div>
@@ -110,16 +112,16 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
         {/* Statistics Card */}
         {hasChanges && (
           <div className="bg-card border border-foreground/10 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Change Statistics</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-3">{t('changeStatistics')}</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Total Changes</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('totalChanges')}</p>
                 <p className="text-2xl font-bold text-foreground">
                   {version.changesSummary.totalChanges}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Significant Changes</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('significantChanges')}</p>
                 <p className="text-2xl font-bold text-amber-400">
                   {version.changesSummary.significantChanges.length}
                 </p>
@@ -127,14 +129,14 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
             </div>
             {version.changesSummary.significantChanges.length > 0 && (
               <div className="mt-3 pt-3 border-t border-foreground/10">
-                <p className="text-xs text-muted-foreground mb-2">Significant Fields (&gt;10% change):</p>
+                <p className="text-xs text-muted-foreground mb-2">{t('significantFields')}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {version.changesSummary.significantChanges.map((field) => (
                     <span
                       key={field}
                       className="px-2 py-1 text-xs bg-amber-500/10 text-amber-400 rounded border border-amber-500/20"
                     >
-                      {formatFieldLabel(field)}
+                      {formatFieldLabel(field, t)}
                     </span>
                   ))}
                 </div>
@@ -146,9 +148,9 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
         {/* Field Changes */}
         {hasChanges && (
           <div className="bg-card border border-foreground/10 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Field Changes</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-3">{t('fieldChanges')}</h3>
             <div className="space-y-3">
-              {renderFieldChanges(version.changesSummary, countryCode)}
+              {renderFieldChanges(version.changesSummary, countryCode, t)}
             </div>
           </div>
         )}
@@ -157,7 +159,7 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
         {!hasChanges && version.versionNumber === 1 && (
           <div className="bg-card border border-foreground/10 rounded-lg p-6 text-center">
             <p className="text-muted-foreground text-sm">
-              This is the initial version. No previous version to compare against.
+              {t('initialVersionMessage')}
             </p>
           </div>
         )}
@@ -182,38 +184,33 @@ function formatDate(date: Date): string {
 /**
  * Format field name to readable label
  */
-function formatFieldLabel(field: string): string {
-  const labels: Record<string, string> = {
-    // Financial fields
-    revenue: 'Revenue',
-    ebitda: 'EBITDA',
-    netIncome: 'Net Income',
-    totalAssets: 'Total Assets',
-    totalDebt: 'Total Debt',
-    cash: 'Cash',
-    recurringRevenuePercentage: 'Recurring Revenue %',
-
-    // Business profile
-    companyName: 'Company Name',
-    foundingYear: 'Founding Year',
-    numberOfEmployees: 'Employees',
-    numberOfOwners: 'Owners',
-    sharesForSale: 'Shares for Sale',
-
-    // Business type and industry
-    businessTypeId: 'Business Type ID',
-    businessType: 'Business Type',
-    industry: 'Industry',
-    businessModel: 'Business Model',
-    countryCode: 'Country',
+function formatFieldLabel(field: string, t: (key: string) => string): string {
+  const keyMap: Record<string, string> = {
+    revenue: 'fieldLabels.revenue',
+    ebitda: 'fieldLabels.ebitda',
+    netIncome: 'fieldLabels.netIncome',
+    totalAssets: 'fieldLabels.totalAssets',
+    totalDebt: 'fieldLabels.totalDebt',
+    cash: 'fieldLabels.cash',
+    recurringRevenuePercentage: 'fieldLabels.recurringRevenue',
+    companyName: 'fieldLabels.companyName',
+    foundingYear: 'fieldLabels.foundingYear',
+    numberOfEmployees: 'fieldLabels.employees',
+    numberOfOwners: 'fieldLabels.owners',
+    sharesForSale: 'fieldLabels.sharesForSale',
+    businessTypeId: 'fieldLabels.businessTypeId',
+    businessType: 'fieldLabels.businessType',
+    industry: 'fieldLabels.industry',
+    businessModel: 'fieldLabels.businessModel',
+    countryCode: 'fieldLabels.country',
   }
-  return (
-    labels[field] ||
-    field
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, (str) => str.toUpperCase())
-      .trim()
-  )
+  if (keyMap[field]) {
+    return t(keyMap[field])
+  }
+  return field
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim()
 }
 
 /**
@@ -255,7 +252,7 @@ function formatValue(value: any, field: string, countryCode: string): string {
  * Render all field changes
  * CRITICAL: Dynamically render ALL fields that changed, not just a hardcoded list
  */
-function renderFieldChanges(changes: any, countryCode: string) {
+function renderFieldChanges(changes: any, countryCode: string, t: (key: string) => string) {
   // Get all fields that have changes (excluding summary fields)
   const summaryFields = ['totalChanges', 'significantChanges']
   const changedFields = Object.keys(changes).filter(
@@ -267,7 +264,7 @@ function renderFieldChanges(changes: any, countryCode: string) {
   )
 
   if (changedFields.length === 0) {
-    return <p className="text-muted-foreground text-sm text-center py-4">No field changes detected</p>
+    return <p className="text-muted-foreground text-sm text-center py-4">{t('noFieldChangesDetected')}</p>
   }
 
   // Sort fields: financial first, then business profile, then others
@@ -307,6 +304,7 @@ function renderFieldChanges(changes: any, countryCode: string) {
         change={change}
         countryCode={countryCode}
         isSignificant={isSignificant}
+        t={t}
       />
     )
   })
@@ -324,9 +322,10 @@ interface FieldChangeRowProps {
   }
   countryCode: string
   isSignificant: boolean
+  t: (key: string) => string
 }
 
-function FieldChangeRow({ field, change, countryCode, isSignificant }: FieldChangeRowProps) {
+function FieldChangeRow({ field, change, countryCode, isSignificant, t }: FieldChangeRowProps) {
   const hasPercentChange = change.percentChange !== undefined && change.percentChange !== null
   const isIncrease = hasPercentChange && change.percentChange! > 0
   const isDecrease = hasPercentChange && change.percentChange! < 0
@@ -340,10 +339,10 @@ function FieldChangeRow({ field, change, countryCode, isSignificant }: FieldChan
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
-            <h4 className="text-sm font-medium text-foreground">{formatFieldLabel(field)}</h4>
+            <h4 className="text-sm font-medium text-foreground">{formatFieldLabel(field, t)}</h4>
             {isSignificant && (
               <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded border border-amber-500/20">
-                Significant
+                {t('significantChanges')}
               </span>
             )}
           </div>

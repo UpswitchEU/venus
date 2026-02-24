@@ -93,7 +93,7 @@ function main() {
   // Verify specific keys mentioned in the audit
   log('🔍 Verifying specific translation keys:', 'blue');
   const keysToVerify = [
-    'report.toolbar.backToDashboard',
+    'report.toolbar.continueToDashboard',
     'report.toolbar.backToClient',
     'report.saveStatus.saving',
     'report.saveStatus.saved',

@@ -309,11 +309,24 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             const normalizationData: ValuationVersion['normalization_data'] = {}
 
             // Build year-keyed normalization data from unified store
+            // CRITICAL: Respect applyAllYears and applyYears — put each item under every year it applies to
             const accepted = normStore.items.filter((n) => n.status === 'accepted')
+            const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+            const historicalYears =
+              enrichedRequest.formData?.historical_years_data
+                ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+                .map((y: any) => y.year) ?? []
+            const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+
             const yearGroups: Record<number, typeof accepted> = {}
             for (const n of accepted) {
-              if (!yearGroups[n.year]) yearGroups[n.year] = []
-              yearGroups[n.year].push(n)
+              const yearsToApply: number[] = n.applyAllYears
+                ? allDataYears
+                : (n.applyYears && n.applyYears.length > 0 ? n.applyYears : [n.year])
+              for (const y of yearsToApply) {
+                if (!yearGroups[y]) yearGroups[y] = []
+                yearGroups[y].push(n)
+              }
             }
 
             Object.entries(yearGroups).forEach(([year, items]) => {

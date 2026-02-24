@@ -99,14 +99,14 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const categoryLabels: Record<SuggestedNormalisation['category'], string> = {
-  salary: 'Eigenaarssalaris',
-  rent: 'Huurkosten',
-  vehicle: 'Voertuigkosten',
-  'one-time': 'Eenmalige kosten',
-  personal: 'Privékosten',
-  depreciation: 'Afschrijvingen',
-  other: 'Overige',
+const categoryLabelKeys: Record<SuggestedNormalisation['category'], string> = {
+  salary: 'categories.salary',
+  rent: 'categories.rent',
+  vehicle: 'categories.vehicle',
+  'one-time': 'categories.oneTime',
+  personal: 'categories.personal',
+  depreciation: 'categories.depreciation',
+  other: 'categories.other',
 };
 
 const categoryIcons: Record<SuggestedNormalisation['category'], string> = {
@@ -119,12 +119,12 @@ const categoryIcons: Record<SuggestedNormalisation['category'], string> = {
   other: '📋',
 };
 
-const sourceLabels: Record<NormalizationSource, { label: string; color: string }> = {
-  manual: { label: 'Manueel', color: 'bg-foreground/10 text-foreground/70' },
-  yuki: { label: 'Yuki', color: 'bg-accent/10 text-accent' },
-  exact: { label: 'Exact', color: 'bg-info/10 text-info' },
-  csv: { label: 'CSV', color: 'bg-warning/10 text-warning' },
-  ai: { label: 'AI', color: 'bg-primary/10 text-primary' },
+const sourceLabels: Record<NormalizationSource, { labelKey: string; color: string }> = {
+  manual: { labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
+  yuki: { labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
+  exact: { labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
+  csv: { labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
+  ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
 };
 
 const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus }[] = [
@@ -137,26 +137,26 @@ const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus 
 
 const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS;
 
-// Quick presets with market-conform defaults
+// Quick presets with market-conform defaults (use labelKey/descriptionKey/reasonKey for i18n)
 interface NormalizationPreset {
   id: string;
-  label: string;
+  labelKey: string;
   icon: string;
   code: string;
-  description: string;
+  descriptionKey: string;
   category: SuggestedNormalisation['category'];
   defaultAmount: number;
-  reason: string;
+  reasonKey: string;
   marketBenchmark?: string;
 }
 
 const normalizationPresets: NormalizationPreset[] = [
-  { id: 'owner-salary', label: 'Eigenaarssalaris', icon: '👤', code: '620', description: 'Bezoldigingen bestuurders', category: 'salary', defaultAmount: 60000, reason: 'Correctie naar marktconform niveau', marketBenchmark: '€55K - €75K' },
-  { id: 'family-salary', label: 'Familielid salaris', icon: '👨‍👩‍👧', code: '620', description: 'Bezoldigingen familieleden', category: 'personal', defaultAmount: 35000, reason: 'Salaris boven marktwaarde', marketBenchmark: '€25K - €40K' },
-  { id: 'rent', label: 'Huurkosten kantoor', icon: '🏢', code: '613', description: 'Huurkosten kantoorpand', category: 'rent', defaultAmount: 24000, reason: 'Huur boven/onder marktwaarde', marketBenchmark: '€150 - €250/m²' },
-  { id: 'vehicle', label: 'Autokosten directie', icon: '🚗', code: '615', description: 'Voertuigkosten directie', category: 'vehicle', defaultAmount: 18000, reason: 'Privégebruik bedrijfsvoertuig', marketBenchmark: '€12K - €24K/jaar' },
-  { id: 'legal', label: 'Juridische kosten', icon: '⚖️', code: '640', description: 'Eenmalige juridische kosten', category: 'one-time', defaultAmount: 25000, reason: 'Rechtszaak of schikking' },
-  { id: 'advisory', label: 'Advieskosten', icon: '📊', code: '617', description: 'Eenmalige advieskosten', category: 'one-time', defaultAmount: 15000, reason: 'Consultancy of due diligence' },
+  { id: 'owner-salary', labelKey: 'presets.ownerSalary', icon: '👤', code: '620', descriptionKey: 'presets.ownerSalaryDesc', category: 'salary', defaultAmount: 60000, reasonKey: 'presets.ownerSalaryReason', marketBenchmark: '€55K - €75K' },
+  { id: 'family-salary', labelKey: 'presets.familySalary', icon: '👨‍👩‍👧', code: '620', descriptionKey: 'presets.familySalaryDesc', category: 'personal', defaultAmount: 35000, reasonKey: 'presets.familySalaryReason', marketBenchmark: '€25K - €40K' },
+  { id: 'rent', labelKey: 'presets.rent', icon: '🏢', code: '613', descriptionKey: 'presets.rentDesc', category: 'rent', defaultAmount: 24000, reasonKey: 'presets.rentReason', marketBenchmark: '€150 - €250/m²' },
+  { id: 'vehicle', labelKey: 'presets.vehicle', icon: '🚗', code: '615', descriptionKey: 'presets.vehicleDesc', category: 'vehicle', defaultAmount: 18000, reasonKey: 'presets.vehicleReason', marketBenchmark: '€12K - €24K/jaar' },
+  { id: 'legal', labelKey: 'presets.legal', icon: '⚖️', code: '640', descriptionKey: 'presets.legalDesc', category: 'one-time', defaultAmount: 25000, reasonKey: 'presets.legalReason' },
+  { id: 'advisory', labelKey: 'presets.advisory', icon: '📊', code: '617', descriptionKey: 'presets.advisoryDesc', category: 'one-time', defaultAmount: 15000, reasonKey: 'presets.advisoryReason' },
 ];
 
 // ─────────────────────────────────────────
@@ -270,10 +270,10 @@ export function NormalisationReviewStep({
     
     onAdd({
       code: preset.code,
-      description: preset.description,
+      description: nh(preset.descriptionKey),
       category: preset.category,
       amount: preset.defaultAmount,
-      reason: preset.reason,
+      reason: nh(preset.reasonKey),
       source: 'manual',
       type: 'add',
       applyAllYears: false,
@@ -281,7 +281,7 @@ export function NormalisationReviewStep({
     });
     
     setShowAddForm(false);
-  }, [onAdd]);
+  }, [onAdd, nh]);
   
   // Add from ledger search
   const addFromLedger = useCallback(() => {
@@ -310,7 +310,7 @@ export function NormalisationReviewStep({
       description: selectedLedger.name,
       category: getCategory(selectedLedger.code),
       amount: calculatedAmount,
-      reason: newReason || `Handmatige correctie ${selectedLedger.name}`,
+      reason: newReason || nh('manualCorrection', { name: selectedLedger.name }),
       source: 'manual',
       type: newType,
       applyAllYears: newApplyAllYears,
@@ -322,7 +322,7 @@ export function NormalisationReviewStep({
     setNewReason('');
     setSearchQuery('');
     setShowAddForm(false);
-  }, [selectedLedger, newAmount, newType, newApplyAllYears, newReason, onAdd]);
+  }, [selectedLedger, newAmount, newType, newApplyAllYears, newReason, onAdd, nh]);
   
   const handleAcceptAll = () => {
     setIsProcessing(true);
@@ -500,7 +500,7 @@ export function NormalisationReviewStep({
                           </span>
                           <Input
                             type="text"
-                            placeholder="Bedrag"
+                            placeholder={nh('amountPlaceholder')}
                             value={editAmount}
                             onChange={(e) => setEditAmount(e.target.value)}
                             className="pl-8 font-mono text-base"
@@ -522,7 +522,7 @@ export function NormalisationReviewStep({
                       
                       {/* Reason */}
                       <Input
-                        placeholder="Toelichting (optioneel)"
+                        placeholder={nh('explanationOptionalPlaceholder')}
                         value={editReason}
                         onChange={(e) => setEditReason(e.target.value)}
                         className="text-sm"
@@ -559,19 +559,19 @@ export function NormalisationReviewStep({
                               "shrink-0 text-[8px] md:text-[9px] px-1.5 py-0.5 rounded font-medium",
                               sourceLabels[source].color
                             )}>
-                              {sourceLabels[source].label}
+                              {nh(sourceLabels[source].labelKey)}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs text-foreground/50 flex-wrap">
                             <span className="font-mono text-foreground/40">{suggestion.code}</span>
                             <span className="hidden sm:inline">·</span>
-                            <span>{categoryLabels[suggestion.category]}</span>
+                            <span>{nh(categoryLabelKeys[suggestion.category])}</span>
                             {suggestion.applyAllYears && (
                               <>
                                 <span className="hidden sm:inline">·</span>
                                 <span className="flex items-center gap-0.5 text-primary">
                                   <CalendarRange className="w-2.5 h-2.5" />
-                                  Alle jaren
+                                  {nh('allYears')}
                                 </span>
                               </>
                             )}
@@ -602,7 +602,7 @@ export function NormalisationReviewStep({
                               <button
                                 onClick={() => startEditing(suggestion)}
                                 className="w-9 h-9 md:w-8 md:h-8 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                                aria-label="Bewerken"
+                                aria-label={nh('actions.edit')}
                               >
                                 <Edit3 className="w-3.5 h-3.5 text-foreground/40" />
                               </button>
@@ -628,7 +628,7 @@ export function NormalisationReviewStep({
                               <button
                                 onClick={() => startEditing(suggestion)}
                                 className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                                aria-label="Bewerken"
+                                aria-label={nh('actions.edit')}
                               >
                                 <Edit3 className="w-3.5 h-3.5 text-foreground/40" />
                               </button>
@@ -644,7 +644,7 @@ export function NormalisationReviewStep({
                             <button
                               onClick={() => onAccept(suggestion.id)}
                               className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                              aria-label="Ongedaan maken"
+                              aria-label={nh('actions.undo')}
                             >
                               <Undo2 className="w-3.5 h-3.5 text-foreground/40" />
                             </button>
@@ -739,7 +739,7 @@ export function NormalisationReviewStep({
                               <span className="text-sm">{preset.icon}</span>
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-medium text-foreground/80 group-hover:text-foreground truncate">
-                                  {preset.label}
+                                  {nh(preset.labelKey)}
                                 </p>
                                 <p className="text-[10px] text-foreground/40">
                                   +{formatCurrency(preset.defaultAmount)}
@@ -754,7 +754,7 @@ export function NormalisationReviewStep({
                     {/* Divider */}
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-px bg-foreground/[0.06]" />
-                      <span className="text-[10px] text-foreground/30 uppercase">of zoek</span>
+                      <span className="text-[10px] text-foreground/30 uppercase">{nh('orSearch')}</span>
                       <div className="flex-1 h-px bg-foreground/[0.06]" />
                     </div>
                   </>
@@ -764,7 +764,7 @@ export function NormalisationReviewStep({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/40" />
                   <Input
-                    placeholder="Zoek grootboekrekening (613, huur...)"
+                    placeholder={nh('searchLedgerPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -857,7 +857,7 @@ export function NormalisationReviewStep({
                         </span>
                         <Input
                           type="text"
-                          placeholder="Bedrag"
+                          placeholder={nh('amountPlaceholder')}
                           value={newAmount}
                           onChange={(e) => setNewAmount(e.target.value)}
                           className="pl-8 font-mono text-base"
@@ -879,7 +879,7 @@ export function NormalisationReviewStep({
 
                     {/* Reason */}
                     <Input
-                      placeholder="Toelichting (optioneel)"
+                      placeholder={nh('explanationOptionalPlaceholder')}
                       value={newReason}
                       onChange={(e) => setNewReason(e.target.value)}
                       className="text-sm"

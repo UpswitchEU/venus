@@ -17,6 +17,7 @@
 
 import { Check, Loader2, Wifi, WifiOff } from 'lucide-react'
 import React from 'react'
+import { useTranslations } from 'next-intl'
 
 export interface BackgroundSyncIndicatorProps {
   /** Current sync status */
@@ -46,7 +47,8 @@ export function BackgroundSyncIndicator({
   compact = false,
   className = '',
 }: BackgroundSyncIndicatorProps) {
-  // Don't show anything if idle
+  const t = useTranslations('common')
+
   if (status === 'idle') {
     return null
   }
@@ -58,17 +60,17 @@ export function BackgroundSyncIndicator({
   switch (status) {
     case 'syncing':
       icon = <Loader2 className="w-3 h-3 animate-spin" />
-      text = compact ? '' : 'Syncing...'
+      text = compact ? '' : t('states.syncing')
       colorClasses = 'text-primary'
       break
     case 'synced':
       icon = <Check className="w-3 h-3" />
-      text = compact ? '' : 'Synced'
+      text = compact ? '' : t('states.synced')
       colorClasses = 'text-primary'
       break
     case 'failed':
       icon = <WifiOff className="w-3 h-3" />
-      text = compact ? '' : 'Sync failed'
+      text = compact ? '' : t('states.syncFailed')
       colorClasses = 'text-accent-500'
       break
     default:

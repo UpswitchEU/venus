@@ -152,18 +152,19 @@ const businessStructures = [
   { value: 'vzw', label: 'VZW' },
 ];
 
-// Common normalization templates by accounting code
-const normalizationTemplates: Omit<NormalizationItem, 'id' | 'originalValue' | 'adjustedValue' | 'adjustment'>[] = [
-  { code: '6100', name: 'Eigenaarssalaris', category: 'Personeelskosten', reason: 'Correctie naar marktconform niveau', enabled: true },
-  { code: '6101', name: 'Familieleden salaris', category: 'Personeelskosten', reason: 'Correctie naar marktconform niveau', enabled: false },
-  { code: '6200', name: 'Afschrijvingen', category: 'Afschrijvingen', reason: 'Correctie versnelde afschrijving', enabled: false },
-  { code: '6300', name: 'Huur kantoorpand', category: 'Huisvestingskosten', reason: 'Correctie naar marktwaarde', enabled: false },
-  { code: '6400', name: 'Autokosten directie', category: 'Autokosten', reason: 'Correctie privégebruik', enabled: false },
-  { code: '6500', name: 'Eenmalige advieskosten', category: 'Eenmalige kosten', reason: 'Niet-recurrente kosten', enabled: false },
-  { code: '6600', name: 'Rechtszaak/schikking', category: 'Eenmalige kosten', reason: 'Eenmalige juridische kosten', enabled: false },
-  { code: '6700', name: 'Herstructureringskosten', category: 'Eenmalige kosten', reason: 'Niet-recurrente kosten', enabled: false },
-  { code: '7400', name: 'Verkoop activa', category: 'Eenmalige baten', reason: 'Niet-recurrente opbrengst', enabled: false },
-];
+function getNormalizationTemplates(t: (key: string) => string): Omit<NormalizationItem, 'id' | 'originalValue' | 'adjustedValue' | 'adjustment'>[] {
+  return [
+    { code: '6100', name: t('normalizationHub.presets.ownerSalary'), category: t('normalizationHub.categories.personnelCosts'), reason: t('normalizationHub.presets.ownerSalaryReason'), enabled: true },
+    { code: '6101', name: t('normalizationHub.presets.familySalary'), category: t('normalizationHub.categories.personnelCosts'), reason: t('normalizationHub.presets.ownerSalaryReason'), enabled: false },
+    { code: '6200', name: t('normalizationHub.presets.depreciation'), category: t('normalizationHub.categories.depreciation'), reason: t('normalizationHub.presets.restructuringReason'), enabled: false },
+    { code: '6300', name: t('normalizationHub.presets.rent'), category: t('normalizationHub.categories.housingCosts'), reason: t('normalizationHub.presets.rentReason'), enabled: false },
+    { code: '6400', name: t('normalizationHub.presets.vehicle'), category: t('normalizationHub.categories.vehicleCosts'), reason: t('normalizationHub.presets.vehicleReason'), enabled: false },
+    { code: '6500', name: t('normalizationHub.presets.advisory'), category: t('normalizationHub.categories.oneTimeCosts'), reason: t('normalizationHub.presets.restructuringReason'), enabled: false },
+    { code: '6600', name: t('normalizationHub.presets.legal'), category: t('normalizationHub.categories.oneTimeCosts'), reason: t('normalizationHub.presets.legalReason'), enabled: false },
+    { code: '6700', name: t('normalizationHub.presets.restructuring'), category: t('normalizationHub.categories.oneTimeCosts'), reason: t('normalizationHub.presets.restructuringReason'), enabled: false },
+    { code: '7400', name: t('normalizationHub.presets.assetSale'), category: t('normalizationHub.categories.oneTimeRevenue'), reason: t('normalizationHub.presets.assetSaleReason'), enabled: false },
+  ];
+}
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('nl-BE', {
@@ -249,6 +250,7 @@ export function ManualInputPanel({
 }: ManualInputPanelProps) {
   const t = useTranslations();
   const mi = useTranslations('manualInput');
+  const tKbo = useTranslations('forms.kboLookup');
   const [formData, setFormData] = useState<ValuationFormData>({
     companyName: initialData.companyName || '',
     kboNumber: initialData.kboNumber || '',
@@ -469,7 +471,7 @@ export function ManualInputPanel({
     const response = await registryService.searchCompanies(query.trim(), 'BE', 15, signal);
     if (!response.success) {
       throw new Error(
-        response.error || 'Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.'
+        response.error || tKbo('searchUnavailable')
       );
     }
     if (!response.results) return [];
@@ -484,7 +486,7 @@ export function ManualInputPanel({
       naceCode: r.nace_code || '',
       naceDescription: r.nace_description || '',
     }));
-  }, []);
+  }, [tKbo]);
 
   // Business types from Titan API (instead of hardcoded)
   const { businessTypes, loading: businessTypesLoading, error: businessTypesError, refetch: refetchBusinessTypes } = useBusinessTypes();
@@ -562,14 +564,15 @@ export function ManualInputPanel({
           });
           setNacePrefillError(null);
         } else {
-          setNacePrefillError('Geen bedrijfstype gevonden voor dit NACE-code. Selecteer handmatig.');
+          setNacePrefillError(t('errors.noBusinessTypeForNace'));
         }
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
-          setNacePrefillError(
-            err instanceof Error ? err.message : 'Bedrijfstype ophalen mislukt. Probeer het later opnieuw.'
-          );
+          const msg = err instanceof Error && err.message === 'BUSINESS_TYPE_FETCH_FAILED'
+            ? t('errors.businessTypeFetchFailed')
+            : err instanceof Error ? err.message : t('errors.businessTypeFetchFailed');
+          setNacePrefillError(msg);
         }
       })
       .finally(() => {
@@ -613,6 +616,8 @@ export function ManualInputPanel({
     });
     updateField('yearlyFinancials', updated);
   };
+
+  const normalizationTemplates = getNormalizationTemplates(t);
 
   const addNormalizationToYear = (year: string, template: typeof normalizationTemplates[0]) => {
     const updated = formData.yearlyFinancials.map(yf => {
@@ -750,13 +755,14 @@ export function ManualInputPanel({
           updateFormData({ business_type_id: bt.id, industry: bt.category });
           setNacePrefillError(null);
         } else {
-          setNacePrefillError('Geen bedrijfstype gevonden voor dit NACE-code. Selecteer handmatig.');
+          setNacePrefillError(t('errors.noBusinessTypeForNace'));
         }
       } catch (err) {
         if (controller.signal.aborted) return;
-        setNacePrefillError(
-          err instanceof Error ? err.message : 'Bedrijfstype ophalen mislukt. Probeer het later opnieuw.'
-        );
+        const msg = err instanceof Error && err.message === 'BUSINESS_TYPE_FETCH_FAILED'
+          ? t('errors.businessTypeFetchFailed')
+          : err instanceof Error ? err.message : t('errors.businessTypeFetchFailed');
+        setNacePrefillError(msg);
       } finally {
         if (companySelectAbortRef.current === controller) {
           companySelectAbortRef.current = null;

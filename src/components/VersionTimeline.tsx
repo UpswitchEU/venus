@@ -15,6 +15,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { ArrowDown, ArrowUp, Calendar, CheckCircle2, Loader2, Minus, ChevronDown } from 'lucide-react'
 import { formatCurrency } from '../config/countries'
 import type { ValuationVersion } from '../types/ValuationVersion'
@@ -63,6 +64,7 @@ export function VersionTimeline({
   totalVersions,
   onLoadMore,
 }: VersionTimelineProps) {
+  const t = useTranslations('historyPanel')
   // WORLD-CLASS: Pagination state for large version lists
   const [displayCount, setDisplayCount] = useState(VERSIONS_PER_PAGE)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -70,8 +72,8 @@ export function VersionTimeline({
   if (versions.length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
-        <p className="text-lg font-medium">No versions yet</p>
-        <p className="text-sm mt-2">Versions will appear here after regenerating the valuation</p>
+        <p className="text-lg font-medium">{t('noVersions')}</p>
+        <p className="text-sm mt-2">{t('versionsAppearAfterRegen')}</p>
       </div>
     )
   }
@@ -162,12 +164,12 @@ export function VersionTimeline({
               {isLoadingMore ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading...
+                  {t('loading')}
                 </>
               ) : (
                 <>
                   <ChevronDown className="w-4 h-4" />
-                  Load More ({displayCount} of {totalCount})
+                  {t('loadMore', { displayed: displayCount, total: totalCount })}
                 </>
               )}
             </button>

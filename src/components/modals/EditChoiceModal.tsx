@@ -19,6 +19,7 @@ import {
   ModalDescription,
 } from '@/design-system'
 import { Building2, Trash2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import React from 'react'
 
 interface EditChoiceModalProps {
@@ -34,17 +35,19 @@ const EditChoiceModal: React.FC<EditChoiceModalProps> = ({
   onClose,
   onEditReport,
   onDeleteReport,
-  reportName = 'this report',
+  reportName,
 }) => {
+  const t = useTranslations('modals.editChoice')
+  const displayName = reportName ?? t('thisReport')
   return (
     <Modal open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <ModalContent size="xl" showClose>
         <ModalHeader className="flex flex-col gap-1 border-b border-foreground/10 pb-4">
           <ModalTitle className="text-2xl font-bold text-foreground">
-            What would you like to do?
+            {t('title')}
           </ModalTitle>
           <ModalDescription className="text-sm text-foreground/60 font-normal mt-1">
-            Choose an action for {reportName}
+            {t('description', { reportName: displayName })}
           </ModalDescription>
         </ModalHeader>
         <div className="py-6">
@@ -62,19 +65,17 @@ const EditChoiceModal: React.FC<EditChoiceModalProps> = ({
                   <Building2 className="w-6 h-6 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-foreground mb-1">Edit Report</h3>
-                  <p className="text-sm text-foreground/60">
-                    Update your valuation report: inputs, business information, and other details.
-                  </p>
+                  <h3 className="text-lg font-semibold text-foreground mb-1">{t('editReport')}</h3>
+                  <p className="text-sm text-foreground/60">{t('editReportDesc')}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <span className="inline-flex items-center px-2 py-1 rounded-md bg-foreground/5 text-xs text-foreground/60">
-                      Business Info
+                      {t('businessInfo')}
                     </span>
                     <span className="inline-flex items-center px-2 py-1 rounded-md bg-foreground/5 text-xs text-foreground/60">
-                      Financial Data
+                      {t('financialData')}
                     </span>
                     <span className="inline-flex items-center px-2 py-1 rounded-md bg-foreground/5 text-xs text-foreground/60">
-                      Valuation Settings
+                      {t('valuationSettings')}
                     </span>
                   </div>
                 </div>
@@ -95,20 +96,19 @@ const EditChoiceModal: React.FC<EditChoiceModalProps> = ({
                     <Trash2 className="w-6 h-6 text-destructive" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-foreground mb-1">Delete Report</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-1">{t('deleteReport')}</h3>
                     <p className="text-sm text-foreground/60">
-                      Permanently delete {reportName} and all associated data. This action cannot be
-                      undone.
+                      {t('deleteReportDesc', { reportName: displayName })}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <span className="inline-flex items-center px-2 py-1 rounded-md bg-destructive/10 text-xs text-foreground">
-                        Permanent
+                        {t('permanent')}
                       </span>
                       <span className="inline-flex items-center px-2 py-1 rounded-md bg-destructive/10 text-xs text-foreground">
-                        Cannot Undo
+                        {t('cannotUndo')}
                       </span>
                       <span className="inline-flex items-center px-2 py-1 rounded-md bg-destructive/10 text-xs text-foreground">
-                        All Data Lost
+                        {t('allDataLost')}
                       </span>
                     </div>
                   </div>
@@ -118,10 +118,7 @@ const EditChoiceModal: React.FC<EditChoiceModalProps> = ({
 
             {/* Info Message */}
             <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
-              <p className="text-sm text-foreground/60">
-                <strong>Tip:</strong> Editing a report allows you to update business information and
-                recalculate the valuation. Deleting permanently removes all data.
-              </p>
+              <p className="text-sm text-foreground/60">{t('tip')}</p>
             </div>
           </div>
 
@@ -131,7 +128,7 @@ const EditChoiceModal: React.FC<EditChoiceModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-foreground/60 bg-background border border-foreground/10 rounded-md hover:bg-foreground/5 transition-colors"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>

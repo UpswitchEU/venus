@@ -104,22 +104,22 @@ export interface UnifiedNormalizationModalProps {
 // CONSTANTS
 // ─────────────────────────────────────────
 
-const categoryConfig: Record<NormalizationItem['category'], { icon: string; label: string }> = {
-  salary: { icon: '👤', label: 'Eigenaarssalaris' },
-  rent: { icon: '🏢', label: 'Huurkosten' },
-  vehicle: { icon: '🚗', label: 'Voertuigkosten' },
-  'one-time': { icon: '⚡', label: 'Eenmalige kosten' },
-  personal: { icon: '🏠', label: 'Privékosten' },
-  depreciation: { icon: '📉', label: 'Afschrijvingen' },
-  other: { icon: '📋', label: 'Overige' },
+const categoryConfig: Record<NormalizationItem['category'], { icon: string; labelKey: string }> = {
+  salary: { icon: '👤', labelKey: 'categories.salary' },
+  rent: { icon: '🏢', labelKey: 'categories.rent' },
+  vehicle: { icon: '🚗', labelKey: 'categories.vehicle' },
+  'one-time': { icon: '⚡', labelKey: 'categories.oneTime' },
+  personal: { icon: '🏠', labelKey: 'categories.personal' },
+  depreciation: { icon: '📉', labelKey: 'categories.depreciation' },
+  other: { icon: '📋', labelKey: 'categories.other' },
 };
 
-const sourceConfig: Record<NormalizationSource, { label: string; color: string }> = {
-  manual: { label: 'Manueel', color: 'bg-foreground/10 text-foreground/70' },
-  yuki: { label: 'Yuki', color: 'bg-accent/10 text-accent' },
-  exact: { label: 'Exact Online', color: 'bg-info/10 text-info' },
-  csv: { label: 'CSV', color: 'bg-warning/10 text-warning' },
-  ai: { label: 'AI Suggestie', color: 'bg-primary/10 text-primary' },
+const sourceConfig: Record<NormalizationSource, { labelKey: string; color: string }> = {
+  manual: { labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
+  yuki: { labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
+  exact: { labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
+  csv: { labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
+  ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
 };
 
 const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus }[] = [
@@ -894,7 +894,7 @@ export function UnifiedNormalizationModal({
     setSelectedImportSource(source);
     setShowImportPicker(false);
     // Coming soon - no backend yet
-    import('sonner').then(({ toast }) => toast.info('CSV import komt in de volgende versie', { description: `Directe koppeling met ${source === 'yuki' ? 'Yuki' : source === 'exact' ? 'Exact Online' : source} wordt ontwikkeld.` }));
+    import('sonner').then(({ toast }) => toast.info(nh('csvImportComingSoon'), { description: nh('csvImportComingSoonDesc', { source: source === 'yuki' ? 'Yuki' : source === 'exact' ? 'Exact Online' : source }) }));
   };
 
   // Virtualizer for compact mode
@@ -992,10 +992,10 @@ export function UnifiedNormalizationModal({
               <input
                 type="text"
                 placeholder={showAddForm 
-                  ? "Zoek een andere grootboekcode..." 
+                  ? nh('searchOtherLedger') 
                   : normalizations.length > 0 
-                    ? "Zoek in normalisaties of voeg nieuwe toe..." 
-                    : "Typ een grootboekcode (bijv. 620) of kies hieronder..."
+                    ? nh('searchOrAddNew') 
+                    : nh('typeCodeOrChoose')
                 }
                 value={searchQuery}
                 onChange={(e) => {
@@ -1046,7 +1046,7 @@ export function UnifiedNormalizationModal({
                   "border border-foreground/[0.06]",
                   "transition-all duration-200"
                 )}
-                title="Importeer grootboek"
+                title={nh('importLedger')}
               >
                 <Upload className="w-4 h-4" />
               </motion.button>
@@ -1057,7 +1057,7 @@ export function UnifiedNormalizationModal({
                   {/* Backdrop to close popup */}
                   <button
                     type="button"
-                    aria-label="Sluit import picker"
+                    aria-label={nh('closeImportPicker')}
                     className="absolute inset-0 pointer-events-auto bg-transparent"
                     onClick={() => setShowImportPicker(false)}
                   />
@@ -1074,7 +1074,7 @@ export function UnifiedNormalizationModal({
                   >
                     <div className="px-2.5 py-1.5 mb-0.5">
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
-                        Kies bron
+                        {nh('chooseSource')}
                       </span>
                     </div>
                     <button
@@ -1086,7 +1086,7 @@ export function UnifiedNormalizationModal({
                       </div>
                       <div className="text-left min-w-0">
                         <p className="text-sm font-medium text-foreground">Yuki</p>
-                        <p className="text-[10px] text-foreground/40">Grootboekexport</p>
+                        <p className="text-[10px] text-foreground/40">{nh('ledgerExport')}</p>
                       </div>
                     </button>
                     <button
@@ -1098,7 +1098,7 @@ export function UnifiedNormalizationModal({
                       </div>
                       <div className="text-left min-w-0">
                         <p className="text-sm font-medium text-foreground">Exact Online</p>
-                        <p className="text-[10px] text-foreground/40">Proefbalans export</p>
+                        <p className="text-[10px] text-foreground/40">{nh('trialBalanceExport')}</p>
                       </div>
                     </button>
                     <div className="h-px bg-foreground/[0.06] my-0.5" />
@@ -1110,8 +1110,8 @@ export function UnifiedNormalizationModal({
                         <FileSpreadsheet className="w-4 h-4 text-foreground/50" />
                       </div>
                       <div className="text-left min-w-0">
-                        <p className="text-sm font-medium text-foreground">Ander bestand</p>
-                        <p className="text-[10px] text-foreground/40">CSV of Excel</p>
+                        <p className="text-sm font-medium text-foreground">{nh('otherFile')}</p>
+                        <p className="text-[10px] text-foreground/40">{nh('csvOrExcel')}</p>
                       </div>
                     </button>
                   </motion.div>
@@ -1181,7 +1181,7 @@ export function UnifiedNormalizationModal({
                 {/* Backdrop to close dropdown */}
                 <button
                   type="button"
-                  aria-label="Sluit grootboek dropdown"
+                  aria-label={nh('closeLedgerDropdown')}
                   className="absolute inset-0 pointer-events-auto bg-transparent"
                   onClick={() => setShowLedgerDropdown(false)}
                 />
@@ -1201,10 +1201,10 @@ export function UnifiedNormalizationModal({
                 >
                   <div className="px-3 py-1.5 border-b border-foreground/[0.06] flex items-center justify-between sticky top-0 bg-background z-10">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
-                      Grootboekrekeningen
+                      {nh('ledgerAccounts')}
                     </span>
                     <span className="text-[10px] text-foreground/30 tabular-nums">
-                      {filteredLedgers.length} gevonden
+                      {nh('foundCount', { count: filteredLedgers.length })}
                     </span>
                   </div>
                   <div className="py-0.5">
@@ -1271,8 +1271,8 @@ export function UnifiedNormalizationModal({
                   </div>
                   {searchQuery && filteredLedgers.length === 0 && (
                     <div className="px-4 py-5 text-center">
-                      <p className="text-sm text-foreground/50">Geen resultaten voor "{searchQuery}"</p>
-                      <p className="text-[11px] text-foreground/30 mt-0.5">Probeer een andere zoekterm</p>
+                      <p className="text-sm text-foreground/50">{nh('noResultsForQuery', { query: searchQuery })}</p>
+                      <p className="text-[11px] text-foreground/30 mt-0.5">{nh('tryDifferentSearch')}</p>
                     </div>
                   )}
                 </motion.div>
@@ -1290,8 +1290,8 @@ export function UnifiedNormalizationModal({
             {/* Left: Status Tabs - Using plain buttons with proper spacing */}
             <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background/80 border border-foreground/[0.06]">
               {[
-                { value: 'all', label: 'Alle', count: counts.all, icon: null, color: null },
-                { value: 'pending', label: 'Te beoordelen', count: counts.pending, icon: Clock, color: 'warning' },
+                { value: 'all', label: nh('all'), count: counts.all, icon: null, color: null },
+                { value: 'pending', label: nh('toReviewShort'), count: counts.pending, icon: Clock, color: 'warning' },
                 { value: 'accepted', label: ca('accepted'), count: counts.accepted, icon: CheckCircle2, color: 'success' },
                 { value: 'rejected', label: ca('rejected'), count: counts.rejected, icon: XCircle, color: 'secondary' },
               ].map(({ value, label, count, icon: Icon, color }) => (
@@ -1338,7 +1338,7 @@ export function UnifiedNormalizationModal({
                       : "text-foreground/60 hover:text-foreground hover:bg-foreground/[0.05]"
                   )}
                 >
-                  Alle
+                  {nh('all')}
                 </button>
                 {yearsInData.slice(0, 4).map((year) => (
                   <button
@@ -1466,7 +1466,7 @@ export function UnifiedNormalizationModal({
                     className="text-xs h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                    Verwijderen
+                    {tCommon('remove')}
                   </Button>
                 </div>
               </div>
@@ -1485,7 +1485,7 @@ export function UnifiedNormalizationModal({
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-warning" />
                 <span className="text-xs font-medium text-foreground/70">
-                  {counts.pending} suggestie{counts.pending > 1 ? 's' : ''} te beoordelen
+                  {counts.pending === 1 ? nh('pendingSuggestions', { count: 1 }) : nh('pendingSuggestionsPlural', { count: counts.pending })}
                 </span>
               </div>
               <div className="flex gap-2">
@@ -1496,7 +1496,7 @@ export function UnifiedNormalizationModal({
                   className="text-xs h-7 px-2 text-secondary hover:text-secondary hover:bg-secondary/10"
                 >
                   <X className="w-3 h-3 mr-1" />
-                  Alles afwijzen
+                  {nh('rejectAll')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -1505,7 +1505,7 @@ export function UnifiedNormalizationModal({
                   className="text-xs h-7 px-2 text-success hover:text-success hover:bg-success/10"
                 >
                   <Check className="w-3 h-3 mr-1" />
-                  Alles accepteren
+                  {nh('acceptAll')}
                 </Button>
               </div>
             </div>
@@ -1562,11 +1562,11 @@ export function UnifiedNormalizationModal({
                         </span>
                         <span className="text-[10px] text-foreground/40 group-hover:text-primary transition-colors flex items-center gap-1">
                           <Edit3 className="w-3 h-3" />
-                          Wijzig
+                          {nh('editButton')}
                         </span>
                       </button>
                     </div>
-                    <p className="text-[10px] text-foreground/40 mt-1">Klik om een andere grootboekrekening te kiezen</p>
+                    <p className="text-[10px] text-foreground/40 mt-1">{nh('clickToChooseLedger')}</p>
                   </div>
                 )}
 
@@ -1574,7 +1574,7 @@ export function UnifiedNormalizationModal({
                 <div className="flex flex-wrap gap-3 items-end">
                   {/* Type Selector */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground/60">Type</label>
+                    <label className="text-xs font-medium text-foreground/60">{nh('type')}</label>
                     <div className="flex gap-1">
                       {typeOptions.map((option) => (
                         <button
@@ -1596,7 +1596,7 @@ export function UnifiedNormalizationModal({
                   {/* Value Input with label */}
                   <div className="flex-1 min-w-[140px]">
                     <Input
-                      label={newType.includes('percent') ? 'Percentage' : 'Bedrag'}
+                      label={newType.includes('percent') ? nh('percentage') : nh('amount')}
                       type="text"
                       placeholder={newType.includes('percent') ? '10' : '60.000'}
                       value={newValue}
@@ -1612,7 +1612,7 @@ export function UnifiedNormalizationModal({
 
                   {/* Year Scope Selection - Individual year buttons */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground/60">Toepassen op</label>
+                    <label className="text-xs font-medium text-foreground/60">{nh('applyTo')}</label>
                     <div className="flex items-center gap-1 p-1 rounded-lg bg-foreground/[0.03]">
                       {availableYears.map((year) => (
                         <button
@@ -1648,7 +1648,7 @@ export function UnifiedNormalizationModal({
                             : "text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.04]"
                         )}
                       >
-                        Alle
+                        {nh('all')}
                       </button>
                     </div>
                   </div>
@@ -1661,7 +1661,7 @@ export function UnifiedNormalizationModal({
                     className="gap-1.5 h-10 self-end"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    {editingId ? 'Opslaan' : 'Toevoegen'}
+                    {editingId ? tCommon('save') : tCommon('add')}
                   </Button>
                   
                   {/* Cancel button when editing */}
@@ -1673,7 +1673,7 @@ export function UnifiedNormalizationModal({
                       className="gap-1.5 h-10 self-end"
                     >
                       <X className="w-3.5 h-3.5" />
-                      Annuleren
+                      {tCommon('cancel')}
                     </Button>
                   )}
                 </div>
@@ -1712,8 +1712,8 @@ export function UnifiedNormalizationModal({
                 {/* Reason Input with label */}
                 <div className="mt-4">
                   <Input
-                    label="Toelichting"
-                    placeholder="Beschrijf de reden voor deze normalisatie (optioneel)"
+                    label={nh('explanation')}
+                    placeholder={nh('explanationPlaceholder')}
                     value={newReason}
                     onChange={(e) => setNewReason(e.target.value)}
                     size="sm"
@@ -1774,7 +1774,7 @@ export function UnifiedNormalizationModal({
                   <div className="w-20 flex-shrink-0 text-center">Jaar</div>
                   <div className="w-16 flex-shrink-0 text-center">Bron</div>
                   <div className="w-20 flex-shrink-0 text-center">Status</div>
-                  <div className="w-28 flex-shrink-0 text-right">Bedrag</div>
+                  <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
                   <div className="w-24 flex-shrink-0 text-right">Acties</div>
                 </div>
               )}
@@ -1839,7 +1839,7 @@ export function UnifiedNormalizationModal({
                                 <div className="flex-1 min-w-0">Omschrijving</div>
                                 <div className="w-16 flex-shrink-0 text-center">Bron</div>
                                 <div className="w-20 flex-shrink-0 text-center">Status</div>
-                                <div className="w-28 flex-shrink-0 text-right">Bedrag</div>
+                                <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
                                 <div className="w-24 flex-shrink-0 text-right">Acties</div>
                               </div>
                               
@@ -1907,18 +1907,18 @@ export function UnifiedNormalizationModal({
                   
                   {/* Title */}
                   <p className="text-lg font-medium text-foreground/80 mb-2">
-                    {activeTab === 'pending' && 'Alle suggesties beoordeeld'}
-                    {activeTab === 'accepted' && 'Nog geen normalisaties geaccepteerd'}
-                    {activeTab === 'rejected' && 'Geen afgewezen normalisaties'}
-                    {activeTab === 'all' && 'Nog geen normalisaties'}
+                    {activeTab === 'pending' && nh('allSuggestionsReviewed')}
+                    {activeTab === 'accepted' && nh('noAcceptedYet')}
+                    {activeTab === 'rejected' && nh('noRejectedYet')}
+                    {activeTab === 'all' && nh('noNormalizationsYet')}
                   </p>
                   
                   {/* Helpful subtext */}
                   <p className="text-sm text-foreground/45 max-w-sm mx-auto leading-relaxed">
-                    {activeTab === 'pending' && 'Goed bezig! Alle AI-suggesties zijn verwerkt.'}
-                    {activeTab === 'accepted' && 'Accepteer suggesties of voeg handmatig normalisaties toe via de zoekbalk hierboven.'}
+                    {activeTab === 'pending' && nh('allSuggestionsProcessed')}
+                    {activeTab === 'accepted' && nh('acceptOrAddManually')}
                     {activeTab === 'rejected' && nh('rejectedEmptyState')}
-                    {activeTab === 'all' && 'Gebruik de zoekbalk of klik op een snelkeuze hierboven om een normalisatie toe te voegen.'}
+                    {activeTab === 'all' && nh('useSearchOrQuickAdd')}
                   </p>
                 </motion.div>
               )}
@@ -2006,11 +2006,11 @@ function CompactTableRow({
 
   // Year display
   const yearDisplay = item.applyAllYears 
-    ? 'Alle' 
+    ? nh('all') 
     : item.applyYears && item.applyYears.length > 0
       ? item.applyYears.length === 1 
         ? item.applyYears[0].toString()
-        : `${item.applyYears.length} jr`
+        : `${item.applyYears.length} ${nh('yearsShort')}`
       : item.year.toString();
 
   return (
@@ -2069,7 +2069,7 @@ function CompactTableRow({
       {/* Source */}
       <div className="w-16 flex-shrink-0 text-center">
         <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium", source.color)}>
-          {source.label === 'AI Suggestie' ? 'AI' : source.label}
+          {nh(source.labelKey)}
         </span>
       </div>
 
@@ -2195,7 +2195,7 @@ function CompactTableRow({
                   <Clock className="w-3.5 h-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Opnieuw beoordelen</TooltipContent>
+              <TooltipContent>{nh('reassess')}</TooltipContent>
             </TooltipRoot>
           </TooltipProvider>
         )}
@@ -2287,7 +2287,7 @@ function NormalizationRow({
                 </span>
               </div>
               <span className={cn("text-[10px] font-medium", source.color)}>
-                {source.label}
+                {nh(source.labelKey)}
               </span>
             </div>
           </div>
@@ -2322,9 +2322,9 @@ function NormalizationRow({
           </div>
           <div className="flex-1">
             <Input
-              label={editType.includes('percent') ? 'Percentage' : 'Bedrag'}
+              label={editType.includes('percent') ? nh('percentage') : nh('amount')}
               type="text"
-              placeholder="Bedrag"
+              placeholder={nh('amountPlaceholder')}
               value={editValue}
               onChange={(e) => onEditValueChange(e.target.value)}
               leftIcon={
@@ -2340,7 +2340,7 @@ function NormalizationRow({
 
         {/* Year Scope Selection - Individual year buttons */}
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-foreground/60">Toepassen op</label>
+          <label className="text-xs font-medium text-foreground/60">{nh('applyTo')}</label>
           <div className="flex items-center gap-1 p-1 rounded-lg bg-foreground/[0.03] w-fit">
             {availableYears.map((year) => (
               <button
@@ -2378,15 +2378,15 @@ function NormalizationRow({
               )}
             >
               <CalendarRange className="w-3 h-3" />
-              Alle
+              {nh('all')}
             </button>
           </div>
         </div>
 
         {/* Reason with label */}
         <Input
-          label="Toelichting"
-          placeholder="Beschrijf de reden voor deze aanpassing (optioneel)"
+          label={nh('explanation')}
+          placeholder={nh('adjustmentExplanationPlaceholder')}
           value={editReason}
           onChange={(e) => onEditReasonChange(e.target.value)}
           size="sm"
@@ -2395,11 +2395,11 @@ function NormalizationRow({
         {/* Action Buttons */}
         <div className="flex gap-2 justify-end">
           <Button variant="ghost" size="sm" onClick={onCancelEdit}>
-            Annuleren
+            {tCommon('cancel')}
           </Button>
           <Button size="sm" onClick={onSaveEdit} disabled={!editValue} className="gap-1.5">
             <Check className="w-3.5 h-3.5" />
-            Opslaan
+            {tCommon('save')}
           </Button>
         </div>
       </motion.div>
@@ -2457,7 +2457,7 @@ function NormalizationRow({
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {/* Source Badge */}
             <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium", source.color)}>
-              {source.label}
+              {nh(source.labelKey)}
               {item.sourceRef && ` · ${item.sourceRef}`}
             </span>
             {/* Year Badge */}
@@ -2465,7 +2465,7 @@ function NormalizationRow({
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-foreground/[0.06] text-foreground/50">
                 <Calendar className="w-2.5 h-2.5" />
                 {item.applyAllYears 
-                  ? 'Alle jaren' 
+                  ? nh('allYears') 
                   : item.applyYears.length === 1 
                     ? item.applyYears[0]
                     : item.applyYears.join(', ')
@@ -2591,7 +2591,7 @@ function NormalizationRow({
                       <Clock className="w-4 h-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Opnieuw beoordelen</TooltipContent>
+                  <TooltipContent>{nh('reassess')}</TooltipContent>
                 </TooltipRoot>
               </TooltipProvider>
             </div>

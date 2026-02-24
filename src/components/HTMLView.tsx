@@ -1,5 +1,6 @@
 import { Code, Copy } from 'lucide-react'
 import React from 'react'
+import { useTranslations } from 'next-intl'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 
@@ -8,11 +9,12 @@ interface HTMLViewProps {
 }
 
 export const HTMLView: React.FC<HTMLViewProps> = ({ result }) => {
+  const t = useTranslations('common')
   if (!result) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
         <Code className="w-16 h-16 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">No valuation data available</p>
+        <p className="text-muted-foreground">{t('noValuationData')}</p>
       </div>
     )
   }

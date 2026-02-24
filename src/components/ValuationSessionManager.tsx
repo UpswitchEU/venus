@@ -22,6 +22,7 @@
 
 import { useSearchParams, usePathname } from 'next/navigation'
 import { useTransitionRouter } from 'next-view-transitions'
+import { useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
 import { useSessionStore } from '../store/useSessionStore'
@@ -86,6 +87,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const searchParams = useSearchParams()
     const pathname = usePathname()
     const router = useTransitionRouter()
+    const t = useTranslations('modals')
 
     // OPTIMISTIC: Detect Mercury flow to render form immediately during bootstrap
     const isFromMercury = useMemo(() => {
@@ -580,8 +582,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             limit={bootstrapCreditStatus.credits_limit}
             message={bootstrapCreditStatus.message || 
               (bootstrapCreditStatus.upgrade_path === 'accountant_pro'
-                ? 'Pro plan required to create valuations for clients. Please upgrade to Pro to continue.'
-                : 'Insufficient credits to create valuation. Upgrade to Premium for unlimited valuations.')}
+                ? t('paywall.accountantProRequired')
+                : t('paywall.insufficientCredits'))}
             onUpgrade={() => {
               // Accountants: redirect to trial-setup (Pro-only flow). Others: pricing.
               const locale = (pathname?.match(/^\/(en|nl)/)?.[1]) || 'en'

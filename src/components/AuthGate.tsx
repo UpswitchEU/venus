@@ -20,6 +20,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { AlertCircle } from 'lucide-react'
 import { GlassCard, AuroraButton } from '@/design-system'
 import { useAuthStore, waitForClientContext, getInitTraceId } from '../lib/auth'
@@ -62,14 +63,15 @@ interface AuthGateProps {
 // ============================================================================
 
 function DefaultLoadingState({ state }: { state: AuthGateState }) {
+  const t = useTranslations('auth.authGate')
   const getMessage = () => {
     switch (state) {
       case 'checking':
-        return 'Verifying access...'
+        return t('verifying')
       case 'exchanging':
-        return 'Setting up client context...'
+        return t('settingUpContext')
       default:
-        return 'Loading...'
+        return t('loading')
     }
   }
 
@@ -119,6 +121,7 @@ function DefaultErrorState({
   returnUrl?: string
   onRetry: () => void
 }) {
+  const t = useTranslations('auth.authGate')
   const handleLogIn = () => {
     const currentUrl = window.location.href
     const mercuryUrl = getMercuryUrl()
@@ -137,7 +140,7 @@ function DefaultErrorState({
         <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-destructive/10">
           <AlertCircle className="w-6 h-6 text-destructive/70" aria-hidden />
         </div>
-        <h1 className="text-xl font-semibold text-foreground mb-2">Authentication Failed</h1>
+        <h1 className="text-xl font-semibold text-foreground mb-2">{t('failed')}</h1>
         <p className="text-sm text-muted-foreground mb-6">{error}</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
           <AuroraButton
@@ -146,7 +149,7 @@ function DefaultErrorState({
             size="lg"
             className="flex items-center justify-center gap-2"
           >
-            Log In
+            {t('logIn')}
           </AuroraButton>
           <AuroraButton
             onClick={onRetry}
@@ -154,7 +157,7 @@ function DefaultErrorState({
             size="lg"
             className="flex items-center justify-center gap-2"
           >
-            Try Again
+            {t('tryAgain')}
           </AuroraButton>
           {returnUrl && (
             <AuroraButton
@@ -165,7 +168,7 @@ function DefaultErrorState({
               size="lg"
               className="flex items-center justify-center gap-2"
             >
-              Go Back
+              {t('goBack')}
             </AuroraButton>
           )}
         </div>
@@ -188,6 +191,7 @@ export function AuthGate({
   returnUrl,
   optimistic = false,
 }: AuthGateProps) {
+  const t = useTranslations('auth.authGate')
   const [state, setState] = useState<AuthGateState>('checking')
   const [error, setError] = useState<string | null>(null)
   const [isReady, setIsReady] = useState(false)
@@ -232,7 +236,7 @@ export function AuthGate({
       if (mounted && state === 'checking') {
         generalLogger.error(`[AuthGate:${traceId}] Max timeout exceeded while checking auth`)
         setState('error')
-        setError('Authentication check timed out. Please refresh the page.')
+        setError(t('timeout'))
         onAuthError?.('Authentication timeout')
       }
     }, 30000) // 30 second maximum
@@ -497,7 +501,7 @@ export function AuthGate({
       if (timeoutId) clearTimeout(timeoutId)
       if (maxTimeoutId) clearTimeout(maxTimeoutId)
     }
-  }, [authLoading, authError, isInitializing, needsClientContext, onAuthReady, onAuthError, retryCount, state])
+  }, [authLoading, authError, isInitializing, needsClientContext, onAuthReady, onAuthError, retryCount, state, t])
 
   // Render based on state
   // In optimistic mode, render children immediately.

@@ -1,4 +1,7 @@
+'use client'
+
 import React from 'react'
+import { useTranslations } from 'next-intl'
 
 interface OutOfCreditsModalProps {
   isOpen: boolean
@@ -13,6 +16,7 @@ export const OutOfCreditsModal: React.FC<OutOfCreditsModalProps> = ({
   onSignUp,
   onTryManual,
 }) => {
+  const t = useTranslations('modals.outOfCredits')
   if (!isOpen) return null
 
   return (
@@ -23,45 +27,42 @@ export const OutOfCreditsModal: React.FC<OutOfCreditsModalProps> = ({
             <span className="text-destructive text-2xl">🔒</span>
           </div>
 
-          <h2 className="text-2xl font-bold text-foreground mb-2">You've Used All 3 Free Credits!</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">{t('title')}</h2>
 
-          <p className="text-muted-foreground mb-6">
-            You've completed 3 AI-guided valuations. Sign up to get 3 more free credits and save
-            your reports forever.
-          </p>
+          <p className="text-muted-foreground mb-6">{t('description')}</p>
 
           <div className="space-y-3">
             <button
               onClick={onSignUp}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-3 px-4 rounded-lg transition-colors"
             >
-              Sign Up for Free (3 More Credits)
+              {t('signUp')}
             </button>
 
             <button
               onClick={onTryManual}
               className="w-full bg-muted hover:bg-muted/80 text-foreground font-medium py-3 px-4 rounded-lg transition-colors"
             >
-              Try Manual Entry (Always Free)
+              {t('tryManual')}
             </button>
 
             <button
               onClick={onClose}
               className="w-full text-muted-foreground hover:text-foreground font-medium py-2 px-4 rounded-lg transition-colors"
             >
-              Maybe Later
+              {t('maybeLater')}
             </button>
           </div>
 
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <p className="text-xs text-muted-foreground">
-              <span className="text-success">✓</span> Sign up is completely free
+              <span className="text-success">✓</span> {t('signUpFree')}
               <br />
-              <span className="text-success">✓</span> Get 3 more AI-guided valuations
+              <span className="text-success">✓</span> {t('getMoreCredits')}
               <br />
-              <span className="text-success">✓</span> Save reports forever
+              <span className="text-success">✓</span> {t('saveReportsForever')}
               <br />
-              <span className="text-success">✓</span> No credit card required
+              <span className="text-success">✓</span> {t('noCreditCard')}
             </p>
           </div>
         </div>

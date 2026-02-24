@@ -10,7 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -391,6 +391,8 @@ export function ChatAssistantDrawer({
   onNewConversation,
 }: ChatAssistantDrawerProps) {
   const ca = useTranslations('chatAssistant');
+  const locale = useLocale();
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
   const [input, setInput] = useState('');
   
   // Handler for command pill clicks - auto-fills and sends
@@ -559,7 +561,7 @@ export function ChatAssistantDrawer({
                   </h2>
                   {fieldContext && (
                     <p className="text-sm sm:text-xs text-foreground/50 truncate mt-0.5">
-                      {fieldContext.label}
+                      {fieldContext.label || ''}
                     </p>
                   )}
                 </div>
@@ -637,7 +639,7 @@ export function ChatAssistantDrawer({
                         </p>
                         <p className="text-sm sm:text-xs text-foreground/50 font-mono">
                           → {typeof update.value === 'number' 
-                              ? `€${update.value.toLocaleString('nl-BE')}`
+                              ? `€${update.value.toLocaleString(currencyLocale)}`
                               : update.value}
                         </p>
                       </div>
@@ -795,7 +797,7 @@ export function ChatAssistantDrawer({
                           <span className="text-sm sm:text-xs font-medium text-primary">{cmd.label}</span>
                           <span className="text-sm sm:text-xs text-foreground/60">→</span>
                           <span className="text-sm sm:text-xs font-mono font-semibold text-foreground">
-                            €{cmd.value.toLocaleString('nl-BE')}
+                            €{cmd.value.toLocaleString(currencyLocale)}
                           </span>
                           <Check className="w-4 h-4 sm:w-3 sm:h-3 text-primary" />
                         </div>
@@ -829,7 +831,7 @@ export function ChatAssistantDrawer({
                         >
                           <span className="text-sm sm:text-xs font-medium text-success">{detected.label}</span>
                           <span className="text-sm sm:text-xs font-mono font-semibold text-foreground">
-                            €{detected.value.toLocaleString('nl-BE')}
+                            €{detected.value.toLocaleString(currencyLocale)}
                           </span>
                           <Check className="w-4 h-4 sm:w-3 sm:h-3 text-primary" />
                         </div>
@@ -928,7 +930,7 @@ export function ChatAssistantDrawer({
                     onBlur={() => setIsInputFocused(false)}
                     onKeyDown={handleKeyDown}
                     placeholder={fieldContext 
-                      ? ca('askAboutField', { field: fieldContext.label.toLowerCase() })
+                      ? ca('askAboutField', { field: (fieldContext.label || '').toLowerCase() })
                       : ca('askOrCommand')
                     }
                     rows={1}
@@ -1066,7 +1068,7 @@ function EmptyState({
         <div className="text-center space-y-3 sm:space-y-2">
           <h2 className="text-xl sm:text-lg font-semibold text-foreground tracking-tight">
             {fieldContext 
-              ? ca('helpWithField', { field: fieldContext.label })
+              ? ca('helpWithField', { field: fieldContext.label || '' })
               : companyName 
                 ? ca('analysisFor', { company: companyName })
                 : ca('howCanIHelp')
@@ -1154,6 +1156,8 @@ function MessageBubble({
   onRetry?: (messageId: string) => void;
 }) {
   const ca = useTranslations('chatAssistant');
+  const locale = useLocale();
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
@@ -1412,7 +1416,7 @@ function MessageBubble({
                 <div className="px-4 sm:px-3 py-3 sm:py-2.5 space-y-2.5 sm:space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-base sm:text-sm font-mono font-semibold text-foreground">
-                      €{update.value.toLocaleString('nl-BE')}
+                      €{update.value.toLocaleString(currencyLocale)}
                     </span>
                     {update.confidence && (
                       <div className={cn(
@@ -1442,7 +1446,7 @@ function MessageBubble({
                           {ca('impactOnValue')}
                         </p>
                         <p className="text-sm sm:text-xs font-semibold text-success">
-                          +€{update.impact.valuationDelta.toLocaleString('nl-BE')}
+                          +€{update.impact.valuationDelta.toLocaleString(currencyLocale)}
                         </p>
                       </div>
                       <div className="text-right">
@@ -1510,7 +1514,7 @@ function MessageBubble({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm sm:text-xs font-medium text-foreground">
-                        {ca('normalizeSuggestion', { description: suggestion.description.toLowerCase() })}
+                        {ca('normalizeSuggestion', { description: (suggestion.description || '').toLowerCase() })}
                       </p>
                       <p className="text-xs sm:text-[10px] text-foreground/50 mt-1 sm:mt-0.5">
                         {suggestion.reason}
@@ -1530,7 +1534,7 @@ function MessageBubble({
                       <div className="flex-1 px-4 sm:px-3 py-3 sm:py-2 bg-success/5">
                         <p className="text-xs sm:text-[10px] text-success/70">{ca('impact')}</p>
                         <p className="text-sm sm:text-xs font-mono font-semibold text-success">
-                          {ca('impactEbitdaToValue', { ebitda: suggestion.amount.toLocaleString('nl-BE'), value: valuationImpact.toLocaleString('nl-BE') })}
+                          {ca('impactEbitdaToValue', { ebitda: suggestion.amount.toLocaleString(currencyLocale), value: valuationImpact.toLocaleString(currencyLocale) })}
                         </p>
                       </div>
                       {/* Accept/Reject Buttons - Full width on mobile */}

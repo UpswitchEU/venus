@@ -19,6 +19,7 @@
  * @module api/orchestration
  */
 
+import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
 const TITAN_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
@@ -37,14 +38,25 @@ async function proxyToTitan(
   method: string
 ): Promise<NextResponse> {
   try {
+    const cookieStore = await cookies();
+    const authCookie = cookieStore.get('sb-access-token') || cookieStore.get('accessToken');
     const cookieHeader = request.headers.get('cookie') || '';
+
+    if (!authCookie) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
     const url = buildTitanUrl(params.path, request.nextUrl.searchParams);
 
     const fetchOptions: RequestInit = {
       method,
       headers: {
         'Content-Type': 'application/json',
-        ...(cookieHeader && { 'Cookie': cookieHeader }),
+        Authorization: `Bearer ${authCookie.value}`,
+        ...(cookieHeader && { Cookie: cookieHeader }),
       },
     };
 

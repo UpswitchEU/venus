@@ -11,6 +11,7 @@
 
 // Dynamic imports using React.lazy for code splitting (Next.js compatible)
 import React, { lazy, Suspense, useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import { AlertCircle } from 'lucide-react'
 import { GlassCard, AuroraButton } from '@/design-system'
 import { useSessionStore } from '../store/useSessionStore'
@@ -59,6 +60,33 @@ interface ValuationFlowSelectorProps {
   initialDrawerOpen?: boolean
 }
 
+function LoadingErrorFallback() {
+  const t = useTranslations('errors.loadingError')
+  return (
+    <div className="flex items-center justify-center h-full p-4">
+      <GlassCard
+        variant="default"
+        glow="none"
+        hover={false}
+        className="max-w-md w-full text-center"
+      >
+        <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-destructive/10">
+          <AlertCircle className="w-6 h-6 text-destructive/70" aria-hidden />
+        </div>
+        <h3 className="text-xl font-semibold text-foreground mb-2">{t('title')}</h3>
+        <p className="text-sm text-muted-foreground mb-6">{t('description')}</p>
+        <AuroraButton
+          onClick={() => window.location.reload()}
+          variant="primary"
+          size="lg"
+        >
+          {t('reloadPage')}
+        </AuroraButton>
+      </GlassCard>
+    </div>
+  )
+}
+
 // Lazy load unified flow component (Next.js compatible)
 const ValuationFlow = lazy(() =>
   import('@/features/valuation/components/ValuationFlow')
@@ -67,34 +95,7 @@ const ValuationFlow = lazy(() =>
     }))
     .catch((error) => {
       console.error('[ValuationFlowSelector] Failed to load ValuationFlow component', error)
-      // Return a fallback component that shows an error (Aurora design system)
-      return {
-        default: () => (
-          <div className="flex items-center justify-center h-full p-4">
-            <GlassCard
-              variant="default"
-              glow="none"
-              hover={false}
-              className="max-w-md w-full text-center"
-            >
-              <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-destructive/10">
-                <AlertCircle className="w-6 h-6 text-destructive/70" aria-hidden />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">Loading Error</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Failed to load valuation flow component. Please refresh the page.
-              </p>
-              <AuroraButton
-                onClick={() => window.location.reload()}
-                variant="primary"
-                size="lg"
-              >
-                Reload Page
-              </AuroraButton>
-            </GlassCard>
-          </div>
-        ),
-      }
+      return { default: LoadingErrorFallback }
     })
 )
 
@@ -162,6 +163,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     urlAction,
     initialDrawerOpen = false,
   }) => {
+    const tErrors = useTranslations('errors')
     // ✅ WORLD CLASS: Loading handled upstream by ValuationSessionManager
     // This component only renders when ValuationSessionManager stage is 'data-entry' (session is ready)
 
@@ -184,7 +186,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       return (
         <div className="flex items-center justify-center h-full p-4">
           <ErrorState
-            title="Session Error"
+            title={tErrors('session.title')}
             message={error ?? undefined}
             onRetry={onRetry}
             onBack={onStartOver ?? (!onRetry ? () => window.location.reload() : undefined)}

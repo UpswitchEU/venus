@@ -6,6 +6,7 @@
  */
 
 import React from 'react'
+import { useTranslations } from 'next-intl'
 import { getCategoryLabel } from '../../config/normalizationCategories'
 import { EbitdaNormalization } from '../../types/ebitdaNormalization'
 
@@ -18,6 +19,7 @@ export const NormalizationSection: React.FC<NormalizationSectionProps> = ({
   normalizations,
   versionNumber,
 }) => {
+  const t = useTranslations('normalizationHub')
   if (!normalizations || normalizations.length === 0) {
     return null
   }
@@ -65,7 +67,7 @@ export const NormalizationSection: React.FC<NormalizationSectionProps> = ({
                 <div className="text-2xl font-bold text-foreground">
                   {formatCurrency(norm.reported_ebitda)}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Financial statements</div>
+                <div className="text-xs text-muted-foreground mt-1">{t('financialStatements')}</div>
               </div>
 
               {/* Adjustments */}
@@ -96,7 +98,7 @@ export const NormalizationSection: React.FC<NormalizationSectionProps> = ({
                 <div className="text-2xl font-bold text-primary">
                   {formatCurrency(norm.normalized_ebitda)}
                 </div>
-                <div className="text-xs text-primary/80 mt-1">True earning power</div>
+                <div className="text-xs text-primary/80 mt-1">{t('trueEarningPower')}</div>
               </div>
             </div>
 
@@ -215,7 +217,7 @@ export const NormalizationSection: React.FC<NormalizationSectionProps> = ({
                 </div>
                 {norm.updated_at && (
                   <div>
-                    <span className="font-medium">Last updated:</span>{' '}
+                    <span className="font-medium">{t('lastUpdated')}</span>{' '}
                     {new Date(norm.updated_at).toLocaleDateString()}
                   </div>
                 )}

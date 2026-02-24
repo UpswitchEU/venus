@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { AlertCircle } from 'lucide-react'
 import { GlassCard, AuroraButton } from '@/design-system'
 
@@ -21,6 +22,7 @@ interface ErrorFallbackProps {
  * Uses Aurora design system (GlassCard, AuroraButton).
  */
 export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProps) {
+  const t = useTranslations('errors.fallback')
   const [storedReturnUrl, setStoredReturnUrl] = useState<string | null>(null)
 
   // Check for stored return URL from session storage
@@ -40,40 +42,22 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
     const errorMessage = error?.message || errorInfo || ''
 
     if (errorMessage.includes('Authentication') || errorMessage.includes('auth')) {
-      return {
-        title: 'Authentication Failed',
-        description: 'Unable to verify your access. Please try logging in again.',
-      }
+      return { title: t('authFailed'), description: t('authFailedDesc') }
     }
 
     if (errorMessage.includes('client context') || errorMessage.includes('clientToken')) {
-      return {
-        title: 'Client Access Error',
-        description:
-          'Unable to load the client context. The link may have expired. Please try creating a new valuation.',
-      }
+      return { title: t('clientAccessError'), description: t('clientAccessErrorDesc') }
     }
 
     if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-      return {
-        title: 'Connection Error',
-        description:
-          'Unable to connect to the server. Please check your internet connection and try again.',
-      }
+      return { title: t('connectionError'), description: t('connectionErrorDesc') }
     }
 
     if (errorMessage.includes('bootstrap') || errorMessage.includes('session')) {
-      return {
-        title: 'Session Error',
-        description: 'Unable to initialize the valuation session. Please try reloading the page.',
-      }
+      return { title: t('sessionError'), description: t('sessionErrorDesc') }
     }
 
-    return {
-      title: 'Failed to Load Report',
-      description:
-        'Unable to load the valuation report. This may be due to a network issue or a problem with the report.',
-    }
+    return { title: t('failedToLoadReport'), description: t('failedToLoadReportDesc') }
   }
 
   const { title, description } = getErrorDetails()
@@ -111,7 +95,7 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
             size="lg"
             className="flex items-center justify-center gap-2"
           >
-            Reload Page
+            {t('reloadPage')}
           </AuroraButton>
           {effectiveReturnUrl && (
             <AuroraButton
@@ -122,19 +106,19 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
               size="lg"
               className="flex items-center justify-center gap-2"
             >
-              Return to Dashboard
+              {t('returnToDashboard')}
             </AuroraButton>
           )}
         </div>
 
         {/* Support link */}
         <p className="mt-6 text-sm text-muted-foreground">
-          If this problem persists,{' '}
+          {t('contactSupportPrefix')}{' '}
           <a
             href="mailto:support@upswitch.app"
             className="text-primary hover:text-primary/80 underline"
           >
-            contact support
+            {t('contactSupport')}
           </a>
         </p>
       </GlassCard>

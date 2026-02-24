@@ -6,6 +6,7 @@
  */
 
 import React from 'react'
+import { useTranslations } from 'next-intl'
 import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories'
 import { CustomAdjustment, NormalizationAdjustment } from '../../types/ebitdaNormalization'
 
@@ -30,6 +31,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
   onRemoveAdjustment,
   onRemoveCustomAdjustment,
 }) => {
+  const t = useTranslations('normalizationHub')
   const adjustmentPercentage =
     reportedEbitda !== 0 ? ((totalAdjustments / reportedEbitda) * 100).toFixed(1) : '0.0'
 
@@ -55,21 +57,21 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
   return (
     <div className="sticky top-0 bg-canvas rounded-lg border border-foreground/10 p-6 shadow-sm">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-slate-ink">Live Preview</h3>
-        <p className="text-sm text-muted-foreground mt-1">Normalization for {year}</p>
+        <h3 className="text-lg font-semibold text-slate-ink">{t('livePreview')}</h3>
+        <p className="text-sm text-muted-foreground mt-1">{t('normalizationFor', { year })}</p>
       </div>
 
       {/* Reported EBITDA */}
       <div className="mb-4 pb-4 border-b border-foreground/10">
         <div className="text-sm text-muted-foreground mb-1">Reported EBITDA</div>
         <div className="text-2xl font-bold text-slate-ink">{formatCurrency(reportedEbitda)}</div>
-        <div className="text-xs text-muted-foreground mt-1">As shown in financial statements</div>
+        <div className="text-xs text-muted-foreground mt-1">{t('asShownInFinancialStatements')}</div>
       </div>
 
       {/* Active Adjustments List */}
       {adjustmentCount > 0 && (
         <div className="mb-4 pb-4 border-b border-foreground/10">
-          <div className="text-sm font-medium text-foreground mb-3">Active Adjustments</div>
+          <div className="text-sm font-medium text-foreground mb-3">{t('activeAdjustments')}</div>
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {/* Standard adjustments */}
             {adjustments
@@ -103,7 +105,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                           type="button"
                           onClick={() => onRemoveAdjustment(adj.category)}
                           className="p-1 text-muted-foreground hover:text-rust-600 transition-colors"
-                          title="Remove adjustment"
+                          title={t('actions.removeAdjustment')}
                         >
                           <svg
                             className="h-4 w-4"
@@ -153,7 +155,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                         type="button"
                         onClick={() => onRemoveCustomAdjustment(adj.id!)}
                         className="p-1 text-muted-foreground hover:text-rust-600 transition-colors"
-                        title="Remove adjustment"
+                        title={t('actions.removeAdjustment')}
                       >
                         <svg
                           className="h-4 w-4"
@@ -215,7 +217,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
             {totalAdjustments > 0 ? '+' : ''}
             {formatCurrency(totalAdjustments)}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">No adjustments yet</div>
+          <div className="text-xs text-muted-foreground mt-1">{t('noAdjustmentsYet')}</div>
         </div>
       )}
 
@@ -225,7 +227,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
         <div className="text-3xl font-bold text-primary">
           {formatCurrency(normalizedEbitda)}
         </div>
-        <div className="text-xs text-muted-foreground mt-1">True earning power</div>
+        <div className="text-xs text-muted-foreground mt-1">{t('trueEarningPower')}</div>
       </div>
 
       {/* Info box */}

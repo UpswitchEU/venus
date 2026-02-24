@@ -6,6 +6,7 @@
  */
 
 import React from 'react'
+import { useTranslations } from 'next-intl'
 
 interface NormalizedEBITDAFieldProps {
   label: string
@@ -30,6 +31,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
   onRemove,
   helpText,
 }) => {
+  const t = useTranslations('normalizationHub')
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-BE', {
       style: 'currency',
@@ -111,24 +113,24 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
                 </div>
                 <div className="space-y-2 text-muted-foreground border-t border-foreground/10 pt-2">
                   <div className="flex justify-between">
-                    <span>Original:</span>
+                    <span>{t('original')}</span>
                     <span className="font-mono text-foreground">{formatCurrency(originalValue)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Adjusted by:</span>
+                    <span>{t('adjustedBy')}</span>
                     <span className={`font-mono ${adjustmentColor}`}>
                       {adjustmentSign}
                       {formatCurrency(totalAdjustments)}
                     </span>
                   </div>
                   <div className="flex justify-between font-semibold">
-                    <span>Used in valuation:</span>
+                    <span>{t('usedInValuation')}</span>
                     <span className="font-mono text-white">{formatCurrency(normalizedValue)}</span>
                   </div>
                   <div className="mt-3 pt-2 border-t border-foreground/10 text-xs text-muted-foreground">
-                    Click "Edit" to modify adjustments
+                    {t('editToModify')}
                     <br />
-                    Click "Remove" to use original value
+                    {t('removeToUseOriginal')}
                   </div>
                 </div>
               </div>

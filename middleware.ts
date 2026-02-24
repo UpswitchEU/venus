@@ -100,8 +100,10 @@ export async function middleware(request: NextRequest) {
 		}
 
 		// Path does NOT have the locale prefix — redirect to /{locale}/...
+		// Strip existing locale from path (e.g. /en/reports/123 -> /reports/123) before prepending new locale
+		const pathWithoutLocale = pathname.replace(/^\/[a-z]{2}(\/|$)/, '$1') || '/';
 		const newUrl = request.nextUrl.clone();
-		newUrl.pathname = `/${localeParam}${pathname}`;
+		newUrl.pathname = `/${localeParam}${pathWithoutLocale}`;
 		newUrl.searchParams.delete('locale');
 		const res = NextResponse.redirect(newUrl);
 		res.cookies.set('NEXT_LOCALE', localeParam, {

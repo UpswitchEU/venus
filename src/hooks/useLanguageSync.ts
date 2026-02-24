@@ -13,6 +13,12 @@ const SUPPORTED_LOCALES: readonly string[] = ['en', 'nl']
  * with the current Venus locale. If they differ, sets the NEXT_LOCALE
  * cookie and navigates to the correct locale path.
  *
+ * IMPORTANT: Only redirects when the current locale is the default (en).
+ * When the user landed on /nl/ (e.g. from Mercury or a shared link), we
+ * respect the URL locale and do NOT override with DB preference. This
+ * prevents "Ask Assistant" / "Normalizations" etc. from reverting to
+ * English when the user explicitly navigated to Dutch.
+ *
  * Must be rendered inside a next-intl provider and after auth is ready.
  */
 export function useLanguageSync() {
@@ -28,6 +34,13 @@ export function useLanguageSync() {
     const preferred = user.language_preference
     if (!SUPPORTED_LOCALES.includes(preferred)) return
     if (preferred === locale) {
+      synced.current = true
+      return
+    }
+
+    // Only redirect when we're on the default locale. If the user is on /nl/
+    // (from Mercury, shared link, or cookie), respect it — don't override with DB.
+    if (locale !== 'en') {
       synced.current = true
       return
     }

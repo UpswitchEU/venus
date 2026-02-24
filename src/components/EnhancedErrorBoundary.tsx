@@ -12,6 +12,7 @@ import React, { Component, ReactNode } from 'react'
 import { ErrorFallback } from '@/components/ErrorFallback'
 import { getUserFriendlyErrorMessage, isRecoverableError, isValuationError } from '../types/errors'
 import { chatLogger } from '../utils/logger'
+import { EnhancedErrorFallbackContent } from './EnhancedErrorFallbackContent'
 
 interface Props {
   children: ReactNode
@@ -114,16 +115,14 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
 
       const error = this.state.error
       const userMessage = getUserFriendlyErrorMessage(error)
-      const title = isRecoverableError(error) ? 'Something went wrong' : 'Critical error'
+      const recoverable = isRecoverableError(error)
 
       return (
-        <ErrorFallback
+        <EnhancedErrorFallbackContent
           error={error}
-          reset={this.handleReset}
-          homeHref="/"
-          title={title}
+          onReset={this.handleReset}
           message={userMessage}
-          variant="modal"
+          recoverable={recoverable}
         />
       )
     }

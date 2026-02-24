@@ -9,6 +9,7 @@
 'use client'
 
 import { ArrowRight, FileText } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import BusinessProfileCardV4 from '../../../components/business/BusinessProfileCardV4'
 import EditChoiceModal from '../../../components/modals/EditChoiceModal'
@@ -42,6 +43,8 @@ export function RecentReportsSection({
   onViewAll,
   user,
 }: RecentReportsSectionProps) {
+  const t = useTranslations('valuation')
+  const tEditChoice = useTranslations('modals.editChoice')
   // Modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedReport, setSelectedReport] = useState<ValuationSession | null>(null)
@@ -111,18 +114,15 @@ export function RecentReportsSection({
       <section className="w-full bg-gradient-to-b from-black/5 to-transparent py-8 md:py-12">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-semibold text-white">Recent Valuations</h2>
+            <h2 className="text-3xl font-semibold text-white">{t('recentValuations')}</h2>
           </div>
 
           <div className="max-w-md mx-auto text-center py-12">
             <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6">
               <FileText className="w-10 h-10 text-white/60" />
             </div>
-            <h3 className="text-xl font-medium text-white mb-3">No completed valuations yet</h3>
-            <p className="text-white/70 mb-6">
-              Complete a valuation to see your report cards here. Cards show basic info, profile,
-              and valuation amount.
-            </p>
+            <h3 className="text-xl font-medium text-white mb-3">{t('recentEmptyTitle')}</h3>
+            <p className="text-white/70 mb-6">{t('recentEmptyDesc')}</p>
           </div>
         </div>
       </section>
@@ -135,7 +135,7 @@ export function RecentReportsSection({
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-3xl font-semibold text-white">Recent Valuations</h2>
+          <h2 className="text-3xl font-semibold text-white">{t('recentValuations')}</h2>
 
           <div className="flex items-center gap-3">
             {/* Subtle loading spinner during refetch (Optimistic UI) */}
@@ -148,7 +148,7 @@ export function RecentReportsSection({
                 onClick={onViewAll}
                 className="flex items-center gap-2 px-4 py-2 text-white/80 hover:text-white transition-colors"
               >
-                <span>View all</span>
+                <span>{t('viewAll')}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             )}
@@ -202,8 +202,10 @@ export function RecentReportsSection({
         {/* Footer hint */}
         {reportsWithValuations.length > 0 && (
           <p className="text-center text-white/50 text-sm mt-8">
-            Showing {Math.min(reportsWithValuations.length, 8)} of {reportsWithValuations.length}{' '}
-            valuations
+            {t('showingCount', {
+              shown: Math.min(reportsWithValuations.length, 8),
+              total: reportsWithValuations.length,
+            })}
           </p>
         )}
       </div>
@@ -216,8 +218,8 @@ export function RecentReportsSection({
         onDeleteReport={handleDeleteReport}
         reportName={
           selectedReport
-            ? mapValuationSessionToBusinessInfo(selectedReport).name || 'this report'
-            : 'this report'
+            ? mapValuationSessionToBusinessInfo(selectedReport).name || tEditChoice('thisReport')
+            : tEditChoice('thisReport')
         }
       />
     </section>

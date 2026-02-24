@@ -5,12 +5,16 @@
  * and user-friendly error messages
  */
 
+'use client'
+
 import React from 'react'
+import { useTranslations } from 'next-intl'
 import { useAuth } from '../lib/auth'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 
 export const AuthStatus: React.FC = () => {
-  const { user, isAuthenticated, loading, error, refreshAuth } = useAuth()
+  const t = useTranslations('auth.authStatus')
+  const { user, isAuthenticated, loading, error } = useAuth()
 
   if (loading) {
     return (
@@ -19,7 +23,7 @@ export const AuthStatus: React.FC = () => {
           <div className="skeleton-line" />
           <div className="skeleton-line short" />
         </div>
-        <span className="sr-only">Checking authentication...</span>
+        <span className="sr-only">{t('checkingAuth')}</span>
       </div>
     )
   }
@@ -29,7 +33,7 @@ export const AuthStatus: React.FC = () => {
       <div className="auth-status auth-status-error" role="alert">
         <div className="auth-status-icon error">⚠️</div>
         <div className="auth-status-content">
-          <p className="auth-status-message">Unable to verify authentication</p>
+          <p className="auth-status-message">{t('unableToVerify')}</p>
           <button
             onClick={() => (window.location.href = getMercuryUrl())}
             style={{
@@ -44,7 +48,7 @@ export const AuthStatus: React.FC = () => {
               fontWeight: '500',
             }}
           >
-            Log in at upswitch.app
+            {t('logInAt')}
           </button>
         </div>
       </div>
@@ -52,13 +56,12 @@ export const AuthStatus: React.FC = () => {
   }
 
   if (isAuthenticated && user) {
+    const name = user.email || user.name || 'User'
     return (
       <div className="auth-status auth-status-success" role="status">
         <div className="auth-status-icon success">✅</div>
         <div className="auth-status-content">
-          <p className="auth-status-message">
-            Authenticated as {user.email || user.name || 'User'}
-          </p>
+          <p className="auth-status-message">{t('authenticatedAs', { name })}</p>
         </div>
       </div>
     )
@@ -68,7 +71,7 @@ export const AuthStatus: React.FC = () => {
   return (
     <div className="auth-status auth-status-guest" role="status">
       <div className="auth-status-content">
-        <p className="auth-status-message">Continuing as guest</p>
+        <p className="auth-status-message">{t('continuingAsGuest')}</p>
         <p
           className="auth-status-hint"
           style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}
@@ -80,9 +83,9 @@ export const AuthStatus: React.FC = () => {
             rel="noopener noreferrer"
             style={{ color: '#3b82f6', textDecoration: 'underline' }}
           >
-            Log in at upswitch.app
+            {t('logInAt')}
           </a>{' '}
-          for full access
+          {t('forFullAccess')}
         </p>
       </div>
     </div>
@@ -93,14 +96,14 @@ export const AuthStatus: React.FC = () => {
  * Auth Loading Indicator
  * Simple loading spinner for auth operations
  */
-export const AuthLoadingIndicator: React.FC<{ message?: string }> = ({
-  message = 'Authenticating...',
-}) => {
+export const AuthLoadingIndicator: React.FC<{ message?: string }> = ({ message }) => {
+  const t = useTranslations('auth.authStatus')
+  const displayMessage = message ?? t('authenticating')
   return (
     <div className="auth-loading-indicator" role="status" aria-live="polite">
       <div className="auth-spinner" aria-hidden="true" />
-      <span className="auth-loading-message">{message}</span>
-      <span className="sr-only">{message}</span>
+      <span className="auth-loading-message">{displayMessage}</span>
+      <span className="sr-only">{displayMessage}</span>
     </div>
   )
 }
@@ -113,6 +116,7 @@ export const AuthErrorMessage: React.FC<{ error: string; onRetry?: () => void }>
   error,
   onRetry,
 }) => {
+  const t = useTranslations('auth.authStatus')
   return (
     <div className="auth-error-message" role="alert">
       <div className="auth-error-icon">⚠️</div>
@@ -120,7 +124,7 @@ export const AuthErrorMessage: React.FC<{ error: string; onRetry?: () => void }>
         <p className="auth-error-text">{error}</p>
         {onRetry && (
           <button className="auth-error-retry" onClick={onRetry} aria-label="Retry authentication">
-            Try Again
+            {t('tryAgain')}
           </button>
         )}
       </div>

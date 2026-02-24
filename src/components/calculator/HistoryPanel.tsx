@@ -249,7 +249,7 @@ function ValuationSummaryCard({ version, hp }: { version: HistoryVersion; hp: (k
         
         {/* Range + Metrics Grid */}
         <div className="grid grid-cols-3 gap-4 pt-4 border-t border-foreground/[0.06]">
-          {version.valuationLow && version.valuationHigh && (
+          {version.valuationLow != null && version.valuationHigh != null && (version.valuationLow > 0 || version.valuationHigh > 0) && (
             <div>
               <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
                 {hp('bandwidth')}
@@ -259,7 +259,7 @@ function ValuationSummaryCard({ version, hp }: { version: HistoryVersion; hp: (k
               </p>
             </div>
           )}
-          {version.ebitda && (
+          {version.ebitda != null && version.ebitda > 0 && (
             <div>
               <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
                 {hp('normalizedEbitda')}
@@ -269,7 +269,7 @@ function ValuationSummaryCard({ version, hp }: { version: HistoryVersion; hp: (k
               </p>
             </div>
           )}
-          {version.multiple && (
+          {version.multiple != null && version.multiple > 0 && (
             <div>
               <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
                 {hp('multiple')}
@@ -327,26 +327,39 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
 
     return storeVersions
       .sort((a, b) => (b.versionNumber || 0) - (a.versionNumber || 0))
-      .map((v) => ({
-        id: v.id || String(v.versionNumber),
-        version: v.versionNumber || 1,
-        timestamp: v.createdAt ? new Date(v.createdAt) : new Date(),
-        author: (v as any).createdBy || hp('user'),
-        authorInitials: ((v as any).createdBy || 'GE').substring(0, 2).toUpperCase(),
-        type: deriveVersionType(v),
-        summary: v.versionLabel || hp('versionN', { number: v.versionNumber ?? 1 }),
-        changes: deriveChanges(v, hp('changed')),
-        valuation: (v as any).valuationResult?.valuation_midpoint || (v as any).valuationResult?.equity_value_mid,
-        valuationLow: (v as any).valuationResult?.valuation_min || (v as any).valuationResult?.equity_value_low,
-        valuationHigh: (v as any).valuationResult?.valuation_max || (v as any).valuationResult?.equity_value_high,
-        ebitda: (v as any).valuationResult?.normalized_ebitda || (v as any).valuationResult?.ebitda,
-        multiple: (v as any).valuationResult?.ebitda_multiple || (v as any).valuationResult?.revenue_multiple,
-        isCurrent: v.versionNumber === activeVersionNumber || v.isActive,
-      }))
+      .map((v) => {
+        const vr = (v as any).valuationResult
+        return {
+          id: v.id || String(v.versionNumber),
+          version: v.versionNumber || 1,
+          timestamp: v.createdAt ? new Date(v.createdAt) : new Date(),
+          author: (v as any).createdBy || hp('user'),
+          authorInitials: ((v as any).createdBy || 'GE').substring(0, 2).toUpperCase(),
+          type: deriveVersionType(v),
+          summary: v.versionLabel || hp('versionN', { number: v.versionNumber ?? 1 }),
+          changes: deriveChanges(v, hp('changed')),
+          valuation: vr?.valuation_midpoint || vr?.equity_value_mid || vr?.details?.valuation_midpoint || vr?.details?.equity_value_mid,
+          valuationLow: vr?.valuation_min || vr?.equity_value_low || vr?.details?.valuation_min || vr?.details?.equity_value_low,
+          valuationHigh: vr?.valuation_max || vr?.equity_value_high || vr?.details?.valuation_max || vr?.details?.equity_value_high,
+          ebitda: vr?.normalized_ebitda || vr?.ebitda || vr?.details?.normalized_ebitda || vr?.details?.ebitda,
+          multiple: vr?.ebitda_multiple || vr?.revenue_multiple || vr?.details?.ebitda_multiple || vr?.details?.revenue_multiple,
+          isCurrent: activeVersionNumber != null
+            ? v.versionNumber === activeVersionNumber
+            : v.isActive,
+        }
+      })
   }, [storeVersions, activeVersionNumber, hp, report])
 
-  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set()); // Current version expanded by default
+  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
   const [restoringVersion, setRestoringVersion] = useState<string | null>(null);
+
+  // Auto-expand the current version on first load
+  useEffect(() => {
+    const current = historyVersions.find(v => v.isCurrent)
+    if (current && expandedVersions.size === 0) {
+      setExpandedVersions(new Set([current.id]))
+    }
+  }, [historyVersions]) // eslint-disable-line react-hooks/exhaustive-deps
   
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false);

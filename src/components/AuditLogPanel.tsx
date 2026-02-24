@@ -9,6 +9,7 @@
 
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Calendar, Edit3, RefreshCw, Save, User } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 import { formatCurrency } from '../config/countries'
@@ -37,6 +38,7 @@ export interface AuditLogPanelProps {
  * ```
  */
 export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelProps) {
+  const t = useTranslations('auditLog')
   const [filterOperation, setFilterOperation] = useState<string>('all')
 
   // Get audit log
@@ -81,8 +83,8 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
         <div className="w-16 h-16 bg-foreground/10 rounded-full flex items-center justify-center mx-auto mb-4">
           <Edit3 className="w-8 h-8 text-muted-foreground" />
         </div>
-        <h3 className="text-lg font-semibold text-foreground mb-2">No audit trail yet</h3>
-        <p className="text-sm text-muted-foreground">Changes and regenerations will appear here</p>
+        <h3 className="text-lg font-semibold text-foreground mb-2">{t('noAuditTrailYet')}</h3>
+        <p className="text-sm text-muted-foreground">{t('changesWillAppearHere')}</p>
       </div>
     )
   }
@@ -336,14 +338,15 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
  * Empty state for audit log
  */
 export function AuditLogEmpty() {
+  const t = useTranslations('auditLog')
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 text-center">
       <div className="w-16 h-16 bg-foreground/10 rounded-full flex items-center justify-center mb-4">
         <Edit3 className="w-8 h-8 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-semibold text-foreground mb-2">No changes yet</h3>
+      <h3 className="text-lg font-semibold text-foreground mb-2">{t('noChangesYet')}</h3>
       <p className="text-sm text-muted-foreground max-w-sm">
-        Edit fields or regenerate the valuation to see the audit trail here
+        {t('editOrRegenerateDesc')}
       </p>
     </div>
   )

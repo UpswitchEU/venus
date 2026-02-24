@@ -97,13 +97,25 @@ export function buildValuationRequest(
   const normStore = useNormalizationStore.getState()
   const acceptedNorms = normStore.items.filter((n) => n.status === 'accepted')
 
+  // Collect all years that have financial data (current + historical)
+  const historicalYears = formData.historical_years_data
+    ?.filter((y) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+    .map((y) => y.year) ?? []
+  const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+
   // Build year-keyed normalization lookup from accepted items
+  // CRITICAL: Respect applyAllYears and applyYears — items can apply to multiple years
   const normByYear: Record<number, { totalAdjustment: number; count: number; confidence: string }> = {}
   for (const n of acceptedNorms) {
-    if (!normByYear[n.year]) normByYear[n.year] = { totalAdjustment: 0, count: 0, confidence: 'medium' }
-    normByYear[n.year].totalAdjustment += n.adjustment
-    normByYear[n.year].count++
-    if (n.confidence === 'high') normByYear[n.year].confidence = 'high'
+    const yearsToApply: number[] = n.applyAllYears
+      ? allDataYears
+      : (n.applyYears && n.applyYears.length > 0 ? n.applyYears : [n.year])
+    for (const y of yearsToApply) {
+      if (!normByYear[y]) normByYear[y] = { totalAdjustment: 0, count: 0, confidence: 'medium' }
+      normByYear[y].totalAdjustment += n.adjustment
+      normByYear[y].count++
+      if (n.confidence === 'high') normByYear[y].confidence = 'high'
+    }
   }
 
   // Check if last full year EBITDA is normalized

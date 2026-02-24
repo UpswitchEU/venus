@@ -1,3 +1,6 @@
+'use client'
+
+import { useTranslations } from 'next-intl'
 import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react'
 import React from 'react'
 import { GlassCard, AuroraButton } from '@/design-system'
@@ -12,13 +15,16 @@ interface ErrorStateProps {
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({
-  title = 'Valuation Generation Failed',
-  message = 'We encountered an unexpected issue while generating your report. Please check your inputs and try again.',
+  title,
+  message,
   onRetry,
   onBack,
   className = '',
   variant = 'dark',
 }) => {
+  const t = useTranslations('errors.errorState')
+  const displayTitle = title ?? t('generationFailed')
+  const displayMessage = message ?? t('generationFailedDesc')
   return (
     <div
       className={`flex flex-col items-center justify-center p-6 sm:p-8 text-center animate-in fade-in duration-500 ${className}`}
@@ -33,10 +39,10 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
           <AlertTriangle className="w-6 h-6 text-destructive/70" aria-hidden />
         </div>
 
-        <h3 className="text-xl font-semibold mb-2 text-foreground">{title}</h3>
+        <h3 className="text-xl font-semibold mb-2 text-foreground">{displayTitle}</h3>
 
         <p className="text-sm max-w-md leading-relaxed mb-6 text-muted-foreground">
-          {message}
+          {displayMessage}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -48,7 +54,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
               className="flex items-center justify-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              Go Back
+              {t('goBack')}
             </AuroraButton>
           )}
 
@@ -60,7 +66,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
               className="flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
-              Try Again
+              {t('tryAgain')}
             </AuroraButton>
           )}
         </div>

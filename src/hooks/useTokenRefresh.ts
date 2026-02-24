@@ -21,6 +21,7 @@ import axios from 'axios'
 import { useCallback, useEffect, useRef } from 'react'
 import { getSessionSyncManager } from '../utils/auth/sessionSync'
 import { getApiUrl } from '../utils/getMercuryUrl'
+import { generalLogger } from '../utils/logger'
 
 const API_URL = getApiUrl()
 const CHECK_INTERVAL = 5 * 60 * 1000 // Check every 5 minutes (more frequent for proactive refresh)
@@ -99,12 +100,12 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
             throw new Error('Token refresh failed: Invalid response')
           }
         } catch (error: any) {
-          console.error('❌ Token refresh failed:', error)
+          generalLogger.error('Token refresh failed', { error })
 
           // Handle different error cases
           if (error.response?.status === 401) {
             // Refresh token is invalid or expired - user needs to re-login
-            console.warn('⚠️ Refresh token expired or invalid, user needs to re-login')
+            generalLogger.warn('Refresh token expired or invalid, user needs to re-login')
             onTokenExpired?.()
             return false
           }
@@ -112,14 +113,14 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
           // Network error or server error - retry with exponential backoff
           if (retryCount < 3) {
             const delay = Math.pow(2, retryCount) * 1000 // 1s, 2s, 4s
-            console.log(`Retrying token refresh in ${delay}ms (attempt ${retryCount + 1}/3)...`)
+            generalLogger.debug(`Retrying token refresh in ${delay}ms (attempt ${retryCount + 1}/3)`)
 
             await new Promise((resolve) => setTimeout(resolve, delay))
             return refreshToken(retryCount + 1)
           }
 
           // Max retries exceeded
-          console.error('Token refresh failed after 3 attempts')
+          generalLogger.error('Token refresh failed after 3 attempts')
           onRefreshFailure?.(error)
           return false
         } finally {
@@ -140,7 +141,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
     try {
       // Proactively refresh access token before it expires
       // Access tokens expire in 15 minutes, we check every 5 minutes
-      console.log('🔄 Proactive token refresh check (dual-token system)...')
+      generalLogger.debug('Proactive token refresh check (dual-token system)')
       await refreshToken()
 
       // Broadcast session refresh to other tabs AFTER successful refresh
@@ -149,7 +150,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
     } catch (error: any) {
       if (error.response?.status === 401) {
         // User is not authenticated, stop checking
-        console.log('User not authenticated, stopping token refresh checks')
+        generalLogger.debug('User not authenticated, stopping token refresh checks')
         onTokenExpired?.()
 
         // Clear interval
@@ -159,7 +160,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
         }
       } else {
         // Network error, will retry on next interval
-        console.warn('Auth check failed (network error), will retry:', error.message)
+        generalLogger.warn('Auth check failed (network error), will retry', { error: error.message })
       }
     }
   }, [refreshToken, onTokenExpired])
@@ -168,8 +169,8 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
    * Start token refresh checks
    */
   useEffect(() => {
-    console.log(
-      '🔐 Starting token refresh checks (initial: 1.5s, interval: 5 min, access token TTL: 15 min)'
+    generalLogger.debug(
+      'Starting token refresh checks (initial: 1.5s, interval: 5 min, access token TTL: 15 min)'
     )
 
     // Initial check after 1.5s (reduce auth/me 401 race - refresh before bootstrap/auth checks)
@@ -188,7 +189,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
         clearInterval(intervalRef.current)
       }
       clearTimeout(initialTimeout)
-      console.log('🔐 Stopped token refresh checks')
+      generalLogger.debug('Stopped token refresh checks')
     }
   }, [checkAndRefresh])
 
@@ -212,12 +213,12 @@ export const useManualTokenRefresh = () => {
   const refreshToken = useCallback(async (): Promise<boolean> => {
     // MUTEX PATTERN: If refresh already in progress globally, wait for it
     if (globalRefreshPromise) {
-      console.log('Token refresh already in progress (global mutex), waiting...')
+      generalLogger.debug('Token refresh already in progress (global mutex), waiting')
       return globalRefreshPromise
     }
 
     if (isRefreshingRef.current) {
-      console.log('Token refresh already in progress (local)')
+      generalLogger.debug('Token refresh already in progress (local)')
       return false
     }
 
@@ -241,13 +242,13 @@ export const useManualTokenRefresh = () => {
         const user = response.data?.user ?? response.data?.data?.user
         const success = response.data?.success === true || !!user
         if (success) {
-          console.log('✅ Manual token refresh successful (dual-token rotation complete)')
+          generalLogger.debug('Manual token refresh successful (dual-token rotation complete)')
           return true
         } else {
           throw new Error('Token refresh failed: Invalid response')
         }
       } catch (error) {
-        console.error('❌ Manual token refresh failed:', error)
+        generalLogger.error('Manual token refresh failed', { error })
         return false
       } finally {
         isRefreshingRef.current = false

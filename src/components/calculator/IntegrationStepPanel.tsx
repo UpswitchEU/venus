@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 /**
  * Integration Step Panel
  * 
@@ -108,6 +110,7 @@ export function IntegrationStepPanel({
   onSkip,
   className,
 }: IntegrationStepPanelProps) {
+  const t = useTranslations('integrationStep');
   const [step, setStep] = useState<IntegrationStep>('select');
   const [parsedCSV, setParsedCSV] = useState<ParsedCSVData | null>(null);
   const [mappedAccounts, setMappedAccounts] = useState<MappedAccount[]>([]);
@@ -176,10 +179,10 @@ export function IntegrationStepPanel({
               <FileSpreadsheet className="w-7 h-7 text-primary" />
             </div>
             <Heading level={2} className="text-xl mb-2">
-              Financiële data importeren
+              {t('title')}
             </Heading>
             <Body className="text-foreground/60 max-w-md mx-auto">
-              Upload uw grootboekexport voor automatische analyse en normalisatie-suggesties.
+              {t('subtitle')}
             </Body>
           </div>
 
@@ -196,11 +199,11 @@ export function IntegrationStepPanel({
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Heading level={3} className="text-base">Grootboek Upload</Heading>
-                    <Badge variant="primary" size="sm">Aanbevolen</Badge>
+                    <Heading level={3} className="text-base">{t('ledgerUpload')}</Heading>
+                    <Badge variant="primary" size="sm">{t('recommended')}</Badge>
                   </div>
                   <Caption className="text-foreground/50">
-                    Upload Yuki, Exact of CSV export
+                    {t('ledgerUploadCaption')}
                   </Caption>
                 </div>
                 <ChevronRight className="w-5 h-5 text-foreground/30" />
@@ -217,12 +220,12 @@ export function IntegrationStepPanel({
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <Heading level={3} className="text-base text-foreground/70">
-                        Directe Koppeling
+                        {t('directIntegration')}
                       </Heading>
                       <Badge variant="neutral" size="sm">Q2 2026</Badge>
                     </div>
                     <Caption className="text-foreground/50">
-                      Directe koppelingen met Yuki, Exact Online en Odoo worden binnenkort beschikbaar.
+                      {t('directIntegrationCaption')}
                     </Caption>
                   </div>
                 </div>
@@ -239,9 +242,9 @@ export function IntegrationStepPanel({
                   <Keyboard className="w-6 h-6 text-foreground/50" />
                 </div>
                 <div className="flex-1">
-                  <Heading level={3} className="text-base">Handmatig Invoeren</Heading>
+                  <Heading level={3} className="text-base">{t('manualInput')}</Heading>
                   <Caption className="text-foreground/50">
-                    Voer financiële gegevens stap voor stap in
+                    {t('manualInputCaption')}
                   </Caption>
                 </div>
                 <ChevronRight className="w-5 h-5 text-foreground/30" />

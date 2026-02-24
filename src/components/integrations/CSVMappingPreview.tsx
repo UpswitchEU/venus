@@ -13,6 +13,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/design-system/utils';
 import { AuroraButton as Button } from '@/design-system/components/Button';
@@ -122,20 +123,20 @@ const mapCSVToAccounts = (data: ParsedCSVData): MappedAccount[] => {
 // ─────────────────────────────────────────
 
 const CategoryBadge = ({ category }: { category: MappedAccount['category'] }) => {
-  const config = {
-    revenue: { label: 'Omzet', variant: 'primary' as const, icon: TrendingUp },
-    expense: { label: 'Kosten', variant: 'accent' as const, icon: TrendingDown },
-    asset: { label: 'Activa', variant: 'neutral' as const, icon: Minus },
-    liability: { label: 'Passiva', variant: 'neutral' as const, icon: Minus },
-    equity: { label: 'Eigen Vermogen', variant: 'neutral' as const, icon: Minus },
+  const t = useTranslations('csvUpload');
+  const variants = {
+    revenue: 'primary' as const,
+    expense: 'accent' as const,
+    asset: 'neutral' as const,
+    liability: 'neutral' as const,
+    equity: 'neutral' as const,
   };
   
-  const { label, variant } = config[category];
-  
-  return <Badge variant={variant} size="sm">{label}</Badge>;
+  return <Badge variant={variants[category]} size="sm">{t(`categories.${category}`)}</Badge>;
 };
 
 const ConfidenceDot = ({ confidence }: { confidence: MappedAccount['confidence'] }) => {
+  const t = useTranslations('csvUpload');
   const colors = {
     high: 'bg-success',
     medium: 'bg-warning',
@@ -146,7 +147,7 @@ const ConfidenceDot = ({ confidence }: { confidence: MappedAccount['confidence']
     <div className="flex items-center gap-1.5">
       <div className={cn("w-2 h-2 rounded-full", colors[confidence])} />
       <Caption className="text-foreground/40">
-        {confidence === 'high' ? 'Zeker' : confidence === 'medium' ? 'Waarschijnlijk' : 'Onzeker'}
+        {t(`confidence.${confidence}`)}
       </Caption>
     </div>
   );
@@ -171,6 +172,7 @@ export function CSVMappingPreview({
   onBack,
   className,
 }: CSVMappingPreviewProps) {
+  const t = useTranslations('normalizationHub');
   const [mappedAccounts, setMappedAccounts] = useState<MappedAccount[]>(() => 
     mapCSVToAccounts(parsedData)
   );
@@ -221,36 +223,36 @@ export function CSVMappingPreview({
       <GlassCard className="p-6">
         <div className="flex items-start justify-between mb-6">
           <div>
-            <Heading level={2} className="text-xl mb-1">Mapping Controleren</Heading>
+            <Heading level={2} className="text-xl mb-1">{t('reviewMapping')}</Heading>
             <Caption className="text-foreground/50">
-              Controleer de automatische categorisatie van uw grootboekrekeningen
+              {t('reviewMappingDesc')}
             </Caption>
           </div>
           <Badge variant="primary" size="sm">
             {parsedData.detectedType === 'yuki' ? 'Yuki' : 
              parsedData.detectedType === 'exact' ? 'Exact' : 
-             parsedData.detectedType === 'odoo' ? 'Odoo' : 'CSV'} Export
+             parsedData.detectedType === 'odoo' ? 'Odoo' : 'CSV'} {t('export')}
           </Badge>
         </div>
 
         {/* Summary Cards - Responsive grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <div className="p-3 md:p-4 rounded-xl bg-foreground/[0.02] border border-foreground/[0.06]">
-            <Caption className="text-foreground/40 mb-1 text-[10px] md:text-xs">Rekeningen</Caption>
+            <Caption className="text-foreground/40 mb-1 text-[10px] md:text-xs">{t('accounts')}</Caption>
             <Mono className="text-lg md:text-2xl font-bold">{mappedAccounts.length}</Mono>
           </div>
           <div className="p-3 md:p-4 rounded-xl bg-primary/5 border border-primary/20">
-            <Caption className="text-foreground/40 mb-1 text-[10px] md:text-xs">Gem. Omzet</Caption>
+            <Caption className="text-foreground/40 mb-1 text-[10px] md:text-xs">{t('avgRevenue')}</Caption>
             <Mono className="text-lg md:text-2xl font-bold text-primary">
               {formatCurrency(revenueTotal)}
             </Mono>
           </div>
           <div className="p-3 md:p-4 rounded-xl bg-foreground/[0.02] border border-foreground/[0.06]">
-            <Caption className="text-foreground/40 mb-1 text-[10px] md:text-xs">Gem. Kosten</Caption>
+            <Caption className="text-foreground/40 mb-1 text-[10px] md:text-xs">{t('avgCosts')}</Caption>
             <Mono className="text-lg md:text-2xl font-bold">{formatCurrency(expenseTotal)}</Mono>
           </div>
           <div className="p-3 md:p-4 rounded-xl bg-foreground/[0.02] border border-foreground/[0.06]">
-            <Caption className="text-foreground/40 mb-1 text-[10px] md:text-xs">Boekjaren</Caption>
+            <Caption className="text-foreground/40 mb-1 text-[10px] md:text-xs">{t('fiscalYears')}</Caption>
             <Mono className="text-lg md:text-2xl font-bold">{parsedData.fiscalYears.length}</Mono>
           </div>
         </div>
@@ -264,8 +266,7 @@ export function CSVMappingPreview({
           >
             <AlertCircle className="w-4 h-4 text-warning shrink-0" />
             <Body size="sm" className="text-foreground/70">
-              {lowConfidenceCount} rekening{lowConfidenceCount > 1 ? 'en' : ''} met onzekere categorisatie. 
-              Klik op de categorie om aan te passen.
+              {t('lowConfidenceWarning', { count: lowConfidenceCount })}
             </Body>
           </motion.div>
         )}
@@ -276,13 +277,13 @@ export function CSVMappingPreview({
         {/* Table Header with Search */}
         <div className="px-4 md:px-6 py-4 border-b border-foreground/[0.06]">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <Heading level={3} className="text-base">Grootboek Mapping</Heading>
+            <Heading level={3} className="text-base">{t('ledgerMapping')}</Heading>
             
             {/* Search Bar - Cofounder requested feature */}
             <div className="w-full sm:w-72">
               <Input
                 size="sm"
-                placeholder="Zoek op code of omschrijving..."
+                placeholder={t('searchCodeOrDescription')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 leftIcon={<Search className="w-4 h-4" />}
@@ -300,14 +301,14 @@ export function CSVMappingPreview({
               className="mt-3 flex items-center gap-2"
             >
               <Caption className="text-foreground/50">
-                {filteredAccounts.length} van {mappedAccounts.length} rekeningen
+                {t('accountsCountOf', { filtered: filteredAccounts.length, total: mappedAccounts.length })}
               </Caption>
               {filteredAccounts.length === 0 && (
                 <button
                   onClick={handleClearSearch}
                   className="text-xs text-primary hover:underline"
                 >
-                  Wis filter
+                  {t('clearFilter')}
                 </button>
               )}
             </motion.div>
@@ -320,16 +321,16 @@ export function CSVMappingPreview({
             <thead>
               <tr className="border-b border-foreground/[0.06]">
                 <th className="px-4 md:px-6 py-3 text-left text-[10px] md:text-xs font-medium text-foreground/40 uppercase tracking-wider w-20 md:w-24">
-                  Code
+                  {t('code')}
                 </th>
                 <th className="px-4 md:px-6 py-3 text-left text-[10px] md:text-xs font-medium text-foreground/40 uppercase tracking-wider">
-                  Omschrijving
+                  {t('description')}
                 </th>
                 <th className="px-4 md:px-6 py-3 text-left text-[10px] md:text-xs font-medium text-foreground/40 uppercase tracking-wider w-28 md:w-32">
-                  Categorie
+                  {t('category')}
                 </th>
                 <th className="px-4 md:px-6 py-3 text-left text-[10px] md:text-xs font-medium text-foreground/40 uppercase tracking-wider w-24 md:w-28 hidden sm:table-cell">
-                  Zekerheid
+                  {t('confidence')}
                 </th>
                 {parsedData.fiscalYears.slice(0, 3).map(year => (
                   <th key={year} className="px-4 md:px-6 py-3 text-right text-[10px] md:text-xs font-medium text-foreground/40 uppercase tracking-wider w-24 md:w-28">
@@ -390,12 +391,12 @@ export function CSVMappingPreview({
                   <td colSpan={4 + parsedData.fiscalYears.slice(0, 3).length} className="px-6 py-12 text-center">
                     <div className="text-foreground/40">
                       <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Geen rekeningen gevonden voor "{searchQuery}"</p>
+                      <p className="text-sm">{t('noAccountsForQuery', { query: searchQuery })}</p>
                       <button
                         onClick={handleClearSearch}
                         className="mt-2 text-xs text-primary hover:underline"
                       >
-                        Toon alle rekeningen
+                        {t('showAllAccounts')}
                       </button>
                     </div>
                   </td>
@@ -409,11 +410,11 @@ export function CSVMappingPreview({
       {/* Actions - Mobile-friendly layout */}
       <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <Button variant="ghost" onClick={onBack} className="w-full sm:w-auto">
-          ← Terug
+          ← {t('back')}
         </Button>
         <Button variant="primary" onClick={handleConfirm} className="w-full sm:w-auto">
           <Check className="w-4 h-4 mr-2" />
-          Mapping Bevestigen
+          {t('confirmMapping')}
           <ChevronRight className="w-4 h-4 ml-2" />
         </Button>
       </div>

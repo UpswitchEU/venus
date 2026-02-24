@@ -73,19 +73,19 @@ export interface NormalizationEditorProps {
 
 const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS;
 
-const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus; description: string }[] = [
-  { value: 'add', label: '+€', icon: Plus, description: 'Bedrag toevoegen' },
-  { value: 'subtract', label: '-€', icon: Minus, description: 'Bedrag aftrekken' },
-  { value: 'add_percent', label: '+%', icon: Percent, description: 'Percentage toevoegen' },
-  { value: 'subtract_percent', label: '-%', icon: Percent, description: 'Percentage aftrekken' },
-  { value: 'absolute', label: 'ABS', icon: Hash, description: 'Doelwaarde instellen' },
+const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus; descriptionKey: string }[] = [
+  { value: 'add', label: '+€', icon: Plus, descriptionKey: 'typeAddAmount' },
+  { value: 'subtract', label: '-€', icon: Minus, descriptionKey: 'typeSubtractAmount' },
+  { value: 'add_percent', label: '+%', icon: Percent, descriptionKey: 'typeAddPercent' },
+  { value: 'subtract_percent', label: '-%', icon: Percent, descriptionKey: 'typeSubtractPercent' },
+  { value: 'absolute', label: 'ABS', icon: Hash, descriptionKey: 'typeSetTarget' },
 ];
 
-const sourceOptions: { value: NormalizationSource; label: string; color: string }[] = [
-  { value: 'manual', label: 'Manueel', color: 'bg-foreground/10 text-foreground/70' },
-  { value: 'yuki', label: 'Yuki', color: 'bg-accent/10 text-accent' },
-  { value: 'exact', label: 'Exact Online', color: 'bg-info/10 text-info' },
-  { value: 'csv', label: 'CSV Import', color: 'bg-warning/10 text-warning' },
+const sourceOptions: { value: NormalizationSource; labelKey: string; color: string }[] = [
+  { value: 'manual', labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
+  { value: 'yuki', labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
+  { value: 'exact', labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
+  { value: 'csv', labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
 ];
 
 const formatCurrency = (amount: number) => {
@@ -111,6 +111,7 @@ export function NormalizationEditor({
 }: NormalizationEditorProps) {
   const nh = useTranslations('normalizationHub');
   const tCommon = useTranslations('common.actions');
+  const tLabels = useTranslations('common.labels');
   const [searchQuery, setSearchQuery] = useState('');
   const [normalizations, setNormalizations] = useState<Normalization[]>(existingNormalizations);
   const [selectedLedger, setSelectedLedger] = useState<LedgerAccount | null>(null);
@@ -317,7 +318,7 @@ export function NormalizationEditor({
                   {/* Type Selector */}
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-foreground/60">
-                      Type aanpassing
+                      {nh('typeAdjustment')}
                     </label>
                     <div className="flex flex-wrap gap-1.5">
                       {typeOptions.map((option) => (
@@ -338,7 +339,7 @@ export function NormalizationEditor({
                               </button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{option.description}</p>
+                              <p>{nh(option.descriptionKey)}</p>
                             </TooltipContent>
                           </TooltipRoot>
                         </TooltipProvider>
@@ -397,7 +398,7 @@ export function NormalizationEditor({
                   {/* Source Selection */}
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-foreground/60">
-                      Bron
+                      {nh('source')}
                     </label>
                     <div className="flex flex-wrap gap-1.5">
                       {sourceOptions.map((option) => (
@@ -411,7 +412,7 @@ export function NormalizationEditor({
                               : "bg-foreground/[0.04] text-foreground/50 hover:bg-foreground/[0.08]"
                           )}
                         >
-                          {option.label}
+                          {nh(option.labelKey)}
                         </button>
                       ))}
                     </div>
@@ -420,10 +421,10 @@ export function NormalizationEditor({
                   {/* Reason (Optional) */}
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-foreground/60">
-                      Toelichting <span className="text-foreground/30">(optioneel)</span>
+                      {nh('explanation')} <span className="text-foreground/30">({tLabels('optional')})</span>
                     </label>
                     <Input
-                      placeholder="Bijv. Eigenaarssalaris boven marktwaarde"
+                      placeholder={nh('reasonPlaceholder')}
                       value={newReason}
                       onChange={(e) => setNewReason(e.target.value)}
                       className="text-base"
@@ -495,7 +496,7 @@ export function NormalizationEditor({
                               "px-2 py-0.5 rounded-full text-[10px] font-medium",
                               sourceOption?.color
                             )}>
-                              {sourceOption?.label}
+                              {sourceOption ? nh(sourceOption.labelKey) : ''}
                             </span>
                             {/* Year Badge */}
                             {normalization.applyAllYears ? (

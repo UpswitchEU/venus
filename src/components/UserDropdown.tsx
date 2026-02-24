@@ -1,4 +1,7 @@
+'use client'
+
 import { Home, Info, LogOut, Settings, User, UserPlus } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useEffect, useRef, useState } from 'react'
@@ -19,6 +22,7 @@ interface UserDropdownProps {
 }
 
 export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) => {
+  const t = useTranslations('userDropdown')
   // Get client context to show client avatar when acting as client
   const { isActingAsClient, client } = useClientContext()
   const router = useTransitionRouter()
@@ -436,7 +440,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           {
             key: 'back-to-home',
             icon: Home,
-            label: 'Back to Home',
+            label: t('backToHome'),
             action: handleBackToHome,
           },
         ]
@@ -444,14 +448,14 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           {
             key: 'back-to-dashboard',
             icon: Home,
-            label: 'Back to Dashboard',
+            label: t('backToDashboard'),
             action: handleBackToDashboard,
           },
         ]),
     {
       key: 'account-settings',
       icon: Settings,
-      label: 'Account Settings',
+      label: t('accountSettings'),
       action: handleAccountSettings,
     },
     {
@@ -461,7 +465,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     {
       key: 'logout',
       icon: LogOut,
-      label: 'Log Out',
+      label: t('logOut'),
       action: handleLogout,
     },
   ]
@@ -474,7 +478,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           {
             key: 'back-to-home',
             icon: Home,
-            label: 'Back to Home',
+            label: t('backToHome'),
             action: () => {
               generalLogger.info('[UserDropdown] Back to Home action called from guest menu')
               handleBackToHome()
@@ -489,7 +493,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     {
       key: 'create-account',
       icon: UserPlus,
-      label: 'Create Account',
+      label: t('createAccount'),
       action: handleCreateAccount,
     },
     {
@@ -499,7 +503,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     {
       key: 'learn-more',
       icon: Info,
-      label: 'Learn More',
+      label: t('learnMore'),
       action: handleLearnMore,
     },
   ]
@@ -536,7 +540,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         ref={buttonRef}
         onClick={handleUserClick}
         className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-full bg-foreground/10 text-foreground text-sm font-medium hover:bg-foreground/15 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-        aria-label={user ? `${displayName} - Account Menu` : 'Guest - Account Menu'}
+        aria-label={user ? `${displayName} - ${t('accountMenu')}` : t('guestAccountMenu')}
         aria-expanded={isOpen}
         aria-haspopup="true"
         style={{ position: 'relative', zIndex: 10001 }}
@@ -613,8 +617,8 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
                 </div>
               ) : (
                 <div className="flex flex-col">
-                  <p className="text-sm font-medium text-foreground">Welcome, Guest</p>
-                  <p className="text-xs text-muted-foreground">Sign in to access your dashboard</p>
+                  <p className="text-sm font-medium text-foreground">{t('welcomeGuest')}</p>
+                  <p className="text-xs text-muted-foreground">{t('signInToDashboard')}</p>
                 </div>
               )}
             </div>
