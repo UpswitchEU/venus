@@ -3,23 +3,25 @@
  *
  * Proxies KBO (Belgian Company Registry) search requests to the Titan backend API.
  * Uses canonical /api/v2/registry/search (same as Mercury), with v1 fallback on 404.
- * Includes 10s timeout to prevent hanging requests.
+ * Includes 10s timeout to prevent hanging requests (production traffic).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl';
 
+const REGISTRY_SEARCH_TIMEOUT_MS = 10_000;
+
 export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
 
-		// Validate required fields
-		if (!body.company_name || body.company_name.length < 3) {
+		// Validate required fields (min 2 chars to support short company names e.g. AX, AB)
+		if (!body.company_name || body.company_name.length < 2) {
 			return NextResponse.json(
 				{
 					success: false,
 					results: [],
-					error: 'Company name must be at least 3 characters long',
+					error: 'Company name must be at least 2 characters long',
 				},
 				{ status: 400 }
 			);
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
 		};
 
 		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), 6000);
+		const timeout = setTimeout(() => controller.abort(), REGISTRY_SEARCH_TIMEOUT_MS);
 
 		const fetchOptions = {
 			method: 'POST' as const,
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
 			const isTimeout =
 				fetchError instanceof Error && fetchError.name === 'AbortError';
 			const errorMsg = isTimeout
-				? 'Backend request timed out after 6s'
+				? `Backend request timed out after ${REGISTRY_SEARCH_TIMEOUT_MS / 1000}s`
 				: `Cannot reach backend at ${titanUrl}`;
 
 			console.error('[Venus Registry API] Connection error:', {
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
 			clearTimeout(timeout);
 			try {
 				const fallbackController = new AbortController();
-				const fallbackTimeout = setTimeout(() => fallbackController.abort(), 6000);
+				const fallbackTimeout = setTimeout(() => fallbackController.abort(), REGISTRY_SEARCH_TIMEOUT_MS);
 				const fallbackRes = await fetch(`${titanUrl}/api/v1/registry/search`, {
 					...fetchOptions,
 					signal: fallbackController.signal,
