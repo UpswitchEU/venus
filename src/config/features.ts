@@ -51,8 +51,8 @@ export const getEnvironmentConfig = () => {
     apiUrl:
       process.env.NEXT_PUBLIC_API_URL ||
       process.env.NEXT_PUBLIC_BACKEND_URL ||
-      'http://localhost:3001',
-    creditApiUrl: process.env.NEXT_PUBLIC_CREDIT_API_URL || 'http://localhost:3001/api/credits',
+      'https://valuation.upswitch.app',
+    creditApiUrl: process.env.NEXT_PUBLIC_CREDIT_API_URL || 'https://valuation.upswitch.app/api/credits',
   }
 }
 

@@ -7,6 +7,7 @@
  */
 
 import type { IndustryCode, ValuationRequest, YearDataInput } from '../../types/valuation'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 
 const businessCardLogger = createContextLogger('BusinessCardService')
@@ -42,7 +43,7 @@ class BusinessCardServiceImpl implements BusinessCardService {
       })
 
       // Call backend endpoint: GET /api/business-cards?token=...
-      const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/business-cards?token=${token}`
+      const url = `${getApiUrl()}/api/business-cards?token=${token}`
 
       const response = await fetch(url, {
         method: 'GET',
