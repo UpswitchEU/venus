@@ -47,6 +47,7 @@ import {
   Table2,
 } from 'lucide-react';
 import { NormalizationTableView, NormalizationBentoView } from './NormalizationViews';
+import { trackNormalizationAdd, trackNormalizationEdit, trackNormalizationAcceptAll } from '@/lib/analytics';
 import { cn } from '@/design-system/utils';
 import { AuroraButton as Button } from '@/design-system/components/Button';
 import { AuroraInput as Input } from '@/design-system/components/Input';
@@ -576,7 +577,6 @@ export function UnifiedNormalizationModal({
     const numericValue = parseFloat(editValue.replace(/[^0-9.-]/g, ''));
     if (isNaN(numericValue)) return;
 
-    // Calculate adjustment based on type
     let adjustment = numericValue;
     if (editType === 'add_percent') {
       adjustment = originalEBITDA * numericValue / 100;
@@ -588,6 +588,7 @@ export function UnifiedNormalizationModal({
       adjustment = numericValue - originalEBITDA;
     }
 
+    trackNormalizationEdit();
     onNormalizationsChange(
       normalizations.map(n => 
         n.id === editingId 
@@ -607,6 +608,8 @@ export function UnifiedNormalizationModal({
   }, [editingId, editValue, editType, editReason, editSelectedYears, availableYears.length, normalizations, onNormalizationsChange]);
 
   const acceptAll = useCallback(() => {
+    const pendingCount = normalizations.filter(n => n.status === 'pending').length;
+    trackNormalizationAcceptAll(pendingCount);
     onNormalizationsChange(
       normalizations.map(n => n.status === 'pending' ? { ...n, status: 'accepted' } : n)
     );
@@ -704,7 +707,7 @@ export function UnifiedNormalizationModal({
         year: currentYear,
       };
 
-      // Prepend new item to top of list for better UX
+      trackNormalizationAdd('manual');
       onNormalizationsChange([newItem, ...normalizations]);
     }
     

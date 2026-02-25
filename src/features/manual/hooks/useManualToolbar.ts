@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useState } from 'react'
+import { trackPDFDownload } from '@/lib/analytics'
 import { useValuationToolbarRefresh } from '../../../hooks/valuationToolbar'
 import { backendAPI } from '../../../services/backendApi'
 import { RefreshService } from '../../../services/toolbar/refreshService'
@@ -98,6 +99,7 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
+      trackPDFDownload()
       generalLogger.info('PDF download completed successfully', {
         reportId,
         filename,

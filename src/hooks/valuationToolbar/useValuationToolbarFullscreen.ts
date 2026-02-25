@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useState } from 'react'
+import { trackFullscreenOpen } from '@/lib/analytics'
 
 export interface UseValuationToolbarFullscreenReturn {
   isFullScreen: boolean
@@ -25,6 +26,7 @@ export const useValuationToolbarFullscreen = (): UseValuationToolbarFullscreenRe
   const [isFullScreen, setIsFullScreen] = useState(false)
 
   const handleOpenFullscreen = useCallback(() => {
+    trackFullscreenOpen()
     setIsFullScreen(true)
   }, [])
 

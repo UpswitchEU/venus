@@ -1,0 +1,142 @@
+/**
+ * Venus GA4 Event Tracking Service
+ *
+ * Tracks the full valuation funnel:
+ *   Mercury CTA → Venus session → calculation → normalizations → recalc → PDF → return
+ *
+ * All events are no-ops when gtag hasn't loaded (before consent).
+ */
+
+function trackEvent(name: string, params?: Record<string, string | number | boolean>): void {
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('event', name, params)
+  }
+}
+
+// ── Identity ─────────────────────────────────────────────────────────
+
+/** Set user ID for cross-device stitching (shared auth with Mercury) */
+export function identifyUser(userId: string, role?: string): void {
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('set', { user_id: userId })
+    if (role) {
+      window.gtag('set', 'user_properties', { user_role: role })
+    }
+  }
+}
+
+// ── Session & Navigation ─────────────────────────────────────────────
+
+/** User lands on Venus (from Mercury redirect or direct) */
+export function trackSessionStart(source: string): void {
+  trackEvent('venus_session_start', { source })
+}
+
+/** User navigates back to Mercury */
+export function trackReturnToMercury(): void {
+  trackEvent('venus_return_to_mercury')
+}
+
+/** User opens an existing report */
+export function trackReportOpen(reportId: string): void {
+  trackEvent('venus_report_open', { report_id: reportId })
+}
+
+/** User creates a new report */
+export function trackReportCreate(): void {
+  trackEvent('venus_report_create')
+}
+
+// ── Valuation Calculation ────────────────────────────────────────────
+
+/** User submits form to calculate valuation */
+export function trackValuationCalculate(isRecalculation: boolean): void {
+  trackEvent('venus_valuation_calculate', {
+    is_recalculation: isRecalculation,
+  })
+}
+
+/** Valuation calculation completes successfully */
+export function trackValuationResult(durationMs: number): void {
+  trackEvent('venus_valuation_result', {
+    duration_ms: Math.round(durationMs),
+  })
+}
+
+// ── Normalizations ───────────────────────────────────────────────────
+
+/** User opens the normalization modal/hub */
+export function trackNormalizationOpen(): void {
+  trackEvent('venus_normalization_open')
+}
+
+/** User adds a normalization adjustment */
+export function trackNormalizationAdd(source: 'manual' | 'ai'): void {
+  trackEvent('venus_normalization_add', { source })
+}
+
+/** User edits a normalization */
+export function trackNormalizationEdit(): void {
+  trackEvent('venus_normalization_edit')
+}
+
+/** User accepts all AI-suggested normalizations */
+export function trackNormalizationAcceptAll(count: number): void {
+  trackEvent('venus_normalization_accept_all', { count })
+}
+
+// ── AI Assistant ─────────────────────────────────────────────────────
+
+/** User opens the AI assistant drawer */
+export function trackAIAssistantOpen(): void {
+  trackEvent('venus_ai_assistant_open')
+}
+
+/** User sends a message to the AI assistant */
+export function trackAIAssistantMessage(): void {
+  trackEvent('venus_ai_assistant_message')
+}
+
+/** User accepts an AI-suggested normalization from chat */
+export function trackAINormalizationAccept(): void {
+  trackEvent('venus_ai_normalization_accept')
+}
+
+/** User accepts an AI field update from chat */
+export function trackAIFieldUpdate(): void {
+  trackEvent('venus_ai_field_update')
+}
+
+// ── Version Control ──────────────────────────────────────────────────
+
+/** User opens the version history panel */
+export function trackVersionHistoryOpen(): void {
+  trackEvent('venus_version_history_open')
+}
+
+/** User restores a previous version */
+export function trackVersionRestore(versionNumber: number): void {
+  trackEvent('venus_version_restore', { version_number: versionNumber })
+}
+
+/** User starts a version comparison */
+export function trackVersionCompare(): void {
+  trackEvent('venus_version_compare')
+}
+
+// ── Export & Viewing ─────────────────────────────────────────────────
+
+/** User downloads a PDF report */
+export function trackPDFDownload(): void {
+  trackEvent('venus_pdf_download')
+}
+
+/** User enters fullscreen report view */
+export function trackFullscreenOpen(): void {
+  trackEvent('venus_fullscreen_open')
+}
+
+/** User opens report preview */
+export function trackPreviewOpen(): void {
+  trackEvent('venus_preview_open')
+}

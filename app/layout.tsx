@@ -4,6 +4,7 @@ import { getLocale } from 'next-intl/server'
 import './globals.css'
 import { locales, defaultLocale, type Locale } from '../i18n'
 import { Providers } from './providers'
+import { VenusAnalytics } from '../src/components/analytics/VenusAnalytics'
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }))
@@ -87,6 +88,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <ViewTransitions>
       <html lang={locale} suppressHydrationWarning className="aurora-theme dark">
       <head>
+        {/* Google tag (gtag.js) - Venus G-0RW0LNCVBG */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-0RW0LNCVBG" />
+        <script dangerouslySetInnerHTML={{ __html: `
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('consent', 'default', {
+  analytics_storage: 'denied',
+  ad_storage: 'denied',
+  ad_user_data: 'denied',
+  ad_personalization: 'denied',
+  functionality_storage: 'denied',
+  wait_for_update: 500
+});
+gtag('config', 'G-0RW0LNCVBG', {
+  anonymize_ip: true,
+  linker: { domains: ['upswitch.app', 'valuation.upswitch.app'], accept_incoming: true }
+});
+` }} />
         {/* ✅ FIX: Use manual meta tag for viewport to support Next.js 13.5.6 */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         {/* Manifest: omit on preview to avoid 401 from Vercel Deployment Protection (no path-level bypass on Standard plan) */}
@@ -125,6 +145,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="bg-background text-foreground antialiased">
+        <VenusAnalytics />
         <Providers>
           {children}
         </Providers>

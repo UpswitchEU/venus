@@ -31,6 +31,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/design-system/utils';
+import { trackAIAssistantOpen, trackAIAssistantMessage } from '@/lib/analytics';
 import { springDefault } from '@/design-system/components/motion';
 import { AuroraButton } from '@/design-system/components/Button';
 
@@ -454,9 +455,9 @@ export function ChatAssistantDrawer({
     }
   }, [input]);
 
-  // Focus textarea when drawer opens
   useEffect(() => {
-    if (open && textareaRef.current) {
+    if (open) {
+      trackAIAssistantOpen();
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
   }, [open]);
@@ -480,7 +481,7 @@ export function ChatAssistantDrawer({
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() && attachments.length === 0) return;
-    // Pass detected values and commands along with the message
+    trackAIAssistantMessage();
     onSendMessage(
       input, 
       attachments, 

@@ -11,6 +11,7 @@ import { type BusinessCardData, businessCardService } from '../../services/busin
 import UrlGeneratorService from '../../services/urlGenerator'
 import { useClientContext } from '../../stores/clientContext'
 import { useReportsStore } from '../../store/useReportsStore'
+import { trackSessionStart, trackReportCreate, trackReportOpen } from '@/lib/analytics'
 import { ScrollToTop } from '../../utils'
 import { generalLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
@@ -130,7 +131,11 @@ export const HomePage: React.FC = () => {
     fetchReports(user?.id)
   }, [fetchReports, user?.id])
 
-  // Auto-focus the textarea when component mounts
+  useEffect(() => {
+    const source = document.referrer.includes('upswitch.app') ? 'mercury' : 'direct'
+    trackSessionStart(source)
+  }, [])
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus()
@@ -162,6 +167,7 @@ export const HomePage: React.FC = () => {
         token: businessCardToken || undefined,
       })
 
+      trackReportCreate()
       generalLogger.info('Starting new valuation', {
         reportId: newReportId,
         mode,
@@ -175,10 +181,10 @@ export const HomePage: React.FC = () => {
   }
 
   const handleReportClick = (reportId: string) => {
-    // Get report from list to determine flow type
     const report = reports.find((r) => r.reportId === reportId)
     const flow = report?.currentView || 'manual'
 
+    trackReportOpen(reportId)
     generalLogger.info('Opening existing report', { reportId, flow })
 
     // Navigate with flow type preserved

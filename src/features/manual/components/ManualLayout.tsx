@@ -47,6 +47,7 @@ import { generalLogger } from '../../../utils/logger'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { getSafeMercuryReturnUrl } from '../../../lib/return-url'
+import { trackNormalizationOpen, trackPreviewOpen, trackVersionHistoryOpen, trackReturnToMercury, trackAINormalizationAccept, trackAIFieldUpdate } from '@/lib/analytics'
 import {
   areChangesSignificant,
   detectVersionChanges,
@@ -1177,6 +1178,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [normalizationActions, reportId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAcceptUpdate = useCallback((field: string) => {
+    trackAIFieldUpdate()
     setPendingUpdates((prev) => prev.filter((u) => u.field !== field))
   }, [])
 
@@ -1364,8 +1366,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
   }, [clientContextId, currentLocale])
 
-  const handlePreview = useCallback(() => setRightPanelView('preview'), [])
-  const handleShowHistory = useCallback(() => setRightPanelView('history'), [])
+  const handlePreview = useCallback(() => { trackPreviewOpen(); setRightPanelView('preview') }, [])
+  const handleShowHistory = useCallback(() => { trackVersionHistoryOpen(); setRightPanelView('history') }, [])
   const handleFullscreen = useCallback(() => setShowFullscreenModal(true), [])
   const handleOpenAssistant = useCallback(() => setChatDrawerOpen((prev) => !prev), [])
 
@@ -1512,9 +1514,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   )
 
   // ─── Normalization Handlers (unified store) - Clarity parity: open modal, do not replace left panel ───
-  const handleShowNormalisationReview = useCallback(() => setShowUnifiedNormalizationModal(true), [])
+  const handleShowNormalisationReview = useCallback(() => { trackNormalizationOpen(); setShowUnifiedNormalizationModal(true) }, [])
 
   const handleAcceptNormalisation = useCallback((id: string) => {
+    trackAINormalizationAccept()
     normalizationActions.acceptItem(id)
     setSuggestedNormalisations((prev: any[]) =>
       prev.map((n: any) => (n.id === id ? { ...n, status: 'accepted' } : n)),
@@ -1840,6 +1843,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     hasUploadedData: suggestedNormalisations.length > 0,
     toolInProgress: conversationStore.toolInProgress,
     onOpenNormalizationHub: () => {
+      trackNormalizationOpen()
       setShowUnifiedNormalizationModal(true)
       setChatDrawerOpen(false)
     },
@@ -1867,7 +1871,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           avatarUrl={isAccountantMode ? null : (user?.avatar_url || user?.avatar)}
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
-          onOpenNormalization={() => setShowUnifiedNormalizationModal(true)}
+          onOpenNormalization={() => { trackNormalizationOpen(); setShowUnifiedNormalizationModal(true) }}
           normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
           openTasksCount={suggestedNormalisations.filter((n: any) => n.status === 'pending').length + pendingUpdates.length}
           isExporting={isExporting}
@@ -1968,6 +1972,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         selectedVersionId={selectedVersionId}
         onSelectVersion={handleSelectVersion}
         onContinueToListing={() => {
+          trackReturnToMercury()
           const mercuryBaseUrl = getMercuryUrl()
           const returnPath = clientContextId
             ? `${mercuryBaseUrl}/${currentLocale}/accountant/clients/${clientContextId}?from=venus`

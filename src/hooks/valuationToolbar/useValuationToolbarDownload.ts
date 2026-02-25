@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useState } from 'react'
+import { trackPDFDownload } from '@/lib/analytics'
 import type { ValuationData } from '../../services/downloadService'
 import { generalLogger } from '../../utils/logger'
 
@@ -46,6 +47,7 @@ export const useValuationToolbarDownload = (): UseValuationToolbarDownloadReturn
         filename,
       })
 
+      trackPDFDownload()
       generalLogger.info('PDF download completed successfully', {
         companyName: valuationData.companyName,
         filename,

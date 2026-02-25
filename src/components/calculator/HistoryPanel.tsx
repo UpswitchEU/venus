@@ -30,6 +30,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { trackVersionHistoryOpen, trackVersionRestore, trackVersionCompare } from '@/lib/analytics';
 import { cn } from '@/design-system/utils';
 import { springDefault, springSnappy } from '@/design-system/components/motion';
 import { AuroraButton as Button, Checkbox } from '@/design-system';
@@ -404,13 +405,11 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
   
   const handleRestoreVersion = async (version: HistoryVersion) => {
     setRestoringVersion(version.id);
+    trackVersionRestore(version.version);
     try {
-      // Look up the full ValuationVersion from the store (has formData, normalizations, etc.)
       const fullVersion = storeVersions.find(
         (v) => v.id === version.id || v.versionNumber === version.version
       )
-      // Pass full store version (with formData, valuationResult, normalization_data)
-      // rather than the stripped HistoryVersion which lacks these fields
       await onVersionRestore?.(fullVersion || version);
     } finally {
       setRestoringVersion(null);
@@ -419,6 +418,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
   
   const handleStartCompare = () => {
     if (selectedForCompare.size === 2) {
+      trackVersionCompare();
       setCompareModalOpen(true);
     }
   };

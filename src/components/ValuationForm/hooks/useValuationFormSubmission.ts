@@ -8,6 +8,7 @@
  */
 
 import { useCallback } from 'react'
+import { trackValuationCalculate, trackValuationResult } from '@/lib/analytics'
 import { reportService, sessionService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
@@ -247,10 +248,9 @@ export const useValuationFormSubmission = (
           }
         }
 
-        // Calculate valuation using service layer
-        // NOTE: isCalculating is already set to true by trySetCalculating above
         let result
         const calculationStart = performance.now()
+        trackValuationCalculate(!!previousVersion)
         try {
           generalLogger.info('[Manual] Calling valuation service', {
             requestKeys: Object.keys(request),
@@ -287,6 +287,7 @@ export const useValuationFormSubmission = (
           throw calcError
         }
         const calculationDuration = performance.now() - calculationStart
+        if (result) trackValuationResult(calculationDuration)
 
         if (result) {
           // CRITICAL: Log html_report presence before storing

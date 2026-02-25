@@ -123,6 +123,12 @@ const PlatformPasswordProtection: React.FC<PlatformPasswordProtectionProps> = ({
 
   // Check authentication on mount
   useEffect(() => {
+    if (!PLATFORM_PASSWORD) {
+      setIsAuthenticated(true)
+      setIsLoading(false)
+      return
+    }
+
     const checkAuthentication = () => {
       try {
         const token = getCookie(PLATFORM_COOKIE_NAME)
