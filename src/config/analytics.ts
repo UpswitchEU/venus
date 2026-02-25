@@ -152,10 +152,9 @@ export const trackError = (error: Error, context: string) => {
   })
 }
 
-// Global type declarations
+// Global type declarations (gtag is declared in src/types/gtag.d.ts)
 declare global {
   interface Window {
-    gtag?: (...args: any[]) => void
     mixpanel?: {
       track: (event: string, properties?: Record<string, any>) => void
       identify: (id: string) => void

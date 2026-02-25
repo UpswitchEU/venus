@@ -30,7 +30,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { trackVersionHistoryOpen, trackVersionRestore, trackVersionCompare } from '@/lib/analytics';
+import { trackVersionRestore, trackVersionCompare } from '@/lib/analytics';
 import { cn } from '@/design-system/utils';
 import { springDefault, springSnappy } from '@/design-system/components/motion';
 import { AuroraButton as Button, Checkbox } from '@/design-system';

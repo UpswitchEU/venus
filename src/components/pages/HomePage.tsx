@@ -11,7 +11,7 @@ import { type BusinessCardData, businessCardService } from '../../services/busin
 import UrlGeneratorService from '../../services/urlGenerator'
 import { useClientContext } from '../../stores/clientContext'
 import { useReportsStore } from '../../store/useReportsStore'
-import { trackSessionStart, trackReportCreate, trackReportOpen } from '@/lib/analytics'
+import { identifyUser, trackSessionStart, trackReportCreate, trackReportOpen } from '@/lib/analytics'
 import { ScrollToTop } from '../../utils'
 import { generalLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
@@ -134,7 +134,8 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     const source = document.referrer.includes('upswitch.app') ? 'mercury' : 'direct'
     trackSessionStart(source)
-  }, [])
+    if (user?.id) identifyUser(user.id, (user as any).role)
+  }, [user?.id])
 
   useEffect(() => {
     if (textareaRef.current) {
