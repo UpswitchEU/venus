@@ -129,12 +129,13 @@ export const useValuationFormSubmission = (
         setEmployeeCountError(null)
 
         // Validate required fields
-        if (!formData.revenue || !formData.ebitda || !formData.industry || !formData.country_code) {
+        if (!formData.revenue || !formData.ebitda || !formData.industry || !formData.country_code || !formData.business_type_id) {
           const missingFields = []
           if (!formData.revenue) missingFields.push('revenue')
           if (!formData.ebitda) missingFields.push('ebitda')
           if (!formData.industry) missingFields.push('industry')
           if (!formData.country_code) missingFields.push('country_code')
+          if (!formData.business_type_id) missingFields.push('business_type_id')
 
           generalLogger.warn('Form validation failed: missing required fields', {
             missingFields,

@@ -323,14 +323,14 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
 
                   {types.map((type) => {
                     const globalIndex = filteredTypes.findIndex((t) => t.id === type.id)
-                    const isHighlighted = globalIndex === highlightedIndex
+                    const isHighlighted = globalIndex !== -1 && globalIndex === highlightedIndex
 
                     return (
                       <button
                         key={type.id}
                         type="button"
                         onClick={() => handleSelect(type)}
-                        onMouseEnter={() => setHighlightedIndex(globalIndex)}
+                        onMouseEnter={() => { if (globalIndex !== -1) setHighlightedIndex(globalIndex) }}
                         className={`w-full text-left px-4 py-3 transition-all duration-150 group ${
                           isHighlighted ? 'bg-primary/10' : 'hover:bg-foreground/[0.04]'
                         }`}

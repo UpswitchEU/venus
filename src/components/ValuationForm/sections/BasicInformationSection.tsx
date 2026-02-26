@@ -303,10 +303,9 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
                 },
               })
 
-              // Validate that business type has industry classification
+              // Warn if industry classification is missing but proceed with 'services' fallback
               if (!businessType.industry && !businessType.industryMapping) {
-                generalLogger.warn('Business type missing industry classification', { id: businessType.id })
-                return
+                generalLogger.warn('Business type missing industry classification — using services fallback', { id: businessType.id })
               }
 
               updateFormData({
