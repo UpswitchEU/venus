@@ -94,7 +94,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
               revenueGuidance.tip ? `Tip: ${revenueGuidance.tip}` : '',
               revenueGuidance.why ? `Why: ${revenueGuidance.why}` : '',
               validation?.message ? `Note: ${validation.message}` : '',
-              formData.number_of_employees && formData.revenue
+              formData.number_of_employees && formData.number_of_employees > 0 && formData.revenue
                 ? `Revenue per employee: €${Math.round(
                     formData.revenue / formData.number_of_employees
                   ).toLocaleString()}`

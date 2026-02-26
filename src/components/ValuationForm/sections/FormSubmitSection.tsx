@@ -48,12 +48,12 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
     hasNormalization(lastFullYear - 2)
 
   const isFormValid =
-    formData.revenue && formData.ebitda && formData.industry && formData.country_code
+    formData.revenue && formData.ebitda && formData.industry && formData.country_code && formData.business_type_id
 
-  // Identify missing required fields for better UX
   const missingFields: string[] = []
   if (!formData.revenue) missingFields.push(t('forms.fields.revenue'))
   if (!formData.ebitda) missingFields.push(t('forms.fields.ebitda'))
+  if (!formData.business_type_id) missingFields.push(t('forms.fields.businessType'))
   if (!formData.industry) missingFields.push(t('forms.fields.businessType'))
   if (!formData.country_code) missingFields.push(t('forms.fields.country'))
 

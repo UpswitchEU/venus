@@ -121,13 +121,14 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
               {isNormalized && sessionId ? (
                 <NormalizedEBITDAField
                   label="EBITDA (€)"
-                  originalValue={parseFloat(ebitda.replace(/,/g, '')) || 0}
+                  originalValue={Number.isFinite(parseFloat(ebitda.replace(/,/g, ''))) ? parseFloat(ebitda.replace(/,/g, '')) : 0}
                   normalizedValue={getNormalizedEbitda(year)}
                   totalAdjustments={getTotalAdjustments(year)}
                   adjustmentCount={getAdjustmentCount(year)}
                   lastUpdated={getLastUpdated(year)}
                   onEdit={() => {
-                    const reportedEbitda = parseFloat(ebitda.replace(/,/g, '')) || 0
+                    const parsed = parseFloat(ebitda.replace(/,/g, ''))
+                    const reportedEbitda = Number.isFinite(parsed) ? parsed : 0
                     openNormalizationModal(year, reportedEbitda, sessionId)
                   }}
                   onRemove={() => {
@@ -155,7 +156,8 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          const reportedEbitda = parseFloat(ebitda.replace(/,/g, '')) || 0
+                          const parsed = parseFloat(ebitda.replace(/,/g, ''))
+                          const reportedEbitda = Number.isFinite(parsed) ? parsed : 0
                           openNormalizationModal(year, reportedEbitda, sessionId)
                         }}
                         className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"

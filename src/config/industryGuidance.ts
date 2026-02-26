@@ -571,7 +571,7 @@ export const validateEbitdaMargin = (
   message: string
   severity: 'success' | 'warning' | 'info'
 } => {
-  if (!revenue || !ebitda) {
+  if (!revenue || revenue === 0 || !ebitda) {
     return { isValid: true, message: '', severity: 'info' }
   }
 
