@@ -71,38 +71,39 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
 
   const filteredTypes = React.useMemo(() => {
     if (!query.trim()) {
-      // Show all business types when no query, popular first
       const popular = businessTypes.filter((bt) => bt.popular)
       const others = businessTypes.filter((bt) => !bt.popular)
       return [...popular, ...others]
     }
 
+    const normalize = (s: string) => s.toLowerCase().replace(/[-_.\s]/g, '')
     const searchTerm = query.toLowerCase()
+    const searchNorm = normalize(query)
     return businessTypes
       .filter(
         (bt) =>
           bt.title.toLowerCase().includes(searchTerm) ||
+          normalize(bt.title).includes(searchNorm) ||
           bt.description?.toLowerCase().includes(searchTerm) ||
+          normalize(bt.description || '').includes(searchNorm) ||
           bt.industryMapping?.toLowerCase().includes(searchTerm) ||
-          bt.industry?.toLowerCase().includes(searchTerm)
+          normalize(bt.industryMapping || '').includes(searchNorm) ||
+          bt.industry?.toLowerCase().includes(searchTerm) ||
+          normalize(bt.industry || '').includes(searchNorm)
       )
       .sort((a, b) => {
-        // Prioritize exact matches
-        const aExact = a.title.toLowerCase() === searchTerm
-        const bExact = b.title.toLowerCase() === searchTerm
+        const aExact = a.title.toLowerCase() === searchTerm || normalize(a.title) === searchNorm
+        const bExact = b.title.toLowerCase() === searchTerm || normalize(b.title) === searchNorm
         if (aExact && !bExact) return -1
         if (!aExact && bExact) return 1
 
-        // Then prioritize popular types
         if (a.popular && !b.popular) return -1
         if (!a.popular && b.popular) return 1
 
-        // Then by title match position
-        const aIndex = a.title.toLowerCase().indexOf(searchTerm)
-        const bIndex = b.title.toLowerCase().indexOf(searchTerm)
-        return aIndex - bIndex
+        const aIdx = normalize(a.title).indexOf(searchNorm)
+        const bIdx = normalize(b.title).indexOf(searchNorm)
+        return aIdx - bIdx
       })
-      // Show all matching results (no artificial limit)
   }, [query, businessTypes])
 
   // Group filtered types by category

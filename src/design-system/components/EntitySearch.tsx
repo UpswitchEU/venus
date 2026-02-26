@@ -859,12 +859,15 @@ export interface BusinessTypeSearchInputProps
   onRetryLoad?: () => void;
 }
 
+function normalizeForSearch(s: string): string {
+  return s.toLowerCase().replace(/[-_.\s]/g, '');
+}
+
 function fuzzySearchBusinessTypes(
   query: string,
   types: BusinessType[],
   prioritizedId?: string
 ): { types: BusinessType[], isDidYouMean: boolean } {
-  // When empty: NACE-matched first (from KBO), then popular, then rest, limit 15
   if (!query) {
     const sorted = [...types].sort((a, b) => {
       if (prioritizedId) {
@@ -877,38 +880,46 @@ function fuzzySearchBusinessTypes(
   }
   
   const lower = query.toLowerCase();
+  const norm = normalizeForSearch(query);
   const words = lower.split(/\s+/).filter(w => w.length > 1);
   
   const scored = types.map(t => {
     const nameLower = t.name.toLowerCase();
+    const nameNorm = normalizeForSearch(t.name);
     const codeLower = t.code.toLowerCase();
     const descLower = (t.description || '').toLowerCase();
+    const descNorm = normalizeForSearch(t.description || '');
     const cat = typeof t.category === 'string' ? t.category : (t.category as Record<string, unknown>)?.name ?? (t.category as Record<string, unknown>)?.title ?? '';
     const catLower = String(cat).toLowerCase();
+    const catNorm = normalizeForSearch(String(cat));
     
     let score = 0;
-    if (nameLower.startsWith(lower)) score += 100;
-    if (nameLower.includes(lower)) score += 50;
+    if (nameLower.startsWith(lower) || nameNorm.startsWith(norm)) score += 100;
+    if (nameLower.includes(lower) || nameNorm.includes(norm)) score += 50;
     if (codeLower.includes(lower)) score += 40;
-    if (catLower.includes(lower)) score += 30;
-    if (descLower.includes(lower)) score += 20;
+    if (catLower.includes(lower) || catNorm.includes(norm)) score += 30;
+    if (descLower.includes(lower) || descNorm.includes(norm)) score += 20;
     
     words.forEach(word => {
-      if (nameLower.includes(word)) score += 25;
-      if (descLower.includes(word)) score += 15;
+      const wordNorm = normalizeForSearch(word);
+      if (nameLower.includes(word) || nameNorm.includes(wordNorm)) score += 25;
+      if (descLower.includes(word) || descNorm.includes(wordNorm)) score += 15;
     });
     
-    // Fuzzy matching for typos
     if (lower.length >= 3) {
       const partialMatch = nameLower.slice(0, lower.length);
       if (partialMatch.startsWith(lower.slice(0, -1))) score += 35;
+      const partialNorm = nameNorm.slice(0, norm.length);
+      if (partialNorm.startsWith(norm.slice(0, -1))) score += 35;
     }
     
     return { type: t, score };
   });
   
   const filtered = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score).map(s => s.type);
-  const hasExactStart = types.some(t => t.name.toLowerCase().startsWith(lower));
+  const hasExactStart = types.some(t =>
+    t.name.toLowerCase().startsWith(lower) || normalizeForSearch(t.name).startsWith(norm)
+  );
   
   return { 
     types: filtered, 
