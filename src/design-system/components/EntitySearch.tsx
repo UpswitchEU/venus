@@ -78,7 +78,7 @@ const searchContainerVariants = cva(
 const searchGroupVariants = cva(
   [
     "relative border rounded-xl shadow-sm transition-all duration-200",
-    "bg-foreground/[0.04]",
+    "bg-muted",
   ],
   {
     variants: {
@@ -106,6 +106,7 @@ const searchFieldVariants = cva(
   [
     "w-full border-none rounded-xl",
     "bg-transparent",
+    "disabled:bg-transparent",
     "focus:outline-none focus:ring-0",
     "transition-all duration-200 ease-in-out",
     "placeholder:text-transparent",
