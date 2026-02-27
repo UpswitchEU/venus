@@ -25,7 +25,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { AuroraButton, GlassCard } from '@/design-system'
 import type { User } from '../contexts/AuthContextTypes'
 import { useLanguageSync } from '../hooks/useLanguageSync'
-import { clearReloadCounter, getInitTraceId, useAuthStore } from '../lib/auth'
+import { clearInitThrottle, clearReloadCounter, getInitTraceId, useAuthStore } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
@@ -325,6 +325,7 @@ export function AuthGate({
         settle('error', 'Unable to sign in. Please try again in a new tab or clear your cookies.')
         return
       }
+      clearInitThrottle()
       settle('redirect', buildLoginUrl())
     }
 

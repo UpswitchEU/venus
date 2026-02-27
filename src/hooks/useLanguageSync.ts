@@ -9,7 +9,7 @@ import { useAuthStore } from '../lib/auth'
 const SUPPORTED_LOCALES: readonly string[] = ['en', 'nl']
 
 /** RELOAD LOOP FIX: Minimum delay (ms) after auth ready before locale redirect. */
-const LOCALE_REDIRECT_DELAY_MS = 1000
+const LOCALE_REDIRECT_DELAY_MS = 1500
 
 /**
  * Syncs the authenticated user's language_preference from Titan

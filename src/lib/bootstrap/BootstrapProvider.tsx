@@ -19,7 +19,7 @@ import React, {
   useState,
 } from 'react'
 import { generalLogger } from '../../utils/logger'
-import { clearReloadCounter, useAuthStore } from '../auth'
+import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
 import { setBootstrapState } from '../sessionInitialization'
 import { AuthenticationRequiredError } from './resolvers/AuthResolver'
 import { bootstrapService } from './SessionBootstrapService'
@@ -428,6 +428,7 @@ export function BootstrapProvider({
 
         // Immediate redirect - no error state, no loading state
         if (typeof window !== 'undefined') {
+          clearInitThrottle()
           window.location.href = error.redirectUrl
         }
         return // Stop execution - redirect is happening

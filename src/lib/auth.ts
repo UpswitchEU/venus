@@ -391,13 +391,37 @@ export const useAuthStore = create<AuthState>()(
           try {
             // Try to get user with access token
             // Use Venus proxy route for same-origin request (no CORS issues)
-            const response = await fetch('/api/auth/me', {
+            let response = await fetch('/api/auth/me', {
               method: 'GET',
               credentials: 'include', // Send cookies (upswitch_access_token, upswitch_refresh_token)
               headers: {
                 Accept: 'application/json',
               },
             })
+
+            // RELOAD LOOP FIX: On first 401, retry once after 600ms (cookie propagation from Mercury)
+            if (response.status === 401) {
+              generalLogger.info('[Auth] auth/me 401 — retrying after 600ms (cookie propagation)')
+              await new Promise((r) => setTimeout(r, 600))
+              const retryResponse = await fetch('/api/auth/me', {
+                method: 'GET',
+                credentials: 'include',
+                headers: { Accept: 'application/json' },
+              })
+              if (retryResponse.ok) {
+                const data = await retryResponse.json()
+                const user = data.success ? data.data?.user || data.data : data.user || data
+                if (user) {
+                  get().setUser(user)
+                  trackAuthSuccess(user.id, 'cookie')
+                  authMetrics.recordSuccess()
+                  setAuthCache(user)
+                  get().setError(null)
+                  return user
+                }
+              }
+              response = retryResponse
+            }
 
             // If access token expired (401), try to refresh automatically
             if (response.status === 401) {
