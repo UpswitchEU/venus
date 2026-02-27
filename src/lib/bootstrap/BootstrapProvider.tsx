@@ -213,15 +213,14 @@ export function BootstrapProvider({
       return;
     }
     
-    // AuthGate ensures auth is settled before mounting BootstrapProvider.
-    // This guard only fires when runBootstrap is called directly (e.g. force refresh).
-    if (!isFromMercury) {
-      const authState = useAuthStore.getState();
-      if (authState.loading || authState.isInitializing) {
-        generalLogger.debug('[BootstrapProvider] Auth not settled — deferring bootstrap');
-        bootstrapStartedRef.current = false;
-        return;
-      }
+    // RELOAD LOOP FIX: Always wait for auth before bootstrap.
+    // Previously we skipped this when isFromMercury (optimistic), which caused
+    // bootstrap to run before auth validated cookies → 401 → redirect → loop.
+    const authState = useAuthStore.getState();
+    if (authState.loading || authState.isInitializing) {
+      generalLogger.debug('[BootstrapProvider] Auth not settled — deferring bootstrap');
+      bootstrapStartedRef.current = false;
+      return;
     }
     
     bootstrapStartedRef.current = true;

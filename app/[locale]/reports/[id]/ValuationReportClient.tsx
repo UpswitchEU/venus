@@ -138,7 +138,7 @@ export default function ValuationReportClient({
         hasClientToken={hasClientToken}
         returnUrl={urlParams.return_url}
         loadingComponent={<CalculatorShellSkeleton />}
-        optimistic={isFromMercury}
+        optimistic={false}
       >
         <TokenRefreshGuard />
         <BootstrapProvider
