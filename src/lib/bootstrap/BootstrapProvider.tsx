@@ -134,22 +134,40 @@ export function BootstrapProvider({
   const [isBootstrapping, setIsBootstrapping] = useState(!initialState && autoBootstrap);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
-  // CRITICAL FIX: Prevent duplicate bootstrap calls using refs
-  // This prevents issues with React Strict Mode double-mounting and
-  // prevents race conditions when context changes mid-bootstrap
+  // Prevent duplicate bootstrap calls using refs
   const bootstrapStartedRef = useRef(false);
   const bootstrapCompletedRef = useRef(false);
   const contextReportIdRef = useRef(context?.reportId);
 
+  // Abort guard: prevents stale setState calls after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   // Bootstrap function
   const runBootstrap = useCallback(async () => {
-    // ✅ WORLD CLASS: When from Mercury, ensure unified loading experience
-    // Bootstrap will handle all initialization, and ValuationSessionManager will show single loading state
-    // CRITICAL: Guard against duplicate calls
+    // Guard 1 (React ref): prevent duplicate calls within same mount
     if (bootstrapStartedRef.current) {
       generalLogger.debug('[BootstrapProvider] Bootstrap already started, skipping duplicate call', {
         reportId: context?.reportId?.substring(0, 20),
       });
+      return;
+    }
+
+    // Guard 2 (singleton cache): prevent re-bootstrap after component remount
+    const cachedResult = bootstrapService.getCachedResult();
+    if (bootstrapService.hasCompletedFor(context?.reportId) && cachedResult) {
+      generalLogger.debug('[BootstrapProvider] Singleton cache hit — using cached result instead of re-fetching', {
+        reportId: context?.reportId?.substring(0, 20),
+      });
+      bootstrapStartedRef.current = true;
+      bootstrapCompletedRef.current = true;
+      setState(cachedResult);
+      setIsBootstrapping(false);
+      setBootstrapState(cachedResult);
+      onBootstrapComplete?.(cachedResult);
       return;
     }
     
@@ -172,6 +190,7 @@ export function BootstrapProvider({
     }
     
     bootstrapStartedRef.current = true;
+    if (!mountedRef.current) return;
     setIsBootstrapping(true);
     setBootstrapError(null);
 
@@ -227,7 +246,6 @@ export function BootstrapProvider({
       
       if (result.creditStatus && !result.creditStatus.allowed && !isExistingReport) {
         const creditError = result.creditStatus.message || 'Insufficient credits to create valuation';
-        setBootstrapError(creditError);
         onBootstrapError?.(creditError);
         
         generalLogger.error('[BootstrapProvider] Credit check failed - preventing new valuation', {
@@ -237,8 +255,10 @@ export function BootstrapProvider({
           reportMode: result.report.mode,
         });
         
-        // Still set state so UI can display credit error
-        setState(result);
+        if (mountedRef.current) {
+          setState(result);
+          setBootstrapError(creditError);
+        }
         bootstrapCompletedRef.current = true;
         setBootstrapState(result);
         return;
@@ -252,7 +272,7 @@ export function BootstrapProvider({
         });
       }
 
-      setState(result);
+      if (mountedRef.current) setState(result);
       bootstrapCompletedRef.current = true;
       
       // Sync with SessionInitializer for backward compatibility
@@ -343,25 +363,40 @@ export function BootstrapProvider({
       }
       
       // Handle other errors normally
-      setBootstrapError(errorMessage);
+      if (mountedRef.current) setBootstrapError(errorMessage);
       onBootstrapError?.(errorMessage);
 
       generalLogger.error('[BootstrapProvider] Bootstrap failed:', errorMessage);
     } finally {
-      setIsBootstrapping(false);
+      if (mountedRef.current) setIsBootstrapping(false);
     }
   }, [context, method, onBootstrapComplete, onBootstrapError, isFromMercury]);
 
-  // Subscribe to auth state for stability check
+  // Explicit retry: resets all guards and forces a fresh bootstrap call.
+  // Used when bootstrap fails and the user/UI needs to retry.
+  const forceRefreshBootstrap = useCallback(async () => {
+    generalLogger.debug('[BootstrapProvider] Force refresh — resetting all guards');
+    bootstrapStartedRef.current = false;
+    bootstrapCompletedRef.current = false;
+    bootstrapService.clearCache();
+    bootstrapService.resetCircuitBreaker();
+    if (mountedRef.current) setBootstrapError(null);
+    await runBootstrap();
+  }, [runBootstrap]);
+
+  // Subscribe to auth loading state for the auto-bootstrap effect
   const authLoading = useAuthStore((s) => s.loading);
-  const authError = useAuthStore((s) => s.error);
   
   // Auto-bootstrap on mount if no initial state
   // BANK GRADE: AuthGate ensures auth and client context are ready BEFORE this runs
   // We can now trust that client context is in the store (if applicable)
   useEffect(() => {
-    // Skip if already started or has initial state
-    if (bootstrapStartedRef.current || initialState) {
+    // Skip if already started, has initial state, or singleton already has a fresh result
+    if (bootstrapStartedRef.current || initialState || bootstrapService.hasCompletedFor(context?.reportId)) {
+      if (bootstrapService.hasCompletedFor(context?.reportId) && !bootstrapStartedRef.current) {
+        // Remount with cached result — hydrate immediately without a network call
+        runBootstrap();
+      }
       return;
     }
 
@@ -477,7 +512,7 @@ export function BootstrapProvider({
     hasPrefilledData: state.prefillData.confidence > 0.1,
 
     // Actions
-    refreshBootstrap: runBootstrap,
+    refreshBootstrap: forceRefreshBootstrap,
     updateIdentity,
     updateReport,
     updatePrefillData,
@@ -486,7 +521,7 @@ export function BootstrapProvider({
     state,
     isBootstrapping,
     bootstrapError,
-    runBootstrap,
+    forceRefreshBootstrap,
     updateIdentity,
     updateReport,
     updatePrefillData,

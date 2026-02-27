@@ -253,6 +253,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       if (status === 'error' && !isBootstrapping) {
         return 'error'
       }
+      // SAFEGUARD: Bootstrap failed and session store is still idle — nothing will ever
+      // load the session (the engine is not set). Surface error immediately instead of
+      // staying stuck on the loading screen until the 30 s timer fires.
+      if (bootstrap?.bootstrapError && !isBootstrapping && status === 'idle') {
+        return 'error'
+      }
       // Default: loading until everything is ready
       if (isBootstrapping || isLoading || isInitializing || !session || session.reportId !== reportId) {
         return 'loading'
@@ -261,7 +267,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     })()
 
     // ✅ FIX: Maximum loading timeout - force error state after 30 seconds
-    // This prevents users from being stuck forever on a loading screen
+    // This prevents users from being stuck forever on a loading screen.
+    // IMPORTANT: Only reset the timer when `stage` changes (not on every status
+    // change). Status oscillations (idle→loading→error) used to reset the timer
+    // indefinitely; now the 30 s clock only resets if we genuinely leave 'loading'.
     useEffect(() => {
       if (stage === 'loading') {
         const maxLoadingTimer = setTimeout(() => {
@@ -281,7 +290,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         
         return () => clearTimeout(maxLoadingTimer)
       }
-    }, [stage, reportId, status, isBootstrapping, session])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [stage, reportId]) // Only reset when stage or reportId changes, not on every status/session change
 
     // ✅ FIX: Load session when reportId changes (promise cache prevents duplicates)
     // WORLD CLASS: Skip loading if bootstrap already has this session

@@ -131,16 +131,18 @@ function sanitizeUrl(paramsToRemove: string[]): void {
  */
 let checkSessionPromise: Promise<User | null> | null = null
 
-/**
- * Promise cache for in-flight refresh calls - Prevents race conditions
- * Multiple components might try to refresh simultaneously when token expires
- */
-let refreshPromise: Promise<boolean> | null = null
+// Token refresh uses the shared mutex in utils/auth/refreshMutex.ts
+// so that checkSession() and useTokenRefresh don't fire concurrent
+// refresh requests (which would fail under strict token rotation).
+import { getActiveRefreshPromise, setActiveRefreshPromise } from '../utils/auth/refreshMutex'
 
 /**
- * Promise cache for initialization - Prevents multiple simultaneous initializations
+ * Promise cache for initialization - Prevents multiple simultaneous initializations.
+ * Once initialization succeeds, initCompleted prevents any further calls from
+ * re-running (avoids auth store loading=true/false thrashing on re-invocation).
  */
 let initPromise: Promise<void> | null = null
+let initCompleted = false
 
 /**
  * BANK GRADE: Client Context Initialization Tracking
@@ -331,25 +333,20 @@ export const useAuthStore = create<AuthState>()(
             if (response.status === 401) {
               // CRITICAL: Deduplicate concurrent refresh attempts
               // If already refreshing, wait for that promise
-              if (!refreshPromise) {
-                refreshPromise = (async () => {
+              if (!getActiveRefreshPromise()) {
+                const promise = (async () => {
                   try {
-                    // Use local API proxy route which forwards to Titan with cookies
                     const refreshResponse = await fetch('/api/auth/refresh', {
                       method: 'POST',
-                      credentials: 'include', // Send refresh token cookie
-                      headers: {
-                        Accept: 'application/json',
-                      },
+                      credentials: 'include',
+                      headers: { Accept: 'application/json' },
                     })
 
                     if (!refreshResponse.ok) {
                       const errorData = await refreshResponse.json().catch(() => ({}))
                       const errorMessage = errorData.message || 'Token refresh failed'
 
-                      // Classify error for better handling
                       if (refreshResponse.status === 401 || refreshResponse.status === 403) {
-                        // Refresh token expired - user needs to re-login
                         logAuthError('Token refresh failed - refresh token expired', {
                           status: refreshResponse.status,
                           message: errorMessage,
@@ -357,7 +354,6 @@ export const useAuthStore = create<AuthState>()(
                         return false
                       }
 
-                      // Other errors - might be temporary
                       logAuthError('Token refresh failed - server error', {
                         status: refreshResponse.status,
                         message: errorMessage,
@@ -367,20 +363,19 @@ export const useAuthStore = create<AuthState>()(
 
                     return true
                   } catch (refreshError) {
-                    // Network error during refresh
                     logAuthError('Token refresh failed - network error', {
                       error:
                         refreshError instanceof Error ? refreshError.message : String(refreshError),
                     })
                     return false
                   } finally {
-                    // Clear promise cache after completion
-                    refreshPromise = null
+                    setActiveRefreshPromise(null)
                   }
                 })()
+                setActiveRefreshPromise(promise)
               }
 
-              const refreshSuccess = await refreshPromise
+              const refreshSuccess = await getActiveRefreshPromise()!
 
               if (refreshSuccess) {
                 // Retry with new access token
@@ -542,6 +537,13 @@ export const useAuthStore = create<AuthState>()(
             // Non-critical
           })
 
+          // Clear bootstrap singleton cache so stale results aren't served after re-login
+          import('./bootstrap/SessionBootstrapService').then(({ bootstrapService }) => {
+            bootstrapService.clearCache()
+          }).catch(() => {
+            // Non-critical
+          })
+
           // BANK-GRADE: Reset session engine singleton on logout
           // This ensures fresh engine state on next login
           import('../services/session/SessionEngineFactory').then(({ resetSessionEngine }) => {
@@ -550,10 +552,11 @@ export const useAuthStore = create<AuthState>()(
             // Non-critical
           })
 
-          // CRITICAL: Clear all promise caches to prevent stale auth state
+          // CRITICAL: Clear all promise caches and flags to prevent stale state
           checkSessionPromise = null
-          refreshPromise = null
-          // Note: Don't clear initPromise - it's fine to let it complete
+          setActiveRefreshPromise(null)
+          initCompleted = false
+          initPromise = null
 
           // 2. Clear localStorage/sessionStorage
           if (typeof window !== 'undefined') {
@@ -626,8 +629,13 @@ export function getInitTraceId(): string | null {
  * Prevents race conditions by deduplicating concurrent initialization calls
  */
 async function initializeAuth(): Promise<void> {
-  // CRITICAL: Deduplicate concurrent initialization calls
-  // If already initializing, return the existing promise
+  // Once initialization succeeded, never re-run.
+  // Prevents auth store loading=true/false thrashing on subsequent calls.
+  if (initCompleted) {
+    return
+  }
+
+  // Deduplicate concurrent initialization calls
   if (initPromise) {
     return initPromise
   }
@@ -1096,9 +1104,10 @@ async function initializeAuth(): Promise<void> {
       // RACE CONDITION FIX: Mark initialization as complete
       // AuthGate waits for both loading=false AND isInitializing=false
       setIsInitializing(false)
-      // CRITICAL: Clear promise cache after completion
+      // Mark as completed so initializeAuth() is never re-entered.
+      // Full page reload resets this (new module instance).
+      initCompleted = true
       initPromise = null
-      // Keep traceId for AuthGate to use
     }
   })()
 

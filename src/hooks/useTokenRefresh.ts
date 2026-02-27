@@ -20,29 +20,17 @@
 import axios from 'axios'
 import { useCallback, useEffect, useRef } from 'react'
 import { getSessionSyncManager } from '../utils/auth/sessionSync'
-import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
+import { useAuthStore } from '../lib/auth'
+import { getActiveRefreshPromise, setActiveRefreshPromise } from '../utils/auth/refreshMutex'
 
-const API_URL = getApiUrl()
-const CHECK_INTERVAL = 5 * 60 * 1000 // Check every 5 minutes (more frequent for proactive refresh)
-const REFRESH_THRESHOLD = 0.8 // Refresh at 80% of TTL (proactive)
-
-interface TokenPayload {
-  sub: string
-  email: string
-  role: string
-  iat: number
-  exp?: number
-}
+const CHECK_INTERVAL = 5 * 60 * 1000
 
 interface RefreshOptions {
   onRefreshSuccess?: () => void
   onRefreshFailure?: (error: Error) => void
   onTokenExpired?: () => void
 }
-
-// Global refresh promise for mutex pattern (shared across all hook instances)
-let globalRefreshPromise: Promise<boolean> | null = null
 
 export const useTokenRefresh = (options: RefreshOptions = {}) => {
   const { onRefreshSuccess, onRefreshFailure, onTokenExpired } = options
@@ -57,9 +45,11 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
    */
   const refreshToken = useCallback(
     async (retryCount = 0): Promise<boolean> => {
-      // MUTEX PATTERN: If refresh already in progress globally, wait for it
-      if (globalRefreshPromise) {
-        return globalRefreshPromise
+      // MUTEX: if a refresh is already in-flight (from here OR from checkSession),
+      // wait for it instead of sending a duplicate request.
+      const existing = getActiveRefreshPromise()
+      if (existing) {
+        return existing
       }
 
       if (isRefreshingRef.current) {
@@ -74,23 +64,17 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       isRefreshingRef.current = true
       lastRefreshAttemptRef.current = now
 
-      // Create global refresh promise for mutex
-      globalRefreshPromise = (async () => {
+      const promise = (async () => {
         try {
-          
-
-          // Use local API proxy route which forwards to Titan with cookies
           const response = await axios.post(
             '/api/auth/refresh',
             {},
             {
-              withCredentials: true, // Important: Include cookies (upswitch_refresh_token)
-              timeout: 10000, // 10 second timeout
+              withCredentials: true,
+              timeout: 10000,
             }
           )
 
-          // Backend returns new access_token + refresh_token in Set-Cookie headers
-          // Venus proxy: { success, data: { user, token, message } }; Titan direct: { user, token, message }
           const user = response.data?.user ?? response.data?.data?.user
           const success = response.data?.success === true || !!user
           if (success) {
@@ -102,34 +86,35 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
         } catch (error: any) {
           generalLogger.error('Token refresh failed', { error })
 
-          // Handle different error cases
           if (error.response?.status === 401) {
-            // Refresh token is invalid or expired - user needs to re-login
+            const { isInitializing, loading } = useAuthStore.getState()
+            if (isInitializing || loading) {
+              generalLogger.debug('Token refresh 401 during auth init — deferring to initializeAuth()')
+              return false
+            }
             generalLogger.warn('Refresh token expired or invalid, user needs to re-login')
             onTokenExpired?.()
             return false
           }
 
-          // Network error or server error - retry with exponential backoff
           if (retryCount < 3) {
-            const delay = Math.pow(2, retryCount) * 1000 // 1s, 2s, 4s
+            const delay = Math.pow(2, retryCount) * 1000
             generalLogger.debug(`Retrying token refresh in ${delay}ms (attempt ${retryCount + 1}/3)`)
-
             await new Promise((resolve) => setTimeout(resolve, delay))
             return refreshToken(retryCount + 1)
           }
 
-          // Max retries exceeded
           generalLogger.error('Token refresh failed after 3 attempts')
           onRefreshFailure?.(error)
           return false
         } finally {
           isRefreshingRef.current = false
-          globalRefreshPromise = null // Clear global mutex when done
+          setActiveRefreshPromise(null)
         }
       })()
 
-      return globalRefreshPromise
+      setActiveRefreshPromise(promise)
+      return promise
     },
     [onRefreshSuccess, onRefreshFailure, onTokenExpired]
   )
@@ -173,8 +158,15 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       'Starting token refresh checks (initial: 1.5s, interval: 5 min, access token TTL: 15 min)'
     )
 
-    // Initial check after 1.5s (reduce auth/me 401 race - refresh before bootstrap/auth checks)
+    // Initial check after 1.5s — but only if auth init has completed.
+    // If initializeAuth() is still running, it handles its own token refresh;
+    // firing ours concurrently would waste a request and risk token rotation conflicts.
     const initialTimeout = setTimeout(() => {
+      const { isInitializing, loading } = useAuthStore.getState()
+      if (isInitializing || loading) {
+        generalLogger.debug('Deferring initial token refresh — auth still initializing')
+        return
+      }
       checkAndRefresh()
     }, 1500)
 
@@ -211,10 +203,10 @@ export const useManualTokenRefresh = () => {
   const isRefreshingRef = useRef(false)
 
   const refreshToken = useCallback(async (): Promise<boolean> => {
-    // MUTEX PATTERN: If refresh already in progress globally, wait for it
-    if (globalRefreshPromise) {
-      generalLogger.debug('Token refresh already in progress (global mutex), waiting')
-      return globalRefreshPromise
+    const existing = getActiveRefreshPromise()
+    if (existing) {
+      generalLogger.debug('Token refresh already in progress (shared mutex), waiting')
+      return existing
     }
 
     if (isRefreshingRef.current) {
@@ -224,21 +216,17 @@ export const useManualTokenRefresh = () => {
 
     isRefreshingRef.current = true
 
-    // Create global refresh promise for mutex
-    globalRefreshPromise = (async () => {
+    const promise = (async () => {
       try {
-        // Use local API proxy route which forwards to Titan with cookies
         const response = await axios.post(
           '/api/auth/refresh',
           {},
           {
-            withCredentials: true, // Include upswitch_refresh_token cookie
+            withCredentials: true,
             timeout: 10000,
           }
         )
 
-        // Backend returns new access_token + refresh_token in Set-Cookie headers
-        // Venus proxy: { success, data: { user, token, message } }; Titan direct: { user, token, message }
         const user = response.data?.user ?? response.data?.data?.user
         const success = response.data?.success === true || !!user
         if (success) {
@@ -252,11 +240,12 @@ export const useManualTokenRefresh = () => {
         return false
       } finally {
         isRefreshingRef.current = false
-        globalRefreshPromise = null // Clear global mutex when done
+        setActiveRefreshPromise(null)
       }
     })()
 
-    return globalRefreshPromise
+    setActiveRefreshPromise(promise)
+    return promise
   }, [])
 
   return {

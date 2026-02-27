@@ -65,10 +65,19 @@ export class SessionBootstrapService {
   // In-flight bootstrap cache to prevent duplicate requests
   private bootstrapPromiseCache: Map<string, Promise<SessionBootstrapState>> = new Map();
 
-  // Circuit breaker: hard cap on bootstrap API calls per page load.
-  // Prevents cascading retries from compounding into excessive Titan traffic.
-  private static readonly MAX_BOOTSTRAP_CALLS = 3;
-  private bootstrapCallCount = 0;
+  // Sliding-window rate limiter: allows legitimate calls (SPA navigations)
+  // but blocks rapid-fire calls from remount loops.
+  // If MAX_CALLS_IN_WINDOW calls happen within WINDOW_MS, the breaker trips.
+  private static readonly MAX_CALLS_IN_WINDOW = 4;
+  private static readonly CIRCUIT_BREAKER_WINDOW_MS = 30_000;
+  private callTimestamps: number[] = [];
+
+  // Result cache: returns cached result for repeated calls within the cooldown window.
+  // This survives component remounts because the service is a module-level singleton.
+  private static readonly RESULT_CACHE_TTL_MS = 10_000;
+  private lastSuccessfulResult: SessionBootstrapState | null = null;
+  private lastSuccessfulAt = 0;
+  private lastSuccessfulReportId: string | null = null;
 
   constructor(
     authResolver?: AuthResolver,
@@ -159,26 +168,45 @@ export class SessionBootstrapService {
     context: BootstrapContext,
     options: BootstrapOptions = {}
   ): Promise<SessionBootstrapState> {
+    const cacheReportId = context.reportId || 'new';
+
+    // Guard 1: Sliding-window circuit breaker (shared with bootstrapViaTitan)
+    const now = Date.now();
+    this.callTimestamps = this.callTimestamps.filter(
+      t => now - t < SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
+    );
+    if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
+      if (this.lastSuccessfulResult) return this.lastSuccessfulResult;
+      throw new Error('[Bootstrap] Circuit breaker tripped (client-side path)');
+    }
+
+    // Guard 2: Result cache
+    if (this.hasCompletedFor(context.reportId)) {
+      return this.lastSuccessfulResult!;
+    }
+
     const opts = { ...DEFAULT_OPTIONS, ...options };
     const startTime = performance.now();
     const cacheKey = this.getCacheKey(context);
 
-    // Check for in-flight request (deduplication)
+    // Guard 3: In-flight dedup
     const inflight = this.bootstrapPromiseCache.get(cacheKey);
     if (inflight && opts.useCache) {
       this.logger.info('[Bootstrap] Returning in-flight request');
       return inflight;
     }
 
-    // Create and cache the bootstrap promise
+    this.callTimestamps.push(now);
     const bootstrapPromise = this.executeBootstrap(context, opts, startTime);
     this.bootstrapPromiseCache.set(cacheKey, bootstrapPromise);
 
     try {
       const result = await bootstrapPromise;
+      this.lastSuccessfulResult = result;
+      this.lastSuccessfulAt = Date.now();
+      this.lastSuccessfulReportId = cacheReportId;
       return result;
     } finally {
-      // Clean up cache after completion
       this.bootstrapPromiseCache.delete(cacheKey);
     }
   }
@@ -432,11 +460,6 @@ export class SessionBootstrapService {
     const baseDelay = 500;
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      this.bootstrapCallCount++;
-      if (this.bootstrapCallCount > SessionBootstrapService.MAX_BOOTSTRAP_CALLS) {
-        throw new Error(`Bootstrap circuit breaker: exceeded ${SessionBootstrapService.MAX_BOOTSTRAP_CALLS} calls this page load`);
-      }
-
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       
@@ -497,13 +520,82 @@ export class SessionBootstrapService {
    * 
    * Use this for production for optimal performance.
    */
+  /**
+   * Check if a successful bootstrap result is cached for the given reportId.
+   * Used by BootstrapProvider to avoid re-triggering bootstrap after remounts.
+   */
+  hasCompletedFor(reportId: string | undefined): boolean {
+    const effectiveId = reportId || 'new';
+    return (
+      this.lastSuccessfulResult !== null &&
+      this.lastSuccessfulReportId === effectiveId &&
+      Date.now() - this.lastSuccessfulAt < SessionBootstrapService.RESULT_CACHE_TTL_MS
+    );
+  }
+
+  /**
+   * Invalidate the result cache. Called by BootstrapProvider.refreshBootstrap
+   * to allow a forced re-fetch.
+   */
+  clearCache(): void {
+    this.lastSuccessfulResult = null;
+    this.lastSuccessfulAt = 0;
+    this.lastSuccessfulReportId = null;
+  }
+
+  /**
+   * Reset the circuit breaker. Only for explicit user-triggered retry —
+   * never call this from automated code paths.
+   */
+  resetCircuitBreaker(): void {
+    this.callTimestamps = [];
+  }
+
+  /**
+   * Return the cached result if available and still fresh, or null.
+   */
+  getCachedResult(): SessionBootstrapState | null {
+    if (
+      this.lastSuccessfulResult !== null &&
+      Date.now() - this.lastSuccessfulAt < SessionBootstrapService.RESULT_CACHE_TTL_MS
+    ) {
+      return this.lastSuccessfulResult;
+    }
+    return null;
+  }
+
   async bootstrapViaTitan(
     context: BootstrapContext,
     options: BootstrapOptions = {}
   ): Promise<SessionBootstrapState> {
+    // Full ID for cache matching; truncated only for log readability
+    const cacheReportId = context.reportId || 'new';
+    const logReportId = context.reportId?.substring(0, 20) || 'new';
+
+    // Guard 1: Sliding-window circuit breaker — blocks rapid-fire calls
+    const now = Date.now();
+    this.callTimestamps = this.callTimestamps.filter(
+      t => now - t < SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
+    );
+    if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
+      const msg = `[Bootstrap] Circuit breaker: ${this.callTimestamps.length} calls in ${SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS / 1000}s window — refusing further calls`;
+      this.logger.error(msg);
+      if (this.lastSuccessfulResult) {
+        this.logger.info('[Bootstrap] Returning last successful result from circuit breaker');
+        return this.lastSuccessfulResult;
+      }
+      throw new Error(msg);
+    }
+
+    // Guard 2: Result cache — return cached result if fresh
+    if (this.hasCompletedFor(context.reportId)) {
+      this.logger.info(`[Bootstrap] Returning cached result for ${logReportId} (age: ${Date.now() - this.lastSuccessfulAt}ms)`);
+      return this.lastSuccessfulResult!;
+    }
+
     const cacheKey = `titan:${this.getCacheKey(context)}`;
 
-    // Dedup: return in-flight request if one exists for the same reportId
+    // Guard 3: Dedup in-flight request
     const inflight = this.bootstrapPromiseCache.get(cacheKey);
     if (inflight) {
       this.logger.info('[Bootstrap] Returning in-flight Titan request (dedup)');
@@ -514,7 +606,11 @@ export class SessionBootstrapService {
     this.bootstrapPromiseCache.set(cacheKey, promise);
 
     try {
-      return await promise;
+      const result = await promise;
+      this.lastSuccessfulResult = result;
+      this.lastSuccessfulAt = Date.now();
+      this.lastSuccessfulReportId = cacheReportId;
+      return result;
     } finally {
       this.bootstrapPromiseCache.delete(cacheKey);
     }
@@ -528,13 +624,8 @@ export class SessionBootstrapService {
     const hints = parseBootstrapHints(context);
     const traceId = getInitTraceId() || 'unknown';
 
-    // Reset circuit breaker for each new bootstrap flow.
-    // This prevents the counter from accumulating across SPA navigations
-    // (the singleton persists across client-side route changes) while still
-    // protecting against cascading retries within a single flow.
-    this.bootstrapCallCount = 0;
-
-    this.logger.info(`[Bootstrap:${traceId}] Starting Titan API bootstrap`, {
+    this.callTimestamps.push(Date.now());
+    this.logger.info(`[Bootstrap:${traceId}] Starting Titan API bootstrap (${this.callTimestamps.length} calls in window)`, {
       reportId: context.reportId?.substring(0, 20) || 'new',
       hasClientToken: hints.hasClientToken,
     });
@@ -542,10 +633,28 @@ export class SessionBootstrapService {
     try {
       // When clientToken present, wait for client context exchange to complete (up to 5s)
       // Otherwise wait up to 2.5s for cookie-based auth (auth/me → 401 → refresh → retry can take ~1–2s)
+      //
+      // MERCURY ACCOUNTANT FLOW FIX: When Mercury opens an EXISTING report without a clientToken
+      // (e.g. after page refresh, or when Mercury links directly to an existing session), the
+      // clientToken has already been consumed. AuthGate's fallback logic will restore client context
+      // by fetching the report's accountant_customer_id (~1–2s). We detect this case and wait for
+      // isActingAsClient just like we do for the clientToken flow, giving the fallback time to run.
+      const isAccountantExistingReportFlow =
+        context.sourceApp === 'mercury' &&
+        !!context.reportId &&
+        !context.clientToken;
+      const needsClientContext = hints.hasClientToken || isAccountantExistingReportFlow;
+
+      if (isAccountantExistingReportFlow) {
+        this.logger.info(`[Bootstrap:${traceId}] Mercury accountant existing-report flow detected — waiting for client context`, {
+          reportId: context.reportId?.substring(0, 20),
+        });
+      }
+
       const authWaitStart = performance.now();
-      const authReady = await this.waitForAuth(2500, hints.hasClientToken);
+      const authReady = await this.waitForAuth(2500, needsClientContext);
       const authWaitMs = Math.round(performance.now() - authWaitStart);
-      this.logger.info(`[Bootstrap:${traceId}] Auth wait complete`, { durationMs: authWaitMs, ready: authReady });
+      this.logger.info(`[Bootstrap:${traceId}] Auth wait complete`, { durationMs: authWaitMs, ready: authReady, needsClientContext });
       if (!authReady) {
         this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after timeout, proceeding anyway`);
       }

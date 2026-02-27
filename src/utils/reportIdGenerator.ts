@@ -43,7 +43,15 @@ export const generateReportId = (): string => {
  * - Mercury: val_1234567890_m7a8b9c0d
  */
 export const isValidReportId = (reportId: string): boolean => {
-  return /^val_\d+_[a-z0-9]+$/.test(reportId)
+  // Accept any val_-prefixed session key (Venus or Mercury format).
+  // Mercury generates session keys with mixed-case characters and underscores
+  // that the original strict regex rejected, causing erroneous redirects to
+  // new empty reports. Accept anything that starts with val_ and has a
+  // reasonable length — the API will reject truly invalid IDs at request time.
+  if (reportId.startsWith('val_') && reportId.length > 8) return true
+  // Also accept UUID format (Mercury passes valuation_reports.id as UUID)
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId)) return true
+  return false
 }
 
 /**

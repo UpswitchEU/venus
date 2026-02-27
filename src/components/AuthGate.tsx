@@ -195,6 +195,10 @@ export function AuthGate({
   const [state, setState] = useState<AuthGateState>('checking')
   const [error, setError] = useState<string | null>(null)
   const [isReady, setIsReady] = useState(false)
+  // Sticky guard: once children have been rendered, keep them rendered.
+  // Prevents BootstrapProvider unmount/remount cycles caused by transient
+  // auth store updates triggering the effect to re-run.
+  const wasReadyRef = useRef(false)
   const [retryCount, setRetryCount] = useState(0)
   const maxRetries = 2 // Maximum number of automatic retries for transient errors
   const fallbackAttemptedRef = useRef(false)
@@ -213,8 +217,9 @@ export function AuthGate({
   // ValuationReportClient already checks urlParams for clientToken/clientId
   const needsClientContext = hasClientToken
 
-  // Retry handler
+  // Retry handler — only explicit user action clears the sticky ref
   const handleRetry = useCallback(() => {
+    wasReadyRef.current = false
     setState('checking')
     setError(null)
     setIsReady(false)
@@ -242,6 +247,13 @@ export function AuthGate({
     }, 30000)
 
     function checkAuth() {
+      // Sticky guard: once auth was confirmed ready, don't re-evaluate.
+      // This prevents transient store updates (e.g. token refresh setting
+      // loading=true briefly) from unmounting children mid-session.
+      if (wasReadyRef.current) {
+        return
+      }
+
       // Step 1: Wait for auth to complete
       // RACE CONDITION FIX: Wait for BOTH loading=false AND isInitializing=false
       // This prevents checking client context before initializeAuth() has finished
@@ -491,6 +503,7 @@ export function AuthGate({
       // Step 5: All checks passed - ready to render children
       if (mounted) {
         authResolved = true
+        wasReadyRef.current = true
         generalLogger.debug(`[AuthGate:${traceId}] All checks passed - rendering children`, {
           userId: currentUser.id.substring(0, 8) + '...',
           isAccountantFlow: needsClientContext,
@@ -525,7 +538,7 @@ export function AuthGate({
     return <DefaultErrorState error={error} returnUrl={returnUrl} onRetry={handleRetry} />
   }
 
-  if (!isReady) {
+  if (!isReady && !wasReadyRef.current) {
     if (loadingComponent) {
       return <>{loadingComponent}</>
     }
