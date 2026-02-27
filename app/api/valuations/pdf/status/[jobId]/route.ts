@@ -7,8 +7,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-
-const TITAN_API_URL = process.env.NEXT_PUBLIC_TITAN_API_URL || 'https://api.upswitch.app';
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl';
 
 export async function GET(
   request: NextRequest,
@@ -34,7 +33,7 @@ export async function GET(
       );
     }
 
-    const titanUrl = `${TITAN_API_URL}/api/v2/valuations/pdf/status/${jobId}`;
+    const titanUrl = `${getTitanApiUrl(request)}/api/v2/valuations/pdf/status/${jobId}`;
 
     const response = await fetch(titanUrl, {
       method: 'GET',

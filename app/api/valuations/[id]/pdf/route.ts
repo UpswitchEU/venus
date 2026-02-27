@@ -9,8 +9,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-
-const TITAN_API_URL = process.env.NEXT_PUBLIC_TITAN_API_URL || 'https://api.upswitch.app';
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl';
 
 /**
  * Trigger PDF generation
@@ -42,6 +41,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const async = body.async ?? true;
 
+    const TITAN_API_URL = getTitanApiUrl(request);
     const titanUrl = async
       ? `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf/async`
       : `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf`;
@@ -109,7 +109,8 @@ export async function GET(
       );
     }
 
-    const titanUrl = `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf`;
+    const TITAN_API_URL_GET = getTitanApiUrl(request);
+    const titanUrl = `${TITAN_API_URL_GET}/api/v2/valuations/reports/${id}/pdf`;
 
     const response = await fetch(titanUrl, {
       method: 'GET',
