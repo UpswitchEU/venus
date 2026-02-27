@@ -5,8 +5,8 @@
  * Shows visual bridge and adjustment breakdown table
  */
 
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 import { getCategoryLabel } from '../../config/normalizationCategories'
 import { EbitdaNormalization } from '../../types/ebitdaNormalization'
 
@@ -169,7 +169,10 @@ export const NormalizationSection: React.FC<NormalizationSectionProps> = ({
                   {norm.adjustments.filter((a) => a.amount !== 0).length === 0 &&
                     (!norm.custom_adjustments || norm.custom_adjustments.length === 0) && (
                       <tr>
-                        <td colSpan={3} className="py-4 px-4 text-center text-muted-foreground italic">
+                        <td
+                          colSpan={3}
+                          className="py-4 px-4 text-center text-muted-foreground italic"
+                        >
                           No adjustments applied
                         </td>
                       </tr>

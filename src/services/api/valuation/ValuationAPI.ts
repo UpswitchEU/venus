@@ -21,12 +21,12 @@ import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 /**
  * BANK-GRADE TIMEOUT CHAIN
- * 
+ *
  * Timeouts must be configured in decreasing order:
  * - Venus (Frontend) → 120s (longest, waits for Titan)
- * - Titan (API) → 100s (waits for ValuationIQ)  
+ * - Titan (API) → 100s (waits for ValuationIQ)
  * - ValuationIQ (Python) → 90s (shortest, actual calculation)
- * 
+ *
  * This ensures proper timeout cascading:
  * - If ValuationIQ times out at 90s, Titan catches it
  * - If Titan times out at 100s, Venus catches it
@@ -135,7 +135,6 @@ export class ValuationAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      
       // Map frontend 'conversational' to backend 'ai-guided'
       // Note: dataSource is not part of ValuationRequest type, so we add it to the request data
       const dataSource =
@@ -230,9 +229,7 @@ export class ValuationAPI extends HttpClient {
       axiosError?.code === 'ECONNRESET' ||
       status === 503
     ) {
-      throw new NetworkError(
-        'Service temporarily unavailable. Please try again in a moment.'
-      )
+      throw new NetworkError('Service temporarily unavailable. Please try again in a moment.')
     }
 
     throw new APIError(`Failed to complete ${operation}`, status, undefined, true, {

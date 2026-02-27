@@ -7,9 +7,7 @@
  * @module services/api/utility/UtilityAPI
  */
 
-import type {
-  ConversationStatusResponse,
-} from '../../../types/api-responses'
+import type { ConversationStatusResponse } from '../../../types/api-responses'
 import { APIError } from '../../../types/errors'
 import type { Message } from '../../../types/message'
 import { apiLogger } from '../../../utils/logger'

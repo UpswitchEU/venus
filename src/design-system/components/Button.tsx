@@ -1,14 +1,14 @@
 /**
  * Aurora Design System
  * Button Component
- * 
+ *
  * Primary/Secondary/Ghost/Outline variants with physics-based animations
  */
 
+import { HTMLMotionProps, motion } from 'framer-motion'
 import { forwardRef } from 'react'
-import { motion, HTMLMotionProps } from 'framer-motion'
 import { cn } from '../../lib/utils'
-import { springSnappy, tapScale, hoverLift } from './motion'
+import { hoverLift, springSnappy, tapScale } from './motion'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -101,7 +101,13 @@ export const AuroraButton = forwardRef<HTMLButtonElement, AuroraButtonProps>(
     return (
       <motion.button
         ref={ref}
-        className={cn(baseStyles, variantStyles[variant], sizeStyles[size], fullWidth && 'w-full', className)}
+        className={cn(
+          baseStyles,
+          variantStyles[variant],
+          sizeStyles[size],
+          fullWidth && 'w-full',
+          className
+        )}
         disabled={disabled || loading}
         whileHover={!disabled && !loading ? hoverLift : undefined}
         whileTap={!disabled && !loading ? tapScale : undefined}
@@ -128,7 +134,12 @@ AuroraButton.displayName = 'AuroraButton'
 // ─────────────────────────────────────────
 
 const LoadingSpinner = () => (
-  <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+  <svg
+    className="h-4 w-4 animate-spin"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
     <path
       className="opacity-75"

@@ -293,7 +293,7 @@ export class VersionAPI {
    */
   /**
    * Update version metadata (local-only).
-   * 
+   *
    * Titan does not have a PATCH endpoint for versions yet.
    * Updates are stored in the local Zustand store only.
    * Backend support will be added in a future release.
@@ -331,7 +331,7 @@ export class VersionAPI {
    */
   /**
    * Delete version (local-only).
-   * 
+   *
    * Titan does not have a DELETE endpoint for versions yet.
    * Deletion is applied to the local Zustand store only.
    * Backend support will be added in a future release.

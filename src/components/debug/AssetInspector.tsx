@@ -73,7 +73,9 @@ export function AssetInspector() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Has Changes:</span>
-              <span className={hasUnsavedChanges ? 'text-warning font-medium' : 'text-muted-foreground'}>
+              <span
+                className={hasUnsavedChanges ? 'text-warning font-medium' : 'text-muted-foreground'}
+              >
                 {hasUnsavedChanges ? 'Yes' : 'No'}
               </span>
             </div>
@@ -119,7 +121,9 @@ export function AssetInspector() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Result:</span>
-                <span className={session.valuationResult ? 'text-success' : 'text-muted-foreground'}>
+                <span
+                  className={session.valuationResult ? 'text-success' : 'text-muted-foreground'}
+                >
                   {session.valuationResult ? '✓' : '✗'}
                 </span>
               </div>

@@ -1,15 +1,16 @@
 /**
  * Prefill Resolver
- * 
+ *
  * Aggregates data from multiple sources for form prefilling:
  * - KBO Registry (Belgian companies)
  * - User Profile / Business Card
  * - Existing Session Data
  * - URL Parameters
- * 
+ *
  * @module lib/bootstrap/resolvers/PrefillResolver
  */
 
+import { getApiUrl } from '../../../utils/getMercuryUrl'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -22,12 +23,11 @@ import type {
   PrefillData,
   PrefillSource,
   ResolverResult,
-} from '../types';
-import { DEFAULT_PREFILL } from '../types';
-import { calculatePrefillConfidence, mergeWithPriority, truncateForLog } from '../utils';
-import { getApiUrl } from '../../../utils/getMercuryUrl';
+} from '../types'
+import { DEFAULT_PREFILL } from '../types'
+import { calculatePrefillConfidence, mergeWithPriority, truncateForLog } from '../utils'
 
-const API_URL = getApiUrl();
+const API_URL = getApiUrl()
 
 // Fields that we track for prefill completeness
 const ALL_PREFILL_FIELDS = [
@@ -46,49 +46,49 @@ const ALL_PREFILL_FIELDS = [
   'postal_code',
   'nace_code',
   'nace_description',
-];
+]
 
 interface UserProfile {
-  id: string;
-  email?: string;
-  company_name?: string;
-  business_type_id?: string;
-  industry?: string;
-  country?: string;
-  kbo_number?: string;
-  vat_number?: string;
-  city?: string;
-  postal_code?: string;
-  legal_form?: string;
-  founded_year?: number;
-  employee_count_range?: string;
-  nace_code?: string;
-  nace_description?: string;
+  id: string
+  email?: string
+  company_name?: string
+  business_type_id?: string
+  industry?: string
+  country?: string
+  kbo_number?: string
+  vat_number?: string
+  city?: string
+  postal_code?: string
+  legal_form?: string
+  founded_year?: number
+  employee_count_range?: string
+  nace_code?: string
+  nace_description?: string
 }
 
 interface SessionDataForPrefill {
-  company_name?: string;
-  business_type_id?: string;
-  industry?: string;
-  country_code?: string;
-  founding_year?: number;
-  employee_count?: number;
-  number_of_employees?: number;
-  revenue?: number;
-  ebitda?: number;
-  kbo_number?: string;
-  vat_number?: string;
-  legal_form?: string;
-  city?: string;
-  postal_code?: string;
-  nace_code?: string;
-  nace_description?: string;
-  year_data?: Record<number, { revenue?: number; ebitda?: number }>;
-  _businessInfo?: Record<string, unknown>;
+  company_name?: string
+  business_type_id?: string
+  industry?: string
+  country_code?: string
+  founding_year?: number
+  employee_count?: number
+  number_of_employees?: number
+  revenue?: number
+  ebitda?: number
+  kbo_number?: string
+  vat_number?: string
+  legal_form?: string
+  city?: string
+  postal_code?: string
+  nace_code?: string
+  nace_description?: string
+  year_data?: Record<number, { revenue?: number; ebitda?: number }>
+  _businessInfo?: Record<string, unknown>
 }
 
 export class PrefillResolver implements BootstrapResolver<PrefillData> {
-  private readonly logger = console;
+  private readonly logger = console
 
   /**
    * Resolve prefill data from all available sources
@@ -99,9 +99,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     identity?: IdentityState,
     sessionData?: Record<string, unknown>
   ): Promise<ResolverResult<PrefillData>> {
-    const startTime = performance.now();
-    const sources: PrefillSource[] = [];
-    
+    const startTime = performance.now()
+    const sources: PrefillSource[] = []
+
     try {
       // Parallel fetch from all sources
       const [kboResult, profileResult, sessionResult] = await Promise.all([
@@ -114,56 +114,51 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         sessionData
           ? Promise.resolve(this.extractSessionPrefill(sessionData as SessionDataForPrefill))
           : Promise.resolve(null),
-      ]);
+      ])
 
       // Track sources
-      if (kboResult) sources.push('kbo');
-      if (profileResult) sources.push('user_profile');
-      if (sessionResult) sources.push('session');
+      if (kboResult) sources.push('kbo')
+      if (profileResult) sources.push('user_profile')
+      if (sessionResult) sources.push('session')
 
       // Merge with priority: Session > Profile > KBO > URL params
       const companyInfo = this.mergeCompanyInfo(
         sessionResult?.companyInfo,
         profileResult?.companyInfo,
         kboResult?.companyInfo
-      );
+      )
 
-      const financials = this.mergeFinancials(
-        sessionResult?.financials,
-        profileResult?.financials
-      );
+      const financials = this.mergeFinancials(sessionResult?.financials, profileResult?.financials)
 
-      let businessType = sessionResult?.businessType || 
-                         profileResult?.businessType;
+      let businessType = sessionResult?.businessType || profileResult?.businessType
 
       // Fallback: Look up business type from NACE code when we have nace_code but no businessType
-      const naceCode = companyInfo?.naceCode || 
-                       (companyInfo as any)?.nace_code ||
-                       kboResult?.kboData?.naceCode;
+      const naceCode =
+        companyInfo?.naceCode || (companyInfo as any)?.nace_code || kboResult?.kboData?.naceCode
       if (!businessType && naceCode?.trim()) {
-        const naceBusinessType = await this.fetchBusinessTypeForNaceCode(naceCode.trim());
+        const naceBusinessType = await this.fetchBusinessTypeForNaceCode(naceCode.trim())
         if (naceBusinessType) {
-          businessType = naceBusinessType;
+          businessType = naceBusinessType
           this.logger.info('[PrefillResolver] Resolved business type from NACE fallback', {
             naceCode: naceCode.trim(),
             businessTypeId: businessType.id,
-          });
+          })
         }
       }
 
-      const kboData = kboResult?.kboData;
+      const kboData = kboResult?.kboData
 
       // Calculate which fields are populated
-      const populatedFields = this.getPopulatedFields(companyInfo, financials, businessType);
-      const remainingFields = ALL_PREFILL_FIELDS.filter(f => !populatedFields.includes(f));
-      const confidence = calculatePrefillConfidence(populatedFields, ALL_PREFILL_FIELDS);
+      const populatedFields = this.getPopulatedFields(companyInfo, financials, businessType)
+      const remainingFields = ALL_PREFILL_FIELDS.filter((f) => !populatedFields.includes(f))
+      const confidence = calculatePrefillConfidence(populatedFields, ALL_PREFILL_FIELDS)
 
       this.logger.info('[PrefillResolver] Resolved prefill data', {
         sources,
         populatedFields: populatedFields.length,
         remainingFields: remainingFields.length,
         confidence: confidence.toFixed(2),
-      });
+      })
 
       return {
         success: true,
@@ -179,22 +174,22 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         },
         source: sources.join('+') || 'none',
         durationMs: performance.now() - startTime,
-      };
+      }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
+      const errorMessage = error instanceof Error ? error.message : String(error)
+
       // BANK-GRADE: Log error - prefill failures are non-critical
       this.logger.warn('[PrefillResolver] Resolution failed - continuing without prefill', {
         error: errorMessage,
-      });
-      
+      })
+
       return {
         success: false,
         data: this.fallback(),
         error: errorMessage,
         source: 'error',
         durationMs: performance.now() - startTime,
-      };
+      }
     }
   }
 
@@ -203,19 +198,19 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    * BANK-GRADE: Prefill failures are non-critical - form still works
    */
   fallback(): PrefillData {
-    return DEFAULT_PREFILL;
+    return DEFAULT_PREFILL
   }
 
   /**
    * Fetch KBO registry data by company name search
    */
   private async fetchKBO(query: string): Promise<{
-    companyInfo?: CompanyInfo;
-    kboData?: KBOCompanyEntity;
+    companyInfo?: CompanyInfo
+    kboData?: KBOCompanyEntity
   } | null> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 6000)
       const response = await fetch(`${API_URL}/api/v2/registry/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -226,24 +221,24 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
           limit: 1,
         }),
         signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      })
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         this.logger.warn('[PrefillResolver] KBO search failed', {
           status: response.status,
-        });
-        return null;
+        })
+        return null
       }
 
-      const data = await response.json();
-      const results = data.results || [];
+      const data = await response.json()
+      const results = data.results || []
 
       if (results.length === 0) {
-        return null;
+        return null
       }
 
-      const kbo = results[0];
+      const kbo = results[0]
 
       const kboData: KBOCompanyEntity = {
         kboNumber: kbo.kbo_number,
@@ -259,7 +254,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         naceDescription: kbo.nace_description,
         foundationDate: kbo.foundation_date,
         isActive: kbo.is_active,
-      };
+      }
 
       const companyInfo: CompanyInfo = {
         companyName: kbo.company_name,
@@ -274,17 +269,17 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         naceDescription: kbo.nace_description,
         foundingYear: kbo.foundation_date ? new Date(kbo.foundation_date).getFullYear() : undefined,
         isActive: kbo.is_active,
-      };
+      }
 
       this.logger.info('[PrefillResolver] KBO data fetched', {
         companyName: truncateForLog(kbo.company_name, 20),
         kboNumber: kbo.kbo_number,
-      });
+      })
 
-      return { companyInfo, kboData };
+      return { companyInfo, kboData }
     } catch (error) {
-      this.logger.error('[PrefillResolver] KBO fetch error:', error);
-      return null;
+      this.logger.error('[PrefillResolver] KBO fetch error:', error)
+      return null
     }
   }
 
@@ -292,28 +287,29 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    * Fetch user profile / business card
    */
   private async fetchUserProfile(identity: IdentityState): Promise<{
-    companyInfo?: CompanyInfo;
-    financials?: PartialFinancials;
-    businessType?: BusinessTypeInfo;
+    companyInfo?: CompanyInfo
+    financials?: PartialFinancials
+    businessType?: BusinessTypeInfo
   } | null> {
     try {
       // Determine which user to fetch profile for
-      const userId = identity.type === 'accountant_for_client'
-        ? identity.clientContext?.clientUserId
-        : identity.userId;
+      const userId =
+        identity.type === 'accountant_for_client'
+          ? identity.clientContext?.clientUserId
+          : identity.userId
 
       if (!userId) {
-        return null;
+        return null
       }
 
       const headers: Record<string, string> = {
-        'Accept': 'application/json',
-      };
+        Accept: 'application/json',
+      }
 
       // Add client context headers if needed
       if (identity.type === 'accountant_for_client' && identity.clientContext) {
-        headers['X-Client-User-Id'] = identity.clientContext.clientUserId;
-        headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId;
+        headers['X-Client-User-Id'] = identity.clientContext.clientUserId
+        headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
       }
 
       // ✅ CRITICAL FIX: Use correct endpoint - /api/v2/business-cards/:userId instead of /api/v2/users/:userId/business-card
@@ -321,18 +317,18 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         method: 'GET',
         credentials: 'include',
         headers,
-      });
+      })
 
       if (!response.ok) {
         this.logger.warn('[PrefillResolver] Business card fetch failed', {
           status: response.status,
           userId: truncateForLog(userId),
-        });
-        return null;
+        })
+        return null
       }
 
-      const data = await response.json();
-      const profile: UserProfile = data.data || data;
+      const data = await response.json()
+      const profile: UserProfile = data.data || data
 
       const companyInfo: CompanyInfo = {
         companyName: profile.company_name,
@@ -345,27 +341,27 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         naceCode: profile.nace_code,
         naceDescription: profile.nace_description,
         foundingYear: profile.founded_year,
-      };
+      }
 
       const financials: PartialFinancials = {
         employeeCount: this.parseEmployeeCount(profile.employee_count_range),
-      };
+      }
 
-      let businessType: BusinessTypeInfo | undefined;
+      let businessType: BusinessTypeInfo | undefined
       if (profile.business_type_id) {
-        businessType = await this.fetchBusinessType(profile.business_type_id);
+        businessType = await this.fetchBusinessType(profile.business_type_id)
       }
 
       this.logger.info('[PrefillResolver] User profile fetched', {
         userId: truncateForLog(userId),
         hasCompanyName: !!profile.company_name,
         hasBusinessType: !!businessType,
-      });
+      })
 
-      return { companyInfo, financials, businessType };
+      return { companyInfo, financials, businessType }
     } catch (error) {
-      this.logger.error('[PrefillResolver] Profile fetch error:', error);
-      return null;
+      this.logger.error('[PrefillResolver] Profile fetch error:', error)
+      return null
     }
   }
 
@@ -373,26 +369,31 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    * Fetch business type for a NACE code (reverse lookup).
    * Uses Titan's NACE→business type mapping.
    */
-  private async fetchBusinessTypeForNaceCode(naceCode: string): Promise<BusinessTypeInfo | undefined> {
+  private async fetchBusinessTypeForNaceCode(
+    naceCode: string
+  ): Promise<BusinessTypeInfo | undefined> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const response = await fetch(`${API_URL}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { 'Accept': 'application/json' },
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 6000)
+      const response = await fetch(
+        `${API_URL}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        }
+      )
+      clearTimeout(timeoutId)
 
-      if (!response.ok) return undefined;
+      if (!response.ok) return undefined
 
-      const data = await response.json();
-      const bt = data.business_type;
-      const confidence = data.confidence ?? 0;
+      const data = await response.json()
+      const bt = data.business_type
+      const confidence = data.confidence ?? 0
 
       // Only use mapping if confidence is high enough
-      if (!bt?.id || confidence < 0.85) return undefined;
+      if (!bt?.id || confidence < 0.85) return undefined
 
       return {
         id: bt.id,
@@ -402,9 +403,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         industry: bt.industry ?? bt.category_id,
         industryMapping: bt.industry_mapping ?? bt.id,
         multiples: bt.multiples,
-      };
+      }
     } catch {
-      return undefined;
+      return undefined
     }
   }
 
@@ -413,22 +414,22 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    */
   private async fetchBusinessType(businessTypeId: string): Promise<BusinessTypeInfo | undefined> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 6000)
       const response = await fetch(`${API_URL}/api/v2/business-types/${businessTypeId}`, {
         method: 'GET',
         credentials: 'include',
-        headers: { 'Accept': 'application/json' },
+        headers: { Accept: 'application/json' },
         signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      })
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
-        return undefined;
+        return undefined
       }
 
-      const data = await response.json();
-      const bt = data.data || data;
+      const data = await response.json()
+      const bt = data.data || data
 
       return {
         id: bt.id,
@@ -438,9 +439,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         industry: bt.industry,
         industryMapping: bt.industry_mapping,
         multiples: bt.multiples,
-      };
+      }
     } catch {
-      return undefined;
+      return undefined
     }
   }
 
@@ -448,13 +449,13 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    * Extract prefill data from existing session
    */
   private extractSessionPrefill(sessionData: SessionDataForPrefill): {
-    companyInfo?: CompanyInfo;
-    financials?: PartialFinancials;
-    businessType?: BusinessTypeInfo;
+    companyInfo?: CompanyInfo
+    financials?: PartialFinancials
+    businessType?: BusinessTypeInfo
   } {
     // Check both top-level and _businessInfo for data
-    const businessInfo = sessionData._businessInfo || {};
-    const merged = { ...businessInfo, ...sessionData };
+    const businessInfo = sessionData._businessInfo || {}
+    const merged = { ...businessInfo, ...sessionData }
 
     const companyInfo: CompanyInfo = {
       companyName: merged.company_name as string,
@@ -467,25 +468,25 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       foundingYear: merged.founding_year as number,
       naceCode: merged.nace_code as string,
       naceDescription: merged.nace_description as string,
-    };
+    }
 
     const financials: PartialFinancials = {
       revenue: merged.revenue as number,
       ebitda: merged.ebitda as number,
       employeeCount: (merged.employee_count ?? merged.number_of_employees) as number,
       yearData: merged.year_data as Record<number, { revenue?: number; ebitda?: number }>,
-    };
+    }
 
-    let businessType: BusinessTypeInfo | undefined;
+    let businessType: BusinessTypeInfo | undefined
     if (merged.business_type_id) {
       businessType = {
         id: merged.business_type_id as string,
         title: '', // Will be resolved later if needed
         industry: merged.industry as string,
-      };
+      }
     }
 
-    return { companyInfo, financials, businessType };
+    return { companyInfo, financials, businessType }
   }
 
   /**
@@ -497,10 +498,10 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     kbo?: CompanyInfo
   ): CompanyInfo | undefined {
     if (!session && !profile && !kbo) {
-      return undefined;
+      return undefined
     }
 
-    return mergeWithPriority(kbo, profile, session) as CompanyInfo;
+    return mergeWithPriority(kbo, profile, session) as CompanyInfo
   }
 
   /**
@@ -511,10 +512,10 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     profile?: PartialFinancials
   ): PartialFinancials | undefined {
     if (!session && !profile) {
-      return undefined;
+      return undefined
     }
 
-    return mergeWithPriority(profile, session) as PartialFinancials;
+    return mergeWithPriority(profile, session) as PartialFinancials
   }
 
   /**
@@ -525,40 +526,40 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     financials?: PartialFinancials,
     businessType?: BusinessTypeInfo
   ): string[] {
-    const populated: string[] = [];
+    const populated: string[] = []
 
     if (companyInfo) {
-      if (companyInfo.companyName) populated.push('company_name');
-      if (companyInfo.kboNumber) populated.push('kbo_number');
-      if (companyInfo.vatNumber) populated.push('vat_number');
-      if (companyInfo.legalForm) populated.push('legal_form');
-      if (companyInfo.city) populated.push('city');
-      if (companyInfo.postalCode) populated.push('postal_code');
-      if (companyInfo.countryCode) populated.push('country_code');
-      if (companyInfo.foundingYear) populated.push('founding_year');
-      if (companyInfo.naceCode) populated.push('nace_code');
-      if (companyInfo.naceDescription) populated.push('nace_description');
+      if (companyInfo.companyName) populated.push('company_name')
+      if (companyInfo.kboNumber) populated.push('kbo_number')
+      if (companyInfo.vatNumber) populated.push('vat_number')
+      if (companyInfo.legalForm) populated.push('legal_form')
+      if (companyInfo.city) populated.push('city')
+      if (companyInfo.postalCode) populated.push('postal_code')
+      if (companyInfo.countryCode) populated.push('country_code')
+      if (companyInfo.foundingYear) populated.push('founding_year')
+      if (companyInfo.naceCode) populated.push('nace_code')
+      if (companyInfo.naceDescription) populated.push('nace_description')
     }
 
     if (financials) {
-      if (financials.revenue) populated.push('revenue');
-      if (financials.ebitda) populated.push('ebitda');
-      if (financials.employeeCount) populated.push('employee_count');
+      if (financials.revenue) populated.push('revenue')
+      if (financials.ebitda) populated.push('ebitda')
+      if (financials.employeeCount) populated.push('employee_count')
     }
 
     if (businessType) {
-      populated.push('business_type_id');
-      if (businessType.industry) populated.push('industry');
+      populated.push('business_type_id')
+      if (businessType.industry) populated.push('industry')
     }
 
-    return populated;
+    return populated
   }
 
   /**
    * Parse employee count from range string
    */
   private parseEmployeeCount(range?: string): number | undefined {
-    if (!range) return undefined;
+    if (!range) return undefined
 
     const rangeMap: Record<string, number> = {
       '1-10': 5,
@@ -570,11 +571,11 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       '100-500': 250,
       '101-500': 250,
       '500+': 750,
-    };
+    }
 
-    return rangeMap[range.trim()];
+    return rangeMap[range.trim()]
   }
 }
 
 // Export singleton instance
-export const prefillResolver = new PrefillResolver();
+export const prefillResolver = new PrefillResolver()

@@ -1,13 +1,13 @@
-import type { Config } from 'tailwindcss';
+import type { Config } from 'tailwindcss'
 
 /**
  * Hybrid Aurora Design System - Tailwind Preset
- * 
+ *
  * Usage:
  * ```typescript
  * // tailwind.config.ts
  * import { hybridAuroraPreset } from './src/design-system/tailwind.preset';
- * 
+ *
  * export default {
  *   presets: [hybridAuroraPreset],
  *   content: [...],
@@ -29,11 +29,26 @@ export const hybridAuroraPreset: Partial<Config> = {
       // TYPOGRAPHY
       // ─────────────────────────────────────────
       fontFamily: {
-        sans: ['Satoshi', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: [
+          'Satoshi',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif',
+        ],
         display: ['Satoshi', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
+        mono: [
+          'JetBrains Mono',
+          'Monaco',
+          'Consolas',
+          'Liberation Mono',
+          'Courier New',
+          'monospace',
+        ],
       },
-      
+
       // ─────────────────────────────────────────
       // COLORS - Semantic Tokens
       // ─────────────────────────────────────────
@@ -93,11 +108,11 @@ export const hybridAuroraPreset: Partial<Config> = {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
-        
+
         // ─────────────────────────────────────────
         // BRAND PALETTE (Direct usage)
         // ─────────────────────────────────────────
-        
+
         // Primary: Aurora Teal (30%)
         teal: {
           DEFAULT: '#3DBDB0',
@@ -112,7 +127,7 @@ export const hybridAuroraPreset: Partial<Config> = {
           800: '#19544D',
           900: '#0D312C',
         },
-        
+
         // Secondary: Burnt Clay (10%)
         clay: {
           DEFAULT: '#C87F63',
@@ -127,7 +142,7 @@ export const hybridAuroraPreset: Partial<Config> = {
           800: '#7C4733',
           900: '#5E3627',
         },
-        
+
         // Accent: Aurora Violet (atmosphere)
         violet: {
           DEFAULT: '#8B5CF6',
@@ -142,7 +157,7 @@ export const hybridAuroraPreset: Partial<Config> = {
           800: '#4118A8',
           900: '#2E1180',
         },
-        
+
         // Canvas: Deep Slate (60%)
         slate: {
           DEFAULT: '#161A22',
@@ -158,7 +173,7 @@ export const hybridAuroraPreset: Partial<Config> = {
           900: '#161A22',
         },
       },
-      
+
       // ─────────────────────────────────────────
       // BORDER RADIUS
       // ─────────────────────────────────────────
@@ -170,7 +185,7 @@ export const hybridAuroraPreset: Partial<Config> = {
         '2xl': 'calc(var(--radius) + 8px)',
         '3xl': 'calc(var(--radius) + 16px)',
       },
-      
+
       // ─────────────────────────────────────────
       // SPACING
       // ─────────────────────────────────────────
@@ -179,18 +194,24 @@ export const hybridAuroraPreset: Partial<Config> = {
         '22': '5.5rem',
         '30': '7.5rem',
       },
-      
+
       // ─────────────────────────────────────────
       // DISPLAY TYPOGRAPHY
       // ─────────────────────────────────────────
       fontSize: {
         'display-2xl': ['4rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '700' }],
         'display-xl': ['3rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '700' }],
-        'display-lg': ['2.25rem', { lineHeight: '1.2', letterSpacing: '-0.01em', fontWeight: '600' }],
-        'display-md': ['1.875rem', { lineHeight: '1.3', letterSpacing: '-0.01em', fontWeight: '600' }],
+        'display-lg': [
+          '2.25rem',
+          { lineHeight: '1.2', letterSpacing: '-0.01em', fontWeight: '600' },
+        ],
+        'display-md': [
+          '1.875rem',
+          { lineHeight: '1.3', letterSpacing: '-0.01em', fontWeight: '600' },
+        ],
         'display-sm': ['1.5rem', { lineHeight: '1.4', fontWeight: '600' }],
       },
-      
+
       // ─────────────────────────────────────────
       // ANIMATIONS
       // ─────────────────────────────────────────
@@ -248,7 +269,7 @@ export const hybridAuroraPreset: Partial<Config> = {
         'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
         float: 'float 3s ease-in-out infinite',
       },
-      
+
       // ─────────────────────────────────────────
       // SHADOWS
       // ─────────────────────────────────────────
@@ -264,6 +285,6 @@ export const hybridAuroraPreset: Partial<Config> = {
     },
   },
   plugins: [require('tailwindcss-animate')],
-};
+}
 
-export default hybridAuroraPreset;
+export default hybridAuroraPreset

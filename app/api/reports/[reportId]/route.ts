@@ -45,11 +45,15 @@ export async function DELETE(request: NextRequest, { params }: { params: { repor
       ;(headers as Record<string, string>)['x-guest-session-id'] = guestSessionId
     }
 
-    const response = await fetchWithTimeout(`${titanApiUrl}/api/v2/valuations/reports/${reportId}`, {
-      method: 'DELETE',
-      headers,
-      credentials: 'include',
-    }, 10_000)
+    const response = await fetchWithTimeout(
+      `${titanApiUrl}/api/v2/valuations/reports/${reportId}`,
+      {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      },
+      10_000
+    )
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Failed to delete report' }))
@@ -69,7 +73,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { repor
     const isTimeout = error instanceof Error && error.message.includes('timeout')
     return NextResponse.json(
       { error: isTimeout ? 'Request timed out' : 'Internal server error' },
-      { status: isTimeout ? 504 : 500 },
+      { status: isTimeout ? 504 : 500 }
     )
   }
 }

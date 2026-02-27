@@ -1,68 +1,73 @@
 /**
  * useBootstrapPrefill Hook
- * 
+ *
  * Applies bootstrap prefill data to form stores.
- * 
+ *
  * WORLD CLASS: Uses useLayoutEffect for synchronous application before paint,
  * preventing visual "jumps" where fields appear empty then fill in.
- * 
+ *
  * @module hooks/useBootstrapPrefill
  */
 
-import { useLayoutEffect, useRef, useState } from 'react';
-import { useBootstrapSafe } from '../lib/bootstrap';
-import type { PrefillData, CompanyInfo, PartialFinancials, BusinessTypeInfo } from '../lib/bootstrap/types';
-import { useManualFormStore } from '../store/manual/useManualFormStore';
-import { createContextLogger } from '../utils/logger';
+import { useLayoutEffect, useRef, useState } from 'react'
+import { useBootstrapSafe } from '../lib/bootstrap'
+import type {
+  BusinessTypeInfo,
+  CompanyInfo,
+  PartialFinancials,
+  PrefillData,
+} from '../lib/bootstrap/types'
+import { useManualFormStore } from '../store/manual/useManualFormStore'
+import { createContextLogger } from '../utils/logger'
 
-const logger = createContextLogger('BootstrapPrefill');
+const logger = createContextLogger('BootstrapPrefill')
 
 // Track if prefill has been applied globally (survives re-renders/re-mounts)
-let globalPrefillApplied = false;
-let globalPrefillReportId: string | null = null;
+let globalPrefillApplied = false
+let globalPrefillReportId: string | null = null
 
 /**
  * Apply bootstrap prefill data to form stores
- * 
+ *
  * WORLD CLASS: This hook uses useLayoutEffect to apply prefill BEFORE the browser
  * paints, ensuring the form renders with data already populated (no visual jump).
- * 
+ *
  * It applies prefilled data once after bootstrap completes.
  */
 export function useBootstrapPrefill(): {
-  hasPrefilled: boolean;
-  prefillConfidence: number;
+  hasPrefilled: boolean
+  prefillConfidence: number
 } {
-  const bootstrap = useBootstrapSafe();
-  const hasPrefilledRef = useRef(false);
-  const [hasPrefilled, setHasPrefilled] = useState(false);
-  
+  const bootstrap = useBootstrapSafe()
+  const hasPrefilledRef = useRef(false)
+  const [hasPrefilled, setHasPrefilled] = useState(false)
+
   // Get form store actions - access via getState to avoid re-renders
-  const formStore = useManualFormStore;
-  
+  const formStore = useManualFormStore
+
   // WORLD CLASS: Use useLayoutEffect for synchronous execution before paint
   // This ensures the form fields are populated BEFORE the user sees them
   useLayoutEffect(() => {
     // Skip if no bootstrap context
     if (!bootstrap) {
-      logger.debug('Bootstrap context not available yet');
-      return;
+      logger.debug('Bootstrap context not available yet')
+      return
     }
-    
+
     // Skip if still bootstrapping
     if (bootstrap.isBootstrapping) {
-      logger.debug('Bootstrap still in progress, waiting...');
-      return;
+      logger.debug('Bootstrap still in progress, waiting...')
+      return
     }
-    
+
     // Skip if bootstrap failed
     if (bootstrap.bootstrapError) {
       logger.warn('Bootstrap failed, skipping prefill', {
         error: bootstrap.bootstrapError,
-      });
-      return;
+      })
+      return
     }
-    
+
     // MERCURY FIX: For existing reports, apply prefill if bootstrap has meaningful data
     // Previously we skipped entirely and deferred to restoration - but loadSession is async,
     // so the form stayed blank until it completed. Bootstrap prefill has the data from
@@ -74,73 +79,76 @@ export function useBootstrapPrefill(): {
       (!!bootstrap.prefillData.companyInfo?.companyName?.trim() ||
         !!bootstrap.prefillData.companyInfo?.kboNumber ||
         !!bootstrap.prefillData.kboData?.kboNumber ||
-        !!bootstrap.prefillData.companyInfo?.vatNumber);
+        !!bootstrap.prefillData.companyInfo?.vatNumber)
 
     if (
       bootstrap.report.mode === 'existing' &&
       bootstrap.report.hasExistingData &&
       !hasMeaningfulPrefill
     ) {
-      logger.info('Skipping prefill - existing report, no meaningful prefill data (deferring to restoration)', {
-        reportId: bootstrap.report.reportId?.substring(0, 20),
-        mode: bootstrap.report.mode,
-        hasExistingData: bootstrap.report.hasExistingData,
-        confidence: bootstrap.prefillData.confidence,
-      });
-      hasPrefilledRef.current = true;
-      setHasPrefilled(true);
-      return;
+      logger.info(
+        'Skipping prefill - existing report, no meaningful prefill data (deferring to restoration)',
+        {
+          reportId: bootstrap.report.reportId?.substring(0, 20),
+          mode: bootstrap.report.mode,
+          hasExistingData: bootstrap.report.hasExistingData,
+          confidence: bootstrap.prefillData.confidence,
+        }
+      )
+      hasPrefilledRef.current = true
+      setHasPrefilled(true)
+      return
     }
-    
+
     // Get current report ID to track which report we've prefilled
-    const currentReportId = bootstrap.report.reportId;
+    const currentReportId = bootstrap.report.reportId
 
     // Reset prefill state when navigating to a different report (enables prefill for new report)
     if (currentReportId && currentReportId !== globalPrefillReportId) {
-      resetBootstrapPrefillState();
+      resetBootstrapPrefillState()
     }
-    
+
     // Skip if already prefilled for THIS report (prevents re-prefill on re-mount)
     if (globalPrefillApplied && globalPrefillReportId === currentReportId) {
-      hasPrefilledRef.current = true;
-      setHasPrefilled(true);
-      return;
+      hasPrefilledRef.current = true
+      setHasPrefilled(true)
+      return
     }
-    
+
     // Skip if no meaningful prefill data
     if (!bootstrap.hasPrefilledData || bootstrap.prefillData.confidence < 0.05) {
       logger.debug('No meaningful prefill data from bootstrap', {
         hasPrefilledData: bootstrap.hasPrefilledData,
         confidence: bootstrap.prefillData.confidence,
-      });
-      globalPrefillApplied = true;
-      globalPrefillReportId = currentReportId;
-      hasPrefilledRef.current = true;
-      setHasPrefilled(true);
-      return;
+      })
+      globalPrefillApplied = true
+      globalPrefillReportId = currentReportId
+      hasPrefilledRef.current = true
+      setHasPrefilled(true)
+      return
     }
-    
-    const { prefillData } = bootstrap;
-    
+
+    const { prefillData } = bootstrap
+
     // Get form store actions directly to avoid stale closures
-    const { updateFormData, prefillFromBusinessCard } = formStore.getState();
-    
+    const { updateFormData, prefillFromBusinessCard } = formStore.getState()
+
     // ✅ FIX: Defer state updates to prevent React error #185
     // useLayoutEffect runs during commit phase; queueMicrotask runs earlier than setTimeout(0)
     // so form store is populated sooner, reducing timing issues with collectedData/initialData
     queueMicrotask(() => {
       // Apply prefill data to form AFTER render completes
-      applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard);
-      
+      applyPrefillToForm(prefillData, updateFormData, prefillFromBusinessCard)
+
       // Verify form data was actually set (read after update)
-      const formDataAfterPrefill = formStore.getState().formData;
-      
+      const formDataAfterPrefill = formStore.getState().formData
+
       // Mark as prefilled globally and locally
-      globalPrefillApplied = true;
-      globalPrefillReportId = currentReportId;
-      hasPrefilledRef.current = true;
-      setHasPrefilled(true);
-      
+      globalPrefillApplied = true
+      globalPrefillReportId = currentReportId
+      hasPrefilledRef.current = true
+      setHasPrefilled(true)
+
       logger.info('Applied bootstrap prefill to form (deferred)', {
         sources: prefillData.sources,
         confidence: prefillData.confidence.toFixed(2),
@@ -156,28 +164,28 @@ export function useBootstrapPrefill(): {
           hasFoundingYear: !!formDataAfterPrefill.founding_year,
           hasBusinessContext: !!formDataAfterPrefill.business_context,
         },
-      });
-    });
-  }, [bootstrap, formStore]);
-  
+      })
+    })
+  }, [bootstrap, formStore])
+
   return {
     hasPrefilled: hasPrefilled || hasPrefilledRef.current,
     prefillConfidence: bootstrap?.prefillData.confidence || 0,
-  };
+  }
 }
 
 /**
  * Reset prefill state (call when navigating to a new report)
  */
 export function resetBootstrapPrefillState(): void {
-  globalPrefillApplied = false;
-  globalPrefillReportId = null;
-  logger.debug('Bootstrap prefill state reset');
+  globalPrefillApplied = false
+  globalPrefillReportId = null
+  logger.debug('Bootstrap prefill state reset')
 }
 
 /**
  * Apply prefill data to form stores
- * 
+ *
  * WORLD CLASS: Ensures all fields are populated including KBO data
  * so the company preview card shows immediately.
  */
@@ -186,8 +194,8 @@ function applyPrefillToForm(
   updateFormData: (data: Partial<any>) => void,
   prefillFromBusinessCard: (card: any) => void
 ): void {
-  const { companyInfo, financials, businessType, kboData } = prefillData;
-  
+  const { companyInfo, financials, businessType, kboData } = prefillData
+
   // CRITICAL LOGGING: Log what we received from bootstrap
   logger.debug('applyPrefillToForm called', {
     hasCompanyInfo: !!companyInfo,
@@ -201,33 +209,33 @@ function applyPrefillToForm(
     sources: prefillData.sources,
     prefillConfidence: prefillData.confidence,
     fieldsPopulated: prefillData.fieldsPopulated.slice(0, 10),
-  });
-  
+  })
+
   // Collect ALL data to apply in a single update for consistency
-  const allData: Record<string, any> = {};
-  
+  const allData: Record<string, any> = {}
+
   // 1. Apply company info (priority: companyInfo > kboData)
   if (companyInfo) {
     // CRITICAL FIX: Only set company_name if it's a non-empty string
     // Empty strings mean "no data available" and should be ignored
     if (companyInfo.companyName && companyInfo.companyName.trim() !== '') {
-      allData.company_name = companyInfo.companyName;
+      allData.company_name = companyInfo.companyName
       logger.debug('Set company_name from companyInfo', {
         company_name: companyInfo.companyName.substring(0, 30),
-      });
+      })
     }
-    if (companyInfo.countryCode) allData.country_code = companyInfo.countryCode;
-    if (companyInfo.foundingYear) allData.founding_year = companyInfo.foundingYear;
-    if (companyInfo.city) allData.city = companyInfo.city;
-    if (companyInfo.postalCode) allData.postal_code = companyInfo.postalCode;
-    if (companyInfo.legalForm) allData.legal_form = companyInfo.legalForm;
-    
+    if (companyInfo.countryCode) allData.country_code = companyInfo.countryCode
+    if (companyInfo.foundingYear) allData.founding_year = companyInfo.foundingYear
+    if (companyInfo.city) allData.city = companyInfo.city
+    if (companyInfo.postalCode) allData.postal_code = companyInfo.postalCode
+    if (companyInfo.legalForm) allData.legal_form = companyInfo.legalForm
+
     // KBO registry fields - CRITICAL for showing the company preview card
-    if (companyInfo.kboNumber) allData.kbo_number = companyInfo.kboNumber;
-    if (companyInfo.vatNumber) allData.vat_number = companyInfo.vatNumber;
-    if (companyInfo.naceCode) allData.nace_code = companyInfo.naceCode;
-    if (companyInfo.naceDescription) allData.nace_description = companyInfo.naceDescription;
-    
+    if (companyInfo.kboNumber) allData.kbo_number = companyInfo.kboNumber
+    if (companyInfo.vatNumber) allData.vat_number = companyInfo.vatNumber
+    if (companyInfo.naceCode) allData.nace_code = companyInfo.naceCode
+    if (companyInfo.naceDescription) allData.nace_description = companyInfo.naceDescription
+
     // CRITICAL FIX: Set business_context from companyInfo if it has KBO data
     // This ensures the KBO confirmation box shows even when data comes from companyInfo (not kboData)
     if (companyInfo.kboNumber) {
@@ -237,89 +245,96 @@ function applyPrefillToForm(
         kbo_registration_number: companyInfo.kboNumber,
         legal_form: companyInfo.legalForm || allData.business_context?.legal_form,
         company_id: companyInfo.kboNumber, // Use KBO number as company ID
-        company_address: [companyInfo.postalCode, companyInfo.city].filter(Boolean).join(' ') || allData.business_context?.company_address,
+        company_address:
+          [companyInfo.postalCode, companyInfo.city].filter(Boolean).join(' ') ||
+          allData.business_context?.company_address,
         company_status: 'Active',
         kbo_verified: true, // Flag that KBO was verified
-      };
+      }
       logger.debug('Set business_context from companyInfo KBO data', {
         kbo_registration: companyInfo.kboNumber,
         legal_form: companyInfo.legalForm,
-      });
+      })
     }
   }
-  
+
   // 2. Apply KBO data (may have additional fields not in companyInfo)
   if (kboData) {
     // Only override if not already set from companyInfo
-    if (kboData.kboNumber && !allData.kbo_number) allData.kbo_number = kboData.kboNumber;
-    if (kboData.vatNumber && !allData.vat_number) allData.vat_number = kboData.vatNumber;
-    if (kboData.legalForm && !allData.legal_form) allData.legal_form = kboData.legalForm;
-    if (kboData.city && !allData.city) allData.city = kboData.city;
-    if (kboData.postalCode && !allData.postal_code) allData.postal_code = kboData.postalCode;
-    if (kboData.naceCode && !allData.nace_code) allData.nace_code = kboData.naceCode;
-    if (kboData.naceDescription && !allData.nace_description) allData.nace_description = kboData.naceDescription;
+    if (kboData.kboNumber && !allData.kbo_number) allData.kbo_number = kboData.kboNumber
+    if (kboData.vatNumber && !allData.vat_number) allData.vat_number = kboData.vatNumber
+    if (kboData.legalForm && !allData.legal_form) allData.legal_form = kboData.legalForm
+    if (kboData.city && !allData.city) allData.city = kboData.city
+    if (kboData.postalCode && !allData.postal_code) allData.postal_code = kboData.postalCode
+    if (kboData.naceCode && !allData.nace_code) allData.nace_code = kboData.naceCode
+    if (kboData.naceDescription && !allData.nace_description)
+      allData.nace_description = kboData.naceDescription
     // CRITICAL FIX: Only use kboData.companyName if it's non-empty and we don't already have one
     if (kboData.companyName && kboData.companyName.trim() !== '' && !allData.company_name) {
-      allData.company_name = kboData.companyName;
+      allData.company_name = kboData.companyName
       logger.debug('Set company_name from kboData', {
         company_name: kboData.companyName.substring(0, 30),
-      });
+      })
     }
-    if (kboData.countryCode && !allData.country_code) allData.country_code = kboData.countryCode;
-    
+    if (kboData.countryCode && !allData.country_code) allData.country_code = kboData.countryCode
+
     // Store KBO verification status in business_context for the preview card
     // CRITICAL FIX: Merge with existing business_context if it was set from companyInfo
     allData.business_context = {
       ...(allData.business_context || {}), // Preserve existing business_context
       kbo_registration: kboData.kboNumber || allData.business_context?.kbo_registration,
-      kbo_registration_number: kboData.kboNumber || allData.business_context?.kbo_registration_number,
+      kbo_registration_number:
+        kboData.kboNumber || allData.business_context?.kbo_registration_number,
       legal_form: kboData.legalForm || allData.business_context?.legal_form,
       company_id: kboData.kboNumber || allData.business_context?.company_id,
       company_status: kboData.status || allData.business_context?.company_status || 'Active',
-      company_address: [kboData.postalCode, kboData.city].filter(Boolean).join(' ') || allData.business_context?.company_address,
+      company_address:
+        [kboData.postalCode, kboData.city].filter(Boolean).join(' ') ||
+        allData.business_context?.company_address,
       kbo_verified: true, // Flag that KBO was verified
-    };
+    }
     logger.debug('Set business_context from kboData', {
       kbo_registration: kboData.kboNumber,
       legal_form: kboData.legalForm,
-    });
+    })
   }
-  
+
   // 3. Apply financials
   if (financials) {
-    if (financials.revenue !== undefined) allData.revenue = financials.revenue;
-    if (financials.ebitda !== undefined) allData.ebitda = financials.ebitda;
-    if (financials.employeeCount !== undefined) allData.number_of_employees = financials.employeeCount;
-    if (financials.yearData) allData.year_data = financials.yearData;
+    if (financials.revenue !== undefined) allData.revenue = financials.revenue
+    if (financials.ebitda !== undefined) allData.ebitda = financials.ebitda
+    if (financials.employeeCount !== undefined)
+      allData.number_of_employees = financials.employeeCount
+    if (financials.yearData) allData.year_data = financials.yearData
   }
-  
+
   // 4. Apply business type
   if (businessType) {
-    if (businessType.id) allData.business_type_id = businessType.id;
-    if (businessType.industry) allData.industry = businessType.industry;
-    if (businessType.category) allData.subIndustry = businessType.category;
+    if (businessType.id) allData.business_type_id = businessType.id
+    if (businessType.industry) allData.industry = businessType.industry
+    if (businessType.category) allData.subIndustry = businessType.category
   }
-  
+
   // CRITICAL: Ensure company_name is set from either companyInfo or kboData
   // This is the most important field and must be set
   // Only use non-empty strings - empty strings mean "no data available"
   if (!allData.company_name || allData.company_name.trim() === '') {
     // Try to get company name from kboData if companyInfo doesn't have it
     if (kboData?.companyName && kboData.companyName.trim() !== '') {
-      allData.company_name = kboData.companyName;
+      allData.company_name = kboData.companyName
       logger.debug('Using company_name from kboData (fallback)', {
         company_name: kboData.companyName.substring(0, 30),
-      });
+      })
     } else {
       logger.warn('No company_name available from bootstrap prefill', {
         hasCompanyInfo: !!companyInfo,
         companyInfoCompanyName: companyInfo?.companyName,
         hasKboData: !!kboData,
         kboDataCompanyName: kboData?.companyName,
-      });
+      })
     }
   }
-  
+
   // Apply all data in a single update FIRST
   if (Object.keys(allData).length > 0) {
     logger.debug('Applying prefill data to form', {
@@ -334,38 +349,38 @@ function applyPrefillToForm(
       businessContextLegalForm: allData.business_context?.legal_form,
       businessContextKboVerified: allData.business_context?.kbo_verified,
       businessContextCompanyId: allData.business_context?.company_id,
-    });
-    
+    })
+
     // ✅ FIX: updateFormData is already deferred by queueMicrotask in useLayoutEffect
     // No need for additional deferral here
-    updateFormData(allData);
+    updateFormData(allData)
   }
-  
+
   // ALSO use prefillFromBusinessCard for industry/business_model mapping
   // This ensures proper mapping of business type to industry codes
   // CRITICAL: Only call if we have a non-empty company name to avoid overwriting with empty value
   // ✅ FIX: prefillFromBusinessCard now uses requestAnimationFrame internally to prevent React error #185
   // No need for additional setTimeout here - the function itself handles deferral
-  const finalCompanyName = allData.company_name || companyInfo?.companyName || kboData?.companyName;
+  const finalCompanyName = allData.company_name || companyInfo?.companyName || kboData?.companyName
   if (finalCompanyName && finalCompanyName.trim() !== '') {
     // Build business card with the final company name (from allData if set)
     const businessCard = buildBusinessCard(
       { ...companyInfo, companyName: finalCompanyName } as CompanyInfo,
       financials,
       businessType
-    );
+    )
     // Call directly - prefillFromBusinessCard now handles deferral internally
-    prefillFromBusinessCard(businessCard);
+    prefillFromBusinessCard(businessCard)
     logger.debug('Called prefillFromBusinessCard', {
       company_name: finalCompanyName.substring(0, 30),
-    });
+    })
   } else {
     logger.warn('Skipping prefillFromBusinessCard - no company name available', {
       hasCompanyInfo: !!companyInfo,
       hasKboData: !!kboData,
       companyInfoCompanyName: companyInfo?.companyName?.substring(0, 20),
       kboDataCompanyName: kboData?.companyName?.substring(0, 20),
-    });
+    })
   }
 }
 
@@ -392,7 +407,7 @@ function buildBusinessCard(
     legal_form: companyInfo.legalForm,
     nace_code: companyInfo.naceCode,
     nace_description: companyInfo.naceDescription,
-  };
+  }
 }
 
 /**
@@ -403,4 +418,4 @@ export function resetPrefillState(): void {
   // Typically by re-mounting the component or calling the bootstrap refresh
 }
 
-export default useBootstrapPrefill;
+export default useBootstrapPrefill

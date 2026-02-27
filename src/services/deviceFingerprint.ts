@@ -61,9 +61,7 @@ class DeviceFingerprintService {
       await this.getWebGLFingerprint(),
 
       // Add some entropy
-      Math.random()
-        .toString(36)
-        .substring(2, 15),
+      Math.random().toString(36).substring(2, 15),
     ]
 
     const fingerprintString = components.filter(Boolean).join('|')

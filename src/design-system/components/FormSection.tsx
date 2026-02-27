@@ -1,14 +1,14 @@
 /**
  * Aurora Design System
  * FormSection Component
- * 
+ *
  * Wrapper for form sections with Aurora styling.
  * Provides consistent section headers, spacing, and grid layouts.
  */
 
-import * as React from 'react'
 import { motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
+import * as React from 'react'
 import { cn } from '../../lib/utils'
 import { fadeInUp } from './motion'
 
@@ -59,9 +59,7 @@ export const AuroraFormSection: React.FC<FormSectionProps> = ({
                 {title}
                 {badge && <span className="ml-2">{badge}</span>}
               </h3>
-              {description && (
-                <p className="text-sm text-foreground/50 mt-0.5">{description}</p>
-              )}
+              {description && <p className="text-sm text-foreground/50 mt-0.5">{description}</p>}
             </div>
           </div>
           <ChevronDown
@@ -83,9 +81,7 @@ export const AuroraFormSection: React.FC<FormSectionProps> = ({
               {title}
               {badge && <span className="ml-2">{badge}</span>}
             </h3>
-            {description && (
-              <p className="text-sm text-foreground/50 mt-0.5">{description}</p>
-            )}
+            {description && <p className="text-sm text-foreground/50 mt-0.5">{description}</p>}
           </div>
         </div>
       )}
@@ -113,22 +109,14 @@ interface FormGridProps {
   className?: string
 }
 
-export const AuroraFormGrid: React.FC<FormGridProps> = ({
-  children,
-  columns = 2,
-  className,
-}) => {
+export const AuroraFormGrid: React.FC<FormGridProps> = ({ children, columns = 2, className }) => {
   const gridCols = {
     1: 'grid-cols-1',
     2: 'grid-cols-1 @4xl:grid-cols-2',
     3: 'grid-cols-1 @2xl:grid-cols-2 @4xl:grid-cols-3',
   }
 
-  return (
-    <div className={cn('grid gap-4 sm:gap-6', gridCols[columns], className)}>
-      {children}
-    </div>
-  )
+  return <div className={cn('grid gap-4 sm:gap-6', gridCols[columns], className)}>{children}</div>
 }
 
 /**
@@ -140,15 +128,8 @@ interface FullWidthFieldProps {
   className?: string
 }
 
-export const AuroraFullWidthField: React.FC<FullWidthFieldProps> = ({
-  children,
-  className,
-}) => {
-  return (
-    <div className={cn('@4xl:col-span-2', className)}>
-      {children}
-    </div>
-  )
+export const AuroraFullWidthField: React.FC<FullWidthFieldProps> = ({ children, className }) => {
+  return <div className={cn('@4xl:col-span-2', className)}>{children}</div>
 }
 
 /**
@@ -182,11 +163,7 @@ export const AuroraFormAlert: React.FC<FormAlertProps> = ({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className={cn(
-        'p-3 rounded-xl border text-sm',
-        styles[type],
-        className
-      )}
+      className={cn('p-3 rounded-xl border text-sm', styles[type], className)}
     >
       <div className="flex items-start gap-2">
         {icon && <span className="shrink-0 mt-0.5">{icon}</span>}

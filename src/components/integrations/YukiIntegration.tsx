@@ -1,82 +1,82 @@
-'use client';
+'use client'
 
 /**
  * Accounting Integration Components
- * 
+ *
  * CSV-first integration UI for importing accounting software exports.
  * Supports Yuki, Exact, and Odoo file formats.
  * Direct API integrations planned for 2025.
  */
 
-import { useState } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/design-system/utils';
-import { AuroraButton as Button } from '@/design-system/components/Button';
-import { Badge } from '@/design-system/components/Badge';
-import { GlassCard } from '@/design-system/components/GlassCard';
-import { Heading, Body, Caption, Mono } from '@/design-system/components/Typography';
-import { 
-  Check, 
-  RefreshCw, 
-  AlertCircle, 
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  AlertCircle,
+  Check,
   ChevronRight,
-  X,
+  Download,
   FileSpreadsheet,
+  RefreshCw,
   Upload,
-  Download
-} from 'lucide-react';
+  X,
+} from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { useState } from 'react'
+import { Badge } from '@/design-system/components/Badge'
+import { AuroraButton as Button } from '@/design-system/components/Button'
+import { GlassCard } from '@/design-system/components/GlassCard'
+import { Body, Caption, Heading, Mono } from '@/design-system/components/Typography'
+import { cn } from '@/design-system/utils'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
 
 export interface ImportStatus {
-  status: 'none' | 'processing' | 'imported' | 'error';
-  lastImport?: Date;
-  fileName?: string;
-  errorMessage?: string;
+  status: 'none' | 'processing' | 'imported' | 'error'
+  lastImport?: Date
+  fileName?: string
+  errorMessage?: string
 }
 
 export interface SuggestedNormalisation {
-  id: string;
-  category: string;
-  description: string;
-  amount: number;
-  reason: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  id: string
+  category: string
+  description: string
+  amount: number
+  reason: string
+  status: 'pending' | 'accepted' | 'rejected'
 }
 
 export interface CSVImportCardProps {
-  importStatus: ImportStatus;
-  onUpload: () => void;
-  onDownloadTemplate: () => void;
-  onClearImport?: () => void;
-  className?: string;
-  softwareName?: 'Yuki' | 'Exact' | 'Odoo' | 'Generiek';
+  importStatus: ImportStatus
+  onUpload: () => void
+  onDownloadTemplate: () => void
+  onClearImport?: () => void
+  className?: string
+  softwareName?: 'Yuki' | 'Exact' | 'Odoo' | 'Generiek'
 }
 
 export interface NormalisationReviewProps {
-  suggestions: SuggestedNormalisation[];
-  onAccept: (id: string) => void;
-  onReject: (id: string) => void;
-  onAcceptAll: () => void;
-  className?: string;
+  suggestions: SuggestedNormalisation[]
+  onAccept: (id: string) => void
+  onReject: (id: string) => void
+  onAcceptAll: () => void
+  className?: string
 }
 
 // Legacy type exports for backward compatibility
 export interface YukiConnectionStatus {
-  status: 'disconnected' | 'connecting' | 'connected' | 'error';
-  lastSync?: Date;
-  errorMessage?: string;
+  status: 'disconnected' | 'connecting' | 'connected' | 'error'
+  lastSync?: Date
+  errorMessage?: string
 }
 
 export interface YukiConnectCardProps {
-  connectionStatus: YukiConnectionStatus;
-  onConnect: () => void;
-  onResync?: () => void;
-  onDisconnect?: () => void;
-  className?: string;
+  connectionStatus: YukiConnectionStatus
+  onConnect: () => void
+  onResync?: () => void
+  onDisconnect?: () => void
+  className?: string
 }
 
 // ─────────────────────────────────────────
@@ -84,23 +84,26 @@ export interface YukiConnectCardProps {
 // ─────────────────────────────────────────
 
 const formatCurrency = (amount: number) => {
-  if (amount >= 1000) return `€${(amount / 1000).toFixed(1)}K`;
-  return `€${amount.toFixed(0)}`;
-};
+  if (amount >= 1000) return `€${(amount / 1000).toFixed(1)}K`
+  return `€${amount.toFixed(0)}`
+}
 
-type FormatImportTimeT = (key: string, values?: Record<string, number | string>) => string;
+type FormatImportTimeT = (key: string, values?: Record<string, number | string>) => string
 
 const formatImportTime = (date: Date, t: FormatImportTimeT, locale: 'en' | 'nl' = 'nl') => {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  
-  if (minutes < 1) return t('justNow');
-  if (minutes < 60) return t('minutesAgo', { count: minutes });
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return t('hoursAgo', { count: hours });
-  return date.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', { day: 'numeric', month: 'short' });
-};
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+
+  if (minutes < 1) return t('justNow')
+  if (minutes < 60) return t('minutesAgo', { count: minutes })
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return t('hoursAgo', { count: hours })
+  return date.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+  })
+}
 
 // ─────────────────────────────────────────
 // CSV IMPORT CARD (Primary Component)
@@ -114,24 +117,24 @@ export function CSVImportCard({
   className,
   softwareName = 'Generiek',
 }: CSVImportCardProps) {
-  const t = useTranslations('yukiIntegration');
-  const locale = useLocale() as 'nl' | 'en';
-  const { status, lastImport, fileName, errorMessage } = importStatus;
-  
+  const t = useTranslations('yukiIntegration')
+  const locale = useLocale() as 'nl' | 'en'
+  const { status, lastImport, fileName, errorMessage } = importStatus
+
   const softwareColors: Record<string, string> = {
     Yuki: '#00A4E4',
     Exact: '#E94E1B',
     Odoo: '#714B67',
     Generiek: 'hsl(var(--primary))',
-  };
-  
-  const color = softwareColors[softwareName];
+  }
+
+  const color = softwareColors[softwareName]
 
   return (
-    <GlassCard className={cn("p-6", className)}>
+    <GlassCard className={cn('p-6', className)}>
       <div className="flex items-start gap-4">
         {/* Software Icon */}
-        <div 
+        <div
           className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
           style={{ backgroundColor: `${color}15` }}
         >
@@ -141,12 +144,18 @@ export function CSVImportCard({
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-center gap-2 mb-1">
-            <Heading level={3} className="text-lg">{t('exportLabel', { software: softwareName })}</Heading>
+            <Heading level={3} className="text-lg">
+              {t('exportLabel', { software: softwareName })}
+            </Heading>
             {status === 'imported' && (
-              <Badge variant="primary" size="sm">{t('importedBadge')}</Badge>
+              <Badge variant="primary" size="sm">
+                {t('importedBadge')}
+              </Badge>
             )}
             {status === 'error' && (
-              <Badge variant="accent" size="sm">{t('errorBadge')}</Badge>
+              <Badge variant="accent" size="sm">
+                {t('errorBadge')}
+              </Badge>
             )}
           </div>
 
@@ -156,26 +165,22 @@ export function CSVImportCard({
               {t('uploadHint')}
             </Body>
           )}
-          
+
           {status === 'processing' && (
             <Body size="sm" className="text-foreground/50 mb-4">
               {t('processing')}
             </Body>
           )}
-          
+
           {status === 'imported' && lastImport && (
             <div className="mb-4">
-              {fileName && (
-                <Caption className="text-foreground/60 mb-1">
-                  {fileName}
-                </Caption>
-              )}
+              {fileName && <Caption className="text-foreground/60 mb-1">{fileName}</Caption>}
               <Caption className="text-foreground/40">
                 {t('imported')}: {formatImportTime(lastImport, t, locale)}
               </Caption>
             </div>
           )}
-          
+
           {status === 'error' && (
             <div className="flex items-start gap-2 mb-4">
               <AlertCircle className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
@@ -199,7 +204,7 @@ export function CSVImportCard({
                 </Button>
               </>
             )}
-            
+
             {status === 'imported' && (
               <>
                 <Button variant="secondary" size="sm" className="gap-2" onClick={onUpload}>
@@ -213,7 +218,7 @@ export function CSVImportCard({
                 )}
               </>
             )}
-            
+
             {status === 'error' && (
               <>
                 <Button variant="primary" size="sm" className="gap-2" onClick={onUpload}>
@@ -230,7 +235,7 @@ export function CSVImportCard({
         </div>
       </div>
     </GlassCard>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
@@ -246,12 +251,17 @@ export function YukiConnectCard({
 }: YukiConnectCardProps) {
   // Map legacy connection status to import status
   const importStatus: ImportStatus = {
-    status: connectionStatus.status === 'connected' ? 'imported' : 
-            connectionStatus.status === 'connecting' ? 'processing' :
-            connectionStatus.status === 'error' ? 'error' : 'none',
+    status:
+      connectionStatus.status === 'connected'
+        ? 'imported'
+        : connectionStatus.status === 'connecting'
+          ? 'processing'
+          : connectionStatus.status === 'error'
+            ? 'error'
+            : 'none',
     lastImport: connectionStatus.lastSync,
     errorMessage: connectionStatus.errorMessage,
-  };
+  }
 
   return (
     <CSVImportCard
@@ -262,22 +272,22 @@ export function YukiConnectCard({
       className={className}
       softwareName="Yuki"
     />
-  );
+  )
 }
 
 // ─────────────────────────────────────────
 // IMPORT STATUS BADGE
 // ─────────────────────────────────────────
 
-export function ImportStatusBadge({ 
-  status, 
-  lastImport 
-}: { 
-  status: ImportStatus['status']; 
-  lastImport?: Date;
+export function ImportStatusBadge({
+  status,
+  lastImport,
+}: {
+  status: ImportStatus['status']
+  lastImport?: Date
 }) {
-  const t = useTranslations('yukiIntegration');
-  const locale = useLocale() as 'nl' | 'en';
+  const t = useTranslations('yukiIntegration')
+  const locale = useLocale() as 'nl' | 'en'
 
   if (status === 'processing') {
     return (
@@ -285,7 +295,7 @@ export function ImportStatusBadge({
         <RefreshCw className="w-4 h-4 animate-spin" />
         <span>{t('processing')}</span>
       </div>
-    );
+    )
   }
 
   if (status === 'error') {
@@ -294,7 +304,7 @@ export function ImportStatusBadge({
         <AlertCircle className="w-4 h-4" />
         <span>{t('importFailed')}</span>
       </div>
-    );
+    )
   }
 
   if (status === 'imported' && lastImport) {
@@ -303,26 +313,30 @@ export function ImportStatusBadge({
         <Check className="w-4 h-4" />
         <span>{t('importedAgo', { time: formatImportTime(lastImport, t, locale) })}</span>
       </div>
-    );
+    )
   }
 
-  return null;
+  return null
 }
 
 // Legacy component alias
-export function SyncStatusBadge({ 
-  status, 
-  lastSync 
-}: { 
-  status: YukiConnectionStatus['status']; 
-  lastSync?: Date;
+export function SyncStatusBadge({
+  status,
+  lastSync,
+}: {
+  status: YukiConnectionStatus['status']
+  lastSync?: Date
 }) {
-  const mappedStatus: ImportStatus['status'] = 
-    status === 'connected' ? 'imported' : 
-    status === 'connecting' ? 'processing' :
-    status === 'error' ? 'error' : 'none';
-  
-  return <ImportStatusBadge status={mappedStatus} lastImport={lastSync} />;
+  const mappedStatus: ImportStatus['status'] =
+    status === 'connected'
+      ? 'imported'
+      : status === 'connecting'
+        ? 'processing'
+        : status === 'error'
+          ? 'error'
+          : 'none'
+
+  return <ImportStatusBadge status={mappedStatus} lastImport={lastSync} />
 }
 
 // ─────────────────────────────────────────
@@ -336,24 +350,25 @@ export function NormalisationReviewPanel({
   onAcceptAll,
   className,
 }: NormalisationReviewProps) {
-  const ca = useTranslations('chatAssistant');
-  const pendingCount = suggestions.filter(s => s.status === 'pending').length;
-  const acceptedCount = suggestions.filter(s => s.status === 'accepted').length;
+  const ca = useTranslations('chatAssistant')
+  const pendingCount = suggestions.filter((s) => s.status === 'pending').length
+  const acceptedCount = suggestions.filter((s) => s.status === 'accepted').length
 
   return (
-    <GlassCard className={cn("p-6", className)}>
+    <GlassCard className={cn('p-6', className)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <Heading level={3} className="text-lg mb-1">{ca('suggestedNormalizations')}</Heading>
+          <Heading level={3} className="text-lg mb-1">
+            {ca('suggestedNormalizations')}
+          </Heading>
           <Caption className="text-foreground/50">
-            {pendingCount > 0 
+            {pendingCount > 0
               ? ca('normalizationsToReview', { count: pendingCount })
-              : ca('normalizationsAccepted', { count: acceptedCount })
-            }
+              : ca('normalizationsAccepted', { count: acceptedCount })}
           </Caption>
         </div>
-        
+
         {pendingCount > 0 && (
           <Button variant="primary" size="sm" onClick={onAcceptAll}>
             {ca('acceptAll')}
@@ -372,13 +387,13 @@ export function NormalisationReviewPanel({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, x: -20 }}
               className={cn(
-                "flex items-start gap-4 p-4 rounded-xl",
-                "border transition-all",
-                suggestion.status === 'pending' 
-                  ? "bg-foreground/[0.02] border-foreground/[0.06]"
+                'flex items-start gap-4 p-4 rounded-xl',
+                'border transition-all',
+                suggestion.status === 'pending'
+                  ? 'bg-foreground/[0.02] border-foreground/[0.06]'
                   : suggestion.status === 'accepted'
-                    ? "bg-primary/5 border-primary/20"
-                    : "bg-foreground/[0.01] border-foreground/[0.04] opacity-50"
+                    ? 'bg-primary/5 border-primary/20'
+                    : 'bg-foreground/[0.01] border-foreground/[0.04] opacity-50'
               )}
             >
               {/* Amount */}
@@ -393,9 +408,7 @@ export function NormalisationReviewPanel({
                 <Body size="sm" className="font-medium mb-0.5">
                   {suggestion.category}
                 </Body>
-                <Caption className="text-foreground/50 line-clamp-2">
-                  {suggestion.reason}
-                </Caption>
+                <Caption className="text-foreground/50 line-clamp-2">{suggestion.reason}</Caption>
               </div>
 
               {/* Actions */}
@@ -420,17 +433,21 @@ export function NormalisationReviewPanel({
 
               {/* Status Badges */}
               {suggestion.status === 'accepted' && (
-                <Badge variant="primary" size="sm">{ca('accepted')}</Badge>
+                <Badge variant="primary" size="sm">
+                  {ca('accepted')}
+                </Badge>
               )}
               {suggestion.status === 'rejected' && (
-                <Badge variant="neutral" size="sm">{ca('rejected')}</Badge>
+                <Badge variant="neutral" size="sm">
+                  {ca('rejected')}
+                </Badge>
               )}
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
     </GlassCard>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
@@ -438,24 +455,26 @@ export function NormalisationReviewPanel({
 // ─────────────────────────────────────────
 
 export interface MappingRow {
-  yukiCode: string;
-  yukiDescription: string;
-  mappedTo: string;
-  category: 'revenue' | 'expense' | 'asset' | 'liability';
+  yukiCode: string
+  yukiDescription: string
+  mappedTo: string
+  category: 'revenue' | 'expense' | 'asset' | 'liability'
 }
 
-export function MappingTable({ 
+export function MappingTable({
   mappings,
   className,
-}: { 
-  mappings: MappingRow[];
-  className?: string;
+}: {
+  mappings: MappingRow[]
+  className?: string
 }) {
-  const t = useTranslations('yukiIntegration');
+  const t = useTranslations('yukiIntegration')
   return (
-    <GlassCard className={cn("overflow-hidden", className)}>
+    <GlassCard className={cn('overflow-hidden', className)}>
       <div className="px-6 py-4 border-b border-foreground/[0.06]">
-        <Heading level={3} className="text-lg">{t('mappingTitle')}</Heading>
+        <Heading level={3} className="text-lg">
+          {t('mappingTitle')}
+        </Heading>
         <Caption className="text-foreground/50">
           {t('accountsMatched', { count: mappings.length })}
         </Caption>
@@ -493,17 +512,23 @@ export function MappingTable({
                   </Body>
                 </td>
                 <td className="px-6 py-3">
-                  <Badge 
+                  <Badge
                     variant={
-                      mapping.category === 'revenue' ? 'primary' :
-                      mapping.category === 'expense' ? 'accent' :
-                      'neutral'
-                    } 
+                      mapping.category === 'revenue'
+                        ? 'primary'
+                        : mapping.category === 'expense'
+                          ? 'accent'
+                          : 'neutral'
+                    }
                     size="sm"
                   >
-                    {mapping.category === 'revenue' ? t('revenue') :
-                     mapping.category === 'expense' ? t('expense') :
-                     mapping.category === 'asset' ? t('asset') : t('liability')}
+                    {mapping.category === 'revenue'
+                      ? t('revenue')
+                      : mapping.category === 'expense'
+                        ? t('expense')
+                        : mapping.category === 'asset'
+                          ? t('asset')
+                          : t('liability')}
                   </Badge>
                 </td>
                 <td className="px-6 py-3">
@@ -517,7 +542,7 @@ export function MappingTable({
         </table>
       </div>
     </GlassCard>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
@@ -528,28 +553,28 @@ export function ManualInputFallback({
   onManualInput,
   className,
 }: {
-  onManualInput: () => void;
-  className?: string;
+  onManualInput: () => void
+  className?: string
 }) {
-  const t = useTranslations('yukiIntegration');
+  const t = useTranslations('yukiIntegration')
   return (
-    <div className={cn(
-      "flex items-center justify-between p-4 rounded-xl",
-      "bg-foreground/[0.02] border border-dashed border-foreground/[0.10]",
-      className
-    )}>
+    <div
+      className={cn(
+        'flex items-center justify-between p-4 rounded-xl',
+        'bg-foreground/[0.02] border border-dashed border-foreground/[0.10]',
+        className
+      )}
+    >
       <div>
         <Body size="sm" className="font-medium mb-0.5">
           {t('noAccountingPackage')}
         </Body>
-        <Caption className="text-foreground/40">
-          {t('manualInputDesc')}
-        </Caption>
+        <Caption className="text-foreground/40">{t('manualInputDesc')}</Caption>
       </div>
       <Button variant="secondary" size="sm" onClick={onManualInput}>
         {t('manualInput')}
         <ChevronRight className="w-4 h-4 ml-1" />
       </Button>
     </div>
-  );
+  )
 }

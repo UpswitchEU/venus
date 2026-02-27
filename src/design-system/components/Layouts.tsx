@@ -1,13 +1,13 @@
 /**
  * Aurora Design System
  * Layout Components
- * 
+ *
  * Split panel layouts for the valuation flows.
  * Provides resizable panels with Aurora styling.
  */
 
-import * as React from 'react'
 import { motion } from 'framer-motion'
+import * as React from 'react'
 import { cn } from '../../lib/utils'
 import { springDefault } from './motion'
 
@@ -53,10 +53,10 @@ export const AuroraSplitLayout: React.FC<AuroraSplitLayoutProps> = ({
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return
-      
+
       const containerRect = containerRef.current.getBoundingClientRect()
       const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100
-      
+
       setLeftWidth(Math.max(minLeftWidth, Math.min(maxLeftWidth, newLeftWidth)))
     }
 
@@ -103,7 +103,7 @@ export const AuroraSplitLayout: React.FC<AuroraSplitLayoutProps> = ({
         >
           {/* Visible divider line */}
           <div className="absolute inset-y-0 left-1/2 w-px bg-foreground/[0.08]" />
-          
+
           {/* Drag handle indicator */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
             <div className="w-1 h-8 rounded-full bg-foreground/20 hover:bg-foreground/30 transition-colors" />
@@ -112,11 +112,7 @@ export const AuroraSplitLayout: React.FC<AuroraSplitLayoutProps> = ({
       )}
 
       {/* Right Panel */}
-      <div
-        className={cn('h-full flex-1 overflow-hidden', rightClassName)}
-      >
-        {rightPanel}
-      </div>
+      <div className={cn('h-full flex-1 overflow-hidden', rightClassName)}>{rightPanel}</div>
     </div>
   )
 }
@@ -174,24 +170,15 @@ export const AuroraPanel: React.FC<AuroraPanelProps> = ({
   return (
     <div className={cn('aurora-theme flex flex-col h-full bg-card', className)}>
       {/* Panel Header */}
-      {header && (
-        <div className="shrink-0 border-b border-foreground/[0.06]">{header}</div>
-      )}
+      {header && <div className="shrink-0 border-b border-foreground/[0.06]">{header}</div>}
 
       {/* Panel Content */}
-      <div
-        className={cn(
-          'flex-1 min-h-0',
-          scrollable ? 'overflow-y-auto' : 'overflow-hidden'
-        )}
-      >
+      <div className={cn('flex-1 min-h-0', scrollable ? 'overflow-y-auto' : 'overflow-hidden')}>
         {children}
       </div>
 
       {/* Panel Footer */}
-      {footer && (
-        <div className="shrink-0 border-t border-foreground/[0.06]">{footer}</div>
-      )}
+      {footer && <div className="shrink-0 border-t border-foreground/[0.06]">{footer}</div>}
     </div>
   )
 }

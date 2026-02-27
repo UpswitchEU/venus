@@ -9,10 +9,10 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { generalLogger } from '../utils/logger'
+import { useEffect, useState } from 'react'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
+import { generalLogger } from '../utils/logger'
 import { VersionTimeline } from './VersionTimeline'
 
 export interface AuditTrailPanelProps {
@@ -37,7 +37,7 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
     loading,
     fetchVersions, // WORLD-CLASS: Used for "Load More" pagination
   } = useVersionHistoryStore()
-  
+
   // WORLD-CLASS: Track total version count from bootstrap for pagination
   const [totalVersionCount, setTotalVersionCount] = useState<number | undefined>(undefined)
 
@@ -140,9 +140,7 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
             />
           </svg>
           <h3 className="text-lg font-semibold text-foreground mb-2">{t('noVersionsTitle')}</h3>
-          <p className="text-sm leading-relaxed">
-            {t('noVersionsDescLong')}
-          </p>
+          <p className="text-sm leading-relaxed">{t('noVersionsDescLong')}</p>
         </div>
       </div>
     )

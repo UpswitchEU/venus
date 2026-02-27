@@ -1,46 +1,48 @@
-'use client';
+'use client'
 
 /**
  * Normalisation Suggestion Modal
- * 
+ *
  * Modal that opens when AI suggests a normalization from the Chat Co-pilot.
  * Shows the suggested adjustment aligned with Yuki/Exact grootboek codes.
  */
 
-import { useState } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
-import { 
-  Check, 
-  X, 
-  Edit2, 
-  AlertCircle,
-  FileSpreadsheet,
-} from 'lucide-react';
-import { cn } from '@/design-system/utils';
-import { AuroraButton, AuroraInput, Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/design-system';
+import { AlertCircle, Check, Edit2, FileSpreadsheet, X } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { useState } from 'react'
+import {
+  AuroraButton,
+  AuroraInput,
+  Modal,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from '@/design-system'
+import { cn } from '@/design-system/utils'
 
 export interface NormalisationSuggestion {
-  id: string;
-  field: string;
-  label: string;
-  grootboekCode?: string;
-  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other';
-  currentValue?: number;
-  suggestedValue: number;
-  adjustment: number;
-  reason: string;
-  sourceRef?: string;
-  marketBenchmark?: number;
-  confidence?: 'high' | 'medium' | 'low';
+  id: string
+  field: string
+  label: string
+  grootboekCode?: string
+  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other'
+  currentValue?: number
+  suggestedValue: number
+  adjustment: number
+  reason: string
+  sourceRef?: string
+  marketBenchmark?: number
+  confidence?: 'high' | 'medium' | 'low'
 }
 
 export interface NormalisationSuggestionModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  suggestion: NormalisationSuggestion | null;
-  onAccept: (suggestion: NormalisationSuggestion, customValue?: number) => void;
-  onReject: (suggestion: NormalisationSuggestion) => void;
-  companyName?: string;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  suggestion: NormalisationSuggestion | null
+  onAccept: (suggestion: NormalisationSuggestion, customValue?: number) => void
+  onReject: (suggestion: NormalisationSuggestion) => void
+  companyName?: string
 }
 
 const categoryIcons: Record<NormalisationSuggestion['category'], string> = {
@@ -51,7 +53,7 @@ const categoryIcons: Record<NormalisationSuggestion['category'], string> = {
   personal: '🏠',
   depreciation: '📉',
   other: '📋',
-};
+}
 
 export function NormalisationSuggestionModal({
   open,
@@ -60,15 +62,15 @@ export function NormalisationSuggestionModal({
   onAccept,
   onReject,
 }: NormalisationSuggestionModalProps) {
-  const t = useTranslations('normalizationHub.suggestionModal');
-  const locale = useLocale();
+  const t = useTranslations('normalizationHub.suggestionModal')
+  const locale = useLocale()
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat(locale === 'nl' ? 'nl-BE' : 'en-GB', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(amount)
   const categoryLabels: Record<NormalisationSuggestion['category'], string> = {
     salary: t('categories.salary'),
     rent: t('categories.rent'),
@@ -77,44 +79,43 @@ export function NormalisationSuggestionModal({
     personal: t('categories.personal'),
     depreciation: t('categories.depreciation'),
     other: t('categories.other'),
-  };
+  }
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [customValue, setCustomValue] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false)
+  const [customValue, setCustomValue] = useState<string>('')
+  const [isProcessing, setIsProcessing] = useState(false)
 
-  if (!suggestion) return null;
+  if (!suggestion) return null
 
   const handleAccept = () => {
-    setIsProcessing(true);
-    const finalValue = isEditing && customValue 
-      ? parseFloat(customValue.replace(/[^0-9.-]/g, ''))
-      : undefined;
-    
+    setIsProcessing(true)
+    const finalValue =
+      isEditing && customValue ? parseFloat(customValue.replace(/[^0-9.-]/g, '')) : undefined
+
     setTimeout(() => {
-      onAccept(suggestion, finalValue);
-      setIsProcessing(false);
-      setIsEditing(false);
-      setCustomValue('');
-      onOpenChange(false);
-    }, 300);
-  };
+      onAccept(suggestion, finalValue)
+      setIsProcessing(false)
+      setIsEditing(false)
+      setCustomValue('')
+      onOpenChange(false)
+    }, 300)
+  }
 
   const handleReject = () => {
-    onReject(suggestion);
-    onOpenChange(false);
-  };
+    onReject(suggestion)
+    onOpenChange(false)
+  }
 
   const startEditing = () => {
-    setIsEditing(true);
-    setCustomValue(suggestion.suggestedValue.toString());
-  };
+    setIsEditing(true)
+    setCustomValue(suggestion.suggestedValue.toString())
+  }
 
   const confidenceColors = {
     high: 'text-success bg-success/10 border-success/20',
     medium: 'text-warning bg-warning/10 border-warning/30',
     low: 'text-foreground/50 bg-foreground/5 border-foreground/10',
-  };
+  }
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
@@ -142,10 +143,12 @@ export function NormalisationSuggestionModal({
               </span>
             )}
             {suggestion.confidence && (
-              <span className={cn(
-                "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border",
-                confidenceColors[suggestion.confidence]
-              )}>
+              <span
+                className={cn(
+                  'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border',
+                  confidenceColors[suggestion.confidence]
+                )}
+              >
                 {suggestion.confidence === 'high' && `✓ ${t('confidenceHigh')}`}
                 {suggestion.confidence === 'medium' && `○ ${t('confidenceMedium')}`}
                 {suggestion.confidence === 'low' && `? ${t('confidenceLow')}`}
@@ -156,19 +159,33 @@ export function NormalisationSuggestionModal({
           <div className="p-4 rounded-xl bg-foreground/[0.02] border border-foreground/[0.08]">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">{t('currentValue')}</p>
+                <p className="text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">
+                  {t('currentValue')}
+                </p>
                 <p className="text-lg font-mono font-semibold text-foreground/60 line-through">
-                  {suggestion.currentValue !== undefined ? formatCurrency(suggestion.currentValue) : '—'}
+                  {suggestion.currentValue !== undefined
+                    ? formatCurrency(suggestion.currentValue)
+                    : '—'}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">{t('adjustment')}</p>
-                <p className={cn("text-lg font-mono font-semibold", suggestion.adjustment > 0 ? "text-success" : "text-secondary")}>
-                  {suggestion.adjustment > 0 ? '+' : ''}{formatCurrency(suggestion.adjustment)}
+                <p className="text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-1">
+                  {t('adjustment')}
+                </p>
+                <p
+                  className={cn(
+                    'text-lg font-mono font-semibold',
+                    suggestion.adjustment > 0 ? 'text-success' : 'text-secondary'
+                  )}
+                >
+                  {suggestion.adjustment > 0 ? '+' : ''}
+                  {formatCurrency(suggestion.adjustment)}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-medium text-primary uppercase tracking-wider mb-1">{t('suggestion')}</p>
+                <p className="text-[10px] font-medium text-primary uppercase tracking-wider mb-1">
+                  {t('suggestion')}
+                </p>
                 {isEditing ? (
                   <AuroraInput
                     value={customValue}
@@ -178,13 +195,17 @@ export function NormalisationSuggestionModal({
                     autoFocus
                   />
                 ) : (
-                  <p className="text-lg font-mono font-bold text-foreground">{formatCurrency(suggestion.suggestedValue)}</p>
+                  <p className="text-lg font-mono font-bold text-foreground">
+                    {formatCurrency(suggestion.suggestedValue)}
+                  </p>
                 )}
               </div>
             </div>
             {suggestion.marketBenchmark && (
               <div className="mt-3 pt-3 border-t border-foreground/[0.06] text-center">
-                <p className="text-[10px] text-foreground/40">{t('marketBenchmark')}: {formatCurrency(suggestion.marketBenchmark)}</p>
+                <p className="text-[10px] text-foreground/40">
+                  {t('marketBenchmark')}: {formatCurrency(suggestion.marketBenchmark)}
+                </p>
               </div>
             )}
           </div>
@@ -211,17 +232,31 @@ export function NormalisationSuggestionModal({
 
         <ModalFooter className="flex-col sm:flex-row gap-2">
           {!isEditing && (
-            <AuroraButton variant="ghost" onClick={startEditing} className="w-full sm:w-auto gap-1.5">
+            <AuroraButton
+              variant="ghost"
+              onClick={startEditing}
+              className="w-full sm:w-auto gap-1.5"
+            >
               <Edit2 className="w-3.5 h-3.5" />
               {t('edit')}
             </AuroraButton>
           )}
           <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
-            <AuroraButton variant="secondary" onClick={handleReject} disabled={isProcessing} className="flex-1 sm:flex-none gap-1.5">
+            <AuroraButton
+              variant="secondary"
+              onClick={handleReject}
+              disabled={isProcessing}
+              className="flex-1 sm:flex-none gap-1.5"
+            >
               <X className="w-3.5 h-3.5" />
               {t('reject')}
             </AuroraButton>
-            <AuroraButton variant="primary" onClick={handleAccept} disabled={isProcessing} className="flex-1 sm:flex-none gap-1.5">
+            <AuroraButton
+              variant="primary"
+              onClick={handleAccept}
+              disabled={isProcessing}
+              className="flex-1 sm:flex-none gap-1.5"
+            >
               <Check className="w-3.5 h-3.5" />
               {t('apply')}
             </AuroraButton>
@@ -229,7 +264,7 @@ export function NormalisationSuggestionModal({
         </ModalFooter>
       </ModalContent>
     </Modal>
-  );
+  )
 }
 
-export default NormalisationSuggestionModal;
+export default NormalisationSuggestionModal

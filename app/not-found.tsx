@@ -14,9 +14,8 @@ const FALLBACK = {
 
 function NotFoundContent() {
   // Use 'en' as default — when rendered inside [locale], path will have locale
-  const locale = typeof window !== 'undefined'
-    ? (window.location.pathname.split('/')[1] || 'en')
-    : 'en'
+  const locale =
+    typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'
   const safeLocale = locale === 'en' || locale === 'nl' ? locale : 'en'
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center px-4 aurora-theme">

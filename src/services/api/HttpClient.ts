@@ -13,16 +13,16 @@
  */
 
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import { CLIENT_CONTEXT_HEADERS } from '../../constants/headers'
 // AUTH-FIRST: useGuestSessionStore removed - guest sessions are no longer supported
 import { env } from '../../utils/env'
-import { getApiUrl } from '../../utils/getMercuryUrl'
 import {
   classifyError,
   defaultShouldRetry,
   getUserFriendlyErrorMessage,
 } from '../../utils/errorRecovery'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
-import { CLIENT_CONTEXT_HEADERS } from '../../constants/headers'
 
 // BANK-GRADE: Client version for API compatibility tracking
 const CLIENT_VERSION = '2.0.0'
@@ -84,7 +84,7 @@ export class HttpClient {
 
   /**
    * Setup common request and response interceptors
-   * 
+   *
    * BANK GRADE ARCHITECTURE:
    * - Correlation ID propagation for distributed tracing
    * - Idempotency keys for safe retries
@@ -111,7 +111,7 @@ export class HttpClient {
         config.headers['X-Correlation-ID'] = correlationId
         config.headers['X-Request-ID'] = `req_${Date.now()}`
         config.headers['X-Client-Version'] = CLIENT_VERSION
-        
+
         // Store correlation ID for logging
         ;(config as any)._correlationId = correlationId
 
@@ -119,7 +119,7 @@ export class HttpClient {
         const method = config.method?.toUpperCase()
         const isMutatingRequest = method === 'POST' || method === 'PUT' || method === 'PATCH'
         const customConfig = (config as any)._customConfig as APIRequestConfig | undefined
-        
+
         if (isMutatingRequest && !customConfig?.skipIdempotency) {
           const idempotencyKey = customConfig?.idempotencyKey || generateIdempotencyKey()
           config.headers['X-Idempotency-Key'] = idempotencyKey
@@ -149,7 +149,7 @@ export class HttpClient {
         const serverCorrelationId = extractCorrelationId(response)
         const clientCorrelationId = (response.config as any)?._correlationId
         const correlationId = serverCorrelationId || clientCorrelationId
-        
+
         if (correlationId) {
           setCorrelationFromResponse(response)
           apiLogger.debug('[HttpClient] Request completed', {
@@ -199,9 +199,9 @@ export class HttpClient {
 
   /**
    * Get owner headers for request
-   * 
+   *
    * AUTH-FIRST: Guest session support removed.
-   * 
+   *
    * Priority:
    * 1. Client context (accountant-client workflow)
    * 2. Authenticated user (JWT in cookie)
@@ -399,7 +399,7 @@ export class HttpClient {
   ): Promise<T> {
     const timeout = options?.timeout || 30000 // Default 30 seconds for faster failure detection
     const correlationId = generateCorrelationId()
-    
+
     // BANK-GRADE: Attach custom config for interceptor access
     ;(config as any)._customConfig = options
     ;(config as any)._requestStartTime = Date.now().toString()
@@ -501,7 +501,6 @@ export class HttpClient {
             htmlReportPreview: (extractedData as any)?.html_report?.substring(0, 200),
           })
         }
-
       }
 
       return responseData

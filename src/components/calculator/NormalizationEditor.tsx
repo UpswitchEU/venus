@@ -1,8 +1,8 @@
-'use client';
+'use client'
 
 /**
  * Normalization Editor Modal
- * 
+ *
  * Full-featured editor for creating and customizing EBITDA normalizations.
  * Features:
  * - Ledger account search (grootboek zoekbalk)
@@ -12,81 +12,97 @@
  * - Per-normalization modularity
  */
 
-import { useState, useMemo, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Search, 
-  Plus,
-  Minus,
-  Percent,
-  Hash,
-  Check,
-  X,
+import { AnimatePresence, motion } from 'framer-motion'
+import {
   Calendar,
   CalendarRange,
-  FileSpreadsheet,
-  PenLine,
-  Upload,
+  Check,
   ChevronDown,
+  FileSpreadsheet,
+  Hash,
+  Info,
+  Minus,
+  PenLine,
+  Percent,
+  Plus,
+  Search,
   Trash2,
-  Info
-} from 'lucide-react';
-import { cn } from '@/design-system/utils';
-import { AuroraButton as Button } from '@/design-system/components/Button';
-import { AuroraInput as Input } from '@/design-system/components/Input';
-import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/design-system/components/Modal';
-import { Checkbox } from '@/design-system/components/Checkbox';
-import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from '@/design-system/components/Tooltip';
-import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek';
+  Upload,
+  X,
+} from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { useCallback, useMemo, useState } from 'react'
+import { AuroraButton as Button } from '@/design-system/components/Button'
+import { Checkbox } from '@/design-system/components/Checkbox'
+import { AuroraInput as Input } from '@/design-system/components/Input'
+import {
+  Modal,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from '@/design-system/components/Modal'
+import {
+  TooltipContent,
+  TooltipProvider,
+  TooltipRoot,
+  TooltipTrigger,
+} from '@/design-system/components/Tooltip'
+import { cn } from '@/design-system/utils'
+import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
 
 // Types for normalization data
-export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute';
-export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv';
+export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute'
+export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv'
 
-export type { LedgerAccount } from '../../constants/grootboek';
+export type { LedgerAccount } from '../../constants/grootboek'
 
 export interface Normalization {
-  id: string;
-  ledgerCode: string;
-  ledgerName: string;
-  type: NormalizationType;
-  value: number;
-  calculatedAdjustment?: number;
-  applyThisYear: boolean;
-  applyAllYears: boolean;
-  source: NormalizationSource;
-  reason?: string;
-  year?: number;
+  id: string
+  ledgerCode: string
+  ledgerName: string
+  type: NormalizationType
+  value: number
+  calculatedAdjustment?: number
+  applyThisYear: boolean
+  applyAllYears: boolean
+  source: NormalizationSource
+  reason?: string
+  year?: number
 }
 
 export interface NormalizationEditorProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  ledgerAccounts?: LedgerAccount[];
-  existingNormalizations?: Normalization[];
-  onSave: (normalizations: Normalization[]) => void;
-  currentYear?: number;
-  hasUploadedData?: boolean;
-  companyName?: string;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  ledgerAccounts?: LedgerAccount[]
+  existingNormalizations?: Normalization[]
+  onSave: (normalizations: Normalization[]) => void
+  currentYear?: number
+  hasUploadedData?: boolean
+  companyName?: string
 }
 
-const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS;
+const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS
 
-const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus; descriptionKey: string }[] = [
+const typeOptions: {
+  value: NormalizationType
+  label: string
+  icon: typeof Plus
+  descriptionKey: string
+}[] = [
   { value: 'add', label: '+€', icon: Plus, descriptionKey: 'typeAddAmount' },
   { value: 'subtract', label: '-€', icon: Minus, descriptionKey: 'typeSubtractAmount' },
   { value: 'add_percent', label: '+%', icon: Percent, descriptionKey: 'typeAddPercent' },
   { value: 'subtract_percent', label: '-%', icon: Percent, descriptionKey: 'typeSubtractPercent' },
   { value: 'absolute', label: 'ABS', icon: Hash, descriptionKey: 'typeSetTarget' },
-];
+]
 
 const sourceOptions: { value: NormalizationSource; labelKey: string; color: string }[] = [
   { value: 'manual', labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
   { value: 'yuki', labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
   { value: 'exact', labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
   { value: 'csv', labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
-];
+]
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('nl-BE', {
@@ -94,10 +110,10 @@ const formatCurrency = (amount: number) => {
     currency: 'EUR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
-};
+  }).format(amount)
+}
 
-const generateId = () => Math.random().toString(36).substring(2, 11);
+const generateId = () => Math.random().toString(36).substring(2, 11)
 
 export function NormalizationEditor({
   open,
@@ -109,62 +125,66 @@ export function NormalizationEditor({
   hasUploadedData = false,
   companyName,
 }: NormalizationEditorProps) {
-  const nh = useTranslations('normalizationHub');
-  const tCommon = useTranslations('common.actions');
-  const tLabels = useTranslations('common.labels');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [normalizations, setNormalizations] = useState<Normalization[]>(existingNormalizations);
-  const [selectedLedger, setSelectedLedger] = useState<LedgerAccount | null>(null);
-  const [showLedgerDropdown, setShowLedgerDropdown] = useState(false);
-  
+  const nh = useTranslations('normalizationHub')
+  const tCommon = useTranslations('common.actions')
+  const tLabels = useTranslations('common.labels')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [normalizations, setNormalizations] = useState<Normalization[]>(existingNormalizations)
+  const [selectedLedger, setSelectedLedger] = useState<LedgerAccount | null>(null)
+  const [showLedgerDropdown, setShowLedgerDropdown] = useState(false)
+
   // New normalization form state
-  const [newType, setNewType] = useState<NormalizationType>('add');
-  const [newValue, setNewValue] = useState('');
-  const [newApplyThisYear, setNewApplyThisYear] = useState(true);
-  const [newApplyAllYears, setNewApplyAllYears] = useState(false);
-  const [newSource, setNewSource] = useState<NormalizationSource>('manual');
-  const [newReason, setNewReason] = useState('');
+  const [newType, setNewType] = useState<NormalizationType>('add')
+  const [newValue, setNewValue] = useState('')
+  const [newApplyThisYear, setNewApplyThisYear] = useState(true)
+  const [newApplyAllYears, setNewApplyAllYears] = useState(false)
+  const [newSource, setNewSource] = useState<NormalizationSource>('manual')
+  const [newReason, setNewReason] = useState('')
 
   // Use uploaded ledger accounts or defaults
   const availableLedgers = useMemo(() => {
-    return ledgerAccounts.length > 0 ? ledgerAccounts : defaultLedgerAccounts;
-  }, [ledgerAccounts]);
+    return ledgerAccounts.length > 0 ? ledgerAccounts : defaultLedgerAccounts
+  }, [ledgerAccounts])
 
   // Filter ledger accounts based on search
   const filteredLedgers = useMemo(() => {
-    if (!searchQuery) return availableLedgers.slice(0, 10);
-    const query = searchQuery.toLowerCase();
-    return availableLedgers.filter(
-      (account) =>
-        account.code.toLowerCase().includes(query) ||
-        account.name.toLowerCase().includes(query)
-    ).slice(0, 10);
-  }, [searchQuery, availableLedgers]);
+    if (!searchQuery) return availableLedgers.slice(0, 10)
+    const query = searchQuery.toLowerCase()
+    return availableLedgers
+      .filter(
+        (account) =>
+          account.code.toLowerCase().includes(query) || account.name.toLowerCase().includes(query)
+      )
+      .slice(0, 10)
+  }, [searchQuery, availableLedgers])
 
   // Calculate adjustment based on type and value
-  const calculateAdjustment = useCallback((type: NormalizationType, value: number, currentBalance?: number): number => {
-    switch (type) {
-      case 'add':
-        return value;
-      case 'subtract':
-        return -value;
-      case 'add_percent':
-        return currentBalance ? (currentBalance * value) / 100 : 0;
-      case 'subtract_percent':
-        return currentBalance ? -(currentBalance * value) / 100 : 0;
-      case 'absolute':
-        return currentBalance ? value - currentBalance : value;
-      default:
-        return 0;
-    }
-  }, []);
+  const calculateAdjustment = useCallback(
+    (type: NormalizationType, value: number, currentBalance?: number): number => {
+      switch (type) {
+        case 'add':
+          return value
+        case 'subtract':
+          return -value
+        case 'add_percent':
+          return currentBalance ? (currentBalance * value) / 100 : 0
+        case 'subtract_percent':
+          return currentBalance ? -(currentBalance * value) / 100 : 0
+        case 'absolute':
+          return currentBalance ? value - currentBalance : value
+        default:
+          return 0
+      }
+    },
+    []
+  )
 
   // Add new normalization
   const handleAddNormalization = () => {
-    if (!selectedLedger || !newValue) return;
+    if (!selectedLedger || !newValue) return
 
-    const numericValue = parseFloat(newValue.replace(/[^0-9.-]/g, ''));
-    if (isNaN(numericValue)) return;
+    const numericValue = parseFloat(newValue.replace(/[^0-9.-]/g, ''))
+    if (isNaN(numericValue)) return
 
     const newNormalization: Normalization = {
       id: generateId(),
@@ -178,32 +198,32 @@ export function NormalizationEditor({
       source: newSource,
       reason: newReason || undefined,
       year: currentYear,
-    };
+    }
 
-    setNormalizations([...normalizations, newNormalization]);
-    
+    setNormalizations([...normalizations, newNormalization])
+
     // Reset form
-    setSelectedLedger(null);
-    setNewValue('');
-    setNewReason('');
-    setSearchQuery('');
-  };
+    setSelectedLedger(null)
+    setNewValue('')
+    setNewReason('')
+    setSearchQuery('')
+  }
 
   // Remove normalization
   const handleRemoveNormalization = (id: string) => {
-    setNormalizations(normalizations.filter((n) => n.id !== id));
-  };
+    setNormalizations(normalizations.filter((n) => n.id !== id))
+  }
 
   // Save all normalizations
   const handleSave = () => {
-    onSave(normalizations);
-    onOpenChange(false);
-  };
+    onSave(normalizations)
+    onOpenChange(false)
+  }
 
   // Calculate totals
   const totalAdjustment = useMemo(() => {
-    return normalizations.reduce((sum, n) => sum + (n.calculatedAdjustment || n.value), 0);
-  }, [normalizations]);
+    return normalizations.reduce((sum, n) => sum + (n.calculatedAdjustment || n.value), 0)
+  }, [normalizations])
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
@@ -214,9 +234,7 @@ export function NormalizationEditor({
               <FileSpreadsheet className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <ModalTitle className="text-base">
-                {nh('ebitdaNormalizations')}
-              </ModalTitle>
+              <ModalTitle className="text-base">{nh('ebitdaNormalizations')}</ModalTitle>
               <p className="text-xs text-foreground/50 mt-0.5">
                 {companyName || nh('businessEstimate')} · {currentYear}
               </p>
@@ -240,8 +258,8 @@ export function NormalizationEditor({
                   placeholder={nh('searchLedgerPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setShowLedgerDropdown(true);
+                    setSearchQuery(e.target.value)
+                    setShowLedgerDropdown(true)
                   }}
                   onFocus={() => setShowLedgerDropdown(true)}
                   className="pl-10 text-base"
@@ -249,8 +267,8 @@ export function NormalizationEditor({
                 {selectedLedger && (
                   <button
                     onClick={() => {
-                      setSelectedLedger(null);
-                      setSearchQuery('');
+                      setSelectedLedger(null)
+                      setSearchQuery('')
                     }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-foreground/10"
                   >
@@ -270,18 +288,16 @@ export function NormalizationEditor({
                   >
                     {filteredLedgers.length === 0 ? (
                       <div className="px-4 py-3 text-sm text-foreground/50 text-center">
-                        {hasUploadedData 
-                          ? nh('noAccountsFound')
-                          : nh('uploadToSearchLedger')}
+                        {hasUploadedData ? nh('noAccountsFound') : nh('uploadToSearchLedger')}
                       </div>
                     ) : (
                       filteredLedgers.map((account) => (
                         <button
                           key={account.code}
                           onClick={() => {
-                            setSelectedLedger(account);
-                            setSearchQuery(`${account.code} · ${account.name}`);
-                            setShowLedgerDropdown(false);
+                            setSelectedLedger(account)
+                            setSearchQuery(`${account.code} · ${account.name}`)
+                            setShowLedgerDropdown(false)
                           }}
                           className="w-full px-4 py-2.5 text-left hover:bg-foreground/[0.04] flex items-center justify-between group transition-colors"
                         >
@@ -289,9 +305,7 @@ export function NormalizationEditor({
                             <span className="font-mono text-xs px-2 py-0.5 rounded bg-foreground/[0.06] text-foreground/60 group-hover:bg-primary/10 group-hover:text-primary">
                               {account.code}
                             </span>
-                            <span className="text-sm text-foreground/80">
-                              {account.name}
-                            </span>
+                            <span className="text-sm text-foreground/80">{account.name}</span>
                           </div>
                           {account.balance !== undefined && (
                             <span className="text-xs font-mono text-foreground/40">
@@ -328,10 +342,10 @@ export function NormalizationEditor({
                               <button
                                 onClick={() => setNewType(option.value)}
                                 className={cn(
-                                  "px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5",
+                                  'px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5',
                                   newType === option.value
-                                    ? "bg-primary text-primary-foreground shadow-sm"
-                                    : "bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]"
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
                                 )}
                               >
                                 <option.icon className="w-3.5 h-3.5" />
@@ -350,7 +364,11 @@ export function NormalizationEditor({
                   {/* Value Input */}
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-foreground/60">
-                      {newType.includes('percent') ? 'Percentage' : newType === 'absolute' ? 'Doelwaarde' : 'Bedrag'}
+                      {newType.includes('percent')
+                        ? 'Percentage'
+                        : newType === 'absolute'
+                          ? 'Doelwaarde'
+                          : 'Bedrag'}
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/40 text-sm">
@@ -368,9 +386,7 @@ export function NormalizationEditor({
 
                   {/* Year Selection */}
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-foreground/60">
-                      Toepassen op
-                    </label>
+                    <label className="text-xs font-medium text-foreground/60">Toepassen op</label>
                     <div className="flex flex-wrap gap-4">
                       <label className="flex items-center gap-2 cursor-pointer group">
                         <Checkbox
@@ -397,19 +413,20 @@ export function NormalizationEditor({
 
                   {/* Source Selection */}
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-foreground/60">
-                      {nh('source')}
-                    </label>
+                    <label className="text-xs font-medium text-foreground/60">{nh('source')}</label>
                     <div className="flex flex-wrap gap-1.5">
                       {sourceOptions.map((option) => (
                         <button
                           key={option.value}
                           onClick={() => setNewSource(option.value)}
                           className={cn(
-                            "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                            'px-3 py-1.5 rounded-full text-xs font-medium transition-all',
                             newSource === option.value
-                              ? cn(option.color, "ring-2 ring-offset-2 ring-offset-background ring-primary/20")
-                              : "bg-foreground/[0.04] text-foreground/50 hover:bg-foreground/[0.08]"
+                              ? cn(
+                                  option.color,
+                                  'ring-2 ring-offset-2 ring-offset-background ring-primary/20'
+                                )
+                              : 'bg-foreground/[0.04] text-foreground/50 hover:bg-foreground/[0.08]'
                           )}
                         >
                           {nh(option.labelKey)}
@@ -421,7 +438,8 @@ export function NormalizationEditor({
                   {/* Reason (Optional) */}
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-foreground/60">
-                      {nh('explanation')} <span className="text-foreground/30">({tLabels('optional')})</span>
+                      {nh('explanation')}{' '}
+                      <span className="text-foreground/30">({tLabels('optional')})</span>
                     </label>
                     <Input
                       placeholder={nh('reasonPlaceholder')}
@@ -454,15 +472,16 @@ export function NormalizationEditor({
                   {nh('addedNormalizations', { count: normalizations.length })}
                 </div>
                 <div className="text-sm font-mono font-semibold text-primary">
-                  {totalAdjustment >= 0 ? '+' : ''}{formatCurrency(totalAdjustment)}
+                  {totalAdjustment >= 0 ? '+' : ''}
+                  {formatCurrency(totalAdjustment)}
                 </div>
               </div>
 
               <div className="space-y-2">
                 {normalizations.map((normalization) => {
-                  const sourceOption = sourceOptions.find((s) => s.value === normalization.source);
-                  const typeOption = typeOptions.find((t) => t.value === normalization.type);
-                  
+                  const sourceOption = sourceOptions.find((s) => s.value === normalization.source)
+                  const typeOption = typeOptions.find((t) => t.value === normalization.type)
+
                   return (
                     <motion.div
                       key={normalization.id}
@@ -486,16 +505,18 @@ export function NormalizationEditor({
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
                               {typeOption?.label}
                               <span className="font-mono">
-                                {normalization.type.includes('percent') 
+                                {normalization.type.includes('percent')
                                   ? `${normalization.value}%`
                                   : formatCurrency(normalization.value)}
                               </span>
                             </span>
                             {/* Source Badge */}
-                            <span className={cn(
-                              "px-2 py-0.5 rounded-full text-[10px] font-medium",
-                              sourceOption?.color
-                            )}>
+                            <span
+                              className={cn(
+                                'px-2 py-0.5 rounded-full text-[10px] font-medium',
+                                sourceOption?.color
+                              )}
+                            >
                               {sourceOption ? nh(sourceOption.labelKey) : ''}
                             </span>
                             {/* Year Badge */}
@@ -518,14 +539,20 @@ export function NormalizationEditor({
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "text-sm font-mono font-semibold",
-                            (normalization.calculatedAdjustment || normalization.value) >= 0 
-                              ? "text-success" 
-                              : "text-secondary"
-                          )}>
-                            {(normalization.calculatedAdjustment || normalization.value) >= 0 ? '+' : ''}
-                            {formatCurrency(normalization.calculatedAdjustment || normalization.value)}
+                          <span
+                            className={cn(
+                              'text-sm font-mono font-semibold',
+                              (normalization.calculatedAdjustment || normalization.value) >= 0
+                                ? 'text-success'
+                                : 'text-secondary'
+                            )}
+                          >
+                            {(normalization.calculatedAdjustment || normalization.value) >= 0
+                              ? '+'
+                              : ''}
+                            {formatCurrency(
+                              normalization.calculatedAdjustment || normalization.value
+                            )}
                           </span>
                           <button
                             onClick={() => handleRemoveNormalization(normalization.id)}
@@ -536,7 +563,7 @@ export function NormalizationEditor({
                         </div>
                       </div>
                     </motion.div>
-                  );
+                  )
                 })}
               </div>
             </div>
@@ -548,13 +575,9 @@ export function NormalizationEditor({
               <div className="w-12 h-12 rounded-2xl bg-foreground/[0.04] flex items-center justify-center mx-auto mb-3">
                 <PenLine className="w-5 h-5 text-foreground/30" />
               </div>
-              <p className="text-sm text-foreground/50 mb-1">
-                {nh('noNormalizationsAdded')}
-              </p>
+              <p className="text-sm text-foreground/50 mb-1">{nh('noNormalizationsAdded')}</p>
               <p className="text-xs text-foreground/40">
-                {hasUploadedData 
-                  ? nh('searchLedgerEmpty')
-                  : nh('uploadOrAddManual')}
+                {hasUploadedData ? nh('searchLedgerEmpty') : nh('uploadOrAddManual')}
               </p>
             </div>
           )}
@@ -565,27 +588,24 @@ export function NormalizationEditor({
             <div className="text-sm">
               {normalizations.length > 0 && (
                 <span className="text-foreground/50">
-                  {nh('totalImpact')}: {' '}
-                  <span className={cn(
-                    "font-mono font-semibold",
-                    totalAdjustment >= 0 ? "text-success" : "text-secondary"
-                  )}>
-                    {totalAdjustment >= 0 ? '+' : ''}{formatCurrency(totalAdjustment)}
+                  {nh('totalImpact')}:{' '}
+                  <span
+                    className={cn(
+                      'font-mono font-semibold',
+                      totalAdjustment >= 0 ? 'text-success' : 'text-secondary'
+                    )}
+                  >
+                    {totalAdjustment >= 0 ? '+' : ''}
+                    {formatCurrency(totalAdjustment)}
                   </span>
                 </span>
               )}
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-              >
+              <Button variant="ghost" onClick={() => onOpenChange(false)}>
                 {tCommon('cancel')}
               </Button>
-              <Button
-                onClick={handleSave}
-                className="gap-1.5"
-              >
+              <Button onClick={handleSave} className="gap-1.5">
                 <Check className="w-4 h-4" />
                 {tCommon('save')} ({normalizations.length})
               </Button>
@@ -594,7 +614,7 @@ export function NormalizationEditor({
         </ModalFooter>
       </ModalContent>
     </Modal>
-  );
+  )
 }
 
-export default NormalizationEditor;
+export default NormalizationEditor

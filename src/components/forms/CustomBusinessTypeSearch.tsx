@@ -121,7 +121,7 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
       } else {
         categoryKey = 'Other'
       }
-      
+
       if (!groups[categoryKey]) {
         groups[categoryKey] = []
       }
@@ -330,7 +330,9 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
                         key={type.id}
                         type="button"
                         onClick={() => handleSelect(type)}
-                        onMouseEnter={() => { if (globalIndex !== -1) setHighlightedIndex(globalIndex) }}
+                        onMouseEnter={() => {
+                          if (globalIndex !== -1) setHighlightedIndex(globalIndex)
+                        }}
                         className={`w-full text-left px-4 py-3 transition-all duration-150 group ${
                           isHighlighted ? 'bg-primary/10' : 'hover:bg-foreground/[0.04]'
                         }`}
@@ -436,7 +438,9 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
                         {/* Handle category as either string or object */}
                         {typeof selectedType.category === 'string'
                           ? selectedType.category
-                          : (selectedType.category as any)?.name || (selectedType.category as any)?.title || ''}
+                          : (selectedType.category as any)?.name ||
+                            (selectedType.category as any)?.title ||
+                            ''}
                       </span>
                     </span>
                   )}

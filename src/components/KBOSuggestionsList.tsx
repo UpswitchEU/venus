@@ -1,6 +1,6 @@
 import { Building2, X } from 'lucide-react'
-import React, { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useState } from 'react'
 import type { KBOSuggestion } from './utils/kboParsing'
 
 interface KBOSuggestionsListProps {

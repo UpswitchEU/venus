@@ -1,7 +1,7 @@
 import { Maximize2, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useTranslations } from 'next-intl'
 
 interface FullScreenModalProps {
   isOpen: boolean

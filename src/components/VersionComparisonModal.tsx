@@ -150,7 +150,9 @@ export function VersionComparisonModal({
                       <div className="flex-1">
                         <p className="font-medium text-foreground mb-2">{highlight.label}</p>
                         <div className="flex items-center gap-3 text-sm">
-                          <span className="text-muted-foreground">{String(highlight.oldValue)}</span>
+                          <span className="text-muted-foreground">
+                            {String(highlight.oldValue)}
+                          </span>
                           <ArrowRight className="w-4 h-4 text-foreground/40" />
                           <span className="text-foreground font-medium">
                             {String(highlight.newValue)}
@@ -171,7 +173,9 @@ export function VersionComparisonModal({
 
           {/* Detailed field comparison */}
           <div>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Field-by-Field Comparison</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">
+              Field-by-Field Comparison
+            </h3>
             <div className="grid grid-cols-2 gap-6">
               {/* Version A */}
               <div>

@@ -8,10 +8,10 @@
  * Bank-grade: server-safe Titan URL, fetch timeout.
  */
 
-import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
 export const dynamic = 'force-dynamic'
@@ -46,18 +46,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const response = await fetchWithTimeout(
-      `${titanApiUrl}/api/v2/auth/refresh`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: cookieHeader,
-        },
-        credentials: 'include',
-        body: JSON.stringify({ refreshToken }),
-      }
-    )
+    const response = await fetchWithTimeout(`${titanApiUrl}/api/v2/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: cookieHeader,
+      },
+      credentials: 'include',
+      body: JSON.stringify({ refreshToken }),
+    })
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Token refresh failed' }))

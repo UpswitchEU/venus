@@ -28,7 +28,7 @@ export const CLIENT_CONTEXT_HEADERS = {
   ACCOUNTANT_USER_ID: 'X-Accountant-User-Id',
   /** ID of the accountant-client relationship */
   RELATIONSHIP_ID: 'X-Relationship-Id',
-} as const;
+} as const
 
 /**
  * Legacy header names (for backward compatibility only)
@@ -38,7 +38,7 @@ export const LEGACY_CLIENT_CONTEXT_HEADERS = {
   CLIENT_USER_ID: 'X-Client-Context-User',
   ACCOUNTANT_USER_ID: 'X-Client-Context-Accountant',
   RELATIONSHIP_ID: 'X-Client-Context-Relationship',
-} as const;
+} as const
 
 /**
  * Extract client context from request headers
@@ -48,31 +48,31 @@ export const LEGACY_CLIENT_CONTEXT_HEADERS = {
  * @returns Client context or null if not present
  */
 export function extractClientContextFromHeaders(
-  getHeader: (name: string) => string | null,
+  getHeader: (name: string) => string | null
 ): { clientUserId: string; accountantUserId: string; relationshipId: string } | null {
   // Try canonical headers first, then legacy
-  const clientUserId = 
-    getHeader(CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID.toLowerCase()) || 
-    getHeader(LEGACY_CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID.toLowerCase());
-  
-  const accountantUserId = 
-    getHeader(CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID.toLowerCase()) || 
-    getHeader(LEGACY_CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID.toLowerCase());
-  
-  const relationshipId = 
-    getHeader(CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID.toLowerCase()) || 
-    getHeader(LEGACY_CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID.toLowerCase());
+  const clientUserId =
+    getHeader(CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID.toLowerCase()) ||
+    getHeader(LEGACY_CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID.toLowerCase())
+
+  const accountantUserId =
+    getHeader(CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID.toLowerCase()) ||
+    getHeader(LEGACY_CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID.toLowerCase())
+
+  const relationshipId =
+    getHeader(CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID.toLowerCase()) ||
+    getHeader(LEGACY_CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID.toLowerCase())
 
   // Return null if any required header is missing
   if (!clientUserId || !accountantUserId) {
-    return null;
+    return null
   }
 
   return {
     clientUserId,
     accountantUserId,
     relationshipId: relationshipId || '',
-  };
+  }
 }
 
 /**
@@ -82,17 +82,19 @@ export function extractClientContextFromHeaders(
  * @param context - Client context data
  * @returns Headers object
  */
-export function buildClientContextHeaders(
-  context: { clientUserId: string; accountantUserId: string; relationshipId?: string },
-): Record<string, string> {
+export function buildClientContextHeaders(context: {
+  clientUserId: string
+  accountantUserId: string
+  relationshipId?: string
+}): Record<string, string> {
   const headers: Record<string, string> = {
     [CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID]: context.clientUserId,
     [CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID]: context.accountantUserId,
-  };
-
-  if (context.relationshipId) {
-    headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = context.relationshipId;
   }
 
-  return headers;
+  if (context.relationshipId) {
+    headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = context.relationshipId
+  }
+
+  return headers
 }

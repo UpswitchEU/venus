@@ -34,8 +34,15 @@ vi.mock('next/navigation', () => ({
 // Mock next-view-transitions (useTransitionRouter returns same API as useRouter)
 vi.mock('next-view-transitions', () => ({
   useTransitionRouter: () => mockRouter,
-  Link: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) =>
-    React.createElement('a', { href, ...props }, children),
+  Link: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode
+    href: string
+    [key: string]: unknown
+  }) => React.createElement('a', { href, ...props }, children),
 }))
 
 // Mock Next.js Image component

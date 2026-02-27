@@ -4,11 +4,12 @@
  * Displays user's current credit status with upgrade prompts
  */
 
-import { Tooltip } from '@/design-system'
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
+import { Tooltip } from '@/design-system'
 import { useAuth } from '@/hooks/useAuth'
 import { useCredits } from '@/hooks/useCredits'
+
 // AUTH-FIRST: guestCreditService removed - all users must authenticate
 
 interface CreditBadgeProps {

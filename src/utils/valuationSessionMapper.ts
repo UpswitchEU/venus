@@ -233,12 +233,18 @@ export function extractValuationAmount(session: ValuationSession): number | null
   }
 
   // Fallback to recommended_asking_price
-  if (valuationResult.recommended_asking_price !== null && valuationResult.recommended_asking_price !== undefined) {
+  if (
+    valuationResult.recommended_asking_price !== null &&
+    valuationResult.recommended_asking_price !== undefined
+  ) {
     return toNumber(valuationResult.recommended_asking_price)
   }
 
   // Fallback to equity_value_high
-  if (valuationResult.equity_value_high !== null && valuationResult.equity_value_high !== undefined) {
+  if (
+    valuationResult.equity_value_high !== null &&
+    valuationResult.equity_value_high !== undefined
+  ) {
     return toNumber(valuationResult.equity_value_high)
   }
 

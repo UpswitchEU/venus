@@ -1,15 +1,15 @@
 /**
  * @deprecated Use ValuationService from services/valuation/ValuationService instead
- * 
+ *
  * This service is deprecated in favor of the unified ValuationService.
  * It will be removed in a future version.
- * 
+ *
  * Migration:
  * ```typescript
  * // Before
  * import { valuationService } from './features/valuation/services/valuationService'
  * const result = await valuationService.calculateValuation(data)
- * 
+ *
  * // After
  * import { valuationService } from './services/valuation/ValuationService'
  * const result = await valuationService.calculate(data)

@@ -1,18 +1,18 @@
 'use client'
 
 import { Home, Info, LogOut, Settings, User, UserPlus } from 'lucide-react'
-import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useEffect, useRef, useState } from 'react'
+import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '@/lib/return-url'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { User as UserType } from '../contexts/AuthContextTypes'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import UrlGeneratorService from '../services/urlGenerator'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import { generalLogger } from '../utils/logger'
-import { getMercuryUrl } from '@/utils/getMercuryUrl'
-import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '@/lib/return-url'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
 
@@ -156,12 +156,10 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   const handleBackToDashboard = () => {
     setIsOpen(false)
 
-    const returnUrl = typeof window !== 'undefined'
-      ? sessionStorage.getItem('upswitch_return_url')
-      : null
-    const sourceApp = typeof window !== 'undefined'
-      ? sessionStorage.getItem('upswitch_source')
-      : null
+    const returnUrl =
+      typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_return_url') : null
+    const sourceApp =
+      typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_source') : null
     const locale = pathname?.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
 
     if (!returnUrl || isLegacyReturnUrl(returnUrl)) {
@@ -604,7 +602,9 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
                         }}
                       />
                     ) : null}
-                    <span className={hasAvatar ? 'hidden' : 'block text-foreground text-sm font-medium'}>
+                    <span
+                      className={hasAvatar ? 'hidden' : 'block text-foreground text-sm font-medium'}
+                    >
                       {getUserInitials()}
                     </span>
                   </div>

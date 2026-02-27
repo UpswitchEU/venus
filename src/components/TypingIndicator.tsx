@@ -49,7 +49,9 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = () => {
             </div>
 
             {/* Always show "AI is thinking..." */}
-            <span className="text-[13px] font-medium text-muted-foreground tracking-wide">{message}</span>
+            <span className="text-[13px] font-medium text-muted-foreground tracking-wide">
+              {message}
+            </span>
           </div>
         </div>
       </div>

@@ -2,33 +2,33 @@
 
 /**
  * AuthGate Component
- * 
+ *
  * Bank-grade authentication gate that ensures auth and client context
  * are fully established BEFORE rendering children.
- * 
+ *
  * This component solves the race condition where bootstrap runs before
  * client context exchange completes, resulting in sessions created
  * without proper accountant-client context.
- * 
+ *
  * Flow:
  * 1. Check if clientToken/clientId is in URL (accountant flow)
  * 2. Wait for auth to complete
  * 3. If accountant flow: wait for client context exchange to complete
  * 4. Only then render children (BootstrapProvider)
- * 
+ *
  * @module components/AuthGate
  */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { useTranslations } from 'next-intl'
 import { AlertCircle } from 'lucide-react'
-import { GlassCard, AuroraButton } from '@/design-system'
-import { useAuthStore, getInitTraceId, clearReloadCounter } from '../lib/auth'
+import { useTranslations } from 'next-intl'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { AuroraButton, GlassCard } from '@/design-system'
+import type { User } from '../contexts/AuthContextTypes'
+import { useLanguageSync } from '../hooks/useLanguageSync'
+import { clearReloadCounter, getInitTraceId, useAuthStore } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
-import { useLanguageSync } from '../hooks/useLanguageSync'
-import type { User } from '../contexts/AuthContextTypes'
 
 // ============================================================================
 // Constants - Redirect loop protection
@@ -249,9 +249,15 @@ export function AuthGate({
   const onAuthReadyRef = useRef(onAuthReady)
   const onAuthErrorRef = useRef(onAuthError)
   const tRef = useRef(t)
-  useEffect(() => { onAuthReadyRef.current = onAuthReady }, [onAuthReady])
-  useEffect(() => { onAuthErrorRef.current = onAuthError }, [onAuthError])
-  useEffect(() => { tRef.current = t }, [t])
+  useEffect(() => {
+    onAuthReadyRef.current = onAuthReady
+  }, [onAuthReady])
+  useEffect(() => {
+    onAuthErrorRef.current = onAuthError
+  }, [onAuthError])
+  useEffect(() => {
+    tRef.current = t
+  }, [t])
 
   useLanguageSync()
 
@@ -306,9 +312,10 @@ export function AuthGate({
     function buildLoginUrl(): string {
       const currentUrl = typeof window !== 'undefined' ? window.location.href : '/reports/new'
       const mercuryUrl = getMercuryUrl()
-      const locale = typeof window !== 'undefined'
-        ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
-        : 'en'
+      const locale =
+        typeof window !== 'undefined'
+          ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+          : 'en'
       return `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
     }
 
@@ -377,7 +384,7 @@ export function AuthGate({
       mounted = false
       clearTimeout(maxTimeout)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, authError, isInitializing, isRefreshing, needsClientContext])
 
   // Render based on state

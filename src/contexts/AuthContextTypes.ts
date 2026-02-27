@@ -37,7 +37,7 @@ export interface User {
   city?: string
   country?: string
   company_description?: string
-  
+
   // Phase 1.1: Enhanced KBO registry fields
   kbo_number?: string
   vat_number?: string

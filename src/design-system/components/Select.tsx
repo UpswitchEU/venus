@@ -1,19 +1,19 @@
 /**
  * Aurora Design System
  * Select / Dropdown Component
- * 
+ *
  * Searchable dropdown with grouped options, following Hybrid Aurora patterns.
  * Uses floating labels, spring animations, and glass-morphism styling.
- * 
+ *
  * Compatible with existing Venus CustomDropdown props.
  */
 
+import { cva, type VariantProps } from 'class-variance-authority'
+import { AnimatePresence, motion } from 'framer-motion'
+import { AlertCircle, Check, ChevronDown, Search, X } from 'lucide-react'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
-import { ChevronDown, Search, Check, X, AlertCircle } from 'lucide-react'
 import { springDefault } from './motion'
 
 // ─────────────────────────────────────────
@@ -96,7 +96,10 @@ const selectTriggerVariants = cva(
 )
 
 const labelVariants = cva(
-  ['absolute left-4 transition-all duration-200 ease-in-out pointer-events-none', 'text-foreground/60'],
+  [
+    'absolute left-4 transition-all duration-200 ease-in-out pointer-events-none',
+    'text-foreground/60',
+  ],
   {
     variants: {
       state: {
@@ -168,7 +171,11 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
     const [searchQuery, setSearchQuery] = React.useState('')
     const [internalValue, setInternalValue] = React.useState(defaultValue || '')
     const [focusedIndex, setFocusedIndex] = React.useState(-1)
-    const [dropdownRect, setDropdownRect] = React.useState<{ top: number; left: number; width: number } | null>(null)
+    const [dropdownRect, setDropdownRect] = React.useState<{
+      top: number
+      left: number
+      width: number
+    } | null>(null)
 
     const internalRef = React.useRef<HTMLDivElement>(null)
     const containerRef = dropdownRef || internalRef
@@ -200,14 +207,17 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
           .map((group) => ({
             ...group,
             options: group.options.filter(
-              (opt) => opt.label.toLowerCase().includes(query) || opt.description?.toLowerCase().includes(query)
+              (opt) =>
+                opt.label.toLowerCase().includes(query) ||
+                opt.description?.toLowerCase().includes(query)
             ),
           }))
           .filter((group) => group.options.length > 0)
       }
 
       return options.filter(
-        (opt) => opt.label.toLowerCase().includes(query) || opt.description?.toLowerCase().includes(query)
+        (opt) =>
+          opt.label.toLowerCase().includes(query) || opt.description?.toLowerCase().includes(query)
       )
     }, [options, searchQuery])
 
@@ -352,7 +362,10 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
           aria-disabled={disabled}
         >
           {/* Trigger */}
-          <div className={cn(selectTriggerVariants({ state, size }))} onClick={() => !disabled && setIsOpen(!isOpen)}>
+          <div
+            className={cn(selectTriggerVariants({ state, size }))}
+            onClick={() => !disabled && setIsOpen(!isOpen)}
+          >
             {/* Label */}
             {label && (
               <span
@@ -399,7 +412,10 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                 </button>
               )}
               <ChevronDown
-                className={cn('w-5 h-5 text-foreground/50 transition-transform duration-200', isOpen && 'rotate-180')}
+                className={cn(
+                  'w-5 h-5 text-foreground/50 transition-transform duration-200',
+                  isOpen && 'rotate-180'
+                )}
               />
             </div>
           </div>
@@ -464,7 +480,9 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                 {/* Options List */}
                 <div ref={listRef} role="listbox" className="max-h-64 overflow-y-auto py-1">
                   {filteredOptions.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-foreground/50 text-sm">No options found</div>
+                    <div className="px-4 py-8 text-center text-foreground/50 text-sm">
+                      No options found
+                    </div>
                   ) : isGroupedOptions(filteredOptions) ? (
                     // Grouped options
                     filteredOptions.map((group, groupIndex) => (
@@ -474,7 +492,9 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                         </div>
                         {group.options.map((option) => {
                           const flatIndex =
-                            filteredOptions.slice(0, groupIndex).reduce((acc, g) => acc + g.options.length, 0) +
+                            filteredOptions
+                              .slice(0, groupIndex)
+                              .reduce((acc, g) => acc + g.options.length, 0) +
                             group.options.indexOf(option)
 
                           return (
@@ -539,7 +559,13 @@ interface SelectOptionItemProps {
   onSelect: (value: string) => void
 }
 
-const SelectOptionItem: React.FC<SelectOptionItemProps> = ({ option, isSelected, isFocused, dataIndex, onSelect }) => {
+const SelectOptionItem: React.FC<SelectOptionItemProps> = ({
+  option,
+  isSelected,
+  isFocused,
+  dataIndex,
+  onSelect,
+}) => {
   return (
     <div
       data-index={dataIndex}
@@ -558,7 +584,9 @@ const SelectOptionItem: React.FC<SelectOptionItemProps> = ({ option, isSelected,
       {option.icon && <span className="shrink-0 text-foreground/60">{option.icon}</span>}
       <div className="flex-1 min-w-0">
         <div className="text-sm text-foreground truncate">{option.label}</div>
-        {option.description && <div className="text-xs text-foreground/50 truncate">{option.description}</div>}
+        {option.description && (
+          <div className="text-xs text-foreground/50 truncate">{option.description}</div>
+        )}
       </div>
       {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
     </div>

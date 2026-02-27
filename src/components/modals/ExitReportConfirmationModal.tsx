@@ -94,7 +94,9 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
           <div className="px-6 py-5 space-y-3">
             <p className="text-foreground leading-relaxed">{message}</p>
             {showSaveOption && (
-              <p className="text-muted-foreground text-sm leading-relaxed">{t('modals.exit.saveNote')}</p>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {t('modals.exit.saveNote')}
+              </p>
             )}
           </div>
 

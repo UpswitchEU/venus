@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         headers: titanHeaders,
       },
-      10_000,
+      10_000
     )
 
     if (!response.ok) {
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
     const isTimeout = error instanceof Error && error.message.includes('timeout')
     return NextResponse.json(
       { error: isTimeout ? 'Request timed out' : 'Internal server error' },
-      { status: isTimeout ? 504 : 500 },
+      { status: isTimeout ? 504 : 500 }
     )
   }
 }

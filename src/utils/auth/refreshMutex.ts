@@ -10,12 +10,12 @@
  * promise. Both consumers check here before starting a new refresh.
  */
 
-let activeRefreshPromise: Promise<boolean> | null = null;
+let activeRefreshPromise: Promise<boolean> | null = null
 
 export function getActiveRefreshPromise(): Promise<boolean> | null {
-  return activeRefreshPromise;
+  return activeRefreshPromise
 }
 
 export function setActiveRefreshPromise(p: Promise<boolean> | null): void {
-  activeRefreshPromise = p;
+  activeRefreshPromise = p
 }

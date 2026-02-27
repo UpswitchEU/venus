@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
 import { AlertCircle } from 'lucide-react'
-import { GlassCard, AuroraButton } from '@/design-system'
+import { useTranslations } from 'next-intl'
+import { useEffect, useState } from 'react'
+import { AuroraButton, GlassCard } from '@/design-system'
 
 interface ErrorFallbackProps {
   returnUrl?: string

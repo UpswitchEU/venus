@@ -1,11 +1,11 @@
-import React, { memo, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { memo, useEffect } from 'react'
 import { useSessionStore } from '../../store/useSessionStore'
 import type { ValuationResponse } from '../../types/valuation'
 import { HTMLProcessor } from '../../utils/htmlProcessor'
 import { generalLogger } from '../../utils/logger'
-import { ReportSkeleton } from '../skeletons/ReportSkeleton'
 import { ErrorState } from '../ErrorState'
+import { ReportSkeleton } from '../skeletons/ReportSkeleton'
 
 interface ResultsComponentProps {
   result?: ValuationResponse | null
@@ -25,7 +25,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   // ROOT CAUSE FIX: Only subscribe to primitive values, not entire session object
   const isLoading = useSessionStore((state) => state.isLoading)
   const error = useSessionStore((state) => state.error)
-  
+
   // BANK-GRADE FIX: Subscribe to session htmlReport to update when session loads
   // Previous approach used getState() which doesn't trigger re-renders
   const sessionHtmlReport = useSessionStore((state) => state.session?.htmlReport)
@@ -64,10 +64,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px] p-4">
-        <ErrorState
-          title={t('failedToLoadReport')}
-          message={error}
-        />
+        <ErrorState title={t('failedToLoadReport')} message={error} />
       </div>
     )
   }
@@ -108,9 +105,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   return (
     <div className="h-full overflow-y-auto">
       <div className="valuation-report">
-        <div
-          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-        />
+        <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
       </div>
     </div>
   )

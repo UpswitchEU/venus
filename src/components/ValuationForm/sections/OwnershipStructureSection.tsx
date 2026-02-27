@@ -9,10 +9,16 @@
 
 'use client'
 
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
+import {
+  AuroraFormAlert,
+  AuroraFormGrid,
+  AuroraFormSection,
+  AuroraNumberInput,
+  AuroraSelect,
+} from '../../../design-system/components'
 import type { ValuationFormData } from '../../../types/valuation'
-import { AuroraSelect, AuroraNumberInput, AuroraFormSection, AuroraFormGrid, AuroraFormAlert } from '../../../design-system/components'
 
 interface OwnershipStructureSectionProps {
   formData: ValuationFormData
@@ -168,13 +174,16 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
 
                 return (
                   <div className="@4xl:col-span-2">
-                    <AuroraFormAlert type={isCritical ? 'error' : 'warning'} title={`${riskLevel} Key Person Risk - Valuation Impact: ${discount}`}>
+                    <AuroraFormAlert
+                      type={isCritical ? 'error' : 'warning'}
+                      title={`${riskLevel} Key Person Risk - Valuation Impact: ${discount}`}
+                    >
                       <p className="text-sm leading-relaxed">
                         {isCritical ? (
                           <>
-                            This business is <strong>100% owner-operated</strong> with no
-                            non-owner employees. This represents maximum key person risk and will
-                            reduce your valuation multiple by <strong>20%</strong>.
+                            This business is <strong>100% owner-operated</strong> with no non-owner
+                            employees. This represents maximum key person risk and will reduce your
+                            valuation multiple by <strong>20%</strong>.
                           </>
                         ) : (
                           <>
@@ -186,8 +195,8 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
                       </p>
                       {isCritical && (
                         <p className="mt-2 text-xs text-success">
-                          <strong>Tip:</strong> Hiring 2-3 employees could increase your
-                          business value by €150K-200K
+                          <strong>Tip:</strong> Hiring 2-3 employees could increase your business
+                          value by €150K-200K
                         </p>
                       )}
                     </AuroraFormAlert>

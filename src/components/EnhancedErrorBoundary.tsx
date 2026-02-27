@@ -68,10 +68,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     // Auth-related crashes (e.g. React 418 hydration errors from failed auth/cookie)
     // Redirect only on strong signals: 418 (React teapot), 401 (unauthorized), 400 (bad request), hydration mismatch
     const msg = error.message.toLowerCase()
-    const isAuthCrash =
-      msg.includes('418') ||
-      msg.includes('401') ||
-      msg.includes('hydration')
+    const isAuthCrash = msg.includes('418') || msg.includes('401') || msg.includes('hydration')
 
     if (isAuthCrash && typeof window !== 'undefined') {
       const locale = window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'

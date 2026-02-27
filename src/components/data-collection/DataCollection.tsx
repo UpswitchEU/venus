@@ -7,8 +7,8 @@
 
 'use client'
 
-import React, { useCallback, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useCallback, useState } from 'react'
 import { BUSINESS_DATA_FIELDS, DataResponse, FieldValue } from '../../types/data-collection'
 import { FieldRenderer } from './FieldRenderer'
 

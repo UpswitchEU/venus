@@ -1,85 +1,81 @@
-'use client';
+'use client'
 
 /**
  * Valuation Report Panel
- * 
+ *
  * Displays the valuation report with enterprise value, metrics,
  * and methodology notes. Supports PDF export.
  * Aurora design system compliant.
  */
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { springDefault } from '@/design-system/components/motion';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Download, 
-  Share2, 
-  RefreshCw, 
-  FileText, 
-  Loader2, 
-  CheckCircle2, 
-  Shield,
+import { AnimatePresence, motion } from 'framer-motion'
+import {
   ArrowRight,
+  CheckCircle2,
   Clock,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { cn } from '@/design-system/utils';
-import { HTMLProcessor } from '@/utils/htmlProcessor';
-import { 
-  AuroraButton,
-  Badge,
-  AuroraScrollArea,
-} from '@/design-system';
+  Download,
+  FileText,
+  Loader2,
+  RefreshCw,
+  Share2,
+  Shield,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { AuroraButton, AuroraScrollArea, Badge } from '@/design-system'
+import { springDefault } from '@/design-system/components/motion'
+import { cn } from '@/design-system/utils'
+import { HTMLProcessor } from '@/utils/htmlProcessor'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
 
 export interface ValuationReportData {
-  id: string;
-  companyName: string;
-  valuation: number;
-  valuationLow?: number;
-  valuationHigh?: number;
-  ebitda: number;
-  normalizedEbitda?: number;
-  multiple: number;
-  multipleRange?: { low: number; high: number };
-  generatedAt: Date;
-  confidenceLevel?: 'high' | 'medium' | 'low';
-  confidenceScore?: number;
-  metrics?: ReportMetric[];
+  id: string
+  companyName: string
+  valuation: number
+  valuationLow?: number
+  valuationHigh?: number
+  ebitda: number
+  normalizedEbitda?: number
+  multiple: number
+  multipleRange?: { low: number; high: number }
+  generatedAt: Date
+  confidenceLevel?: 'high' | 'medium' | 'low'
+  confidenceScore?: number
+  metrics?: ReportMetric[]
   /** Full HTML report from ValuationIQ */
-  htmlReport?: string;
+  htmlReport?: string
   /** Info tab HTML from ValuationIQ */
-  infoTabHtml?: string;
+  infoTabHtml?: string
   /** Recommended asking price */
-  recommendedAskingPrice?: number;
+  recommendedAskingPrice?: number
 }
 
 export interface ReportMetric {
-  label: string;
-  value: string;
-  change?: number;
-  icon?: React.ReactNode;
+  label: string
+  value: string
+  change?: number
+  icon?: React.ReactNode
 }
 
-export type ReportStatus = 'draft' | 'final';
+export type ReportStatus = 'draft' | 'final'
 
 export interface ValuationReportPanelProps {
-  report: ValuationReportData | null;
-  isGenerating?: boolean;
-  isExporting?: boolean;
-  onExport?: () => void;
-  onRegenerate?: () => void;
-  onShare?: () => void;
-  onContinue?: () => void;
+  report: ValuationReportData | null
+  isGenerating?: boolean
+  isExporting?: boolean
+  onExport?: () => void
+  onRegenerate?: () => void
+  onShare?: () => void
+  onContinue?: () => void
   // Report status for accountant approval flow
-  reportStatus?: ReportStatus;
-  onStatusChange?: (status: ReportStatus) => void;
-  canChangeStatus?: boolean;
-  className?: string;
+  reportStatus?: ReportStatus
+  onStatusChange?: (status: ReportStatus) => void
+  canChangeStatus?: boolean
+  className?: string
 }
 
 // ─────────────────────────────────────────
@@ -88,13 +84,13 @@ export interface ValuationReportPanelProps {
 
 const formatCurrency = (amount: number) => {
   if (amount >= 1000000) {
-    return `€${(amount / 1000000).toFixed(1)}M`;
+    return `€${(amount / 1000000).toFixed(1)}M`
   }
   if (amount >= 1000) {
-    return `€${(amount / 1000).toFixed(0)}K`;
+    return `€${(amount / 1000).toFixed(0)}K`
   }
-  return `€${amount.toFixed(0)}`;
-};
+  return `€${amount.toFixed(0)}`
+}
 
 const formatFullCurrency = (amount: number) => {
   return new Intl.NumberFormat('nl-BE', {
@@ -102,8 +98,8 @@ const formatFullCurrency = (amount: number) => {
     currency: 'EUR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
-};
+  }).format(amount)
+}
 
 // ─────────────────────────────────────────
 // MAIN COMPONENT
@@ -122,35 +118,35 @@ export function ValuationReportPanel({
   canChangeStatus = true,
   className,
 }: ValuationReportPanelProps) {
-  const t = useTranslations();
+  const t = useTranslations()
 
   const handleStatusToggle = () => {
     if (canChangeStatus && onStatusChange) {
-      onStatusChange(reportStatus === 'draft' ? 'final' : 'draft');
+      onStatusChange(reportStatus === 'draft' ? 'final' : 'draft')
     }
-  };
+  }
 
   if (!report && !isGenerating) {
-    return <PlaceholderPreview />;
+    return <PlaceholderPreview />
   }
 
   if (isGenerating) {
-    return <GeneratingState />;
+    return <GeneratingState />
   }
 
-  const valuationLow = report!.valuationLow || report!.valuation * 0.85;
-  const valuationHigh = report!.valuationHigh || report!.valuation * 1.15;
+  const valuationLow = report!.valuationLow || report!.valuation * 0.85
+  const valuationHigh = report!.valuationHigh || report!.valuation * 1.15
 
   return (
-    <div className={cn("relative h-full overflow-hidden bg-card", className)}>
+    <div className={cn('relative h-full overflow-hidden bg-card', className)}>
       {/* Subtle gradient overlay for depth */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: 'linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%)',
         }}
       />
-      
+
       <AuroraScrollArea className="relative z-10 h-full">
         <div className="p-6 md:p-8">
           <motion.div
@@ -167,14 +163,14 @@ export function ValuationReportPanel({
                   onClick={handleStatusToggle}
                   disabled={!canChangeStatus}
                   className={cn(
-                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full mb-3",
-                    "text-[11px] font-medium uppercase tracking-wide",
-                    "transition-all duration-200",
-                    canChangeStatus && "cursor-pointer hover:scale-[1.02] active:scale-[0.98]",
-                    !canChangeStatus && "cursor-default",
+                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full mb-3',
+                    'text-[11px] font-medium uppercase tracking-wide',
+                    'transition-all duration-200',
+                    canChangeStatus && 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]',
+                    !canChangeStatus && 'cursor-default',
                     reportStatus === 'final'
-                      ? "bg-success/15 text-success border border-success/30"
-                      : "bg-warning/15 text-warning border border-warning/30"
+                      ? 'bg-success/15 text-success border border-success/30'
+                      : 'bg-warning/15 text-warning border border-warning/30'
                   )}
                   title={canChangeStatus ? t('report.clickToChangeStatus') : undefined}
                 >
@@ -194,7 +190,8 @@ export function ValuationReportPanel({
                   {report!.companyName}
                 </h2>
                 <p className="text-sm text-foreground/50 mt-1">
-                  {t('report.valuation')} • {report!.generatedAt.toLocaleDateString('nl-BE', {
+                  {t('report.valuation')} •{' '}
+                  {report!.generatedAt.toLocaleDateString('nl-BE', {
                     day: 'numeric',
                     month: 'long',
                     year: 'numeric',
@@ -204,12 +201,7 @@ export function ValuationReportPanel({
 
               <div className="flex gap-2">
                 {onShare && (
-                  <AuroraButton
-                    variant="outline"
-                    size="sm"
-                    onClick={onShare}
-                    className="gap-1.5"
-                  >
+                  <AuroraButton variant="outline" size="sm" onClick={onShare} className="gap-1.5">
                     <Share2 className="w-4 h-4" />
                     <span className="hidden sm:inline">{t('common.share')}</span>
                   </AuroraButton>
@@ -239,7 +231,7 @@ export function ValuationReportPanel({
               animate={{ opacity: 1, scale: 1 }}
               transition={{ ...springDefault, delay: 0.1 }}
               className={cn(
-                "relative overflow-hidden rounded-2xl border border-primary/30 p-6 md:p-8",
+                'relative overflow-hidden rounded-2xl border border-primary/30 p-6 md:p-8'
               )}
               style={{
                 background:
@@ -252,7 +244,8 @@ export function ValuationReportPanel({
               <div
                 className="absolute top-0 right-0 w-60 h-60 rounded-full blur-3xl pointer-events-none"
                 style={{
-                  background: 'radial-gradient(circle, hsl(var(--primary) / 0.12) 0%, transparent 70%)',
+                  background:
+                    'radial-gradient(circle, hsl(var(--primary) / 0.12) 0%, transparent 70%)',
                 }}
               />
 
@@ -397,7 +390,9 @@ export function ValuationReportPanel({
                 </div>
                 <div className="valuation-report">
                   <div
-                    dangerouslySetInnerHTML={{ __html: HTMLProcessor.sanitize(report!.htmlReport ?? '') }}
+                    dangerouslySetInnerHTML={{
+                      __html: HTMLProcessor.sanitize(report!.htmlReport ?? ''),
+                    }}
                   />
                 </div>
               </motion.div>
@@ -406,23 +401,13 @@ export function ValuationReportPanel({
             {/* Action Footer */}
             <div className="flex items-center justify-center gap-4 pt-4">
               {onRegenerate && (
-                <AuroraButton
-                  variant="ghost"
-                  size="sm"
-                  onClick={onRegenerate}
-                  className="gap-2"
-                >
+                <AuroraButton variant="ghost" size="sm" onClick={onRegenerate} className="gap-2">
                   <RefreshCw className="w-4 h-4" />
                   {t('report.regenerate')}
                 </AuroraButton>
               )}
               {onContinue && (
-                <AuroraButton
-                  variant="primary"
-                  size="sm"
-                  onClick={onContinue}
-                  className="gap-2"
-                >
+                <AuroraButton variant="primary" size="sm" onClick={onContinue} className="gap-2">
                   {t('common.continue')}
                   <ArrowRight className="w-4 h-4" />
                 </AuroraButton>
@@ -432,7 +417,7 @@ export function ValuationReportPanel({
         </div>
       </AuroraScrollArea>
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
@@ -440,11 +425,11 @@ export function ValuationReportPanel({
 // ─────────────────────────────────────────
 
 function PlaceholderPreview() {
-  const t = useTranslations();
+  const t = useTranslations()
 
   return (
     <div className="relative h-full flex flex-col items-center justify-center p-8 text-center overflow-hidden bg-card">
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: 'linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%)',
@@ -473,7 +458,7 @@ function PlaceholderPreview() {
         </div>
       </motion.div>
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
@@ -481,11 +466,11 @@ function PlaceholderPreview() {
 // ─────────────────────────────────────────
 
 function GeneratingState() {
-  const t = useTranslations();
+  const t = useTranslations()
 
   return (
     <div className="relative h-full flex flex-col items-center justify-center p-8 overflow-hidden bg-card">
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: 'linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%)',
@@ -534,7 +519,7 @@ function GeneratingState() {
         </div>
       </motion.div>
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
@@ -542,8 +527,8 @@ function GeneratingState() {
 // ─────────────────────────────────────────
 
 interface ProgressStepProps {
-  label: string;
-  status: 'complete' | 'active' | 'pending';
+  label: string
+  status: 'complete' | 'active' | 'pending'
 }
 
 function ProgressStep({ label, status }: ProgressStepProps) {
@@ -570,7 +555,7 @@ function ProgressStep({ label, status }: ProgressStepProps) {
         {label}
       </span>
     </div>
-  );
+  )
 }
 
-export default ValuationReportPanel;
+export default ValuationReportPanel

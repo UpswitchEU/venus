@@ -1,48 +1,48 @@
 /**
  * Hybrid Aurora Design System
  * Motion Hooks
- * 
+ *
  * Accessibility-aware animation utilities that respect
  * user preferences for reduced motion.
- * 
+ *
  * @module hooks
  */
 
 // ─────────────────────────────────────────
 // REDUCED MOTION
 // ─────────────────────────────────────────
-export { useReducedMotion, useMotionConfig } from './useReducedMotion';
+export { useMotionConfig, useReducedMotion } from './useReducedMotion'
 
 // ─────────────────────────────────────────
 // SPRING ANIMATIONS
 // ─────────────────────────────────────────
-export { 
-  useSpringValue, 
-  useSpringTransition, 
-  useSpringPresets,
-  springPresets,
+export {
   type SpringPreset,
-} from './useSpring';
+  springPresets,
+  useSpringPresets,
+  useSpringTransition,
+  useSpringValue,
+} from './useSpring'
 
 // ─────────────────────────────────────────
 // STAGGER ANIMATIONS
 // ─────────────────────────────────────────
 export {
-  useStaggerContainer,
-  useStaggerChild,
-  type StaggerConfig,
   type StaggerChildConfig,
-} from './useStagger';
+  type StaggerConfig,
+  useStaggerChild,
+  useStaggerContainer,
+} from './useStagger'
 
 // ─────────────────────────────────────────
 // VIEWPORT ANIMATIONS
 // ─────────────────────────────────────────
-export { 
-  useViewportAnimation,
+export {
+  type AnimationVariant,
+  animationVariants,
   enableMotionDebug,
   useMotionDebug,
-  viewportPresets,
-  animationVariants,
+  useViewportAnimation,
   type ViewportPreset,
-  type AnimationVariant,
-} from './useViewportAnimation';
+  viewportPresets,
+} from './useViewportAnimation'

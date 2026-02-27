@@ -8,9 +8,9 @@
  * Bank-grade: server-safe Titan URL, fetch timeout.
  */
 
-import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { NextResponse } from 'next/server'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const dynamic = 'force-dynamic'
 

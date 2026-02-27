@@ -1,13 +1,13 @@
-'use client';
+'use client'
 
-import { useTranslations } from 'next-intl';
-import { ErrorFallback } from '@/components/ErrorFallback';
+import { useTranslations } from 'next-intl'
+import { ErrorFallback } from '@/components/ErrorFallback'
 
 interface EnhancedErrorFallbackContentProps {
-  error: Error;
-  onReset: () => void;
-  message: string;
-  recoverable: boolean;
+  error: Error
+  onReset: () => void
+  message: string
+  recoverable: boolean
 }
 
 /**
@@ -20,8 +20,8 @@ export function EnhancedErrorFallbackContent({
   message,
   recoverable,
 }: EnhancedErrorFallbackContentProps) {
-  const t = useTranslations('errors.boundary');
-  const title = recoverable ? t('somethingWentWrong') : t('criticalError');
+  const t = useTranslations('errors.boundary')
+  const title = recoverable ? t('somethingWentWrong') : t('criticalError')
 
   return (
     <ErrorFallback
@@ -32,5 +32,5 @@ export function EnhancedErrorFallbackContent({
       message={message}
       variant="modal"
     />
-  );
+  )
 }

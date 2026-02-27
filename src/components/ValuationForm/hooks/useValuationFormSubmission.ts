@@ -9,12 +9,12 @@
 
 import { useCallback } from 'react'
 import { trackValuationCalculate, trackValuationResult } from '@/lib/analytics'
+import { useCanSave } from '../../../hooks/useCanSave'
 import { reportService, sessionService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
-import { useCanSave } from '../../../hooks/useCanSave'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
@@ -129,7 +129,13 @@ export const useValuationFormSubmission = (
         setEmployeeCountError(null)
 
         // Validate required fields
-        if (!formData.revenue || !formData.ebitda || !formData.industry || !formData.country_code || !formData.business_type_id) {
+        if (
+          !formData.revenue ||
+          !formData.ebitda ||
+          !formData.industry ||
+          !formData.country_code ||
+          !formData.business_type_id
+        ) {
           const missingFields = []
           if (!formData.revenue) missingFields.push('revenue')
           if (!formData.ebitda) missingFields.push('ebitda')
@@ -355,7 +361,11 @@ export const useValuationFormSubmission = (
                 ? detectVersionChanges(effectivePrevious.formData, request)
                 : null
 
-              if (effectivePrevious && effectiveChanges && areChangesSignificant(effectiveChanges)) {
+              if (
+                effectivePrevious &&
+                effectiveChanges &&
+                areChangesSignificant(effectiveChanges)
+              ) {
                 // Regeneration - create new version with changes
                 const newVersion = await createVersion({
                   reportId,
@@ -364,7 +374,10 @@ export const useValuationFormSubmission = (
                   htmlReport: result.html_report || undefined,
                   infoTabHtml: result.info_tab_html || undefined,
                   changesSummary: effectiveChanges,
-                  versionLabel: generateAutoLabel(effectivePrevious.versionNumber + 1, effectiveChanges),
+                  versionLabel: generateAutoLabel(
+                    effectivePrevious.versionNumber + 1,
+                    effectiveChanges
+                  ),
                 })
 
                 generalLogger.info('New version created on regeneration', {

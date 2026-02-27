@@ -78,7 +78,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   let requestLocale: string | undefined
   try {
     requestLocale = await getLocale()
-  } catch (e) {
+  } catch (_e) {
     // getLocale() can fail if called outside request context - that's OK
     requestLocale = undefined
   }

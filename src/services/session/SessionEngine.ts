@@ -1,9 +1,9 @@
 /**
  * Session Engine Abstraction
- * 
+ *
  * AUTH-FIRST Architecture: Only AuthenticatedSessionEngine is used.
  * All users must authenticate before accessing session features.
- * 
+ *
  * @module services/session/SessionEngine
  */
 
@@ -13,7 +13,7 @@ export type FlowType = 'manual' | 'conversational'
 
 /**
  * Session Engine Interface
- * 
+ *
  * AUTH-FIRST: All session operations require authentication.
  * Implemented by AuthenticatedSessionEngine with full backend integration.
  */

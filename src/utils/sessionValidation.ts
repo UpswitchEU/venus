@@ -76,10 +76,9 @@ export function validateSessionData(session: any): asserts session is ValuationS
   if (session.createdAt) {
     try {
       // Handle both Date objects and ISO strings
-      const date = session.createdAt instanceof Date 
-        ? session.createdAt 
-        : new Date(session.createdAt)
-      
+      const date =
+        session.createdAt instanceof Date ? session.createdAt : new Date(session.createdAt)
+
       if (isNaN(date.getTime())) {
         validationLogger.warn('Invalid createdAt timestamp, resetting', {
           reportId: session.reportId,
@@ -106,10 +105,9 @@ export function validateSessionData(session: any): asserts session is ValuationS
   // ✅ FIX: Also validate updatedAt
   if (session.updatedAt) {
     try {
-      const date = session.updatedAt instanceof Date 
-        ? session.updatedAt 
-        : new Date(session.updatedAt)
-      
+      const date =
+        session.updatedAt instanceof Date ? session.updatedAt : new Date(session.updatedAt)
+
       if (isNaN(date.getTime())) {
         validationLogger.warn('Invalid updatedAt timestamp, resetting', {
           reportId: session.reportId,

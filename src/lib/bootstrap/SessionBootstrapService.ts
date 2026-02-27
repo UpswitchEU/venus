@@ -1,21 +1,23 @@
 /**
  * Session Bootstrap Service
- * 
+ *
  * World-class initialization service that resolves ALL state before UI renders.
  * Orchestrates parallel resolution of auth, session, and prefill data.
- * 
+ *
  * Bank-grade session bootstrap:
  * - Single request for complete context
  * - Explicit error states (no silent fallbacks)
  * - Clear state machine transitions
- * 
+ *
  * @module lib/bootstrap/SessionBootstrapService
  */
 
-import { AuthResolver, authResolver } from './resolvers/AuthResolver';
-import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver';
-import { SessionResolver, sessionResolver } from './resolvers/SessionResolver';
-import { looksLikeExistingReportId, getIdentifierType } from '../../utils/identifiers';
+import { getMercuryUrl } from '../../utils/getMercuryUrl'
+import { getIdentifierType, looksLikeExistingReportId } from '../../utils/identifiers'
+import { getInitTraceId } from '../auth'
+import { AuthenticationRequiredError, AuthResolver, authResolver } from './resolvers/AuthResolver'
+import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver'
+import { SessionResolver, sessionResolver } from './resolvers/SessionResolver'
 import type {
   BootstrapContext,
   BootstrapErrorInfo,
@@ -26,7 +28,7 @@ import type {
   ReportState,
   SessionBootstrapState,
   UIHints,
-} from './types';
+} from './types'
 import {
   BOOTSTRAP_ERROR_CODES,
   BOOTSTRAP_VERSION,
@@ -35,90 +37,89 @@ import {
   DEFAULT_PREFILL,
   DEFAULT_REPORT,
   DEFAULT_UI_HINTS,
-} from './types';
-import { generateReportId, parseBootstrapHints, parseUrlToContext, truncateForLog } from './utils';
-import { getInitTraceId } from '../auth';
-import { AuthenticationRequiredError } from './resolvers/AuthResolver';
-import { getMercuryUrl } from '../../utils/getMercuryUrl';
+} from './types'
+import { generateReportId, parseBootstrapHints, parseUrlToContext, truncateForLog } from './utils'
 
 interface BootstrapOptions {
   /** Timeout for bootstrap process in ms */
-  timeout?: number;
+  timeout?: number
   /** Skip auth resolution (for server-side where cookies aren't available) */
-  skipAuth?: boolean;
+  skipAuth?: boolean
   /** Use cached bootstrap if available */
-  useCache?: boolean;
+  useCache?: boolean
 }
 
 const DEFAULT_OPTIONS: BootstrapOptions = {
   timeout: 10000, // Reduced from 15s - auth wait optimization makes this safer
   skipAuth: false,
   useCache: true,
-};
+}
 
 export class SessionBootstrapService {
-  private readonly logger = console;
-  private readonly authResolver: AuthResolver;
-  private readonly sessionResolver: SessionResolver;
-  private readonly prefillResolver: PrefillResolver;
+  private readonly logger = console
+  private readonly authResolver: AuthResolver
+  private readonly sessionResolver: SessionResolver
+  private readonly prefillResolver: PrefillResolver
 
   // In-flight bootstrap cache to prevent duplicate requests
-  private bootstrapPromiseCache: Map<string, Promise<SessionBootstrapState>> = new Map();
+  private bootstrapPromiseCache: Map<string, Promise<SessionBootstrapState>> = new Map()
 
   // Sliding-window rate limiter: allows legitimate calls (SPA navigations)
   // but blocks rapid-fire calls from remount loops.
   // If MAX_CALLS_IN_WINDOW calls happen within WINDOW_MS, the breaker trips.
-  private static readonly MAX_CALLS_IN_WINDOW = 4;
-  private static readonly CIRCUIT_BREAKER_WINDOW_MS = 30_000;
-  private callTimestamps: number[] = [];
+  private static readonly MAX_CALLS_IN_WINDOW = 4
+  private static readonly CIRCUIT_BREAKER_WINDOW_MS = 30_000
+  private callTimestamps: number[] = []
 
   // Result cache: returns cached result for repeated calls within the cooldown window.
   // This survives component remounts because the service is a module-level singleton.
-  private static readonly RESULT_CACHE_TTL_MS = 10_000;
-  private lastSuccessfulResult: SessionBootstrapState | null = null;
-  private lastSuccessfulAt = 0;
-  private lastSuccessfulReportId: string | null = null;
+  private static readonly RESULT_CACHE_TTL_MS = 10_000
+  private lastSuccessfulResult: SessionBootstrapState | null = null
+  private lastSuccessfulAt = 0
+  private lastSuccessfulReportId: string | null = null
 
   constructor(
     authResolver?: AuthResolver,
     sessionResolver?: SessionResolver,
     prefillResolver?: PrefillResolver
   ) {
-    this.authResolver = authResolver || new AuthResolver();
-    this.sessionResolver = sessionResolver || new SessionResolver();
-    this.prefillResolver = prefillResolver || new PrefillResolver();
+    this.authResolver = authResolver || new AuthResolver()
+    this.sessionResolver = sessionResolver || new SessionResolver()
+    this.prefillResolver = prefillResolver || new PrefillResolver()
   }
 
   /**
    * Sync client context from bootstrap response to Zustand store
-   * 
+   *
    * This ensures the useClientContext store always has the correct context
    * from the authoritative bootstrap response, preventing stale localStorage data
    * from causing access issues on subsequent requests.
    */
   private async syncClientContext(identity: IdentityState): Promise<void> {
     try {
-      const { useClientContext } = await import('../../stores/clientContext');
-      const contextStore = useClientContext.getState();
-      
+      const { useClientContext } = await import('../../stores/clientContext')
+      const contextStore = useClientContext.getState()
+
       if (identity.type === 'accountant_for_client' && identity.clientContext) {
         // Accountant-for-client flow: Update store with bootstrap context
         // Transform bootstrap ClientContext to ClientContextResponseDto format
-        const bootstrapContext = identity.clientContext;
-        
+        const bootstrapContext = identity.clientContext
+
         // Check if context is different from stored context
-        const storedClientId = contextStore.client?.id;
-        const storedRelationshipId = contextStore.relationshipId;
-        
-        if (storedClientId !== bootstrapContext.clientUserId || 
-            storedRelationshipId !== bootstrapContext.relationshipId) {
+        const storedClientId = contextStore.client?.id
+        const storedRelationshipId = contextStore.relationshipId
+
+        if (
+          storedClientId !== bootstrapContext.clientUserId ||
+          storedRelationshipId !== bootstrapContext.relationshipId
+        ) {
           this.logger.info('[Bootstrap] Syncing client context from bootstrap response', {
             oldClientId: storedClientId?.substring(0, 8) || 'none',
             newClientId: bootstrapContext.clientUserId.substring(0, 8),
             oldRelationshipId: storedRelationshipId?.substring(0, 8) || 'none',
             newRelationshipId: bootstrapContext.relationshipId.substring(0, 8),
-          });
-          
+          })
+
           // Set the context using the store's method
           contextStore.setClientContext({
             accountantUser: {
@@ -136,7 +137,7 @@ export class SessionBootstrapService {
               id: bootstrapContext.relationshipId,
               customer_name: bootstrapContext.clientCompanyName || '',
             },
-          });
+          })
         }
       } else if (identity.type === 'authenticated' && contextStore.isActingAsClient) {
         // Direct authenticated flow but store has stale client context
@@ -146,21 +147,21 @@ export class SessionBootstrapService {
           storedClientId: contextStore.client?.id?.substring(0, 8) || 'none',
           identityType: identity.type,
           note: 'Bootstrap returned authenticated identity but store had client context',
-        });
-        
-        contextStore.clearClientContext();
+        })
+
+        contextStore.clearClientContext()
       }
     } catch (error) {
       // Non-critical - log but don't fail bootstrap
       this.logger.warn('[Bootstrap] Failed to sync client context (non-critical)', {
         error: error instanceof Error ? error.message : String(error),
-      });
+      })
     }
   }
 
   /**
    * Main bootstrap entry point
-   * 
+   *
    * Resolves ALL state needed for UI rendering in a single orchestrated call.
    * Uses parallel resolution where possible for performance.
    */
@@ -168,46 +169,46 @@ export class SessionBootstrapService {
     context: BootstrapContext,
     options: BootstrapOptions = {}
   ): Promise<SessionBootstrapState> {
-    const cacheReportId = context.reportId || 'new';
+    const cacheReportId = context.reportId || 'new'
 
     // Guard 1: Sliding-window circuit breaker (shared with bootstrapViaTitan)
-    const now = Date.now();
+    const now = Date.now()
     this.callTimestamps = this.callTimestamps.filter(
-      t => now - t < SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
-    );
+      (t) => now - t < SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
+    )
     if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
-      if (this.lastSuccessfulResult) return this.lastSuccessfulResult;
-      throw new Error('[Bootstrap] Circuit breaker tripped (client-side path)');
+      if (this.lastSuccessfulResult) return this.lastSuccessfulResult
+      throw new Error('[Bootstrap] Circuit breaker tripped (client-side path)')
     }
 
     // Guard 2: Result cache
     if (this.hasCompletedFor(context.reportId)) {
-      return this.lastSuccessfulResult!;
+      return this.lastSuccessfulResult!
     }
 
-    const opts = { ...DEFAULT_OPTIONS, ...options };
-    const startTime = performance.now();
-    const cacheKey = this.getCacheKey(context);
+    const opts = { ...DEFAULT_OPTIONS, ...options }
+    const startTime = performance.now()
+    const cacheKey = this.getCacheKey(context)
 
     // Guard 3: In-flight dedup
-    const inflight = this.bootstrapPromiseCache.get(cacheKey);
+    const inflight = this.bootstrapPromiseCache.get(cacheKey)
     if (inflight && opts.useCache) {
-      this.logger.info('[Bootstrap] Returning in-flight request');
-      return inflight;
+      this.logger.info('[Bootstrap] Returning in-flight request')
+      return inflight
     }
 
-    this.callTimestamps.push(now);
-    const bootstrapPromise = this.executeBootstrap(context, opts, startTime);
-    this.bootstrapPromiseCache.set(cacheKey, bootstrapPromise);
+    this.callTimestamps.push(now)
+    const bootstrapPromise = this.executeBootstrap(context, opts, startTime)
+    this.bootstrapPromiseCache.set(cacheKey, bootstrapPromise)
 
     try {
-      const result = await bootstrapPromise;
-      this.lastSuccessfulResult = result;
-      this.lastSuccessfulAt = Date.now();
-      this.lastSuccessfulReportId = cacheReportId;
-      return result;
+      const result = await bootstrapPromise
+      this.lastSuccessfulResult = result
+      this.lastSuccessfulAt = Date.now()
+      this.lastSuccessfulReportId = cacheReportId
+      return result
     } finally {
-      this.bootstrapPromiseCache.delete(cacheKey);
+      this.bootstrapPromiseCache.delete(cacheKey)
     }
   }
 
@@ -219,8 +220,8 @@ export class SessionBootstrapService {
     cookies?: string,
     options?: BootstrapOptions
   ): Promise<SessionBootstrapState> {
-    const context = parseUrlToContext(url, cookies);
-    return this.bootstrap(context, options);
+    const context = parseUrlToContext(url, cookies)
+    return this.bootstrap(context, options)
   }
 
   /**
@@ -231,27 +232,27 @@ export class SessionBootstrapService {
     options: BootstrapOptions,
     startTime: number
   ): Promise<SessionBootstrapState> {
-    const hints = parseBootstrapHints(context);
+    const hints = parseBootstrapHints(context)
 
     this.logger.info('[Bootstrap] Starting bootstrap', {
       reportId: context.reportId ? truncateForLog(context.reportId) : 'new',
       hasClientToken: hints.hasClientToken,
       isEmbedded: hints.isEmbedded,
-    });
+    })
 
     try {
       // Create timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Bootstrap timeout')), options.timeout);
-      });
+        setTimeout(() => reject(new Error('Bootstrap timeout')), options.timeout)
+      })
 
       // Execute bootstrap with timeout
       const result = await Promise.race([
         this.resolveAllState(context, hints, options),
         timeoutPromise,
-      ]);
+      ])
 
-      const durationMs = performance.now() - startTime;
+      const durationMs = performance.now() - startTime
 
       this.logger.info('[Bootstrap] Bootstrap complete', {
         durationMs: Math.round(durationMs),
@@ -259,18 +260,18 @@ export class SessionBootstrapService {
         reportMode: result.report.mode,
         prefillConfidence: result.prefillData.confidence.toFixed(2),
         prefilledFields: result.prefillData.fieldsPopulated.length,
-      });
+      })
 
       return {
         ...result,
         bootstrapDurationMs: durationMs,
-      };
+      }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error('[Bootstrap] Bootstrap failed:', errorMessage);
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      this.logger.error('[Bootstrap] Bootstrap failed:', errorMessage)
 
       // Return graceful fallback
-      return this.buildFallbackState(context, hints, startTime, errorMessage);
+      return this.buildFallbackState(context, hints, startTime, errorMessage)
     }
   }
 
@@ -282,35 +283,35 @@ export class SessionBootstrapService {
     hints: BootstrapHints,
     options: BootstrapOptions
   ): Promise<SessionBootstrapState> {
-    const phaseStart = performance.now();
+    const phaseStart = performance.now()
 
     // Phase 1: Resolve identity (required for other resolutions)
-    let identity: IdentityState;
+    let identity: IdentityState
     if (options.skipAuth) {
-      identity = DEFAULT_IDENTITY;
+      identity = DEFAULT_IDENTITY
     } else {
-      const authResult = await this.authResolver.resolve(context, hints);
-      identity = authResult.data;
+      const authResult = await this.authResolver.resolve(context, hints)
+      identity = authResult.data
     }
-    const phase1Ms = Math.round(performance.now() - phaseStart);
-    this.logger.info('[Bootstrap] Phase 1 (auth) complete', { durationMs: phase1Ms });
+    const phase1Ms = Math.round(performance.now() - phaseStart)
+    this.logger.info('[Bootstrap] Phase 1 (auth) complete', { durationMs: phase1Ms })
 
     // Phase 2: Parallel resolution of session and prefill
-    const phase2Start = performance.now();
+    const phase2Start = performance.now()
     const [sessionResult, prefillResult] = await Promise.all([
       this.sessionResolver.resolve(context, hints, identity),
       this.prefillResolver.resolve(context, hints, identity),
-    ]);
-    const phase2Ms = Math.round(performance.now() - phase2Start);
-    this.logger.info('[Bootstrap] Phase 2 (session+prefill) complete', { durationMs: phase2Ms });
+    ])
+    const phase2Ms = Math.round(performance.now() - phase2Start)
+    this.logger.info('[Bootstrap] Phase 2 (session+prefill) complete', { durationMs: phase2Ms })
 
-    const report = sessionResult.data;
-    const prefillData = prefillResult.data;
+    const report = sessionResult.data
+    const prefillData = prefillResult.data
 
     // Phase 3: Build UI hints
-    const ui = this.buildUIHints(context, hints, identity, report, prefillData);
-    const totalMs = Math.round(performance.now() - phaseStart);
-    this.logger.info('[Bootstrap] Phase 3 (ui hints) complete', { totalDurationMs: totalMs });
+    const ui = this.buildUIHints(context, hints, identity, report, prefillData)
+    const totalMs = Math.round(performance.now() - phaseStart)
+    this.logger.info('[Bootstrap] Phase 3 (ui hints) complete', { totalDurationMs: totalMs })
 
     return {
       identity,
@@ -320,7 +321,7 @@ export class SessionBootstrapService {
       bootstrapVersion: BOOTSTRAP_VERSION,
       bootstrappedAt: new Date(),
       bootstrapDurationMs: 0, // Will be set by caller
-    };
+    }
   }
 
   /**
@@ -334,12 +335,12 @@ export class SessionBootstrapService {
     prefillData: PrefillData
   ): UIHints {
     // Determine suggested flow
-    let suggestedFlow: FlowType = 'manual';
+    let suggestedFlow: FlowType = 'manual'
     if (hints.requestedFlow) {
-      suggestedFlow = hints.requestedFlow;
+      suggestedFlow = hints.requestedFlow
     } else if (prefillData.confidence < 0.3) {
       // Low confidence = conversational might help gather more data
-      suggestedFlow = 'conversational';
+      suggestedFlow = 'conversational'
     }
 
     return {
@@ -352,7 +353,7 @@ export class SessionBootstrapService {
       showAccountantBanner: identity.type === 'accountant_for_client',
       returnUrl: context.returnUrl,
       sourceApp: context.sourceApp,
-    };
+    }
   }
 
   /**
@@ -364,7 +365,7 @@ export class SessionBootstrapService {
     startTime: number,
     error?: string
   ): SessionBootstrapState {
-    const reportId = context.reportId || generateReportId();
+    const reportId = context.reportId || generateReportId()
 
     return {
       identity: {
@@ -383,18 +384,18 @@ export class SessionBootstrapService {
       bootstrapVersion: BOOTSTRAP_VERSION,
       bootstrappedAt: new Date(),
       bootstrapDurationMs: performance.now() - startTime,
-    };
+    }
   }
 
   /**
    * Generate cache key for deduplication.
-   * 
+   *
    * IMPORTANT: Only use reportId — do NOT include clientToken because
    * auth.ts sanitizes the URL (strips clientToken) after the first call.
    * Including it would cause a second call to miss the in-flight cache.
    */
   private getCacheKey(context: BootstrapContext): string {
-    return context.reportId || 'new';
+    return context.reportId || 'new'
   }
 
   /**
@@ -406,39 +407,43 @@ export class SessionBootstrapService {
    * - Otherwise: maxWaitMs for cookie-based auth (auth/me → 401 → refresh → retry can take ~1–2s)
    */
   private async waitForAuth(maxWaitMs: number, hasClientToken?: boolean): Promise<boolean> {
-    const { useAuthStore } = await import('../auth');
-    const { useClientContext } = await import('../../stores/clientContext');
-    const start = Date.now();
+    const { useAuthStore } = await import('../auth')
+    const { useClientContext } = await import('../../stores/clientContext')
+    const start = Date.now()
     // When clientToken present, client context exchange must complete - wait longer
-    const effectiveMaxWait = hasClientToken ? 5000 : maxWaitMs;
+    const effectiveMaxWait = hasClientToken ? 5000 : maxWaitMs
 
     const isAuthAndContextReady = (): boolean => {
-      const authState = useAuthStore.getState();
+      const authState = useAuthStore.getState()
       // Require user (not just error) - bootstrap needs valid auth; error means unauthenticated
       // RELOAD LOOP FIX: Also wait for !isRefreshing so we don't bootstrap with stale/null user
-      const authReady = !authState.loading && !authState.isInitializing && !authState.isRefreshing && !!authState.user;
-      if (!authReady) return false;
+      const authReady =
+        !authState.loading &&
+        !authState.isInitializing &&
+        !authState.isRefreshing &&
+        !!authState.user
+      if (!authReady) return false
       // When clientToken present, also require client context in store (headers needed for Titan delegated flow)
       if (hasClientToken && !useClientContext.getState().isActingAsClient) {
-        return false;
+        return false
       }
-      return true;
-    };
+      return true
+    }
 
     // OPTIMIZATION: Check if auth and context are already ready (common case)
     if (isAuthAndContextReady()) {
-      return true;
+      return true
     }
 
     // Poll until auth and client context (if applicable) are ready
     while (Date.now() - start < effectiveMaxWait) {
       if (isAuthAndContextReady()) {
-        return true;
+        return true
       }
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50))
     }
 
-    return false;
+    return false
   }
 
   /**
@@ -457,13 +462,13 @@ export class SessionBootstrapService {
     headers: Record<string, string>,
     traceId: string
   ): Promise<Response> {
-    const maxRetries = 2;
-    const baseDelay = 500;
-    
+    const maxRetries = 2
+    const baseDelay = 500
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
       try {
         const response = await fetch('/api/bootstrap', {
           method: 'POST',
@@ -471,54 +476,60 @@ export class SessionBootstrapService {
           credentials: 'include',
           body: JSON.stringify(requestBody),
           signal: controller.signal,
-        });
-        
-        clearTimeout(timeoutId);
-        
+        })
+
+        clearTimeout(timeoutId)
+
         // 5xx server errors — retryable
         if (response.status >= 500 && attempt < maxRetries - 1) {
-          const delay = baseDelay * Math.pow(2, attempt);
-          this.logger.warn(`[Bootstrap:${traceId}] Server error ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`);
-          await new Promise(r => setTimeout(r, delay));
-          continue;
+          const delay = baseDelay * Math.pow(2, attempt)
+          this.logger.warn(
+            `[Bootstrap:${traceId}] Server error ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`
+          )
+          await new Promise((r) => setTimeout(r, delay))
+          continue
         }
-        
+
         // 408/504 timeout errors — retryable
         if ((response.status === 408 || response.status === 504) && attempt < maxRetries - 1) {
-          const delay = baseDelay * Math.pow(2, attempt);
-          this.logger.warn(`[Bootstrap:${traceId}] Timeout ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`);
-          await new Promise(r => setTimeout(r, delay));
-          continue;
+          const delay = baseDelay * Math.pow(2, attempt)
+          this.logger.warn(
+            `[Bootstrap:${traceId}] Timeout ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`
+          )
+          await new Promise((r) => setTimeout(r, delay))
+          continue
         }
-        
-        return response;
+
+        return response
       } catch (fetchError) {
-        clearTimeout(timeoutId);
-        
+        clearTimeout(timeoutId)
+
         if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          throw new Error('Bootstrap request timed out after 30 seconds');
+          throw new Error('Bootstrap request timed out after 30 seconds')
         }
-        
+
         if (attempt < maxRetries - 1) {
-          const delay = baseDelay * Math.pow(2, attempt);
-          this.logger.warn(`[Bootstrap:${traceId}] Network error on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`);
-          await new Promise(r => setTimeout(r, delay));
-          continue;
+          const delay = baseDelay * Math.pow(2, attempt)
+          this.logger.warn(
+            `[Bootstrap:${traceId}] Network error on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`
+          )
+          await new Promise((r) => setTimeout(r, delay))
+          continue
         }
-        
-        throw fetchError;
+
+        throw fetchError
       }
     }
-    
-    throw new Error('Bootstrap failed after all retries');
+
+    throw new Error('Bootstrap failed after all retries')
   }
 
   /**
    * Bootstrap via Titan API endpoint (single-request optimization)
-   * 
+   *
    * This method uses the Titan bootstrap endpoint which performs all
    * resolution server-side, reducing network round-trips.
-   * 
+   *
    * Use this for production for optimal performance.
    */
   /**
@@ -526,12 +537,12 @@ export class SessionBootstrapService {
    * Used by BootstrapProvider to avoid re-triggering bootstrap after remounts.
    */
   hasCompletedFor(reportId: string | undefined): boolean {
-    const effectiveId = reportId || 'new';
+    const effectiveId = reportId || 'new'
     return (
       this.lastSuccessfulResult !== null &&
       this.lastSuccessfulReportId === effectiveId &&
       Date.now() - this.lastSuccessfulAt < SessionBootstrapService.RESULT_CACHE_TTL_MS
-    );
+    )
   }
 
   /**
@@ -539,9 +550,9 @@ export class SessionBootstrapService {
    * to allow a forced re-fetch.
    */
   clearCache(): void {
-    this.lastSuccessfulResult = null;
-    this.lastSuccessfulAt = 0;
-    this.lastSuccessfulReportId = null;
+    this.lastSuccessfulResult = null
+    this.lastSuccessfulAt = 0
+    this.lastSuccessfulReportId = null
   }
 
   /**
@@ -549,7 +560,7 @@ export class SessionBootstrapService {
    * never call this from automated code paths.
    */
   resetCircuitBreaker(): void {
-    this.callTimestamps = [];
+    this.callTimestamps = []
   }
 
   /**
@@ -560,9 +571,9 @@ export class SessionBootstrapService {
       this.lastSuccessfulResult !== null &&
       Date.now() - this.lastSuccessfulAt < SessionBootstrapService.RESULT_CACHE_TTL_MS
     ) {
-      return this.lastSuccessfulResult;
+      return this.lastSuccessfulResult
     }
-    return null;
+    return null
   }
 
   async bootstrapViaTitan(
@@ -570,50 +581,52 @@ export class SessionBootstrapService {
     options: BootstrapOptions = {}
   ): Promise<SessionBootstrapState> {
     // Full ID for cache matching; truncated only for log readability
-    const cacheReportId = context.reportId || 'new';
-    const logReportId = context.reportId?.substring(0, 20) || 'new';
+    const cacheReportId = context.reportId || 'new'
+    const logReportId = context.reportId?.substring(0, 20) || 'new'
 
     // Guard 1: Sliding-window circuit breaker — blocks rapid-fire calls
-    const now = Date.now();
+    const now = Date.now()
     this.callTimestamps = this.callTimestamps.filter(
-      t => now - t < SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
-    );
+      (t) => now - t < SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
+    )
     if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
-      const msg = `[Bootstrap] Circuit breaker: ${this.callTimestamps.length} calls in ${SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS / 1000}s window — refusing further calls`;
-      this.logger.error(msg);
+      const msg = `[Bootstrap] Circuit breaker: ${this.callTimestamps.length} calls in ${SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS / 1000}s window — refusing further calls`
+      this.logger.error(msg)
       if (this.lastSuccessfulResult) {
-        this.logger.info('[Bootstrap] Returning last successful result from circuit breaker');
-        return this.lastSuccessfulResult;
+        this.logger.info('[Bootstrap] Returning last successful result from circuit breaker')
+        return this.lastSuccessfulResult
       }
-      throw new Error(msg);
+      throw new Error(msg)
     }
 
     // Guard 2: Result cache — return cached result if fresh
     if (this.hasCompletedFor(context.reportId)) {
-      this.logger.info(`[Bootstrap] Returning cached result for ${logReportId} (age: ${Date.now() - this.lastSuccessfulAt}ms)`);
-      return this.lastSuccessfulResult!;
+      this.logger.info(
+        `[Bootstrap] Returning cached result for ${logReportId} (age: ${Date.now() - this.lastSuccessfulAt}ms)`
+      )
+      return this.lastSuccessfulResult!
     }
 
-    const cacheKey = `titan:${this.getCacheKey(context)}`;
+    const cacheKey = `titan:${this.getCacheKey(context)}`
 
     // Guard 3: Dedup in-flight request
-    const inflight = this.bootstrapPromiseCache.get(cacheKey);
+    const inflight = this.bootstrapPromiseCache.get(cacheKey)
     if (inflight) {
-      this.logger.info('[Bootstrap] Returning in-flight Titan request (dedup)');
-      return inflight;
+      this.logger.info('[Bootstrap] Returning in-flight Titan request (dedup)')
+      return inflight
     }
 
-    const promise = this._executeBootstrapViaTitan(context, options);
-    this.bootstrapPromiseCache.set(cacheKey, promise);
+    const promise = this._executeBootstrapViaTitan(context, options)
+    this.bootstrapPromiseCache.set(cacheKey, promise)
 
     try {
-      const result = await promise;
-      this.lastSuccessfulResult = result;
-      this.lastSuccessfulAt = Date.now();
-      this.lastSuccessfulReportId = cacheReportId;
-      return result;
+      const result = await promise
+      this.lastSuccessfulResult = result
+      this.lastSuccessfulAt = Date.now()
+      this.lastSuccessfulReportId = cacheReportId
+      return result
     } finally {
-      this.bootstrapPromiseCache.delete(cacheKey);
+      this.bootstrapPromiseCache.delete(cacheKey)
     }
   }
 
@@ -621,15 +634,18 @@ export class SessionBootstrapService {
     context: BootstrapContext,
     options: BootstrapOptions = {}
   ): Promise<SessionBootstrapState> {
-    const startTime = performance.now();
-    const hints = parseBootstrapHints(context);
-    const traceId = getInitTraceId() || 'unknown';
+    const startTime = performance.now()
+    const hints = parseBootstrapHints(context)
+    const traceId = getInitTraceId() || 'unknown'
 
-    this.callTimestamps.push(Date.now());
-    this.logger.info(`[Bootstrap:${traceId}] Starting Titan API bootstrap (${this.callTimestamps.length} calls in window)`, {
-      reportId: context.reportId?.substring(0, 20) || 'new',
-      hasClientToken: hints.hasClientToken,
-    });
+    this.callTimestamps.push(Date.now())
+    this.logger.info(
+      `[Bootstrap:${traceId}] Starting Titan API bootstrap (${this.callTimestamps.length} calls in window)`,
+      {
+        reportId: context.reportId?.substring(0, 20) || 'new',
+        hasClientToken: hints.hasClientToken,
+      }
+    )
 
     try {
       // When clientToken present, wait for client context exchange to complete (up to 5s)
@@ -641,34 +657,40 @@ export class SessionBootstrapService {
       // by fetching the report's accountant_customer_id (~1–2s). We detect this case and wait for
       // isActingAsClient just like we do for the clientToken flow, giving the fallback time to run.
       const isAccountantExistingReportFlow =
-        context.sourceApp === 'mercury' &&
-        !!context.reportId &&
-        !context.clientToken;
-      const needsClientContext = hints.hasClientToken || isAccountantExistingReportFlow;
+        context.sourceApp === 'mercury' && !!context.reportId && !context.clientToken
+      const needsClientContext = hints.hasClientToken || isAccountantExistingReportFlow
 
       if (isAccountantExistingReportFlow) {
-        this.logger.info(`[Bootstrap:${traceId}] Mercury accountant existing-report flow detected — waiting for client context`, {
-          reportId: context.reportId?.substring(0, 20),
-        });
+        this.logger.info(
+          `[Bootstrap:${traceId}] Mercury accountant existing-report flow detected — waiting for client context`,
+          {
+            reportId: context.reportId?.substring(0, 20),
+          }
+        )
       }
 
-      const authWaitStart = performance.now();
-      const authReady = await this.waitForAuth(2500, needsClientContext);
-      const authWaitMs = Math.round(performance.now() - authWaitStart);
-      this.logger.info(`[Bootstrap:${traceId}] Auth wait complete`, { durationMs: authWaitMs, ready: authReady, needsClientContext });
+      const authWaitStart = performance.now()
+      const authReady = await this.waitForAuth(2500, needsClientContext)
+      const authWaitMs = Math.round(performance.now() - authWaitStart)
+      this.logger.info(`[Bootstrap:${traceId}] Auth wait complete`, {
+        durationMs: authWaitMs,
+        ready: authReady,
+        needsClientContext,
+      })
       if (!authReady) {
-        this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after timeout, proceeding anyway`);
+        this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after timeout, proceeding anyway`)
       }
 
       // Build request body
       // CRITICAL: Ensure reportId is always sent if present (not empty string)
-      const validReportId = context.reportId?.trim() || undefined;
-      
+      const validReportId = context.reportId?.trim() || undefined
+
       // ✅ CRITICAL FIX: Only include mode if it's a valid value ('edit' or 'view')
       // The Zod schema on the backend only accepts these two values, so invalid values cause 400 errors
       // Mercury may send mode=accountant in the URL, but we should NOT send this to Titan
-      const validMode = context.mode === 'edit' || context.mode === 'view' ? context.mode : undefined;
-      
+      const validMode =
+        context.mode === 'edit' || context.mode === 'view' ? context.mode : undefined
+
       // CRITICAL: clientToken in body enables Titan to resolve delegated (accountant) flow identity
       const requestBody = {
         reportId: validReportId,
@@ -680,13 +702,13 @@ export class SessionBootstrapService {
         ...(validMode && { mode: validMode }),
         version: context.version,
         locale: context.locale,
-      };
-      
+      }
+
       if (context.mode && !validMode) {
         this.logger.warn('[Bootstrap] Filtered out invalid mode value', {
           invalidMode: context.mode,
           note: 'Only "edit" or "view" are valid - mode will be omitted from request',
-        });
+        })
       }
 
       // CRITICAL LOGGING: Log exactly what we're sending to debug ID mismatch
@@ -694,40 +716,40 @@ export class SessionBootstrapService {
         reportIdFromContext: context.reportId?.substring(0, 25) || 'none',
         reportIdInRequest: validReportId?.substring(0, 25) || 'none',
         reportIdLength: validReportId?.length || 0,
-      });
+      })
 
       // Build headers
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        Accept: 'application/json',
         // Trace flow Venus → Venus API → Titan → ValuationIQ for staging/prod debugging
         'X-Correlation-ID': traceId,
-      };
+      }
 
       // BANK GRADE: Add client context headers using the store's getContextHeaders()
       // This uses standardized header names: X-Client-User-Id, X-Accountant-User-Id, X-Relationship-Id
       // AuthGate ensures client context is in the store BEFORE bootstrap runs
       try {
-        const { useClientContext } = await import('../../stores/clientContext');
-        const contextHeaders = useClientContext.getState().getContextHeaders();
-        
+        const { useClientContext } = await import('../../stores/clientContext')
+        const contextHeaders = useClientContext.getState().getContextHeaders()
+
         if (Object.keys(contextHeaders).length > 0) {
-          Object.assign(headers, contextHeaders);
-          
+          Object.assign(headers, contextHeaders)
+
           this.logger.info('[Bootstrap] Added client context headers from store', {
             headerCount: Object.keys(contextHeaders).length,
             hasClientToken: hints.hasClientToken || !!context.clientToken,
-          });
+          })
         } else if (hints.hasClientToken || context.clientToken) {
           // Only warn if clientToken was present but context not in store
           this.logger.warn('[Bootstrap] Client token present but client context not in store', {
             note: 'AuthGate should have ensured context is ready before bootstrap',
-          });
+          })
         }
       } catch (error) {
         this.logger.warn('[Bootstrap] Failed to get client context headers (non-critical)', {
           error: error instanceof Error ? error.message : String(error),
-        });
+        })
       }
 
       // DIAGNOSTIC: Log before bootstrap request to trace client context propagation
@@ -736,52 +758,67 @@ export class SessionBootstrapService {
           k.toLowerCase() === 'x-client-user-id' ||
           k.toLowerCase() === 'x-accountant-user-id' ||
           k.toLowerCase() === 'x-relationship-id'
-      );
+      )
       this.logger.info(`[Bootstrap:${traceId}] Pre-request diagnostic`, {
         hasClientContextHeaders,
         authReady,
         authWaitMs,
         headerKeys: Object.keys(headers).filter((k) => k.toLowerCase().startsWith('x-')),
-      });
+      })
 
       // Make request (proxy handles 401 refresh; only 5xx/network errors retried here)
       // RELOAD LOOP FIX: On 401, retry once after 500ms — cookie propagation from Mercury can lag
-      let response: Awaited<ReturnType<typeof this.makeBootstrapRequest>>;
-      let lastErrorText = '';
+      type FetchResponse = Awaited<ReturnType<typeof this.makeBootstrapRequest>>
+      let successResponse: FetchResponse | null = null
+      let lastErrorText = ''
       for (let attempt = 0; attempt < 2; attempt++) {
-        const apiStart = performance.now();
-        response = await this.makeBootstrapRequest(requestBody, headers, traceId);
-        const apiMs = Math.round(performance.now() - apiStart);
-        this.logger.info(`[Bootstrap:${traceId}] Titan API request complete`, { durationMs: apiMs, status: response.status, attempt: attempt + 1 });
+        const apiStart = performance.now()
+        const response = await this.makeBootstrapRequest(requestBody, headers, traceId)
+        const apiMs = Math.round(performance.now() - apiStart)
+        this.logger.info(`[Bootstrap:${traceId}] Titan API request complete`, {
+          durationMs: apiMs,
+          status: response.status,
+          attempt: attempt + 1,
+        })
 
         if (!response.ok) {
-          lastErrorText = await response.text();
+          lastErrorText = await response.text()
           this.logger.error('[Bootstrap] Bootstrap API failed', {
             status: response.status,
             statusText: response.statusText,
             error: lastErrorText.substring(0, 200),
             attempt: attempt + 1,
-          });
+          })
           if (response.status === 401 && attempt === 0) {
-            this.logger.info(`[Bootstrap:${traceId}] 401 on first attempt — retrying after 500ms (cookie propagation)`);
-            await new Promise((r) => setTimeout(r, 500));
-            continue;
+            this.logger.info(
+              `[Bootstrap:${traceId}] 401 on first attempt — retrying after 500ms (cookie propagation)`
+            )
+            await new Promise((r) => setTimeout(r, 500))
+            continue
           }
           if (response.status === 401) {
-            const mercuryUrl = getMercuryUrl();
-            const locale = typeof window !== 'undefined'
-              ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
-              : 'en';
-            const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
-            const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`;
-            throw new AuthenticationRequiredError('Session expired or authentication required', redirectUrl);
+            const mercuryUrl = getMercuryUrl()
+            const locale =
+              typeof window !== 'undefined'
+                ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+                : 'en'
+            const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
+            const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+            throw new AuthenticationRequiredError(
+              'Session expired or authentication required',
+              redirectUrl
+            )
           }
-          throw new Error(`Bootstrap API failed (${response.status}): ${lastErrorText.substring(0, 100)}`);
+          throw new Error(
+            `Bootstrap API failed (${response.status}): ${lastErrorText.substring(0, 100)}`
+          )
         }
-        break;
+        successResponse = response
+        break
       }
 
-      const data = await response.json();
+      const response = successResponse!
+      const data = await response.json()
 
       // DIAGNOSTIC (dev only): Log bootstrap response for accountant + clientToken flow
       if (hints.hasClientToken) {
@@ -792,100 +829,108 @@ export class SessionBootstrapService {
           reportId: data.data?.report?.reportId?.substring(0, 25),
           identityType: data.data?.identity?.type,
           hasExistingData: data.data?.report?.hasExistingData,
-        });
+        })
       }
 
-        // ✅ STRUCTURED ERROR HANDLING: Check errorInfo for smarter error handling
-        if (!data.success) {
-          // Extract structured error info if available
-          const errorInfo: BootstrapErrorInfo | undefined = data.errorInfo;
-          
-          // Log structured error details for debugging
-          if (errorInfo) {
-            this.logger.warn(`[Bootstrap:${traceId}] Received structured error`, {
-              code: errorInfo.code,
-              message: errorInfo.message,
-              retryable: errorInfo.retryable,
-            });
-          }
+      // ✅ STRUCTURED ERROR HANDLING: Check errorInfo for smarter error handling
+      if (!data.success) {
+        // Extract structured error info if available
+        const errorInfo: BootstrapErrorInfo | undefined = data.errorInfo
 
-          // Check if this is a credit error (allow viewing with limited data)
-          if (data.data?.creditStatus && !data.data.creditStatus.allowed) {
-            // Credit check failed - return state with credit error
-            const { identity, report, prefill, ui, creditStatus } = data.data;
-            return {
-              identity: identity ? {
-                type: identity.type,
-                userId: identity.userId,
-                clientContext: identity.clientContext,
-                email: identity.email,
-                firstName: identity.firstName,
-                lastName: identity.lastName,
-              } : DEFAULT_IDENTITY,
-              report: report ? {
-                mode: report.mode,
-                reportId: report.reportId || context.reportId || generateReportId(),
-                hasExistingData: report.hasExistingData || false,
-                version: report.version,
-                status: report.status || 'active',
-                createdAt: report.createdAt ? new Date(report.createdAt) : undefined,
-                updatedAt: report.updatedAt ? new Date(report.updatedAt) : undefined,
-                completedAt: report.completedAt ? new Date(report.completedAt) : undefined,
-                currentStep: report.currentStep,
-              } : DEFAULT_REPORT,
-              prefillData: prefill ? {
-                sources: prefill.sources || [],
-                companyInfo: prefill.companyInfo,
-                financials: prefill.financials,
-                businessType: prefill.businessType,
-                kboData: prefill.kboData,
-                confidence: prefill.confidence || 0,
-                fieldsPopulated: prefill.fieldsPopulated || [],
-                fieldsRemaining: prefill.fieldsRemaining || [],
-              } : DEFAULT_PREFILL,
-              ui: ui ? {
-                showWelcomeBack: ui.showWelcomeBack || false,
-                resumableSession: ui.resumableSession || false,
-                suggestedFlow: ui.suggestedFlow || 'manual',
-                prefilledFieldCount: ui.prefilledFieldCount || 0,
-                totalFieldCount: ui.totalFieldCount || 0,
-                showKboVerification: ui.showKboVerification || false,
-                showAccountantBanner: ui.showAccountantBanner || false,
-                returnUrl: ui.returnUrl,
-                sourceApp: ui.sourceApp,
-              } : DEFAULT_UI_HINTS,
-              creditStatus: creditStatus, // Include credit status
-              bootstrapVersion: BOOTSTRAP_VERSION,
-              bootstrappedAt: new Date(),
-              bootstrapDurationMs: performance.now() - startTime,
-            };
-          }
-
-          // Check if error is retryable based on structured error info
-          const isRetryableError = errorInfo?.retryable ?? false;
-          const errorCode = errorInfo?.code || 'UNKNOWN';
-          
-          // Create rich error message
-          const errorMessage = errorInfo 
-            ? `[${errorCode}] ${errorInfo.message}${isRetryableError ? ' (retryable)' : ''}`
-            : (data.error || 'Bootstrap returned no data');
-          
-          // For retryable errors, we could implement automatic retry here
-          // For now, just throw with additional context
-          const error = new Error(errorMessage);
-          (error as any).code = errorCode;
-          (error as any).retryable = isRetryableError;
-          throw error;
+        // Log structured error details for debugging
+        if (errorInfo) {
+          this.logger.warn(`[Bootstrap:${traceId}] Received structured error`, {
+            code: errorInfo.code,
+            message: errorInfo.message,
+            retryable: errorInfo.retryable,
+          })
         }
 
-        if (!data.data) {
-          throw new Error('Bootstrap returned no data');
+        // Check if this is a credit error (allow viewing with limited data)
+        if (data.data?.creditStatus && !data.data.creditStatus.allowed) {
+          // Credit check failed - return state with credit error
+          const { identity, report, prefill, ui, creditStatus } = data.data
+          return {
+            identity: identity
+              ? {
+                  type: identity.type,
+                  userId: identity.userId,
+                  clientContext: identity.clientContext,
+                  email: identity.email,
+                  firstName: identity.firstName,
+                  lastName: identity.lastName,
+                }
+              : DEFAULT_IDENTITY,
+            report: report
+              ? {
+                  mode: report.mode,
+                  reportId: report.reportId || context.reportId || generateReportId(),
+                  hasExistingData: report.hasExistingData || false,
+                  version: report.version,
+                  status: report.status || 'active',
+                  createdAt: report.createdAt ? new Date(report.createdAt) : undefined,
+                  updatedAt: report.updatedAt ? new Date(report.updatedAt) : undefined,
+                  completedAt: report.completedAt ? new Date(report.completedAt) : undefined,
+                  currentStep: report.currentStep,
+                }
+              : DEFAULT_REPORT,
+            prefillData: prefill
+              ? {
+                  sources: prefill.sources || [],
+                  companyInfo: prefill.companyInfo,
+                  financials: prefill.financials,
+                  businessType: prefill.businessType,
+                  kboData: prefill.kboData,
+                  confidence: prefill.confidence || 0,
+                  fieldsPopulated: prefill.fieldsPopulated || [],
+                  fieldsRemaining: prefill.fieldsRemaining || [],
+                }
+              : DEFAULT_PREFILL,
+            ui: ui
+              ? {
+                  showWelcomeBack: ui.showWelcomeBack || false,
+                  resumableSession: ui.resumableSession || false,
+                  suggestedFlow: ui.suggestedFlow || 'manual',
+                  prefilledFieldCount: ui.prefilledFieldCount || 0,
+                  totalFieldCount: ui.totalFieldCount || 0,
+                  showKboVerification: ui.showKboVerification || false,
+                  showAccountantBanner: ui.showAccountantBanner || false,
+                  returnUrl: ui.returnUrl,
+                  sourceApp: ui.sourceApp,
+                }
+              : DEFAULT_UI_HINTS,
+            creditStatus: creditStatus, // Include credit status
+            bootstrapVersion: BOOTSTRAP_VERSION,
+            bootstrappedAt: new Date(),
+            bootstrapDurationMs: performance.now() - startTime,
+          }
         }
 
-        // Transform Titan response to SessionBootstrapState
-        const { identity, report, prefill, ui, creditStatus, valuationPackage } = data.data;
+        // Check if error is retryable based on structured error info
+        const isRetryableError = errorInfo?.retryable ?? false
+        const errorCode = errorInfo?.code || 'UNKNOWN'
 
-        const state: SessionBootstrapState = {
+        // Create rich error message
+        const errorMessage = errorInfo
+          ? `[${errorCode}] ${errorInfo.message}${isRetryableError ? ' (retryable)' : ''}`
+          : data.error || 'Bootstrap returned no data'
+
+        // For retryable errors, we could implement automatic retry here
+        // For now, just throw with additional context
+        const error = new Error(errorMessage)
+        ;(error as any).code = errorCode
+        ;(error as any).retryable = isRetryableError
+        throw error
+      }
+
+      if (!data.data) {
+        throw new Error('Bootstrap returned no data')
+      }
+
+      // Transform Titan response to SessionBootstrapState
+      const { identity, report, prefill, ui, creditStatus, valuationPackage } = data.data
+
+      const state: SessionBootstrapState = {
         identity: {
           type: identity.type,
           userId: identity.userId,
@@ -930,26 +975,28 @@ export class SessionBootstrapService {
         },
         creditStatus: creditStatus, // Include credit status if present
         // WORLD-CLASS: Extract valuationPackage for instant UI hydration
-        valuationPackage: valuationPackage ? {
-          htmlReport: valuationPackage.htmlReport || null,
-          infoTabHtml: valuationPackage.infoTabHtml || null,
-          pricingRange: valuationPackage.pricingRange || null,
-          versions: valuationPackage.versions || { current: 1, total: 1 },
-          pdf: valuationPackage.pdf || { url: null, status: 'none' },
-          formData: valuationPackage.formData || undefined,
-        } : undefined,
+        valuationPackage: valuationPackage
+          ? {
+              htmlReport: valuationPackage.htmlReport || null,
+              infoTabHtml: valuationPackage.infoTabHtml || null,
+              pricingRange: valuationPackage.pricingRange || null,
+              versions: valuationPackage.versions || { current: 1, total: 1 },
+              pdf: valuationPackage.pdf || { url: null, status: 'none' },
+              formData: valuationPackage.formData || undefined,
+            }
+          : undefined,
         bootstrapVersion: BOOTSTRAP_VERSION,
         bootstrappedAt: new Date(),
-        bootstrapDurationMs: data.bootstrapDurationMs || (performance.now() - startTime),
-      };
+        bootstrapDurationMs: data.bootstrapDurationMs || performance.now() - startTime,
+      }
 
-      const totalMs = Math.round(performance.now() - startTime);
+      const totalMs = Math.round(performance.now() - startTime)
       this.logger.info(`[Bootstrap:${traceId}] Titan bootstrap complete`, {
         durationMs: totalMs,
         reportMode: state.report.mode,
         identityType: state.identity.type,
-      });
-      
+      })
+
       // WORLD-CLASS: Log valuationPackage presence for debugging
       if (valuationPackage) {
         this.logger.info(`[Bootstrap:${traceId}] Received valuationPackage`, {
@@ -958,40 +1005,47 @@ export class SessionBootstrapService {
           hasPricing: !!valuationPackage.pricingRange,
           versionCount: valuationPackage.versions?.total,
           pdfStatus: valuationPackage.pdf?.status,
-        });
+        })
       }
 
       // Log if reportId looked like an existing session but Titan returned mode='new'.
       // This typically means the session doesn't exist for this user (deleted, wrong owner, etc.).
       // We no longer retry here — waitForAuth() above already ensures auth is stable,
       // and the proxy route handles token refresh on 401.
-      if (state.report.mode === 'new' && context.reportId && looksLikeExistingReportId(context.reportId)) {
-        this.logger.warn(`[Bootstrap:${traceId}] Expected existing session but got mode=new — accepting result`, {
-          reportId: context.reportId.substring(0, 25),
-          identifierType: getIdentifierType(context.reportId),
-        });
+      if (
+        state.report.mode === 'new' &&
+        context.reportId &&
+        looksLikeExistingReportId(context.reportId)
+      ) {
+        this.logger.warn(
+          `[Bootstrap:${traceId}] Expected existing session but got mode=new — accepting result`,
+          {
+            reportId: context.reportId.substring(0, 25),
+            identifierType: getIdentifierType(context.reportId),
+          }
+        )
       }
 
       this.logger.info(`[Bootstrap:${traceId}] Titan API bootstrap complete`, {
         durationMs: state.bootstrapDurationMs,
         identityType: state.identity.type,
         reportMode: state.report.mode,
-      });
+      })
 
       // Sync client context from bootstrap response to prevent stale context issues
-      await this.syncClientContext(state.identity);
+      await this.syncClientContext(state.identity)
 
-      return state;
+      return state
     } catch (error) {
       // Propagate errors — no silent fallback to client-side bootstrap.
       // Falling back would make a separate set of API calls that compound
       // the load on Titan without improving the outcome.
       if (error instanceof AuthenticationRequiredError) {
-        throw error;
+        throw error
       }
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error('[Bootstrap] Titan API bootstrap failed', { error: errorMessage });
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      this.logger.error('[Bootstrap] Titan API bootstrap failed', { error: errorMessage })
+      throw error
     }
   }
 }
@@ -1001,4 +1055,4 @@ export const bootstrapService = new SessionBootstrapService(
   authResolver,
   sessionResolver,
   prefillResolver
-);
+)

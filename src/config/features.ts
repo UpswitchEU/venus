@@ -52,7 +52,8 @@ export const getEnvironmentConfig = () => {
       process.env.NEXT_PUBLIC_API_URL ||
       process.env.NEXT_PUBLIC_BACKEND_URL ||
       'https://valuation.upswitch.app',
-    creditApiUrl: process.env.NEXT_PUBLIC_CREDIT_API_URL || 'https://valuation.upswitch.app/api/credits',
+    creditApiUrl:
+      process.env.NEXT_PUBLIC_CREDIT_API_URL || 'https://valuation.upswitch.app/api/credits',
   }
 }
 

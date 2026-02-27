@@ -111,9 +111,12 @@ export function setNormalizationToastMessages(getter: ToastMessageGetter | null)
 }
 
 function getToastMessage(key: 'normalizationNotSaved' | 'normalizationNotSavedDesc'): string {
-  return toastMessageGetter?.(key) ?? (key === 'normalizationNotSaved'
-    ? 'Normalization not saved to server'
-    : 'Your changes are saved locally. Server sync will be retried.')
+  return (
+    toastMessageGetter?.(key) ??
+    (key === 'normalizationNotSaved'
+      ? 'Normalization not saved to server'
+      : 'Your changes are saved locally. Server sync will be retried.')
+  )
 }
 
 // ─────────────────────────────────────────
@@ -147,7 +150,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
             ],
           }),
           false,
-          'addItems',
+          'addItems'
         ),
 
       removeItem: (id) =>
@@ -159,51 +162,51 @@ export const useNormalizationStore = create<NormalizationStore>()(
             items: state.items.map((n) => (n.id === id ? { ...n, ...partial } : n)),
           }),
           false,
-          'updateItem',
+          'updateItem'
         ),
 
       acceptItem: (id) =>
         set(
           (state) => ({
             items: state.items.map((n) =>
-              n.id === id ? { ...n, status: 'accepted' as NormalizationStatus } : n,
+              n.id === id ? { ...n, status: 'accepted' as NormalizationStatus } : n
             ),
           }),
           false,
-          'acceptItem',
+          'acceptItem'
         ),
 
       rejectItem: (id) =>
         set(
           (state) => ({
             items: state.items.map((n) =>
-              n.id === id ? { ...n, status: 'rejected' as NormalizationStatus } : n,
+              n.id === id ? { ...n, status: 'rejected' as NormalizationStatus } : n
             ),
           }),
           false,
-          'rejectItem',
+          'rejectItem'
         ),
 
       bulkAccept: (ids) =>
         set(
           (state) => ({
             items: state.items.map((n) =>
-              ids.includes(n.id) ? { ...n, status: 'accepted' as NormalizationStatus } : n,
+              ids.includes(n.id) ? { ...n, status: 'accepted' as NormalizationStatus } : n
             ),
           }),
           false,
-          'bulkAccept',
+          'bulkAccept'
         ),
 
       bulkReject: (ids) =>
         set(
           (state) => ({
             items: state.items.map((n) =>
-              ids.includes(n.id) ? { ...n, status: 'rejected' as NormalizationStatus } : n,
+              ids.includes(n.id) ? { ...n, status: 'rejected' as NormalizationStatus } : n
             ),
           }),
           false,
-          'bulkReject',
+          'bulkReject'
         ),
 
       clear: () => set({ items: [] }, false, 'clear'),
@@ -264,12 +267,14 @@ export const useNormalizationStore = create<NormalizationStore>()(
             error: error instanceof Error ? error.message : String(error),
           })
           // Import toast dynamically to avoid circular deps
-          import('sonner').then(({ toast }) => {
-            toast.warning(getToastMessage('normalizationNotSaved'), {
-              description: getToastMessage('normalizationNotSavedDesc'),
-              duration: 5000,
+          import('sonner')
+            .then(({ toast }) => {
+              toast.warning(getToastMessage('normalizationNotSaved'), {
+                description: getToastMessage('normalizationNotSavedDesc'),
+                duration: 5000,
+              })
             })
-          }).catch(() => {})
+            .catch(() => {})
         } finally {
           set({ isSaving: false })
         }
@@ -308,7 +313,9 @@ export const useNormalizationStore = create<NormalizationStore>()(
             }
             for (const custom of resp.custom_adjustments || []) {
               items.push({
-                id: custom.id || `titan-custom-${resp.year}-${Math.random().toString(36).substring(2, 8)}`,
+                id:
+                  custom.id ||
+                  `titan-custom-${resp.year}-${Math.random().toString(36).substring(2, 8)}`,
                 ledgerCode: custom.ledger_code || '',
                 ledgerName: custom.ledger_name || custom.description,
                 category: 'other',
@@ -366,8 +373,8 @@ export const useNormalizationStore = create<NormalizationStore>()(
           .items.filter((n) => n.status === 'accepted')
           .reduce((sum, n) => sum + n.adjustment, 0),
     }),
-    { name: 'normalization-store' },
-  ),
+    { name: 'normalization-store' }
+  )
 )
 
 // ─────────────────────────────────────────

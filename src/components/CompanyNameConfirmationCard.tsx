@@ -6,9 +6,9 @@
  */
 
 import { motion } from 'framer-motion'
-import { springDefault } from '@/design-system/components/motion'
 import { Building2, Calendar, CheckCircle2, FileText } from 'lucide-react'
 import React from 'react'
+import { springDefault } from '@/design-system/components/motion'
 
 export interface CompanyNameConfirmationCardProps {
   companyName: string

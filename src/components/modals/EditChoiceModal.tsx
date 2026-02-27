@@ -11,16 +11,10 @@
 
 'use client'
 
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalTitle,
-  ModalDescription,
-} from '@/design-system'
 import { Building2, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React from 'react'
+import { Modal, ModalContent, ModalDescription, ModalHeader, ModalTitle } from '@/design-system'
 
 interface EditChoiceModalProps {
   isOpen: boolean
@@ -43,9 +37,7 @@ const EditChoiceModal: React.FC<EditChoiceModalProps> = ({
     <Modal open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <ModalContent size="xl" showClose>
         <ModalHeader className="flex flex-col gap-1 border-b border-foreground/10 pb-4">
-          <ModalTitle className="text-2xl font-bold text-foreground">
-            {t('title')}
-          </ModalTitle>
+          <ModalTitle className="text-2xl font-bold text-foreground">{t('title')}</ModalTitle>
           <ModalDescription className="text-sm text-foreground/60 font-normal mt-1">
             {t('description', { reportName: displayName })}
           </ModalDescription>
@@ -96,7 +88,9 @@ const EditChoiceModal: React.FC<EditChoiceModalProps> = ({
                     <Trash2 className="w-6 h-6 text-destructive" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-foreground mb-1">{t('deleteReport')}</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-1">
+                      {t('deleteReport')}
+                    </h3>
                     <p className="text-sm text-foreground/60">
                       {t('deleteReportDesc', { reportName: displayName })}
                     </p>

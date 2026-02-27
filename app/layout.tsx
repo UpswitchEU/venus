@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
-import { ViewTransitions } from 'next-view-transitions'
 import { getLocale } from 'next-intl/server'
+import { ViewTransitions } from 'next-view-transitions'
 import './globals.css'
-import { locales, defaultLocale, type Locale } from '../i18n'
-import { Providers } from './providers'
+import { defaultLocale, type Locale, locales } from '../i18n'
 import { VenusAnalytics } from '../src/components/analytics/VenusAnalytics'
+import { Providers } from './providers'
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }))
@@ -15,8 +15,7 @@ export const metadata: Metadata = {
     default: 'Upswitch | Bedrijfswaardering',
     template: '%s | Upswitch',
   },
-  description:
-    'Professionele bedrijfswaardering door Upswitch — snel, betrouwbaar en betaalbaar.',
+  description: 'Professionele bedrijfswaardering door Upswitch — snel, betrouwbaar en betaalbaar.',
   keywords: [
     'bedrijfswaardering',
     'waardering',
@@ -70,14 +69,12 @@ export const metadata: Metadata = {
     url: 'https://valuation.upswitch.app',
     siteName: 'Upswitch',
     title: 'Upswitch | Bedrijfswaardering',
-    description:
-      'Het platform waarmee accountants professionele bedrijfswaarderingen uitvoeren.',
+    description: 'Het platform waarmee accountants professionele bedrijfswaarderingen uitvoeren.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Upswitch | Bedrijfswaardering',
-    description:
-      'Het platform waarmee accountants professionele bedrijfswaarderingen uitvoeren.',
+    description: 'Het platform waarmee accountants professionele bedrijfswaarderingen uitvoeren.',
   },
   robots: {
     index: true,
@@ -101,10 +98,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <ViewTransitions>
       <html lang={locale} suppressHydrationWarning className="aurora-theme dark">
-      <head>
-        {/* Google tag (gtag.js) - Venus G-0RW0LNCVBG */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-0RW0LNCVBG" />
-        <script dangerouslySetInnerHTML={{ __html: `
+        <head>
+          {/* Google tag (gtag.js) - Venus G-0RW0LNCVBG */}
+          <script async src="https://www.googletagmanager.com/gtag/js?id=G-0RW0LNCVBG" />
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
@@ -120,21 +119,21 @@ gtag('config', 'G-0RW0LNCVBG', {
   anonymize_ip: true,
   linker: { domains: ['upswitch.app', 'valuation.upswitch.app'], accept_incoming: true }
 });
-` }} />
-        {/* ✅ FIX: Use manual meta tag for viewport to support Next.js 13.5.6 */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
-        {/* Manifest: omit on preview to avoid 401 from Vercel Deployment Protection (no path-level bypass on Standard plan) */}
-        {process.env.NEXT_PUBLIC_VERCEL_ENV !== 'preview' && (
-          <link rel="manifest" href="/manifest.json" />
-        )}
-      </head>
-      <body className="bg-background text-foreground antialiased">
-        <VenusAnalytics />
-        <Providers>
-          {children}
-        </Providers>
-      </body>
-    </html>
+`,
+            }}
+          />
+          {/* ✅ FIX: Use manual meta tag for viewport to support Next.js 13.5.6 */}
+          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+          {/* Manifest: omit on preview to avoid 401 from Vercel Deployment Protection (no path-level bypass on Standard plan) */}
+          {process.env.NEXT_PUBLIC_VERCEL_ENV !== 'preview' && (
+            <link rel="manifest" href="/manifest.json" />
+          )}
+        </head>
+        <body className="bg-background text-foreground antialiased">
+          <VenusAnalytics />
+          <Providers>{children}</Providers>
+        </body>
+      </html>
     </ViewTransitions>
   )
 }

@@ -1,36 +1,36 @@
 /**
  * Session Restoration Service
- * 
+ *
  * World-class centralized restoration service that atomically hydrates
  * all Zustand stores from normalized session data. This is the SINGLE
  * entry point for all session restoration logic.
- * 
+ *
  * Key Principles:
  * - Single entry point: All restoration goes through restore()
  * - Atomic hydration: All stores updated synchronously
  * - Idempotent: Safe to call multiple times for same reportId
  * - No scattered logic: ManualLayout/ConversationalLayout only render
  * - Complete restoration: Form, Results, Versions, EBITDA Normalizations
- * 
+ *
  * @module services/session/SessionRestorationService
  */
 
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
+import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
-import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { generalLogger } from '../../utils/logger'
 import {
+  type NormalizedSessionData,
   normalizeSessionData,
   validateNormalizedData,
-  type NormalizedSessionData,
 } from './SessionNormalizer'
 
 /**
  * Bank-grade retry utility with exponential backoff
  * Used for resilient asset fetching during restoration
- * 
+ *
  * @param fn - Async function to retry
  * @param options - Retry configuration
  * @returns Result of the function or throws after max attempts
@@ -40,13 +40,13 @@ async function withRetry<T>(
   options: { maxAttempts?: number; baseDelay?: number; name?: string } = {}
 ): Promise<T> {
   const { maxAttempts = 3, baseDelay = 500, name = 'operation' } = options
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      
+
       if (attempt === maxAttempts) {
         generalLogger.error(`[SessionRestoration] ${name} failed after ${maxAttempts} attempts`, {
           error: errorMessage,
@@ -54,18 +54,18 @@ async function withRetry<T>(
         })
         throw error
       }
-      
+
       const delay = baseDelay * Math.pow(2, attempt - 1)
       generalLogger.warn(`[SessionRestoration] ${name} failed, retrying in ${delay}ms`, {
         attempt,
         maxAttempts,
         error: errorMessage,
       })
-      
-      await new Promise(resolve => setTimeout(resolve, delay))
+
+      await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
-  
+
   throw new Error(`${name} failed after ${maxAttempts} attempts`)
 }
 
@@ -124,7 +124,7 @@ export interface RestorationResult {
 
 /**
  * Session Restoration Service
- * 
+ *
  * Singleton service that handles all session restoration logic.
  * Prevents duplicate restoration and ensures atomic store updates.
  */
@@ -133,7 +133,7 @@ class SessionRestorationServiceImpl {
   private restoredReportIds = new Set<string>()
   private restorationInProgress = new Set<string>()
   private restorationPromises = new Map<string, Promise<RestorationResult>>()
-  
+
   /**
    * Get singleton instance
    */
@@ -143,33 +143,33 @@ class SessionRestorationServiceImpl {
     }
     return SessionRestorationServiceImpl.instance
   }
-  
+
   /**
    * Check if a report has already been restored
-   * 
+   *
    * Use this to check if restoration completed successfully for a given reportId.
    * UI components can use this to determine if all assets are ready.
    */
   isRestored(reportId: string): boolean {
     return this.restoredReportIds.has(reportId)
   }
-  
+
   /**
    * Check if restoration is currently in progress for a report
-   * 
+   *
    * UI components can use this to show loading states during restoration.
    */
   isRestorationInProgress(reportId: string): boolean {
     return this.restorationInProgress.has(reportId)
   }
-  
+
   /**
    * Check if restoration is complete and ready for UI rendering
-   * 
+   *
    * Returns true if:
    * - Restoration has completed (isRestored = true), OR
    * - Restoration was skipped (new session with no data)
-   * 
+   *
    * Returns false if:
    * - Restoration is in progress
    * - Restoration hasn't started yet
@@ -179,22 +179,22 @@ class SessionRestorationServiceImpl {
     if (this.restoredReportIds.has(reportId)) {
       return true
     }
-    
+
     // If in progress, not complete yet
     if (this.restorationInProgress.has(reportId)) {
       return false
     }
-    
+
     // If not restored and not in progress, either:
     // - New session (never needed restoration)
     // - Restoration hasn't started yet
     // UI should check session store status to differentiate
     return false
   }
-  
+
   /**
    * Wait for restoration to complete for a report
-   * 
+   *
    * Returns immediately if already restored.
    * Waits for in-progress restoration to complete.
    * Throws if called when no restoration is in progress.
@@ -213,13 +213,13 @@ class SessionRestorationServiceImpl {
         restoredEbitdaNormalizations: false,
       }
     }
-    
+
     // Wait for in-progress restoration
     const inProgressPromise = this.restorationPromises.get(reportId)
     if (inProgressPromise) {
       return inProgressPromise
     }
-    
+
     // No restoration in progress - return immediately
     return {
       success: true,
@@ -232,7 +232,7 @@ class SessionRestorationServiceImpl {
       restoredEbitdaNormalizations: false,
     }
   }
-  
+
   /**
    * Clear restoration state (for testing or forced re-restoration)
    */
@@ -247,29 +247,29 @@ class SessionRestorationServiceImpl {
       this.restorationPromises.clear()
     }
   }
-  
+
   /**
    * Main restoration method
-   * 
+   *
    * Takes raw backend session data, normalizes it, and atomically
    * hydrates all relevant Zustand stores including:
    * - Form data (useManualFormStore)
    * - Valuation results with HTML (useManualResultsStore/useConversationalResultsStore)
    * - Version history (useVersionHistoryStore)
    * - EBITDA normalizations (useEbitdaNormalizationStore)
-   * 
+   *
    * **Idempotent per reportId:** Once restored, subsequent calls for the same reportId
    * return early without re-hydrating. To force re-hydration (e.g. after recalculation),
    * call `clearRestorationState(reportId)` first, or use `revalidateSessionInBackground()`
    * which bypasses the idempotency guard and hydrates stores directly.
-   * 
+   *
    * @param reportId - The report ID being restored
    * @param backendSession - Raw session data from backend
    * @returns Restoration result with details of what was restored
    */
   async restore(reportId: string, backendSession: any): Promise<RestorationResult> {
     const startTime = performance.now()
-    
+
     // Idempotent check: Skip if already restored
     if (this.restoredReportIds.has(reportId)) {
       generalLogger.debug('[SessionRestoration] Skipping - already restored', { reportId })
@@ -284,20 +284,23 @@ class SessionRestorationServiceImpl {
         restoredEbitdaNormalizations: false,
       }
     }
-    
+
     // Prevent concurrent restoration for same reportId - return existing promise
     const existingPromise = this.restorationPromises.get(reportId)
     if (existingPromise) {
-      generalLogger.debug('[SessionRestoration] Returning existing promise - restoration in progress', { reportId })
+      generalLogger.debug(
+        '[SessionRestoration] Returning existing promise - restoration in progress',
+        { reportId }
+      )
       return existingPromise
     }
-    
+
     this.restorationInProgress.add(reportId)
-    
+
     // Create and store the restoration promise so waitForRestoration can use it
     const restorationPromise = this.executeRestoration(reportId, backendSession, startTime)
     this.restorationPromises.set(reportId, restorationPromise)
-    
+
     try {
       return await restorationPromise
     } finally {
@@ -305,25 +308,24 @@ class SessionRestorationServiceImpl {
       this.restorationPromises.delete(reportId)
     }
   }
-  
+
   /**
    * Execute the actual restoration logic (internal method)
    */
   private async executeRestoration(
-    reportId: string, 
-    backendSession: any, 
+    reportId: string,
+    backendSession: any,
     startTime: number
   ): Promise<RestorationResult> {
-    
     try {
       // 1. Normalize data
       const normalized = normalizeSessionData(backendSession)
-      
+
       // 2. Validate
       if (!validateNormalizedData(normalized)) {
         throw new Error('Session data validation failed')
       }
-      
+
       // 3. Check if this is an existing report with data
       if (!normalized.hasExistingData) {
         generalLogger.debug('[SessionRestoration] New report - no data to restore', { reportId })
@@ -339,10 +341,10 @@ class SessionRestorationServiceImpl {
           restoredEbitdaNormalizations: false,
         }
       }
-      
+
       // 4. Hydrate ALL stores atomically
       const result = await this.hydrateStores(normalized)
-      
+
       // 5. Verify restoration completed successfully
       const verified = this.verifyRestoration(normalized)
       if (!verified) {
@@ -351,18 +353,18 @@ class SessionRestorationServiceImpl {
           result,
         })
       }
-      
+
       // 6. Mark as restored and clear pending restoration (G2 fix)
       this.restoredReportIds.add(reportId)
       this.clearPendingRestoration(reportId)
-      
+
       const duration = performance.now() - startTime
       generalLogger.info('[SessionRestoration] Restoration complete', {
         durationMs: Math.round(duration),
         verified,
         ...result, // result already includes reportId
       })
-      
+
       return {
         success: true,
         ...result,
@@ -373,7 +375,7 @@ class SessionRestorationServiceImpl {
         reportId,
         error: errorMessage,
       })
-      
+
       return {
         success: false,
         reportId,
@@ -389,24 +391,26 @@ class SessionRestorationServiceImpl {
       this.restorationInProgress.delete(reportId)
     }
   }
-  
+
   /**
    * Hydrate all stores atomically
-   * 
+   *
    * This method updates all relevant Zustand stores to ensure consistent state.
    * Includes: Form data, Results, Version history, EBITDA normalizations
    */
-  private async hydrateStores(data: NormalizedSessionData): Promise<Omit<RestorationResult, 'success' | 'error' | 'audit'>> {
+  private async hydrateStores(
+    data: NormalizedSessionData
+  ): Promise<Omit<RestorationResult, 'success' | 'error' | 'audit'>> {
     let restoredFormFields = 0
     let restoredValuationResult = false
     let restoredHtmlReport = false
     let restoredPricingRange = false
     let restoredVersionHistory = false
     let restoredEbitdaNormalizations = false
-    
+
     // Determine which results store to use based on flow type
     const isConversational = data.flowType === 'conversational'
-    
+
     // 1. Hydrate form store (for manual flow)
     if (!isConversational && data.formData && Object.keys(data.formData).length > 0) {
       try {
@@ -415,7 +419,7 @@ class SessionRestorationServiceImpl {
         // The normalizer extracts compatible fields, but TypeScript doesn't know they're compatible
         updateFormData(data.formData as any)
         restoredFormFields = Object.keys(data.formData).length
-        
+
         generalLogger.info('[SessionRestoration] Form data hydrated', {
           reportId: data.reportId?.substring(0, 20),
           fieldCount: restoredFormFields,
@@ -432,7 +436,7 @@ class SessionRestorationServiceImpl {
         })
       }
     }
-    
+
     // 2. Hydrate results store
     // CRITICAL: Restore BOTH valuation result AND output assets (htmlReport, infoTabHtml)
     // Sessions may have: (a) full result, (b) output-only, or (c) input-only
@@ -457,9 +461,12 @@ class SessionRestorationServiceImpl {
 
         if (isConversational) {
           // CONVERSATIONAL STORE REMOVED: Conversational flow no longer supported
-          generalLogger.debug('[SessionRestoration] Skipping conversational results hydration - stores removed', {
-            reportId: data.reportId,
-          })
+          generalLogger.debug(
+            '[SessionRestoration] Skipping conversational results hydration - stores removed',
+            {
+              reportId: data.reportId,
+            }
+          )
         } else {
           const manualStore = useManualResultsStore.getState()
           manualStore.setResult(fullResult as any)
@@ -485,7 +492,7 @@ class SessionRestorationServiceImpl {
         })
       }
     }
-    
+
     // 3. Version history - LAZY LOADED
     // PERFORMANCE OPTIMIZATION: Version history is now lazy-loaded when user opens the tab
     // This saves 500ms-2s on initial page load
@@ -494,7 +501,7 @@ class SessionRestorationServiceImpl {
       reportId: data.reportId,
     })
     restoredVersionHistory = false // Will be loaded on demand
-    
+
     // 4. Normalizations — hydrate unified store
     // Try formData metadata first (instant), then Titan API fallback
     try {
@@ -523,7 +530,7 @@ class SessionRestorationServiceImpl {
       })
       restoredEbitdaNormalizations = false
     }
-    
+
     return {
       reportId: data.reportId,
       restoredFormFields,
@@ -534,10 +541,10 @@ class SessionRestorationServiceImpl {
       restoredEbitdaNormalizations,
     }
   }
-  
+
   /**
    * Verify that restoration completed successfully
-   * 
+   *
    * Bank-grade verification that checks all expected assets are present
    * in their respective stores based on what was in the normalized data.
    * Creates complete audit trail for debugging and compliance.
@@ -546,7 +553,7 @@ class SessionRestorationServiceImpl {
     const isConversational = data.flowType === 'conversational'
     const warnings: string[] = []
     let allVerified = true
-    
+
     // Build manifest of what should be restored
     // PERFORMANCE: Version history and EBITDA normalizations are now lazy-loaded
     const manifest: RestorationManifest = {
@@ -557,7 +564,7 @@ class SessionRestorationServiceImpl {
       versionHistory: false, // Lazy loaded on tab open
       ebitdaNormalizations: false, // Lazy loaded on demand
     }
-    
+
     // Verify form data was actually applied (only for manual flow)
     if (manifest.formData) {
       const formStore = useManualFormStore.getState()
@@ -568,13 +575,16 @@ class SessionRestorationServiceImpl {
         allVerified = false
       }
     }
-    
+
     // Verify valuation result and output assets
     if (manifest.valuationResult || manifest.htmlReport) {
       if (isConversational) {
-        generalLogger.debug('[SessionRestoration] Skipping conversational results verification - stores removed', {
-          reportId: data.reportId,
-        })
+        generalLogger.debug(
+          '[SessionRestoration] Skipping conversational results verification - stores removed',
+          {
+            reportId: data.reportId,
+          }
+        )
       } else {
         const resultsStore = useManualResultsStore.getState()
         const hasResult = !!resultsStore.result
@@ -595,35 +605,40 @@ class SessionRestorationServiceImpl {
         }
       }
     }
-    
+
     // Verify pricing range
     if (manifest.pricingRange) {
       if (isConversational) {
         // CONVERSATIONAL STORE REMOVED: Skip verification for conversational flow
         // The conversational stores have been removed from the codebase
-        generalLogger.debug('[SessionRestoration] Skipping conversational pricing range verification - stores removed', {
-          reportId: data.reportId,
-        })
+        generalLogger.debug(
+          '[SessionRestoration] Skipping conversational pricing range verification - stores removed',
+          {
+            reportId: data.reportId,
+          }
+        )
       } else {
         const resultsStore = useManualResultsStore.getState()
-        
+
         const resultAny = resultsStore.result as any
         const hasPricingRangeInStore = !!(
-          resultAny?.pricing_range || 
+          resultAny?.pricing_range ||
           resultAny?.priceRange ||
-          (resultAny?.equity_value_low && resultAny?.equity_value_mid && resultAny?.equity_value_high)
+          (resultAny?.equity_value_low &&
+            resultAny?.equity_value_mid &&
+            resultAny?.equity_value_high)
         )
-        
+
         if (!hasPricingRangeInStore) {
           warnings.push('Pricing range missing from results store')
           allVerified = false
         }
       }
     }
-    
+
     // Version history and EBITDA normalizations are lazy-loaded
     // No verification needed during initial restoration
-    
+
     // Log complete audit trail
     if (warnings.length > 0) {
       generalLogger.warn('[SessionRestoration] Verification warnings', {
@@ -638,17 +653,17 @@ class SessionRestorationServiceImpl {
         manifest,
       })
     }
-    
+
     return allVerified
   }
 
   /**
    * WORLD-CLASS: Instant hydration from valuationPackage
-   * 
+   *
    * Called during bootstrap to instantly populate stores with pre-fetched data.
    * This bypasses the full restoration flow for existing reports that have
    * complete package data, enabling < 100ms report display.
-   * 
+   *
    * @param reportId - Report ID
    * @param pkg - Valuation package from bootstrap response
    * @param flow - Flow type (manual or conversational)
@@ -656,17 +671,26 @@ class SessionRestorationServiceImpl {
   hydrateFromPackage(
     reportId: string,
     pkg: {
-      htmlReport: string | null;
-      infoTabHtml?: string | null;
-      pricingRange: { min: number; mid: number; max: number; currency: string } | null;
-      versions: { current: number; total: number; history?: Array<{ version: number; createdAt: Date; summary: string | null; createdBy: string | null }> };
-      pdf: { url: string | null; status: 'ready' | 'generating' | 'none' };
-      formData?: Record<string, unknown>;
+      htmlReport: string | null
+      infoTabHtml?: string | null
+      pricingRange: { min: number; mid: number; max: number; currency: string } | null
+      versions: {
+        current: number
+        total: number
+        history?: Array<{
+          version: number
+          createdAt: Date
+          summary: string | null
+          createdBy: string | null
+        }>
+      }
+      pdf: { url: string | null; status: 'ready' | 'generating' | 'none' }
+      formData?: Record<string, unknown>
     },
     flow: 'manual' | 'conversational' = 'manual'
   ): void {
     const startTime = performance.now()
-    
+
     generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration from package', {
       reportId: reportId.substring(0, 20),
       hasHtmlReport: !!pkg.htmlReport,
@@ -688,21 +712,26 @@ class SessionRestorationServiceImpl {
             fieldCount: Object.keys(pkg.formData).length,
           })
         } catch (formError) {
-          generalLogger.warn('[SessionRestoration] Form hydration from package failed (non-critical)', {
-            error: formError instanceof Error ? formError.message : String(formError),
-          })
+          generalLogger.warn(
+            '[SessionRestoration] Form hydration from package failed (non-critical)',
+            {
+              error: formError instanceof Error ? formError.message : String(formError),
+            }
+          )
         }
       }
 
       // WORLD-CLASS: Build complete result for ManualLayout report display
       // Must include html_report so the report useEffect builds the ValuationReportData
-      const pricingResult = pkg.pricingRange ? {
-        equity_value_low: pkg.pricingRange.min,
-        equity_value_mid: pkg.pricingRange.mid,
-        equity_value_high: pkg.pricingRange.max,
-        currency: pkg.pricingRange.currency,
-      } : {}
-      
+      const pricingResult = pkg.pricingRange
+        ? {
+            equity_value_low: pkg.pricingRange.min,
+            equity_value_mid: pkg.pricingRange.mid,
+            equity_value_high: pkg.pricingRange.max,
+            currency: pkg.pricingRange.currency,
+          }
+        : {}
+
       const fullResult = {
         valuation_id: reportId,
         ...pricingResult,
@@ -742,15 +771,18 @@ class SessionRestorationServiceImpl {
           // Non-critical: session may not be loaded yet
         }
       } else {
-        generalLogger.debug('[SessionRestoration] Skipping conversational hydration - stores removed', {
-          reportId: reportId.substring(0, 20),
-        })
+        generalLogger.debug(
+          '[SessionRestoration] Skipping conversational hydration - stores removed',
+          {
+            reportId: reportId.substring(0, 20),
+          }
+        )
       }
 
       // WORLD-CLASS: Hydrate version history for instant version tab
       if (pkg.versions.history && pkg.versions.history.length > 0) {
         const versionStore = useVersionHistoryStore.getState()
-        
+
         // Type-safe partial version stub interface
         // Contains only the fields available from package, full data loaded on-demand
         interface VersionStub {
@@ -768,7 +800,7 @@ class SessionRestorationServiceImpl {
           isPinned: boolean
           notes: string | null
         }
-        
+
         // Create version stubs from package history
         const versions: VersionStub[] = pkg.versions.history.map((v) => ({
           id: `pkg-${reportId}-v${v.version}`,
@@ -790,7 +822,7 @@ class SessionRestorationServiceImpl {
         // Merge with existing versions (package versions take priority)
         const existingVersions = versionStore.versions[reportId] || []
         const mergedVersions: VersionStub[] = [...versions]
-        
+
         // Add any existing versions not in the package
         existingVersions.forEach((v) => {
           if (!mergedVersions.find((pv) => pv.versionNumber === v.versionNumber)) {
@@ -815,7 +847,7 @@ class SessionRestorationServiceImpl {
 
       // Mark as restored to prevent duplicate restoration
       this.restoredReportIds.add(reportId)
-      
+
       const durationMs = performance.now() - startTime
       generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration complete', {
         reportId: reportId.substring(0, 20),
@@ -839,12 +871,12 @@ class SessionRestorationServiceImpl {
 
   /**
    * WORLD-CLASS: Mark a report for pending restoration
-   * 
+   *
    * Called when package hydration fails and we need to trigger full restoration.
    * ManualLayout/ConversationalLayout will check this and call restore() if needed.
    */
   private pendingRestorationIds = new Set<string>()
-  
+
   markForRestoration(reportId: string): void {
     this.pendingRestorationIds.add(reportId)
     generalLogger.info('[SessionRestoration] Marked report for pending restoration', {

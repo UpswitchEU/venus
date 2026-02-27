@@ -1,155 +1,134 @@
 /**
  * Calculator Components
- * 
+ *
  * Aurora-styled calculator components for Venus.
  * Full-featured normalization, chat, history, and report system.
  * Matches Clarity Agent Suite calculator exactly.
  */
 
+export type { CalculationBreakdownModalProps } from './CalculationBreakdownModal'
+export { CalculationBreakdownModal } from './CalculationBreakdownModal'
+export type { CalculationBreakdownPanelProps } from './CalculationBreakdownPanel'
+export { CalculationBreakdownPanel } from './CalculationBreakdownPanel'
+export type {
+  CalculatorNavProps,
+  DownloadHistoryItem,
+  RecentValuation,
+  RightPanelView,
+  ValuationVersion,
+} from './CalculatorNav'
+export { CalculatorNav } from './CalculatorNav'
 // ─────────────────────────────────────────
 // NAVIGATION & LAYOUT
 // ─────────────────────────────────────────
-export { CalculatorShellSkeleton } from './CalculatorShellSkeleton';
-export { CalculatorNav } from './CalculatorNav';
-export type { 
-  CalculatorNavProps, 
-  RightPanelView, 
-  RecentValuation, 
-  ValuationVersion,
-  DownloadHistoryItem,
-} from './CalculatorNav';
-
-export { ContextBar } from './ContextBar';
-export type { 
-  ContextBarProps, 
-  ClientApprovalStatus,
-} from './ContextBar';
-
-// ─────────────────────────────────────────
-// INPUT & FORMS
-// ─────────────────────────────────────────
-export { ManualInputPanel } from './ManualInputPanel';
-export type { 
-  ValuationFormData,
-  YearlyFinancials,
-  FieldHelpContext,
-  QuickNormalizationAction,
-} from './ManualInputPanel';
-
-export { CurrencyInput } from './CurrencyInput';
-export type { CurrencyInputProps } from './CurrencyInput';
-
-export { FieldHelpTrigger } from './FieldHelpTrigger';
-
-export { IntegrationStepPanel } from './IntegrationStepPanel';
-export type { 
-  IntegrationStepPanelProps, 
-} from './IntegrationStepPanel';
-
-export { DataCompletenessRing } from './DataCompletenessRing';
-export type { 
-  DataCompletenessRingProps, 
-  DataField,
-} from './DataCompletenessRing';
-
-// ─────────────────────────────────────────
-// REPORT & VALUATION
-// ─────────────────────────────────────────
-export { ValuationReportPanel } from './ValuationReportPanel';
-export type { 
-  ValuationReportPanelProps, 
-  ValuationReportData,
-  ReportMetric,
-  ReportStatus,
-} from './ValuationReportPanel';
-
-export { ReportPreviewPanel } from './ReportPreviewPanel';
-export type { ReportPreviewPanelProps } from './ReportPreviewPanel';
-
-export { CalculationBreakdownPanel } from './CalculationBreakdownPanel';
-export type { CalculationBreakdownPanelProps } from './CalculationBreakdownPanel';
-
-export { CalculationBreakdownModal } from './CalculationBreakdownModal';
-export type { CalculationBreakdownModalProps } from './CalculationBreakdownModal';
-
-export { FullscreenReportModal } from './FullscreenReportModal';
-export type { FullscreenReportModalProps } from './FullscreenReportModal';
-
-// ─────────────────────────────────────────
-// NORMALIZATION
-// ─────────────────────────────────────────
-export { NormalizationHub } from './NormalizationHub';
-export type { NormalizationHubProps } from './NormalizationHub';
-
-export { UnifiedNormalizationModal } from './UnifiedNormalizationModal';
-export type { 
-  UnifiedNormalizationModalProps,
-  LedgerAccount,
-  NormalizationType,
-  NormalizationStatus,
-  NormalizationItem,
-  NormalizationSource,
-} from './UnifiedNormalizationModal';
-
-export { NormalizationTableView, NormalizationBentoView } from './NormalizationViews';
-
-export { NormalizationEditor } from './NormalizationEditor';
-export type { 
-  NormalizationEditorProps,
-  Normalization,
-} from './NormalizationEditor';
-
-export { NormalisationReviewStep } from './NormalisationReviewStep';
-export type { 
-  NormalisationReviewStepProps, 
-  SuggestedNormalisation,
-} from './NormalisationReviewStep';
-
-export { NormalisationSuggestionModal } from './NormalisationSuggestionModal';
-export type { 
-  NormalisationSuggestionModalProps,
-  NormalisationSuggestion,
-} from './NormalisationSuggestionModal';
-
-export { QuickActionsPanel } from './QuickActionsPanel';
-export type { 
-  QuickActionsPanelProps, 
-  QuickAction,
-} from './QuickActionsPanel';
-
-// ─────────────────────────────────────────
-// HISTORY & VERSIONING
-// ─────────────────────────────────────────
-export { HistoryPanel } from './HistoryPanel';
-export type { 
-  HistoryPanelProps, 
-  HistoryVersion,
-  ReportLike,
-} from './HistoryPanel';
-
-export { VersionCompareModal } from './VersionCompareModal';
-export type { 
-  VersionCompareModalProps,
-  VersionChange,
-} from './VersionCompareModal';
-
-// ─────────────────────────────────────────
-// CHAT & AI
-// ─────────────────────────────────────────
-export { ChatAssistantDrawer } from './ChatAssistantDrawer';
-export type { 
+export { CalculatorShellSkeleton } from './CalculatorShellSkeleton'
+// Chat-specific NormalisationSuggestion (different from modal's version)
+export type {
   ChatMessage,
   FieldContext,
   FieldUpdate,
-  ParsedValue,
+  NormalisationSuggestion as ChatNormalisationSuggestion,
   ParsedCommand,
-} from './ChatAssistantDrawer';
-// Chat-specific NormalisationSuggestion (different from modal's version)
-export type { NormalisationSuggestion as ChatNormalisationSuggestion } from './ChatAssistantDrawer';
-export { parseNormalizationCommands, parseFinancialValues } from './ChatAssistantDrawer';
-
-export { ChatInputPanel } from './ChatInputPanel';
-export type { 
-  ChatInputPanelProps, 
+  ParsedValue,
+} from './ChatAssistantDrawer'
+// ─────────────────────────────────────────
+// CHAT & AI
+// ─────────────────────────────────────────
+export {
+  ChatAssistantDrawer,
+  parseFinancialValues,
+  parseNormalizationCommands,
+} from './ChatAssistantDrawer'
+export type {
+  ChatInputPanelProps,
   CollectedData,
-} from './ChatInputPanel';
+} from './ChatInputPanel'
+export { ChatInputPanel } from './ChatInputPanel'
+export type {
+  ClientApprovalStatus,
+  ContextBarProps,
+} from './ContextBar'
+export { ContextBar } from './ContextBar'
+export type { CurrencyInputProps } from './CurrencyInput'
+export { CurrencyInput } from './CurrencyInput'
+export type {
+  DataCompletenessRingProps,
+  DataField,
+} from './DataCompletenessRing'
+export { DataCompletenessRing } from './DataCompletenessRing'
+export { FieldHelpTrigger } from './FieldHelpTrigger'
+export type { FullscreenReportModalProps } from './FullscreenReportModal'
+export { FullscreenReportModal } from './FullscreenReportModal'
+export type {
+  HistoryPanelProps,
+  HistoryVersion,
+  ReportLike,
+} from './HistoryPanel'
+// ─────────────────────────────────────────
+// HISTORY & VERSIONING
+// ─────────────────────────────────────────
+export { HistoryPanel } from './HistoryPanel'
+export type { IntegrationStepPanelProps } from './IntegrationStepPanel'
+export { IntegrationStepPanel } from './IntegrationStepPanel'
+export type {
+  FieldHelpContext,
+  QuickNormalizationAction,
+  ValuationFormData,
+  YearlyFinancials,
+} from './ManualInputPanel'
+// ─────────────────────────────────────────
+// INPUT & FORMS
+// ─────────────────────────────────────────
+export { ManualInputPanel } from './ManualInputPanel'
+export type {
+  NormalisationReviewStepProps,
+  SuggestedNormalisation,
+} from './NormalisationReviewStep'
+export { NormalisationReviewStep } from './NormalisationReviewStep'
+export type {
+  NormalisationSuggestion,
+  NormalisationSuggestionModalProps,
+} from './NormalisationSuggestionModal'
+export { NormalisationSuggestionModal } from './NormalisationSuggestionModal'
+export type {
+  Normalization,
+  NormalizationEditorProps,
+} from './NormalizationEditor'
+export { NormalizationEditor } from './NormalizationEditor'
+export type { NormalizationHubProps } from './NormalizationHub'
+// ─────────────────────────────────────────
+// NORMALIZATION
+// ─────────────────────────────────────────
+export { NormalizationHub } from './NormalizationHub'
+export { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
+export type {
+  QuickAction,
+  QuickActionsPanelProps,
+} from './QuickActionsPanel'
+export { QuickActionsPanel } from './QuickActionsPanel'
+export type { ReportPreviewPanelProps } from './ReportPreviewPanel'
+export { ReportPreviewPanel } from './ReportPreviewPanel'
+export type {
+  LedgerAccount,
+  NormalizationItem,
+  NormalizationSource,
+  NormalizationStatus,
+  NormalizationType,
+  UnifiedNormalizationModalProps,
+} from './UnifiedNormalizationModal'
+export { UnifiedNormalizationModal } from './UnifiedNormalizationModal'
+export type {
+  ReportMetric,
+  ReportStatus,
+  ValuationReportData,
+  ValuationReportPanelProps,
+} from './ValuationReportPanel'
+// ─────────────────────────────────────────
+// REPORT & VALUATION
+// ─────────────────────────────────────────
+export { ValuationReportPanel } from './ValuationReportPanel'
+export type {
+  VersionChange,
+  VersionCompareModalProps,
+} from './VersionCompareModal'
+export { VersionCompareModal } from './VersionCompareModal'

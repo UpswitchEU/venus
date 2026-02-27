@@ -5,8 +5,8 @@
  */
 
 import { AlertTriangle, RefreshCw, X } from 'lucide-react'
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 import { AuroraButton } from '@/design-system'
 import { ErrorType, extractErrorInfo } from '../utils/errorHandler'
 
@@ -48,33 +48,23 @@ export const ErrorRecovery: React.FC<ErrorRecoveryProps> = ({
           {/* Show partial results if available */}
           {showPartialResults && partialResults && (
             <div className="mt-3 p-3 bg-success/10 border border-success/30 rounded-lg">
-              <p className="text-sm text-success font-medium mb-1">{t('partialResultsAvailable')}</p>
-              <p className="text-xs text-muted-foreground">
-                {t('partialResultsDesc')}
+              <p className="text-sm text-success font-medium mb-1">
+                {t('partialResultsAvailable')}
               </p>
+              <p className="text-xs text-muted-foreground">{t('partialResultsDesc')}</p>
             </div>
           )}
 
           {/* Action buttons */}
           <div className="mt-4 flex gap-2">
             {errorInfo.retryable && onRetry && (
-              <AuroraButton
-                onClick={onRetry}
-                variant="primary"
-                size="sm"
-                className="gap-2"
-              >
+              <AuroraButton onClick={onRetry} variant="primary" size="sm" className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 {t('retry')}
               </AuroraButton>
             )}
             {onDismiss && (
-              <AuroraButton
-                onClick={onDismiss}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
+              <AuroraButton onClick={onDismiss} variant="outline" size="sm" className="gap-2">
                 <X className="h-4 w-4" />
                 {t('dismiss')}
               </AuroraButton>

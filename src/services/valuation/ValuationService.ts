@@ -123,7 +123,7 @@ export class ValuationService {
 
   /**
    * Calculate valuation with flow-specific routing
-   * 
+   *
    * Unified method that routes to the appropriate backend endpoint based on flow type.
    */
   async calculate(
@@ -131,7 +131,7 @@ export class ValuationService {
     options: ValuationOptions = {}
   ): Promise<ValuationResponse> {
     const flowType = options.flowType || 'manual'
-    
+
     logger.info('Calculating valuation', {
       companyName: request.company_name,
       flowType,
@@ -155,7 +155,7 @@ export class ValuationService {
 
       options.onProgress?.(90, 'Processing results...')
       options.onComplete?.(response)
-      
+
       logger.info('Valuation completed', {
         valuationId: response.valuation_id,
         flowType,

@@ -48,7 +48,6 @@ export function broadcastLogout(): void {
 
     // Also use postMessage for compatibility
     window.postMessage(message, window.location.origin)
-
   } catch (_error) {
     // Broadcast failed — non-critical, tab sync is best-effort
   }
@@ -176,7 +175,6 @@ export function broadcastLogin(): void {
 
     // Also dispatch custom event for Mercury compatibility
     window.dispatchEvent(new CustomEvent('user-login', { detail: {} }))
-
   } catch (_error) {
     // Broadcast failed — non-critical, tab sync is best-effort
   }
@@ -317,7 +315,6 @@ export function broadcastReportCreated(reportData: {
 
     // Also use postMessage for compatibility
     window.postMessage(message, window.location.origin)
-
   } catch (_error) {
     // Broadcast failed — non-critical
   }
@@ -371,7 +368,6 @@ export function broadcastReportUpdated(reportData: {
     }
 
     window.postMessage(message, window.location.origin)
-
   } catch (_error) {
     // Broadcast failed — non-critical
   }
@@ -403,7 +399,6 @@ export function broadcastReportDeleted(reportData: { reportId: string; clientId?
     }
 
     window.postMessage(message, window.location.origin)
-
   } catch (_error) {
     // Broadcast failed — non-critical
   }

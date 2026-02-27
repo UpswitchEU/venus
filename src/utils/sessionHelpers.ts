@@ -109,7 +109,7 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
   // Cast to any to access session_data (backend may return snake_case)
   const sessionAny = session as any
   const existingSessionData = session.sessionData || sessionAny.session_data || {}
-  
+
   // ✅ BANK-GRADE: Extract from BOTH top-level AND session_data locations
   // Titan controller exposes at top level, but also check session_data for defense-in-depth
   // _htmlReport/_infoTabHtml are bootstrap-injected for instant restoration
@@ -123,13 +123,15 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
     (existingSessionData as any).infoTabHtml ||
     (existingSessionData as any).info_tab_html ||
     (existingSessionData as any)._infoTabHtml
-  const valuationResult = session.valuationResult || 
-                         (existingSessionData as any).valuationResult || 
-                         (existingSessionData as any).valuation_result
-  const priceRange = (session as any).priceRange || 
-                    (existingSessionData as any).priceRange || 
-                    (existingSessionData as any)._pricingRange
-  
+  const valuationResult =
+    session.valuationResult ||
+    (existingSessionData as any).valuationResult ||
+    (existingSessionData as any).valuation_result
+  const priceRange =
+    (session as any).priceRange ||
+    (existingSessionData as any).priceRange ||
+    (existingSessionData as any)._pricingRange
+
   const mergedSessionData = {
     ...existingSessionData,
     ...(valuationResult && { valuation_result: valuationResult }),
@@ -137,7 +139,7 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
     ...(infoTabHtml && { info_tab_html: infoTabHtml }),
     ...(priceRange && { _pricingRange: priceRange }),
   }
-  
+
   return {
     ...session,
     sessionData: mergedSessionData,
@@ -179,7 +181,7 @@ export function normalizeSessionDates(session: any): ValuationSession {
     sessionData: session.sessionData || session.session_data || {},
     partialData: session.partialData || session.session_data || {},
   }
-  
+
   return normalized
 }
 

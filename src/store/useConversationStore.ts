@@ -11,9 +11,9 @@
  */
 
 import { create } from 'zustand'
+import { aiChatService } from '../services/ai/AIChatService'
 import type { Message } from '../types/message'
 import { storeLogger } from '../utils/logger'
-import { aiChatService } from '../services/ai/AIChatService'
 
 const MAX_MESSAGES = 100
 const PRUNE_THRESHOLD = 120
@@ -50,11 +50,11 @@ export interface ConversationStore {
 
   // Initialization state management
   getInitializationState: (
-    sessionId: string,
+    sessionId: string
   ) => { status: 'idle' | 'initializing' | 'ready' | 'failed'; promise?: Promise<void> } | undefined
   setInitializationState: (
     sessionId: string,
-    state: { status: 'idle' | 'initializing' | 'ready' | 'failed'; promise?: Promise<void> },
+    state: { status: 'idle' | 'initializing' | 'ready' | 'failed'; promise?: Promise<void> }
   ) => void
   resetInitializationState: (sessionId: string) => void
   cleanupInitializationStates: (keepSessionIds: string[]) => void
@@ -119,7 +119,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
           updatedMessages = updatedMessages.map((msg) =>
             msg.id === state.currentStreamingMessageId
               ? { ...msg, isStreaming: false, isComplete: true }
-              : msg,
+              : msg
           )
         }
 
@@ -143,7 +143,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
     updateMessage: (id: string, updates: Partial<Message>) => {
       set((state) => {
         const updatedMessages = state.messages.map((msg) =>
-          msg.id === id ? { ...msg, ...updates } : msg,
+          msg.id === id ? { ...msg, ...updates } : msg
         )
 
         let streamingId = state.currentStreamingMessageId
@@ -302,7 +302,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
 
     setInitializationState: (
       sessionId: string,
-      state: { status: 'idle' | 'initializing' | 'ready' | 'failed'; promise?: Promise<void> },
+      state: { status: 'idle' | 'initializing' | 'ready' | 'failed'; promise?: Promise<void> }
     ) => {
       initializationState.set(sessionId, state)
     },

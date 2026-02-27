@@ -1,57 +1,57 @@
-'use client';
+'use client'
 
 /**
  * History Panel
- * 
- * World-class version history with visual timeline, 
+ *
+ * World-class version history with visual timeline,
  * compare feature, and restore capability.
  * Inspired by Figma/GitHub version control aesthetics.
  */
 
-import { useState, useMemo, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useVersionHistoryStore } from '../../store/useVersionHistoryStore';
-import { 
-  Clock, 
-  FileText, 
-  TrendingUp, 
-  User, 
-  ChevronRight,
-  ChevronDown,
-  RotateCcw,
-  Check,
-  Settings2,
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  ArrowLeftRight,
   Calculator,
   Calendar,
-  Loader2,
-  ArrowLeftRight,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  FileText,
   GitCompare,
-  CheckCircle2
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { trackVersionRestore, trackVersionCompare } from '@/lib/analytics';
-import { cn } from '@/design-system/utils';
-import { springDefault, springSnappy } from '@/design-system/components/motion';
-import { AuroraButton as Button, Checkbox } from '@/design-system';
-import { VersionCompareModal, type HistoryVersion } from './VersionCompareModal';
+  Loader2,
+  RotateCcw,
+  Settings2,
+  TrendingUp,
+  User,
+} from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { AuroraButton as Button, Checkbox } from '@/design-system'
+import { springDefault, springSnappy } from '@/design-system/components/motion'
+import { cn } from '@/design-system/utils'
+import { trackVersionCompare, trackVersionRestore } from '@/lib/analytics'
+import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
+import { type HistoryVersion, VersionCompareModal } from './VersionCompareModal'
 
 // Re-export types
-export type { HistoryVersion };
+export type { HistoryVersion }
 
 // Generic report type - works with both ValuationReportPanel and ValuationChat reports
 export interface ReportLike {
-  id?: string;
-  companyName?: string;
-  valuation?: number;
-  ebitda?: number;
-  multiple?: number;
+  id?: string
+  companyName?: string
+  valuation?: number
+  ebitda?: number
+  multiple?: number
 }
 
 export interface HistoryPanelProps {
-  report: ReportLike | null;
+  report: ReportLike | null
   // Receives the full ValuationVersion from the store (not the stripped HistoryVersion)
-  onVersionRestore?: (version: any) => void;
+  onVersionRestore?: (version: any) => void
 }
 
 // ── Helper: derive version type from store data ──
@@ -59,7 +59,8 @@ function deriveVersionType(v: any): HistoryVersion['type'] {
   const label = (v.versionLabel || '').toLowerCase()
   if (label.includes('normalis')) return 'normalization'
   if (label.includes('methodo') || label.includes('multiple')) return 'methodology'
-  if (label.includes('data') || label.includes('financ') || label.includes('jaarrekening')) return 'data_update'
+  if (label.includes('data') || label.includes('financ') || label.includes('jaarrekening'))
+    return 'data_update'
   if (v.versionNumber === 1) return 'initial'
   return 'revision'
 }
@@ -86,54 +87,63 @@ const typeConfig: Record<HistoryVersion['type'], { icon: typeof Clock; labelKey:
   data_update: { icon: Calculator, labelKey: 'typeDataUpdate' },
   methodology: { icon: TrendingUp, labelKey: 'typeMethodology' },
   revision: { icon: User, labelKey: 'typeRevision' },
-};
+}
 
 const formatCurrency = (amount: number) => {
   if (amount >= 1000000) {
-    return `€${(amount / 1000000).toFixed(2)}M`;
+    return `€${(amount / 1000000).toFixed(2)}M`
   }
   return new Intl.NumberFormat('nl-BE', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
-};
+  }).format(amount)
+}
 
 const formatTime = (date: Date, hp: (key: string, values?: Record<string, number>) => string) => {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  
-  if (diff < 1000 * 60) return hp('timeJustNow');
-  if (diff < 1000 * 60 * 60) return hp('timeMinutesAgo', { count: Math.floor(diff / (1000 * 60)) });
-  if (diff < 1000 * 60 * 60 * 24) return hp('timeHoursAgo', { count: Math.floor(diff / (1000 * 60 * 60)) });
-  if (diff < 1000 * 60 * 60 * 24 * 7) return hp('timeDaysAgo', { count: Math.floor(diff / (1000 * 60 * 60 * 24)) });
-  return date.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-};
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+
+  if (diff < 1000 * 60) return hp('timeJustNow')
+  if (diff < 1000 * 60 * 60) return hp('timeMinutesAgo', { count: Math.floor(diff / (1000 * 60)) })
+  if (diff < 1000 * 60 * 60 * 24)
+    return hp('timeHoursAgo', { count: Math.floor(diff / (1000 * 60 * 60)) })
+  if (diff < 1000 * 60 * 60 * 24 * 7)
+    return hp('timeDaysAgo', { count: Math.floor(diff / (1000 * 60 * 60 * 24)) })
+  return date.toLocaleDateString('nl-BE', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 const formatDate = (date: Date) => {
-  return date.toLocaleDateString('nl-BE', { 
-    day: 'numeric', 
-    month: 'long', 
+  return date.toLocaleDateString('nl-BE', {
+    day: 'numeric',
+    month: 'long',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
-  });
-};
+    minute: '2-digit',
+  })
+}
 
 // ─────────────────────────────────────────
 // VISUAL TIMELINE COMPONENT
 // ─────────────────────────────────────────
 
-function VisualTimeline({ versions, hp }: { versions: HistoryVersion[]; hp: (k: string) => string }) {
-  const firstVal = versions[0]?.valuation;
-  const lastVal = versions[versions.length - 1]?.valuation;
-  const totalChange = versions.length > 1 && firstVal && lastVal
-    ? firstVal - lastVal
-    : 0;
-  const percentChange = lastVal && totalChange
-    ? (totalChange / lastVal) * 100
-    : 0;
+function VisualTimeline({
+  versions,
+  hp,
+}: {
+  versions: HistoryVersion[]
+  hp: (k: string) => string
+}) {
+  const firstVal = versions[0]?.valuation
+  const lastVal = versions[versions.length - 1]?.valuation
+  const totalChange = versions.length > 1 && firstVal && lastVal ? firstVal - lastVal : 0
+  const percentChange = lastVal && totalChange ? (totalChange / lastVal) * 100 : 0
 
   return (
     <div className="px-4 py-4 border-b border-foreground/[0.06] bg-gradient-to-r from-primary/[0.02] to-transparent">
@@ -141,21 +151,23 @@ function VisualTimeline({ versions, hp }: { versions: HistoryVersion[]; hp: (k: 
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-foreground/40" />
-          <span className="text-xs text-foreground/50">
-            {hp('valuationFlow')}
-          </span>
+          <span className="text-xs text-foreground/50">{hp('valuationFlow')}</span>
         </div>
         {totalChange !== 0 && (
-          <div className={cn(
-            "flex items-center gap-1.5 text-xs font-medium",
-            totalChange > 0 ? "text-success" : "text-secondary"
-          )}>
-            <TrendingUp className={cn("w-3.5 h-3.5", totalChange < 0 && "rotate-180")} />
+          <div
+            className={cn(
+              'flex items-center gap-1.5 text-xs font-medium',
+              totalChange > 0 ? 'text-success' : 'text-secondary'
+            )}
+          >
+            <TrendingUp className={cn('w-3.5 h-3.5', totalChange < 0 && 'rotate-180')} />
             <span className="font-mono">
-              {totalChange > 0 ? '+' : ''}{formatCurrency(totalChange)}
+              {totalChange > 0 ? '+' : ''}
+              {formatCurrency(totalChange)}
             </span>
             <span className="text-foreground/40">
-              ({percentChange > 0 ? '+' : ''}{percentChange.toFixed(1)}%)
+              ({percentChange > 0 ? '+' : ''}
+              {percentChange.toFixed(1)}%)
             </span>
           </div>
         )}
@@ -165,9 +177,9 @@ function VisualTimeline({ versions, hp }: { versions: HistoryVersion[]; hp: (k: 
       <div className="relative">
         {/* Track Line */}
         <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-1 bg-foreground/[0.08] rounded-full" />
-        
+
         {/* Gradient Progress */}
-        <motion.div 
+        <motion.div
           className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-foreground/20 via-primary/50 to-primary rounded-full origin-left"
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
@@ -177,23 +189,20 @@ function VisualTimeline({ versions, hp }: { versions: HistoryVersion[]; hp: (k: 
         {/* Version Dots */}
         <div className="relative flex justify-between px-4 py-2">
           {[...versions].reverse().map((version, index) => {
-            const isFirst = index === 0;
-            const isLast = index === versions.length - 1;
-            
+            const isFirst = index === 0
+            const isLast = index === versions.length - 1
+
             return (
-              <div 
-                key={version.id} 
-                className="flex flex-col items-center"
-              >
+              <div key={version.id} className="flex flex-col items-center">
                 <motion.div
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ ...springSnappy, delay: index * 0.1 }}
                   className={cn(
-                    "relative w-4 h-4 rounded-full border-2 transition-all",
-                    version.isCurrent 
-                      ? "bg-primary border-primary shadow-lg shadow-primary/30"
-                      : "bg-background border-foreground/20 hover:border-foreground/40"
+                    'relative w-4 h-4 rounded-full border-2 transition-all',
+                    version.isCurrent
+                      ? 'bg-primary border-primary shadow-lg shadow-primary/30'
+                      : 'bg-background border-foreground/20 hover:border-foreground/40'
                   )}
                 >
                   {version.isCurrent && (
@@ -204,30 +213,38 @@ function VisualTimeline({ versions, hp }: { versions: HistoryVersion[]; hp: (k: 
                     />
                   )}
                 </motion.div>
-                
+
                 {/* Label */}
-                <span className={cn(
-                  "text-[9px] mt-1.5 font-medium",
-                  version.isCurrent ? "text-primary" : "text-foreground/40"
-                )}>
+                <span
+                  className={cn(
+                    'text-[9px] mt-1.5 font-medium',
+                    version.isCurrent ? 'text-primary' : 'text-foreground/40'
+                  )}
+                >
                   v{version.version}
                 </span>
               </div>
-            );
+            )
           })}
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
 // VALUATION SUMMARY CARD
 // ─────────────────────────────────────────
 
-function ValuationSummaryCard({ version, hp }: { version: HistoryVersion; hp: (k: string) => string }) {
-  if (!version.valuation) return null;
-  
+function ValuationSummaryCard({
+  version,
+  hp,
+}: {
+  version: HistoryVersion
+  hp: (k: string) => string
+}) {
+  if (!version.valuation) return null
+
   return (
     <div className="rounded-xl overflow-hidden mb-4 bg-foreground/[0.04] border border-foreground/[0.08]">
       <div className="p-5">
@@ -235,7 +252,7 @@ function ValuationSummaryCard({ version, hp }: { version: HistoryVersion; hp: (k
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-foreground/50">
           {hp('indicativeEV')}
         </p>
-        
+
         {/* Main Value */}
         <div className="flex items-baseline gap-3 mb-4">
           <span className="text-2xl font-bold leading-none tracking-tight font-mono text-foreground">
@@ -247,19 +264,21 @@ function ValuationSummaryCard({ version, hp }: { version: HistoryVersion; hp: (k
             </span>
           )}
         </div>
-        
+
         {/* Range + Metrics Grid */}
         <div className="grid grid-cols-3 gap-4 pt-4 border-t border-foreground/[0.06]">
-          {version.valuationLow != null && version.valuationHigh != null && (version.valuationLow > 0 || version.valuationHigh > 0) && (
-            <div>
-              <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
-                {hp('bandwidth')}
-              </p>
-              <p className="text-xs font-medium text-foreground/80 font-mono">
-                {formatCurrency(version.valuationLow)} — {formatCurrency(version.valuationHigh)}
-              </p>
-            </div>
-          )}
+          {version.valuationLow != null &&
+            version.valuationHigh != null &&
+            (version.valuationLow > 0 || version.valuationHigh > 0) && (
+              <div>
+                <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
+                  {hp('bandwidth')}
+                </p>
+                <p className="text-xs font-medium text-foreground/80 font-mono">
+                  {formatCurrency(version.valuationLow)} — {formatCurrency(version.valuationHigh)}
+                </p>
+              </div>
+            )}
           {version.ebitda != null && version.ebitda > 0 && (
             <div>
               <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
@@ -283,7 +302,7 @@ function ValuationSummaryCard({ version, hp }: { version: HistoryVersion; hp: (k
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
@@ -294,11 +313,13 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
   const hp = useTranslations('historyPanel')
   // ── Real version data from store ──
   const reportId = report?.id
-  const storeVersions = useVersionHistoryStore((s) => reportId ? (s.versions[reportId] || []) : [])
+  const storeVersions = useVersionHistoryStore((s) => (reportId ? s.versions[reportId] || [] : []))
   const fetchVersions = useVersionHistoryStore((s) => s.fetchVersions)
   const storeLoading = useVersionHistoryStore((s) => s.loading)
   const storeError = useVersionHistoryStore((s) => s.error)
-  const activeVersionNumber = useVersionHistoryStore((s) => reportId ? s.activeVersions[reportId] : undefined)
+  const activeVersionNumber = useVersionHistoryStore((s) =>
+    reportId ? s.activeVersions[reportId] : undefined
+  )
 
   // Fetch versions on mount
   useEffect(() => {
@@ -310,20 +331,22 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
   const historyVersions: HistoryVersion[] = useMemo(() => {
     if (storeVersions.length === 0) {
       if (!report) return []
-      return [{
-        id: 'current',
-        version: 1,
-        timestamp: new Date(),
-        author: hp('user'),
-        authorInitials: 'V1',
-        type: 'initial' as const,
-        summary: hp('versionN', { number: 1 }),
-        changes: [],
-        valuation: report.valuation,
-        ebitda: report.ebitda,
-        multiple: report.multiple,
-        isCurrent: true,
-      }]
+      return [
+        {
+          id: 'current',
+          version: 1,
+          timestamp: new Date(),
+          author: hp('user'),
+          authorInitials: 'V1',
+          type: 'initial' as const,
+          summary: hp('versionN', { number: 1 }),
+          changes: [],
+          valuation: report.valuation,
+          ebitda: report.ebitda,
+          multiple: report.multiple,
+          isCurrent: true,
+        },
+      ]
     }
 
     return storeVersions
@@ -339,97 +362,116 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
           type: deriveVersionType(v),
           summary: v.versionLabel || hp('versionN', { number: v.versionNumber ?? 1 }),
           changes: deriveChanges(v, hp('changed')),
-          valuation: vr?.valuation_midpoint || vr?.equity_value_mid || vr?.details?.valuation_midpoint || vr?.details?.equity_value_mid,
-          valuationLow: vr?.valuation_min || vr?.equity_value_low || vr?.details?.valuation_min || vr?.details?.equity_value_low,
-          valuationHigh: vr?.valuation_max || vr?.equity_value_high || vr?.details?.valuation_max || vr?.details?.equity_value_high,
-          ebitda: vr?.normalized_ebitda || vr?.ebitda || vr?.details?.normalized_ebitda || vr?.details?.ebitda,
-          multiple: vr?.ebitda_multiple || vr?.revenue_multiple || vr?.details?.ebitda_multiple || vr?.details?.revenue_multiple,
-          isCurrent: activeVersionNumber != null
-            ? v.versionNumber === activeVersionNumber
-            : v.isActive,
+          valuation:
+            vr?.valuation_midpoint ||
+            vr?.equity_value_mid ||
+            vr?.details?.valuation_midpoint ||
+            vr?.details?.equity_value_mid,
+          valuationLow:
+            vr?.valuation_min ||
+            vr?.equity_value_low ||
+            vr?.details?.valuation_min ||
+            vr?.details?.equity_value_low,
+          valuationHigh:
+            vr?.valuation_max ||
+            vr?.equity_value_high ||
+            vr?.details?.valuation_max ||
+            vr?.details?.equity_value_high,
+          ebitda:
+            vr?.normalized_ebitda ||
+            vr?.ebitda ||
+            vr?.details?.normalized_ebitda ||
+            vr?.details?.ebitda,
+          multiple:
+            vr?.ebitda_multiple ||
+            vr?.revenue_multiple ||
+            vr?.details?.ebitda_multiple ||
+            vr?.details?.revenue_multiple,
+          isCurrent:
+            activeVersionNumber != null ? v.versionNumber === activeVersionNumber : v.isActive,
         }
       })
   }, [storeVersions, activeVersionNumber, hp, report])
 
-  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
-  const [restoringVersion, setRestoringVersion] = useState<string | null>(null);
+  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set())
+  const [restoringVersion, setRestoringVersion] = useState<string | null>(null)
 
   // Auto-expand the current version on first load
   useEffect(() => {
-    const current = historyVersions.find(v => v.isCurrent)
+    const current = historyVersions.find((v) => v.isCurrent)
     if (current && expandedVersions.size === 0) {
       setExpandedVersions(new Set([current.id]))
     }
   }, [historyVersions]) // eslint-disable-line react-hooks/exhaustive-deps
-  
+
   // Compare mode state
-  const [compareMode, setCompareMode] = useState(false);
-  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set());
-  const [compareModalOpen, setCompareModalOpen] = useState(false);
-  
+  const [compareMode, setCompareMode] = useState(false)
+  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set())
+  const [compareModalOpen, setCompareModalOpen] = useState(false)
+
   const toggleVersion = (id: string) => {
     if (compareMode) {
       // In compare mode, toggle selection
-      setSelectedForCompare(prev => {
-        const next = new Set(prev);
+      setSelectedForCompare((prev) => {
+        const next = new Set(prev)
         if (next.has(id)) {
-          next.delete(id);
+          next.delete(id)
         } else if (next.size < 2) {
-          next.add(id);
+          next.add(id)
         }
-        return next;
-      });
+        return next
+      })
     } else {
       // Normal expansion
-      setExpandedVersions(prev => {
-        const next = new Set(prev);
+      setExpandedVersions((prev) => {
+        const next = new Set(prev)
         if (next.has(id)) {
-          next.delete(id);
+          next.delete(id)
         } else {
-          next.add(id);
+          next.add(id)
         }
-        return next;
-      });
+        return next
+      })
     }
-  };
+  }
 
   // Get versions for comparison
   const versionsToCompare = useMemo(() => {
-    if (selectedForCompare.size !== 2) return { versionA: null, versionB: null };
-    const ids = Array.from(selectedForCompare);
+    if (selectedForCompare.size !== 2) return { versionA: null, versionB: null }
+    const ids = Array.from(selectedForCompare)
     return {
-      versionA: historyVersions.find(v => v.id === ids[0]) || null,
-      versionB: historyVersions.find(v => v.id === ids[1]) || null,
-    };
-  }, [selectedForCompare, historyVersions]);
-  
+      versionA: historyVersions.find((v) => v.id === ids[0]) || null,
+      versionB: historyVersions.find((v) => v.id === ids[1]) || null,
+    }
+  }, [selectedForCompare, historyVersions])
+
   const handleRestoreVersion = async (version: HistoryVersion) => {
-    setRestoringVersion(version.id);
-    trackVersionRestore(version.version);
+    setRestoringVersion(version.id)
+    trackVersionRestore(version.version)
     try {
       const fullVersion = storeVersions.find(
         (v) => v.id === version.id || v.versionNumber === version.version
       )
-      await onVersionRestore?.(fullVersion || version);
+      await onVersionRestore?.(fullVersion || version)
     } finally {
-      setRestoringVersion(null);
+      setRestoringVersion(null)
     }
-  };
-  
+  }
+
   const handleStartCompare = () => {
     if (selectedForCompare.size === 2) {
-      trackVersionCompare();
-      setCompareModalOpen(true);
+      trackVersionCompare()
+      setCompareModalOpen(true)
     }
-  };
+  }
 
   const handleSwapVersions = () => {
-    const ids = Array.from(selectedForCompare);
+    const ids = Array.from(selectedForCompare)
     if (ids.length === 2) {
-      setSelectedForCompare(new Set([ids[1], ids[0]]));
+      setSelectedForCompare(new Set([ids[1], ids[0]]))
     }
-  };
-  
+  }
+
   if (!report) {
     return (
       <div className="h-full flex items-center justify-center p-8 bg-background">
@@ -437,15 +479,11 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
           <div className="w-16 h-16 rounded-2xl bg-foreground/[0.06] flex items-center justify-center mx-auto mb-4">
             <Clock className="w-8 h-8 text-foreground/30" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            {hp('noHistory')}
-          </h3>
-          <p className="text-sm text-foreground/50">
-            {hp('noHistoryDesc')}
-          </p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{hp('noHistory')}</h3>
+          <p className="text-sm text-foreground/50">{hp('noHistoryDesc')}</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -456,28 +494,28 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-foreground">{hp('title')}</h2>
             <p className="text-xs sm:text-sm text-foreground/50 mt-1">
-              {storeLoading ? hp('loading') : storeError ? hp('loadError') : hp('versionsCount', { count: historyVersions.length })}
+              {storeLoading
+                ? hp('loading')
+                : storeError
+                  ? hp('loadError')
+                  : hp('versionsCount', { count: historyVersions.length })}
             </p>
           </div>
-          
+
           {/* Compare Toggle */}
           <div className="flex items-center gap-2">
             {compareMode && selectedForCompare.size === 2 && (
-              <Button
-                size="sm"
-                onClick={handleStartCompare}
-                className="gap-1.5"
-              >
+              <Button size="sm" onClick={handleStartCompare} className="gap-1.5">
                 <ArrowLeftRight className="w-4 h-4" />
                 {hp('compare')} ({selectedForCompare.size})
               </Button>
             )}
             <Button
-              variant={compareMode ? "primary" : "outline"}
+              variant={compareMode ? 'primary' : 'outline'}
               size="sm"
               onClick={() => {
-                setCompareMode(!compareMode);
-                setSelectedForCompare(new Set());
+                setCompareMode(!compareMode)
+                setSelectedForCompare(new Set())
               }}
               className="gap-1.5"
             >
@@ -486,7 +524,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
             </Button>
           </div>
         </div>
-        
+
         {/* Compare Mode Instructions */}
         <AnimatePresence>
           {compareMode && (
@@ -545,14 +583,15 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
 
         <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
           {historyVersions.map((version, index) => {
-            const config = typeConfig[version.type];
-            const TypeIcon = config.icon;
-            const isExpanded = expandedVersions.has(version.id);
-            const prevVersion = historyVersions[index + 1];
-            const valuationDiff = version.valuation && prevVersion?.valuation 
-              ? version.valuation - prevVersion.valuation 
-              : 0;
-            const isSelectedForCompare = selectedForCompare.has(version.id);
+            const config = typeConfig[version.type]
+            const TypeIcon = config.icon
+            const isExpanded = expandedVersions.has(version.id)
+            const prevVersion = historyVersions[index + 1]
+            const valuationDiff =
+              version.valuation && prevVersion?.valuation
+                ? version.valuation - prevVersion.valuation
+                : 0
+            const isSelectedForCompare = selectedForCompare.has(version.id)
 
             return (
               <motion.div
@@ -561,11 +600,12 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...springDefault, delay: index * 0.05 }}
                 className={cn(
-                  "rounded-xl border transition-all duration-200",
-                  isSelectedForCompare && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                  version.isCurrent 
-                    ? "border-primary/30 bg-primary/[0.02]" 
-                    : "border-foreground/[0.06] bg-foreground/[0.02] hover:bg-foreground/[0.03]"
+                  'rounded-xl border transition-all duration-200',
+                  isSelectedForCompare &&
+                    'ring-2 ring-primary ring-offset-2 ring-offset-background',
+                  version.isCurrent
+                    ? 'border-primary/30 bg-primary/[0.02]'
+                    : 'border-foreground/[0.06] bg-foreground/[0.02] hover:bg-foreground/[0.03]'
                 )}
               >
                 {/* Version Header - Clickable */}
@@ -575,12 +615,14 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                 >
                   {/* Compare Checkbox or Version Badge */}
                   {compareMode ? (
-                    <div className={cn(
-                      "shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all",
-                      isSelectedForCompare
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-foreground/[0.08] text-foreground/40 hover:bg-foreground/[0.12]"
-                    )}>
+                    <div
+                      className={cn(
+                        'shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all',
+                        isSelectedForCompare
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-foreground/[0.08] text-foreground/40 hover:bg-foreground/[0.12]'
+                      )}
+                    >
                       {isSelectedForCompare ? (
                         <CheckCircle2 className="w-5 h-5" />
                       ) : (
@@ -588,12 +630,14 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                       )}
                     </div>
                   ) : (
-                    <div className={cn(
-                      "shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-semibold text-xs sm:text-sm",
-                      version.isCurrent 
-                        ? "bg-primary text-primary-foreground" 
-                        : "bg-foreground/[0.08] text-foreground/60"
-                    )}>
+                    <div
+                      className={cn(
+                        'shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-semibold text-xs sm:text-sm',
+                        version.isCurrent
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-foreground/[0.08] text-foreground/60'
+                      )}
+                    >
                       {version.isCurrent ? (
                         <Check className="w-4 h-4 sm:w-5 sm:h-5" />
                       ) : (
@@ -616,9 +660,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                         </span>
                       )}
                     </div>
-                    <h4 className="text-sm font-medium text-foreground/90">
-                      {version.summary}
-                    </h4>
+                    <h4 className="text-sm font-medium text-foreground/90">{version.summary}</h4>
                     <div className="flex items-center gap-3 mt-1.5 text-xs text-foreground/40">
                       <span className="flex items-center gap-1">
                         <User className="w-3 h-3" />
@@ -640,20 +682,25 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                         </p>
                         {/* Deltas: Success (green) for positive, Secondary (clay) for negative */}
                         {valuationDiff !== 0 && (
-                          <p className={cn(
-                            "text-[11px] font-mono tabular-nums",
-                            valuationDiff > 0 ? "text-success" : "text-secondary"
-                          )}>
-                            {valuationDiff > 0 ? '+' : ''}{formatCurrency(valuationDiff)}
+                          <p
+                            className={cn(
+                              'text-[11px] font-mono tabular-nums',
+                              valuationDiff > 0 ? 'text-success' : 'text-secondary'
+                            )}
+                          >
+                            {valuationDiff > 0 ? '+' : ''}
+                            {formatCurrency(valuationDiff)}
                           </p>
                         )}
                       </div>
                     )}
                     {!compareMode && (
-                      <ChevronDown className={cn(
-                        "w-4 h-4 text-foreground/30 transition-transform",
-                        isExpanded && "rotate-180"
-                      )} />
+                      <ChevronDown
+                        className={cn(
+                          'w-4 h-4 text-foreground/30 transition-transform',
+                          isExpanded && 'rotate-180'
+                        )}
+                      />
                     )}
                   </div>
                 </button>
@@ -679,12 +726,14 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                               {hp('changesAuditTrail')}
                             </p>
                             {version.changes.map((change, changeIndex) => (
-                              <div 
+                              <div
                                 key={changeIndex}
                                 className="flex items-center justify-between text-xs bg-foreground/[0.02] rounded-lg px-3 py-2.5 border border-foreground/[0.05]"
                               >
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <span className="text-foreground/60 truncate">{change.field}</span>
+                                  <span className="text-foreground/60 truncate">
+                                    {change.field}
+                                  </span>
                                   {change.sourceRef && (
                                     <span className="shrink-0 text-[9px] text-foreground/40 px-1.5 py-0.5 rounded bg-foreground/[0.04] font-mono border border-foreground/[0.06]">
                                       {change.sourceRef}
@@ -694,20 +743,27 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                                 <div className="flex items-center gap-2 shrink-0">
                                   {change.oldValue && (
                                     <>
-                                      <span className="text-foreground/25 line-through font-mono text-[11px]">{change.oldValue}</span>
+                                      <span className="text-foreground/25 line-through font-mono text-[11px]">
+                                        {change.oldValue}
+                                      </span>
                                       <ChevronRight className="w-3 h-3 text-foreground/15" />
                                     </>
                                   )}
-                                  <span className="font-medium text-foreground/80 font-mono text-[11px]">{change.newValue}</span>
+                                  <span className="font-medium text-foreground/80 font-mono text-[11px]">
+                                    {change.newValue}
+                                  </span>
                                   {/* Impact: Success (green) for positive, Secondary (clay) for negative */}
                                   {change.impact && (
-                                    <span className={cn(
-                                      "font-mono text-[10px] px-1.5 py-0.5 rounded border",
-                                      change.impact > 0 
-                                        ? "text-success bg-success/10 border-success/20" 
-                                        : "text-secondary bg-secondary/10 border-secondary/20"
-                                    )}>
-                                      {change.impact > 0 ? '+' : ''}{formatCurrency(change.impact)}
+                                    <span
+                                      className={cn(
+                                        'font-mono text-[10px] px-1.5 py-0.5 rounded border',
+                                        change.impact > 0
+                                          ? 'text-success bg-success/10 border-success/20'
+                                          : 'text-secondary bg-secondary/10 border-secondary/20'
+                                      )}
+                                    >
+                                      {change.impact > 0 ? '+' : ''}
+                                      {formatCurrency(change.impact)}
                                     </span>
                                   )}
                                 </div>
@@ -723,7 +779,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                               {formatDate(version.timestamp)}
                             </span>
                           </div>
-                          
+
                           {/* Action Buttons */}
                           <div className="flex items-center gap-2">
                             {version.isCurrent ? (
@@ -736,8 +792,8 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                               /* Restore Version - Only on non-current versions */
                               <button
                                 onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRestoreVersion(version);
+                                  e.stopPropagation()
+                                  handleRestoreVersion(version)
                                 }}
                                 disabled={restoringVersion === version.id}
                                 className="flex-1 flex items-center justify-center gap-2 h-9 px-4 rounded-lg border border-foreground/[0.15] bg-transparent text-foreground/80 hover:bg-foreground/[0.06] hover:border-foreground/[0.25] transition-colors text-sm font-medium disabled:opacity-50"
@@ -762,7 +818,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                   )}
                 </AnimatePresence>
               </motion.div>
-            );
+            )
           })}
         </div>
       </div>
@@ -777,5 +833,5 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
         onSwap={handleSwapVersions}
       />
     </div>
-  );
+  )
 }

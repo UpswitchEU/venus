@@ -1,4 +1,4 @@
-'use client';
+'use client'
 
 /**
  * Calculator Shell Skeleton
@@ -10,14 +10,14 @@
  * Matches ManualLayout structure for seamless transition to real content.
  */
 
-import React from 'react';
+import React from 'react'
+import { InputFieldsSkeleton } from '@/components/skeletons/InputFieldsSkeleton'
+import { ReportSkeleton } from '@/components/skeletons/ReportSkeleton'
 import {
-  ResizablePanelGroup,
-  ResizablePanel,
   ResizableHandle,
-} from '@/design-system/components/Resizable';
-import { InputFieldsSkeleton } from '@/components/skeletons/InputFieldsSkeleton';
-import { ReportSkeleton } from '@/components/skeletons/ReportSkeleton';
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/design-system/components/Resizable'
 
 function NavSkeleton() {
   return (
@@ -31,7 +31,7 @@ function NavSkeleton() {
         <div className="h-8 w-8 rounded-full bg-foreground/10 animate-pulse" />
       </div>
     </div>
-  );
+  )
 }
 
 export function CalculatorShellSkeleton() {
@@ -60,5 +60,5 @@ export function CalculatorShellSkeleton() {
         </ResizablePanelGroup>
       </div>
     </div>
-  );
+  )
 }

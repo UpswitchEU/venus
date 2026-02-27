@@ -1,44 +1,41 @@
-'use client';
+'use client'
 
 /**
  * Skeleton Component
- * 
+ *
  * Loading placeholders with shimmer animations following the Hybrid Aurora design system.
  * Provides various preset shapes and composable primitives for building loading states.
  */
 
-import { cn } from '../utils';
-import { cva, type VariantProps } from 'class-variance-authority';
-import { motion } from 'framer-motion';
+import { cva, type VariantProps } from 'class-variance-authority'
+import { motion } from 'framer-motion'
+import { cn } from '../utils'
 
 /* ─────────────────────────────────────────
    SKELETON VARIANTS
    ───────────────────────────────────────── */
 
-const skeletonVariants = cva(
-  'relative overflow-hidden bg-foreground/10 isolate',
-  {
-    variants: {
-      variant: {
-        default: 'rounded-md',
-        circular: 'rounded-full',
-        rounded: 'rounded-xl',
-        text: 'rounded h-4',
-        card: 'rounded-2xl',
-      },
-      animation: {
-        shimmer: '',
-        pulse: 'animate-pulse',
-        wave: '',
-        none: '',
-      },
+const skeletonVariants = cva('relative overflow-hidden bg-foreground/10 isolate', {
+  variants: {
+    variant: {
+      default: 'rounded-md',
+      circular: 'rounded-full',
+      rounded: 'rounded-xl',
+      text: 'rounded h-4',
+      card: 'rounded-2xl',
     },
-    defaultVariants: {
-      variant: 'default',
-      animation: 'shimmer',
+    animation: {
+      shimmer: '',
+      pulse: 'animate-pulse',
+      wave: '',
+      none: '',
     },
-  }
-);
+  },
+  defaultVariants: {
+    variant: 'default',
+    animation: 'shimmer',
+  },
+})
 
 /* ─────────────────────────────────────────
    SHIMMER OVERLAY
@@ -56,13 +53,14 @@ const ShimmerOverlay = () => (
       ease: 'linear',
     }}
   />
-);
+)
 
 const WaveOverlay = () => (
   <motion.div
     className="absolute inset-0"
     style={{
-      background: 'linear-gradient(90deg, transparent 0%, hsl(var(--foreground) / 0.08) 50%, transparent 100%)',
+      background:
+        'linear-gradient(90deg, transparent 0%, hsl(var(--foreground) / 0.08) 50%, transparent 100%)',
     }}
     animate={{
       x: ['-100%', '100%'],
@@ -81,7 +79,7 @@ const WaveOverlay = () => (
       },
     }}
   />
-);
+)
 
 /* ─────────────────────────────────────────
    BASE SKELETON
@@ -91,9 +89,9 @@ export interface SkeletonProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof skeletonVariants> {
   /** Width of the skeleton */
-  width?: string | number;
+  width?: string | number
   /** Height of the skeleton */
-  height?: string | number;
+  height?: string | number
 }
 
 export function Skeleton({
@@ -118,7 +116,7 @@ export function Skeleton({
       {animation === 'shimmer' && <ShimmerOverlay />}
       {animation === 'wave' && <WaveOverlay />}
     </div>
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -127,18 +125,18 @@ export function Skeleton({
 
 export interface SkeletonTextProps extends Omit<SkeletonProps, 'variant'> {
   /** Number of lines to render */
-  lines?: number;
+  lines?: number
   /** Width of the last line (percentage or value) */
-  lastLineWidth?: string | number;
+  lastLineWidth?: string | number
   /** Gap between lines */
-  gap?: 'sm' | 'md' | 'lg';
+  gap?: 'sm' | 'md' | 'lg'
 }
 
 const gapClasses = {
   sm: 'gap-1.5',
   md: 'gap-2',
   lg: 'gap-3',
-};
+}
 
 export function SkeletonText({
   lines = 3,
@@ -160,7 +158,7 @@ export function SkeletonText({
         />
       ))}
     </div>
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -169,7 +167,7 @@ export function SkeletonText({
 
 export interface SkeletonAvatarProps extends Omit<SkeletonProps, 'variant' | 'width' | 'height'> {
   /** Size of the avatar */
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 }
 
 const avatarSizes = {
@@ -179,14 +177,10 @@ const avatarSizes = {
   lg: 48,
   xl: 56,
   '2xl': 64,
-};
+}
 
-export function SkeletonAvatar({
-  size = 'md',
-  className,
-  ...props
-}: SkeletonAvatarProps) {
-  const dimension = avatarSizes[size];
+export function SkeletonAvatar({ size = 'md', className, ...props }: SkeletonAvatarProps) {
+  const dimension = avatarSizes[size]
   return (
     <Skeleton
       variant="circular"
@@ -195,7 +189,7 @@ export function SkeletonAvatar({
       className={className}
       {...props}
     />
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -204,21 +198,16 @@ export function SkeletonAvatar({
 
 export interface SkeletonButtonProps extends Omit<SkeletonProps, 'variant' | 'height'> {
   /** Size of the button */
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg'
 }
 
 const buttonSizes = {
   sm: { height: 32, width: 80 },
   md: { height: 40, width: 100 },
   lg: { height: 48, width: 120 },
-};
+}
 
-export function SkeletonButton({
-  size = 'md',
-  width,
-  className,
-  ...props
-}: SkeletonButtonProps) {
+export function SkeletonButton({ size = 'md', width, className, ...props }: SkeletonButtonProps) {
   return (
     <Skeleton
       variant="rounded"
@@ -227,7 +216,7 @@ export function SkeletonButton({
       className={className}
       {...props}
     />
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -236,13 +225,13 @@ export function SkeletonButton({
 
 export interface SkeletonCardProps extends Omit<SkeletonProps, 'variant'> {
   /** Show header section */
-  showHeader?: boolean;
+  showHeader?: boolean
   /** Show avatar in header */
-  showAvatar?: boolean;
+  showAvatar?: boolean
   /** Number of content lines */
-  contentLines?: number;
+  contentLines?: number
   /** Show footer/action area */
-  showFooter?: boolean;
+  showFooter?: boolean
 }
 
 export function SkeletonCard({
@@ -256,10 +245,7 @@ export function SkeletonCard({
 }: SkeletonCardProps) {
   return (
     <div
-      className={cn(
-        'p-6 rounded-2xl bg-card/50 border border-border/50 space-y-4',
-        className
-      )}
+      className={cn('p-6 rounded-2xl bg-card/50 border border-border/50 space-y-4', className)}
       {...props}
     >
       {showHeader && (
@@ -271,9 +257,9 @@ export function SkeletonCard({
           </div>
         </div>
       )}
-      
+
       <SkeletonText lines={contentLines} animation={animation} />
-      
+
       {showFooter && (
         <div className="flex gap-2 pt-2">
           <SkeletonButton size="sm" animation={animation} />
@@ -281,7 +267,7 @@ export function SkeletonCard({
         </div>
       )}
     </div>
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -290,7 +276,7 @@ export function SkeletonCard({
 
 export interface SkeletonImageProps extends Omit<SkeletonProps, 'variant'> {
   /** Aspect ratio preset */
-  aspectRatio?: 'square' | 'video' | 'portrait' | 'landscape';
+  aspectRatio?: 'square' | 'video' | 'portrait' | 'landscape'
 }
 
 const aspectRatioClasses = {
@@ -298,20 +284,16 @@ const aspectRatioClasses = {
   video: 'aspect-video',
   portrait: 'aspect-[3/4]',
   landscape: 'aspect-[4/3]',
-};
+}
 
-export function SkeletonImage({
-  aspectRatio = 'video',
-  className,
-  ...props
-}: SkeletonImageProps) {
+export function SkeletonImage({ aspectRatio = 'video', className, ...props }: SkeletonImageProps) {
   return (
     <Skeleton
       variant="rounded"
       className={cn(aspectRatioClasses[aspectRatio], 'w-full', className)}
       {...props}
     />
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -320,11 +302,11 @@ export function SkeletonImage({
 
 export interface SkeletonTableProps extends Omit<SkeletonProps, 'variant' | 'width' | 'height'> {
   /** Number of rows */
-  rows?: number;
+  rows?: number
   /** Number of columns */
-  columns?: number;
+  columns?: number
   /** Show header row */
-  showHeader?: boolean;
+  showHeader?: boolean
 }
 
 export function SkeletonTable({
@@ -350,7 +332,7 @@ export function SkeletonTable({
           ))}
         </div>
       )}
-      
+
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div key={`row-${rowIndex}`} className="flex gap-4 items-center">
           {Array.from({ length: columns }).map((_, colIndex) => (
@@ -364,7 +346,7 @@ export function SkeletonTable({
         </div>
       ))}
     </div>
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -373,11 +355,11 @@ export function SkeletonTable({
 
 export interface SkeletonListProps extends Omit<SkeletonProps, 'variant' | 'width' | 'height'> {
   /** Number of items */
-  items?: number;
+  items?: number
   /** Show avatar/icon area */
-  showIcon?: boolean;
+  showIcon?: boolean
   /** Show secondary text */
-  showSecondary?: boolean;
+  showSecondary?: boolean
 }
 
 export function SkeletonList({
@@ -394,11 +376,7 @@ export function SkeletonList({
         <div key={i} className="flex items-center gap-3">
           {showIcon && <SkeletonAvatar size="sm" animation={animation} />}
           <div className="flex-1 space-y-1.5">
-            <Skeleton
-              variant="text"
-              width={`${60 + Math.random() * 30}%`}
-              animation={animation}
-            />
+            <Skeleton variant="text" width={`${60 + Math.random() * 30}%`} animation={animation} />
             {showSecondary && (
               <Skeleton
                 variant="text"
@@ -411,7 +389,7 @@ export function SkeletonList({
         </div>
       ))}
     </div>
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -420,9 +398,9 @@ export function SkeletonList({
 
 export interface SkeletonFormProps extends Omit<SkeletonProps, 'variant' | 'width' | 'height'> {
   /** Number of fields */
-  fields?: number;
+  fields?: number
   /** Show submit button */
-  showButton?: boolean;
+  showButton?: boolean
 }
 
 export function SkeletonForm({
@@ -440,16 +418,14 @@ export function SkeletonForm({
           <Skeleton variant="rounded" height={48} animation={animation} />
         </div>
       ))}
-      
-      {showButton && (
-        <SkeletonButton size="lg" width="100%" animation={animation} />
-      )}
+
+      {showButton && <SkeletonButton size="lg" width="100%" animation={animation} />}
     </div>
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
    EXPORTS
    ───────────────────────────────────────── */
 
-export type { VariantProps };
+export type { VariantProps }

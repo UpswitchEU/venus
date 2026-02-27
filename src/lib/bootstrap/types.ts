@@ -1,9 +1,9 @@
 /**
  * Session Bootstrap Types
- * 
+ *
  * World-class initialization system following Stripe/Klarna patterns.
  * These types define the complete state resolved BEFORE UI renders.
- * 
+ *
  * @module lib/bootstrap/types
  */
 
@@ -12,17 +12,17 @@
 // ============================================================================
 
 export interface ClientContext {
-  clientUserId: string;
-  clientEmail?: string;
-  clientCompanyName?: string;
-  accountantUserId: string;
-  accountantEmail?: string;
-  relationshipId: string;
+  clientUserId: string
+  clientEmail?: string
+  clientCompanyName?: string
+  accountantUserId: string
+  accountantEmail?: string
+  relationshipId: string
   permissions: {
-    canCreateValuations: boolean;
-    canViewReports: boolean;
-    canEditReports: boolean;
-  };
+    canCreateValuations: boolean
+    canViewReports: boolean
+    canEditReports: boolean
+  }
 }
 
 // ============================================================================
@@ -32,134 +32,134 @@ export interface ClientContext {
 /**
  * AUTH-FIRST ARCHITECTURE: Guest flow has been removed.
  * All users must authenticate before accessing valuation features.
- * 
+ *
  * @deprecated 'guest' type is no longer supported - kept for backward compatibility during migration
  */
-export type IdentityType = 'authenticated' | 'accountant_for_client';
+export type IdentityType = 'authenticated' | 'accountant_for_client'
 
 /**
  * Identity state
- * 
+ *
  * AUTH-FIRST: Only authenticated users are supported
  */
 export interface IdentityState {
-  type: IdentityType;
-  userId?: string;
-  clientContext?: ClientContext;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
+  type: IdentityType
+  userId?: string
+  clientContext?: ClientContext
+  email?: string
+  firstName?: string
+  lastName?: string
 }
 
 // ============================================================================
 // Report/Session Types
 // ============================================================================
 
-export type ReportMode = 'new' | 'existing';
-export type ReportStatus = 'active' | 'completed' | 'draft' | 'expired';
-export type FlowType = 'manual' | 'conversational';
+export type ReportMode = 'new' | 'existing'
+export type ReportStatus = 'active' | 'completed' | 'draft' | 'expired'
+export type FlowType = 'manual' | 'conversational'
 
 export interface ReportState {
-  mode: ReportMode;
-  reportId: string;
-  hasExistingData: boolean;
+  mode: ReportMode
+  reportId: string
+  hasExistingData: boolean
   /**
    * Indicates if there's a completed valuation result (OUTPUT data).
    * Different from hasExistingData which includes INPUT data (form fields).
-   * 
+   *
    * Use this to determine loading step messaging:
    * - hasValuationResult = true → "Restoring valuation package"
    * - hasValuationResult = false → "Initializing" (even if hasExistingData is true)
    */
-  hasValuationResult?: boolean;
-  version?: number;
-  status: ReportStatus;
-  createdAt?: Date;
-  updatedAt?: Date;
-  completedAt?: Date;
-  currentStep?: number;
+  hasValuationResult?: boolean
+  version?: number
+  status: ReportStatus
+  createdAt?: Date
+  updatedAt?: Date
+  completedAt?: Date
+  currentStep?: number
 }
 
 // ============================================================================
 // Prefill Data Types
 // ============================================================================
 
-export type PrefillSource = 'kbo' | 'user_profile' | 'session' | 'mercury' | 'url_params';
+export type PrefillSource = 'kbo' | 'user_profile' | 'session' | 'mercury' | 'url_params'
 
 export interface CompanyInfo {
-  companyName?: string;
-  kboNumber?: string;
-  vatNumber?: string;
-  legalForm?: string;
-  address?: string;
-  postalCode?: string;
-  city?: string;
-  countryCode?: string;
-  naceCode?: string;
-  naceDescription?: string;
-  foundingYear?: number;
-  isActive?: boolean;
+  companyName?: string
+  kboNumber?: string
+  vatNumber?: string
+  legalForm?: string
+  address?: string
+  postalCode?: string
+  city?: string
+  countryCode?: string
+  naceCode?: string
+  naceDescription?: string
+  foundingYear?: number
+  isActive?: boolean
 }
 
 export interface PartialFinancials {
-  revenue?: number;
-  ebitda?: number;
-  netIncome?: number;
-  totalAssets?: number;
-  totalEquity?: number;
-  employeeCount?: number;
-  revenueGrowth?: number;
-  ebitdaMargin?: number;
+  revenue?: number
+  ebitda?: number
+  netIncome?: number
+  totalAssets?: number
+  totalEquity?: number
+  employeeCount?: number
+  revenueGrowth?: number
+  ebitdaMargin?: number
   // Year data for historical financials
   yearData?: {
     [year: number]: {
-      revenue?: number;
-      ebitda?: number;
-      netIncome?: number;
-    };
-  };
+      revenue?: number
+      ebitda?: number
+      netIncome?: number
+    }
+  }
 }
 
 export interface BusinessTypeInfo {
-  id: string;
-  code?: string;
-  title: string;
-  category?: string;
-  industry?: string;
-  industryMapping?: string;
+  id: string
+  code?: string
+  title: string
+  category?: string
+  industry?: string
+  industryMapping?: string
   multiples?: {
-    revenue?: { min: number; max: number; median: number };
-    ebitda?: { min: number; max: number; median: number };
-  };
+    revenue?: { min: number; max: number; median: number }
+    ebitda?: { min: number; max: number; median: number }
+  }
 }
 
 export interface KBOCompanyEntity {
-  kboNumber: string;
-  companyName: string;
-  legalForm?: string;
-  status?: string;
-  vatNumber?: string;
-  address?: string;
-  postalCode?: string;
-  city?: string;
-  countryCode?: string;
-  naceCode?: string;
-  naceDescription?: string;
-  foundationDate?: string;
-  lastUpdated?: string;
-  isActive?: boolean;
-  metadata?: Record<string, unknown>;
+  kboNumber: string
+  companyName: string
+  legalForm?: string
+  status?: string
+  vatNumber?: string
+  address?: string
+  postalCode?: string
+  city?: string
+  countryCode?: string
+  naceCode?: string
+  naceDescription?: string
+  foundationDate?: string
+  lastUpdated?: string
+  isActive?: boolean
+  metadata?: Record<string, unknown>
 }
 
 export interface PrefillData {
-  sources: PrefillSource[];
-  companyInfo?: CompanyInfo;
-  financials?: PartialFinancials;
-  businessType?: BusinessTypeInfo;
-  kboData?: KBOCompanyEntity;
-  confidence: number; // 0-1 how complete the prefill is
-  fieldsPopulated: string[];
-  fieldsRemaining: string[];
+  sources: PrefillSource[]
+  companyInfo?: CompanyInfo
+  financials?: PartialFinancials
+  businessType?: BusinessTypeInfo
+  kboData?: KBOCompanyEntity
+  confidence: number // 0-1 how complete the prefill is
+  fieldsPopulated: string[]
+  fieldsRemaining: string[]
 }
 
 // ============================================================================
@@ -167,24 +167,24 @@ export interface PrefillData {
 // ============================================================================
 
 export interface UIHints {
-  showWelcomeBack: boolean;
-  resumableSession: boolean;
-  suggestedFlow: FlowType;
-  prefilledFieldCount: number;
-  totalFieldCount: number;
-  showKboVerification: boolean;
-  showAccountantBanner: boolean;
-  returnUrl?: string;
-  sourceApp?: string;
+  showWelcomeBack: boolean
+  resumableSession: boolean
+  suggestedFlow: FlowType
+  prefilledFieldCount: number
+  totalFieldCount: number
+  showKboVerification: boolean
+  showAccountantBanner: boolean
+  returnUrl?: string
+  sourceApp?: string
 }
 
 export interface CreditStatus {
-  allowed: boolean;
-  credits_remaining: number;
-  credits_limit: number;
-  requires_upgrade: boolean;
-  message?: string;
-  upgrade_path?: 'accountant_pro' | 'client_premium';
+  allowed: boolean
+  credits_remaining: number
+  credits_limit: number
+  requires_upgrade: boolean
+  message?: string
+  upgrade_path?: 'accountant_pro' | 'client_premium'
 }
 
 // ============================================================================
@@ -195,10 +195,10 @@ export interface CreditStatus {
  * Version summary for version history tab
  */
 export interface VersionSummary {
-  version: number;
-  createdAt: Date;
-  summary: string | null;
-  createdBy: string | null;
+  version: number
+  createdAt: Date
+  summary: string | null
+  createdBy: string | null
 }
 
 /**
@@ -209,30 +209,30 @@ export interface VersionSummary {
  */
 export interface ValuationPackage {
   /** HTML content for main report */
-  htmlReport: string | null;
+  htmlReport: string | null
   /** HTML content for info tab */
-  infoTabHtml: string | null;
+  infoTabHtml: string | null
   /** Pricing range summary */
   pricingRange: {
-    min: number;
-    mid: number;
-    max: number;
-    currency: string;
-  } | null;
+    min: number
+    mid: number
+    max: number
+    currency: string
+  } | null
   /** Version summary */
   versions: {
-    current: number;
-    total: number;
+    current: number
+    total: number
     /** First 5 versions for instant version tab rendering */
-    history?: VersionSummary[];
-  };
+    history?: VersionSummary[]
+  }
   /** PDF status */
   pdf: {
-    url: string | null;
-    status: 'ready' | 'generating' | 'none';
-  };
+    url: string | null
+    status: 'ready' | 'generating' | 'none'
+  }
   /** Form inputs for instant restoration (company_name, revenue, ebitda, etc.) */
-  formData?: Record<string, unknown>;
+  formData?: Record<string, unknown>
 }
 
 // ============================================================================
@@ -241,28 +241,28 @@ export interface ValuationPackage {
 
 export interface SessionBootstrapState {
   // Identity Resolution
-  identity: IdentityState;
-  
+  identity: IdentityState
+
   // Report Resolution
-  report: ReportState;
-  
+  report: ReportState
+
   // Prefillable Data (from all sources)
-  prefillData: PrefillData;
-  
+  prefillData: PrefillData
+
   // UI Hints
-  ui: UIHints;
-  
+  ui: UIHints
+
   // Credit Status (optional - only present if credit check was performed)
-  creditStatus?: CreditStatus;
-  
+  creditStatus?: CreditStatus
+
   // WORLD-CLASS: Complete valuation package for existing reports
   // Enables instant UI hydration without additional API calls
-  valuationPackage?: ValuationPackage;
-  
+  valuationPackage?: ValuationPackage
+
   // Metadata
-  bootstrapVersion: string;
-  bootstrappedAt: Date;
-  bootstrapDurationMs: number;
+  bootstrapVersion: string
+  bootstrappedAt: Date
+  bootstrapDurationMs: number
 }
 
 // ============================================================================
@@ -275,13 +275,13 @@ export interface SessionBootstrapState {
  */
 export interface BootstrapErrorInfo {
   /** Unique error code for programmatic handling */
-  code: string;
+  code: string
   /** Human-readable error message */
-  message: string;
+  message: string
   /** Whether the client should retry the request */
-  retryable: boolean;
+  retryable: boolean
   /** Additional error details for debugging */
-  details?: Record<string, unknown>;
+  details?: Record<string, unknown>
 }
 
 /**
@@ -305,7 +305,7 @@ export const BOOTSTRAP_ERROR_CODES = {
   DATABASE_ERROR: 'DATABASE_ERROR',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   TIMEOUT: 'TIMEOUT',
-} as const;
+} as const
 
 // ============================================================================
 // Bootstrap Context (input to bootstrap process)
@@ -315,33 +315,33 @@ export const BOOTSTRAP_ERROR_CODES = {
  * Bootstrap context (input to bootstrap process)
  */
 export interface BootstrapContext {
-  url: string;
-  reportId?: string;
-  clientToken?: string;
-  clientId?: string; // Client relationship ID for accountant flow when no clientToken
-  prefilledQuery?: string;
-  flow?: FlowType;
-  mode?: 'edit' | 'view';
-  version?: number;
-  locale?: string;
-  embedded?: boolean;
-  returnUrl?: string;
-  sourceApp?: string;
-  cookies?: string;
+  url: string
+  reportId?: string
+  clientToken?: string
+  clientId?: string // Client relationship ID for accountant flow when no clientToken
+  prefilledQuery?: string
+  flow?: FlowType
+  mode?: 'edit' | 'view'
+  version?: number
+  locale?: string
+  embedded?: boolean
+  returnUrl?: string
+  sourceApp?: string
+  cookies?: string
 }
 
 /**
  * Bootstrap hints
  */
 export interface BootstrapHints {
-  hasClientToken: boolean;
-  hasReportId: boolean;
-  hasPrefilledQuery: boolean;
-  isNewReport: boolean;
-  isEmbedded: boolean;
-  requestedFlow: FlowType | null;
-  requestedMode: 'edit' | 'view' | null;
-  locale: string;
+  hasClientToken: boolean
+  hasReportId: boolean
+  hasPrefilledQuery: boolean
+  isNewReport: boolean
+  isEmbedded: boolean
+  requestedFlow: FlowType | null
+  requestedMode: 'edit' | 'view' | null
+  locale: string
 }
 
 // ============================================================================
@@ -349,16 +349,16 @@ export interface BootstrapHints {
 // ============================================================================
 
 export interface ResolverResult<T> {
-  success: boolean;
-  data: T;
-  error?: string;
-  source?: string;
-  durationMs: number;
+  success: boolean
+  data: T
+  error?: string
+  source?: string
+  durationMs: number
 }
 
 export interface BootstrapResolver<T> {
-  resolve(context: BootstrapContext, hints: BootstrapHints): Promise<ResolverResult<T>>;
-  fallback(): T;
+  resolve(context: BootstrapContext, hints: BootstrapHints): Promise<ResolverResult<T>>
+  fallback(): T
 }
 
 // ============================================================================
@@ -369,25 +369,25 @@ export interface BootstrapResolver<T> {
  * Bootstrap API request
  */
 export interface BootstrapRequest {
-  reportId?: string;
-  clientToken?: string;
-  prefilledQuery?: string;
-  flow?: FlowType;
-  mode?: 'edit' | 'view';
-  version?: number;
-  locale?: string;
+  reportId?: string
+  clientToken?: string
+  prefilledQuery?: string
+  flow?: FlowType
+  mode?: 'edit' | 'view'
+  version?: number
+  locale?: string
 }
 
 export interface BootstrapResponse {
-  success: boolean;
+  success: boolean
   data?: {
-    identity: IdentityState;
-    report: ReportState;
-    prefill: PrefillData;
-    ui: UIHints;
-  };
-  error?: string;
-  bootstrapDurationMs: number;
+    identity: IdentityState
+    report: ReportState
+    prefill: PrefillData
+    ui: UIHints
+  }
+  error?: string
+  bootstrapDurationMs: number
 }
 
 // ============================================================================
@@ -401,8 +401,8 @@ export class BootstrapError extends Error {
     public readonly recoverable: boolean = true,
     public readonly context?: Record<string, unknown>
   ) {
-    super(message);
-    this.name = 'BootstrapError';
+    super(message)
+    this.name = 'BootstrapError'
   }
 }
 
@@ -414,25 +414,25 @@ export const BootstrapErrorCodes = {
   KBO_LOOKUP_FAILED: 'KBO_LOOKUP_FAILED',
   NETWORK_ERROR: 'NETWORK_ERROR',
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
-} as const;
+} as const
 
-export type BootstrapErrorCode = typeof BootstrapErrorCodes[keyof typeof BootstrapErrorCodes];
+export type BootstrapErrorCode = (typeof BootstrapErrorCodes)[keyof typeof BootstrapErrorCodes]
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-export const BOOTSTRAP_VERSION = '2.0.0';
+export const BOOTSTRAP_VERSION = '2.0.0'
 
 /**
  * AUTH-FIRST: Authentication is now required for all valuation operations.
  * Guest flow has been removed to simplify architecture and improve data quality.
  */
-export const REQUIRE_AUTH_FOR_VALUATION = true;
+export const REQUIRE_AUTH_FOR_VALUATION = true
 
 export const DEFAULT_IDENTITY: IdentityState = {
   type: 'authenticated',
-};
+}
 
 export const DEFAULT_REPORT: ReportState = {
   mode: 'new',
@@ -440,7 +440,7 @@ export const DEFAULT_REPORT: ReportState = {
   hasExistingData: false,
   hasValuationResult: false,
   status: 'draft',
-};
+}
 
 export const DEFAULT_PREFILL: PrefillData = {
   sources: [],
@@ -456,7 +456,7 @@ export const DEFAULT_PREFILL: PrefillData = {
     'revenue',
     'ebitda',
   ],
-};
+}
 
 export const DEFAULT_UI_HINTS: UIHints = {
   showWelcomeBack: false,
@@ -466,7 +466,7 @@ export const DEFAULT_UI_HINTS: UIHints = {
   totalFieldCount: 25,
   showKboVerification: false,
   showAccountantBanner: false,
-};
+}
 
 export const DEFAULT_BOOTSTRAP_STATE: SessionBootstrapState = {
   identity: DEFAULT_IDENTITY,
@@ -476,4 +476,4 @@ export const DEFAULT_BOOTSTRAP_STATE: SessionBootstrapState = {
   bootstrapVersion: BOOTSTRAP_VERSION,
   bootstrappedAt: new Date(),
   bootstrapDurationMs: 0,
-};
+}

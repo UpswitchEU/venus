@@ -1,57 +1,57 @@
-'use client';
+'use client'
 
 /**
  * Chat Assistant Drawer
- * 
+ *
  * Slide-in drawer for the AI co-pilot. Always available, contextual to current field.
  * Implements bi-directional sync: Chat commands update form fields, and vice versa.
- * 
+ *
  * YC Advisor Pattern: "The Chat is the Navigator, not the Pilot"
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { 
-  X, 
-  Send,
-  Paperclip,
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  Bot,
+  Check,
+  CheckCheck,
+  ChevronRight,
+  Copy,
+  ExternalLink,
   FileText,
   Image as ImageIcon,
   Loader2,
-  ChevronRight,
-  Check,
-  Bot,
-  Copy,
-  CheckCheck,
-  RotateCcw,
   MessageSquarePlus,
-  ExternalLink,
-} from 'lucide-react';
-import { cn } from '@/design-system/utils';
-import { trackAIAssistantOpen, trackAIAssistantMessage } from '@/lib/analytics';
-import { springDefault } from '@/design-system/components/motion';
-import { AuroraButton } from '@/design-system/components/Button';
+  Paperclip,
+  RotateCcw,
+  Send,
+  X,
+} from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { AuroraButton } from '@/design-system/components/Button'
+import { springDefault } from '@/design-system/components/motion'
+import { cn } from '@/design-system/utils'
+import { trackAIAssistantMessage, trackAIAssistantOpen } from '@/lib/analytics'
 
 // ─────────────────────────────────────────
 // SMART NUMBER & COMMAND PARSING
 // ─────────────────────────────────────────
 
 interface ParsedValue {
-  field: string;
-  label: string;
-  value: number;
-  originalText: string;
+  field: string
+  label: string
+  value: number
+  originalText: string
 }
 
 interface ParsedCommand {
-  type: 'normalize' | 'set' | 'add';
-  field: string;
-  label: string;
-  value: number;
-  originalText: string;
+  type: 'normalize' | 'set' | 'add'
+  field: string
+  label: string
+  value: number
+  originalText: string
 }
 
 /**
@@ -59,112 +59,112 @@ interface ParsedCommand {
  * Supports: "Normaliseer eigenaarssalaris naar €60k", "Set EBITDA to 500k", etc.
  */
 function parseNormalizationCommands(text: string): ParsedCommand[] {
-  const commands: ParsedCommand[] = [];
-  const lowerText = text.toLowerCase();
-  
+  const commands: ParsedCommand[] = []
+  const lowerText = text.toLowerCase()
+
   // Dutch command patterns
   const normalizePatterns = [
     // "Normaliseer eigenaarssalaris naar €60k"
     /normalis(?:eer|atie)?\s+([a-zà-ÿ\s]+?)\s+(?:naar|op|tot)\s+[€]?\s*([\d.,]+)\s*(k|m|miljoen|duizend)?/gi,
     // "Zet huurkosten op €24k"
     /zet\s+([a-zà-ÿ\s]+?)\s+(?:naar|op)\s+[€]?\s*([\d.,]+)\s*(k|m)?/gi,
-    // "Pas autokosten aan naar €18k"  
+    // "Pas autokosten aan naar €18k"
     /pas\s+([a-zà-ÿ\s]+?)\s+aan\s+(?:naar|op)\s+[€]?\s*([\d.,]+)\s*(k|m)?/gi,
     // "Voeg €35k toe aan eenmalige kosten"
     /voeg\s+[€]?\s*([\d.,]+)\s*(k|m)?\s+toe\s+(?:aan|bij)\s+([a-zà-ÿ\s]+)/gi,
-  ];
-  
+  ]
+
   // English patterns for flexibility
   const englishPatterns = [
     /normalize\s+([a-z\s]+?)\s+to\s+[€$]?\s*([\d.,]+)\s*(k|m)?/gi,
     /set\s+([a-z\s]+?)\s+to\s+[€$]?\s*([\d.,]+)\s*(k|m)?/gi,
-  ];
-  
+  ]
+
   // Field name mapping (Dutch/English to internal field names)
   const fieldMappings: Record<string, { field: string; label: string }> = {
-    'eigenaarssalaris': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
-    'eigenaarsalaris': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
-    'salaris': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
-    'loon': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
+    eigenaarssalaris: { field: 'ownerSalary', label: 'Eigenaarssalaris' },
+    eigenaarsalaris: { field: 'ownerSalary', label: 'Eigenaarssalaris' },
+    salaris: { field: 'ownerSalary', label: 'Eigenaarssalaris' },
+    loon: { field: 'ownerSalary', label: 'Eigenaarssalaris' },
     'owner salary': { field: 'ownerSalary', label: 'Eigenaarssalaris' },
-    'huur': { field: 'rent', label: 'Huurkosten' },
-    'huurkosten': { field: 'rent', label: 'Huurkosten' },
-    'huisvestingskosten': { field: 'rent', label: 'Huurkosten' },
-    'rent': { field: 'rent', label: 'Huurkosten' },
-    'auto': { field: 'vehicle', label: 'Autokosten' },
-    'autokosten': { field: 'vehicle', label: 'Autokosten' },
-    'voertuig': { field: 'vehicle', label: 'Autokosten' },
-    'voertuigkosten': { field: 'vehicle', label: 'Autokosten' },
-    'car': { field: 'vehicle', label: 'Autokosten' },
-    'ebitda': { field: 'ebitda', label: 'EBITDA' },
-    'winst': { field: 'ebitda', label: 'EBITDA' },
-    'eenmalige': { field: 'oneTime', label: 'Eenmalige kosten' },
+    huur: { field: 'rent', label: 'Huurkosten' },
+    huurkosten: { field: 'rent', label: 'Huurkosten' },
+    huisvestingskosten: { field: 'rent', label: 'Huurkosten' },
+    rent: { field: 'rent', label: 'Huurkosten' },
+    auto: { field: 'vehicle', label: 'Autokosten' },
+    autokosten: { field: 'vehicle', label: 'Autokosten' },
+    voertuig: { field: 'vehicle', label: 'Autokosten' },
+    voertuigkosten: { field: 'vehicle', label: 'Autokosten' },
+    car: { field: 'vehicle', label: 'Autokosten' },
+    ebitda: { field: 'ebitda', label: 'EBITDA' },
+    winst: { field: 'ebitda', label: 'EBITDA' },
+    eenmalige: { field: 'oneTime', label: 'Eenmalige kosten' },
     'eenmalige kosten': { field: 'oneTime', label: 'Eenmalige kosten' },
     'juridische kosten': { field: 'oneTime', label: 'Eenmalige kosten' },
-    'privé': { field: 'personal', label: 'Privékosten' },
-    'privékosten': { field: 'personal', label: 'Privékosten' },
-    'familie': { field: 'personal', label: 'Privékosten' },
-    'familieleden': { field: 'personal', label: 'Privékosten' },
-  };
-  
+    privé: { field: 'personal', label: 'Privékosten' },
+    privékosten: { field: 'personal', label: 'Privékosten' },
+    familie: { field: 'personal', label: 'Privékosten' },
+    familieleden: { field: 'personal', label: 'Privékosten' },
+  }
+
   const parseValue = (numStr: string, suffix?: string): number => {
-    let value = parseFloat(numStr.replace(/\./g, '').replace(',', '.'));
+    let value = parseFloat(numStr.replace(/\./g, '').replace(',', '.'))
     if (suffix) {
-      const s = suffix.toLowerCase();
-      if (s === 'k' || s === 'duizend') value *= 1000;
-      else if (s === 'm' || s === 'miljoen') value *= 1000000;
+      const s = suffix.toLowerCase()
+      if (s === 'k' || s === 'duizend') value *= 1000
+      else if (s === 'm' || s === 'miljoen') value *= 1000000
     }
-    return value;
-  };
-  
+    return value
+  }
+
   const findField = (fieldText: string): { field: string; label: string } | null => {
-    const normalized = fieldText.trim().toLowerCase();
+    const normalized = fieldText.trim().toLowerCase()
     for (const [key, mapping] of Object.entries(fieldMappings)) {
       if (normalized.includes(key) || key.includes(normalized)) {
-        return mapping;
+        return mapping
       }
     }
-    return null;
-  };
-  
+    return null
+  }
+
   // Process all patterns
-  [...normalizePatterns, ...englishPatterns].forEach(pattern => {
-    let match;
-    const regex = new RegExp(pattern.source, pattern.flags);
+  ;[...normalizePatterns, ...englishPatterns].forEach((pattern) => {
+    let match
+    const regex = new RegExp(pattern.source, pattern.flags)
     while ((match = regex.exec(text)) !== null) {
-      let fieldText: string;
-      let numStr: string;
-      let suffix: string | undefined;
-      
+      let fieldText: string
+      let numStr: string
+      let suffix: string | undefined
+
       // Handle different capture group orders
       if (match[1].match(/[\d.,]/)) {
         // Pattern like "Voeg €35k toe aan eenmalige kosten"
-        numStr = match[1];
-        suffix = match[2];
-        fieldText = match[3];
+        numStr = match[1]
+        suffix = match[2]
+        fieldText = match[3]
       } else {
-        fieldText = match[1];
-        numStr = match[2];
-        suffix = match[3];
+        fieldText = match[1]
+        numStr = match[2]
+        suffix = match[3]
       }
-      
-      const fieldMapping = findField(fieldText);
+
+      const fieldMapping = findField(fieldText)
       if (fieldMapping) {
-        const value = parseValue(numStr, suffix);
-        if (!commands.find(c => c.field === fieldMapping.field && c.value === value)) {
+        const value = parseValue(numStr, suffix)
+        if (!commands.find((c) => c.field === fieldMapping.field && c.value === value)) {
           commands.push({
             type: 'normalize',
             field: fieldMapping.field,
             label: fieldMapping.label,
             value,
             originalText: match[0],
-          });
+          })
         }
       }
     }
-  });
-  
-  return commands;
+  })
+
+  return commands
 }
 
 /**
@@ -172,9 +172,9 @@ function parseNormalizationCommands(text: string): ParsedCommand[] {
  * Supports formats: 500k, 500K, €500.000, 500000, 2.5M, 2,5M
  */
 function parseFinancialValues(text: string): ParsedValue[] {
-  const results: ParsedValue[] = [];
-  const lowerText = text.toLowerCase();
-  
+  const results: ParsedValue[] = []
+  const lowerText = text.toLowerCase()
+
   // Number patterns: 500k, 500K, €500.000, 500000, 2.5M, 2,5M
   const numberPatterns = [
     // K suffix: 500k, 500K
@@ -185,57 +185,67 @@ function parseFinancialValues(text: string): ParsedValue[] {
     /€\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/g,
     // Plain large numbers: 500000
     /\b(\d{4,})\b/g,
-  ];
-  
+  ]
+
   // Enhanced field detection patterns with grootboek codes
   const fieldPatterns: { pattern: RegExp; field: string; label: string; code?: string }[] = [
     { pattern: /ebitda|winst/i, field: 'ebitda', label: 'EBITDA' },
     { pattern: /omzet|revenue/i, field: 'revenue', label: 'Omzet' },
-    { pattern: /salaris|loon|eigenaar/i, field: 'ownerSalary', label: 'Eigenaarssalaris', code: '620' },
+    {
+      pattern: /salaris|loon|eigenaar/i,
+      field: 'ownerSalary',
+      label: 'Eigenaarssalaris',
+      code: '620',
+    },
     { pattern: /huur|rent|kantoor|pand/i, field: 'rent', label: 'Huurkosten', code: '613' },
     { pattern: /auto|voertuig|car|wagen/i, field: 'vehicle', label: 'Autokosten', code: '615' },
-    { pattern: /eenmalig|juridisch|advies/i, field: 'oneTime', label: 'Eenmalige kosten', code: '640' },
+    {
+      pattern: /eenmalig|juridisch|advies/i,
+      field: 'oneTime',
+      label: 'Eenmalige kosten',
+      code: '640',
+    },
     { pattern: /privé|familie|persoon/i, field: 'personal', label: 'Privékosten', code: '650' },
-  ];
-  
+  ]
+
   // Find numbers and their contexts
   for (const pattern of numberPatterns) {
-    let match;
-    const regex = new RegExp(pattern.source, pattern.flags);
-    
+    let match
+    const regex = new RegExp(pattern.source, pattern.flags)
+
     while ((match = regex.exec(text)) !== null) {
-      let rawNumber = match[1] || match[0];
-      let value: number;
-      
+      let rawNumber = match[1] || match[0]
+      let value: number
+
       // Parse the number
-      rawNumber = rawNumber.replace(/€\s*/g, '').replace(/\./g, '').replace(/,/g, '.');
-      value = parseFloat(rawNumber);
-      
+      rawNumber = rawNumber.replace(/€\s*/g, '').replace(/\./g, '').replace(/,/g, '.')
+      value = parseFloat(rawNumber)
+
       // Apply multiplier based on suffix
-      const originalMatch = match[0];
-      
+      const originalMatch = match[0]
+
       if (originalMatch.toLowerCase().includes('k')) {
-        value *= 1000;
+        value *= 1000
       } else if (originalMatch.toLowerCase().includes('m')) {
-        value *= 1000000;
+        value *= 1000000
       }
-      
+
       // Determine field from context
       for (const fp of fieldPatterns) {
         if (fp.pattern.test(lowerText)) {
           // Avoid duplicates
-          if (!results.find(r => r.field === fp.field && r.value === value)) {
+          if (!results.find((r) => r.field === fp.field && r.value === value)) {
             results.push({
               field: fp.field,
               label: fp.label,
               value,
               originalText: originalMatch,
-            });
+            })
           }
-          break;
+          break
         }
       }
-      
+
       // If no specific field found but it's a substantial number, suggest as EBITDA
       if (results.length === 0 && value >= 10000) {
         results.push({
@@ -243,131 +253,166 @@ function parseFinancialValues(text: string): ParsedValue[] {
           label: 'EBITDA',
           value,
           originalText: originalMatch,
-        });
+        })
       }
     }
   }
-  
-  return results;
+
+  return results
 }
 
 // Export types and functions
-export type { ParsedValue, ParsedCommand };
-export { parseNormalizationCommands, parseFinancialValues };
+export type { ParsedValue, ParsedCommand }
+export { parseNormalizationCommands, parseFinancialValues }
 
 // Types
 export interface FieldUpdate {
-  field: string;
-  value: number;
-  label: string;
+  field: string
+  value: number
+  label: string
   // YC-Standard: Impact framing + provenance
   impact?: {
-    ebitdaDelta: number;      // e.g., +60000
-    valuationDelta: number;   // e.g., +312000 (at 5.2x)
-    multiple?: number;        // e.g., 5.2
-  };
-  source?: 'yuki' | 'exact' | 'manual' | 'ai' | 'kbo';
-  grootboekCode?: string;
-  confidence?: 'high' | 'medium' | 'low';
+    ebitdaDelta: number // e.g., +60000
+    valuationDelta: number // e.g., +312000 (at 5.2x)
+    multiple?: number // e.g., 5.2
+  }
+  source?: 'yuki' | 'exact' | 'manual' | 'ai' | 'kbo'
+  grootboekCode?: string
+  confidence?: 'high' | 'medium' | 'low'
 }
 
 export interface NormalisationSuggestion {
-  id: string;
-  code: string;
-  description: string;
-  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other';
-  amount: number;
-  reason: string;
-  sourceRef?: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  id: string
+  code: string
+  description: string
+  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other'
+  amount: number
+  reason: string
+  sourceRef?: string
+  status: 'pending' | 'accepted' | 'rejected'
   // Impact calculation
-  ebitdaImpact?: number;
-  valuationImpact?: number;
-  multiple?: number;
+  ebitdaImpact?: number
+  valuationImpact?: number
+  multiple?: number
 }
 
 export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: Date;
-  isError?: boolean;
-  attachments?: { name: string; type: string; url: string }[];
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  timestamp: Date
+  isError?: boolean
+  attachments?: { name: string; type: string; url: string }[]
   // YC-Standard: Structured cards with impact framing
-  fieldUpdates?: FieldUpdate[];
+  fieldUpdates?: FieldUpdate[]
   // AI-generated normalization suggestions with accept/reject
-  normalisationSuggestions?: NormalisationSuggestion[];
+  normalisationSuggestions?: NormalisationSuggestion[]
   // Task-driven: open tasks the user can complete
   tasks?: {
-    id: string;
-    type: 'confirm' | 'choose' | 'enter' | 'upload' | 'approve';
-    label: string;
-    context?: string;
-    completed?: boolean;
-  }[];
+    id: string
+    type: 'confirm' | 'choose' | 'enter' | 'upload' | 'approve'
+    label: string
+    context?: string
+    completed?: boolean
+  }[]
 }
 
 export interface FieldContext {
-  field: string;
-  label: string;
-  value?: any;
-  hint?: string;
+  field: string
+  label: string
+  value?: any
+  hint?: string
 }
 
 interface ChatAssistantDrawerProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  messages: ChatMessage[];
-  onSendMessage: (content: string, attachments?: File[], detectedValues?: ParsedValue[], parsedCommands?: ParsedCommand[]) => void;
-  isGenerating?: boolean;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  messages: ChatMessage[]
+  onSendMessage: (
+    content: string,
+    attachments?: File[],
+    detectedValues?: ParsedValue[],
+    parsedCommands?: ParsedCommand[]
+  ) => void
+  isGenerating?: boolean
   // Context from the form
-  companyName?: string;
-  fieldContext?: FieldContext;
+  companyName?: string
+  fieldContext?: FieldContext
   // Bi-directional sync: when AI suggests field updates
-  onApplyFieldUpdate?: (field: string, value: any) => void;
-  pendingUpdates?: { field: string; value: any; label: string }[];
-  onAcceptUpdate?: (field: string) => void;
-  onRejectUpdate?: (field: string) => void;
+  onApplyFieldUpdate?: (field: string, value: any) => void
+  pendingUpdates?: { field: string; value: any; label: string }[]
+  onAcceptUpdate?: (field: string) => void
+  onRejectUpdate?: (field: string) => void
   // Normalization suggestion handlers
-  onAcceptNormalisation?: (id: string) => void;
-  onRejectNormalisation?: (id: string) => void;
+  onAcceptNormalisation?: (id: string) => void
+  onRejectNormalisation?: (id: string) => void
   // Quick suggestion pills for common normalizations
-  showQuickNormalizations?: boolean;
+  showQuickNormalizations?: boolean
   // Command pill click handler - auto-fills and sends
-  onCommandPillClick?: (command: string) => void;
+  onCommandPillClick?: (command: string) => void
   // Open Normalization Hub - redirects to central hub when CSV is uploaded
-  onOpenNormalizationHub?: () => void;
-  hasUploadedData?: boolean;
+  onOpenNormalizationHub?: () => void
+  hasUploadedData?: boolean
   // Tool execution indicator (Claude is fetching data)
-  toolInProgress?: string | null;
+  toolInProgress?: string | null
   // Retry failed message
-  onRetry?: (messageId: string) => void;
+  onRetry?: (messageId: string) => void
   // Start a new conversation
-  onNewConversation?: () => void;
+  onNewConversation?: () => void
 }
 
 // Contextual suggestions based on field (returns translation keys for flexibility)
 const getContextualSuggestionKeys = (fieldContext?: FieldContext): string[] => {
   if (!fieldContext) {
-    return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
+    return [
+      'suggestions.whatWorth',
+      'suggestions.whichNorms',
+      'suggestions.generateReport',
+      'suggestions.explainEbitda',
+    ]
   }
-  const { field } = fieldContext;
+  const { field } = fieldContext
   switch (field) {
     case 'ownerSalary':
     case 'salary':
-      return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
+      return [
+        'suggestions.whatWorth',
+        'suggestions.whichNorms',
+        'suggestions.generateReport',
+        'suggestions.explainEbitda',
+      ]
     case 'rent':
     case 'huurkosten':
-      return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
+      return [
+        'suggestions.whatWorth',
+        'suggestions.whichNorms',
+        'suggestions.generateReport',
+        'suggestions.explainEbitda',
+      ]
     case 'ebitda':
-      return ['suggestions.explainEbitda', 'suggestions.whichNormsApply', 'suggestions.whichNorms', 'suggestions.generateReport'];
+      return [
+        'suggestions.explainEbitda',
+        'suggestions.whichNormsApply',
+        'suggestions.whichNorms',
+        'suggestions.generateReport',
+      ]
     case 'revenue':
     case 'omzet':
-      return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
+      return [
+        'suggestions.whatWorth',
+        'suggestions.whichNorms',
+        'suggestions.generateReport',
+        'suggestions.explainEbitda',
+      ]
     default:
-      return ['suggestions.whatWorth', 'suggestions.whichNorms', 'suggestions.generateReport', 'suggestions.explainEbitda'];
+      return [
+        'suggestions.whatWorth',
+        'suggestions.whichNorms',
+        'suggestions.generateReport',
+        'suggestions.explainEbitda',
+      ]
   }
-};
+}
 
 export function ChatAssistantDrawer({
   open,
@@ -391,135 +436,141 @@ export function ChatAssistantDrawer({
   onRetry,
   onNewConversation,
 }: ChatAssistantDrawerProps) {
-  const ca = useTranslations('chatAssistant');
-  const nh = useTranslations('normalizationHub');
-  const locale = useLocale();
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
-  const [input, setInput] = useState('');
-  
+  const ca = useTranslations('chatAssistant')
+  const nh = useTranslations('normalizationHub')
+  const locale = useLocale()
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const [input, setInput] = useState('')
+
   // Handler for command pill clicks - auto-fills and sends
-  const handleCommandPillClick = useCallback((command: string) => {
-    if (onCommandPillClick) {
-      onCommandPillClick(command);
-    } else {
-      // Fallback: set input and trigger submit
-      setInput(command);
-      // Use setTimeout to ensure state is updated before submitting
-      setTimeout(() => {
-        const commands = parseNormalizationCommands(command);
-        onSendMessage(command, undefined, undefined, commands.length > 0 ? commands : undefined);
-        setInput('');
-      }, 0);
-    }
-  }, [onCommandPillClick, onSendMessage]);
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const [detectedValues, setDetectedValues] = useState<ParsedValue[]>([]);
-  const [detectedCommands, setDetectedCommands] = useState<ParsedCommand[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const suggestionKeys = getContextualSuggestionKeys(fieldContext);
-  const suggestions = suggestionKeys.map((k) => ca(k));
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const handleCommandPillClick = useCallback(
+    (command: string) => {
+      if (onCommandPillClick) {
+        onCommandPillClick(command)
+      } else {
+        // Fallback: set input and trigger submit
+        setInput(command)
+        // Use setTimeout to ensure state is updated before submitting
+        setTimeout(() => {
+          const commands = parseNormalizationCommands(command)
+          onSendMessage(command, undefined, undefined, commands.length > 0 ? commands : undefined)
+          setInput('')
+        }, 0)
+      }
+    },
+    [onCommandPillClick, onSendMessage]
+  )
+  const [attachments, setAttachments] = useState<File[]>([])
+  const [detectedValues, setDetectedValues] = useState<ParsedValue[]>([])
+  const [detectedCommands, setDetectedCommands] = useState<ParsedCommand[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const suggestionKeys = getContextualSuggestionKeys(fieldContext)
+  const suggestions = suggestionKeys.map((k) => ca(k))
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Scroll to bottom on new messages and during streaming content updates
-  const lastMsgContent = messages[messages.length - 1]?.content;
+  const lastMsgContent = messages[messages.length - 1]?.content
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, lastMsgContent]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length, lastMsgContent])
 
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'
     }
-  }, [input]);
-  
+  }, [input])
+
   // Smart parsing - detect values and commands as user types
   useEffect(() => {
     if (input.length > 5) {
       // Parse normalization commands first (higher priority)
-      const commands = parseNormalizationCommands(input);
-      setDetectedCommands(commands);
-      
+      const commands = parseNormalizationCommands(input)
+      setDetectedCommands(commands)
+
       // Only parse values if no commands detected
       if (commands.length === 0) {
-        const parsed = parseFinancialValues(input);
-        setDetectedValues(parsed);
+        const parsed = parseFinancialValues(input)
+        setDetectedValues(parsed)
       } else {
-        setDetectedValues([]);
+        setDetectedValues([])
       }
     } else {
-      setDetectedValues([]);
-      setDetectedCommands([]);
+      setDetectedValues([])
+      setDetectedCommands([])
     }
-  }, [input]);
+  }, [input])
 
   useEffect(() => {
     if (open) {
-      trackAIAssistantOpen();
-      setTimeout(() => textareaRef.current?.focus(), 100);
+      trackAIAssistantOpen()
+      setTimeout(() => textareaRef.current?.focus(), 100)
     }
-  }, [open]);
+  }, [open])
 
   // Global keyboard shortcuts: Escape to close, Cmd+Shift+L for new conversation
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onOpenChange(false);
+        onOpenChange(false)
       }
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'l') {
-        e.preventDefault();
-        onNewConversation?.();
+        e.preventDefault()
+        onNewConversation?.()
       }
-    };
-    document.addEventListener('keydown', handleGlobalKeyDown);
-    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [open, onOpenChange, onNewConversation]);
+    }
+    document.addEventListener('keydown', handleGlobalKeyDown)
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [open, onOpenChange, onNewConversation])
 
-  const handleSubmit = useCallback((e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() && attachments.length === 0) return;
-    trackAIAssistantMessage();
-    onSendMessage(
-      input, 
-      attachments, 
-      detectedValues.length > 0 ? detectedValues : undefined,
-      detectedCommands.length > 0 ? detectedCommands : undefined
-    );
-    setInput('');
-    setAttachments([]);
-    setDetectedValues([]);
-    setDetectedCommands([]);
-  }, [input, attachments, detectedValues, detectedCommands, onSendMessage]);
+  const handleSubmit = useCallback(
+    (e?: React.FormEvent) => {
+      e?.preventDefault()
+      if (!input.trim() && attachments.length === 0) return
+      trackAIAssistantMessage()
+      onSendMessage(
+        input,
+        attachments,
+        detectedValues.length > 0 ? detectedValues : undefined,
+        detectedCommands.length > 0 ? detectedCommands : undefined
+      )
+      setInput('')
+      setAttachments([])
+      setDetectedValues([])
+      setDetectedCommands([])
+    },
+    [input, attachments, detectedValues, detectedCommands, onSendMessage]
+  )
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+      setAttachments((prev) => [...prev, ...Array.from(e.target.files!)])
     }
-  };
+  }
 
   const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
-  };
+    setAttachments((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
+      e.preventDefault()
+      handleSubmit()
     }
-  };
+  }
 
   // Filter out empty streaming placeholders (content will appear via streaming)
-  const visibleMessages = messages.filter((m) => m.role !== 'assistant' || m.content);
-  const isEmpty = visibleMessages.length === 0;
+  const visibleMessages = messages.filter((m) => m.role !== 'assistant' || m.content)
+  const isEmpty = visibleMessages.length === 0
   // Only show the loading skeleton when there's no assistant message actively receiving content
-  const lastVisible = visibleMessages[visibleMessages.length - 1];
-  const showLoadingSkeleton = isGenerating && (!lastVisible || lastVisible.role !== 'assistant');
+  const lastVisible = visibleMessages[visibleMessages.length - 1]
+  const showLoadingSkeleton = isGenerating && (!lastVisible || lastVisible.role !== 'assistant')
 
   // Track focus state for premium glow effect
-  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false)
 
   return (
     <AnimatePresence>
@@ -543,14 +594,14 @@ export function ChatAssistantDrawer({
             transition={springDefault}
             className={cn(
               // Base: Full screen on mobile for immersive experience
-              "fixed right-0 top-0 bottom-0 z-50",
-              "w-full h-full p-0 flex flex-col",
+              'fixed right-0 top-0 bottom-0 z-50',
+              'w-full h-full p-0 flex flex-col',
               // Tablet+: Balanced width - not too narrow, not too wide
-              "sm:w-[440px] md:w-[480px] lg:w-[520px]",
+              'sm:w-[440px] md:w-[480px] lg:w-[520px]',
               // Premium styling
-              "bg-background border-l border-foreground/[0.08]",
+              'bg-background border-l border-foreground/[0.08]',
               // Safe area for mobile notches/home indicators
-              "pb-[env(safe-area-inset-bottom)]"
+              'pb-[env(safe-area-inset-bottom)]'
             )}
           >
             {/* Header - Minimal, premium design with close button on right */}
@@ -584,11 +635,11 @@ export function ChatAssistantDrawer({
                   <button
                     onClick={onNewConversation}
                     className={cn(
-                      "shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg",
-                      "flex items-center justify-center",
-                      "text-foreground/40 hover:text-foreground/70",
-                      "hover:bg-foreground/[0.06] active:bg-foreground/[0.08]",
-                      "transition-colors touch-manipulation"
+                      'shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg',
+                      'flex items-center justify-center',
+                      'text-foreground/40 hover:text-foreground/70',
+                      'hover:bg-foreground/[0.06] active:bg-foreground/[0.08]',
+                      'transition-colors touch-manipulation'
                     )}
                     aria-label={ca('newConversation')}
                     title={ca('newConversation')}
@@ -600,11 +651,11 @@ export function ChatAssistantDrawer({
                 <button
                   onClick={() => onOpenChange(false)}
                   className={cn(
-                    "shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg",
-                    "flex items-center justify-center",
-                    "text-foreground/40 hover:text-foreground/70",
-                    "hover:bg-foreground/[0.06] active:bg-foreground/[0.08]",
-                    "transition-colors touch-manipulation"
+                    'shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg',
+                    'flex items-center justify-center',
+                    'text-foreground/40 hover:text-foreground/70',
+                    'hover:bg-foreground/[0.06] active:bg-foreground/[0.08]',
+                    'transition-colors touch-manipulation'
                   )}
                   aria-label={ca('close')}
                 >
@@ -631,7 +682,7 @@ export function ChatAssistantDrawer({
                 </p>
                 <div className="space-y-2.5 sm:space-y-2">
                   {pendingUpdates.map((update) => (
-                    <div 
+                    <div
                       key={update.field}
                       className="flex items-center justify-between gap-3 p-3 sm:p-2.5 rounded-xl sm:rounded-lg bg-background border border-primary/20"
                     >
@@ -640,9 +691,10 @@ export function ChatAssistantDrawer({
                           {update.label}
                         </p>
                         <p className="text-sm sm:text-xs text-foreground/50 font-mono">
-                          → {typeof update.value === 'number' 
-                              ? `€${update.value.toLocaleString(currencyLocale)}`
-                              : update.value}
+                          →{' '}
+                          {typeof update.value === 'number'
+                            ? `€${update.value.toLocaleString(currencyLocale)}`
+                            : update.value}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 sm:gap-1.5 shrink-0">
@@ -654,8 +706,8 @@ export function ChatAssistantDrawer({
                         </button>
                         <button
                           onClick={() => {
-                            onApplyFieldUpdate?.(update.field, update.value);
-                            onAcceptUpdate?.(update.field);
+                            onApplyFieldUpdate?.(update.field, update.value)
+                            onAcceptUpdate?.(update.field)
                           }}
                           className="p-2.5 sm:p-2 rounded-lg sm:rounded bg-primary/10 hover:bg-primary/20 text-primary active:scale-95 transition-transform touch-manipulation"
                         >
@@ -677,8 +729,8 @@ export function ChatAssistantDrawer({
               aria-label={ca('title')}
             >
               {isEmpty ? (
-                <EmptyState 
-                  onSuggestionClick={(text) => setInput(text)} 
+                <EmptyState
+                  onSuggestionClick={(text) => setInput(text)}
                   companyName={companyName}
                   fieldContext={fieldContext}
                   suggestions={suggestions}
@@ -687,10 +739,14 @@ export function ChatAssistantDrawer({
                 <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
                   <AnimatePresence>
                     {visibleMessages.map((message, idx) => (
-                      <MessageBubble 
-                        key={message.id} 
+                      <MessageBubble
+                        key={message.id}
                         message={message}
-                        isStreaming={isGenerating && idx === visibleMessages.length - 1 && message.role === 'assistant'}
+                        isStreaming={
+                          isGenerating &&
+                          idx === visibleMessages.length - 1 &&
+                          message.role === 'assistant'
+                        }
                         onApplyUpdate={onApplyFieldUpdate}
                         onAcceptNormalisation={onAcceptNormalisation}
                         onRejectNormalisation={onRejectNormalisation}
@@ -701,7 +757,7 @@ export function ChatAssistantDrawer({
                   </AnimatePresence>
 
                   {showLoadingSkeleton && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: 8, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
@@ -719,45 +775,59 @@ export function ChatAssistantDrawer({
                             <div className="flex items-center gap-2">
                               <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
                               <span className="text-xs text-primary/80 font-medium">
-                                {ca.has(`tools.${toolInProgress}`) ? ca(`tools.${toolInProgress}` as any) : ca('tools.default')}
+                                {ca.has(`tools.${toolInProgress}`)
+                                  ? ca(`tools.${toolInProgress}` as any)
+                                  : ca('tools.default')}
                               </span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-1.5">
-                              <motion.div 
+                              <motion.div
                                 className="w-2 h-2 rounded-full bg-primary"
                                 animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-                                transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                                transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
                               />
-                              <motion.div 
+                              <motion.div
                                 className="w-2 h-2 rounded-full bg-primary"
                                 animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-                                transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
+                                transition={{
+                                  duration: 1,
+                                  repeat: Infinity,
+                                  ease: 'easeInOut',
+                                  delay: 0.15,
+                                }}
                               />
-                              <motion.div 
+                              <motion.div
                                 className="w-2 h-2 rounded-full bg-primary"
                                 animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-                                transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                                transition={{
+                                  duration: 1,
+                                  repeat: Infinity,
+                                  ease: 'easeInOut',
+                                  delay: 0.3,
+                                }}
                               />
-                              <span className="ml-2 text-xs text-foreground/40">{ca('typing')}</span>
+                              <span className="ml-2 text-xs text-foreground/40">
+                                {ca('typing')}
+                              </span>
                             </div>
                           )}
                           {/* Content skeleton lines */}
                           <div className="space-y-2">
-                            <motion.div 
-                              className="h-3 bg-foreground/[0.06] rounded-full" 
+                            <motion.div
+                              className="h-3 bg-foreground/[0.06] rounded-full"
                               style={{ width: '85%' }}
                               animate={{ opacity: [0.5, 0.8, 0.5] }}
                               transition={{ duration: 1.5, repeat: Infinity }}
                             />
-                            <motion.div 
-                              className="h-3 bg-foreground/[0.06] rounded-full" 
+                            <motion.div
+                              className="h-3 bg-foreground/[0.06] rounded-full"
                               style={{ width: '70%' }}
                               animate={{ opacity: [0.5, 0.8, 0.5] }}
                               transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
                             />
-                            <motion.div 
-                              className="h-3 bg-foreground/[0.06] rounded-full" 
+                            <motion.div
+                              className="h-3 bg-foreground/[0.06] rounded-full"
                               style={{ width: '55%' }}
                               animate={{ opacity: [0.5, 0.8, 0.5] }}
                               transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
@@ -767,7 +837,7 @@ export function ChatAssistantDrawer({
                       </div>
                     </motion.div>
                   )}
-                  
+
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -780,7 +850,7 @@ export function ChatAssistantDrawer({
               {/* Command Detection Indicator */}
               <AnimatePresence>
                 {detectedCommands.length > 0 && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
@@ -792,7 +862,7 @@ export function ChatAssistantDrawer({
                     </p>
                     <div className="flex flex-wrap gap-2.5 sm:gap-2">
                       {detectedCommands.map((cmd, index) => (
-                        <div 
+                        <div
                           key={index}
                           className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-md bg-primary/15 border border-primary/25"
                         >
@@ -817,7 +887,7 @@ export function ChatAssistantDrawer({
               {/* Smart Number Detection Indicator */}
               <AnimatePresence>
                 {detectedValues.length > 0 && detectedCommands.length === 0 && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
@@ -829,7 +899,7 @@ export function ChatAssistantDrawer({
                     </p>
                     <div className="flex flex-wrap gap-2.5 sm:gap-2">
                       {detectedValues.map((detected, index) => (
-                        <div 
+                        <div
                           key={index}
                           className="inline-flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg sm:rounded-md bg-success/15 border border-success/25"
                         >
@@ -853,16 +923,18 @@ export function ChatAssistantDrawer({
               {/* Premium Input Container */}
               <motion.div
                 initial={false}
-                animate={{ 
-                  borderColor: isInputFocused ? 'hsl(var(--foreground) / 0.12)' : 'hsl(var(--foreground) / 0.08)',
+                animate={{
+                  borderColor: isInputFocused
+                    ? 'hsl(var(--foreground) / 0.12)'
+                    : 'hsl(var(--foreground) / 0.08)',
                 }}
                 className={cn(
-                  "relative w-full flex flex-col rounded-2xl sm:rounded-xl",
-                  "p-3.5 sm:p-3",
-                  "bg-foreground/[0.03] backdrop-blur-xl",
-                  "border border-foreground/[0.08]",
-                  "transition-[box-shadow] duration-300",
-                  !isInputFocused && "hover:bg-foreground/[0.04]",
+                  'relative w-full flex flex-col rounded-2xl sm:rounded-xl',
+                  'p-3.5 sm:p-3',
+                  'bg-foreground/[0.03] backdrop-blur-xl',
+                  'border border-foreground/[0.08]',
+                  'transition-[box-shadow] duration-300',
+                  !isInputFocused && 'hover:bg-foreground/[0.04]'
                 )}
                 style={{
                   boxShadow: isInputFocused
@@ -873,7 +945,7 @@ export function ChatAssistantDrawer({
                 {/* Attachments Preview */}
                 <AnimatePresence>
                   {attachments.length > 0 && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
@@ -894,8 +966,10 @@ export function ChatAssistantDrawer({
                           ) : (
                             <FileText className="w-4 h-4 sm:w-3 sm:h-3" />
                           )}
-                          <span className="truncate max-w-[120px] sm:max-w-[100px]">{file.name}</span>
-                          <button 
+                          <span className="truncate max-w-[120px] sm:max-w-[100px]">
+                            {file.name}
+                          </span>
+                          <button
                             type="button"
                             onClick={() => removeAttachment(index)}
                             className="p-1 sm:p-0.5 rounded-md sm:rounded hover:bg-foreground/[0.08] text-foreground/40 hover:text-destructive touch-manipulation"
@@ -917,10 +991,10 @@ export function ChatAssistantDrawer({
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className={cn(
-                      "shrink-0 rounded-xl sm:rounded-lg transition-colors touch-manipulation",
-                      "w-12 h-12 sm:w-10 sm:h-10 flex items-center justify-center",
-                      "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]",
-                      "active:bg-foreground/[0.08]"
+                      'shrink-0 rounded-xl sm:rounded-lg transition-colors touch-manipulation',
+                      'w-12 h-12 sm:w-10 sm:h-10 flex items-center justify-center',
+                      'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]',
+                      'active:bg-foreground/[0.08]'
                     )}
                     aria-label={ca('addFile')}
                   >
@@ -935,18 +1009,19 @@ export function ChatAssistantDrawer({
                     onFocus={() => setIsInputFocused(true)}
                     onBlur={() => setIsInputFocused(false)}
                     onKeyDown={handleKeyDown}
-                    placeholder={fieldContext 
-                      ? ca('askAboutField', { field: (fieldContext.label || '').toLowerCase() })
-                      : ca('askOrCommand')
+                    placeholder={
+                      fieldContext
+                        ? ca('askAboutField', { field: (fieldContext.label || '').toLowerCase() })
+                        : ca('askOrCommand')
                     }
                     rows={1}
                     className={cn(
-                      "flex-1 w-full bg-transparent border-none outline-none resize-none",
-                      "focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none focus:border-transparent",
+                      'flex-1 w-full bg-transparent border-none outline-none resize-none',
+                      'focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none focus:border-transparent',
                       // text-base on mobile prevents iOS auto-zoom
-                      "text-base sm:text-sm min-h-[48px] sm:min-h-[44px] leading-relaxed",
-                      "text-foreground placeholder:text-foreground/40",
-                      "transition-colors duration-200"
+                      'text-base sm:text-sm min-h-[48px] sm:min-h-[44px] leading-relaxed',
+                      'text-foreground placeholder:text-foreground/40',
+                      'transition-colors duration-200'
                     )}
                     disabled={isGenerating}
                     aria-label={ca('chatInput')}
@@ -960,22 +1035,25 @@ export function ChatAssistantDrawer({
                     whileHover={{ scale: input.trim() || attachments.length > 0 ? 1.05 : 1 }}
                     whileTap={{ scale: input.trim() || attachments.length > 0 ? 0.95 : 1 }}
                     className={cn(
-                      "shrink-0 w-12 h-12 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center",
-                      "transition-all duration-200 touch-manipulation",
+                      'shrink-0 w-12 h-12 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center',
+                      'transition-all duration-200 touch-manipulation',
                       // Enabled with value
-                      (input.trim() || attachments.length > 0) && !isGenerating && [
-                        "bg-primary text-primary-foreground",
-                        "shadow-md shadow-primary/20",
-                        "hover:shadow-lg hover:shadow-primary/30",
-                        "active:scale-95",
-                      ],
+                      (input.trim() || attachments.length > 0) &&
+                        !isGenerating && [
+                          'bg-primary text-primary-foreground',
+                          'shadow-md shadow-primary/20',
+                          'hover:shadow-lg hover:shadow-primary/30',
+                          'active:scale-95',
+                        ],
                       // Disabled/empty
-                      (!input.trim() && attachments.length === 0) && !isGenerating && [
-                        "bg-foreground/[0.06] text-foreground/30",
-                        "cursor-not-allowed",
-                      ],
+                      !input.trim() &&
+                        attachments.length === 0 &&
+                        !isGenerating && [
+                          'bg-foreground/[0.06] text-foreground/30',
+                          'cursor-not-allowed',
+                        ],
                       // Loading
-                      isGenerating && "bg-primary/70 text-primary-foreground cursor-wait"
+                      isGenerating && 'bg-primary/70 text-primary-foreground cursor-wait'
                     )}
                     aria-label={ca('send')}
                   >
@@ -1011,16 +1089,16 @@ export function ChatAssistantDrawer({
                             onClick={() => handleCommandPillClick(suggestion)}
                             disabled={isGenerating}
                             className={cn(
-                              "shrink-0 sm:shrink",
+                              'shrink-0 sm:shrink',
                               // Mobile: Larger touch targets
-                              "px-4 py-2.5 sm:px-3 sm:py-1.5",
-                              "rounded-full inline-flex items-center gap-1.5",
-                              "bg-foreground/[0.05] backdrop-blur-sm",
-                              "border border-foreground/[0.08]",
-                              "text-sm sm:text-xs font-medium text-foreground/60",
-                              "hover:bg-foreground/[0.08] hover:border-foreground/[0.12] hover:text-foreground/80",
-                              "active:scale-95 transition-all duration-150 touch-manipulation whitespace-nowrap",
-                              isGenerating && "opacity-50 cursor-not-allowed"
+                              'px-4 py-2.5 sm:px-3 sm:py-1.5',
+                              'rounded-full inline-flex items-center gap-1.5',
+                              'bg-foreground/[0.05] backdrop-blur-sm',
+                              'border border-foreground/[0.08]',
+                              'text-sm sm:text-xs font-medium text-foreground/60',
+                              'hover:bg-foreground/[0.08] hover:border-foreground/[0.12] hover:text-foreground/80',
+                              'active:scale-95 transition-all duration-150 touch-manipulation whitespace-nowrap',
+                              isGenerating && 'opacity-50 cursor-not-allowed'
                             )}
                           >
                             {suggestion}
@@ -1051,34 +1129,33 @@ export function ChatAssistantDrawer({
         </>
       )}
     </AnimatePresence>
-  );
+  )
 }
 
 // Empty State Component - Premium minimal design (no redundant icons)
-function EmptyState({ 
-  onSuggestionClick, 
+function EmptyState({
+  onSuggestionClick,
   companyName,
   fieldContext,
   suggestions,
-}: { 
-  onSuggestionClick: (text: string) => void;
-  companyName?: string;
-  fieldContext?: FieldContext;
-  suggestions: string[];
+}: {
+  onSuggestionClick: (text: string) => void
+  companyName?: string
+  fieldContext?: FieldContext
+  suggestions: string[]
 }) {
-  const ca = useTranslations('chatAssistant');
+  const ca = useTranslations('chatAssistant')
   return (
     <div className="flex flex-col items-center justify-center h-full px-5 sm:px-6 py-8 sm:py-10">
       <div className="max-w-md w-full space-y-8 sm:space-y-6">
         {/* Minimal Header - World-class typography hierarchy */}
         <div className="text-center space-y-3 sm:space-y-2">
           <h2 className="text-xl sm:text-lg font-semibold text-foreground tracking-tight">
-            {fieldContext 
+            {fieldContext
               ? ca('helpWithField', { field: fieldContext.label || '' })
-              : companyName 
+              : companyName
                 ? ca('analysisFor', { company: companyName })
-                : ca('howCanIHelp')
-            }
+                : ca('howCanIHelp')}
           </h2>
           <p className="text-base sm:text-sm text-foreground/50 max-w-xs mx-auto">
             {fieldContext?.hint || ca('askOrUpload')}
@@ -1088,7 +1165,7 @@ function EmptyState({
         {/* Suggestions moved to input area pills */}
       </div>
     </div>
-  );
+  )
 }
 
 // Category icons for normalization suggestions
@@ -1099,20 +1176,22 @@ const categoryIcons: Record<string, string> = {
   'one-time': '⚡',
   personal: '🏠',
   other: '📊',
-};
+}
 
 // Code Block with copy button
 function CodeBlock({ children, className }: { children: React.ReactNode; className?: string }) {
-  const [copied, setCopied] = useState(false);
-  const ca = useTranslations('chatAssistant');
-  const lang = className?.replace(/^language-/, '') || '';
-  const codeText = (Array.isArray(children) ? children.map(String).join('') : String(children)).replace(/\n$/, '');
+  const [copied, setCopied] = useState(false)
+  const ca = useTranslations('chatAssistant')
+  const lang = className?.replace(/^language-/, '') || ''
+  const codeText = (
+    Array.isArray(children) ? children.map(String).join('') : String(children)
+  ).replace(/\n$/, '')
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(codeText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+    await navigator.clipboard.writeText(codeText)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <div className="relative group/code my-3 rounded-xl overflow-hidden border border-foreground/[0.08]">
@@ -1123,10 +1202,10 @@ function CodeBlock({ children, className }: { children: React.ReactNode; classNa
         <button
           onClick={handleCopy}
           className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all",
+            'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
             copied
-              ? "text-primary bg-primary/10"
-              : "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]"
+              ? 'text-primary bg-primary/10'
+              : 'text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.06]'
           )}
           aria-label={ca('copyCode')}
         >
@@ -1135,16 +1214,14 @@ function CodeBlock({ children, className }: { children: React.ReactNode; classNa
         </button>
       </div>
       <pre className="p-4 overflow-x-auto bg-foreground/[0.03]">
-        <code className="text-sm font-mono text-foreground/80 leading-relaxed">
-          {codeText}
-        </code>
+        <code className="text-sm font-mono text-foreground/80 leading-relaxed">{codeText}</code>
       </pre>
     </div>
-  );
+  )
 }
 
 // Message Bubble Component
-function MessageBubble({ 
+function MessageBubble({
   message,
   isStreaming = false,
   onApplyUpdate,
@@ -1152,28 +1229,28 @@ function MessageBubble({
   onRejectNormalisation,
   onCommandPillClick,
   onRetry,
-}: { 
-  message: ChatMessage;
-  isStreaming?: boolean;
-  onApplyUpdate?: (field: string, value: any) => void;
-  onAcceptNormalisation?: (id: string) => void;
-  onRejectNormalisation?: (id: string) => void;
-  onCommandPillClick?: (command: string) => void;
-  onRetry?: (messageId: string) => void;
+}: {
+  message: ChatMessage
+  isStreaming?: boolean
+  onApplyUpdate?: (field: string, value: any) => void
+  onAcceptNormalisation?: (id: string) => void
+  onRejectNormalisation?: (id: string) => void
+  onCommandPillClick?: (command: string) => void
+  onRetry?: (messageId: string) => void
 }) {
-  const ca = useTranslations('chatAssistant');
-  const locale = useLocale();
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
-  const [copied, setCopied] = useState(false);
-  const isUser = message.role === 'user';
-  const isSystem = message.role === 'system';
+  const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const [copied, setCopied] = useState(false)
+  const isUser = message.role === 'user'
+  const isSystem = message.role === 'system'
 
   const handleCopyMessage = async () => {
-    await navigator.clipboard.writeText(message.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-  
+    await navigator.clipboard.writeText(message.content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (isSystem) {
     return (
       <motion.div
@@ -1184,9 +1261,9 @@ function MessageBubble({
       >
         <span className="text-xs text-foreground/40 italic">{message.content}</span>
       </motion.div>
-    );
+    )
   }
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
@@ -1200,40 +1277,44 @@ function MessageBubble({
           <Bot className="w-4 h-4 text-primary" />
         </div>
       )}
-      
-      <div className={cn(
-        // Responsive bubble sizing with premium shapes
-        'max-w-[85%] sm:max-w-[82%]',
-        isUser 
-          // User bubble: Teal tint with dark text for readability
-          ? [
-              'rounded-2xl rounded-tr-md',
-              'px-4 py-3',
-              'bg-gradient-to-br from-primary/15 via-primary/12 to-primary/8',
-              'text-foreground',
-              'border border-primary/25',
-              'shadow-sm',
-            ]
-          // AI bubble: Glassmorphism with depth
-          : [
-              'rounded-2xl rounded-tl-md',
-              'px-5 py-4',
-              'bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02]',
-              'border border-foreground/[0.08]',
-              'backdrop-blur-sm',
-              'text-foreground',
-              'shadow-sm',
-            ]
-      )}>
+
+      <div
+        className={cn(
+          // Responsive bubble sizing with premium shapes
+          'max-w-[85%] sm:max-w-[82%]',
+          isUser
+            ? // User bubble: Teal tint with dark text for readability
+              [
+                'rounded-2xl rounded-tr-md',
+                'px-4 py-3',
+                'bg-gradient-to-br from-primary/15 via-primary/12 to-primary/8',
+                'text-foreground',
+                'border border-primary/25',
+                'shadow-sm',
+              ]
+            : // AI bubble: Glassmorphism with depth
+              [
+                'rounded-2xl rounded-tl-md',
+                'px-5 py-4',
+                'bg-gradient-to-br from-foreground/[0.04] to-foreground/[0.02]',
+                'border border-foreground/[0.08]',
+                'backdrop-blur-sm',
+                'text-foreground',
+                'shadow-sm',
+              ]
+        )}
+      >
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 sm:gap-1.5 mb-3 sm:mb-2">
             {message.attachments.map((attachment, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className={cn(
                   'flex items-center gap-2 sm:gap-1.5 px-3 sm:px-2 py-1.5 sm:py-1 rounded-lg text-sm sm:text-xs',
-                  isUser ? 'bg-primary/20 text-foreground/80' : 'bg-foreground/[0.06] text-foreground/70'
+                  isUser
+                    ? 'bg-primary/20 text-foreground/80'
+                    : 'bg-foreground/[0.06] text-foreground/70'
                 )}
               >
                 {attachment.type.startsWith('image/') ? (
@@ -1246,31 +1327,60 @@ function MessageBubble({
             ))}
           </div>
         )}
-        
+
         {/* Content with Markdown for AI, plain text for user */}
         {isUser ? (
-          <p className="text-[15px] sm:text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+          <p className="text-[15px] sm:text-sm leading-relaxed whitespace-pre-wrap">
+            {message.content}
+          </p>
         ) : (
           <div className="prose prose-sm prose-invert max-w-none">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                h1: ({ children }) => <h1 className="text-lg font-semibold text-foreground mt-4 mb-2 first:mt-0">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-base font-semibold text-foreground mt-3 mb-2 first:mt-0">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-sm font-semibold text-foreground mt-2 mb-1 first:mt-0">{children}</h3>,
-                p: ({ children }) => <p className="text-[15px] sm:text-sm leading-relaxed text-foreground/90 mb-3 last:mb-0">{children}</p>,
+                h1: ({ children }) => (
+                  <h1 className="text-lg font-semibold text-foreground mt-4 mb-2 first:mt-0">
+                    {children}
+                  </h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-base font-semibold text-foreground mt-3 mb-2 first:mt-0">
+                    {children}
+                  </h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-sm font-semibold text-foreground mt-2 mb-1 first:mt-0">
+                    {children}
+                  </h3>
+                ),
+                p: ({ children }) => (
+                  <p className="text-[15px] sm:text-sm leading-relaxed text-foreground/90 mb-3 last:mb-0">
+                    {children}
+                  </p>
+                ),
                 ul: ({ children }) => <ul className="space-y-1.5 mb-3 last:mb-0">{children}</ul>,
-                ol: ({ children }) => <ol className="space-y-1.5 mb-3 last:mb-0 list-decimal list-inside">{children}</ol>,
+                ol: ({ children }) => (
+                  <ol className="space-y-1.5 mb-3 last:mb-0 list-decimal list-inside">
+                    {children}
+                  </ol>
+                ),
                 li: ({ children }) => (
                   <li className="flex items-start gap-2 text-[15px] sm:text-sm text-foreground/85">
                     <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary/60 mt-2" />
                     <span>{children}</span>
                   </li>
                 ),
-                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                strong: ({ children }) => (
+                  <strong className="font-semibold text-foreground">{children}</strong>
+                ),
                 em: ({ children }) => {
-                  const text = String(children);
-                  if (text.startsWith('"') || text.toLowerCase().startsWith('normalis') || text.toLowerCase().startsWith('zet ') || text.toLowerCase().startsWith('pas ')) {
+                  const text = String(children)
+                  if (
+                    text.startsWith('"') ||
+                    text.toLowerCase().startsWith('normalis') ||
+                    text.toLowerCase().startsWith('zet ') ||
+                    text.toLowerCase().startsWith('pas ')
+                  ) {
                     return (
                       <button
                         type="button"
@@ -1279,18 +1389,22 @@ function MessageBubble({
                       >
                         {children}
                       </button>
-                    );
+                    )
                   }
-                  return <em className="italic text-foreground/70">{children}</em>;
+                  return <em className="italic text-foreground/70">{children}</em>
                 },
                 // Code: block code lives inside <pre>, inline does not
                 pre: ({ children }) => {
                   // Extract the inner <code> and render as CodeBlock
-                  const child = Array.isArray(children) ? children[0] : children;
+                  const child = Array.isArray(children) ? children[0] : children
                   if (child && typeof child === 'object' && 'props' in child) {
-                    return <CodeBlock className={child.props.className}>{child.props.children}</CodeBlock>;
+                    return (
+                      <CodeBlock className={child.props.className}>
+                        {child.props.children}
+                      </CodeBlock>
+                    )
                   }
-                  return <pre>{children}</pre>;
+                  return <pre>{children}</pre>
                 },
                 code: ({ children }) => (
                   <code className="px-1.5 py-0.5 rounded bg-foreground/[0.08] text-sm font-mono text-foreground/80">
@@ -1309,13 +1423,19 @@ function MessageBubble({
                   </div>
                 ),
                 thead: ({ children }) => (
-                  <thead className="bg-foreground/[0.04] border-b border-foreground/[0.08]">{children}</thead>
+                  <thead className="bg-foreground/[0.04] border-b border-foreground/[0.08]">
+                    {children}
+                  </thead>
                 ),
                 th: ({ children }) => (
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-foreground/70 uppercase tracking-wider">{children}</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-foreground/70 uppercase tracking-wider">
+                    {children}
+                  </th>
                 ),
                 td: ({ children }) => (
-                  <td className="px-3 py-2 text-sm text-foreground/80 border-t border-foreground/[0.04]">{children}</td>
+                  <td className="px-3 py-2 text-sm text-foreground/80 border-t border-foreground/[0.04]">
+                    {children}
+                  </td>
                 ),
                 // GFM: Links
                 a: ({ children, href }) => (
@@ -1346,7 +1466,7 @@ function MessageBubble({
             )}
           </div>
         )}
-        
+
         {/* Error state with retry */}
         {message.isError && onRetry && (
           <motion.button
@@ -1354,10 +1474,10 @@ function MessageBubble({
             animate={{ opacity: 1, y: 0 }}
             onClick={() => onRetry(message.id)}
             className={cn(
-              "mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg",
-              "text-xs font-medium text-destructive",
-              "bg-destructive/10 border border-destructive/20",
-              "hover:bg-destructive/15 active:scale-[0.98] transition-all touch-manipulation"
+              'mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg',
+              'text-xs font-medium text-destructive',
+              'bg-destructive/10 border border-destructive/20',
+              'hover:bg-destructive/15 active:scale-[0.98] transition-all touch-manipulation'
             )}
           >
             <RotateCcw className="w-3 h-3" />
@@ -1371,10 +1491,10 @@ function MessageBubble({
             <button
               onClick={handleCopyMessage}
               className={cn(
-                "flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all",
+                'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
                 copied
-                  ? "text-primary bg-primary/10"
-                  : "text-foreground/35 hover:text-foreground/60 hover:bg-foreground/[0.06]"
+                  ? 'text-primary bg-primary/10'
+                  : 'text-foreground/35 hover:text-foreground/60 hover:bg-foreground/[0.06]'
               )}
               aria-label={ca('copyMessage')}
             >
@@ -1383,7 +1503,7 @@ function MessageBubble({
             </button>
           </div>
         )}
-        
+
         {/* YC-Standard: Structured Cards with Impact Framing */}
         {message.fieldUpdates && message.fieldUpdates.length > 0 && (
           <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
@@ -1395,7 +1515,9 @@ function MessageBubble({
                 {/* Header with source badge */}
                 <div className="flex items-center justify-between px-4 sm:px-3 py-2.5 sm:py-2 bg-foreground/[0.02] border-b border-foreground/[0.04]">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm sm:text-xs font-medium text-foreground">{update.label}</span>
+                    <span className="text-sm sm:text-xs font-medium text-foreground">
+                      {update.label}
+                    </span>
                     {update.grootboekCode && (
                       <span className="text-xs sm:text-[9px] font-mono text-foreground/40 bg-foreground/[0.04] px-2 sm:px-1.5 py-0.5 rounded">
                         {update.grootboekCode}
@@ -1403,21 +1525,29 @@ function MessageBubble({
                     )}
                   </div>
                   {update.source && (
-                    <span className={cn(
-                      "text-xs sm:text-[9px] font-medium px-2 sm:px-1.5 py-0.5 rounded",
-                      update.source === 'yuki' ? "bg-primary/10 text-primary" :
-                      update.source === 'ai' ? "bg-primary/10 text-primary" :
-                      update.source === 'kbo' ? "bg-success/10 text-success" :
-                      "bg-foreground/[0.06] text-foreground/50"
-                    )}>
-                      {update.source === 'ai' ? ca('aiSuggestion') : 
-                       update.source === 'yuki' ? 'Yuki' :
-                       update.source === 'kbo' ? 'KBO' :
-                       update.source}
+                    <span
+                      className={cn(
+                        'text-xs sm:text-[9px] font-medium px-2 sm:px-1.5 py-0.5 rounded',
+                        update.source === 'yuki'
+                          ? 'bg-primary/10 text-primary'
+                          : update.source === 'ai'
+                            ? 'bg-primary/10 text-primary'
+                            : update.source === 'kbo'
+                              ? 'bg-success/10 text-success'
+                              : 'bg-foreground/[0.06] text-foreground/50'
+                      )}
+                    >
+                      {update.source === 'ai'
+                        ? ca('aiSuggestion')
+                        : update.source === 'yuki'
+                          ? 'Yuki'
+                          : update.source === 'kbo'
+                            ? 'KBO'
+                            : update.source}
                     </span>
                   )}
                 </div>
-                
+
                 {/* Value + Impact */}
                 <div className="px-4 sm:px-3 py-3 sm:py-2.5 space-y-2.5 sm:space-y-2">
                   <div className="flex items-center justify-between">
@@ -1425,25 +1555,35 @@ function MessageBubble({
                       €{update.value.toLocaleString(currencyLocale)}
                     </span>
                     {update.confidence && (
-                      <div className={cn(
-                        "flex items-center gap-1.5 sm:gap-1 text-xs sm:text-[10px]",
-                        update.confidence === 'high' ? "text-success" :
-                        update.confidence === 'medium' ? "text-secondary" :
-                        "text-foreground/40"
-                      )}>
-                        <div className={cn(
-                          "w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full",
-                          update.confidence === 'high' ? "bg-success" :
-                          update.confidence === 'medium' ? "bg-secondary" :
-                          "bg-foreground/30"
-                        )} />
-                        {update.confidence === 'high' ? ca('reliable') :
-                         update.confidence === 'medium' ? ca('toVerify') :
-                         ca('indicative')}
+                      <div
+                        className={cn(
+                          'flex items-center gap-1.5 sm:gap-1 text-xs sm:text-[10px]',
+                          update.confidence === 'high'
+                            ? 'text-success'
+                            : update.confidence === 'medium'
+                              ? 'text-secondary'
+                              : 'text-foreground/40'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full',
+                            update.confidence === 'high'
+                              ? 'bg-success'
+                              : update.confidence === 'medium'
+                                ? 'bg-secondary'
+                                : 'bg-foreground/30'
+                          )}
+                        />
+                        {update.confidence === 'high'
+                          ? ca('reliable')
+                          : update.confidence === 'medium'
+                            ? ca('toVerify')
+                            : ca('indicative')}
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Impact framing - YC killer feature */}
                   {update.impact && (
                     <div className="flex items-center gap-3 p-3 sm:p-2 rounded-lg sm:rounded-md bg-success/5 border border-success/10">
@@ -1457,7 +1597,8 @@ function MessageBubble({
                       </div>
                       <div className="text-right">
                         <p className="text-xs sm:text-[10px] text-foreground/50">
-                          EBITDA {update.impact.ebitdaDelta > 0 ? '+' : ''}€{(update.impact.ebitdaDelta / 1000).toFixed(0)}k
+                          EBITDA {update.impact.ebitdaDelta > 0 ? '+' : ''}€
+                          {(update.impact.ebitdaDelta / 1000).toFixed(0)}k
                         </p>
                         {update.impact.multiple && (
                           <p className="text-xs sm:text-[10px] text-foreground/40">
@@ -1468,26 +1609,28 @@ function MessageBubble({
                     </div>
                   )}
                 </div>
-                
+
                 {/* Action button - 48px touch target on mobile */}
                 <button
                   onClick={() => onApplyUpdate?.(update.field, update.value)}
                   className={cn(
-                    "w-full flex items-center justify-center gap-2",
-                    "px-4 sm:px-3 py-3.5 sm:py-2.5",
-                    "bg-primary/10 hover:bg-primary/20 active:bg-primary/25",
-                    "transition-colors border-t border-foreground/[0.04]",
-                    "touch-manipulation"
+                    'w-full flex items-center justify-center gap-2',
+                    'px-4 sm:px-3 py-3.5 sm:py-2.5',
+                    'bg-primary/10 hover:bg-primary/20 active:bg-primary/25',
+                    'transition-colors border-t border-foreground/[0.04]',
+                    'touch-manipulation'
                   )}
                 >
                   <Check className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-primary" />
-                  <span className="text-sm sm:text-xs font-medium text-primary">{ca('acceptAndApply')}</span>
+                  <span className="text-sm sm:text-xs font-medium text-primary">
+                    {ca('acceptAndApply')}
+                  </span>
                 </button>
               </div>
             ))}
           </div>
         )}
-        
+
         {/* AI-Generated Normalization Suggestions with Accept/Reject */}
         {message.normalisationSuggestions && message.normalisationSuggestions.length > 0 && (
           <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
@@ -1495,11 +1638,13 @@ function MessageBubble({
               {ca('normSuggestions')}
             </p>
             {message.normalisationSuggestions.map((suggestion) => {
-              const valuationImpact = suggestion.valuationImpact || Math.round(suggestion.amount * (suggestion.multiple || 5.2));
-              const isPending = suggestion.status === 'pending';
-              const isAccepted = suggestion.status === 'accepted';
-              const isRejected = suggestion.status === 'rejected';
-              
+              const valuationImpact =
+                suggestion.valuationImpact ||
+                Math.round(suggestion.amount * (suggestion.multiple || 5.2))
+              const isPending = suggestion.status === 'pending'
+              const isAccepted = suggestion.status === 'accepted'
+              const isRejected = suggestion.status === 'rejected'
+
               return (
                 <motion.div
                   key={suggestion.id}
@@ -1507,10 +1652,12 @@ function MessageBubble({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25 }}
                   className={cn(
-                    "rounded-xl sm:rounded-lg border overflow-hidden transition-all",
-                    isPending ? "border-primary/20 bg-primary/5" :
-                    isAccepted ? "border-success/20 bg-success/5" :
-                    "border-foreground/10 bg-foreground/[0.02] opacity-60"
+                    'rounded-xl sm:rounded-lg border overflow-hidden transition-all',
+                    isPending
+                      ? 'border-primary/20 bg-primary/5'
+                      : isAccepted
+                        ? 'border-success/20 bg-success/5'
+                        : 'border-foreground/10 bg-foreground/[0.02] opacity-60'
                   )}
                 >
                   {/* Suggestion Header */}
@@ -1520,7 +1667,9 @@ function MessageBubble({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm sm:text-xs font-medium text-foreground">
-                        {ca('normalizeSuggestion', { description: (suggestion.description || '').toLowerCase() })}
+                        {ca('normalizeSuggestion', {
+                          description: (suggestion.description || '').toLowerCase(),
+                        })}
                       </p>
                       <p className="text-xs sm:text-[10px] text-foreground/50 mt-1 sm:mt-0.5">
                         {suggestion.reason}
@@ -1532,7 +1681,7 @@ function MessageBubble({
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Impact + Actions - Stack on mobile for better touch targets */}
                   {isPending ? (
                     <div className="flex flex-col sm:flex-row sm:items-center border-t border-foreground/[0.06]">
@@ -1540,7 +1689,10 @@ function MessageBubble({
                       <div className="flex-1 px-4 sm:px-3 py-3 sm:py-2 bg-success/5">
                         <p className="text-xs sm:text-[10px] text-success/70">{ca('impact')}</p>
                         <p className="text-sm sm:text-xs font-mono font-semibold text-success">
-                          {ca('impactEbitdaToValue', { ebitda: suggestion.amount.toLocaleString(currencyLocale), value: valuationImpact.toLocaleString(currencyLocale) })}
+                          {ca('impactEbitdaToValue', {
+                            ebitda: suggestion.amount.toLocaleString(currencyLocale),
+                            value: valuationImpact.toLocaleString(currencyLocale),
+                          })}
                         </p>
                       </div>
                       {/* Accept/Reject Buttons - Full width on mobile */}
@@ -1548,12 +1700,12 @@ function MessageBubble({
                         <button
                           onClick={() => onRejectNormalisation?.(suggestion.id)}
                           className={cn(
-                            "flex-1 sm:flex-initial flex items-center justify-center gap-2",
-                            "px-5 sm:px-4 py-4 sm:py-3",
-                            "text-foreground/40 hover:text-destructive hover:bg-destructive/10",
-                            "active:bg-destructive/15 transition-colors",
-                            "sm:border-l border-foreground/[0.06]",
-                            "touch-manipulation"
+                            'flex-1 sm:flex-initial flex items-center justify-center gap-2',
+                            'px-5 sm:px-4 py-4 sm:py-3',
+                            'text-foreground/40 hover:text-destructive hover:bg-destructive/10',
+                            'active:bg-destructive/15 transition-colors',
+                            'sm:border-l border-foreground/[0.06]',
+                            'touch-manipulation'
                           )}
                           aria-label={ca('reject')}
                         >
@@ -1563,11 +1715,11 @@ function MessageBubble({
                         <button
                           onClick={() => onAcceptNormalisation?.(suggestion.id)}
                           className={cn(
-                            "flex-1 sm:flex-initial flex items-center justify-center gap-2",
-                            "px-5 sm:px-4 py-4 sm:py-3",
-                            "bg-success/10 text-success hover:bg-success/20",
-                            "active:bg-success/25 transition-colors",
-                            "touch-manipulation"
+                            'flex-1 sm:flex-initial flex items-center justify-center gap-2',
+                            'px-5 sm:px-4 py-4 sm:py-3',
+                            'bg-success/10 text-success hover:bg-success/20',
+                            'active:bg-success/25 transition-colors',
+                            'touch-manipulation'
                           )}
                           aria-label={ca('accept')}
                         >
@@ -1577,70 +1729,90 @@ function MessageBubble({
                       </div>
                     </div>
                   ) : (
-                    <div className={cn(
-                      "px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t",
-                      isAccepted ? "border-success/10 text-success bg-success/5" :
-                      "border-foreground/[0.06] text-foreground/40"
-                    )}>
+                    <div
+                      className={cn(
+                        'px-4 sm:px-3 py-3 sm:py-2 text-sm sm:text-xs text-center border-t',
+                        isAccepted
+                          ? 'border-success/10 text-success bg-success/5'
+                          : 'border-foreground/[0.06] text-foreground/40'
+                      )}
+                    >
                       {isAccepted ? ca('accepted') : ca('rejected')}
                     </div>
                   )}
                 </motion.div>
-              );
+              )
             })}
           </div>
         )}
-        
+
         {/* Task-driven: Open tasks the user can complete */}
         {message.tasks && message.tasks.length > 0 && (
           <div className="mt-4 sm:mt-3 pt-4 sm:pt-3 border-t border-foreground/[0.08] space-y-3 sm:space-y-2">
             <p className="text-xs sm:text-[10px] font-medium text-foreground/50 uppercase tracking-wide mb-2.5 sm:mb-2">
               {ca('openTasks')}
             </p>
-            {message.tasks.filter(t => !t.completed).map((task) => (
-              <div
-                key={task.id}
-                className={cn(
-                  "flex items-center gap-3 p-3.5 sm:p-2.5 rounded-xl sm:rounded-lg",
-                  "border border-foreground/[0.08] bg-foreground/[0.02]",
-                  "active:bg-foreground/[0.04] transition-colors touch-manipulation"
-                )}
-              >
-                <div className={cn(
-                  "w-8 h-8 sm:w-6 sm:h-6 rounded-lg sm:rounded-md flex items-center justify-center text-xs sm:text-[10px] font-bold shrink-0",
-                  task.type === 'confirm' ? "bg-secondary/10 text-secondary" :
-                  task.type === 'approve' ? "bg-success/10 text-success" :
-                  task.type === 'enter' ? "bg-primary/10 text-primary" :
-                  "bg-foreground/[0.06] text-foreground/50"
-                )}>
-                  {task.type === 'confirm' ? '?' :
-                   task.type === 'approve' ? '✓' :
-                   task.type === 'enter' ? '→' :
-                   task.type === 'upload' ? '↑' :
-                   '○'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm sm:text-xs font-medium text-foreground truncate">{task.label}</p>
-                  {task.context && (
-                    <p className="text-xs sm:text-[10px] text-foreground/50 truncate">{task.context}</p>
+            {message.tasks
+              .filter((t) => !t.completed)
+              .map((task) => (
+                <div
+                  key={task.id}
+                  className={cn(
+                    'flex items-center gap-3 p-3.5 sm:p-2.5 rounded-xl sm:rounded-lg',
+                    'border border-foreground/[0.08] bg-foreground/[0.02]',
+                    'active:bg-foreground/[0.04] transition-colors touch-manipulation'
                   )}
+                >
+                  <div
+                    className={cn(
+                      'w-8 h-8 sm:w-6 sm:h-6 rounded-lg sm:rounded-md flex items-center justify-center text-xs sm:text-[10px] font-bold shrink-0',
+                      task.type === 'confirm'
+                        ? 'bg-secondary/10 text-secondary'
+                        : task.type === 'approve'
+                          ? 'bg-success/10 text-success'
+                          : task.type === 'enter'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-foreground/[0.06] text-foreground/50'
+                    )}
+                  >
+                    {task.type === 'confirm'
+                      ? '?'
+                      : task.type === 'approve'
+                        ? '✓'
+                        : task.type === 'enter'
+                          ? '→'
+                          : task.type === 'upload'
+                            ? '↑'
+                            : '○'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm sm:text-xs font-medium text-foreground truncate">
+                      {task.label}
+                    </p>
+                    {task.context && (
+                      <p className="text-xs sm:text-[10px] text-foreground/50 truncate">
+                        {task.context}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4 text-foreground/30 shrink-0" />
                 </div>
-                <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4 text-foreground/30 shrink-0" />
-              </div>
-            ))}
+              ))}
           </div>
         )}
-        
+
         {/* Timestamp - refined styling */}
-        <span className={cn(
-          'text-[11px] mt-2.5 block font-medium tracking-wide',
-          isUser ? 'text-primary-foreground/50' : 'text-foreground/35'
-        )}>
+        <span
+          className={cn(
+            'text-[11px] mt-2.5 block font-medium tracking-wide',
+            isUser ? 'text-primary-foreground/50' : 'text-foreground/35'
+          )}
+        >
           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
     </motion.div>
-  );
+  )
 }
 
-export default ChatAssistantDrawer;
+export default ChatAssistantDrawer

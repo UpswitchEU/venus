@@ -1,21 +1,21 @@
 'use client'
 
 import { X } from 'lucide-react'
-import { useTranslations, useLocale } from 'next-intl'
-import React, { useEffect, useState, useRef, useId } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
+import React, { useEffect, useId, useRef, useState } from 'react'
+import { getSafeMercuryReturnUrl } from '@/lib/return-url'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { generalLogger } from '@/utils/logger'
+import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { useAuth } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
-import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
-import { getMercuryUrl } from '@/utils/getMercuryUrl'
-import { getSafeMercuryReturnUrl } from '@/lib/return-url'
-import { generalLogger } from '@/utils/logger'
 
 /**
  * Client Context Banner
  *
  * Displays when an accountant is acting on behalf of a client.
  * Shows client's name and avatar, with option to exit client view.
- * 
+ *
  * DUPLICATE PREVENTION: Uses stable ID and mount tracking to prevent
  * duplicate banners from appearing during auth state transitions.
  */
@@ -26,10 +26,10 @@ export function ClientContextBanner() {
   const { isEmbedded, closeEmbedded } = useEmbeddedMode()
   const locale = useLocale()
   const t = useTranslations() // ✅ Venus pattern: NO namespace
-  
+
   // ✅ FIX: Use stable ID to ensure React doesn't create duplicate DOM elements
   const bannerId = useId()
-  
+
   // ✅ FIX: Track if banner has been shown to prevent duplicate rendering
   // during rapid auth state transitions
   const hasRenderedRef = useRef(false)
@@ -44,7 +44,7 @@ export function ClientContextBanner() {
 
   // Only show banner if user is authenticated AND acting as client
   if (!mounted || !isActingAsClient || !client || !isAuthenticated) return null
-  
+
   // ✅ FIX: Mark as rendered to track banner state
   hasRenderedRef.current = true
 
@@ -52,13 +52,13 @@ export function ClientContextBanner() {
     try {
       // Clear client context first
       clearClientContext()
-      
+
       // BANK-GRADE: Always try to close embedded mode first
       // The closeEmbedded() function now always sends postMessage to parent,
       // which handles both true embedded mode and edge cases where detection failed
       generalLogger.debug('[ClientContextBanner] Closing embedded session', { isEmbedded })
       closeEmbedded()
-      
+
       // If embedded in Mercury modal, the modal will close and we're done
       if (isEmbedded) {
         generalLogger.debug('[ClientContextBanner] Embedded mode detected, modal should close')
@@ -135,7 +135,7 @@ export function ClientContextBanner() {
   }
 
   return (
-    <div 
+    <div
       key={bannerId}
       id="client-context-banner"
       data-banner-id={bannerId}

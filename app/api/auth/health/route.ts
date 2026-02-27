@@ -9,10 +9,10 @@
  * - 401: No cookies or auth/me failed (expected when logged out)
  */
 
-import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,13 +46,10 @@ export async function GET(request: NextRequest) {
     }
 
     const titanApiUrl = getTitanApiUrl(request)
-    const meResponse = await fetchWithTimeout(
-      `${titanApiUrl}/api/v2/auth/me`,
-      {
-        method: 'GET',
-        headers: { Cookie: cookieHeader },
-      }
-    )
+    const meResponse = await fetchWithTimeout(`${titanApiUrl}/api/v2/auth/me`, {
+      method: 'GET',
+      headers: { Cookie: cookieHeader },
+    })
 
     if (!meResponse.ok) {
       return NextResponse.json(

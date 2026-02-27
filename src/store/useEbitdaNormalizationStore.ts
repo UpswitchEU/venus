@@ -12,7 +12,6 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { generalLogger } from '../utils/logger'
 import { getCategoryDefinition } from '../config/normalizationCategories'
 import { NormalizationAPIError, normalizationService } from '../services/ebitdaNormalizationService'
 import {
@@ -22,6 +21,7 @@ import {
   NormalizationAdjustment,
   NormalizationCategory,
 } from '../types/ebitdaNormalization'
+import { generalLogger } from '../utils/logger'
 
 interface EbitdaNormalizationStore {
   // State
@@ -592,7 +592,10 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             },
           })
 
-          generalLogger.debug('Market rates fetched successfully', { year, count: suggestions.length })
+          generalLogger.debug('Market rates fetched successfully', {
+            year,
+            count: suggestions.length,
+          })
         } catch (error) {
           generalLogger.error('Error fetching market rates', { error })
           // Don't fail - market rates are suggestions, not required

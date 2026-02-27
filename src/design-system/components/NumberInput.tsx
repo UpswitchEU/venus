@@ -1,21 +1,21 @@
 /**
  * Aurora Design System
  * NumberInput Component
- * 
+ *
  * Wrapper around AuroraInput with number-specific features:
  * - Prefix/suffix support (e.g., € or %)
  * - Increment/decrement arrows
  * - Currency formatting
  * - Min/max constraints
- * 
+ *
  * Compatible with legacy CustomNumberInputField props.
  */
 
-import * as React from 'react'
-import { motion } from 'framer-motion'
-import { ChevronUp, ChevronDown, Info } from 'lucide-react'
-import { cn } from '../../lib/utils'
 import { cva } from 'class-variance-authority'
+import { motion } from 'framer-motion'
+import { ChevronDown, ChevronUp, Info } from 'lucide-react'
+import * as React from 'react'
+import { cn } from '../../lib/utils'
 
 // ─────────────────────────────────────────
 // STYLE VARIANTS
@@ -113,13 +113,7 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
     const hasError = error && touched
     const hasValue = value !== '' && value !== undefined && value !== null
 
-    const state = disabled
-      ? 'disabled'
-      : hasError
-        ? 'error'
-        : isFocused
-          ? 'focus'
-          : 'default'
+    const state = disabled ? 'disabled' : hasError ? 'error' : isFocused ? 'focus' : 'default'
 
     const isFloated = isFocused || hasValue
 
@@ -158,7 +152,17 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
 
       // Allow navigation and editing keys
       if (
-        ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'Home', 'End', 'ArrowLeft', 'ArrowRight'].includes(e.key)
+        [
+          'Backspace',
+          'Delete',
+          'Tab',
+          'Escape',
+          'Enter',
+          'Home',
+          'End',
+          'ArrowLeft',
+          'ArrowRight',
+        ].includes(e.key)
       ) {
         return
       }
@@ -282,9 +286,7 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
             )}
 
             {/* Suffix */}
-            {suffix && (
-              <span className="text-foreground/50 text-sm font-medium">{suffix}</span>
-            )}
+            {suffix && <span className="text-foreground/50 text-sm font-medium">{suffix}</span>}
 
             {/* Arrows */}
             {showArrows && (

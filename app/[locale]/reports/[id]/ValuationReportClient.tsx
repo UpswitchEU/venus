@@ -1,12 +1,16 @@
 'use client'
 
 import { useCallback, useMemo } from 'react'
-import { ValuationReport } from '../../../../src/components/ValuationReport'
-import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
-import { BootstrapProvider, type BootstrapContext, type FlowType } from '../../../../src/lib/bootstrap'
 import { AuthGate } from '../../../../src/components/AuthGate'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
+import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
+import { ValuationReport } from '../../../../src/components/ValuationReport'
 import { useTokenRefresh } from '../../../../src/hooks/useTokenRefresh'
+import {
+  type BootstrapContext,
+  BootstrapProvider,
+  type FlowType,
+} from '../../../../src/lib/bootstrap'
 import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
 import { generalLogger } from '../../../../src/utils/logger'
 
@@ -23,16 +27,21 @@ function TokenRefreshGuard() {
     try {
       const initAt = parseInt(sessionStorage.getItem('venus_init_ok_at') || '0', 10)
       if (Date.now() - initAt < 5 * 60 * 1000) {
-        generalLogger.warn('[TokenRefreshGuard] Refresh token expired but session is fresh — NOT redirecting')
+        generalLogger.warn(
+          '[TokenRefreshGuard] Refresh token expired but session is fresh — NOT redirecting'
+        )
         return
       }
-    } catch { /* sessionStorage unavailable */ }
+    } catch {
+      /* sessionStorage unavailable */
+    }
 
     const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
     const mercuryUrl = getMercuryUrl()
-    const locale = typeof window !== 'undefined'
-      ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
-      : 'en'
+    const locale =
+      typeof window !== 'undefined'
+        ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+        : 'en'
     window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
   }, [])
   useTokenRefresh({ onTokenExpired: handleTokenExpired })
@@ -63,7 +72,7 @@ interface ValuationReportClientProps {
  * BANK GRADE: Uses AuthGate to ensure auth and client context are ready
  * BEFORE BootstrapProvider runs. This eliminates the race condition where
  * bootstrap starts before client context exchange completes.
- * 
+ *
  * Flow:
  * 1. AuthGate waits for auth + client context exchange (if clientToken present)
  * 2. Only after AuthGate passes does BootstrapProvider start
@@ -96,9 +105,6 @@ export default function ValuationReportClient({
     return !!urlParams.clientToken || !!urlParams.clientId
   }, [urlParams.clientToken, urlParams.clientId])
 
-  // Detect Mercury flow - cookies are already present so we can render optimistically
-  const isFromMercury = urlParams.source === 'mercury'
-
   // Build bootstrap context from URL params.
   // Dependency array uses primitive values extracted from urlParams
   // to guarantee stability even if urlParams object reference changes.
@@ -125,8 +131,20 @@ export default function ValuationReportClient({
       returnUrl,
       sourceApp: source,
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportId, locale, initialMode, initialVersion, clientToken, clientId, prefilledQuery, flow, embedded, returnUrl, source])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    reportId,
+    locale,
+    initialMode,
+    initialVersion,
+    clientToken,
+    clientId,
+    prefilledQuery,
+    flow,
+    embedded,
+    returnUrl,
+    source,
+  ])
 
   return (
     <ErrorBoundary>
@@ -141,10 +159,7 @@ export default function ValuationReportClient({
         optimistic={false}
       >
         <TokenRefreshGuard />
-        <BootstrapProvider
-          context={bootstrapContext}
-          autoBootstrap={true}
-        >
+        <BootstrapProvider context={bootstrapContext} autoBootstrap={true}>
           <ValuationReport
             reportId={reportId}
             initialMode={initialMode}

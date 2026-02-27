@@ -7,10 +7,10 @@
 
 'use client'
 
-import React from 'react'
 import { useTranslations } from 'next-intl'
-import { useAuth } from '../lib/auth'
+import React from 'react'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { useAuth } from '../lib/auth'
 
 export const AuthStatus: React.FC = () => {
   const t = useTranslations('auth.authStatus')

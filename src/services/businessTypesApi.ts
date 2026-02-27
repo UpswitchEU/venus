@@ -77,7 +77,7 @@ class BusinessTypesApiService {
     // Use the main backend API (Titan)
     // Follow Mercury's pattern: use env var with fallback
     const apiBaseUrl = getApiUrl()
-    
+
     // Normalize URL: remove /api suffix if present
     this.baseUrl = apiBaseUrl.replace(/\/api\/?$/, '')
 
@@ -120,10 +120,13 @@ class BusinessTypesApiService {
         if (cachedData) {
           // If we have fewer than 100 types cached, it's likely old data with limit=50
           if (cachedData.businessTypes.length < 100) {
-            generalLogger.warn('[BusinessTypesAPI] Cached data appears incomplete, clearing cache', {
-              cachedCount: cachedData.businessTypes.length,
-              expected: '168+',
-            })
+            generalLogger.warn(
+              '[BusinessTypesAPI] Cached data appears incomplete, clearing cache',
+              {
+                cachedCount: cachedData.businessTypes.length,
+                expected: '168+',
+              }
+            )
             businessTypesCache.clearBusinessTypes()
             // Continue to API fetch below
           } else {
@@ -140,16 +143,16 @@ class BusinessTypesApiService {
       // Fetch from API with locale parameter
       // Use batched fetching like Mercury to ensure all 168+ types are loaded
       generalLogger.debug('[BusinessTypesAPI] Fetching from API in batches', { locale })
-      
+
       // Add cache buster to force fresh data (timestamp)
       const cacheBuster = Date.now()
-      
+
       // First batch: 0-100
-      const batch1Response = await this.api.get('/types', { 
+      const batch1Response = await this.api.get('/types', {
         params: { limit: 100, offset: 0, locale, _t: cacheBuster },
         signal,
       })
-      
+
       if (!batch1Response.data.success || !batch1Response.data.data) {
         throw new Error('API returned unsuccessful response')
       }
@@ -162,7 +165,7 @@ class BusinessTypesApiService {
           params: { limit: 100, offset: 100, locale, _t: cacheBuster },
           signal,
         })
-        
+
         if (batch2Response.data.success && batch2Response.data.data) {
           allBusinessTypes = [...allBusinessTypes, ...batch2Response.data.data.business_types]
         }
@@ -179,11 +182,15 @@ class BusinessTypesApiService {
         popularTypes: allBusinessTypes.filter((bt: BusinessType) => bt.popular),
       })
 
-      generalLogger.info('[BusinessTypesAPI] Fetched and cached', { count: allBusinessTypes.length })
+      generalLogger.info('[BusinessTypesAPI] Fetched and cached', {
+        count: allBusinessTypes.length,
+      })
       return allBusinessTypes
     } catch (error) {
       generalLogger.error('[BusinessTypesAPI] Failed to fetch business types', { error })
-      throw error instanceof Error ? error : new Error('Bedrijfstypes laden mislukt. Probeer het later opnieuw.')
+      throw error instanceof Error
+        ? error
+        : new Error('Bedrijfstypes laden mislukt. Probeer het later opnieuw.')
     }
   }
 

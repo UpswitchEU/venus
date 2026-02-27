@@ -20,20 +20,20 @@
 
 'use client'
 
-import { useSearchParams, usePathname } from 'next/navigation'
-import { useTransitionRouter } from 'next-view-transitions'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { useTransitionRouter } from 'next-view-transitions'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
-import { useSessionStore } from '../store/useSessionStore'
-import type { ValuationSession } from '../types/valuation'
-import { generalLogger } from '../utils/logger'
-import { looksLikeExistingReportId } from '../utils/identifiers'
-import { ValuationPaywallModal } from './ValuationPaywallModal'
-import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import { sessionService } from '../services/session/SessionService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
+import { useSessionStore } from '../store/useSessionStore'
+import type { ValuationSession } from '../types/valuation'
+import { getMercuryUrl } from '../utils/getMercuryUrl'
+import { looksLikeExistingReportId } from '../utils/identifiers'
+import { generalLogger } from '../utils/logger'
+import { ValuationPaywallModal } from './ValuationPaywallModal'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
 
@@ -104,44 +104,45 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const bootstrapReportId = bootstrap?.report.reportId
     // Bootstrap is complete when isBootstrapping is false and there's no error
     const bootstrapComplete = bootstrap && !isBootstrapping && !bootstrap.bootstrapError
-    const bootstrapHasExistingSession = bootstrap && 
-      bootstrap.report.mode === 'existing' && 
-      bootstrap.report.reportId === reportId
+    const bootstrapHasExistingSession =
+      bootstrap && bootstrap.report.mode === 'existing' && bootstrap.report.reportId === reportId
     // CRITICAL FIX: For new reports, bootstrap provides the reportId but session doesn't exist yet
     // Skip loading to avoid 404 errors - session will be created lazily on first save
-    const bootstrapHasNewReport = bootstrap && 
+    const bootstrapHasNewReport =
+      bootstrap &&
       bootstrapComplete &&
-      bootstrap.report.mode === 'new' && 
+      bootstrap.report.mode === 'new' &&
       bootstrap.report.reportId === reportId
     // Alias for logging
     const bootstrapHasSession = bootstrapHasExistingSession || bootstrapHasNewReport
 
     // DIAGNOSTIC (dev only): Log bootstrap/session state for stuck loading debugging
     generalLogger.debug('[SessionManager] Bootstrap state', {
-        reportId: reportId?.substring(0, 20),
-        bootstrapComplete,
-        bootstrapHasExistingSession,
-        bootstrapHasNewReport,
-        bootstrapHasSession,
-        isBootstrapping,
-        bootstrapReportId: bootstrapReportId?.substring(0, 20),
-        bootstrapMode: bootstrap?.report?.mode,
-        sessionLoadSkipped: bootstrapHasSession,
-      });
+      reportId: reportId?.substring(0, 20),
+      bootstrapComplete,
+      bootstrapHasExistingSession,
+      bootstrapHasNewReport,
+      bootstrapHasSession,
+      isBootstrapping,
+      bootstrapReportId: bootstrapReportId?.substring(0, 20),
+      bootstrapMode: bootstrap?.report?.mode,
+      sessionLoadSkipped: bootstrapHasSession,
+    })
 
     // ✅ FIX: Detect mismatch where URL has reportId but bootstrap says "new"
     // This indicates session wasn't found - likely auth race condition or access issue
-    // 
+    //
     // CRITICAL: Handle BOTH ID formats that indicate existing reports:
     // - val_xxx: Direct Venus session key format
     // - UUID: Mercury passes valuation_reports.id (UUID format like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
     // Using centralized identifier utilities for consistent format detection
-    const urlIndicatesExisting = looksLikeExistingReportId(reportId);
-    
-    const bootstrapMismatch = bootstrap && 
+    const urlIndicatesExisting = looksLikeExistingReportId(reportId)
+
+    const bootstrapMismatch =
+      bootstrap &&
       bootstrapComplete &&
-      bootstrap.report.mode === 'new' && 
-      reportId && 
+      bootstrap.report.mode === 'new' &&
+      reportId &&
       urlIndicatesExisting
 
     // ROOT CAUSE FIX: Subscribe to `status` directly, not computed getters
@@ -163,9 +164,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // If URL has val_xxx or UUID format, user is viewing an existing report - never block viewing
     const bootstrapCreditStatus = bootstrap?.creditStatus
     // Reuse the urlIndicatesExisting computed above for consistency
-    const showCreditError = bootstrapCreditStatus && 
-      !bootstrapCreditStatus.allowed && 
-      !urlIndicatesExisting // Don't block viewing existing reports (val_xxx or UUID)
+    const showCreditError =
+      bootstrapCreditStatus && !bootstrapCreditStatus.allowed && !urlIndicatesExisting // Don't block viewing existing reports (val_xxx or UUID)
 
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)
@@ -174,7 +174,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // This prevents multiple concurrent loads when dependencies change rapidly
     const loadingInitiatedRef = useRef<string | null>(null)
     const bootstrapRetryRef = useRef(false)
-    
+
     // Reset refs when reportId changes (component reused for different report)
     useEffect(() => {
       loadingInitiatedRef.current = null
@@ -209,11 +209,14 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // The user can refresh manually if needed
     useEffect(() => {
       if (bootstrapMismatch) {
-        generalLogger.debug('[SessionManager] Bootstrap mismatch detected - proceeding without retry', {
-          reportId: reportId?.substring(0, 20),
-          bootstrapMode: bootstrap?.report.mode,
-          note: 'Trusting bootstrap result for single loading state',
-        })
+        generalLogger.debug(
+          '[SessionManager] Bootstrap mismatch detected - proceeding without retry',
+          {
+            reportId: reportId?.substring(0, 20),
+            bootstrapMode: bootstrap?.report.mode,
+            note: 'Trusting bootstrap result for single loading state',
+          }
+        )
       }
     }, [bootstrapMismatch, bootstrap, reportId])
 
@@ -224,10 +227,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const autoSend = searchParams?.get('autoSend') === 'true'
     const flowParam = searchParams?.get('flow') as 'manual' | 'conversational' | null
     const detectedFlow = flowParam || 'manual'
-    
+
     // Prioritize prefilledQuery from session data over URL parameter
-    const sessionPrefilledQuery = session 
-      ? ((session.sessionData as any)?._prefilledQuery || (session.partialData as any)?._prefilledQuery || null)
+    const sessionPrefilledQuery = session
+      ? (session.sessionData as any)?._prefilledQuery ||
+        (session.partialData as any)?._prefilledQuery ||
+        null
       : null
     const prefilledQuery = sessionPrefilledQuery || urlPrefilledQuery
 
@@ -267,7 +272,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         return 'error'
       }
       // Default: loading until everything is ready
-      if (isBootstrapping || isLoading || isInitializing || !session || session.reportId !== reportId) {
+      if (
+        isBootstrapping ||
+        isLoading ||
+        isInitializing ||
+        !session ||
+        session.reportId !== reportId
+      ) {
         return 'loading'
       }
       return 'data-entry'
@@ -281,23 +292,23 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     useEffect(() => {
       if (stage === 'loading') {
         const maxLoadingTimer = setTimeout(() => {
-          generalLogger.error('[SessionManager] Max loading time exceeded', { 
+          generalLogger.error('[SessionManager] Max loading time exceeded', {
             reportId,
             status,
             isBootstrapping,
             hasSession: !!session,
           })
-          
+
           // Force error state via session store
           useSessionStore.setState({
             status: 'error',
             errorMessage: 'Loading took too long. Please try refreshing the page.',
           })
         }, 30000) // 30 second maximum
-        
+
         return () => clearTimeout(maxLoadingTimer)
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stage, reportId]) // Only reset when stage or reportId changes, not on every status/session change
 
     // ✅ FIX: Load session when reportId changes (promise cache prevents duplicates)
@@ -308,7 +319,9 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     useEffect(() => {
       // Skip session loading if bootstrap is in progress
       if (isBootstrapping) {
-        generalLogger.debug('[SessionManager] Session load SKIPPED: waiting for bootstrap', { reportId })
+        generalLogger.debug('[SessionManager] Session load SKIPPED: waiting for bootstrap', {
+          reportId,
+        })
         return
       }
 
@@ -320,12 +333,15 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           (bootstrap.report.hasExistingData && !hasAssetsInSession(session))
 
         if (needsFullLoad) {
-          generalLogger.info('[SessionManager] Bootstrap session lacks assets - forcing fresh load', {
-            reportId,
-            isPendingRestoration: SessionRestorationService.isPendingRestoration(reportId),
-            hasAssets: hasAssetsInSession(session),
-            hasExistingData: bootstrap.report.hasExistingData,
-          })
+          generalLogger.info(
+            '[SessionManager] Bootstrap session lacks assets - forcing fresh load',
+            {
+              reportId,
+              isPendingRestoration: SessionRestorationService.isPendingRestoration(reportId),
+              hasAssets: hasAssetsInSession(session),
+              hasExistingData: bootstrap.report.hasExistingData,
+            }
+          )
           // Clear restoration marker so the full API response wins over the bootstrap stub.
           SessionRestorationService.clearRestorationState(reportId)
           // Only reset status when it is 'loaded' — loadSession returns early for
@@ -339,20 +355,32 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           }
           // Fall through to loadSession below (don't return)
         } else {
-          generalLogger.debug('[SessionManager] Session load SKIPPED: already loaded via bootstrap', {
-            reportId,
-            bootstrapReportId,
-          })
+          generalLogger.debug(
+            '[SessionManager] Session load SKIPPED: already loaded via bootstrap',
+            {
+              reportId,
+              bootstrapReportId,
+            }
+          )
           // Restore from session - form and output assets hydrated from sessionData
           SessionRestorationService.restore(reportId, session)
             .then((result) => {
               // Phase 3.1: If restore completed but assets still missing, fetch from backend
-              if (bootstrap.report.hasExistingData && result.success && !result.restoredHtmlReport) {
-                const hasHtml = useManualResultsStore.getState().htmlReport || useManualResultsStore.getState().result?.html_report
+              if (
+                bootstrap.report.hasExistingData &&
+                result.success &&
+                !result.restoredHtmlReport
+              ) {
+                const hasHtml =
+                  useManualResultsStore.getState().htmlReport ||
+                  useManualResultsStore.getState().result?.html_report
                 if (!hasHtml) {
-                  generalLogger.debug('[SessionManager] Assets missing after restore - revalidating in background', {
-                    reportId,
-                  })
+                  generalLogger.debug(
+                    '[SessionManager] Assets missing after restore - revalidating in background',
+                    {
+                      reportId,
+                    }
+                  )
                   sessionService.revalidateSessionInBackground(reportId)
                 }
               }
@@ -372,11 +400,14 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       // Skip loading to avoid 404 errors - session will be created lazily on first save
       // The prefill data is already applied by useBootstrapPrefill hook
       if (bootstrapHasNewReport) {
-        generalLogger.debug('[SessionManager] Session load SKIPPED: new report from bootstrap, calling completeInitialization', {
-          reportId,
-          bootstrapReportId,
-          bootstrapMode: bootstrap?.report.mode,
-        })
+        generalLogger.debug(
+          '[SessionManager] Session load SKIPPED: new report from bootstrap, calling completeInitialization',
+          {
+            reportId,
+            bootstrapReportId,
+            bootstrapMode: bootstrap?.report.mode,
+          }
+        )
         // Mark initialization as complete since bootstrap has provided all necessary data
         // The session will be created automatically when the user first saves
         useSessionStore.getState().completeInitialization()
@@ -388,7 +419,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       // ✅ RACE CONDITION FIX: Skip if we've already initiated loading for this reportId
       // This prevents duplicate API calls when multiple dependencies change
       if (loadingInitiatedRef.current === reportId) {
-        generalLogger.debug('[SessionManager] Session load SKIPPED: duplicate load already in progress', { reportId })
+        generalLogger.debug(
+          '[SessionManager] Session load SKIPPED: duplicate load already in progress',
+          { reportId }
+        )
         return
       }
 
@@ -432,20 +466,20 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       Promise.race([loadSession(reportId, detectedFlow, prefilledQueryRef.current), timeoutPromise])
         .then(() => {
           clearTimeout(timeoutId)
-          
+
           // ✅ RACE CONDITION FIX: Clear loading ref on success
           // Only clear if we're still the active load (prevent stale cleanup)
           if (loadingInitiatedRef.current === reportId) {
             loadingInitiatedRef.current = null
           }
-          
+
           if (!isMounted) {
             generalLogger.debug('[SessionManager] Load completed after unmount, ignoring', {
               reportId,
             })
             return
           }
-          
+
           // SECURITY: Clean sensitive parameters from URL after session is loaded
           // prefilledQuery is now stored in session_data, no need to keep it in URL
           if (typeof window !== 'undefined' && urlPrefilledQuery) {
@@ -457,15 +491,18 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
                 url.searchParams.delete('autoSend')
               }
               window.history.replaceState({}, '', url.pathname + (url.search || ''))
-              generalLogger.debug('[SessionManager] Cleaned prefilledQuery from URL after session load', {
-                reportId,
-              })
+              generalLogger.debug(
+                '[SessionManager] Cleaned prefilledQuery from URL after session load',
+                {
+                  reportId,
+                }
+              )
             }
           }
         })
         .catch((err) => {
           clearTimeout(timeoutId)
-          
+
           // ✅ RACE CONDITION FIX: Clear loading ref on error to allow retry
           // Only clear if we're still the active load (prevent stale cleanup)
           if (loadingInitiatedRef.current === reportId) {
@@ -480,13 +517,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           }
 
           // Check if error is ValidationError - don't retry these
-          const isValidationError = 
+          const isValidationError =
             err.message?.includes('Authentication required') ||
             err.message?.includes('Invalid session data') ||
             err.message?.includes('validation') ||
             err.message?.includes('ValidationError') ||
             (err as any)?.name === 'ValidationError'
-          
+
           if (isValidationError) {
             generalLogger.error('[SessionManager] Validation error - stopping retries', {
               reportId,
@@ -496,7 +533,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             useSessionStore.setState({
               isInitializing: false,
               isLoading: false,
-              error: 'Cannot create session. Please ensure you are logged in or try creating a new valuation.',
+              error:
+                'Cannot create session. Please ensure you are logged in or try creating a new valuation.',
             })
             return // Don't continue - stop the retry loop
           }
@@ -504,15 +542,20 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           // ✅ IMPROVED: Categorize errors and provide user-friendly messages
           const errorMessage = err.message || 'Unknown error'
           const isTimeout = errorMessage.includes('timeout')
-          const isNetworkError = errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('Failed to fetch')
-          const isUuidError = errorMessage.includes('uuid') || errorMessage.includes('operator does not exist')
+          const isNetworkError =
+            errorMessage.includes('fetch') ||
+            errorMessage.includes('network') ||
+            errorMessage.includes('Failed to fetch')
+          const isUuidError =
+            errorMessage.includes('uuid') || errorMessage.includes('operator does not exist')
           const isAuthError = errorMessage.includes('401') || errorMessage.includes('Unauthorized')
           const isForbidden = errorMessage.includes('403') || errorMessage.includes('Forbidden')
-          
+
           // Set user-friendly error message
           let userFriendlyError = 'Failed to load session. Please try again.'
           if (isTimeout) {
-            userFriendlyError = 'Session load timeout (30 seconds). Please refresh the page or try again.'
+            userFriendlyError =
+              'Session load timeout (30 seconds). Please refresh the page or try again.'
           } else if (isNetworkError) {
             userFriendlyError = 'Network error. Please check your connection and try again.'
           } else if (isUuidError) {
@@ -526,7 +569,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           } else if (isAuthError) {
             userFriendlyError = 'Authentication error. Please log in again.'
           } else if (isForbidden) {
-            userFriendlyError = 'Access denied. Please ensure you have permission to view this report.'
+            userFriendlyError =
+              'Access denied. Please ensure you have permission to view this report.'
           }
 
           // Ensure store state is reset on error (status + errorMessage drive stage derivation)
@@ -604,16 +648,19 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             }}
             current={bootstrapCreditStatus.credits_remaining}
             limit={bootstrapCreditStatus.credits_limit}
-            message={bootstrapCreditStatus.message || 
+            message={
+              bootstrapCreditStatus.message ||
               (bootstrapCreditStatus.upgrade_path === 'accountant_pro'
                 ? t('paywall.accountantProRequired')
-                : t('paywall.insufficientCredits'))}
+                : t('paywall.insufficientCredits'))
+            }
             onUpgrade={() => {
               // Accountants: redirect to trial-setup (Pro-only flow). Others: pricing.
-              const locale = (pathname?.match(/^\/(en|nl)/)?.[1]) || 'en'
-              const upgradePath = bootstrapCreditStatus.upgrade_path === 'accountant_pro'
-                ? `/${locale}/accountant/trial-setup`
-                : '/pricing'
+              const locale = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
+              const upgradePath =
+                bootstrapCreditStatus.upgrade_path === 'accountant_pro'
+                  ? `/${locale}/accountant/trial-setup`
+                  : '/pricing'
               window.location.href = `${getMercuryUrl()}${upgradePath}`
             }}
           />

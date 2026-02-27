@@ -1,48 +1,41 @@
-'use client';
+'use client'
 
 /**
  * Report Preview Panel
- * 
+ *
  * Embedded version of the ValuationReportTemplate for inline preview.
  * Uses a forced light theme for professional "paper-like" appearance.
  */
 
-import { motion } from 'framer-motion';
-import { useTranslations, useLocale } from 'next-intl';
-import { springDefault } from '@/design-system/components/motion';
-import { 
-  TrendingUp,
-  TrendingDown,
-  Shield,
-  FileText,
-  BarChart3,
-  CheckCircle2,
-} from 'lucide-react';
-import { cn } from '@/design-system/utils';
+import { motion } from 'framer-motion'
+import { BarChart3, CheckCircle2, FileText, Shield, TrendingDown, TrendingUp } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { springDefault } from '@/design-system/components/motion'
+import { cn } from '@/design-system/utils'
 
 export interface ReportPreviewPanelProps {
   report?: {
-    companyName: string;
-    valuation: number;
-    ebitda: number;
-    multiple: number;
-    generatedAt: Date;
+    companyName: string
+    valuation: number
+    ebitda: number
+    multiple: number
+    generatedAt: Date
     metrics?: Array<{
-      label: string;
-      value: string;
-      change?: number;
-    }>;
-  } | null;
+      label: string
+      value: string
+      change?: number
+    }>
+  } | null
 }
 
 export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
-  const t = useTranslations('reportPreview');
-  const locale = useLocale() as 'nl' | 'en';
+  const t = useTranslations('reportPreview')
+  const locale = useLocale() as 'nl' | 'en'
   const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`;
-    if (amount >= 1000) return `€${(amount / 1000).toFixed(0)}K`;
-    return `€${amount.toLocaleString(locale === 'nl' ? 'nl-BE' : 'en-GB')}`;
-  };
+    if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
+    if (amount >= 1000) return `€${(amount / 1000).toFixed(0)}K`
+    return `€${amount.toLocaleString(locale === 'nl' ? 'nl-BE' : 'en-GB')}`
+  }
 
   if (!report) {
     return (
@@ -52,16 +45,14 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
             <FileText className="w-6 h-6 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-semibold text-foreground">{t('emptyTitle')}</h3>
-          <p className="text-sm text-muted-foreground mt-2">
-            {t('emptyDesc')}
-          </p>
+          <p className="text-sm text-muted-foreground mt-2">{t('emptyDesc')}</p>
         </div>
       </div>
-    );
+    )
   }
 
-  const valuationLow = report.valuation * 0.7;
-  const valuationHigh = report.valuation * 1.3;
+  const valuationLow = report.valuation * 0.7
+  const valuationHigh = report.valuation * 1.3
 
   return (
     <div className="h-full overflow-y-auto bg-background">
@@ -79,43 +70,66 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
 
           <div className="relative z-10 px-8 py-12">
             <div className="flex items-center justify-between mb-12">
-              <span className="text-sm font-semibold text-background/80 tracking-wider">UPSWITCH</span>
+              <span className="text-sm font-semibold text-background/80 tracking-wider">
+                UPSWITCH
+              </span>
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/20 border border-primary/30">
                 <CheckCircle2 className="w-3 h-3 text-primary" />
-                <span className="text-[10px] font-medium text-primary/90 uppercase tracking-wider">{t('conceptReport')}</span>
+                <span className="text-[10px] font-medium text-primary/90 uppercase tracking-wider">
+                  {t('conceptReport')}
+                </span>
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">{t('indicativeValuation')}</p>
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">{report.companyName}</h1>
+            <p className="text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">
+              {t('indicativeValuation')}
+            </p>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
+              {report.companyName}
+            </h1>
 
             <div className="bg-background/5 backdrop-blur-sm rounded-2xl border border-foreground/10 p-6 mb-6">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{t('estimatedEnterpriseValue')}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+                {t('estimatedEnterpriseValue')}
+              </p>
               <div className="flex items-baseline gap-4">
                 <span className="text-5xl md:text-6xl font-bold font-mono tabular-nums text-primary">
                   {formatCurrency(report.valuation)}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground mt-3">
-                {t('range', { low: formatCurrency(valuationLow), high: formatCurrency(valuationHigh) })}
+                {t('range', {
+                  low: formatCurrency(valuationLow),
+                  high: formatCurrency(valuationHigh),
+                })}
               </p>
             </div>
 
             <div className="flex gap-6 text-sm">
               <div>
                 <p className="text-muted-foreground text-xs uppercase tracking-wider">EBITDA</p>
-                <p className="font-semibold font-mono text-background">{formatCurrency(report.ebitda)}</p>
+                <p className="font-semibold font-mono text-background">
+                  {formatCurrency(report.ebitda)}
+                </p>
               </div>
               <div className="w-px bg-background/10" />
               <div>
                 <p className="text-muted-foreground text-xs uppercase tracking-wider">Multiple</p>
-                <p className="font-semibold font-mono text-background">{report.multiple.toFixed(1)}x</p>
+                <p className="font-semibold font-mono text-background">
+                  {report.multiple.toFixed(1)}x
+                </p>
               </div>
               <div className="w-px bg-background/10" />
               <div>
-                <p className="text-muted-foreground text-xs uppercase tracking-wider">{t('date')}</p>
+                <p className="text-muted-foreground text-xs uppercase tracking-wider">
+                  {t('date')}
+                </p>
                 <p className="font-semibold text-background">
-                  {report.generatedAt.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {report.generatedAt.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
                 </p>
               </div>
             </div>
@@ -124,7 +138,11 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
 
         <div className="px-8 py-8 space-y-8">
           {report.metrics && report.metrics.length > 0 && (
-            <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springDefault, delay: 0.1 }}>
+            <motion.section
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springDefault, delay: 0.1 }}
+            >
               <h2 className="text-sm font-semibold text-foreground/80 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-muted-foreground" />
                 {t('keyMetrics')}
@@ -140,13 +158,23 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
                   >
                     <p className="text-xs text-muted-foreground mb-1">{metric.label}</p>
                     <div className="flex items-end justify-between">
-                      <span className="text-lg font-bold text-foreground font-mono tabular-nums">{metric.value}</span>
+                      <span className="text-lg font-bold text-foreground font-mono tabular-nums">
+                        {metric.value}
+                      </span>
                       {metric.change !== undefined && (
-                        <span className={cn(
-                          "flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded",
-                          metric.change >= 0 ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
-                        )}>
-                          {metric.change >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                        <span
+                          className={cn(
+                            'flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded',
+                            metric.change >= 0
+                              ? 'text-success bg-success/10'
+                              : 'text-destructive bg-destructive/10'
+                          )}
+                        >
+                          {metric.change >= 0 ? (
+                            <TrendingUp className="w-3 h-3" />
+                          ) : (
+                            <TrendingDown className="w-3 h-3" />
+                          )}
                           {Math.abs(metric.change)}%
                         </span>
                       )}
@@ -157,7 +185,12 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
             </motion.section>
           )}
 
-          <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springDefault, delay: 0.3 }} className="bg-primary/10 border border-primary/20 rounded-xl p-5">
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...springDefault, delay: 0.3 }}
+            className="bg-primary/10 border border-primary/20 rounded-xl p-5"
+          >
             <div className="flex gap-3">
               <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <div>
@@ -169,11 +202,16 @@ export function ReportPreviewPanel({ report }: ReportPreviewPanelProps) {
             </div>
           </motion.section>
 
-          <motion.footer initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...springDefault, delay: 0.4 }} className="text-[10px] text-muted-foreground border-t border-foreground/10 pt-6 leading-relaxed">
+          <motion.footer
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ ...springDefault, delay: 0.4 }}
+            className="text-[10px] text-muted-foreground border-t border-foreground/10 pt-6 leading-relaxed"
+          >
             <p>{t('disclaimer')}</p>
           </motion.footer>
         </div>
       </div>
     </div>
-  );
+  )
 }

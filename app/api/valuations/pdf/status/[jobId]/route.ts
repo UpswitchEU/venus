@@ -6,34 +6,31 @@
  * GET /api/valuations/pdf/status/:jobId - Check generation status
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
-import { getTitanApiUrl } from '@/utils/getTitanApiUrl';
+import { type NextRequest, NextResponse } from 'next/server'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    const { jobId } = await params;
+    const { jobId } = await params
 
     if (!jobId) {
-      return NextResponse.json(
-        { success: false, error: 'Job ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Job ID is required' }, { status: 400 })
     }
 
-    const cookieHeader = request.headers.get('cookie') || '';
-    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/);
+    const cookieHeader = request.headers.get('cookie') || ''
+    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/)
 
     if (!accessTokenMatch) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
-      );
+      )
     }
 
-    const titanUrl = `${getTitanApiUrl(request)}/api/v2/valuations/pdf/status/${jobId}`;
+    const titanUrl = `${getTitanApiUrl(request)}/api/v2/valuations/pdf/status/${jobId}`
 
     const response = await fetch(titanUrl, {
       method: 'GET',
@@ -41,17 +38,17 @@ export async function GET(
         Cookie: cookieHeader,
       },
       signal: AbortSignal.timeout(5000),
-    });
+    })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      const error = await response.json().catch(() => ({}))
       return NextResponse.json(
         { success: false, error: error.message || 'Failed to check status' },
         { status: response.status }
-      );
+      )
     }
 
-    const data = await response.json();
+    const data = await response.json()
 
     return NextResponse.json({
       success: true,
@@ -59,13 +56,10 @@ export async function GET(
       pdfUrl: data.pdfUrl || null,
       progress: data.progress || 0,
       error: data.error || null,
-    });
+    })
   } catch (error) {
-    console.error('[PDF Status] Error:', error instanceof Error ? error.message : error);
+    console.error('[PDF Status] Error:', error instanceof Error ? error.message : error)
 
-    return NextResponse.json(
-      { success: false, error: 'Failed to check status' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to check status' }, { status: 500 })
   }
 }

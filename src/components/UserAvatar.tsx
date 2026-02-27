@@ -82,7 +82,10 @@ const UserAvatar: React.FC<UserAvatarProps> = React.memo(({ size = 'md', classNa
           />
         ) : user ? (
           // User without avatar - show initials
-          <span className={`${config.text} font-semibold text-foreground`} style={{ lineHeight: 1 }}>
+          <span
+            className={`${config.text} font-semibold text-foreground`}
+            style={{ lineHeight: 1 }}
+          >
             {getUserInitials()}
           </span>
         ) : (

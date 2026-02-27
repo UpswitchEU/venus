@@ -20,12 +20,12 @@
  * UUID regex pattern for validation
  * Matches: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 characters)
  */
-export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * Session key prefix used by Venus
  */
-export const SESSION_KEY_PREFIX = 'val_';
+export const SESSION_KEY_PREFIX = 'val_'
 
 /**
  * Check if a string is a valid UUID format
@@ -42,8 +42,8 @@ export const SESSION_KEY_PREFIX = 'val_';
  * isUuid('') // false
  */
 export function isUuid(str: string | null | undefined): boolean {
-  if (!str) return false;
-  return UUID_REGEX.test(str);
+  if (!str) return false
+  return UUID_REGEX.test(str)
 }
 
 /**
@@ -61,8 +61,8 @@ export function isUuid(str: string | null | undefined): boolean {
  * isSessionKey('') // false
  */
 export function isSessionKey(str: string | null | undefined): boolean {
-  if (!str) return false;
-  return str.startsWith(SESSION_KEY_PREFIX);
+  if (!str) return false
+  return str.startsWith(SESSION_KEY_PREFIX)
 }
 
 /**
@@ -76,10 +76,12 @@ export function isSessionKey(str: string | null | undefined): boolean {
  * getIdentifierType('val_1769197369597_vwfre4ljar') // 'session_key'
  * getIdentifierType('some-random-string') // 'unknown'
  */
-export function getIdentifierType(str: string | null | undefined): 'uuid' | 'session_key' | 'unknown' {
-  if (isSessionKey(str)) return 'session_key';
-  if (isUuid(str)) return 'uuid';
-  return 'unknown';
+export function getIdentifierType(
+  str: string | null | undefined
+): 'uuid' | 'session_key' | 'unknown' {
+  if (isSessionKey(str)) return 'session_key'
+  if (isUuid(str)) return 'uuid'
+  return 'unknown'
 }
 
 /**
@@ -101,10 +103,13 @@ export function getIdentifierType(str: string | null | undefined): 'uuid' | 'ses
  * looksLikeExistingReportId('c61f49cf-3320-41d8-84c5-e4f874edaad2') // true
  * looksLikeExistingReportId('new') // false
  */
-export function looksLikeExistingReportId(str: string | null | undefined, excludeTemp: boolean = true): boolean {
-  if (!str) return false;
-  if (excludeTemp && str.includes('_temp')) return false;
-  return isSessionKey(str) || isUuid(str);
+export function looksLikeExistingReportId(
+  str: string | null | undefined,
+  excludeTemp: boolean = true
+): boolean {
+  if (!str) return false
+  if (excludeTemp && str.includes('_temp')) return false
+  return isSessionKey(str) || isUuid(str)
 }
 
 /**
@@ -127,20 +132,20 @@ export function looksLikeExistingReportId(str: string | null | undefined, exclud
  * detectExistingReportFromUrl() // false
  */
 export function detectExistingReportFromUrl(): boolean {
-  if (typeof window === 'undefined') return false;
-  
-  const pathname = window.location.pathname;
-  
+  if (typeof window === 'undefined') return false
+
+  const pathname = window.location.pathname
+
   // Check for report UUID in URL path: /reports/{uuid} or /en/reports/{uuid}
   if (UUID_REGEX.test(pathname.split('/').pop() || '')) {
-    return true;
+    return true
   }
-  
+
   // Check for session key in URL path: /reports/val_xxx
-  const lastSegment = pathname.split('/').pop() || '';
+  const lastSegment = pathname.split('/').pop() || ''
   if (lastSegment.startsWith(SESSION_KEY_PREFIX)) {
-    return true;
+    return true
   }
-  
-  return false;
+
+  return false
 }

@@ -35,9 +35,11 @@ const Button: React.FC<ButtonProps> = ({
   const variantClasses = {
     primary: 'bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-primary',
     secondary: 'bg-muted text-foreground hover:bg-foreground/10 focus:ring-primary',
-    outline: 'border border-foreground/10 text-foreground bg-card hover:bg-muted focus:ring-primary',
+    outline:
+      'border border-foreground/10 text-foreground bg-card hover:bg-muted focus:ring-primary',
     ghost: 'text-foreground hover:bg-muted focus:ring-primary',
-    danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive',
+    danger:
+      'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive',
   }
 
   const sizeClasses = {

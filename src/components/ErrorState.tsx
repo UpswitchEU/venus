@@ -1,9 +1,9 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
 import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import React from 'react'
-import { GlassCard, AuroraButton } from '@/design-system'
+import { AuroraButton, GlassCard } from '@/design-system'
 
 interface ErrorStateProps {
   title?: string

@@ -8,8 +8,8 @@
  * @version 2.0.0
  */
 
-import React, { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useState } from 'react'
 import type { BusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypes } from '../hooks/useBusinessTypes'
@@ -111,7 +111,9 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
               <div className="flex items-center space-x-3">
                 <span className="text-4xl">{selectedMetadata.icon}</span>
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">{selectedMetadata.title}</h3>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {selectedMetadata.title}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     {selectedMetadata.sector} • {selectedMetadata.industry}
                   </p>

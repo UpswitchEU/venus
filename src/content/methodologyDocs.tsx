@@ -79,7 +79,9 @@ export const METHODOLOGY_DOCS = {
               </div>
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-2 h-2 rounded-full bg-moss-500 mt-2"></div>
-                <p className="text-sm text-muted-foreground">Availability of comparable companies</p>
+                <p className="text-sm text-muted-foreground">
+                  Availability of comparable companies
+                </p>
               </div>
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-2 h-2 rounded-full bg-moss-500 mt-2"></div>

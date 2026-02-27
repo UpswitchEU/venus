@@ -1,13 +1,13 @@
 /**
  * Hybrid Aurora Design System
  * Badge Component
- * 
+ *
  * Unified section badges following the neutral pattern
  * to preserve brand accents for primary actions
  */
 
-import { forwardRef } from 'react';
-import { cn } from '../utils';
+import { forwardRef } from 'react'
+import { cn } from '../utils'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -15,11 +15,11 @@ import { cn } from '../utils';
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Visual variant */
-  variant?: 'neutral' | 'primary' | 'secondary' | 'accent' | 'success' | 'warning' | 'destructive';
+  variant?: 'neutral' | 'primary' | 'secondary' | 'accent' | 'success' | 'warning' | 'destructive'
   /** Size preset */
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg'
   /** Badge content */
-  children: React.ReactNode;
+  children: React.ReactNode
 }
 
 // ─────────────────────────────────────────
@@ -41,13 +41,13 @@ const variantStyles = {
   warning: 'border-warning/20 bg-warning/10 text-warning',
   /** Destructive/error state */
   destructive: 'border-destructive/20 bg-destructive/10 text-destructive',
-};
+}
 
 const sizeStyles = {
   sm: 'px-2 py-1 text-[9px] tracking-[0.2em]',
   md: 'px-3 py-1.5 text-[10px] tracking-[0.15em]',
   lg: 'px-4 py-2 text-[11px] tracking-[0.12em]',
-};
+}
 
 // ─────────────────────────────────────────
 // COMPONENT
@@ -68,11 +68,11 @@ export const Badge = forwardRef<HTMLDivElement, BadgeProps>(
       >
         {children}
       </div>
-    );
+    )
   }
-);
+)
 
-Badge.displayName = 'Badge';
+Badge.displayName = 'Badge'
 
 // ─────────────────────────────────────────
 // SECTION BADGE (Convenience wrapper)
@@ -80,15 +80,15 @@ Badge.displayName = 'Badge';
 
 export interface SectionBadgeProps extends Omit<BadgeProps, 'variant'> {
   /** Override to use accent color (use sparingly) */
-  accent?: 'primary' | 'secondary' | 'accent';
+  accent?: 'primary' | 'secondary' | 'accent'
 }
 
 export const SectionBadge = forwardRef<HTMLDivElement, SectionBadgeProps>(
   ({ accent, ...props }, ref) => {
-    return <Badge ref={ref} variant={accent || 'neutral'} {...props} />;
+    return <Badge ref={ref} variant={accent || 'neutral'} {...props} />
   }
-);
+)
 
-SectionBadge.displayName = 'SectionBadge';
+SectionBadge.displayName = 'SectionBadge'
 
-export default Badge;
+export default Badge

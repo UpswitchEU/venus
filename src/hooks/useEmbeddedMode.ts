@@ -22,7 +22,7 @@ export function closeEmbeddedIfActive(): void {
 /**
  * Hook to detect if Venus is running in embedded mode (iframe within Mercury)
  * and provide utilities for communicating with the parent window
- * 
+ *
  * BANK-GRADE: Persists embedded state to sessionStorage to survive internal navigation.
  * When Venus navigates from /reports/xxx?embedded=true to /valuation/new, the URL
  * param is lost. This hook preserves the embedded state for the entire session.
@@ -74,7 +74,9 @@ export function useEmbeddedMode() {
       // Can't access window.top due to same-origin policy = we're in cross-origin iframe
       // This is expected when Venus is embedded in Mercury
       if (!isEmbedded) {
-        generalLogger.debug('[useEmbeddedMode] Cross-origin iframe detected, enabling embedded mode')
+        generalLogger.debug(
+          '[useEmbeddedMode] Cross-origin iframe detected, enabling embedded mode'
+        )
         try {
           sessionStorage.setItem(EMBEDDED_STORAGE_KEY, 'true')
         } catch (storageError) {

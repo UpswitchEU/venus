@@ -9,8 +9,8 @@
 
 'use client'
 
-import { useTranslations } from 'next-intl'
 import { Calendar, Edit3, RefreshCw, Save, User } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import React, { useMemo, useState } from 'react'
 import { formatCurrency } from '../config/countries'
 import { valuationAuditService } from '../services/audit/ValuationAuditService'
@@ -122,7 +122,9 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
         {/* Most edited fields */}
         {stats.mostEditedFields.length > 0 && (
           <div className="mt-4">
-            <p className="text-sm text-muted-foreground font-medium mb-2">{t('mostEditedFields')}</p>
+            <p className="text-sm text-muted-foreground font-medium mb-2">
+              {t('mostEditedFields')}
+            </p>
             <div className="flex flex-wrap gap-2">
               {stats.mostEditedFields.map((item) => (
                 <span
@@ -278,7 +280,9 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
                 {t('changed')}
               </p>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-muted-foreground">{formatValue(entry.metadata.oldValue)}</span>
+                <span className="text-muted-foreground">
+                  {formatValue(entry.metadata.oldValue)}
+                </span>
                 <span className="text-muted-foreground">→</span>
                 <span className="text-foreground font-medium">
                   {formatValue(entry.metadata.newValue)}
@@ -347,9 +351,7 @@ export function AuditLogEmpty() {
         <Edit3 className="w-8 h-8 text-muted-foreground" />
       </div>
       <h3 className="text-lg font-semibold text-foreground mb-2">{t('noChangesYet')}</h3>
-      <p className="text-sm text-muted-foreground max-w-sm">
-        {t('editOrRegenerateDesc')}
-      </p>
+      <p className="text-sm text-muted-foreground max-w-sm">{t('editOrRegenerateDesc')}</p>
     </div>
   )
 }

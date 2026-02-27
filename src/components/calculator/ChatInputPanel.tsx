@@ -1,53 +1,45 @@
-'use client';
+'use client'
 
 /**
  * Chat Input Panel
- * 
+ *
  * AI-powered conversational interface for valuation input.
  * World-class design: focused empty state, clear guidance, minimal chrome.
  * Inspired by ChatGPT, Perplexity, Linear.
  */
 
-import { useState, useRef, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FileText, 
-  Building2, 
-  Send,
-  Paperclip,
-  X,
-  Image as ImageIcon,
-  Loader2
-} from 'lucide-react';
-import { cn } from '@/design-system/utils';
-import { AuroraButton as Button } from '@/design-system/components/Button';
-import { AuroraInput as Input } from '@/design-system/components/Input';
+import { AnimatePresence, motion } from 'framer-motion'
+import { Building2, FileText, Image as ImageIcon, Loader2, Paperclip, Send, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { useEffect, useRef, useState } from 'react'
+import { AuroraButton as Button } from '@/design-system/components/Button'
+import { AuroraInput as Input } from '@/design-system/components/Input'
+import { cn } from '@/design-system/utils'
 
 // Types
 export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  attachments?: { name: string; type: string; url: string }[];
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+  attachments?: { name: string; type: string; url: string }[]
 }
 
 export interface CollectedData {
-  companyName?: string;
-  businessType?: string;
-  industry?: string;
-  country?: string;
-  yearFounded?: string;
-  ownerManagers?: number;
-  equityStake?: number;
+  companyName?: string
+  businessType?: string
+  industry?: string
+  country?: string
+  yearFounded?: string
+  ownerManagers?: number
+  equityStake?: number
 }
 
 export interface ChatInputPanelProps {
-  messages: ChatMessage[];
-  onSendMessage: (content: string, attachments?: File[]) => void;
-  isGenerating?: boolean;
-  collectedData?: CollectedData;
+  messages: ChatMessage[]
+  onSendMessage: (content: string, attachments?: File[]) => void
+  isGenerating?: boolean
+  collectedData?: CollectedData
 }
 
 export function ChatInputPanel({
@@ -56,58 +48,58 @@ export function ChatInputPanel({
   isGenerating = false,
   collectedData,
 }: ChatInputPanelProps) {
-  const ca = useTranslations('chatAssistant');
+  const ca = useTranslations('chatAssistant')
   const suggestions = [
     ca('suggestions.suggestion1'),
     ca('suggestions.suggestion2'),
     ca('suggestions.suggestion3'),
     ca('suggestions.suggestion4'),
-  ];
-  const [input, setInput] = useState('');
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  ]
+  const [input, setInput] = useState('')
+  const [attachments, setAttachments] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'
     }
-  }, [input]);
+  }, [input])
 
   const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() && attachments.length === 0) return;
-    onSendMessage(input, attachments);
-    setInput('');
-    setAttachments([]);
-  };
+    e?.preventDefault()
+    if (!input.trim() && attachments.length === 0) return
+    onSendMessage(input, attachments)
+    setInput('')
+    setAttachments([])
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+      setAttachments((prev) => [...prev, ...Array.from(e.target.files!)])
     }
-  };
+  }
 
   const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
-  };
+    setAttachments((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
+      e.preventDefault()
+      handleSubmit()
     }
-  };
+  }
 
-  const isEmpty = messages.length === 0;
-  const hasContext = collectedData?.companyName;
+  const isEmpty = messages.length === 0
+  const hasContext = collectedData?.companyName
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
@@ -124,9 +116,9 @@ export function ChatInputPanel({
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto">
         {isEmpty ? (
-          <EmptyState 
+          <EmptyState
             suggestions={suggestions}
-            onSuggestionClick={(text) => setInput(text)} 
+            onSuggestionClick={(text) => setInput(text)}
             companyName={collectedData?.companyName}
           />
         ) : (
@@ -135,7 +127,9 @@ export function ChatInputPanel({
             {hasContext && messages.length === 0 && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10 text-sm">
                 <Building2 className="w-4 h-4 text-primary" />
-                <span className="text-foreground/70">{ca('contextPrefix')} {collectedData.companyName}</span>
+                <span className="text-foreground/70">
+                  {ca('contextPrefix')} {collectedData.companyName}
+                </span>
               </div>
             )}
 
@@ -146,7 +140,7 @@ export function ChatInputPanel({
             </AnimatePresence>
 
             {isGenerating && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-3"
@@ -161,7 +155,7 @@ export function ChatInputPanel({
                 </div>
               </motion.div>
             )}
-            
+
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -173,7 +167,7 @@ export function ChatInputPanel({
         {attachments.length > 0 && (
           <div className="flex gap-2 mb-3 flex-wrap">
             {attachments.map((file, index) => (
-              <div 
+              <div
                 key={index}
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-foreground/[0.04] border border-foreground/[0.08] text-xs"
               >
@@ -183,7 +177,7 @@ export function ChatInputPanel({
                   <FileText className="w-3.5 h-3.5 text-foreground/50" />
                 )}
                 <span className="text-foreground/70 truncate max-w-[100px]">{file.name}</span>
-                <button 
+                <button
                   onClick={() => removeAttachment(index)}
                   className="text-foreground/40 hover:text-destructive min-w-[44px] min-h-[44px] flex items-center justify-center -m-2"
                 >
@@ -212,23 +206,23 @@ export function ChatInputPanel({
               placeholder={ca('suggestions.askOrUploadDoc')}
               rows={1}
               className={cn(
-                "w-full resize-none rounded-xl px-4 py-3 pr-12",
-                "bg-foreground/[0.04] border border-foreground/[0.08]",
-                "focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20",
-                "text-base sm:text-sm placeholder:text-foreground/40",
-                "transition-colors min-h-[44px]"
+                'w-full resize-none rounded-xl px-4 py-3 pr-12',
+                'bg-foreground/[0.04] border border-foreground/[0.08]',
+                'focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20',
+                'text-base sm:text-sm placeholder:text-foreground/40',
+                'transition-colors min-h-[44px]'
               )}
               disabled={isGenerating}
             />
-            
+
             <button
               onClick={() => handleSubmit()}
               disabled={(!input.trim() && attachments.length === 0) || isGenerating}
               className={cn(
-                "absolute right-1.5 bottom-1.5 w-9 h-9 flex items-center justify-center rounded-lg transition-all active:scale-95",
+                'absolute right-1.5 bottom-1.5 w-9 h-9 flex items-center justify-center rounded-lg transition-all active:scale-95',
                 input.trim() || attachments.length > 0
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "text-foreground/30"
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'text-foreground/30'
               )}
             >
               <Send className="w-4 h-4" />
@@ -241,31 +235,31 @@ export function ChatInputPanel({
         </p>
       </div>
     </div>
-  );
+  )
 }
 
 // Empty State Component - Minimalist Dieter Rams aesthetic
-function EmptyState({ 
+function EmptyState({
   suggestions,
-  onSuggestionClick, 
-  companyName 
-}: { 
-  suggestions: string[];
-  onSuggestionClick: (text: string) => void;
-  companyName?: string;
+  onSuggestionClick,
+  companyName,
+}: {
+  suggestions: string[]
+  onSuggestionClick: (text: string) => void
+  companyName?: string
 }) {
-  const ca = useTranslations('chatAssistant');
+  const ca = useTranslations('chatAssistant')
   return (
     <div className="flex flex-col items-center justify-center h-full p-4 sm:p-6">
       <div className="max-w-md w-full space-y-6 sm:space-y-8">
         {/* Header - Engaging, action-oriented */}
         <div className="text-center space-y-2">
           <h2 className="text-lg sm:text-xl font-semibold text-foreground">
-            {companyName ? ca('suggestions.askAboutCompany', { company: companyName }) : ca('suggestions.whatToKnow')}
+            {companyName
+              ? ca('suggestions.askAboutCompany', { company: companyName })
+              : ca('suggestions.whatToKnow')}
           </h2>
-          <p className="text-sm text-foreground/50">
-            {ca('suggestions.uploadOrAsk')}
-          </p>
+          <p className="text-sm text-foreground/50">{ca('suggestions.uploadOrAsk')}</p>
         </div>
 
         {/* Suggestions - Simple text chips, no icons */}
@@ -278,11 +272,11 @@ function EmptyState({
               transition={{ delay: 0.05 + index * 0.03 }}
               onClick={() => onSuggestionClick(suggestion)}
               className={cn(
-                "px-4 py-2.5 rounded-full text-sm min-h-[44px]",
-                "bg-foreground/[0.04] border border-foreground/[0.08]",
-                "text-foreground/60 hover:text-foreground active:scale-95",
-                "hover:border-primary/30 hover:bg-primary/5",
-                "transition-all"
+                'px-4 py-2.5 rounded-full text-sm min-h-[44px]',
+                'bg-foreground/[0.04] border border-foreground/[0.08]',
+                'text-foreground/60 hover:text-foreground active:scale-95',
+                'hover:border-primary/30 hover:bg-primary/5',
+                'transition-all'
               )}
             >
               {suggestion}
@@ -296,31 +290,33 @@ function EmptyState({
         </p>
       </div>
     </div>
-  );
+  )
 }
 
 // Message Bubble Component
 function MessageBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === 'user';
-  
+  const isUser = message.role === 'user'
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn('flex', isUser ? 'justify-end' : 'justify-start')}
     >
-      <div className={cn(
-        'max-w-[85%] rounded-2xl px-4 py-3',
-        isUser 
-          ? 'bg-primary/15 text-foreground border border-primary/25 shadow-sm' 
-          : 'bg-foreground/[0.04] border border-foreground/[0.06] text-foreground'
-      )}>
+      <div
+        className={cn(
+          'max-w-[85%] rounded-2xl px-4 py-3',
+          isUser
+            ? 'bg-primary/15 text-foreground border border-primary/25 shadow-sm'
+            : 'bg-foreground/[0.04] border border-foreground/[0.06] text-foreground'
+        )}
+      >
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2">
             {message.attachments.map((attachment, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className={cn(
                   'flex items-center gap-1.5 px-2 py-1 rounded text-xs',
                   isUser ? 'bg-primary/20 text-foreground/80' : 'bg-foreground/[0.06]'
@@ -336,16 +332,18 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             ))}
           </div>
         )}
-        
+
         <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-        
-        <span className={cn(
-          'text-[10px] mt-1.5 block',
-          isUser ? 'text-foreground/50' : 'text-foreground/40'
-        )}>
+
+        <span
+          className={cn(
+            'text-[10px] mt-1.5 block',
+            isUser ? 'text-foreground/50' : 'text-foreground/40'
+          )}
+        >
           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
     </motion.div>
-  );
+  )
 }

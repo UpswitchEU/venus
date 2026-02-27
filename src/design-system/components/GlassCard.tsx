@@ -1,16 +1,16 @@
-'use client';
+'use client'
 
 /**
  * Hybrid Aurora Design System
  * GlassCard Component
- * 
+ *
  * A glass-morphism container with physics-based animations
  */
 
-import { motion, HTMLMotionProps } from 'framer-motion';
-import { forwardRef } from 'react';
-import { cn } from '../utils';
-import { springDefault } from './motion';
+import { HTMLMotionProps, motion } from 'framer-motion'
+import { forwardRef } from 'react'
+import { cn } from '../utils'
+import { springDefault } from './motion'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -18,13 +18,13 @@ import { springDefault } from './motion';
 
 export interface GlassCardProps extends HTMLMotionProps<'div'> {
   /** Visual weight of the glass effect */
-  variant?: 'default' | 'subtle' | 'strong';
+  variant?: 'default' | 'subtle' | 'strong'
   /** Glow color on hover */
-  glow?: 'none' | 'primary' | 'secondary' | 'accent';
+  glow?: 'none' | 'primary' | 'secondary' | 'accent'
   /** Enable hover animations */
-  hover?: boolean;
+  hover?: boolean
   /** Card content */
-  children: React.ReactNode;
+  children: React.ReactNode
 }
 
 // ─────────────────────────────────────────
@@ -35,14 +35,14 @@ const variantStyles = {
   default: 'bg-card/[0.85] backdrop-blur-xl border border-foreground/[0.08]',
   subtle: 'bg-card/[0.6] backdrop-blur-lg border border-foreground/[0.05]',
   strong: 'bg-card/[0.95] backdrop-blur-2xl border border-foreground/[0.12]',
-};
+}
 
 const glowStyles = {
   none: '',
   primary: 'hover:shadow-glow-primary hover:border-primary/20',
   secondary: 'hover:shadow-glow-secondary hover:border-secondary/20',
   accent: 'hover:shadow-glow-accent hover:border-accent/20',
-};
+}
 
 // ─────────────────────────────────────────
 // COMPONENT
@@ -68,11 +68,11 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
       >
         {children}
       </motion.div>
-    );
+    )
   }
-);
+)
 
-GlassCard.displayName = 'GlassCard';
+GlassCard.displayName = 'GlassCard'
 
 // ─────────────────────────────────────────
 // BENTO CARD VARIANT
@@ -80,9 +80,9 @@ GlassCard.displayName = 'GlassCard';
 
 export interface BentoCardProps extends GlassCardProps {
   /** Column span (responsive grid) */
-  colSpan?: 1 | 2 | 3 | 4 | 6 | 12;
+  colSpan?: 1 | 2 | 3 | 4 | 6 | 12
   /** Row span */
-  rowSpan?: 1 | 2 | 3;
+  rowSpan?: 1 | 2 | 3
 }
 
 const colSpanClasses = {
@@ -92,13 +92,13 @@ const colSpanClasses = {
   4: 'col-span-12 md:col-span-6 lg:col-span-4',
   6: 'col-span-12 lg:col-span-6',
   12: 'col-span-12',
-};
+}
 
 const rowSpanClasses = {
   1: '',
   2: 'row-span-2',
   3: 'row-span-3',
-};
+}
 
 export const BentoCard = forwardRef<HTMLDivElement, BentoCardProps>(
   ({ className, colSpan = 1, rowSpan = 1, ...props }, ref) => {
@@ -108,10 +108,10 @@ export const BentoCard = forwardRef<HTMLDivElement, BentoCardProps>(
         className={cn(colSpanClasses[colSpan], rowSpanClasses[rowSpan], className)}
         {...props}
       />
-    );
+    )
   }
-);
+)
 
-BentoCard.displayName = 'BentoCard';
+BentoCard.displayName = 'BentoCard'
 
-export default GlassCard;
+export default GlassCard

@@ -19,7 +19,9 @@ import {
 export function LogoutListener() {
   const router = useTransitionRouter()
   const routerRef = useRef(router)
-  useEffect(() => { routerRef.current = router }, [router])
+  useEffect(() => {
+    routerRef.current = router
+  }, [router])
 
   useEffect(() => {
     const cleanupLogoutListener = listenForLogout(() => {

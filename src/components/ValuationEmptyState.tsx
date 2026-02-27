@@ -1,6 +1,6 @@
 import { TrendingUp } from 'lucide-react'
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 
 export const ValuationEmptyState: React.FC = () => {
   const t = useTranslations('valuationEmptyState')

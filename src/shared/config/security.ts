@@ -10,7 +10,8 @@
 
 export const SECURITY_CONFIG = {
   // Password Protection
-  PLATFORM_PASSWORD: process.env.NEXT_PUBLIC_PLATFORM_PASSWORD || process.env.PLATFORM_PASSWORD || '',
+  PLATFORM_PASSWORD:
+    process.env.NEXT_PUBLIC_PLATFORM_PASSWORD || process.env.PLATFORM_PASSWORD || '',
 
   // Cookie Settings
   PLATFORM_COOKIE_NAME: 'platform_access_token', // Separate cookie for platform protection

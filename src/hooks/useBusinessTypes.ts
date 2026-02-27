@@ -62,7 +62,10 @@ export function useBusinessTypes(): UseBusinessTypesState {
     } catch (err) {
       if (timeoutId) clearTimeout(timeoutId)
       if (err instanceof Error && err.name === 'AbortError') return
-      const errorMessage = err instanceof Error ? err.message : 'Bedrijfstypes laden mislukt. Probeer het later opnieuw.'
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Bedrijfstypes laden mislukt. Probeer het later opnieuw.'
       setError(errorMessage)
       logger.error('Failed to fetch business types', { error: errorMessage })
     } finally {

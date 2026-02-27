@@ -1,48 +1,48 @@
-'use client';
+'use client'
 
 /**
  * CSV Upload Card Component
- * 
+ *
  * Polished file dropzone for Yuki/accounting software CSV exports.
  * Includes template download and parsing preview.
  */
 
-import { useState, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/design-system/utils';
-import { AuroraButton as Button } from '@/design-system/components/Button';
-import { Badge } from '@/design-system/components/Badge';
-import { GlassCard } from '@/design-system/components/GlassCard';
-import { Heading, Body, Caption, Mono } from '@/design-system/components/Typography';
-import { 
-  Upload, 
-  FileSpreadsheet, 
-  Download, 
-  Check, 
+import { AnimatePresence, motion } from 'framer-motion'
+import {
   AlertCircle,
-  X,
+  Check,
+  ChevronRight,
+  Download,
   File,
+  FileSpreadsheet,
   Loader2,
-  ChevronRight
-} from 'lucide-react';
+  Upload,
+  X,
+} from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { useCallback, useState } from 'react'
+import { Badge } from '@/design-system/components/Badge'
+import { AuroraButton as Button } from '@/design-system/components/Button'
+import { GlassCard } from '@/design-system/components/GlassCard'
+import { Body, Caption, Heading, Mono } from '@/design-system/components/Typography'
+import { cn } from '@/design-system/utils'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
 
 export interface ParsedCSVData {
-  headers: string[];
-  rows: string[][];
-  totalRows: number;
-  detectedType: 'yuki' | 'exact' | 'odoo' | 'generic';
-  fiscalYears: string[];
+  headers: string[]
+  rows: string[][]
+  totalRows: number
+  detectedType: 'yuki' | 'exact' | 'odoo' | 'generic'
+  fiscalYears: string[]
 }
 
 export interface CSVUploadCardProps {
-  onFileSelected: (file: File, parsedData: ParsedCSVData) => void;
-  onSkip?: () => void;
-  className?: string;
+  onFileSelected: (file: File, parsedData: ParsedCSVData) => void
+  onSkip?: () => void
+  className?: string
 }
 
 // ─────────────────────────────────────────
@@ -60,127 +60,130 @@ const CSV_TEMPLATE = `Rekening;Omschrijving;Type;2022;2023;2024
 6500;Autokosten;Kosten;18000;19000;20000
 6600;Kantoorkosten;Kosten;8000;8500;9000
 6700;Accountantskosten;Kosten;12000;13000;14000
-6800;Overige bedrijfskosten;Kosten;24000;26000;28000`;
+6800;Overige bedrijfskosten;Kosten;24000;26000;28000`
 
 const downloadTemplate = () => {
-  const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'upswitch-grootboek-template.csv';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
+  const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'upswitch-grootboek-template.csv'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
 
 // ─────────────────────────────────────────
 // CSV PARSER
 // ─────────────────────────────────────────
 
 const parseCSV = (content: string): ParsedCSVData => {
-  const lines = content.trim().split('\n');
-  const delimiter = content.includes(';') ? ';' : ',';
-  
-  const headers = lines[0].split(delimiter).map(h => h.trim());
-  const rows = lines.slice(1).map(line => 
-    line.split(delimiter).map(cell => cell.trim())
-  );
-  
+  const lines = content.trim().split('\n')
+  const delimiter = content.includes(';') ? ';' : ','
+
+  const headers = lines[0].split(delimiter).map((h) => h.trim())
+  const rows = lines.slice(1).map((line) => line.split(delimiter).map((cell) => cell.trim()))
+
   // Detect source based on headers
-  let detectedType: ParsedCSVData['detectedType'] = 'generic';
-  const headerStr = headers.join(' ').toLowerCase();
-  
+  let detectedType: ParsedCSVData['detectedType'] = 'generic'
+  const headerStr = headers.join(' ').toLowerCase()
+
   if (headerStr.includes('yuki') || headerStr.includes('grootboek')) {
-    detectedType = 'yuki';
+    detectedType = 'yuki'
   } else if (headerStr.includes('exact')) {
-    detectedType = 'exact';
+    detectedType = 'exact'
   } else if (headerStr.includes('odoo')) {
-    detectedType = 'odoo';
+    detectedType = 'odoo'
   }
-  
+
   // Extract fiscal years from headers (numeric columns)
-  const fiscalYears = headers.filter(h => /^20\d{2}$/.test(h));
-  
+  const fiscalYears = headers.filter((h) => /^20\d{2}$/.test(h))
+
   return {
     headers,
     rows,
     totalRows: rows.length,
     detectedType,
     fiscalYears,
-  };
-};
+  }
+}
 
 // ─────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────
 
-export function CSVUploadCard({
-  onFileSelected,
-  onSkip,
-  className,
-}: CSVUploadCardProps) {
-  const t = useTranslations('csvUpload');
-  const [isDragging, setIsDragging] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [parsedData, setParsedData] = useState<ParsedCSVData | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function CSVUploadCard({ onFileSelected, onSkip, className }: CSVUploadCardProps) {
+  const t = useTranslations('csvUpload')
+  const [isDragging, setIsDragging] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+  const [parsedData, setParsedData] = useState<ParsedCSVData | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const processFile = useCallback(async (selectedFile: File) => {
-    setIsProcessing(true);
-    setError(null);
-    
-    try {
-      const content = await selectedFile.text();
-      const data = parseCSV(content);
-      
-      if (data.rows.length === 0) {
-        throw new Error(t('errorNoData'));
+  const processFile = useCallback(
+    async (selectedFile: File) => {
+      setIsProcessing(true)
+      setError(null)
+
+      try {
+        const content = await selectedFile.text()
+        const data = parseCSV(content)
+
+        if (data.rows.length === 0) {
+          throw new Error(t('errorNoData'))
+        }
+
+        setFile(selectedFile)
+        setParsedData(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('errorProcessFailed'))
+      } finally {
+        setIsProcessing(false)
       }
-      
-      setFile(selectedFile);
-      setParsedData(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('errorProcessFailed'));
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [t]);
+    },
+    [t]
+  )
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && (droppedFile.type === 'text/csv' || droppedFile.name.endsWith('.csv'))) {
-      processFile(droppedFile);
-    } else {
-      setError(t('errorCsvOnly'));
-    }
-  }, [processFile]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragging(false)
 
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      processFile(selectedFile);
-    }
-  }, [processFile]);
+      const droppedFile = e.dataTransfer.files[0]
+      if (droppedFile && (droppedFile.type === 'text/csv' || droppedFile.name.endsWith('.csv'))) {
+        processFile(droppedFile)
+      } else {
+        setError(t('errorCsvOnly'))
+      }
+    },
+    [processFile]
+  )
+
+  const handleFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFile = e.target.files?.[0]
+      if (selectedFile) {
+        processFile(selectedFile)
+      }
+    },
+    [processFile]
+  )
 
   const handleContinue = () => {
     if (file && parsedData) {
-      onFileSelected(file, parsedData);
+      onFileSelected(file, parsedData)
     }
-  };
+  }
 
   const handleRemoveFile = () => {
-    setFile(null);
-    setParsedData(null);
-    setError(null);
-  };
+    setFile(null)
+    setParsedData(null)
+    setError(null)
+  }
 
   return (
-    <GlassCard className={cn("p-6", className)}>
+    <GlassCard className={cn('p-6', className)}>
       {/* Header */}
       <div className="flex items-start gap-4 mb-6">
         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -188,12 +191,14 @@ export function CSVUploadCard({
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <Heading level={3} className="text-lg">{t('title')}</Heading>
-            <Badge variant="primary" size="sm">CSV</Badge>
+            <Heading level={3} className="text-lg">
+              {t('title')}
+            </Heading>
+            <Badge variant="primary" size="sm">
+              CSV
+            </Badge>
           </div>
-          <Caption className="text-foreground/50">
-            {t('subtitle')}
-          </Caption>
+          <Caption className="text-foreground/50">{t('subtitle')}</Caption>
         </div>
       </div>
 
@@ -210,16 +215,9 @@ export function CSVUploadCard({
             <div className="flex items-center justify-between p-3 rounded-lg bg-foreground/[0.02] border border-dashed border-foreground/[0.08] mb-4">
               <div className="flex items-center gap-3">
                 <Download className="w-4 h-4 text-foreground/40" />
-                <Caption className="text-foreground/60">
-                  {t('useTemplate')}
-                </Caption>
+                <Caption className="text-foreground/60">{t('useTemplate')}</Caption>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="gap-2"
-                onClick={downloadTemplate}
-              >
+              <Button variant="ghost" size="sm" className="gap-2" onClick={downloadTemplate}>
                 <Download className="w-3.5 h-3.5" />
                 {t('downloadTemplate')}
               </Button>
@@ -227,15 +225,18 @@ export function CSVUploadCard({
 
             {/* Drop Zone */}
             <div
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setIsDragging(true)
+              }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
               className={cn(
-                "relative border-2 border-dashed rounded-xl p-8 text-center transition-all",
-                isDragging 
-                  ? "border-primary bg-primary/5" 
-                  : "border-foreground/[0.10] hover:border-foreground/[0.20]",
-                isProcessing && "pointer-events-none opacity-60"
+                'relative border-2 border-dashed rounded-xl p-8 text-center transition-all',
+                isDragging
+                  ? 'border-primary bg-primary/5'
+                  : 'border-foreground/[0.10] hover:border-foreground/[0.20]',
+                isProcessing && 'pointer-events-none opacity-60'
               )}
             >
               <input
@@ -245,7 +246,7 @@ export function CSVUploadCard({
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 disabled={isProcessing}
               />
-              
+
               {isProcessing ? (
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -255,21 +256,23 @@ export function CSVUploadCard({
                 </div>
               ) : (
                 <>
-                  <div className={cn(
-                    "w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-colors",
-                    isDragging ? "bg-primary/20" : "bg-foreground/[0.06]"
-                  )}>
-                    <Upload className={cn(
-                      "w-7 h-7 transition-colors",
-                      isDragging ? "text-primary" : "text-foreground/40"
-                    )} />
+                  <div
+                    className={cn(
+                      'w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-colors',
+                      isDragging ? 'bg-primary/20' : 'bg-foreground/[0.06]'
+                    )}
+                  >
+                    <Upload
+                      className={cn(
+                        'w-7 h-7 transition-colors',
+                        isDragging ? 'text-primary' : 'text-foreground/40'
+                      )}
+                    />
                   </div>
                   <Body size="sm" className="font-medium mb-1">
                     {isDragging ? t('dropActive') : t('dropHere')}
                   </Body>
-                  <Caption className="text-foreground/40">
-                    {t('orClick')}
-                  </Caption>
+                  <Caption className="text-foreground/40">{t('orClick')}</Caption>
                 </>
               )}
             </div>
@@ -282,18 +285,22 @@ export function CSVUploadCard({
                 className="flex items-center gap-2 mt-4 p-3 rounded-lg bg-secondary/10 border border-secondary/20"
               >
                 <AlertCircle className="w-4 h-4 text-secondary shrink-0" />
-                <Body size="sm" className="text-secondary">{error}</Body>
+                <Body size="sm" className="text-secondary">
+                  {error}
+                </Body>
               </motion.div>
             )}
 
             {/* Supported formats */}
             <div className="flex items-center justify-center gap-4 mt-6">
               <Caption className="text-foreground/30">{t('supported')}</Caption>
-              {[t('formats.yuki'), t('formats.exact'), t('formats.odoo'), t('formats.generic')].map((format) => (
-                <Badge key={format} variant="neutral" size="sm">
-                  {format}
-                </Badge>
-              ))}
+              {[t('formats.yuki'), t('formats.exact'), t('formats.odoo'), t('formats.generic')].map(
+                (format) => (
+                  <Badge key={format} variant="neutral" size="sm">
+                    {format}
+                  </Badge>
+                )
+              )}
             </div>
           </motion.div>
         ) : (
@@ -313,9 +320,7 @@ export function CSVUploadCard({
                 <Body size="sm" className="font-medium truncate">
                   {file.name}
                 </Body>
-                <Caption className="text-foreground/50">
-                  {(file.size / 1024).toFixed(1)} KB
-                </Caption>
+                <Caption className="text-foreground/50">{(file.size / 1024).toFixed(1)} KB</Caption>
               </div>
               <button
                 onClick={handleRemoveFile}
@@ -333,9 +338,13 @@ export function CSVUploadCard({
                   <Caption className="text-foreground/40 mb-1">{t('format')}</Caption>
                   <div className="flex items-center gap-2">
                     <Badge variant="primary" size="sm">
-                      {parsedData.detectedType === 'yuki' ? t('formats.yuki') :
-                       parsedData.detectedType === 'exact' ? t('formats.exact') :
-                       parsedData.detectedType === 'odoo' ? t('formats.odoo') : t('formats.generic')}
+                      {parsedData.detectedType === 'yuki'
+                        ? t('formats.yuki')
+                        : parsedData.detectedType === 'exact'
+                          ? t('formats.exact')
+                          : parsedData.detectedType === 'odoo'
+                            ? t('formats.odoo')
+                            : t('formats.generic')}
                     </Badge>
                   </div>
                 </div>
@@ -346,9 +355,7 @@ export function CSVUploadCard({
                 <div className="p-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
                   <Caption className="text-foreground/40 mb-1">{t('fiscalYears')}</Caption>
                   <Mono className="text-lg font-semibold">
-                    {parsedData.fiscalYears.length > 0 
-                      ? parsedData.fiscalYears.join(', ') 
-                      : '–'}
+                    {parsedData.fiscalYears.length > 0 ? parsedData.fiscalYears.join(', ') : '–'}
                   </Mono>
                 </div>
               </div>
@@ -367,7 +374,10 @@ export function CSVUploadCard({
                     <thead>
                       <tr className="border-b border-foreground/[0.06]">
                         {parsedData.headers.slice(0, 5).map((header, i) => (
-                          <th key={i} className="px-4 py-2 text-left text-xs font-medium text-foreground/40 uppercase">
+                          <th
+                            key={i}
+                            className="px-4 py-2 text-left text-xs font-medium text-foreground/40 uppercase"
+                          >
                             {header}
                           </th>
                         ))}
@@ -382,13 +392,14 @@ export function CSVUploadCard({
                       {parsedData.rows.slice(0, 3).map((row, i) => (
                         <tr key={i}>
                           {row.slice(0, 5).map((cell, j) => (
-                            <td key={j} className="px-4 py-2 text-foreground/70 truncate max-w-[150px]">
+                            <td
+                              key={j}
+                              className="px-4 py-2 text-foreground/70 truncate max-w-[150px]"
+                            >
                               {cell}
                             </td>
                           ))}
-                          {row.length > 5 && (
-                            <td className="px-4 py-2 text-foreground/40">...</td>
-                          )}
+                          {row.length > 5 && <td className="px-4 py-2 text-foreground/40">...</td>}
                         </tr>
                       ))}
                     </tbody>
@@ -415,7 +426,7 @@ export function CSVUploadCard({
       {/* Skip Option */}
       {onSkip && !file && (
         <div className="text-center mt-6 pt-6 border-t border-foreground/[0.06]">
-          <button 
+          <button
             onClick={onSkip}
             className="text-sm text-foreground/40 hover:text-foreground/60 transition-colors"
           >
@@ -424,7 +435,7 @@ export function CSVUploadCard({
         </div>
       )}
     </GlassCard>
-  );
+  )
 }
 
-export default CSVUploadCard;
+export default CSVUploadCard

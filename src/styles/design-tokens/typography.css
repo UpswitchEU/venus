@@ -12,11 +12,14 @@
    Applied when using .aurora-theme class
    ───────────────────────────────────────── */
 .aurora-theme {
-  font-family: 'Satoshi', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Satoshi", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: 'ss01' on, 'ss02' on;
+  font-feature-settings:
+    "ss01" on,
+    "ss02" on;
 }
 
 .aurora-theme body {
@@ -33,7 +36,7 @@
 .aurora-theme h4,
 .aurora-theme h5,
 .aurora-theme h6 {
-  font-family: 'Satoshi', system-ui, sans-serif;
+  font-family: "Satoshi", system-ui, sans-serif;
   font-weight: 700;
   letter-spacing: -0.025em;
 }
@@ -46,7 +49,7 @@
 .aurora-theme .tabular-nums,
 .aurora-theme code,
 .aurora-theme pre {
-  font-family: 'JetBrains Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-family: "JetBrains Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 .tabular-nums {

@@ -10,40 +10,40 @@
  * - POST /api/v2/ai/chat (JSON fallback)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
 
 const TITAN_API_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.upswitch.app';
+  'https://api.upswitch.app'
 
-const TIMEOUT_MS = 60_000;
+const TIMEOUT_MS = 60_000
 
 export async function POST(request: NextRequest) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const body = await request.json();
+    const body = await request.json()
 
-    const cookieHeader = request.headers.get('cookie') || '';
-    const hasAuth = cookieHeader.includes('upswitch_access_token=');
+    const cookieHeader = request.headers.get('cookie') || ''
+    const hasAuth = cookieHeader.includes('upswitch_access_token=')
 
     if (!hasAuth) {
       return NextResponse.json(
         { success: false, error: 'Authentication required', fallback: true },
-        { status: 401 },
-      );
+        { status: 401 }
+      )
     }
 
-    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/);
-    const accessToken = accessTokenMatch?.[1]?.trim();
+    const accessTokenMatch = cookieHeader.match(/upswitch_access_token=([^;]+)/)
+    const accessToken = accessTokenMatch?.[1]?.trim()
 
-    const useStream = body.stream !== false;
+    const useStream = body.stream !== false
 
     const titanEndpoint = useStream
       ? `${TITAN_API_URL}/api/v2/ai/stream`
-      : `${TITAN_API_URL}/api/v2/ai/chat`;
+      : `${TITAN_API_URL}/api/v2/ai/chat`
 
     const messages = [
       ...(body.history || []).map((msg: any) => ({
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         content: msg.content,
       })),
       { role: 'user' as const, content: body.message },
-    ];
+    ]
 
     const context = {
       sessionId: body.sessionId || '',
@@ -64,11 +64,11 @@ export async function POST(request: NextRequest) {
       hasEbitda: !!body.formData?.ebitda,
       hasOwnerSalary: body.normalizations?.some((n: any) => n.category === 'salary'),
       needsNormalization: body.normalizations?.some((n: any) => n.status === 'pending'),
-    };
+    }
 
-    const titanPayload: any = { messages, context };
+    const titanPayload: any = { messages, context }
     if (body.conversationId) {
-      titanPayload.conversationId = body.conversationId;
+      titanPayload.conversationId = body.conversationId
     }
 
     const titanResponse = await fetch(titanEndpoint, {
@@ -81,18 +81,18 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(titanPayload),
       signal: controller.signal,
-    });
+    })
 
     if (!titanResponse.ok) {
-      const errorData = await titanResponse.json().catch(() => ({}));
+      const errorData = await titanResponse.json().catch(() => ({}))
       return NextResponse.json(
         {
           success: false,
           error: errorData.message || 'AI service unavailable',
           fallback: true,
         },
-        { status: titanResponse.status },
-      );
+        { status: titanResponse.status }
+      )
     }
 
     if (useStream && titanResponse.body) {
@@ -102,24 +102,24 @@ export async function POST(request: NextRequest) {
           'Cache-Control': 'no-cache',
           Connection: 'keep-alive',
         },
-      });
+      })
     }
 
-    const data = await titanResponse.json();
-    return NextResponse.json(data);
+    const data = await titanResponse.json()
+    return NextResponse.json(data)
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       return NextResponse.json(
         { success: false, error: 'AI request timed out', fallback: true },
-        { status: 504 },
-      );
+        { status: 504 }
+      )
     }
-    console.error('[AI Chat Route] Error:', error instanceof Error ? error.message : error);
+    console.error('[AI Chat Route] Error:', error instanceof Error ? error.message : error)
     return NextResponse.json(
       { success: false, error: 'Failed to connect to AI service', fallback: true },
-      { status: 503 },
-    );
+      { status: 503 }
+    )
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timeout)
   }
 }

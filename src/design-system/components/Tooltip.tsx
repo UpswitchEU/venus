@@ -1,38 +1,38 @@
-'use client';
+'use client'
 
 /**
  * Tooltip Component
- * 
+ *
  * Animated tooltip with multiple placement options and arrow indicator.
  * Built on Radix UI for accessibility with Framer Motion animations.
  */
 
-import * as React from 'react';
-import * as TooltipPrimitive from '@radix-ui/react-tooltip';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '../utils';
+import * as TooltipPrimitive from '@radix-ui/react-tooltip'
+import { AnimatePresence, motion } from 'framer-motion'
+import * as React from 'react'
+import { cn } from '../utils'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
 
 export interface TooltipProps {
-  children: React.ReactNode;
-  content: React.ReactNode;
+  children: React.ReactNode
+  content: React.ReactNode
   /** Preferred: use `side`. `position` is an alias for backward compatibility. */
-  side?: 'top' | 'bottom' | 'left' | 'right';
-  position?: 'top' | 'bottom' | 'left' | 'right';
-  align?: 'start' | 'center' | 'end';
-  sideOffset?: number;
-  delayDuration?: number;
-  showArrow?: boolean;
-  className?: string;
+  side?: 'top' | 'bottom' | 'left' | 'right'
+  position?: 'top' | 'bottom' | 'left' | 'right'
+  align?: 'start' | 'center' | 'end'
+  sideOffset?: number
+  delayDuration?: number
+  showArrow?: boolean
+  className?: string
 }
 
 export interface TooltipProviderProps {
-  children: React.ReactNode;
-  delayDuration?: number;
-  skipDelayDuration?: number;
+  children: React.ReactNode
+  delayDuration?: number
+  skipDelayDuration?: number
 }
 
 // ─────────────────────────────────────────
@@ -68,7 +68,7 @@ const tooltipVariants = {
       ease: 'easeOut' as const,
     },
   }),
-};
+}
 
 // ─────────────────────────────────────────
 // PROVIDER
@@ -79,13 +79,10 @@ export const TooltipProvider: React.FC<TooltipProviderProps> = ({
   delayDuration = 200,
   skipDelayDuration = 300,
 }) => (
-  <TooltipPrimitive.Provider
-    delayDuration={delayDuration}
-    skipDelayDuration={skipDelayDuration}
-  >
+  <TooltipPrimitive.Provider delayDuration={delayDuration} skipDelayDuration={skipDelayDuration}>
     {children}
   </TooltipPrimitive.Provider>
-);
+)
 
 // ─────────────────────────────────────────
 // TOOLTIP COMPONENT
@@ -102,18 +99,12 @@ export const Tooltip: React.FC<TooltipProps> = ({
   showArrow = true,
   className,
 }) => {
-  const [open, setOpen] = React.useState(false);
-  const effectiveSide = position ?? side;
+  const [open, setOpen] = React.useState(false)
+  const effectiveSide = position ?? side
 
   return (
-    <TooltipPrimitive.Root
-      open={open}
-      onOpenChange={setOpen}
-      delayDuration={delayDuration}
-    >
-      <TooltipPrimitive.Trigger asChild>
-        {children}
-      </TooltipPrimitive.Trigger>
+    <TooltipPrimitive.Root open={open} onOpenChange={setOpen} delayDuration={delayDuration}>
+      <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
       <AnimatePresence>
         {open && (
           <TooltipPrimitive.Portal forceMount>
@@ -141,11 +132,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
               >
                 {content}
                 {showArrow && (
-                  <TooltipPrimitive.Arrow
-                    className="fill-foreground/95"
-                    width={10}
-                    height={5}
-                  />
+                  <TooltipPrimitive.Arrow className="fill-foreground/95" width={10} height={5} />
                 )}
               </motion.div>
             </TooltipPrimitive.Content>
@@ -153,21 +140,21 @@ export const Tooltip: React.FC<TooltipProps> = ({
         )}
       </AnimatePresence>
     </TooltipPrimitive.Root>
-  );
-};
+  )
+}
 
 // ─────────────────────────────────────────
 // COMPOUND COMPONENTS
 // ─────────────────────────────────────────
 
-export const TooltipRoot = TooltipPrimitive.Root;
-export const TooltipTrigger = TooltipPrimitive.Trigger;
-export const TooltipPortal = TooltipPrimitive.Portal;
+export const TooltipRoot = TooltipPrimitive.Root
+export const TooltipTrigger = TooltipPrimitive.Trigger
+export const TooltipPortal = TooltipPrimitive.Portal
 
 export const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & {
-    showArrow?: boolean;
+    showArrow?: boolean
   }
 >(({ className, sideOffset = 6, showArrow = true, children, side = 'top', ...props }, ref) => (
   <TooltipPrimitive.Content
@@ -191,15 +178,9 @@ export const TooltipContent = React.forwardRef<
     {...props}
   >
     {children}
-    {showArrow && (
-      <TooltipPrimitive.Arrow
-        className="fill-foreground/95"
-        width={10}
-        height={5}
-      />
-    )}
+    {showArrow && <TooltipPrimitive.Arrow className="fill-foreground/95" width={10} height={5} />}
   </TooltipPrimitive.Content>
-));
-TooltipContent.displayName = 'TooltipContent';
+))
+TooltipContent.displayName = 'TooltipContent'
 
-export default Tooltip;
+export default Tooltip

@@ -21,6 +21,7 @@ import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
 import { sessionCircuitBreaker } from '../../utils/circuitBreaker'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import { retrySessionOperation } from '../../utils/retryWithBackoff'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
@@ -30,34 +31,30 @@ import {
   normalizeSessionDates,
 } from '../../utils/sessionHelpers'
 import { validateSessionData } from '../../utils/sessionValidation'
-import { getApiUrl } from '../../utils/getMercuryUrl'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
 
 /**
  * Fetch business card data from Titan API
- * 
+ *
  * Centralized helper to avoid redundant code across loadSession/saveSession.
  * Only fetches if company_name is missing and clientUserId is available.
- * 
+ *
  * Business card data should come from bootstrap. This is only called
  * when bootstrap explicitly indicates missing data.
- * 
+ *
  * @param clientUserId - The client's user ID to fetch business card for
  * @returns Business card data object or null if fetch fails
  */
 async function fetchBusinessCardData(clientUserId: string): Promise<Record<string, any> | null> {
   try {
     const apiBaseUrl = getApiUrl()
-    const response = await fetch(
-      `${apiBaseUrl}/api/v2/business-cards/${clientUserId}`,
-      {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      }
-    )
+    const response = await fetch(`${apiBaseUrl}/api/v2/business-cards/${clientUserId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    })
 
     if (!response.ok) {
       logger.debug('Business card fetch failed', {
@@ -114,7 +111,7 @@ async function fetchBusinessCardData(clientUserId: string): Promise<Record<strin
 
 /**
  * Merge business card data into session
- * 
+ *
  * @param session - The session to merge into
  * @param businessCardData - Business card data to merge
  * @param clientContext - Client context to preserve
@@ -130,7 +127,7 @@ function mergeBusinessCardIntoSession(
     ...businessCardData,
     _client_context: clientContext || (existingSessionData as any)?._client_context,
   } as any
-  
+
   // Also update partialData for form compatibility
   session.partialData = {
     ...(session.partialData || {}),
@@ -223,12 +220,12 @@ export class SessionService {
 
         if (!result.allowed) {
           // User has hit their valuation limit - throw specific error
-        logger.warn('Valuation creation blocked by plan enforcement', {
-          current: result.current,
-          limit: result.limit,
-          reason: result.reason,
-          message: result.message,
-        })
+          logger.warn('Valuation creation blocked by plan enforcement', {
+            current: result.current,
+            limit: result.limit,
+            reason: result.reason,
+            message: result.message,
+          })
 
           // Create specific PaywallError (not generic ApplicationError)
           const error = new ApplicationError(
@@ -294,10 +291,10 @@ export class SessionService {
 
   /**
    * Load complete valuation data package (session + report + versions + packages)
-   * 
+   *
    * This method provides unified data loading for restoration with zero race conditions.
    * All related data is fetched in parallel after the session loads.
-   * 
+   *
    * @param reportId - Report identifier
    * @returns Complete data package or null if session not found
    */
@@ -318,34 +315,34 @@ export class SessionService {
   } | null> {
     try {
       logger.debug('Loading complete valuation data package', { reportId })
-      
+
       // 1. Load session first (required)
       const session = await this.loadSession(reportId)
       if (!session) {
         logger.warn('Session not found, cannot load complete data', { reportId })
         return null
       }
-      
+
       // 2. Parallel fetch of all related data (no race conditions)
       const [report, versions, pricing, packages] = await Promise.all([
-        this.loadCurrentReport(reportId).catch(err => {
+        this.loadCurrentReport(reportId).catch((err) => {
           logger.warn('Failed to load current report', { reportId, error: err.message })
           return undefined
         }),
-        this.loadVersionHistory(reportId).catch(err => {
+        this.loadVersionHistory(reportId).catch((err) => {
           logger.warn('Failed to load version history', { reportId, error: err.message })
           return undefined
         }),
-        this.loadPricingRange(reportId).catch(err => {
+        this.loadPricingRange(reportId).catch((err) => {
           logger.warn('Failed to load pricing range', { reportId, error: err.message })
           return undefined
         }),
-        this.loadPreviousPackages().catch(err => {
+        this.loadPreviousPackages().catch((err) => {
           logger.warn('Failed to load previous packages', { reportId, error: err.message })
           return undefined
         }),
       ])
-      
+
       logger.debug('Complete valuation data loaded', {
         reportId,
         hasReport: !!report,
@@ -353,7 +350,7 @@ export class SessionService {
         hasPricing: !!pricing,
         packagesCount: packages?.length || 0,
       })
-      
+
       return {
         session,
         currentReport: report,
@@ -373,11 +370,14 @@ export class SessionService {
   /**
    * Load current report data
    */
-  private async loadCurrentReport(reportId: string): Promise<{
-    html_report: string
-    info_tab_html: string
-    valuation_result: any
-  } | undefined> {
+  private async loadCurrentReport(reportId: string): Promise<
+    | {
+        html_report: string
+        info_tab_html: string
+        valuation_result: any
+      }
+    | undefined
+  > {
     try {
       const response = await backendAPI.getReport(reportId)
       if (response?.html_report) {
@@ -413,27 +413,32 @@ export class SessionService {
    * Load pricing range
    * Derives pricing range from valuation result if available
    */
-  private async loadPricingRange(reportId: string): Promise<{
-    min: number
-    max: number
-    suggested: number
-  } | undefined> {
+  private async loadPricingRange(reportId: string): Promise<
+    | {
+        min: number
+        max: number
+        suggested: number
+      }
+    | undefined
+  > {
     try {
       // Try to get pricing range from current report
       const report = await this.loadCurrentReport(reportId).catch(() => undefined)
-      
+
       if (report?.valuation_result) {
         const result = report.valuation_result
         if (result.equity_value_low && result.equity_value_high) {
           return {
             min: result.equity_value_low,
             max: result.equity_value_high,
-            suggested: result.equity_value_mid || result.recommended_asking_price || 
-                       (result.equity_value_low + result.equity_value_high) / 2,
+            suggested:
+              result.equity_value_mid ||
+              result.recommended_asking_price ||
+              (result.equity_value_low + result.equity_value_high) / 2,
           }
         }
       }
-      
+
       logger.debug('No pricing range available', { reportId })
       return undefined
     } catch (error) {
@@ -445,7 +450,7 @@ export class SessionService {
   /**
    * Load previous valuation packages for user
    * Returns previous valuations for the authenticated user
-   * 
+   *
    * Note: This feature is not yet fully implemented on the backend.
    * For now, returns undefined to allow restoration to work without errors.
    */
@@ -455,12 +460,12 @@ export class SessionService {
       const { useAuthStore } = await import('../../lib/auth')
       const authState = useAuthStore.getState()
       const userId = authState.user?.id
-      
+
       if (!userId) {
         logger.debug('No user ID available for previous packages')
         return undefined
       }
-      
+
       // TODO: Implement when backend API is available
       // For now, return undefined to allow restoration to work
       logger.debug('Previous packages feature not yet fully implemented')
@@ -537,11 +542,15 @@ export class SessionService {
         validateSessionData(cachedSession)
 
         // Extract prefilledQuery from session data (single source)
-        const effectivePrefilledQuery = (cachedSession.sessionData as any)?._prefilledQuery || prefilledQuery
+        const effectivePrefilledQuery =
+          (cachedSession.sessionData as any)?._prefilledQuery || prefilledQuery
 
         // Merge prefilledQuery if provided (from session data or URL fallback)
         if (effectivePrefilledQuery) {
-          const updatedPartialData = mergePrefilledQuery(cachedSession.partialData, effectivePrefilledQuery)
+          const updatedPartialData = mergePrefilledQuery(
+            cachedSession.partialData,
+            effectivePrefilledQuery
+          )
           if (updatedPartialData !== cachedSession.partialData) {
             const updatedSession = {
               ...cachedSession,
@@ -551,7 +560,7 @@ export class SessionService {
             if (!(updatedSession.sessionData as any)?._prefilledQuery) {
               updatedSession.sessionData = {
                 ...updatedSession.sessionData,
-                _prefilledQuery: effectivePrefilledQuery
+                _prefilledQuery: effectivePrefilledQuery,
               } as any
             }
             // Update cache with merged prefilledQuery
@@ -579,18 +588,21 @@ export class SessionService {
         if (!cachedSession.htmlReport && !cachedSession.infoTabHtml) {
           const sessionData = cachedSession.sessionData as any
           const hasValuationResult = sessionData?.valuation_result || cachedSession.valuationResult
-          
+
           if (hasValuationResult) {
             // Session has a completed valuation but no HTML reports in cache
             // This likely means HTML reports exist in backend but were excluded from cache
-            logger.debug('Cache missing HTML reports for completed valuation, fetching immediately', { 
-              reportId,
-              hasValuationResult: true,
-              cacheAge_minutes,
-            })
+            logger.debug(
+              'Cache missing HTML reports for completed valuation, fetching immediately',
+              {
+                reportId,
+                hasValuationResult: true,
+                cacheAge_minutes,
+              }
+            )
             this.revalidateInBackground(reportId).catch((err) => {
-              logger.warn('Background HTML fetch failed', { 
-                reportId, 
+              logger.warn('Background HTML fetch failed', {
+                reportId,
                 error: err instanceof Error ? err.message : String(err),
               })
             })
@@ -618,7 +630,7 @@ export class SessionService {
           session?.htmlReport
         )
         const hasReportId = !!(session?.report_id || session?.reportId)
-        const looksCompleted = hasReportId || (session?.status === 'completed')
+        const looksCompleted = hasReportId || session?.status === 'completed'
 
         if (looksCompleted && !hasValuationResult && attempt === 0) {
           logger.info('Completed report missing valuation result - retrying once', {
@@ -646,12 +658,16 @@ export class SessionService {
               try {
                 const { useBootstrapSafe } = await import('../../lib/bootstrap')
                 const bootstrap = useBootstrapSafe()
-                isNewReport = bootstrap?.report?.mode === 'new' && bootstrap?.report?.reportId === reportId
+                isNewReport =
+                  bootstrap?.report?.mode === 'new' && bootstrap?.report?.reportId === reportId
               } catch (bootstrapError) {
                 // If bootstrap check fails, assume it's a new report (defensive)
                 logger.warn('Failed to check bootstrap state, assuming new report', {
                   reportId,
-                  error: bootstrapError instanceof Error ? bootstrapError.message : String(bootstrapError),
+                  error:
+                    bootstrapError instanceof Error
+                      ? bootstrapError.message
+                      : String(bootstrapError),
                 })
                 isNewReport = true
               }
@@ -698,10 +714,11 @@ export class SessionService {
                 // ✅ FIX: Extract actual session_key from response FIRST
                 // Titan should return the requested session_key, but check both locations
                 // Note: session_key might be at top level or in session object
-                const actualReportId = createResponse.reportId || 
-                                      createResponse.session?.reportId || 
-                                      (createResponse.session as any)?.session_key ||
-                                      (createResponse as any).session_key
+                const actualReportId =
+                  createResponse.reportId ||
+                  createResponse.session?.reportId ||
+                  (createResponse.session as any)?.session_key ||
+                  (createResponse as any).session_key
 
                 if (!actualReportId) {
                   logger.error('Backend did not return session_key/reportId', {
@@ -772,13 +789,18 @@ export class SessionService {
                     country_code: (mergedSession.sessionData as any)?.country_code,
                   })
                 } else {
-                  logger.debug('No business card data in merged session (or company_name is empty)', {
-                    reportId,
-                    hasSessionData: !!mergedSession.sessionData,
-                    hasCompanyName,
-                    companyName,
-                    sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData) : [],
-                  })
+                  logger.debug(
+                    'No business card data in merged session (or company_name is empty)',
+                    {
+                      reportId,
+                      hasSessionData: !!mergedSession.sessionData,
+                      hasCompanyName,
+                      companyName,
+                      sessionDataKeys: mergedSession.sessionData
+                        ? Object.keys(mergedSession.sessionData)
+                        : [],
+                    }
+                  )
                 }
 
                 // Ensure reportId is set correctly
@@ -813,8 +835,13 @@ export class SessionService {
                 }
 
                 // ✅ FIX: Ensure partialData is initialized from sessionData if missing
-                if (!mergedSession.partialData || Object.keys(mergedSession.partialData).length === 0) {
-                  mergedSession.partialData = mergedSession.sessionData ? { ...mergedSession.sessionData } : {}
+                if (
+                  !mergedSession.partialData ||
+                  Object.keys(mergedSession.partialData).length === 0
+                ) {
+                  mergedSession.partialData = mergedSession.sessionData
+                    ? { ...mergedSession.sessionData }
+                    : {}
                 }
 
                 // Cache the new session with the actual reportId
@@ -899,7 +926,9 @@ export class SessionService {
                     error: errorMessage,
                   })
                   // Create a ValidationError to prevent retries
-                  const validationError = new ValidationError(`Invalid session data: ${errorMessage}`)
+                  const validationError = new ValidationError(
+                    `Invalid session data: ${errorMessage}`
+                  )
                   throw validationError
                 }
 
@@ -944,7 +973,7 @@ export class SessionService {
               // Bootstrap SHOULD provide this data, but we fetch as fallback for edge cases
               const clientContext = (mergedSession.sessionData as any)?._client_context
               const clientUserId = clientContext?.client_user_id
-              
+
               if (clientUserId) {
                 logger.debug('Fetching business card (fallback) for existing session', {
                   reportId,
@@ -963,17 +992,21 @@ export class SessionService {
 
             // SECURITY: Extract prefilledQuery from session data first (preferred)
             // Fallback to URL parameter for backward compatibility
-            const sessionPrefilledQuery = (mergedSession.sessionData as any)?._prefilledQuery || 
-                                         (mergedSession.partialData as any)?._prefilledQuery ||
-                                         null
+            const sessionPrefilledQuery =
+              (mergedSession.sessionData as any)?._prefilledQuery ||
+              (mergedSession.partialData as any)?._prefilledQuery ||
+              null
             const effectivePrefilledQuery = sessionPrefilledQuery || prefilledQuery
 
             // Log deprecation warning if reading from URL (backward compatibility)
             if (!sessionPrefilledQuery && prefilledQuery) {
-              logger.warn('[DEPRECATED] Reading prefilledQuery from URL parameter. This should be stored in session_data._prefilledQuery', {
-                reportId,
-                note: 'Migrating URL-based prefilledQuery to session data on first load'
-              })
+              logger.warn(
+                '[DEPRECATED] Reading prefilledQuery from URL parameter. This should be stored in session_data._prefilledQuery',
+                {
+                  reportId,
+                  note: 'Migrating URL-based prefilledQuery to session data on first load',
+                }
+              )
             }
 
             // Merge prefilledQuery if provided (from session data or URL fallback)
@@ -986,7 +1019,7 @@ export class SessionService {
               if (!(mergedSession.sessionData as any)?._prefilledQuery) {
                 mergedSession.sessionData = {
                   ...mergedSession.sessionData,
-                  _prefilledQuery: effectivePrefilledQuery
+                  _prefilledQuery: effectivePrefilledQuery,
                 } as any
               }
             }
@@ -994,14 +1027,21 @@ export class SessionService {
             // ✅ FIX: Log _client_context presence for debugging
             // Backend access check should work without headers if session has _client_context
             const clientContext = (mergedSession.sessionData as any)?._client_context
-            if (clientContext?.client_user_id && clientContext?.accountant_user_id && clientContext?.relationship_id) {
-              logger.debug('Session contains client context - backend should allow access via _client_context', {
-                reportId,
-                clientUserId: clientContext.client_user_id.substring(0, 8) + '...',
-                accountantUserId: clientContext.accountant_user_id.substring(0, 8) + '...',
-                relationshipId: clientContext.relationship_id.substring(0, 8) + '...',
-                note: 'Backend access check should work even if headers are not sent',
-              })
+            if (
+              clientContext?.client_user_id &&
+              clientContext?.accountant_user_id &&
+              clientContext?.relationship_id
+            ) {
+              logger.debug(
+                'Session contains client context - backend should allow access via _client_context',
+                {
+                  reportId,
+                  clientUserId: clientContext.client_user_id.substring(0, 8) + '...',
+                  accountantUserId: clientContext.accountant_user_id.substring(0, 8) + '...',
+                  relationshipId: clientContext.relationship_id.substring(0, 8) + '...',
+                  note: 'Backend access check should work even if headers are not sent',
+                }
+              )
             }
 
             // Cache for next time (includes sessionData/form fields, excludes HTML reports)
@@ -1024,7 +1064,11 @@ export class SessionService {
               reportId,
               currentView: mergedSession.currentView,
               hasPrefilledQuery: !!effectivePrefilledQuery,
-              prefilledQuerySource: sessionPrefilledQuery ? 'session_data' : (prefilledQuery ? 'url' : 'none'),
+              prefilledQuerySource: sessionPrefilledQuery
+                ? 'session_data'
+                : prefilledQuery
+                  ? 'url'
+                  : 'none',
               hasSessionData,
               hasFormFields,
               sessionDataKeysCount: sessionDataKeys.length,
@@ -1211,14 +1255,19 @@ export class SessionService {
         try {
           const { useClientContext } = await import('../../stores/clientContext')
           const clientContext = useClientContext.getState()
-          
-          if (clientContext.isActingAsClient && clientContext.client && clientContext.accountant && clientContext.relationshipId) {
+
+          if (
+            clientContext.isActingAsClient &&
+            clientContext.client &&
+            clientContext.accountant &&
+            clientContext.relationshipId
+          ) {
             mergedSessionData._client_context = {
               client_user_id: clientContext.client.id,
               accountant_user_id: clientContext.accountant.id,
               relationship_id: clientContext.relationshipId,
             }
-            
+
             logger.debug('Including client context in session creation', {
               reportId,
               clientUserId: clientContext.client.id.substring(0, 8) + '...',
@@ -1247,7 +1296,7 @@ export class SessionService {
           const currentStoreSession = storeState.session
           if (currentStoreSession?.reportId === reportId) {
             const updatedSessionData = {
-              ...(currentStoreSession.sessionData as any || {}),
+              ...((currentStoreSession.sessionData as any) || {}),
               _bootstrapCreated: undefined,
             }
             storeState.updateSession({
@@ -1282,12 +1331,14 @@ export class SessionService {
         // No need to re-fetch after save - data should already be in session
         const companyName = (mergedSession.sessionData as any)?.company_name
         const hasCompanyName = companyName && companyName.trim() !== ''
-        
+
         logger.debug('Session saved', {
           reportId,
           hasCompanyName,
           company_name: companyName,
-          sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData).length : 0,
+          sessionDataKeys: mergedSession.sessionData
+            ? Object.keys(mergedSession.sessionData).length
+            : 0,
         })
       } else {
         // Backend didn't return session data (common when creating new session)
@@ -1698,7 +1749,9 @@ export class SessionService {
           logger.warn('No business card data during background revalidation', {
             reportId,
             hasSessionData: !!mergedSession.sessionData,
-            sessionDataKeys: mergedSession.sessionData ? Object.keys(mergedSession.sessionData) : [],
+            sessionDataKeys: mergedSession.sessionData
+              ? Object.keys(mergedSession.sessionData)
+              : [],
           })
         }
 
@@ -1717,7 +1770,7 @@ export class SessionService {
         try {
           const { useSessionStore } = await import('../../store/useSessionStore')
           const currentStoreSession = useSessionStore.getState().session
-          
+
           // Only update if the store still has the same reportId
           if (currentStoreSession?.reportId === reportId) {
             // Update the session with the revalidated HTML reports
@@ -1730,15 +1783,22 @@ export class SessionService {
             })
 
             // Hydrate results store so report panel displays HTML (ManualLayout reads from useManualResultsStore)
-            if (mergedSession.htmlReport || mergedSession.infoTabHtml || mergedSession.valuationResult) {
+            if (
+              mergedSession.htmlReport ||
+              mergedSession.infoTabHtml ||
+              mergedSession.valuationResult
+            ) {
               try {
-                const { useManualResultsStore } = await import('../../store/manual/useManualResultsStore')
+                const { useManualResultsStore } = await import(
+                  '../../store/manual/useManualResultsStore'
+                )
                 const existingResult = useManualResultsStore.getState().result
                 const fullResult = {
                   ...(existingResult || {}),
                   ...(mergedSession.valuationResult || {}),
                   html_report: mergedSession.htmlReport || (existingResult as any)?.html_report,
-                  info_tab_html: mergedSession.infoTabHtml || (existingResult as any)?.info_tab_html,
+                  info_tab_html:
+                    mergedSession.infoTabHtml || (existingResult as any)?.info_tab_html,
                 }
                 useManualResultsStore.getState().setResult(fullResult as any)
                 if (mergedSession.htmlReport) {
@@ -1750,7 +1810,10 @@ export class SessionService {
               } catch (resultsStoreError) {
                 logger.warn('Failed to hydrate results store after revalidation', {
                   reportId,
-                  error: resultsStoreError instanceof Error ? resultsStoreError.message : String(resultsStoreError),
+                  error:
+                    resultsStoreError instanceof Error
+                      ? resultsStoreError.message
+                      : String(resultsStoreError),
                 })
               }
             }

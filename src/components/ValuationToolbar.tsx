@@ -15,6 +15,9 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React from 'react'
+import { Tooltip } from '@/design-system'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { generalLogger } from '@/utils/logger'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import {
   useValuationToolbarAuth,
@@ -29,10 +32,7 @@ import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { ValuationToolbarProps } from '../types/valuation'
 import { formatVersionLabel } from '../utils/formatters'
-import { getMercuryUrl } from '@/utils/getMercuryUrl'
-import { generalLogger } from '@/utils/logger'
 import { UserDropdown } from './UserDropdown'
-import { Tooltip } from '@/design-system'
 
 export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   onRefresh,
@@ -193,7 +193,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     // Lazy load to avoid circular dependencies
     return { usePdfGeneration: require('../hooks/usePdfGeneration').usePdfGeneration }
   }, [])
-  
+
   const {
     state: pdfState,
     downloadPdf,
@@ -204,7 +204,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   // Use prop handler if provided, otherwise use PDF hook
   const { isDownloading: isLegacyDownloading } = useValuationToolbarDownload()
   const isDownloading = isPdfGenerating || isLegacyDownloading
-  
+
   const handleDownload = React.useCallback(async () => {
     if (onDownload) {
       // Use prop handler if provided
@@ -240,7 +240,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   // Button should only appear when price is available
   const hasValuationPrice = React.useMemo(() => {
     if (!valuationResult) return false
-    
+
     const result = valuationResult as any
     return !!(
       result.equity_value_mid ||
@@ -288,9 +288,9 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     // Return URL from Mercury is relative (e.g., /nl/accountant/clients/...)
     // We need to construct full URL using Mercury domain (upswitch.app, not valuation.upswitch.app)
     const mercuryUrl = getMercuryUrl()
-    
+
     let targetUrl: string
-    
+
     // Detect legacy/invalid route patterns that no longer exist in Mercury
     const LEGACY_ROUTE_PATTERNS = ['_listings', 'accountant_listings', 'seller_listings']
     const isLegacyRoute = (url: string) =>
@@ -314,10 +314,11 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     } else {
       // No return URL - fall back to dashboard based on user role
       // Try to get locale from current URL or default to 'en'
-      const currentLocale = typeof window !== 'undefined' 
-        ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-        : 'en'
-      
+      const currentLocale =
+        typeof window !== 'undefined'
+          ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+          : 'en'
+
       // Determine dashboard based on source app or default to accountant dashboard
       // ✅ FIX: Mercury sends 'mercury' as source, not 'mercury-accountant'
       if (sourceApp?.includes('mercury')) {
@@ -334,7 +335,10 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
 
   return (
     <>
-      <nav className="aurora-theme relative min-h-12 w-full shrink-0 flex items-center gap-2 px-4 py-2 border-b border-foreground/[0.06] bg-background backdrop-blur-sm overflow-visible z-[1000]" style={{ zIndex: 1000 }}>
+      <nav
+        className="aurora-theme relative min-h-12 w-full shrink-0 flex items-center gap-2 px-4 py-2 border-b border-foreground/[0.06] bg-background backdrop-blur-sm overflow-visible z-[1000]"
+        style={{ zIndex: 1000 }}
+      >
         <div className="relative max-w-full gap-1 flex w-full shrink-0 items-center">
           <div className="w-full overflow-visible whitespace-nowrap scrollbar-hide">
             <div className="relative flex w-full flex-shrink-0 items-center justify-between">
@@ -448,23 +452,23 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                   </Tooltip>
                 </div>
                 {/* WORLD-CLASS: Download with PDF status indicator */}
-                <Tooltip 
+                <Tooltip
                   content={
-                    pdfState.error 
-                      ? t('toolbar.tooltips.downloadError') 
-                      : isPdfReady 
+                    pdfState.error
+                      ? t('toolbar.tooltips.downloadError')
+                      : isPdfReady
                         ? t('toolbar.tooltips.downloadReady')
                         : t('toolbar.tooltips.download')
-                  } 
-                  position="bottom" 
+                  }
+                  position="bottom"
                   className=""
                 >
                   <button
                     onClick={handleDownload}
                     className={`p-2 rounded-lg transition-all duration-200 relative ${
-                      pdfState.error 
-                        ? 'text-destructive hover:text-destructive/90' 
-                        : isPdfReady 
+                      pdfState.error
+                        ? 'text-destructive hover:text-destructive/90'
+                        : isPdfReady
                           ? 'text-primary hover:text-primary/90'
                           : 'text-foreground/50 hover:text-foreground'
                     } hover:bg-foreground/[0.04]`}
@@ -486,7 +490,11 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                 </Tooltip>
                 {/* Fullscreen - Hidden on mobile */}
                 <div className="hidden lg:block">
-                  <Tooltip content={t('toolbar.tooltips.fullscreen')} position="bottom" className="">
+                  <Tooltip
+                    content={t('toolbar.tooltips.fullscreen')}
+                    position="bottom"
+                    className=""
+                  >
                     <button
                       onClick={handleFullScreen}
                       className="p-2 rounded-lg transition-all duration-200 text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]"
@@ -582,16 +590,16 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                               : 'bg-foreground/[0.08] hover:bg-foreground/[0.12] text-foreground hover:text-foreground'
                           }`}
                         >
-                          {hasValuationPrice && (
-                            <Check className="w-4 h-4 flex-shrink-0" />
-                          )}
+                          {hasValuationPrice && <Check className="w-4 h-4 flex-shrink-0" />}
                           {/* ✅ UX: Always show text - this is the primary CTA */}
                           <span className="whitespace-nowrap">
                             {sourceApp?.includes('mercury')
                               ? t('report.toolbar.backToClient')
                               : t('report.toolbar.continueToDashboard')}
                           </span>
-                          <ArrowRight className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${hasValuationPrice ? 'group-hover:translate-x-1' : ''}`} />
+                          <ArrowRight
+                            className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${hasValuationPrice ? 'group-hover:translate-x-1' : ''}`}
+                          />
                         </button>
                       </Tooltip>
                       <div className="h-6 w-px bg-foreground/[0.08] mx-1"></div>

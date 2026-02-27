@@ -133,8 +133,13 @@ export class ReportService {
       try {
         const { useClientContext } = await import('../../stores/clientContext')
         const clientContext = useClientContext.getState()
-        
-        if (clientContext.isActingAsClient && clientContext.client && clientContext.accountant && clientContext.relationshipId) {
+
+        if (
+          clientContext.isActingAsClient &&
+          clientContext.client &&
+          clientContext.accountant &&
+          clientContext.relationshipId
+        ) {
           sessionDataWithContext = {
             ...sessionDataWithContext,
             _client_context: {
@@ -143,7 +148,7 @@ export class ReportService {
               relationship_id: clientContext.relationshipId,
             },
           }
-          
+
           logger.debug('[ReportService] Including client context in save payload', {
             reportId,
             clientUserId: clientContext.client.id.substring(0, 8) + '...',
@@ -341,7 +346,6 @@ export class ReportService {
               timestamp: new Date().toISOString(),
               note: 'HTML reports excluded from cache, but sessionData (form fields) included for restoration',
             })
-
           }
         } else {
           logger.error(

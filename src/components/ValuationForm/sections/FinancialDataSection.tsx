@@ -7,17 +7,21 @@
  * @module components/ValuationForm/sections/FinancialDataSection
  */
 
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 import {
   getIndustryGuidance,
   validateEbitdaMargin,
   validateRevenue,
 } from '../../../config/industryGuidance'
+import {
+  AuroraFormGrid,
+  AuroraFormSection,
+  AuroraNumberInput,
+} from '../../../design-system/components'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationFormData } from '../../../types/valuation'
-import { AuroraNumberInput, AuroraFormSection, AuroraFormGrid } from '../../../design-system/components'
 import { NormalizationModal } from '../../normalization/NormalizationModal'
 import { NormalizedEBITDAField } from '../../normalization/NormalizedEBITDAField'
 

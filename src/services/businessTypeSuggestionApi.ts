@@ -27,7 +27,7 @@ class BusinessTypeSuggestionService {
   constructor() {
     // Use the main backend API (Titan) - follow Mercury pattern
     const apiBaseUrl = getApiUrl()
-    
+
     // Normalize URL: remove /api suffix if present
     this.baseUrl = apiBaseUrl.replace(/\/api\/?$/, '')
 

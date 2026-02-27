@@ -7,8 +7,8 @@
  * Uses PanelGroup, Panel, PanelResizeHandle with direction="horizontal".
  */
 
-import * as ResizablePrimitive from 'react-resizable-panels'
 import { GripVertical } from 'lucide-react'
+import * as ResizablePrimitive from 'react-resizable-panels'
 import { cn } from '../utils'
 
 type PanelGroupProps = React.ComponentProps<typeof ResizablePrimitive.PanelGroup>
@@ -19,10 +19,7 @@ const ResizablePanelGroup = ({
   ...props
 }: Omit<PanelGroupProps, 'direction'> & { direction?: PanelGroupProps['direction'] }) => (
   <ResizablePrimitive.PanelGroup
-    className={cn(
-      'flex h-full w-full data-[panel-group-direction=vertical]:flex-col',
-      className
-    )}
+    className={cn('flex h-full w-full data-[panel-group-direction=vertical]:flex-col', className)}
     direction={direction}
     {...props}
   />

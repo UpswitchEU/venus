@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 /**
  * New Report Page - Creates a new report and redirects to it
  * Works across all locales (en, nl, etc.)
- * 
+ *
  * WORLD-CLASS: Preserves URL parameters for bootstrap prefill:
  * - prefilledQuery: Company name for KBO lookup
  * - clientToken: Accountant flow token
@@ -36,7 +36,7 @@ export default async function NewReportPage({ params, searchParams }: NewReportP
   try {
     const sp = searchParams ? await searchParams : {}
     const preservedParams: string[] = []
-    
+
     // Preserve important parameters for bootstrap
     const paramsToPreserve = [
       'prefilledQuery',
@@ -48,7 +48,7 @@ export default async function NewReportPage({ params, searchParams }: NewReportP
       'guestSessionId',
       'embedded',
     ]
-    
+
     for (const param of paramsToPreserve) {
       const value = sp[param]
       if (value) {
@@ -58,7 +58,7 @@ export default async function NewReportPage({ params, searchParams }: NewReportP
         }
       }
     }
-    
+
     if (preservedParams.length > 0) {
       queryString = '?' + preservedParams.join('&')
     }

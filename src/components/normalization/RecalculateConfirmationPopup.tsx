@@ -132,8 +132,8 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
                   {hasNormalizations && hasFormChanges
                     ? 'Updated data and normalized EBITDA will be used'
                     : hasNormalizations
-                    ? 'Normalized EBITDA will be used in calculations'
-                    : 'Updated business data will be used in calculations'}
+                      ? 'Normalized EBITDA will be used in calculations'
+                      : 'Updated business data will be used in calculations'}
                 </span>
               </li>
               <li className="flex items-start">

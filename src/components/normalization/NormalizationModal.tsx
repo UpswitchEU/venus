@@ -5,8 +5,8 @@
  * Displays 12 category inputs with live preview
  */
 
-import React, { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useEffect, useState } from 'react'
 import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories'
 import { NormalizationAPIError } from '../../services/ebitdaNormalizationService'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
@@ -216,7 +216,9 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                               </svg>
                             </button>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">{categoryDef.description}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {categoryDef.description}
+                          </p>
 
                           {/* Expandable details */}
                           {isExpanded && (

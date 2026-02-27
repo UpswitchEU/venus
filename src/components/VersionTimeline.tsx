@@ -14,9 +14,17 @@
 
 'use client'
 
-import { useState, useCallback } from 'react'
+import {
+  ArrowDown,
+  ArrowUp,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  Loader2,
+  Minus,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { ArrowDown, ArrowUp, Calendar, CheckCircle2, Loader2, Minus, ChevronDown } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { formatCurrency } from '../config/countries'
 import type { ValuationVersion } from '../types/ValuationVersion'
 import { formatChangesSummary } from '../utils/versionDiffDetection'
@@ -143,7 +151,9 @@ export function VersionTimeline({
           <div key={version.id} className="relative pb-8">
             <VersionTimelineItem
               version={version}
-              previousVersion={index < displayedVersions.length - 1 ? displayedVersions[index + 1] : null}
+              previousVersion={
+                index < displayedVersions.length - 1 ? displayedVersions[index + 1] : null
+              }
               isActive={version.versionNumber === activeVersion}
               isLatest={index === 0}
               onClick={() => onVersionSelect(version.versionNumber)}
@@ -382,37 +392,37 @@ function VersionTimelineItem({
 
                             {/* Suggested Listing Price */}
                             {recommendedAskingPrice > 0 && (
-                            <td className="w-1/2 align-top pl-4">
-                              <p
-                                className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
-                                style={{ color: '#94A3B8', opacity: 0.6 }}
-                              >
-                                Suggested Listing Price
-                              </p>
-                              <div className="mb-1">
-                                <span
-                                  className="text-lg font-semibold mr-2"
-                                  style={{ color: '#FFFFFF' }}
+                              <td className="w-1/2 align-top pl-4">
+                                <p
+                                  className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
+                                  style={{ color: '#94A3B8', opacity: 0.6 }}
                                 >
-                                  {formatCurrency(recommendedAskingPrice, countryCode)}
-                                </span>
-                                {premiumPercent > 0 && (
+                                  Suggested Listing Price
+                                </p>
+                                <div className="mb-1">
                                   <span
-                                    className="inline-block align-middle text-xs font-bold px-2 py-1 rounded border"
-                                    style={{
-                                      backgroundColor: 'rgba(52, 211, 153, 0.2)',
-                                      color: '#6EE7B7',
-                                      borderColor: 'rgba(52, 211, 153, 0.3)',
-                                    }}
+                                    className="text-lg font-semibold mr-2"
+                                    style={{ color: '#FFFFFF' }}
                                   >
-                                    +{premiumPercent}% Premium
+                                    {formatCurrency(recommendedAskingPrice, countryCode)}
                                   </span>
-                                )}
-                              </div>
-                              <p className="text-xs" style={{ color: '#94A3B8' }}>
-                                Strategic buffer for negotiation
-                              </p>
-                            </td>
+                                  {premiumPercent > 0 && (
+                                    <span
+                                      className="inline-block align-middle text-xs font-bold px-2 py-1 rounded border"
+                                      style={{
+                                        backgroundColor: 'rgba(52, 211, 153, 0.2)',
+                                        color: '#6EE7B7',
+                                        borderColor: 'rgba(52, 211, 153, 0.3)',
+                                      }}
+                                    >
+                                      +{premiumPercent}% Premium
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs" style={{ color: '#94A3B8' }}>
+                                  Strategic buffer for negotiation
+                                </p>
+                              </td>
                             )}
                           </tr>
                         </tbody>
@@ -607,7 +617,9 @@ function VersionTimelineItem({
               {version.formData.company_name && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Company:</span>
-                  <span className="font-medium text-foreground">{version.formData.company_name}</span>
+                  <span className="font-medium text-foreground">
+                    {version.formData.company_name}
+                  </span>
                 </div>
               )}
               {version.formData.industry && (
@@ -627,7 +639,9 @@ function VersionTimelineItem({
               {version.formData.country_code && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Country:</span>
-                  <span className="font-medium text-foreground">{version.formData.country_code}</span>
+                  <span className="font-medium text-foreground">
+                    {version.formData.country_code}
+                  </span>
                 </div>
               )}
             </div>

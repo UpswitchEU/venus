@@ -25,22 +25,22 @@
   --report-slate-200: 224 10% 91%;
   --report-slate-100: 224 12% 96%;
   --report-slate-50: 40 20% 98%;
-  
+
   /* Aurora Teal - Primary */
   --report-teal: 172 55% 45%;
   --report-teal-light: 172 45% 92%;
   --report-teal-dark: 172 60% 32%;
-  
+
   /* Burnt Clay - Accent */
   --report-clay: 17 50% 59%;
   --report-clay-light: 17 45% 94%;
   --report-clay-dark: 17 55% 42%;
-  
+
   /* Semantic */
   --report-success: 143 40% 42%;
   --report-warning: 37 65% 55%;
   --report-danger: 6 55% 50%;
-  
+
   /* Print Surfaces */
   --report-bg: 0 0% 100%;
   --report-surface: 40 15% 98%;
@@ -68,7 +68,7 @@
    BASE TYPOGRAPHY - SATOSHI + JETBRAINS MONO
    ═══════════════════════════════════════════════════════════════════════════ */
 .valuation-report {
-  font-family: 'Satoshi', 'Inter', system-ui, sans-serif;
+  font-family: "Satoshi", "Inter", system-ui, sans-serif;
   font-size: 10.5pt;
   line-height: 1.6;
   color: hsl(var(--report-text));
@@ -93,7 +93,7 @@
 .valuation-report .display-1 {
   font-size: 42pt;
   font-weight: 800;
-  line-height: 1.0;
+  line-height: 1;
   letter-spacing: -0.025em;
 }
 
@@ -166,7 +166,7 @@
 /* Monospace for Financial Data */
 .valuation-report .mono,
 .valuation-report .tabular {
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
   font-variant-numeric: tabular-nums;
 }
 
@@ -174,10 +174,7 @@
    VALUE CARDS - HERO FINANCIAL DISPLAYS
    ═══════════════════════════════════════════════════════════════════════════ */
 .valuation-report .value-hero {
-  background: linear-gradient(135deg, 
-    hsl(225 18% 10%) 0%, 
-    hsl(224 17% 14%) 100%
-  );
+  background: linear-gradient(135deg, hsl(225 18% 10%) 0%, hsl(224 17% 14%) 100%);
   border-radius: 16pt;
   padding: 32pt;
   margin: 24pt 0;
@@ -186,16 +183,13 @@
 }
 
 .valuation-report .value-hero::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 3pt;
-  background: linear-gradient(90deg, 
-    hsl(var(--report-teal)) 0%, 
-    hsl(270 45% 55%) 100%
-  );
+  background: linear-gradient(90deg, hsl(var(--report-teal)) 0%, hsl(270 45% 55%) 100%);
 }
 
 .valuation-report .value-hero-label {
@@ -207,7 +201,7 @@
 }
 
 .valuation-report .value-hero-amount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 42pt;
   font-weight: 700;
   color: hsl(var(--report-teal));
@@ -246,7 +240,7 @@
 }
 
 .valuation-report .stat-card-value {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 20pt;
   font-weight: 700;
   color: hsl(var(--report-slate-900));
@@ -377,7 +371,7 @@
   .valuation-report {
     background: white;
   }
-  
+
   .valuation-report .a4-page {
     box-shadow: none;
     margin: 0;
@@ -385,7 +379,7 @@
     page-break-after: always;
     page-break-inside: avoid;
   }
-  
+
   /* Cover page - MUST preserve dark background with exact colors */
   .valuation-report .cover-page {
     box-shadow: none;
@@ -397,11 +391,11 @@
     page-break-after: always;
     page-break-inside: avoid;
   }
-  
+
   .valuation-report .no-print {
     display: none !important;
   }
-  
+
   /* Repeat table headers on every printed page */
   .valuation-report thead {
     display: table-header-group;
@@ -412,7 +406,7 @@
   .valuation-report tr {
     page-break-inside: avoid;
   }
-  
+
   /* Ensure color accuracy globally */
   .valuation-report * {
     -webkit-print-color-adjust: exact !important;

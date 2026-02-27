@@ -9,7 +9,11 @@ interface ErrorBoundaryProps {
   /** Static fallback component */
   fallback?: ReactNode
   /** Render prop fallback - receives error for dynamic error display */
-  fallbackRender?: (props: { error: Error; errorInfo: ErrorInfo | null; reset: () => void }) => ReactNode
+  fallbackRender?: (props: {
+    error: Error
+    errorInfo: ErrorInfo | null
+    reset: () => void
+  }) => ReactNode
   onError?: (error: Error, errorInfo: ErrorInfo) => void
 }
 
@@ -22,7 +26,7 @@ interface ErrorBoundaryState {
 
 /**
  * Error Boundary Component
- * 
+ *
  * BANK GRADE: Catches errors in component tree and provides graceful fallback
  * Prevents entire app crashes and provides recovery options
  */

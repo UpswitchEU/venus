@@ -7,9 +7,17 @@
  * @module components/ValuationForm/sections/BasicInformationSection
  */
 
-import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useEffect, useMemo, useState } from 'react'
 import { TARGET_COUNTRIES } from '../../../config/countries'
+import {
+  AuroraFormAlert,
+  AuroraFormGrid,
+  AuroraFormSection,
+  AuroraFullWidthField,
+  AuroraNumberInput,
+  AuroraSelect,
+} from '../../../design-system/components'
 import { suggestionService } from '../../../services/businessTypeSuggestionApi'
 import type { BusinessType } from '../../../services/businessTypesApi'
 import type { CompanySearchResult } from '../../../services/registry/types'
@@ -17,7 +25,6 @@ import type { ValuationFormData } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { CustomBusinessTypeSearch } from '../../forms'
 import CompanyNameInput from '../../forms/CompanyNameInput'
-import { AuroraSelect, AuroraNumberInput, AuroraFormSection, AuroraFormGrid, AuroraFullWidthField, AuroraFormAlert } from '../../../design-system/components'
 
 interface BasicInformationSectionProps {
   formData: ValuationFormData
@@ -305,7 +312,10 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
               // Warn if industry classification is missing but proceed with 'services' fallback
               if (!businessType.industry && !businessType.industryMapping) {
-                generalLogger.warn('Business type missing industry classification — using services fallback', { id: businessType.id })
+                generalLogger.warn(
+                  'Business type missing industry classification — using services fallback',
+                  { id: businessType.id }
+                )
               }
 
               updateFormData({

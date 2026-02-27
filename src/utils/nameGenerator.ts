@@ -2,7 +2,7 @@
  * Professional Valuation Report Name Generator
  * Generates simple, professional names like "Valuation Report #123"
  * Based on Ilara Mercury's straightforward naming approach
- * 
+ *
  * AUTH-FIRST: All users are authenticated. Guest report numbering removed.
  */
 export class NameGenerator {

@@ -159,7 +159,9 @@ export const FileUploadFieldRenderer: React.FC<FieldRendererProps> = ({
           />
 
           <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground mb-1">Drop your file here or click to browse</p>
+          <p className="text-sm text-muted-foreground mb-1">
+            Drop your file here or click to browse
+          </p>
           <p className="text-xs text-muted-foreground">
             Supported formats: {supportedFormats.join(', ')} (max{' '}
             {Math.round(maxSize / 1024 / 1024)}MB)

@@ -60,13 +60,17 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
   if (variant === 'mobile') {
     return (
       <div className={`flex flex-col space-y-2 ${className}`}>
-        <div className="text-sm font-medium text-muted-foreground">{t('language.selectLanguage')}</div>
+        <div className="text-sm font-medium text-muted-foreground">
+          {t('language.selectLanguage')}
+        </div>
         {languages.map((lang) => (
           <button
             key={lang.code}
             onClick={() => handleLanguageChange(lang.code)}
             className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors ${
-              locale === lang.code ? 'bg-muted text-foreground' : 'hover:bg-muted text-muted-foreground'
+              locale === lang.code
+                ? 'bg-muted text-foreground'
+                : 'hover:bg-muted text-muted-foreground'
             }`}
             aria-label={`Switch to ${lang.name}`}
             aria-current={locale === lang.code ? 'true' : 'false'}
@@ -97,7 +101,10 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-foreground/10 z-[10000] overflow-hidden" style={{ zIndex: 10000 }}>
+        <div
+          className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-foreground/10 z-[10000] overflow-hidden"
+          style={{ zIndex: 10000 }}
+        >
           <div className="py-1">
             {languages.map((lang) => (
               <button

@@ -1,58 +1,52 @@
-'use client';
+'use client'
 
 /**
  * Progress Component
- * 
+ *
  * Animated progress bars and indicators following the Hybrid Aurora design system.
  * Features linear and circular variants with spring animations.
  */
 
-import * as React from 'react';
-import { motion } from 'framer-motion';
-import { cn } from '../utils';
-import { cva, type VariantProps } from 'class-variance-authority';
-import { springSnappy } from './motion';
-import { Check } from 'lucide-react';
+import { cva, type VariantProps } from 'class-variance-authority'
+import { motion } from 'framer-motion'
+import { Check } from 'lucide-react'
+import * as React from 'react'
+import { cn } from '../utils'
+import { springSnappy } from './motion'
 
 /* ─────────────────────────────────────────
    PROGRESS BAR VARIANTS
    ───────────────────────────────────────── */
 
-const progressTrackVariants = cva(
-  'relative overflow-hidden bg-foreground/10 rounded-full',
-  {
-    variants: {
-      size: {
-        xs: 'h-1',
-        sm: 'h-1.5',
-        md: 'h-2',
-        lg: 'h-3',
-        xl: 'h-4',
-      },
+const progressTrackVariants = cva('relative overflow-hidden bg-foreground/10 rounded-full', {
+  variants: {
+    size: {
+      xs: 'h-1',
+      sm: 'h-1.5',
+      md: 'h-2',
+      lg: 'h-3',
+      xl: 'h-4',
     },
-    defaultVariants: {
-      size: 'md',
-    },
-  }
-);
+  },
+  defaultVariants: {
+    size: 'md',
+  },
+})
 
-const progressFillVariants = cva(
-  'h-full rounded-full',
-  {
-    variants: {
-      variant: {
-        default: 'bg-primary',
-        success: 'bg-success',
-        warning: 'bg-warning',
-        error: 'bg-destructive',
-        gradient: 'bg-gradient-to-r from-primary to-secondary',
-      },
+const progressFillVariants = cva('h-full rounded-full', {
+  variants: {
+    variant: {
+      default: 'bg-primary',
+      success: 'bg-success',
+      warning: 'bg-warning',
+      error: 'bg-destructive',
+      gradient: 'bg-gradient-to-r from-primary to-secondary',
     },
-    defaultVariants: {
-      variant: 'default',
-    },
-  }
-);
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+})
 
 /* ─────────────────────────────────────────
    LINEAR PROGRESS
@@ -63,19 +57,19 @@ export interface ProgressProps
     VariantProps<typeof progressTrackVariants>,
     VariantProps<typeof progressFillVariants> {
   /** Current value (0-100) */
-  value?: number;
+  value?: number
   /** Maximum value */
-  max?: number;
+  max?: number
   /** Show percentage label */
-  showLabel?: boolean;
+  showLabel?: boolean
   /** Label position */
-  labelPosition?: 'top' | 'right' | 'inside';
+  labelPosition?: 'top' | 'right' | 'inside'
   /** Custom label format */
-  formatLabel?: (value: number, max: number) => string;
+  formatLabel?: (value: number, max: number) => string
   /** Indeterminate state */
-  indeterminate?: boolean;
+  indeterminate?: boolean
   /** Animate on mount */
-  animated?: boolean;
+  animated?: boolean
 }
 
 export function Progress({
@@ -91,14 +85,12 @@ export function Progress({
   className,
   ...props
 }: ProgressProps) {
-  const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
-  
-  const label = formatLabel 
-    ? formatLabel(value, max) 
-    : `${Math.round(percentage)}%`;
+  const percentage = Math.min(Math.max((value / max) * 100, 0), 100)
+
+  const label = formatLabel ? formatLabel(value, max) : `${Math.round(percentage)}%`
 
   return (
-    <div 
+    <div
       className={cn(
         'w-full',
         showLabel && labelPosition === 'top' && 'space-y-1.5',
@@ -113,7 +105,7 @@ export function Progress({
           <span className="font-mono font-medium text-foreground">{label}</span>
         </div>
       )}
-      
+
       <div className={cn(progressTrackVariants({ size }), 'flex-1')}>
         {indeterminate ? (
           <motion.div
@@ -135,7 +127,7 @@ export function Progress({
             transition={springSnappy}
           />
         )}
-        
+
         {showLabel && labelPosition === 'inside' && size !== 'xs' && size !== 'sm' && (
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-[10px] font-medium text-foreground mix-blend-difference">
@@ -144,14 +136,14 @@ export function Progress({
           </div>
         )}
       </div>
-      
+
       {showLabel && labelPosition === 'right' && (
         <span className="text-sm font-mono font-medium text-foreground min-w-[3rem] text-right">
           {label}
         </span>
       )}
     </div>
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -161,23 +153,23 @@ export function Progress({
 export interface CircularProgressProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
   /** Current value (0-100) */
-  value?: number;
+  value?: number
   /** Maximum value */
-  max?: number;
+  max?: number
   /** Size of the circle */
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl'
   /** Stroke width */
-  strokeWidth?: number;
+  strokeWidth?: number
   /** Color variant */
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'gradient';
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'gradient'
   /** Show percentage in center */
-  showLabel?: boolean;
+  showLabel?: boolean
   /** Custom center content */
-  children?: React.ReactNode;
+  children?: React.ReactNode
   /** Indeterminate state */
-  indeterminate?: boolean;
+  indeterminate?: boolean
   /** Animate on mount */
-  animated?: boolean;
+  animated?: boolean
 }
 
 const circularSizes = {
@@ -185,7 +177,7 @@ const circularSizes = {
   md: { size: 64, stroke: 4, textSize: 'text-sm' },
   lg: { size: 96, stroke: 5, textSize: 'text-lg' },
   xl: { size: 128, stroke: 6, textSize: 'text-xl' },
-};
+}
 
 const circularColors = {
   default: 'stroke-primary',
@@ -193,7 +185,7 @@ const circularColors = {
   warning: 'stroke-warning',
   error: 'stroke-destructive',
   gradient: 'stroke-primary',
-};
+}
 
 export function CircularProgress({
   value = 0,
@@ -208,26 +200,23 @@ export function CircularProgress({
   className,
   ...props
 }: CircularProgressProps) {
-  const config = circularSizes[size];
-  const stroke = strokeWidth ?? config.stroke;
-  const radius = (config.size - stroke) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
-  const offset = circumference - (percentage / 100) * circumference;
+  const config = circularSizes[size]
+  const stroke = strokeWidth ?? config.stroke
+  const radius = (config.size - stroke) / 2
+  const circumference = radius * 2 * Math.PI
+  const percentage = Math.min(Math.max((value / max) * 100, 0), 100)
+  const offset = circumference - (percentage / 100) * circumference
 
-  const gradientId = React.useId();
+  const gradientId = React.useId()
 
   return (
-    <div 
+    <div
       className={cn('relative inline-flex items-center justify-center', className)}
       style={{ width: config.size, height: config.size }}
       {...props}
     >
       <svg
-        className={cn(
-          'transform -rotate-90',
-          indeterminate && 'animate-spin'
-        )}
+        className={cn('transform -rotate-90', indeterminate && 'animate-spin')}
         width={config.size}
         height={config.size}
       >
@@ -239,7 +228,7 @@ export function CircularProgress({
             </linearGradient>
           </defs>
         )}
-        
+
         {/* Background track */}
         <circle
           className="stroke-foreground/10"
@@ -249,13 +238,10 @@ export function CircularProgress({
           cx={config.size / 2}
           cy={config.size / 2}
         />
-        
+
         {/* Progress arc */}
         <motion.circle
-          className={cn(
-            variant !== 'gradient' && circularColors[variant],
-            'transition-colors'
-          )}
+          className={cn(variant !== 'gradient' && circularColors[variant], 'transition-colors')}
           stroke={variant === 'gradient' ? `url(#${gradientId})` : undefined}
           strokeWidth={stroke}
           strokeLinecap="round"
@@ -264,26 +250,29 @@ export function CircularProgress({
           cx={config.size / 2}
           cy={config.size / 2}
           initial={animated ? { strokeDashoffset: circumference } : { strokeDashoffset: offset }}
-          animate={{ 
-            strokeDashoffset: indeterminate ? [circumference, 0] : offset 
+          animate={{
+            strokeDashoffset: indeterminate ? [circumference, 0] : offset,
           }}
-          transition={indeterminate ? { duration: 1.5, repeat: Infinity, ease: 'linear' } : springSnappy}
+          transition={
+            indeterminate ? { duration: 1.5, repeat: Infinity, ease: 'linear' } : springSnappy
+          }
           style={{
             strokeDasharray: circumference,
           }}
         />
       </svg>
-      
+
       {/* Center content */}
       <div className="absolute inset-0 flex items-center justify-center">
-        {children ?? (showLabel && !indeterminate && (
-          <span className={cn(config.textSize, 'font-semibold text-foreground font-mono')}>
-            {Math.round(percentage)}%
-          </span>
-        ))}
+        {children ??
+          (showLabel && !indeterminate && (
+            <span className={cn(config.textSize, 'font-semibold text-foreground font-mono')}>
+              {Math.round(percentage)}%
+            </span>
+          ))}
       </div>
     </div>
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
@@ -291,31 +280,31 @@ export function CircularProgress({
    ───────────────────────────────────────── */
 
 export interface StepProgressStep {
-  label: string;
-  description?: string;
-  icon?: React.ReactNode;
+  label: string
+  description?: string
+  icon?: React.ReactNode
 }
 
 export interface StepProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Steps configuration */
-  steps: StepProgressStep[];
+  steps: StepProgressStep[]
   /** Current active step (0-indexed) */
-  currentStep: number;
+  currentStep: number
   /** Orientation */
-  orientation?: 'horizontal' | 'vertical';
+  orientation?: 'horizontal' | 'vertical'
   /** Size variant */
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg'
   /** Color variant */
-  variant?: 'default' | 'success' | 'primary';
+  variant?: 'default' | 'success' | 'primary'
   /** Show step numbers instead of checkmarks */
-  showNumbers?: boolean;
+  showNumbers?: boolean
 }
 
 const stepSizes = {
   sm: { circle: 'w-6 h-6', icon: 'w-3 h-3', text: 'text-xs', gap: 'gap-2' },
   md: { circle: 'w-8 h-8', icon: 'w-4 h-4', text: 'text-sm', gap: 'gap-3' },
   lg: { circle: 'w-10 h-10', icon: 'w-5 h-5', text: 'text-base', gap: 'gap-4' },
-};
+}
 
 const stepVariantColors = {
   default: {
@@ -333,7 +322,7 @@ const stepVariantColors = {
     active: 'bg-background text-primary border-primary ring-4 ring-primary/20',
     pending: 'bg-foreground/5 text-foreground/40 border-foreground/20',
   },
-};
+}
 
 export function StepProgress({
   steps,
@@ -345,45 +334,45 @@ export function StepProgress({
   className,
   ...props
 }: StepProgressProps) {
-  const config = stepSizes[size];
-  const colors = stepVariantColors[variant];
+  const config = stepSizes[size]
+  const colors = stepVariantColors[variant]
 
   const getStepState = (index: number): 'complete' | 'active' | 'pending' => {
-    if (index < currentStep) return 'complete';
-    if (index === currentStep) return 'active';
-    return 'pending';
-  };
+    if (index < currentStep) return 'complete'
+    if (index === currentStep) return 'active'
+    return 'pending'
+  }
 
   return (
-    <div 
+    <div
       className={cn(
-        orientation === 'horizontal' 
-          ? 'flex items-start justify-between' 
-          : 'flex flex-col',
+        orientation === 'horizontal' ? 'flex items-start justify-between' : 'flex flex-col',
         config.gap,
         className
       )}
       {...props}
     >
       {steps.map((step, index) => {
-        const state = getStepState(index);
-        const isLast = index === steps.length - 1;
+        const state = getStepState(index)
+        const isLast = index === steps.length - 1
 
         return (
           <div
             key={index}
             className={cn(
-              orientation === 'horizontal' 
+              orientation === 'horizontal'
                 ? 'flex flex-col items-center flex-1'
                 : 'flex items-start',
               config.gap
             )}
           >
-            <div className={cn(
-              orientation === 'horizontal' 
-                ? 'flex items-center w-full'
-                : 'flex flex-col items-center'
-            )}>
+            <div
+              className={cn(
+                orientation === 'horizontal'
+                  ? 'flex items-center w-full'
+                  : 'flex flex-col items-center'
+              )}
+            >
               {/* Step Circle */}
               <motion.div
                 className={cn(
@@ -413,10 +402,7 @@ export function StepProgress({
               {!isLast && orientation === 'horizontal' && (
                 <div className="flex-1 h-0.5 bg-foreground/10 mx-2">
                   <motion.div
-                    className={cn(
-                      'h-full',
-                      state === 'complete' ? 'bg-primary' : 'bg-transparent'
-                    )}
+                    className={cn('h-full', state === 'complete' ? 'bg-primary' : 'bg-transparent')}
                     initial={{ width: 0 }}
                     animate={{ width: state === 'complete' ? '100%' : '0%' }}
                     transition={springSnappy}
@@ -428,10 +414,7 @@ export function StepProgress({
               {!isLast && orientation === 'vertical' && (
                 <div className="w-0.5 h-8 bg-foreground/10 my-2 ml-[15px]">
                   <motion.div
-                    className={cn(
-                      'w-full',
-                      state === 'complete' ? 'bg-primary' : 'bg-transparent'
-                    )}
+                    className={cn('w-full', state === 'complete' ? 'bg-primary' : 'bg-transparent')}
                     initial={{ height: 0 }}
                     animate={{ height: state === 'complete' ? '100%' : '0%' }}
                     transition={springSnappy}
@@ -441,35 +424,38 @@ export function StepProgress({
             </div>
 
             {/* Labels */}
-            <div className={cn(
-              orientation === 'horizontal' ? 'text-center mt-2' : 'ml-3',
-              'flex-1'
-            )}>
-              <p className={cn(
-                config.text,
-                'font-medium',
-                state === 'pending' ? 'text-foreground/40' : 'text-foreground'
-              )}>
+            <div
+              className={cn(orientation === 'horizontal' ? 'text-center mt-2' : 'ml-3', 'flex-1')}
+            >
+              <p
+                className={cn(
+                  config.text,
+                  'font-medium',
+                  state === 'pending' ? 'text-foreground/40' : 'text-foreground'
+                )}
+              >
                 {step.label}
               </p>
               {step.description && (
-                <p className={cn(
-                  'text-xs text-foreground/50 mt-0.5',
-                  orientation === 'horizontal' && 'hidden sm:block'
-                )}>
+                <p
+                  className={cn(
+                    'text-xs text-foreground/50 mt-0.5',
+                    orientation === 'horizontal' && 'hidden sm:block'
+                  )}
+                >
                   {step.description}
                 </p>
               )}
             </div>
           </div>
-        );
+        )
       })}
     </div>
-  );
+  )
 }
 
 /* ─────────────────────────────────────────
    EXPORTS
    ───────────────────────────────────────── */
 
-export { progressTrackVariants, progressFillVariants };
+export { progressTrackVariants, progressFillVariants }

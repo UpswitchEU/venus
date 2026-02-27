@@ -16,8 +16,8 @@
 'use client'
 
 import { Check, Loader2, Wifi, WifiOff } from 'lucide-react'
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 
 export interface BackgroundSyncIndicatorProps {
   /** Current sync status */

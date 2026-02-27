@@ -1,12 +1,15 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { useLocale } from 'next-intl'
 import { usePathname } from 'next/navigation'
-import { useAuthStore } from '../lib/auth'
+import { useLocale } from 'next-intl'
+import { useEffect, useRef } from 'react'
 import type { Locale } from '../../i18n'
+import { useAuthStore } from '../lib/auth'
 
 const SUPPORTED_LOCALES: readonly string[] = ['en', 'nl']
+
+/** RELOAD LOOP FIX: Minimum delay (ms) after auth ready before locale redirect. */
+const LOCALE_REDIRECT_DELAY_MS = 1000
 
 /**
  * Syncs the authenticated user's language_preference from Titan
@@ -19,6 +22,10 @@ const SUPPORTED_LOCALES: readonly string[] = ['en', 'nl']
  * prevents "Ask Assistant" / "Normalizations" etc. from reverting to
  * English when the user explicitly navigated to Dutch.
  *
+ * RELOAD LOOP FIX: Defers locale redirect until 1s after auth ready.
+ * Redirecting during auth/bootstrap init can trigger full reloads and
+ * contribute to perceived reload loops.
+ *
  * Must be rendered inside a next-intl provider and after auth is ready.
  */
 export function useLanguageSync() {
@@ -27,6 +34,7 @@ export function useLanguageSync() {
   const locale = useLocale() as Locale
   const pathname = usePathname()
   const synced = useRef(false)
+  const authReadyAt = useRef<number | null>(null)
 
   useEffect(() => {
     if (synced.current) return
@@ -48,6 +56,26 @@ export function useLanguageSync() {
     if (locale !== 'en') {
       synced.current = true
       return
+    }
+
+    // RELOAD LOOP FIX: Defer redirect until past critical init phase.
+    // Record when auth became ready and only redirect after delay.
+    const now = Date.now()
+    if (authReadyAt.current === null) {
+      authReadyAt.current = now
+    }
+    const elapsed = now - authReadyAt.current
+    if (elapsed < LOCALE_REDIRECT_DELAY_MS) {
+      const remaining = LOCALE_REDIRECT_DELAY_MS - elapsed
+      const t = setTimeout(() => {
+        if (synced.current) return
+        synced.current = true
+        document.cookie = `NEXT_LOCALE=${preferred}; path=/; max-age=31536000; SameSite=Lax`
+        const pathWithoutLocale = pathname.replace(/^\/(en|nl)/, '')
+        const newPath = `/${preferred}${pathWithoutLocale}`
+        window.location.replace(newPath)
+      }, remaining)
+      return () => clearTimeout(t)
     }
 
     synced.current = true

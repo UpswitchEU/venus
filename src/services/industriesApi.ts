@@ -5,8 +5,8 @@
  * from the valuation engine API.
  */
 
-import { generalLogger } from '../utils/logger'
 import { getApiUrl } from '../utils/getMercuryUrl'
+import { generalLogger } from '../utils/logger'
 
 export interface IndustryListResponse {
   industries: string[]

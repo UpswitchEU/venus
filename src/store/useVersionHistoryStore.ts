@@ -322,7 +322,9 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             for (const n of accepted) {
               const yearsToApply: number[] = n.applyAllYears
                 ? allDataYears
-                : (n.applyYears && n.applyYears.length > 0 ? n.applyYears : [n.year])
+                : n.applyYears && n.applyYears.length > 0
+                  ? n.applyYears
+                  : [n.year]
               for (const y of yearsToApply) {
                 if (!yearGroups[y]) yearGroups[y] = []
                 yearGroups[y].push(n)

@@ -58,14 +58,18 @@ export async function PUT(request: NextRequest) {
     // Forward request to Titan API with cookies
     const titanApiUrl = `${backendUrl}/api/v2/users/language`
 
-    const response = await fetchWithTimeout(titanApiUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: cookieHeader,
+    const response = await fetchWithTimeout(
+      titanApiUrl,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: cookieHeader,
+        },
+        body: JSON.stringify({ language }),
       },
-      body: JSON.stringify({ language }),
-    }, 10_000)
+      10_000
+    )
 
     if (!response.ok) {
       const error = await response
@@ -85,7 +89,7 @@ export async function PUT(request: NextRequest) {
     const isTimeout = error instanceof Error && error.message.includes('timeout')
     return NextResponse.json(
       { error: isTimeout ? 'Request timed out' : 'Internal server error' },
-      { status: isTimeout ? 504 : 500 },
+      { status: isTimeout ? 504 : 500 }
     )
   }
 }

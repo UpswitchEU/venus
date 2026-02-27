@@ -36,15 +36,18 @@ export const useBusinessTypeMatching = () => {
 
       // 2. Match on category (category may be string or object from API)
       const safeCatLower = (bt: { category?: unknown }) => {
-        const raw = typeof bt.category === 'string' ? bt.category : (bt.category as Record<string, unknown>)?.name ?? (bt.category as Record<string, unknown>)?.title ?? '';
-        return String(raw).toLowerCase();
-      };
-      const categoryMatch = businessTypes.find(
-        (bt) => {
-          const catLower = safeCatLower(bt);
-          return catLower && (catLower.includes(queryLower) || queryLower.includes(catLower));
-        }
-      )
+        const raw =
+          typeof bt.category === 'string'
+            ? bt.category
+            : ((bt.category as Record<string, unknown>)?.name ??
+              (bt.category as Record<string, unknown>)?.title ??
+              '')
+        return String(raw).toLowerCase()
+      }
+      const categoryMatch = businessTypes.find((bt) => {
+        const catLower = safeCatLower(bt)
+        return catLower && (catLower.includes(queryLower) || queryLower.includes(catLower))
+      })
       if (categoryMatch) {
         generalLogger.info('Matched business type (category)', {
           query,

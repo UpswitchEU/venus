@@ -40,7 +40,10 @@ export const MinimalHeader: React.FC = () => {
         Skip to main content
       </a>
 
-      <header className="fixed top-0 left-0 right-0 z-[1000] flex px-6 py-4 gap-2 sm:gap-3 lg:gap-4 w-full flex-row flex-nowrap items-center justify-between max-w-full overflow-visible bg-background/80 backdrop-blur-sm border-b border-foreground/10" style={{ zIndex: 1000 }}>
+      <header
+        className="fixed top-0 left-0 right-0 z-[1000] flex px-6 py-4 gap-2 sm:gap-3 lg:gap-4 w-full flex-row flex-nowrap items-center justify-between max-w-full overflow-visible bg-background/80 backdrop-blur-sm border-b border-foreground/10"
+        style={{ zIndex: 1000 }}
+      >
         {/* Logo and Title */}
         <div className="flex basis-0 flex-row flex-grow flex-nowrap justify-start bg-transparent items-center no-underline text-medium whitespace-nowrap box-border">
           <Link className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 group" href="/">

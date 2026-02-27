@@ -65,7 +65,9 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
         const argsToUse = lastArgs
         lastArgs = null
         if (argsToUse) {
-          execute(...argsToUse).then(resolve).catch(reject)
+          execute(...argsToUse)
+            .then(resolve)
+            .catch(reject)
         }
       }, delay)
     })

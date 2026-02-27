@@ -1,23 +1,28 @@
 'use client'
 
-import { useTransitionRouter } from 'next-view-transitions'
 import { useTranslations } from 'next-intl'
+import { useTransitionRouter } from 'next-view-transitions'
 import React, { useEffect, useRef, useState } from 'react'
+import {
+  identifyUser,
+  trackReportCreate,
+  trackReportOpen,
+  trackSessionStart,
+} from '@/lib/analytics'
 import { ALL_BUSINESS_VIDEOS } from '../../constants/videos'
 import { RecentReportsSection } from '../../features/reports'
 import { useAuth } from '../../hooks/useAuth'
 // AUTH-FIRST: useSessionInitialization removed - session init handled by BootstrapProvider
 import { type BusinessCardData, businessCardService } from '../../services/businessCard'
 import UrlGeneratorService from '../../services/urlGenerator'
-import { useClientContext } from '../../stores/clientContext'
 import { useReportsStore } from '../../store/useReportsStore'
-import { identifyUser, trackSessionStart, trackReportCreate, trackReportOpen } from '@/lib/analytics'
+import { useClientContext } from '../../stores/clientContext'
 import { ScrollToTop } from '../../utils'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 import { generalLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
 import { MinimalHeader } from '../MinimalHeader'
 import { VideoBackground } from '../VideoBackground'
-import { getApiUrl } from '../../utils/getMercuryUrl'
 
 // Backend API URL
 const API_URL = getApiUrl()
@@ -59,15 +64,12 @@ export const HomePage: React.FC = () => {
           const sessionKey = window.location.pathname.split('/').pop()
           if (!sessionKey?.startsWith('val_')) return
 
-          const response = await fetch(
-            `${API_URL}/api/v2/valuations/sessions/${sessionKey}`,
-            {
-              credentials: 'include',
-              headers: {
-                ...clientContext.getContextHeaders(), // X-Client-Context-* headers
-              },
-            }
-          )
+          const response = await fetch(`${API_URL}/api/v2/valuations/sessions/${sessionKey}`, {
+            credentials: 'include',
+            headers: {
+              ...clientContext.getContextHeaders(), // X-Client-Context-* headers
+            },
+          })
 
           if (response.ok) {
             const session = await response.json()

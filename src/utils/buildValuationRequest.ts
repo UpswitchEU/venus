@@ -47,10 +47,7 @@ export function buildValuationRequest(
   // Normalize last full year (2000-2100)
   // Valuations use the most recent completed fiscal year, not the current calendar year
   // ALWAYS calculate from current date, never trust formData to fix year 2026 bug
-  const lastFullYear = Math.min(
-    Math.max(new Date().getFullYear() - 1, 2000),
-    2100
-  )
+  const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
 
   // Normalize founding year (1900-2100)
   const foundingYear = Math.min(Math.max(formData.founding_year || lastFullYear - 5, 1900), 2100)
@@ -71,9 +68,12 @@ export function buildValuationRequest(
   // If industry is missing but business_type_id is present, log warning
   // (industry should have been set when business type was selected)
   if (!industry && formData.business_type_id) {
-    generalLogger.warn('[buildValuationRequest] Industry missing despite business_type_id being set', {
-      business_type_id: formData.business_type_id,
-    })
+    generalLogger.warn(
+      '[buildValuationRequest] Industry missing despite business_type_id being set',
+      {
+        business_type_id: formData.business_type_id,
+      }
+    )
   }
 
   // Apply defaults only if still missing
@@ -98,18 +98,22 @@ export function buildValuationRequest(
   const acceptedNorms = normStore.items.filter((n) => n.status === 'accepted')
 
   // Collect all years that have financial data (current + historical)
-  const historicalYears = formData.historical_years_data
-    ?.filter((y) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
-    .map((y) => y.year) ?? []
+  const historicalYears =
+    formData.historical_years_data
+      ?.filter((y) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+      .map((y) => y.year) ?? []
   const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
 
   // Build year-keyed normalization lookup from accepted items
   // CRITICAL: Respect applyAllYears and applyYears — items can apply to multiple years
-  const normByYear: Record<number, { totalAdjustment: number; count: number; confidence: string }> = {}
+  const normByYear: Record<number, { totalAdjustment: number; count: number; confidence: string }> =
+    {}
   for (const n of acceptedNorms) {
     const yearsToApply: number[] = n.applyAllYears
       ? allDataYears
-      : (n.applyYears && n.applyYears.length > 0 ? n.applyYears : [n.year])
+      : n.applyYears && n.applyYears.length > 0
+        ? n.applyYears
+        : [n.year]
     for (const y of yearsToApply) {
       if (!normByYear[y]) normByYear[y] = { totalAdjustment: 0, count: 0, confidence: 'medium' }
       normByYear[y].totalAdjustment += n.adjustment

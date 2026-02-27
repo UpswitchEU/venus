@@ -1,71 +1,67 @@
-'use client';
+'use client'
 
-import { useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl'
 
 /**
  * Integration Step Panel
- * 
+ *
  * First step in valuation flow - upload CSV export or choose manual input.
  * Clean, trust-building design with clear paths.
- * 
+ *
  * Bootstrap-optimized: CSV upload instead of full API integration.
  */
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/design-system/utils';
-import { AuroraButton as Button } from '@/design-system/components/Button';
-import { GlassCard } from '@/design-system/components/GlassCard';
-import { Heading, Body, Caption } from '@/design-system/components/Typography';
-import { Badge } from '@/design-system/components/Badge';
+import { AnimatePresence, motion } from 'framer-motion'
+import { Check, ChevronRight, FileSpreadsheet, Keyboard, Upload } from 'lucide-react'
+import { useState } from 'react'
 import {
-  NormalisationReviewPanel,
-  CSVUploadCard,
   CSVMappingPreview,
-  type SuggestedNormalisation,
-  type ParsedCSVData,
+  CSVUploadCard,
   type MappedAccount,
-} from '@/components/integrations';
-import { 
-  Check, 
-  ChevronRight, 
-  FileSpreadsheet, 
-  Upload,
-  Keyboard
-} from 'lucide-react';
+  NormalisationReviewPanel,
+  type ParsedCSVData,
+  type SuggestedNormalisation,
+} from '@/components/integrations'
+import { Badge } from '@/design-system/components/Badge'
+import { AuroraButton as Button } from '@/design-system/components/Button'
+import { GlassCard } from '@/design-system/components/GlassCard'
+import { Body, Caption, Heading } from '@/design-system/components/Typography'
+import { cn } from '@/design-system/utils'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
 
-type IntegrationStep = 'select' | 'upload' | 'mapping' | 'review' | 'complete';
+type IntegrationStep = 'select' | 'upload' | 'mapping' | 'review' | 'complete'
 
 export interface IntegrationStepPanelProps {
-  onComplete: (method: 'csv' | 'manual', data?: MappedAccount[]) => void;
-  onSkip?: () => void;
-  className?: string;
+  onComplete: (method: 'csv' | 'manual', data?: MappedAccount[]) => void
+  onSkip?: () => void
+  className?: string
 }
 
 // ─────────────────────────────────────────
 // MOCK NORMALISATION SUGGESTIONS
 // ─────────────────────────────────────────
 
-type TranslateFn = (key: string) => string;
+type TranslateFn = (key: string) => string
 
-const generateNormalisations = (accounts: MappedAccount[], t: TranslateFn): SuggestedNormalisation[] => {
+const generateNormalisations = (
+  accounts: MappedAccount[],
+  t: TranslateFn
+): SuggestedNormalisation[] => {
   // Generate smart normalisation suggestions based on account data
-  const suggestions: SuggestedNormalisation[] = [];
-  
+  const suggestions: SuggestedNormalisation[] = []
+
   // Find owner-related expenses (common normalisation)
-  const ownerExpenses = accounts.filter(a => 
-    a.category === 'expense' && 
-    /eigenaar|directeur|dga|auto|pension/i.test(a.description)
-  );
-  
+  const ownerExpenses = accounts.filter(
+    (a) => a.category === 'expense' && /eigenaar|directeur|dga|auto|pension/i.test(a.description)
+  )
+
   ownerExpenses.forEach((account, i) => {
-    const values = Object.values(account.values) as number[];
-    const avgValue = values.reduce((a, b) => a + b, 0) / Math.max(values.length, 1);
-    
+    const values = Object.values(account.values) as number[]
+    const avgValue = values.reduce((a, b) => a + b, 0) / Math.max(values.length, 1)
+
     if (avgValue > 5000) {
       suggestions.push({
         id: `norm-${i}`,
@@ -74,10 +70,10 @@ const generateNormalisations = (accounts: MappedAccount[], t: TranslateFn): Sugg
         amount: Math.round(avgValue * 0.4), // Suggest 40% normalisation
         reason: t('privateUseDetected'),
         status: 'pending',
-      });
+      })
     }
-  });
-  
+  })
+
   // Add default suggestions if none found
   if (suggestions.length === 0) {
     suggestions.push(
@@ -96,78 +92,70 @@ const generateNormalisations = (accounts: MappedAccount[], t: TranslateFn): Sugg
         amount: 8400,
         reason: t('defaultSuggestion2Reason'),
         status: 'pending',
-      },
-    );
+      }
+    )
   }
-  
-  return suggestions.slice(0, 5); // Max 5 suggestions
-};
+
+  return suggestions.slice(0, 5) // Max 5 suggestions
+}
 
 // ─────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────
 
-export function IntegrationStepPanel({
-  onComplete,
-  onSkip,
-  className,
-}: IntegrationStepPanelProps) {
-  const t = useTranslations('integrationStep');
-  const [step, setStep] = useState<IntegrationStep>('select');
-  const [parsedCSV, setParsedCSV] = useState<ParsedCSVData | null>(null);
-  const [mappedAccounts, setMappedAccounts] = useState<MappedAccount[]>([]);
-  const [suggestions, setSuggestions] = useState<SuggestedNormalisation[]>([]);
+export function IntegrationStepPanel({ onComplete, onSkip, className }: IntegrationStepPanelProps) {
+  const t = useTranslations('integrationStep')
+  const [step, setStep] = useState<IntegrationStep>('select')
+  const [parsedCSV, setParsedCSV] = useState<ParsedCSVData | null>(null)
+  const [mappedAccounts, setMappedAccounts] = useState<MappedAccount[]>([])
+  const [suggestions, setSuggestions] = useState<SuggestedNormalisation[]>([])
 
   // Handlers
   const handleCSVSelected = (file: File, data: ParsedCSVData) => {
-    setParsedCSV(data);
-    setStep('mapping');
-  };
+    setParsedCSV(data)
+    setStep('mapping')
+  }
 
   const handleMappingConfirmed = (accounts: MappedAccount[]) => {
-    setMappedAccounts(accounts);
-    setSuggestions(generateNormalisations(accounts, t));
-    setStep('review');
-  };
+    setMappedAccounts(accounts)
+    setSuggestions(generateNormalisations(accounts, t))
+    setStep('review')
+  }
 
   const handleAccept = (id: string) => {
-    setSuggestions(prev => 
-      prev.map(s => s.id === id ? { ...s, status: 'accepted' } : s)
-    );
-  };
+    setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, status: 'accepted' } : s)))
+  }
 
   const handleReject = (id: string) => {
-    setSuggestions(prev => 
-      prev.map(s => s.id === id ? { ...s, status: 'rejected' } : s)
-    );
-  };
+    setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, status: 'rejected' } : s)))
+  }
 
   const handleAcceptAll = () => {
-    setSuggestions(prev => 
-      prev.map(s => s.status === 'pending' ? { ...s, status: 'accepted' } : s)
-    );
-  };
+    setSuggestions((prev) =>
+      prev.map((s) => (s.status === 'pending' ? { ...s, status: 'accepted' } : s))
+    )
+  }
 
   const handleContinue = () => {
-    onComplete('csv', mappedAccounts);
-  };
+    onComplete('csv', mappedAccounts)
+  }
 
   const handleManualInput = () => {
-    onComplete('manual');
-  };
+    onComplete('manual')
+  }
 
   const handleBackToUpload = () => {
-    setStep('upload');
-    setParsedCSV(null);
-  };
+    setStep('upload')
+    setParsedCSV(null)
+  }
 
   const handleBackToMapping = () => {
-    setStep('mapping');
-  };
+    setStep('mapping')
+  }
 
   // Render based on step
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn('space-y-6', className)}>
       {/* Step: Select Integration Method */}
       {step === 'select' && (
         <motion.div
@@ -183,15 +171,13 @@ export function IntegrationStepPanel({
             <Heading level={2} className="text-xl mb-2">
               {t('title')}
             </Heading>
-            <Body className="text-foreground/60 max-w-md mx-auto">
-              {t('subtitle')}
-            </Body>
+            <Body className="text-foreground/60 max-w-md mx-auto">{t('subtitle')}</Body>
           </div>
 
           {/* Integration Options */}
           <div className="grid gap-4 max-w-lg mx-auto">
             {/* CSV Upload Card - Primary Option */}
-            <GlassCard 
+            <GlassCard
               className="p-5 cursor-pointer hover:bg-foreground/[0.02] transition-colors border-primary/20"
               onClick={() => setStep('upload')}
             >
@@ -201,12 +187,14 @@ export function IntegrationStepPanel({
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Heading level={3} className="text-base">{t('ledgerUpload')}</Heading>
-                    <Badge variant="primary" size="sm">{t('recommended')}</Badge>
+                    <Heading level={3} className="text-base">
+                      {t('ledgerUpload')}
+                    </Heading>
+                    <Badge variant="primary" size="sm">
+                      {t('recommended')}
+                    </Badge>
                   </div>
-                  <Caption className="text-foreground/50">
-                    {t('ledgerUploadCaption')}
-                  </Caption>
+                  <Caption className="text-foreground/50">{t('ledgerUploadCaption')}</Caption>
                 </div>
                 <ChevronRight className="w-5 h-5 text-foreground/30" />
               </div>
@@ -224,7 +212,9 @@ export function IntegrationStepPanel({
                       <Heading level={3} className="text-base text-foreground/70">
                         {t('directIntegration')}
                       </Heading>
-                      <Badge variant="neutral" size="sm">Q2 2026</Badge>
+                      <Badge variant="neutral" size="sm">
+                        Q2 2026
+                      </Badge>
                     </div>
                     <Caption className="text-foreground/50">
                       {t('directIntegrationCaption')}
@@ -235,7 +225,7 @@ export function IntegrationStepPanel({
             </div>
 
             {/* Manual Input */}
-            <GlassCard 
+            <GlassCard
               className="p-5 cursor-pointer hover:bg-foreground/[0.02] transition-colors"
               onClick={handleManualInput}
             >
@@ -244,10 +234,10 @@ export function IntegrationStepPanel({
                   <Keyboard className="w-6 h-6 text-foreground/50" />
                 </div>
                 <div className="flex-1">
-                  <Heading level={3} className="text-base">{t('manualInput')}</Heading>
-                  <Caption className="text-foreground/50">
-                    {t('manualInputCaption')}
-                  </Caption>
+                  <Heading level={3} className="text-base">
+                    {t('manualInput')}
+                  </Heading>
+                  <Caption className="text-foreground/50">{t('manualInputCaption')}</Caption>
                 </div>
                 <ChevronRight className="w-5 h-5 text-foreground/30" />
               </div>
@@ -257,7 +247,7 @@ export function IntegrationStepPanel({
           {/* Skip option */}
           {onSkip && (
             <div className="text-center mt-8">
-              <button 
+              <button
                 onClick={onSkip}
                 className="text-sm text-foreground/40 hover:text-foreground/60 transition-colors"
               >
@@ -275,11 +265,8 @@ export function IntegrationStepPanel({
           animate={{ opacity: 1, y: 0 }}
           className="max-w-2xl mx-auto"
         >
-          <CSVUploadCard
-            onFileSelected={handleCSVSelected}
-            onSkip={handleManualInput}
-          />
-          
+          <CSVUploadCard onFileSelected={handleCSVSelected} onSkip={handleManualInput} />
+
           <div className="mt-4">
             <Button variant="ghost" onClick={() => setStep('select')}>
               {t('backToOptions')}
@@ -290,10 +277,7 @@ export function IntegrationStepPanel({
 
       {/* Step: Mapping Preview */}
       {step === 'mapping' && parsedCSV && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <CSVMappingPreview
             parsedData={parsedCSV}
             onConfirm={handleMappingConfirmed}
@@ -313,7 +297,10 @@ export function IntegrationStepPanel({
           <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
             <Check className="w-5 h-5 text-primary" />
             <Body size="sm" className="font-medium">
-              {t('accountsImported', { accounts: mappedAccounts.length, years: parsedCSV?.fiscalYears.length || 0 })}
+              {t('accountsImported', {
+                accounts: mappedAccounts.length,
+                years: parsedCSV?.fiscalYears.length || 0,
+              })}
             </Body>
           </div>
 
@@ -338,7 +325,7 @@ export function IntegrationStepPanel({
         </motion.div>
       )}
     </div>
-  );
+  )
 }
 
-export default IntegrationStepPanel;
+export default IntegrationStepPanel

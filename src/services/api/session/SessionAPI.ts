@@ -22,13 +22,13 @@ import {
   isValidationError,
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
-import { APIRequestConfig, HttpClient } from '../HttpClient'
 import { normalizeSessionData } from '../../session/SessionNormalizer'
+import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 export class SessionAPI extends HttpClient {
   /**
    * Get valuation session data
-   * 
+   *
    * ✅ CLEAN ARCHITECTURE: Removed request deduplication cache
    * Backend handles idempotency for CREATE requests via ON CONFLICT
    * GET requests are naturally idempotent, no deduplication needed
@@ -134,7 +134,7 @@ export class SessionAPI extends HttpClient {
         // Extract session_data and use it for both sessionData and partialData
         // sessionData is the complete merged data, partialData is for incremental updates
         const backendSessionData = sessionData.session_data
-        
+
         // Map session_data to sessionData (complete data)
         if (!sessionData.sessionData) {
           sessionData.sessionData = backendSessionData
@@ -145,7 +145,7 @@ export class SessionAPI extends HttpClient {
             ...sessionData.sessionData, // Frontend data takes precedence
           }
         }
-        
+
         // Map session_data to partialData (incremental updates)
         if (!sessionData.partialData) {
           sessionData.partialData = backendSessionData
@@ -156,7 +156,7 @@ export class SessionAPI extends HttpClient {
             ...sessionData.partialData, // Frontend data takes precedence
           }
         }
-        
+
         // Also check session_data for currentView
         if (backendSessionData.currentView) {
           sessionData.currentView = backendSessionData.currentView
@@ -178,7 +178,7 @@ export class SessionAPI extends HttpClient {
       // ✅ WORLD-CLASS: Normalize session data at API boundary
       // This is the SINGLE place where we convert backend naming to frontend naming
       const normalized = normalizeSessionData(sessionData)
-      
+
       // Promote normalized fields to top level for easy access
       // This ensures consistent access patterns throughout the app
       const enrichedSessionData = {
@@ -192,7 +192,7 @@ export class SessionAPI extends HttpClient {
         // Mark as normalized so consumers know they can trust field names
         _isNormalized: true,
       }
-      
+
       // Return in expected format
       return {
         success,
@@ -254,12 +254,12 @@ export class SessionAPI extends HttpClient {
       // Log timing information for race condition detection
       const { useClientContext } = await import('../../../stores/clientContext')
       const context = useClientContext.getState()
-      
+
       apiLogger.info('[SessionAPI] Creating session', {
         hasClientContext: context.isActingAsClient,
         clientContextHeaders: Object.keys(context.getContextHeaders()).length,
         timestamp: Date.now(),
-        note: 'Timing information for race condition detection'
+        note: 'Timing information for race condition detection',
       })
 
       // Handle both CreateValuationSessionRequest and ValuationSession types
@@ -302,7 +302,7 @@ export class SessionAPI extends HttpClient {
       // Headers are added in HttpClient.setupInterceptors() -> getOwnerHeaders()
       // This ensures client context headers (X-Client-Context-User, etc.) are sent automatically
       // No explicit headers needed here - interceptor handles it
-      
+
       // Backend endpoint: POST /api/v2/valuations/sessions
       // If session_key is provided in payload, Titan will use it (for idempotency)
       // Otherwise, Titan generates a new HMAC-signed session_key
@@ -361,7 +361,7 @@ export class SessionAPI extends HttpClient {
   /**
    * Session creation deduplication map
    * Prevents multiple simultaneous session creation attempts for the same reportId
-   * 
+   *
    * WORLD-CLASS: Stores both promise and error state to prevent infinite retry loops
    */
   private static sessionCreationPromises = new Map<string, Promise<any>>()
@@ -370,10 +370,10 @@ export class SessionAPI extends HttpClient {
 
   /**
    * Update existing valuation session
-   * 
+   *
    * ✅ TWIN ENGINE ARCHITECTURE: This method is ONLY called by AuthenticatedSessionEngine
    * GuestSessionEngine never calls this (guests use localStorage only, no updates to backend)
-   * 
+   *
    * WORLD-CLASS: Handles 429 rate limits with exponential backoff
    * Prevents cascading failures from multiple simultaneous updates
    */
@@ -437,14 +437,14 @@ export class SessionAPI extends HttpClient {
       }
     } catch (error) {
       const axiosError = error as any
-      
+
       // ✅ WORLD-CLASS FIX: Handle 429 rate limit with exponential backoff
       if (axiosError?.response?.status === 429) {
         apiLogger.warn('Rate limit hit during session update, retrying with backoff', {
           reportId,
           retryAfter: axiosError?.response?.headers?.['retry-after'],
         })
-        
+
         // Use exponential backoff for rate limit retries
         const { retryWithBackoff } = await import('../../../utils/retryWithBackoff')
         try {
@@ -464,7 +464,7 @@ export class SessionAPI extends HttpClient {
               ...(updatesAny?.dataSource !== undefined && { dataSource: mappedDataSource }),
             },
           }
-          
+
           const retriedResponse = await retryWithBackoff(
             async () => {
               return await this.executeRequest<{ success: boolean; data: any }>(
@@ -484,7 +484,7 @@ export class SessionAPI extends HttpClient {
               backoffMultiplier: 2,
             }
           )
-          
+
           const sessionData = retriedResponse.data
           if (sessionData) {
             if ((sessionData.currentView as string) === 'ai-guided') {
@@ -494,7 +494,7 @@ export class SessionAPI extends HttpClient {
               sessionData.dataSource = 'conversational'
             }
           }
-          
+
           return {
             success: retriedResponse.success,
             session: sessionData,
@@ -504,10 +504,13 @@ export class SessionAPI extends HttpClient {
           // Rate limit retries exhausted - return optimistic success for non-critical updates
           const isCriticalUpdate = !!(updates.updates?.sessionData || updates.updates?.currentView)
           if (!isCriticalUpdate) {
-            apiLogger.warn('Rate limit retries exhausted for non-critical update, returning optimistic success', {
-              reportId,
-              updateKeys: Object.keys(updates.updates || {}),
-            })
+            apiLogger.warn(
+              'Rate limit retries exhausted for non-critical update, returning optimistic success',
+              {
+                reportId,
+                updateKeys: Object.keys(updates.updates || {}),
+              }
+            )
             // Return optimistic success - the update will be retried on next change
             return {
               success: true,
@@ -519,7 +522,7 @@ export class SessionAPI extends HttpClient {
           this.handleSessionError(retryError, 'update session')
         }
       }
-      
+
       if (axiosError?.response?.status === 404) {
         // ✅ TWIN ENGINE ARCHITECTURE: Handle 404 for authenticated users only
         // GuestSessionEngine never calls this method, so all callers are authenticated
@@ -528,27 +531,32 @@ export class SessionAPI extends HttpClient {
           const { useSessionStore } = await import('../../../store/useSessionStore')
           const sessionStore = useSessionStore.getState()
           const currentSession = sessionStore.session
-          
+
           // Only auto-create if:
           // 1. We have a session in the store with matching reportId
           // 2. The update is non-critical (like name updates)
           // 3. We're not trying to update a deleted session
           // Note: All callers are authenticated (GuestSessionEngine never calls this)
-          
+
           if (currentSession && currentSession.reportId === reportId) {
             // ✅ WORLD-CLASS FIX: Check for recent rate limit errors (cooldown period)
             const recentError = SessionAPI.sessionCreationErrors.get(reportId)
             if (recentError) {
               const errorAge = Date.now() - recentError.timestamp
               if (errorAge < SessionAPI.ERROR_COOLDOWN_MS) {
-                apiLogger.warn('Session creation blocked - recent rate limit error, returning optimistic success', {
-                  reportId,
-                  errorAge_ms: errorAge,
-                  cooldownRemaining_ms: SessionAPI.ERROR_COOLDOWN_MS - errorAge,
-                  note: 'Update will be retried after cooldown period',
-                })
+                apiLogger.warn(
+                  'Session creation blocked - recent rate limit error, returning optimistic success',
+                  {
+                    reportId,
+                    errorAge_ms: errorAge,
+                    cooldownRemaining_ms: SessionAPI.ERROR_COOLDOWN_MS - errorAge,
+                    note: 'Update will be retried after cooldown period',
+                  }
+                )
                 // Return optimistic success - don't retry during cooldown
-                const isCriticalUpdate = !!(updates.updates?.sessionData || updates.updates?.currentView)
+                const isCriticalUpdate = !!(
+                  updates.updates?.sessionData || updates.updates?.currentView
+                )
                 if (!isCriticalUpdate) {
                   return {
                     success: true,
@@ -561,13 +569,16 @@ export class SessionAPI extends HttpClient {
                 SessionAPI.sessionCreationErrors.delete(reportId)
               }
             }
-            
+
             // ✅ DEDUPLICATION: Check if session creation is already in progress
             const existingPromise = SessionAPI.sessionCreationPromises.get(reportId)
             if (existingPromise) {
-              apiLogger.debug('Session creation already in progress, waiting for existing promise', {
-                reportId,
-              })
+              apiLogger.debug(
+                'Session creation already in progress, waiting for existing promise',
+                {
+                  reportId,
+                }
+              )
               try {
                 // Wait for existing creation to complete
                 const createResponse = await existingPromise
@@ -581,7 +592,9 @@ export class SessionAPI extends HttpClient {
                 const promiseAxiosError = promiseError as any
                 if (promiseAxiosError?.response?.status === 429) {
                   // Rate limit - return optimistic success for non-critical updates
-                  const isCriticalUpdate = !!(updates.updates?.sessionData || updates.updates?.currentView)
+                  const isCriticalUpdate = !!(
+                    updates.updates?.sessionData || updates.updates?.currentView
+                  )
                   if (!isCriticalUpdate) {
                     return {
                       success: true,
@@ -594,7 +607,7 @@ export class SessionAPI extends HttpClient {
                 throw promiseError
               }
             }
-            
+
             // Create new promise for session creation
             const createPromise = (async () => {
               try {
@@ -603,23 +616,27 @@ export class SessionAPI extends HttpClient {
                   note: 'Session exists in store but not in backend. Creating session with provided updates.',
                   updates: Object.keys(updates.updates || {}),
                 })
-                
+
                 // Create session with the updates included
                 // Merge updates into sessionData (updates.updates contains the actual field updates)
                 const mergedSessionData = {
                   ...(currentSession.sessionData || {}),
                   ...(updates.updates || {}),
                 }
-                
+
                 const sessionToCreate = {
                   session_key: reportId,
                   reportId,
-                  currentView: currentSession.currentView || updates.updates?.currentView || currentSession.currentView || 'manual',
+                  currentView:
+                    currentSession.currentView ||
+                    updates.updates?.currentView ||
+                    currentSession.currentView ||
+                    'manual',
                   sessionData: mergedSessionData,
                   name: updates.updates?.name || currentSession.name,
                   dataSource: updates.updates?.dataSource || currentSession.dataSource,
                 } as any
-                
+
                 const createResponse = await this.createValuationSession(sessionToCreate, options)
                 // Clear any previous errors on success
                 SessionAPI.sessionCreationErrors.delete(reportId)
@@ -632,10 +649,13 @@ export class SessionAPI extends HttpClient {
                     error: createError,
                     timestamp: Date.now(),
                   })
-                  apiLogger.warn('Rate limit hit during session creation, storing error for cooldown', {
-                    reportId,
-                    cooldown_ms: SessionAPI.ERROR_COOLDOWN_MS,
-                  })
+                  apiLogger.warn(
+                    'Rate limit hit during session creation, storing error for cooldown',
+                    {
+                      reportId,
+                      cooldown_ms: SessionAPI.ERROR_COOLDOWN_MS,
+                    }
+                  )
                 }
                 throw createError
               } finally {
@@ -643,13 +663,13 @@ export class SessionAPI extends HttpClient {
                 SessionAPI.sessionCreationPromises.delete(reportId)
               }
             })()
-            
+
             // Store promise for deduplication
             SessionAPI.sessionCreationPromises.set(reportId, createPromise)
-            
+
             try {
               const createResponse = await createPromise
-              
+
               // Return in update format for compatibility
               return {
                 success: createResponse.success,
@@ -661,7 +681,9 @@ export class SessionAPI extends HttpClient {
               const createAxiosError = createError as any
               if (createAxiosError?.response?.status === 429) {
                 // Rate limit - return optimistic success for non-critical updates
-                const isCriticalUpdate = !!(updates.updates?.sessionData || updates.updates?.currentView)
+                const isCriticalUpdate = !!(
+                  updates.updates?.sessionData || updates.updates?.currentView
+                )
                 if (!isCriticalUpdate) {
                   return {
                     success: true,
@@ -677,8 +699,10 @@ export class SessionAPI extends HttpClient {
             // ✅ TWIN ENGINE ARCHITECTURE: No session in store
             // All callers are authenticated (GuestSessionEngine never calls this)
             // Return optimistic success for non-critical updates
-            const isCriticalUpdate = !!(updates.updates?.sessionData || updates.updates?.currentView)
-            
+            const isCriticalUpdate = !!(
+              updates.updates?.sessionData || updates.updates?.currentView
+            )
+
             if (!isCriticalUpdate) {
               apiLogger.debug('Session not found during update - returning optimistic success', {
                 reportId,
@@ -691,12 +715,13 @@ export class SessionAPI extends HttpClient {
                 updated: false,
               }
             }
-            
+
             // For critical updates, log error but don't crash
             apiLogger.warn('Session not found during update - session does not exist in store', {
               reportId,
               note: 'Sessions are created during bootstrap. A 404 indicates the session was deleted or there is a synchronization issue.',
-              errorMessage: axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
+              errorMessage:
+                axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
             })
             // Return optimistic success instead of crashing
             return {
@@ -714,13 +739,18 @@ export class SessionAPI extends HttpClient {
               error: createError,
               timestamp: Date.now(),
             })
-            apiLogger.warn('Rate limit hit during session auto-create, returning optimistic success', {
-              reportId,
-              note: 'Update will be retried after cooldown period',
-              cooldown_ms: SessionAPI.ERROR_COOLDOWN_MS,
-            })
+            apiLogger.warn(
+              'Rate limit hit during session auto-create, returning optimistic success',
+              {
+                reportId,
+                note: 'Update will be retried after cooldown period',
+                cooldown_ms: SessionAPI.ERROR_COOLDOWN_MS,
+              }
+            )
             // Return optimistic success for non-critical updates
-            const isCriticalUpdate = !!(updates.updates?.sessionData || updates.updates?.currentView)
+            const isCriticalUpdate = !!(
+              updates.updates?.sessionData || updates.updates?.currentView
+            )
             if (!isCriticalUpdate) {
               return {
                 success: true,
@@ -739,13 +769,14 @@ export class SessionAPI extends HttpClient {
               updated: false,
             }
           }
-          
+
           // If auto-create fails with non-rate-limit error, log and return optimistic success
           // Don't crash the UI - guest users should be able to continue working
           apiLogger.warn('Failed to auto-create session after 404, returning optimistic success', {
             reportId,
             createError: createError instanceof Error ? createError.message : String(createError),
-            originalError: axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
+            originalError:
+              axiosError?.response?.data?.message || axiosError?.message || 'Unknown error',
             note: 'Guest users can continue working - session will be created on explicit save',
           })
           // Return optimistic success - don't crash UI

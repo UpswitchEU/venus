@@ -20,69 +20,81 @@
  * @module features/manual/components/ManualLayout
  */
 
-import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
-import { useTranslations, useLocale } from 'next-intl'
-import { motion, AnimatePresence } from 'framer-motion'
+import React, { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-
+import {
+  trackAIFieldUpdate,
+  trackAINormalizationAccept,
+  trackNormalizationOpen,
+  trackPreviewOpen,
+  trackReturnToMercury,
+  trackVersionHistoryOpen,
+} from '@/lib/analytics'
+// Calculator Components (full Clarity parity)
+import {
+  CalculatorNav,
+  CalculatorShellSkeleton,
+  ChatAssistantDrawer,
+  type ChatMessage,
+  ContextBar,
+  type FieldContext,
+  FullscreenReportModal,
+  HistoryPanel,
+  ManualInputPanel,
+  type NormalisationSuggestion,
+  NormalisationSuggestionModal,
+  type NormalizationItem,
+  ReportPreviewPanel,
+  type RightPanelView,
+  UnifiedNormalizationModal,
+  type ValuationReportData,
+  ValuationReportPanel,
+} from '../../../components/calculator'
+import { springDefault } from '../../../design-system/components/motion'
+// Design System
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '../../../design-system/components/Resizable'
 // Venus infrastructure (auth, session, stores, services)
 import { useAuth } from '../../../hooks/useAuth'
-import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
-import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
+import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
+import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
+import { getSafeMercuryReturnUrl } from '../../../lib/return-url'
+import { reportService, valuationService } from '../../../services'
+import { DownloadService } from '../../../services/downloadService'
+import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
+import { useConversationStore } from '../../../store/useConversationStore'
+import {
+  enableNormalizationAutoPersist,
+  mapBackendCategoryToFrontend,
+  setNormalizationToastMessages,
+  useNormalizationStore,
+} from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
-import { useNormalizationStore, enableNormalizationAutoPersist, mapBackendCategoryToFrontend, setNormalizationToastMessages } from '../../../store/useNormalizationStore'
-import { useConversationStore } from '../../../store/useConversationStore'
-import { CalculatorShellSkeleton } from '../../../components/calculator'
-import { valuationService, reportService } from '../../../services'
+import type {
+  ValuationResponse,
+  ValuationFormData as VenusFormData,
+} from '../../../types/valuation'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
-import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
-import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
-import { DownloadService } from '../../../services/downloadService'
-import { generalLogger } from '../../../utils/logger'
-import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
-import { getSafeMercuryReturnUrl } from '../../../lib/return-url'
-import { trackNormalizationOpen, trackPreviewOpen, trackVersionHistoryOpen, trackReturnToMercury, trackAINormalizationAccept, trackAIFieldUpdate } from '@/lib/analytics'
+import { HTMLProcessor } from '../../../utils/htmlProcessor'
+import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
+import { generalLogger } from '../../../utils/logger'
+import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import {
   areChangesSignificant,
   detectVersionChanges,
   generateAutoLabel,
 } from '../../../utils/versionDiffDetection'
-import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
-import type { ValuationResponse, ValuationFormData as VenusFormData } from '../../../types/valuation'
-
-// Design System
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from '../../../design-system/components/Resizable'
-import { springDefault } from '../../../design-system/components/motion'
-
-// Calculator Components (full Clarity parity)
-import {
-  CalculatorNav,
-  ManualInputPanel,
-  ChatAssistantDrawer,
-  ValuationReportPanel,
-  ReportPreviewPanel,
-  HistoryPanel,
-  FullscreenReportModal,
-  NormalisationSuggestionModal,
-  UnifiedNormalizationModal,
-  ContextBar,
-  type RightPanelView,
-  type ValuationReportData,
-  type ChatMessage,
-  type FieldContext,
-  type NormalisationSuggestion,
-  type NormalizationItem,
-} from '../../../components/calculator'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -152,14 +164,62 @@ function useIsMobile() {
 // These represent the most common normalization categories for Belgian SMEs.
 // ─────────────────────────────────────────
 
-function generateDefaultNormalizationSuggestions(source: 'yuki' | 'exact' | 'odoo', nh: (key: string) => string) {
+function generateDefaultNormalizationSuggestions(
+  source: 'yuki' | 'exact' | 'odoo',
+  nh: (key: string) => string
+) {
   const labels = { yuki: 'Yuki', exact: 'Exact Online', odoo: 'Odoo' }
   return [
-    { id: `${source}-1`, code: '620', description: nh('defaultSuggestions.ownerSalaryAboveMarket'), category: 'salary', amount: 60000, reason: nh('defaultSuggestions.salaryDiffReason'), sourceRef: `${labels[source]} 620xxx`, status: 'pending' },
-    { id: `${source}-2`, code: '613', description: nh('defaultSuggestions.officeRent'), category: 'rent', amount: 24000, reason: nh('defaultSuggestions.rentAboveMarketReason'), sourceRef: `${labels[source]} 613xxx`, status: 'pending' },
-    { id: `${source}-3`, code: '615', description: nh('defaultSuggestions.directorVehicle'), category: 'vehicle', amount: 18000, reason: nh('defaultSuggestions.vehicleReason'), sourceRef: nh('sources.manual'), status: 'pending' },
-    { id: `${source}-4`, code: '640', description: nh('defaultSuggestions.oneTimeLegal'), category: 'one-time', amount: 35000, reason: nh('defaultSuggestions.acquisitionDispute'), sourceRef: `${labels[source]}`, status: 'pending' },
-    { id: `${source}-5`, code: '650', description: nh('defaultSuggestions.familyOnPayroll'), category: 'personal', amount: 45000, reason: nh('defaultSuggestions.partnerNoRole'), sourceRef: nh('sources.manual'), status: 'pending' },
+    {
+      id: `${source}-1`,
+      code: '620',
+      description: nh('defaultSuggestions.ownerSalaryAboveMarket'),
+      category: 'salary',
+      amount: 60000,
+      reason: nh('defaultSuggestions.salaryDiffReason'),
+      sourceRef: `${labels[source]} 620xxx`,
+      status: 'pending',
+    },
+    {
+      id: `${source}-2`,
+      code: '613',
+      description: nh('defaultSuggestions.officeRent'),
+      category: 'rent',
+      amount: 24000,
+      reason: nh('defaultSuggestions.rentAboveMarketReason'),
+      sourceRef: `${labels[source]} 613xxx`,
+      status: 'pending',
+    },
+    {
+      id: `${source}-3`,
+      code: '615',
+      description: nh('defaultSuggestions.directorVehicle'),
+      category: 'vehicle',
+      amount: 18000,
+      reason: nh('defaultSuggestions.vehicleReason'),
+      sourceRef: nh('sources.manual'),
+      status: 'pending',
+    },
+    {
+      id: `${source}-4`,
+      code: '640',
+      description: nh('defaultSuggestions.oneTimeLegal'),
+      category: 'one-time',
+      amount: 35000,
+      reason: nh('defaultSuggestions.acquisitionDispute'),
+      sourceRef: `${labels[source]}`,
+      status: 'pending',
+    },
+    {
+      id: `${source}-5`,
+      code: '650',
+      description: nh('defaultSuggestions.familyOnPayroll'),
+      category: 'personal',
+      amount: 45000,
+      reason: nh('defaultSuggestions.partnerNoRole'),
+      sourceRef: nh('sources.manual'),
+      status: 'pending',
+    },
   ]
 }
 
@@ -225,7 +285,9 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.naceCode && { nace_code: data.naceCode }),
     ...(data.naceDescription && { nace_description: data.naceDescription }),
     ...(data.legalForm && { legal_form: data.legalForm }),
-    ...((data.businessType || data.businessTypeCode) && { business_type_id: data.businessType || data.businessTypeCode }),
+    ...((data.businessType || data.businessTypeCode) && {
+      business_type_id: data.businessType || data.businessTypeCode,
+    }),
   }
 }
 
@@ -295,7 +357,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useBootstrapSync()
   useBootstrapPrefill() // Ensures form store gets Mercury/bootstrap data (Manual flow doesn't render ValuationForm)
 
-  const { isCalculating, error, result, trySetCalculating, setCalculating, setResult } = useManualResultsStore()
+  const { isCalculating, error, result, trySetCalculating, setCalculating, setResult } =
+    useManualResultsStore()
   const { updateFormData } = useManualFormStore()
   const formStoreData = useManualFormStore((s) => s.formData)
   const status = useSessionStore((s) => s.status)
@@ -304,7 +367,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const reportIdFromSession = useSessionStore((s) => s.session?.reportId)
   const sessionName = useSessionStore((s) => s.session?.name)
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
-  const { generatePdf, downloadPdf, isGenerating: isPdfGenerating, isReady: isPdfReady } = usePdfGeneration(reportId)
+  const {
+    generatePdf,
+    downloadPdf,
+    isGenerating: isPdfGenerating,
+    isReady: isPdfReady,
+  } = usePdfGeneration(reportId)
 
   const currentLocale = useLocale()
 
@@ -316,23 +384,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   useEffect(() => {
     // Detect accountant mode from client context store
-    import('../../../stores/clientContext').then(({ useClientContext }) => {
-      const ctx = useClientContext.getState()
-      if (ctx.isActingAsClient && ctx.client) {
-        setIsAccountantMode(true)
-        setClientContextName(ctx.client.fullName || ctx.client.email || undefined)
-        // CRITICAL: Only use relationshipId (accountant_customers.id) for navigation.
-        // ctx.client.id is the Supabase Auth user UUID (owner_user_id) which is NOT
-        // a valid accountant_customers ID and would cause 404 on Mercury client detail pages.
-        setClientContextId(ctx.relationshipId ?? undefined)
-        // Use the accountant's own name for the toolbar identity display
-        if (ctx.accountant) {
-          setAccountantDisplayName(ctx.accountant.fullName || ctx.accountant.email || undefined)
+    import('../../../stores/clientContext')
+      .then(({ useClientContext }) => {
+        const ctx = useClientContext.getState()
+        if (ctx.isActingAsClient && ctx.client) {
+          setIsAccountantMode(true)
+          setClientContextName(ctx.client.fullName || ctx.client.email || undefined)
+          // CRITICAL: Only use relationshipId (accountant_customers.id) for navigation.
+          // ctx.client.id is the Supabase Auth user UUID (owner_user_id) which is NOT
+          // a valid accountant_customers ID and would cause 404 on Mercury client detail pages.
+          setClientContextId(ctx.relationshipId ?? undefined)
+          // Use the accountant's own name for the toolbar identity display
+          if (ctx.accountant) {
+            setAccountantDisplayName(ctx.accountant.fullName || ctx.accountant.email || undefined)
+          }
         }
-      }
-    }).catch(() => {
-      // Non-critical
-    })
+      })
+      .catch(() => {
+        // Non-critical
+      })
   }, [])
 
   // Async loading: show calculator shell skeleton instead of blocking LoadingState
@@ -346,7 +416,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="max-w-md mx-auto text-center">
           <div className="bg-destructive/20 border border-destructive/30 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-destructive mb-2">{tErrors('session.title')}</h3>
+            <h3 className="text-lg font-semibold text-destructive mb-2">
+              {tErrors('session.title')}
+            </h3>
             <p className="text-destructive/80 mb-6">{sessionError}</p>
             <button
               onClick={() => window.location.reload()}
@@ -364,13 +436,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [report, setReport] = useState<ValuationReportData | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
-  const isRestoringExistingReport = !report && !isGenerating && !!session && (() => {
-    const sd = (session.sessionData || session) as any
-    return !!(sd.valuationResult || sd.valuation_result || sd.htmlReport || sd.html_report)
-  })()
+  const isRestoringExistingReport =
+    !report &&
+    !isGenerating &&
+    !!session &&
+    (() => {
+      const sd = (session.sessionData || session) as any
+      return !!(sd.valuationResult || sd.valuation_result || sd.htmlReport || sd.html_report)
+    })()
   const [reportStatus, setReportStatus] = useState<'draft' | 'final'>('draft')
   const [isExporting, setIsExporting] = useState(false)
-  const [downloadHistory, setDownloadHistory] = useState<{ id: string; fileName: string; timestamp: Date; size: string }[]>([])
+  const [downloadHistory, setDownloadHistory] = useState<
+    { id: string; fileName: string; timestamp: Date; size: string }[]
+  >([])
 
   // ─── Panel View State ───
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab ?? 'preview')
@@ -387,23 +465,33 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useEffect(() => {
     if (reportId && chatDrawerOpen && !conversationStore.historyLoaded && !isLoadingHistory) {
       setIsLoadingHistory(true)
-      conversationStore.loadHistory(reportId).then(() => {
-        const storeMessages = useConversationStore.getState().messages
-        if (storeMessages.length > 0) {
-          setChatMessages(storeMessages.map((m) => ({
-            id: m.id,
-            role: (m.role || (m.type === 'ai' ? 'assistant' : m.type)) as 'user' | 'assistant' | 'system',
-            content: m.content,
-            timestamp: m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp),
-          })))
-        }
-      }).finally(() => setIsLoadingHistory(false))
+      conversationStore
+        .loadHistory(reportId)
+        .then(() => {
+          const storeMessages = useConversationStore.getState().messages
+          if (storeMessages.length > 0) {
+            setChatMessages(
+              storeMessages.map((m) => ({
+                id: m.id,
+                role: (m.role || (m.type === 'ai' ? 'assistant' : m.type)) as
+                  | 'user'
+                  | 'assistant'
+                  | 'system',
+                content: m.content,
+                timestamp: m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp),
+              }))
+            )
+          }
+        })
+        .finally(() => setIsLoadingHistory(false))
     }
   }, [reportId, chatDrawerOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup streaming on unmount
   useEffect(() => {
-    return () => { streamCleanupRef.current?.() }
+    return () => {
+      streamCleanupRef.current?.()
+    }
   }, [])
 
   // Safety timeout: reset isChatGenerating if it's been stuck for 2 minutes
@@ -418,11 +506,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       clearTimeout(generatingTimeoutRef.current)
       generatingTimeoutRef.current = null
     }
-    return () => { if (generatingTimeoutRef.current) clearTimeout(generatingTimeoutRef.current) }
+    return () => {
+      if (generatingTimeoutRef.current) clearTimeout(generatingTimeoutRef.current)
+    }
   }, [isChatGenerating]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [fieldContext, setFieldContext] = useState<FieldContext | undefined>(undefined)
-  const [pendingUpdates, setPendingUpdates] = useState<{ field: string; value: any; label: string }[]>([])
+  const [pendingUpdates, setPendingUpdates] = useState<
+    { field: string; value: any; label: string }[]
+  >([])
 
   // ─── Normalization State (Unified Store) ───
   const normalizationItems = useNormalizationStore((s) => s.items)
@@ -433,7 +525,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
   const [showNormalisationModal, setShowNormalisationModal] = useState(false)
   const [showUnifiedNormalizationModal, setShowUnifiedNormalizationModal] = useState(false)
-  const [currentNormalisationSuggestion, setCurrentNormalisationSuggestion] = useState<NormalisationSuggestion | null>(null)
+  const [currentNormalisationSuggestion, setCurrentNormalisationSuggestion] =
+    useState<NormalisationSuggestion | null>(null)
 
   // ─── Draft State ───
   const [draftStatus, setDraftStatus] = useState<'draft' | 'saved' | 'saving'>('draft')
@@ -477,7 +570,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setCollectedData((prev) => {
       const next = { ...prev }
       if (companyName && companyName !== prev.companyName) next.companyName = companyName
-      if ((formBusinessTypeId ?? '') !== prev.businessType) next.businessType = formBusinessTypeId ?? ''
+      if ((formBusinessTypeId ?? '') !== prev.businessType)
+        next.businessType = formBusinessTypeId ?? ''
       if (formIndustry && formIndustry !== prev.industry) next.industry = formIndustry
       if (formCountry && formCountry !== prev.country) next.country = formCountry
       const yearStr = formYearFounded ? String(formYearFounded) : ''
@@ -488,10 +582,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       next.businessStructure = derivedBusinessStructure || prev.businessStructure || undefined
       if (formAddress && formAddress !== prev.address) next.address = formAddress
       if (formNaceCode && formNaceCode !== prev.naceCode) next.naceCode = formNaceCode
-      if (formNaceDescription && formNaceDescription !== prev.naceDescription) next.naceDescription = formNaceDescription
+      if (formNaceDescription && formNaceDescription !== prev.naceDescription)
+        next.naceDescription = formNaceDescription
       return next
     })
-  }, [companyName, formBusinessTypeId, formIndustry, formCountry, formYearFounded, formKboNumber, formLegalForm, formAddress, formNaceCode, formNaceDescription])
+  }, [
+    companyName,
+    formBusinessTypeId,
+    formIndustry,
+    formCountry,
+    formYearFounded,
+    formKboNumber,
+    formLegalForm,
+    formAddress,
+    formNaceCode,
+    formNaceDescription,
+  ])
 
   // Hydrate collectedData and form store from session when form store is empty or missing NACE/business_type
   // Ensures initialData is populated on first render so ManualInputPanel can set selectedCompany from prefill
@@ -510,7 +616,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const formStoreEmpty =
       !formCompanyName?.trim() && !formKboNumber?.trim() && !formLegalForm?.trim()
     const sessionHasNace = !!(merged.nace_code || merged.naceCode)
-    const sessionHasBusinessType = !!(merged.business_type_id || merged.businessTypeId || merged.business_type)
+    const sessionHasBusinessType = !!(
+      merged.business_type_id ||
+      merged.businessTypeId ||
+      merged.business_type
+    )
     const formMissingNace = sessionHasNace && !formNaceCode?.trim()
     const formMissingBusinessType = sessionHasBusinessType && !formBusinessTypeId?.trim()
     const shouldHydrate =
@@ -528,8 +638,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const sessionNaceDesc = (merged.nace_description || merged.naceDescription) as string
     const sessionCountry = (merged.country_code || merged.countryCode || merged.country) as string
     const sessionYear = merged.founding_year ?? merged.founded_year
-    const sessionBusinessType = (merged.business_type_id || merged.businessTypeId || merged.business_type) as string
-    const sessionIndustry = (merged.industry as string)
+    const sessionBusinessType = (merged.business_type_id ||
+      merged.businessTypeId ||
+      merged.business_type) as string
+    const sessionIndustry = merged.industry as string
     // Skip NACE-shaped values: session may have "56.101" in business_type_id; let bootstrap/NACE lookup handle it
     const shouldUseSessionBusinessType =
       sessionBusinessType && !looksLikeNaceCode(sessionBusinessType)
@@ -540,14 +652,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (sessionKbo && !formKboNumber?.trim()) formUpdates.kbo_number = sessionKbo
     if (sessionLegal && !formLegalForm?.trim()) formUpdates.legal_form = sessionLegal
     const sessionPostalCode = (merged.postal_code || merged.postalCode) as string
-    const sessionCity = (merged.city as string)
+    const sessionCity = merged.city as string
     if (sessionPostalCode && !formPostalCode?.trim()) formUpdates.postal_code = sessionPostalCode
     if (sessionCity && !formCity?.trim()) formUpdates.city = sessionCity
     if (sessionNace && !formNaceCode?.trim()) formUpdates.nace_code = sessionNace
-    if (sessionNaceDesc && !formNaceDescription?.trim()) formUpdates.nace_description = sessionNaceDesc
+    if (sessionNaceDesc && !formNaceDescription?.trim())
+      formUpdates.nace_description = sessionNaceDesc
     if (sessionCountry && !formCountry?.trim()) formUpdates.country_code = sessionCountry
-    if (sessionYear != null && formYearFounded == null) formUpdates.founding_year = Number(sessionYear)
-    if (shouldUseSessionBusinessType && !formBusinessTypeId?.trim()) formUpdates.business_type_id = sessionBusinessType
+    if (sessionYear != null && formYearFounded == null)
+      formUpdates.founding_year = Number(sessionYear)
+    if (shouldUseSessionBusinessType && !formBusinessTypeId?.trim())
+      formUpdates.business_type_id = sessionBusinessType
     if (sessionIndustry && !formIndustry?.trim()) formUpdates.industry = sessionIndustry
     if (Object.keys(formUpdates).length > 0) {
       updateFormData(formUpdates)
@@ -567,7 +682,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (sessionNaceDesc && !prev.naceDescription) next.naceDescription = sessionNaceDesc
       if (sessionCountry && !prev.country) next.country = sessionCountry
       if (sessionYear != null && !prev.yearFounded) next.yearFounded = String(sessionYear)
-      if (shouldUseSessionBusinessType && !prev.businessType) next.businessType = sessionBusinessType
+      if (shouldUseSessionBusinessType && !prev.businessType)
+        next.businessType = sessionBusinessType
       if (sessionIndustry && !prev.industry) next.industry = sessionIndustry
       return next
     })
@@ -620,30 +736,58 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Fetch versions on mount
   useEffect(() => {
     if (reportId) {
-      useVersionHistoryStore.getState().fetchVersions(reportId).catch(() => {
-        // Non-critical: versions will show empty
-      })
+      useVersionHistoryStore
+        .getState()
+        .fetchVersions(reportId)
+        .catch(() => {
+          // Non-critical: versions will show empty
+        })
     }
   }, [reportId])
 
   // Map versions to CalculatorNav format
   const versionHistoryForNav = React.useMemo(() => {
     if (versions.length === 0 && report) {
-      return [{
-        id: 'current',
-        label: t('currentVersion'),
-        priceRange: { min: Math.round(report.valuation * 0.85), max: Math.round(report.valuation * 1.15) },
-        askPrice: report.valuation,
-        timestamp: report.generatedAt,
-        isActive: true,
-      }]
+      return [
+        {
+          id: 'current',
+          label: t('currentVersion'),
+          priceRange: {
+            min: Math.round(report.valuation * 0.85),
+            max: Math.round(report.valuation * 1.15),
+          },
+          askPrice: report.valuation,
+          timestamp: report.generatedAt,
+          isActive: true,
+        },
+      ]
     }
     return versions.map((v) => {
       const vr = v.valuationResult as any
-      const mid = Number(vr?.valuation_midpoint || vr?.equity_value_mid || vr?.details?.valuation_midpoint || vr?.details?.equity_value_mid || 0)
-      const low = Number(vr?.valuation_min || vr?.equity_value_low || vr?.details?.valuation_min || vr?.details?.equity_value_low || 0)
-      const high = Number(vr?.valuation_max || vr?.equity_value_high || vr?.details?.valuation_max || vr?.details?.equity_value_high || 0)
-      const ask = Number(vr?.recommended_asking_price || vr?.details?.recommended_asking_price || mid || 0)
+      const mid = Number(
+        vr?.valuation_midpoint ||
+          vr?.equity_value_mid ||
+          vr?.details?.valuation_midpoint ||
+          vr?.details?.equity_value_mid ||
+          0
+      )
+      const low = Number(
+        vr?.valuation_min ||
+          vr?.equity_value_low ||
+          vr?.details?.valuation_min ||
+          vr?.details?.equity_value_low ||
+          0
+      )
+      const high = Number(
+        vr?.valuation_max ||
+          vr?.equity_value_high ||
+          vr?.details?.valuation_max ||
+          vr?.details?.equity_value_high ||
+          0
+      )
+      const ask = Number(
+        vr?.recommended_asking_price || vr?.details?.recommended_asking_price || mid || 0
+      )
       return {
         id: v.id,
         label: v.versionLabel,
@@ -655,19 +799,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [versions, report])
 
-  const handleSelectVersion = useCallback((id: string) => {
-    setSelectedVersionId(id)
-    const version = versions.find((v) => v.id === id)
-    if (version?.valuationResult) {
-      const enrichedResult = {
-        ...version.valuationResult,
-        html_report: version.valuationResult.html_report || version.htmlReport || undefined,
-        info_tab_html: version.valuationResult.info_tab_html || version.infoTabHtml || undefined,
+  const handleSelectVersion = useCallback(
+    (id: string) => {
+      setSelectedVersionId(id)
+      const version = versions.find((v) => v.id === id)
+      if (version?.valuationResult) {
+        const enrichedResult = {
+          ...version.valuationResult,
+          html_report: version.valuationResult.html_report || version.htmlReport || undefined,
+          info_tab_html: version.valuationResult.info_tab_html || version.infoTabHtml || undefined,
+        }
+        setResult(enrichedResult)
+        toast.info(t('versionLoaded', { label: version.versionLabel }))
       }
-      setResult(enrichedResult)
-      toast.info(t('versionLoaded', { label: version.versionLabel }))
-    }
-  }, [versions, setResult])
+    },
+    [versions, setResult]
+  )
 
   // ─── Bridge: Result from Venus API → Report for Clarity components ───
   useEffect(() => {
@@ -675,18 +822,26 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       onComplete(result)
 
       const r = result as any
-      const equityMid = Number(r.equity_value_mid ?? r.valuation_midpoint ?? r.details?.equity_value_mid) || 0
-      const equityLow = Number(r.equity_value_low ?? r.valuation_min ?? r.details?.equity_value_low) || 0
-      const equityHigh = Number(r.equity_value_high ?? r.valuation_max ?? r.details?.equity_value_high) || 0
+      const equityMid =
+        Number(r.equity_value_mid ?? r.valuation_midpoint ?? r.details?.equity_value_mid) || 0
+      const equityLow =
+        Number(r.equity_value_low ?? r.valuation_min ?? r.details?.equity_value_low) || 0
+      const equityHigh =
+        Number(r.equity_value_high ?? r.valuation_max ?? r.details?.equity_value_high) || 0
       const ebitda = r.current_year_data?.ebitda || 0
       const normalizedEbitda = Number(r.latest_normalized_ebitda) || ebitda
       const revenue = r.current_year_data?.revenue || 0
       const ebitdaMultiple = r.multiples_valuation?.ebitda_multiple || 0
       const p25 = r.multiples_valuation?.p25_ebitda_multiple
       const p75 = r.multiples_valuation?.p75_ebitda_multiple
-      const confidence = (r.overall_confidence ?? r.details?.overall_confidence)?.toLowerCase() as 'high' | 'medium' | 'low' | undefined
+      const confidence = (r.overall_confidence ?? r.details?.overall_confidence)?.toLowerCase() as
+        | 'high'
+        | 'medium'
+        | 'low'
+        | undefined
 
-      const askingPrice = Number(r.recommended_asking_price ?? r.details?.recommended_asking_price) || 0
+      const askingPrice =
+        Number(r.recommended_asking_price ?? r.details?.recommended_asking_price) || 0
       const htmlReport = r.html_report ?? r.details?.html_report
       const infoTabHtml = r.info_tab_html ?? r.details?.info_tab_html
 
@@ -723,7 +878,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       if (reportId && htmlReport) {
         generatePdf?.().catch((err) => {
-          generalLogger.warn('[ManualLayout] Background PDF generation failed', { error: err instanceof Error ? err.message : String(err) })
+          generalLogger.warn('[ManualLayout] Background PDF generation failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
         })
       }
     }
@@ -733,79 +890,183 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const lastSubmittedDataRef = useRef<any>(null)
 
   // ─── Manual Form Submit Handler (REAL - wired to Venus services) ───
-  const handleManualSubmit = useCallback(async (data: any) => {
-    // Validation
-    if (!data.companyName?.trim()) {
-      toast.error(t('companyNameMissing'), { description: t('companyNameMissingDesc') })
-          return
-        }
-    if (!data.businessType?.trim()) {
-      toast.error(t('businessTypeMissing'), { description: t('businessTypeMissingDesc') })
-      return
-    }
-    if (!data.yearlyFinancials?.some((yf: any) => yf.revenue > 0 && yf.ebitda > 0)) {
-      toast.error(t('financialDataIncomplete'), { description: t('financialDataIncompleteDesc') })
-      return
-    }
-
-    // Prevent double submission
-    const wasSet = trySetCalculating()
-    if (!wasSet) return
-
-    // Store for retry capability
-    lastSubmittedDataRef.current = data
-
-    setIsGenerating(true)
-
-    // Sync collected data for UI
-    setCollectedData({
-      companyName: data.companyName,
-      businessType: data.businessType,
-      industry: data.industry,
-      country: data.country,
-      yearFounded: data.yearFounded,
-      ownerManagers: data.ownerManagers,
-      equityStake: data.equityStake,
-    })
-
-    try {
-      // Step 1: Map ManualInputPanel form data → Venus store format
-      const venusFormData = mapClarityFormToVenusStore(data)
-      updateFormData(venusFormData)
-
-      // Step 2: Build API request from store
-      const storeSnapshot = { ...formStoreData, ...venusFormData }
-      const request = buildValuationRequest(storeSnapshot)
-      ;(request as any).dataSource = 'manual'
-      if (reportId) (request as any).reportId = reportId
-
-      // Step 3: Detect version changes for M&A workflow
-      let previousVersion: any = null
-      let changes: any = null
-      if (reportId) {
-        previousVersion = getLatestVersion(reportId)
-        if (previousVersion) {
-          changes = detectVersionChanges(previousVersion.formData, request)
-          generalLogger.info('Regeneration detected', {
-            reportId,
-            previousVersion: previousVersion.versionNumber,
-            totalChanges: changes.totalChanges,
-          })
-        }
+  const handleManualSubmit = useCallback(
+    async (data: any) => {
+      // Validation
+      if (!data.companyName?.trim()) {
+        toast.error(t('companyNameMissing'), { description: t('companyNameMissingDesc') })
+        return
+      }
+      if (!data.businessType?.trim()) {
+        toast.error(t('businessTypeMissing'), { description: t('businessTypeMissingDesc') })
+        return
+      }
+      if (!data.yearlyFinancials?.some((yf: any) => yf.revenue > 0 && yf.ebitda > 0)) {
+        toast.error(t('financialDataIncomplete'), { description: t('financialDataIncompleteDesc') })
+        return
       }
 
-      // Step 4: Call real ValuationService
-      generalLogger.info('[ManualLayout] Calling valuationService.calculateValuation', {
-        companyName: request.company_name,
-        industry: request.industry,
-      })
-      const calcResult = await valuationService.calculateValuation(request)
+      // Prevent double submission
+      const wasSet = trySetCalculating()
+      if (!wasSet) return
 
-      if (!calcResult) {
+      // Store for retry capability
+      lastSubmittedDataRef.current = data
+
+      setIsGenerating(true)
+
+      // Sync collected data for UI
+      setCollectedData({
+        companyName: data.companyName,
+        businessType: data.businessType,
+        industry: data.industry,
+        country: data.country,
+        yearFounded: data.yearFounded,
+        ownerManagers: data.ownerManagers,
+        equityStake: data.equityStake,
+      })
+
+      try {
+        // Step 1: Map ManualInputPanel form data → Venus store format
+        const venusFormData = mapClarityFormToVenusStore(data)
+        updateFormData(venusFormData)
+
+        // Step 2: Build API request from store
+        const storeSnapshot = { ...formStoreData, ...venusFormData }
+        const request = buildValuationRequest(storeSnapshot)
+        ;(request as any).dataSource = 'manual'
+        if (reportId) (request as any).reportId = reportId
+
+        // Step 3: Detect version changes for M&A workflow
+        let previousVersion: any = null
+        let changes: any = null
+        if (reportId) {
+          previousVersion = getLatestVersion(reportId)
+          if (previousVersion) {
+            changes = detectVersionChanges(previousVersion.formData, request)
+            generalLogger.info('Regeneration detected', {
+              reportId,
+              previousVersion: previousVersion.versionNumber,
+              totalChanges: changes.totalChanges,
+            })
+          }
+        }
+
+        // Step 4: Call real ValuationService
+        generalLogger.info('[ManualLayout] Calling valuationService.calculateValuation', {
+          companyName: request.company_name,
+          industry: request.industry,
+        })
+        const calcResult = await valuationService.calculateValuation(request)
+
+        if (!calcResult) {
+          setCalculating(false)
+          setIsGenerating(false)
+          toast.error(t('calculationFailed'), {
+            description: t('calculationFailedNoResult'),
+            action: {
+              label: t('retry'),
+              onClick: () => {
+                if (lastSubmittedDataRef.current) {
+                  handleManualSubmit(lastSubmittedDataRef.current)
+                }
+              },
+            },
+          })
+          return
+        }
+
+        // Step 5: Store result (triggers useEffect bridge → report state)
+        setResult(calcResult)
         setCalculating(false)
         setIsGenerating(false)
+        setDraftStatus('saved')
+        setLastSaved(new Date())
+
+        // Step 6: Create version (M&A workflow)
+        // Titan creates V1 automatically during the calculate call.
+        // Venus only creates a NEW version when there was already a previous version
+        // BEFORE this calculation started AND the user made significant changes.
+        if (reportId) {
+          try {
+            await useVersionHistoryStore.getState().fetchVersions(reportId)
+
+            if (previousVersion) {
+              // Re-calculation: a version existed BEFORE we called calculate.
+              // Titan created a new version server-side. Check if Venus should
+              // also snapshot (only if the changes are significant vs the pre-calc state).
+              const latestAfterSync = useVersionHistoryStore.getState().getLatestVersion(reportId)
+              const effectivePrevious = latestAfterSync ?? previousVersion
+
+              // Only create a Venus-side version when there are significant form-data changes
+              // relative to the version that existed BEFORE the calculation.
+              const effectiveChanges = detectVersionChanges(previousVersion.formData, request)
+              if (
+                areChangesSignificant(effectiveChanges) &&
+                effectivePrevious.versionNumber === previousVersion.versionNumber
+              ) {
+                const newVersion = await createVersion({
+                  reportId,
+                  formData: request,
+                  valuationResult: calcResult,
+                  htmlReport: calcResult.html_report || undefined,
+                  infoTabHtml: calcResult.info_tab_html || undefined,
+                  changesSummary: effectiveChanges,
+                  versionLabel: generateAutoLabel(
+                    effectivePrevious.versionNumber + 1,
+                    effectiveChanges
+                  ),
+                })
+                await snapshotNormalizationsToVersion(reportId, newVersion.id)
+              }
+            }
+            // else: first calculation — Titan already created V1, nothing to do
+          } catch (versionError) {
+            generalLogger.error('Failed to create version', {
+              reportId,
+              error: versionError instanceof Error ? versionError.message : String(versionError),
+            })
+          } finally {
+            // Always re-sync version history from backend after calculation so panels show latest
+            setTimeout(() => {
+              useVersionHistoryStore
+                .getState()
+                .fetchVersions(reportId)
+                .catch((err) => {
+                  generalLogger.warn('[ManualLayout] Version history sync failed', {
+                    error: err instanceof Error ? err.message : String(err),
+                  })
+                })
+            }, 1500)
+          }
+        }
+
+        // Step 7: Save complete report package to backend
+        if (reportId) {
+          try {
+            await reportService.saveReportAssets(reportId, {
+              sessionData: storeSnapshot,
+              valuationResult: calcResult,
+              htmlReport: calcResult.html_report || undefined,
+              infoTabHtml: calcResult.info_tab_html || undefined,
+              name: sessionName,
+            })
+            useSessionStore.getState().markSaved()
+          } catch (saveError) {
+            generalLogger.error('[ManualLayout] Failed to save report assets', {
+              reportId,
+              error: saveError instanceof Error ? saveError.message : String(saveError),
+            })
+          }
+        }
+
+        toast.success(t('calculationComplete'))
+      } catch (error) {
+        setCalculating(false)
+        setIsGenerating(false)
+        const message = error instanceof Error ? error.message : t('unknownError')
         toast.error(t('calculationFailed'), {
-          description: t('calculationFailedNoResult'),
+          description: message,
           action: {
             label: t('retry'),
             onClick: () => {
@@ -815,178 +1076,118 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             },
           },
         })
-        return
+        generalLogger.error('[ManualLayout] Form submission failed', { error: message })
       }
-
-      // Step 5: Store result (triggers useEffect bridge → report state)
-      setResult(calcResult)
-      setCalculating(false)
-      setIsGenerating(false)
-      setDraftStatus('saved')
-      setLastSaved(new Date())
-
-      // Step 6: Create version (M&A workflow)
-      // Titan creates V1 automatically during the calculate call.
-      // Venus only creates a NEW version when there was already a previous version
-      // BEFORE this calculation started AND the user made significant changes.
-      if (reportId) {
-        try {
-          await useVersionHistoryStore.getState().fetchVersions(reportId)
-
-          if (previousVersion) {
-            // Re-calculation: a version existed BEFORE we called calculate.
-            // Titan created a new version server-side. Check if Venus should
-            // also snapshot (only if the changes are significant vs the pre-calc state).
-            const latestAfterSync = useVersionHistoryStore.getState().getLatestVersion(reportId)
-            const effectivePrevious = latestAfterSync ?? previousVersion
-
-            // Only create a Venus-side version when there are significant form-data changes
-            // relative to the version that existed BEFORE the calculation.
-            const effectiveChanges = detectVersionChanges(previousVersion.formData, request)
-            if (areChangesSignificant(effectiveChanges) && effectivePrevious.versionNumber === previousVersion.versionNumber) {
-              const newVersion = await createVersion({
-                reportId,
-                formData: request,
-                valuationResult: calcResult,
-                htmlReport: calcResult.html_report || undefined,
-                infoTabHtml: calcResult.info_tab_html || undefined,
-                changesSummary: effectiveChanges,
-                versionLabel: generateAutoLabel(effectivePrevious.versionNumber + 1, effectiveChanges),
-              })
-              await snapshotNormalizationsToVersion(reportId, newVersion.id)
-            }
-          }
-          // else: first calculation — Titan already created V1, nothing to do
-        } catch (versionError) {
-          generalLogger.error('Failed to create version', {
-            reportId,
-            error: versionError instanceof Error ? versionError.message : String(versionError),
-          })
-        } finally {
-          // Always re-sync version history from backend after calculation so panels show latest
-          setTimeout(() => {
-            useVersionHistoryStore.getState().fetchVersions(reportId).catch((err) => {
-              generalLogger.warn('[ManualLayout] Version history sync failed', { error: err instanceof Error ? err.message : String(err) })
-            })
-          }, 1500)
-        }
-      }
-
-      // Step 7: Save complete report package to backend
-      if (reportId) {
-        try {
-          await reportService.saveReportAssets(reportId, {
-            sessionData: storeSnapshot,
-            valuationResult: calcResult,
-            htmlReport: calcResult.html_report || undefined,
-            infoTabHtml: calcResult.info_tab_html || undefined,
-            name: sessionName,
-          })
-          useSessionStore.getState().markSaved()
-        } catch (saveError) {
-          generalLogger.error('[ManualLayout] Failed to save report assets', {
-            reportId,
-            error: saveError instanceof Error ? saveError.message : String(saveError),
-          })
-        }
-      }
-
-      toast.success(t('calculationComplete'))
-    } catch (error) {
-      setCalculating(false)
-      setIsGenerating(false)
-      const message = error instanceof Error ? error.message : t('unknownError')
-      toast.error(t('calculationFailed'), {
-        description: message,
-        action: {
-          label: t('retry'),
-          onClick: () => {
-            if (lastSubmittedDataRef.current) {
-              handleManualSubmit(lastSubmittedDataRef.current)
-            }
-          },
-        },
-      })
-      generalLogger.error('[ManualLayout] Form submission failed', { error: message })
-    }
-  }, [reportId, formStoreData, updateFormData, trySetCalculating, setCalculating, setResult, getLatestVersion, createVersion, sessionName])
+    },
+    [
+      reportId,
+      formStoreData,
+      updateFormData,
+      trySetCalculating,
+      setCalculating,
+      setResult,
+      getLatestVersion,
+      createVersion,
+      sessionName,
+    ]
+  )
 
   // ─── Chat Handlers (bi-directional sync) ───
-  const handleApplyFieldUpdate = useCallback((field: string, value: any) => {
-    const fieldToDataKey: Record<string, string> = {
-      business_type_id: 'businessType',
-      nace_code: 'naceCode',
-      nace_description: 'naceDescription',
-      company_name: 'companyName',
-      kbo_number: 'kboNumber',
-      legal_form: 'legalForm',
-      country_code: 'country',
-      founding_year: 'yearFounded',
-      address: 'address',
-      ownerManagers: 'ownerManagers',
-      equityStake: 'equityStake',
-    }
-    const dataKey = fieldToDataKey[field] ?? field
-    // Address fields (postal_code, city) update form store only; collectedData syncs via form store
-    const isAddressOnlyField = field === 'postal_code' || field === 'postalCode' || field === 'city'
-    if (!isAddressOnlyField) {
-      setCollectedData((prev) => ({ ...prev, [dataKey]: value }))
-    }
-    // Sync to form store so form store stays in sync with chat/AI updates
-    const strVal = typeof value === 'string' ? value.trim() : ''
-    const hasStr = strVal.length > 0
-    const yearVal = typeof value === 'number' ? value : parseInt(String(value), 10)
-    const hasYear = !Number.isNaN(yearVal)
-
-    if (field === 'businessType' || field === 'business_type_id') {
-      if (hasStr) updateFormData({ business_type_id: strVal })
-    } else if (field === 'nace_code' || field === 'naceCode') {
-      if (hasStr) updateFormData({ nace_code: strVal })
-    } else if (field === 'nace_description' || field === 'naceDescription') {
-      if (hasStr) updateFormData({ nace_description: strVal })
-    } else if (field === 'company_name' || field === 'companyName') {
-      if (hasStr) updateFormData({ company_name: strVal })
-    } else if (field === 'kbo_number' || field === 'kboNumber') {
-      if (hasStr) updateFormData({ kbo_number: strVal })
-    } else if (field === 'legal_form' || field === 'legalForm') {
-      if (hasStr) updateFormData({ legal_form: strVal })
-    } else if (field === 'country_code' || field === 'country') {
-      if (hasStr) updateFormData({ country_code: strVal })
-    } else if (field === 'founding_year' || field === 'yearFounded') {
-      if (hasYear) updateFormData({ founding_year: yearVal })
-    } else if (field === 'industry') {
-      if (hasStr) updateFormData({ industry: strVal })
-    } else if (field === 'postal_code' || field === 'postalCode') {
-      if (hasStr) updateFormData({ postal_code: strVal })
-    } else if (field === 'city') {
-      if (hasStr) updateFormData({ city: strVal })
-    } else if (field === 'address') {
-      if (hasStr) {
-        // Belgian format often "1234 City" - try to split postal code from city
-        const match = strVal.match(/^(\d{4})\s+(.+)$/)
-        if (match) {
-          updateFormData({ postal_code: match[1], city: match[2].trim() })
-        } else {
-          updateFormData({ city: strVal })
-        }
+  const handleApplyFieldUpdate = useCallback(
+    (field: string, value: any) => {
+      const fieldToDataKey: Record<string, string> = {
+        business_type_id: 'businessType',
+        nace_code: 'naceCode',
+        nace_description: 'naceDescription',
+        company_name: 'companyName',
+        kbo_number: 'kboNumber',
+        legal_form: 'legalForm',
+        country_code: 'country',
+        founding_year: 'yearFounded',
+        address: 'address',
+        ownerManagers: 'ownerManagers',
+        equityStake: 'equityStake',
       }
-    } else if (field === 'ownerManagers' || field === 'owner_managers') {
-      const n = typeof value === 'number' ? value : parseInt(String(value), 10)
-      if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_owners: n })
-    } else if (field === 'equityStake' || field === 'equity_stake') {
-      const n = typeof value === 'number' ? value : parseInt(String(value), 10)
-      if (!Number.isNaN(n) && n >= 0 && n <= 100) updateFormData({ shares_for_sale: n })
-    }
-    const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE';
-    toast.success(t('fieldUpdated', { field, value: typeof value === 'number' ? `€${value.toLocaleString(currencyLocale)}` : String(value) }))
-    setChatMessages((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), role: 'system' as const, content: t('fieldApplied', { field }), timestamp: new Date() },
-    ])
-  }, [updateFormData, currentLocale, t])
+      const dataKey = fieldToDataKey[field] ?? field
+      // Address fields (postal_code, city) update form store only; collectedData syncs via form store
+      const isAddressOnlyField =
+        field === 'postal_code' || field === 'postalCode' || field === 'city'
+      if (!isAddressOnlyField) {
+        setCollectedData((prev) => ({ ...prev, [dataKey]: value }))
+      }
+      // Sync to form store so form store stays in sync with chat/AI updates
+      const strVal = typeof value === 'string' ? value.trim() : ''
+      const hasStr = strVal.length > 0
+      const yearVal = typeof value === 'number' ? value : parseInt(String(value), 10)
+      const hasYear = !Number.isNaN(yearVal)
+
+      if (field === 'businessType' || field === 'business_type_id') {
+        if (hasStr) updateFormData({ business_type_id: strVal })
+      } else if (field === 'nace_code' || field === 'naceCode') {
+        if (hasStr) updateFormData({ nace_code: strVal })
+      } else if (field === 'nace_description' || field === 'naceDescription') {
+        if (hasStr) updateFormData({ nace_description: strVal })
+      } else if (field === 'company_name' || field === 'companyName') {
+        if (hasStr) updateFormData({ company_name: strVal })
+      } else if (field === 'kbo_number' || field === 'kboNumber') {
+        if (hasStr) updateFormData({ kbo_number: strVal })
+      } else if (field === 'legal_form' || field === 'legalForm') {
+        if (hasStr) updateFormData({ legal_form: strVal })
+      } else if (field === 'country_code' || field === 'country') {
+        if (hasStr) updateFormData({ country_code: strVal })
+      } else if (field === 'founding_year' || field === 'yearFounded') {
+        if (hasYear) updateFormData({ founding_year: yearVal })
+      } else if (field === 'industry') {
+        if (hasStr) updateFormData({ industry: strVal })
+      } else if (field === 'postal_code' || field === 'postalCode') {
+        if (hasStr) updateFormData({ postal_code: strVal })
+      } else if (field === 'city') {
+        if (hasStr) updateFormData({ city: strVal })
+      } else if (field === 'address') {
+        if (hasStr) {
+          // Belgian format often "1234 City" - try to split postal code from city
+          const match = strVal.match(/^(\d{4})\s+(.+)$/)
+          if (match) {
+            updateFormData({ postal_code: match[1], city: match[2].trim() })
+          } else {
+            updateFormData({ city: strVal })
+          }
+        }
+      } else if (field === 'ownerManagers' || field === 'owner_managers') {
+        const n = typeof value === 'number' ? value : parseInt(String(value), 10)
+        if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_owners: n })
+      } else if (field === 'equityStake' || field === 'equity_stake') {
+        const n = typeof value === 'number' ? value : parseInt(String(value), 10)
+        if (!Number.isNaN(n) && n >= 0 && n <= 100) updateFormData({ shares_for_sale: n })
+      }
+      const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
+      toast.success(
+        t('fieldUpdated', {
+          field,
+          value:
+            typeof value === 'number' ? `€${value.toLocaleString(currencyLocale)}` : String(value),
+        })
+      )
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'system' as const,
+          content: t('fieldApplied', { field }),
+          timestamp: new Date(),
+        },
+      ])
+    },
+    [updateFormData, currentLocale, t]
+  )
 
   const handleChatMessage = useCallback(
-    async (content: string, attachments?: File[], detectedValues?: any[], parsedCommands?: any[]) => {
+    async (
+      content: string,
+      attachments?: File[],
+      detectedValues?: any[],
+      parsedCommands?: any[]
+    ) => {
       if (isLoadingHistory) return
 
       const userMessage: ChatMessage = {
@@ -994,7 +1195,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         role: 'user',
         content,
         timestamp: new Date(),
-        attachments: attachments?.map((f) => ({ name: f.name, type: f.type, url: URL.createObjectURL(f) })),
+        attachments: attachments?.map((f) => ({
+          name: f.name,
+          type: f.type,
+          url: URL.createObjectURL(f),
+        })),
       }
       setChatMessages((prev) => [...prev, userMessage])
       setIsChatGenerating(true)
@@ -1004,18 +1209,32 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (parsedCommands?.length) {
           parsedCommands.forEach((cmd: any) => handleApplyFieldUpdate(cmd.field, cmd.value))
           await new Promise((r) => setTimeout(r, 500))
-          const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE';
-          const commandsList = parsedCommands.map((cmd: any) => `- **${cmd.label}** → €${cmd.value.toLocaleString(currencyLocale)}`).join('\n')
+          const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
+          const commandsList = parsedCommands
+            .map((cmd: any) => `- **${cmd.label}** → €${cmd.value.toLocaleString(currencyLocale)}`)
+            .join('\n')
           setChatMessages((prev) => [
             ...prev,
-            { id: crypto.randomUUID(), role: 'assistant' as const, content: `${t('normApplied')}\n\n${commandsList}`, timestamp: new Date() },
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant' as const,
+              content: `${t('normApplied')}\n\n${commandsList}`,
+              timestamp: new Date(),
+            },
           ])
           setIsChatGenerating(false)
           return
         }
 
         if (detectedValues?.length) {
-          setPendingUpdates((prev) => [...prev, ...detectedValues.map((dv: any) => ({ field: dv.field, value: dv.value, label: dv.label }))])
+          setPendingUpdates((prev) => [
+            ...prev,
+            ...detectedValues.map((dv: any) => ({
+              field: dv.field,
+              value: dv.value,
+              label: dv.label,
+            })),
+          ])
         }
 
         // Build enriched context for Claude
@@ -1023,9 +1242,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const pending = normalizationItems.filter((n) => n.status === 'pending')
         const totalAdjustment = accepted.reduce((sum, n) => sum + n.adjustment, 0)
         const categories = [...new Set(normalizationItems.map((n) => n.category))]
-        const formFields = Object.entries(collectedData).filter(([, v]) => v !== '' && v !== undefined && v !== null)
+        const formFields = Object.entries(collectedData).filter(
+          ([, v]) => v !== '' && v !== undefined && v !== null
+        )
         const formCompletenessScore = Math.round((formFields.length / 7) * 100)
-        const versions = reportId ? (useVersionHistoryStore.getState().versions[reportId] || []) : []
+        const versions = reportId ? useVersionHistoryStore.getState().versions[reportId] || [] : []
 
         const enrichedFormData = {
           ...collectedData,
@@ -1042,7 +1263,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         const { aiChatService } = await import('../../../services/ai/AIChatService')
 
-        const validLocale = (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'nl'
+        const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
         const aiRequest = {
           message: content,
           sessionId: reportId || undefined,
@@ -1077,7 +1298,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onText: (text) => {
             streamedContent += text
             setChatMessages((prev) =>
-              prev.map((m) => m.id === streamingMsgId ? { ...m, content: streamedContent } : m),
+              prev.map((m) => (m.id === streamingMsgId ? { ...m, content: streamedContent } : m))
             )
           },
           onToolStart: (toolName) => {
@@ -1102,80 +1323,119 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
             // If streaming fails, fall back to non-streaming
             generalLogger.warn('Streaming failed, falling back to non-streaming', { error })
-            aiChatService.sendMessage({ ...aiRequest, stream: false }).then((aiResponse) => {
-              if (aiResponse.conversationId && !conversationStore.conversationId) {
-                conversationStore.setConversationId(aiResponse.conversationId)
-              }
+            aiChatService
+              .sendMessage({ ...aiRequest, stream: false })
+              .then((aiResponse) => {
+                if (aiResponse.conversationId && !conversationStore.conversationId) {
+                  conversationStore.setConversationId(aiResponse.conversationId)
+                }
 
-              setChatMessages((prev) =>
-                prev.map((m) => m.id === streamingMsgId ? {
-                  ...m,
-                  content: aiResponse.content,
-                  fieldUpdates: aiResponse.fieldUpdates,
-                  normalisationSuggestions: aiResponse.normalisationSuggestions?.map((s: any) => ({
-                    ...s, id: crypto.randomUUID(), status: 'pending', multiple: 5.2,
-                  })),
-                } : m),
-              )
+                setChatMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === streamingMsgId
+                      ? {
+                          ...m,
+                          content: aiResponse.content,
+                          fieldUpdates: aiResponse.fieldUpdates,
+                          normalisationSuggestions: aiResponse.normalisationSuggestions?.map(
+                            (s: any) => ({
+                              ...s,
+                              id: crypto.randomUUID(),
+                              status: 'pending',
+                              multiple: 5.2,
+                            })
+                          ),
+                        }
+                      : m
+                  )
+                )
 
-              if (aiResponse.fallback) {
-                toast.info(t('aiUnavailable'), { description: t('aiUnavailableDesc'), duration: 4000 })
-              }
-              if (aiResponse.fieldUpdates) {
-                setPendingUpdates((prev) => [...prev, ...aiResponse.fieldUpdates!])
-              }
-              handleNormalisationSuggestions(aiResponse.normalisationSuggestions)
-            }).catch(() => {
-              setChatMessages((prev) =>
-                prev.map((m) => m.id === streamingMsgId ? { ...m, content: t('chatError'), isError: true } : m),
-              )
-              setIsChatGenerating(false)
-            })
+                if (aiResponse.fallback) {
+                  toast.info(t('aiUnavailable'), {
+                    description: t('aiUnavailableDesc'),
+                    duration: 4000,
+                  })
+                }
+                if (aiResponse.fieldUpdates) {
+                  setPendingUpdates((prev) => [...prev, ...aiResponse.fieldUpdates!])
+                }
+                handleNormalisationSuggestions(aiResponse.normalisationSuggestions)
+              })
+              .catch(() => {
+                setChatMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === streamingMsgId ? { ...m, content: t('chatError'), isError: true } : m
+                  )
+                )
+                setIsChatGenerating(false)
+              })
           },
         })
       } catch {
         conversationStore.setToolInProgress(null)
-        setChatMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant' as const, content: t('chatError'), isError: true, timestamp: new Date() }])
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant' as const,
+            content: t('chatError'),
+            isError: true,
+            timestamp: new Date(),
+          },
+        ])
         setIsChatGenerating(false)
       }
     },
-    [collectedData, handleApplyFieldUpdate, reportId, fieldContext, normalizationItems, chatMessages, conversationStore, isLoadingHistory, currentLocale] // eslint-disable-line react-hooks/exhaustive-deps
+    [
+      collectedData,
+      handleApplyFieldUpdate,
+      reportId,
+      fieldContext,
+      normalizationItems,
+      chatMessages,
+      conversationStore,
+      isLoadingHistory,
+      currentLocale,
+    ] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   // AI suggestions: add as pending; Titan persist happens on accept (handleAcceptNormalisation)
-  const handleNormalisationSuggestions = useCallback((suggestions: any[] | undefined) => {
-    if (!suggestions?.length) return
-    const newItems: NormalizationItem[] = suggestions.map((s: any) => ({
-      id: crypto.randomUUID(),
-      ledgerCode: s.ledgerCode || '',
-      ledgerName: s.description,
-      category: mapBackendCategoryToFrontend(s.category) || 'other',
-      type: (s.isAddback ? 'add' : 'subtract') as 'add' | 'subtract',
-      value: Math.abs(s.amount),
-      adjustment: s.amount,
-      reason: s.reason,
-      source: 'ai' as any,
-      sourceRef: 'Claude AI',
-      status: 'pending' as any,
-      applyAllYears: false,
-      year: new Date().getFullYear() - 1,
-    }))
-    normalizationActions.addItems(newItems)
-    if (reportId) normalizationActions.persistToSession(reportId)
-    setSuggestedNormalisations((prev: any[]) => [
-      ...prev,
-      ...newItems.map((n) => ({
-        id: n.id,
-        code: n.ledgerCode,
-        description: n.ledgerName,
-        category: n.category,
-        amount: n.adjustment,
-        reason: n.reason,
+  const handleNormalisationSuggestions = useCallback(
+    (suggestions: any[] | undefined) => {
+      if (!suggestions?.length) return
+      const newItems: NormalizationItem[] = suggestions.map((s: any) => ({
+        id: crypto.randomUUID(),
+        ledgerCode: s.ledgerCode || '',
+        ledgerName: s.description,
+        category: mapBackendCategoryToFrontend(s.category) || 'other',
+        type: (s.isAddback ? 'add' : 'subtract') as 'add' | 'subtract',
+        value: Math.abs(s.amount),
+        adjustment: s.amount,
+        reason: s.reason,
+        source: 'ai' as any,
         sourceRef: 'Claude AI',
-        status: 'pending',
-      })),
-    ])
-  }, [normalizationActions, reportId]) // eslint-disable-line react-hooks/exhaustive-deps
+        status: 'pending' as any,
+        applyAllYears: false,
+        year: new Date().getFullYear() - 1,
+      }))
+      normalizationActions.addItems(newItems)
+      if (reportId) normalizationActions.persistToSession(reportId)
+      setSuggestedNormalisations((prev: any[]) => [
+        ...prev,
+        ...newItems.map((n) => ({
+          id: n.id,
+          code: n.ledgerCode,
+          description: n.ledgerName,
+          category: n.category,
+          amount: n.adjustment,
+          reason: n.reason,
+          sourceRef: 'Claude AI',
+          status: 'pending',
+        })),
+      ])
+    },
+    [normalizationActions, reportId]
+  ) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAcceptUpdate = useCallback((field: string) => {
     trackAIFieldUpdate()
@@ -1188,29 +1448,32 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [])
 
   // Retry a failed assistant message by resending the preceding user message
-  const handleRetry = useCallback((errorMessageId: string) => {
-    if (isChatGenerating || isLoadingHistory) return
-    const msgIndex = chatMessages.findIndex((m) => m.id === errorMessageId)
-    if (msgIndex < 0) return
-    // Abort any lingering stream
-    if (streamCleanupRef.current) {
-      streamCleanupRef.current()
-      streamCleanupRef.current = null
-    }
-    // Find the user message that preceded the error
-    let userMessage: string | undefined
-    for (let i = msgIndex - 1; i >= 0; i--) {
-      if (chatMessages[i].role === 'user') {
-        userMessage = chatMessages[i].content
-        break
+  const handleRetry = useCallback(
+    (errorMessageId: string) => {
+      if (isChatGenerating || isLoadingHistory) return
+      const msgIndex = chatMessages.findIndex((m) => m.id === errorMessageId)
+      if (msgIndex < 0) return
+      // Abort any lingering stream
+      if (streamCleanupRef.current) {
+        streamCleanupRef.current()
+        streamCleanupRef.current = null
       }
-    }
-    if (!userMessage) return
-    // Remove the error message
-    setChatMessages((prev) => prev.filter((m) => m.id !== errorMessageId))
-    // Resend
-    handleChatMessage(userMessage)
-  }, [chatMessages, handleChatMessage, isChatGenerating, isLoadingHistory])
+      // Find the user message that preceded the error
+      let userMessage: string | undefined
+      for (let i = msgIndex - 1; i >= 0; i--) {
+        if (chatMessages[i].role === 'user') {
+          userMessage = chatMessages[i].content
+          break
+        }
+      }
+      if (!userMessage) return
+      // Remove the error message
+      setChatMessages((prev) => prev.filter((m) => m.id !== errorMessageId))
+      // Resend
+      handleChatMessage(userMessage)
+    },
+    [chatMessages, handleChatMessage, isChatGenerating, isLoadingHistory]
+  )
 
   // Start a fresh conversation — full state reset
   const handleNewConversation = useCallback(() => {
@@ -1257,7 +1520,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
 
       // Path 2: DOM capture fallback (only when report view is active — never capture history/preview panels)
-      if (!succeeded && reportPanelRef.current && (rightPanelView === 'report' || report?.htmlReport)) {
+      if (
+        !succeeded &&
+        reportPanelRef.current &&
+        (rightPanelView === 'report' || report?.htmlReport)
+      ) {
         try {
           const html2pdfModule = await import('html2pdf.js')
           const html2pdf = html2pdfModule.default
@@ -1330,19 +1597,24 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handleExitClientView = useCallback(() => {
     try {
-      import('../../../stores/clientContext').then(({ useClientContext }) => {
-        const ctx = useClientContext.getState()
-        ctx.clearClientContext()
-      }).catch((err) => {
-        generalLogger.warn('[ManualLayout] Client context cleanup failed', { error: err instanceof Error ? err.message : String(err) })
-      })
+      import('../../../stores/clientContext')
+        .then(({ useClientContext }) => {
+          const ctx = useClientContext.getState()
+          ctx.clearClientContext()
+        })
+        .catch((err) => {
+          generalLogger.warn('[ManualLayout] Client context cleanup failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+        })
 
       // Try to close embedded mode (sends postMessage to parent)
       try {
         window.parent?.postMessage({ type: 'venus:close' }, '*')
       } catch {}
 
-      const validLocale = currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
+      const validLocale =
+        currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
       let returnUrl: string | null = null
       let sourceApp: string | null = null
       try {
@@ -1366,13 +1638,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
   }, [clientContextId, currentLocale])
 
-  const handlePreview = useCallback(() => { trackPreviewOpen(); setRightPanelView('preview') }, [])
-  const handleShowHistory = useCallback(() => { trackVersionHistoryOpen(); setRightPanelView('history') }, [])
+  const handlePreview = useCallback(() => {
+    trackPreviewOpen()
+    setRightPanelView('preview')
+  }, [])
+  const handleShowHistory = useCallback(() => {
+    trackVersionHistoryOpen()
+    setRightPanelView('history')
+  }, [])
   const handleFullscreen = useCallback(() => setShowFullscreenModal(true), [])
   const handleOpenAssistant = useCallback(() => setChatDrawerOpen((prev) => !prev), [])
 
   // ─── Session Navigation (New, Select, Recent) ───
-  const [recentValuations, setRecentValuations] = useState<Array<{ id: string; companyName: string; updatedAt: Date; isDraft?: boolean }>>([])
+  const [recentValuations, setRecentValuations] = useState<
+    Array<{ id: string; companyName: string; updatedAt: Date; isDraft?: boolean }>
+  >([])
 
   useEffect(() => {
     // Load recent valuations from reports API (proxies to Titan)
@@ -1390,7 +1670,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         )
       })
       .catch((err) => {
-        generalLogger.warn('[ManualLayout] Failed to load recent valuations', { error: err instanceof Error ? err.message : String(err) })
+        generalLogger.warn('[ManualLayout] Failed to load recent valuations', {
+          error: err instanceof Error ? err.message : String(err),
+        })
       })
   }, [])
 
@@ -1444,7 +1726,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Field Help (opens Chat with context) - Clarity parity: full getContextualQuestion ───
   const handleFieldHelpRequest = useCallback(
     (context: any) => {
-      setFieldContext({ field: context.field, label: context.label, value: context.value, hint: context.hint })
+      setFieldContext({
+        field: context.field,
+        label: context.label,
+        value: context.value,
+        hint: context.hint,
+      })
       setChatDrawerOpen(true)
 
       const label = (context.label || '').toLowerCase()
@@ -1489,9 +1776,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               ? 'What is a market-rate owner salary for this business?'
               : 'Wat is een marktconform eigenaarssalaris voor dit bedrijf?'
           case 'rent':
-            return isEN
-              ? 'Is this rent at market rate?'
-              : 'Is deze huurprijs marktconform?'
+            return isEN ? 'Is this rent at market rate?' : 'Is deze huurprijs marktconform?'
           case 'vehicle':
             return isEN
               ? 'How much private use can be normalized for vehicle costs?'
@@ -1502,9 +1787,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 ? `Analyze ledger account ${context.grootboekCode} (${context.label}) for normalization`
                 : `Analyseer grootboekrekening ${context.grootboekCode} (${context.label}) voor normalisatie`
             }
-            return isEN
-              ? `Help me with ${label}`
-              : `Help me met ${label}`
+            return isEN ? `Help me with ${label}` : `Help me met ${label}`
         }
       }
 
@@ -1514,270 +1797,315 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   )
 
   // ─── Normalization Handlers (unified store) - Clarity parity: open modal, do not replace left panel ───
-  const handleShowNormalisationReview = useCallback(() => { trackNormalizationOpen(); setShowUnifiedNormalizationModal(true) }, [])
+  const handleShowNormalisationReview = useCallback(() => {
+    trackNormalizationOpen()
+    setShowUnifiedNormalizationModal(true)
+  }, [])
 
-  const handleAcceptNormalisation = useCallback((id: string) => {
-    trackAINormalizationAccept()
-    normalizationActions.acceptItem(id)
-    setSuggestedNormalisations((prev: any[]) =>
-      prev.map((n: any) => (n.id === id ? { ...n, status: 'accepted' } : n)),
-    )
-    // Immediate persist to Titan on accept — persist for each year the item applies to
-    if (reportId) {
-      const item = useNormalizationStore.getState().items.find((n) => n.id === id)
-      if (item) {
-        const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
-        const historicalYears =
-          formStoreData.historical_years_data
-            ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
-            .map((y: any) => y.year) ?? []
-        const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
-        const yearsToPersist = item.applyAllYears
-          ? allDataYears
-          : (item.applyYears?.length ? item.applyYears : [item.year])
-        yearsToPersist.forEach((y) => normalizationActions.persistToTitan(reportId!, y))
+  const handleAcceptNormalisation = useCallback(
+    (id: string) => {
+      trackAINormalizationAccept()
+      normalizationActions.acceptItem(id)
+      setSuggestedNormalisations((prev: any[]) =>
+        prev.map((n: any) => (n.id === id ? { ...n, status: 'accepted' } : n))
+      )
+      // Immediate persist to Titan on accept — persist for each year the item applies to
+      if (reportId) {
+        const item = useNormalizationStore.getState().items.find((n) => n.id === id)
+        if (item) {
+          const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+          const historicalYears =
+            formStoreData.historical_years_data
+              ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+              .map((y: any) => y.year) ?? []
+          const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+          const yearsToPersist = item.applyAllYears
+            ? allDataYears
+            : item.applyYears?.length
+              ? item.applyYears
+              : [item.year]
+          yearsToPersist.forEach((y) => normalizationActions.persistToTitan(reportId!, y))
+        }
       }
-    }
-    // Real-time recalculation
-    recalculateWithNormalizations(useNormalizationStore.getState().items)
-  }, [reportId, normalizationActions, formStoreData])
+      // Real-time recalculation
+      recalculateWithNormalizations(useNormalizationStore.getState().items)
+    },
+    [reportId, normalizationActions, formStoreData]
+  )
 
-  const handleRejectNormalisation = useCallback((id: string) => {
-    normalizationActions.rejectItem(id)
-    setSuggestedNormalisations((prev: any[]) =>
-      prev.map((n: any) => (n.id === id ? { ...n, status: 'rejected' } : n)),
-    )
-    // Immediate persist to Titan on reject — persist for each year the item applies to
-    if (reportId) {
-      const item = useNormalizationStore.getState().items.find((n) => n.id === id)
-      if (item) {
-        const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
-        const historicalYears =
-          formStoreData.historical_years_data
-            ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
-            .map((y: any) => y.year) ?? []
-        const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
-        const yearsToPersist = item.applyAllYears
-          ? allDataYears
-          : (item.applyYears?.length ? item.applyYears : [item.year])
-        yearsToPersist.forEach((y) => normalizationActions.persistToTitan(reportId!, y))
+  const handleRejectNormalisation = useCallback(
+    (id: string) => {
+      normalizationActions.rejectItem(id)
+      setSuggestedNormalisations((prev: any[]) =>
+        prev.map((n: any) => (n.id === id ? { ...n, status: 'rejected' } : n))
+      )
+      // Immediate persist to Titan on reject — persist for each year the item applies to
+      if (reportId) {
+        const item = useNormalizationStore.getState().items.find((n) => n.id === id)
+        if (item) {
+          const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+          const historicalYears =
+            formStoreData.historical_years_data
+              ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+              .map((y: any) => y.year) ?? []
+          const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+          const yearsToPersist = item.applyAllYears
+            ? allDataYears
+            : item.applyYears?.length
+              ? item.applyYears
+              : [item.year]
+          yearsToPersist.forEach((y) => normalizationActions.persistToTitan(reportId!, y))
+        }
       }
-    }
-    // Real-time recalculation
-    recalculateWithNormalizations(useNormalizationStore.getState().items)
-  }, [reportId, normalizationActions, formStoreData])
+      // Real-time recalculation
+      recalculateWithNormalizations(useNormalizationStore.getState().items)
+    },
+    [reportId, normalizationActions, formStoreData]
+  )
 
   // ─── Auto-recalculate valuation with normalized EBITDA ───
   // IMPORTANT: Do NOT manually mutate EBITDA here. buildValuationRequest reads accepted
   // normalizations from useNormalizationStore and applies them. Mutating formStore EBITDA
   // would cause double-counting because buildValuationRequest adds adjustments on top.
-  const recalculateWithNormalizations = useCallback(async (normalizations: NormalizationItem[]) => {
-    if (!report || !reportId) return
+  const recalculateWithNormalizations = useCallback(
+    async (normalizations: NormalizationItem[]) => {
+      if (!report || !reportId) return
 
-    const acceptedNorms = normalizations.filter((n) => n.status === 'accepted')
-    if (acceptedNorms.length === 0) return
+      const acceptedNorms = normalizations.filter((n) => n.status === 'accepted')
+      if (acceptedNorms.length === 0) return
 
-    try {
-      // buildValuationRequest reads from useNormalizationStore and applies
-      // accepted normalizations to the reported EBITDA — single source of truth.
-      const request = buildValuationRequest(formStoreData)
-      ;(request as any).dataSource = 'manual'
-      if (reportId) (request as any).reportId = reportId
+      try {
+        // buildValuationRequest reads from useNormalizationStore and applies
+        // accepted normalizations to the reported EBITDA — single source of truth.
+        const request = buildValuationRequest(formStoreData)
+        ;(request as any).dataSource = 'manual'
+        if (reportId) (request as any).reportId = reportId
 
-      const calcResult = await valuationService.calculateValuation(request)
-      if (calcResult) {
-        setResult(calcResult)
-        setDraftStatus('saved')
-        setLastSaved(new Date())
-        toast.success(t('recalculatedWithNorms'), {
-          description: t('recalculatedWithNormsDesc', { count: acceptedNorms.length }),
+        const calcResult = await valuationService.calculateValuation(request)
+        if (calcResult) {
+          setResult(calcResult)
+          setDraftStatus('saved')
+          setLastSaved(new Date())
+          toast.success(t('recalculatedWithNorms'), {
+            description: t('recalculatedWithNormsDesc', { count: acceptedNorms.length }),
+          })
+        }
+      } catch (error) {
+        generalLogger.warn('[ManualLayout] Normalization recalculation failed (non-blocking)', {
+          error: error instanceof Error ? error.message : String(error),
         })
       }
-    } catch (error) {
-      generalLogger.warn('[ManualLayout] Normalization recalculation failed (non-blocking)', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
-  }, [report, reportId, formStoreData, buildValuationRequest, valuationService, setResult])
+    },
+    [report, reportId, formStoreData, buildValuationRequest, valuationService, setResult]
+  )
 
   // ─── Version Restore ───
   // Receives full ValuationVersion from HistoryPanel (looked up from store)
-  const handleVersionRestore = useCallback(async (version: any) => {
-    try {
-      const versionNumber = version.versionNumber || version.version
+  const handleVersionRestore = useCallback(
+    async (version: any) => {
+      try {
+        const versionNumber = version.versionNumber || version.version
 
-      // 1. Notify backend (graceful — don't block on failure)
-      if (reportId && versionNumber) {
-        import('../../../services/api/version/VersionAPI').then(({ VersionAPI }) => {
-          const api = new VersionAPI()
-          api.restoreVersion(reportId, versionNumber).catch(() => {
-            generalLogger.warn('[ManualLayout] Backend restore notification failed (non-blocking)')
-          })
-        }).catch((err) => {
-          generalLogger.warn('[ManualLayout] VersionAPI import failed', { error: err instanceof Error ? err.message : String(err) })
-        })
-      }
-
-      // 2. Hydrate form with version's form data (ValuationVersion.formData)
-      if (version.formData) {
-        updateFormData(version.formData)
-      }
-
-      // 3. Set valuation result with htmlReport merged from version
-      if (version.valuationResult) {
-        const enrichedResult = {
-          ...version.valuationResult,
-          html_report: version.valuationResult.html_report || version.htmlReport || undefined,
-          info_tab_html: version.valuationResult.info_tab_html || version.infoTabHtml || undefined,
-        }
-        setResult(enrichedResult)
-      }
-
-      // 4. Restore normalizations from normalization_data snapshot
-      if (version.normalization_data && typeof version.normalization_data === 'object') {
-        // Convert year-keyed normalization_data back to NormalizationItem[]
-        const items: NormalizationItem[] = []
-        for (const [yearStr, data] of Object.entries(version.normalization_data as Record<string, any>)) {
-          if (data?.adjustments && Array.isArray(data.adjustments)) {
-            const year = Number(yearStr)
-            for (let idx = 0; idx < data.adjustments.length; idx++) {
-              const adj = data.adjustments[idx]
-              const amount = Number(adj.amount ?? adj.adjustment ?? 0)
-              const rawCat = adj.category || ''
-              const category: NormalizationItem['category'] = ['salary', 'rent', 'vehicle', 'one-time', 'personal', 'depreciation', 'other'].includes(rawCat)
-                ? (rawCat as NormalizationItem['category'])
-                : (mapBackendCategoryToFrontend(rawCat) || 'other')
-              items.push({
-                id: `version-${year}-${idx}-${Math.random().toString(36).substring(2, 8)}`,
-                ledgerCode: adj.ledger_code || '',
-                ledgerName: adj.ledger_name || adj.note || adj.category || '',
-                category,
-                type: amount >= 0 ? 'add' : 'subtract',
-                value: Math.abs(amount),
-                adjustment: amount,
-                reason: adj.note || adj.reason,
-                source: 'manual',
-                sourceRef: 'version',
-                status: 'accepted',
-                applyAllYears: false,
-                year,
+        // 1. Notify backend (graceful — don't block on failure)
+        if (reportId && versionNumber) {
+          import('../../../services/api/version/VersionAPI')
+            .then(({ VersionAPI }) => {
+              const api = new VersionAPI()
+              api.restoreVersion(reportId, versionNumber).catch(() => {
+                generalLogger.warn(
+                  '[ManualLayout] Backend restore notification failed (non-blocking)'
+                )
               })
+            })
+            .catch((err) => {
+              generalLogger.warn('[ManualLayout] VersionAPI import failed', {
+                error: err instanceof Error ? err.message : String(err),
+              })
+            })
+        }
+
+        // 2. Hydrate form with version's form data (ValuationVersion.formData)
+        if (version.formData) {
+          updateFormData(version.formData)
+        }
+
+        // 3. Set valuation result with htmlReport merged from version
+        if (version.valuationResult) {
+          const enrichedResult = {
+            ...version.valuationResult,
+            html_report: version.valuationResult.html_report || version.htmlReport || undefined,
+            info_tab_html:
+              version.valuationResult.info_tab_html || version.infoTabHtml || undefined,
+          }
+          setResult(enrichedResult)
+        }
+
+        // 4. Restore normalizations from normalization_data snapshot
+        if (version.normalization_data && typeof version.normalization_data === 'object') {
+          // Convert year-keyed normalization_data back to NormalizationItem[]
+          const items: NormalizationItem[] = []
+          for (const [yearStr, data] of Object.entries(
+            version.normalization_data as Record<string, any>
+          )) {
+            if (data?.adjustments && Array.isArray(data.adjustments)) {
+              const year = Number(yearStr)
+              for (let idx = 0; idx < data.adjustments.length; idx++) {
+                const adj = data.adjustments[idx]
+                const amount = Number(adj.amount ?? adj.adjustment ?? 0)
+                const rawCat = adj.category || ''
+                const category: NormalizationItem['category'] = [
+                  'salary',
+                  'rent',
+                  'vehicle',
+                  'one-time',
+                  'personal',
+                  'depreciation',
+                  'other',
+                ].includes(rawCat)
+                  ? (rawCat as NormalizationItem['category'])
+                  : mapBackendCategoryToFrontend(rawCat) || 'other'
+                items.push({
+                  id: `version-${year}-${idx}-${Math.random().toString(36).substring(2, 8)}`,
+                  ledgerCode: adj.ledger_code || '',
+                  ledgerName: adj.ledger_name || adj.note || adj.category || '',
+                  category,
+                  type: amount >= 0 ? 'add' : 'subtract',
+                  value: Math.abs(amount),
+                  adjustment: amount,
+                  reason: adj.note || adj.reason,
+                  source: 'manual',
+                  sourceRef: 'version',
+                  status: 'accepted',
+                  applyAllYears: false,
+                  year,
+                })
+              }
             }
           }
+          if (items.length > 0) {
+            normalizationActions.setItems(items)
+          }
         }
-        if (items.length > 0) {
-          normalizationActions.setItems(items)
+
+        // 5. Update version history active version and re-fetch from backend
+        //    (restore creates a new version copy on the backend)
+        if (reportId && versionNumber) {
+          useVersionHistoryStore.getState().setActiveVersion(reportId, versionNumber)
+          await useVersionHistoryStore.getState().fetchVersions(reportId)
         }
-      }
 
-      // 5. Update version history active version and re-fetch from backend
-      //    (restore creates a new version copy on the backend)
-      if (reportId && versionNumber) {
-        useVersionHistoryStore.getState().setActiveVersion(reportId, versionNumber)
-        await useVersionHistoryStore.getState().fetchVersions(reportId)
+        setRightPanelView('report')
+        toast.success(t('versionRestored', { version: versionNumber }))
+      } catch (error) {
+        generalLogger.warn('[ManualLayout] Version restore failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+        toast.error(t('versionRestoreFailed'))
       }
-
-      setRightPanelView('report')
-      toast.success(t('versionRestored', { version: versionNumber }))
-    } catch (error) {
-      generalLogger.warn('[ManualLayout] Version restore failed', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      toast.error(t('versionRestoreFailed'))
-    }
-  }, [reportId, updateFormData, setResult, normalizationActions])
+    },
+    [reportId, updateFormData, setResult, normalizationActions]
+  )
 
   // ─── CSV Import → Normalization Hub ───
-  const handleCSVImportComplete = useCallback(async (source: 'yuki' | 'exact' | 'odoo', _fileName?: string) => {
-    const labels = { yuki: 'Yuki', exact: 'Exact Online', odoo: 'Odoo' }
-    toast.success(t('importStarted', { source: labels[source] }), { description: t('importStartedDesc') })
-
-    try {
-      // Request AI-powered normalization analysis
-      const response = await fetch('/api/ai/normalize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          sessionId: reportId,
-          source,
-          companyName: collectedData.companyName,
-          industry: collectedData.industry,
-          financialData: collectedData,
-        }),
+  const handleCSVImportComplete = useCallback(
+    async (source: 'yuki' | 'exact' | 'odoo', _fileName?: string) => {
+      const labels = { yuki: 'Yuki', exact: 'Exact Online', odoo: 'Odoo' }
+      toast.success(t('importStarted', { source: labels[source] }), {
+        description: t('importStartedDesc'),
       })
 
-      let suggestions: any[] = []
-      if (response.ok) {
-        const data = await response.json()
-        suggestions = data.suggestions || []
-      }
-
-      // If AI returns no suggestions, generate sensible defaults based on source
-      if (suggestions.length === 0) {
-        suggestions = generateDefaultNormalizationSuggestions(source, nh)
-      }
-
-      const unifiedItems: NormalizationItem[] = suggestions.map((s: any, idx: number) => ({
-        id: s.id || `${source}-${idx + 1}`,
-        ledgerCode: s.code || s.ledgerCode || '',
-        ledgerName: s.description || s.ledgerName || '',
-        category: s.category || 'other',
-        type: 'add' as const,
-        value: s.amount || s.value || 0,
-        adjustment: s.amount || s.adjustment || 0,
-        reason: s.reason || '',
-        source: source as any,
-        sourceRef: s.sourceRef || `${labels[source]}`,
-        status: (s.status || 'pending') as any,
-        applyAllYears: false, // Default single year; user can change in modal
-        year: new Date().getFullYear() - 1,
-      }))
-
-      setSuggestedNormalisations(suggestions)
-      normalizationActions.setItems(unifiedItems)
-      setShowUnifiedNormalizationModal(true)
-      setChatDrawerOpen(true)
-
-      // Save normalizations to backend (auto-persist handles session)
-      if (reportId) normalizationActions.persistToSession(reportId)
-
-      // Also persist via normalization API for structured storage
-      if (reportId) {
-        const { normalizationService } = await import('../../../services/ebitdaNormalizationService')
-        await normalizationService.saveNormalization({
-          sessionId: reportId,
-          year: new Date().getFullYear() - 1,
-          adjustments: unifiedItems.map(n => ({
-            category: mapFrontendCategoryToBackend(n.category),
-            amount: n.adjustment,
-            description: n.reason,
-            ledgerCode: n.ledgerCode,
-          })),
-          source,
-        } as any).catch(() => {
-          // Non-blocking: normalization save is best-effort
-          generalLogger.info('[ManualLayout] Normalization save to API skipped (non-blocking)')
+      try {
+        // Request AI-powered normalization analysis
+        const response = await fetch('/api/ai/normalize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            sessionId: reportId,
+            source,
+            companyName: collectedData.companyName,
+            industry: collectedData.industry,
+            financialData: collectedData,
+          }),
         })
-      }
 
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant' as const,
-          content: t('importAnalyzed', { source: labels[source], count: unifiedItems.length }),
-          timestamp: new Date(),
-          normalisationSuggestions: suggestions.map((s: any) => ({ ...s, multiple: 5.2 })),
-        },
-      ])
-    } catch (error) {
-      generalLogger.error('[ManualLayout] CSV import analysis failed', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      toast.error(t('importAnalysisFailed'), { description: t('importAnalysisFailedDesc') })
-    }
-  }, [reportId, collectedData, normalizationActions, nh, t])
+        let suggestions: any[] = []
+        if (response.ok) {
+          const data = await response.json()
+          suggestions = data.suggestions || []
+        }
+
+        // If AI returns no suggestions, generate sensible defaults based on source
+        if (suggestions.length === 0) {
+          suggestions = generateDefaultNormalizationSuggestions(source, nh)
+        }
+
+        const unifiedItems: NormalizationItem[] = suggestions.map((s: any, idx: number) => ({
+          id: s.id || `${source}-${idx + 1}`,
+          ledgerCode: s.code || s.ledgerCode || '',
+          ledgerName: s.description || s.ledgerName || '',
+          category: s.category || 'other',
+          type: 'add' as const,
+          value: s.amount || s.value || 0,
+          adjustment: s.amount || s.adjustment || 0,
+          reason: s.reason || '',
+          source: source as any,
+          sourceRef: s.sourceRef || `${labels[source]}`,
+          status: (s.status || 'pending') as any,
+          applyAllYears: false, // Default single year; user can change in modal
+          year: new Date().getFullYear() - 1,
+        }))
+
+        setSuggestedNormalisations(suggestions)
+        normalizationActions.setItems(unifiedItems)
+        setShowUnifiedNormalizationModal(true)
+        setChatDrawerOpen(true)
+
+        // Save normalizations to backend (auto-persist handles session)
+        if (reportId) normalizationActions.persistToSession(reportId)
+
+        // Also persist via normalization API for structured storage
+        if (reportId) {
+          const { normalizationService } = await import(
+            '../../../services/ebitdaNormalizationService'
+          )
+          await normalizationService
+            .saveNormalization({
+              sessionId: reportId,
+              year: new Date().getFullYear() - 1,
+              adjustments: unifiedItems.map((n) => ({
+                category: mapFrontendCategoryToBackend(n.category),
+                amount: n.adjustment,
+                description: n.reason,
+                ledgerCode: n.ledgerCode,
+              })),
+              source,
+            } as any)
+            .catch(() => {
+              // Non-blocking: normalization save is best-effort
+              generalLogger.info('[ManualLayout] Normalization save to API skipped (non-blocking)')
+            })
+        }
+
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant' as const,
+            content: t('importAnalyzed', { source: labels[source], count: unifiedItems.length }),
+            timestamp: new Date(),
+            normalisationSuggestions: suggestions.map((s: any) => ({ ...s, multiple: 5.2 })),
+          },
+        ])
+      } catch (error) {
+        generalLogger.error('[ManualLayout] CSV import analysis failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+        toast.error(t('importAnalysisFailed'), { description: t('importAnalysisFailedDesc') })
+      }
+    },
+    [reportId, collectedData, normalizationActions, nh, t]
+  )
 
   // ─── Normalisation Suggestion Modal ───
   const handleNormalisationSuggestionAccept = useCallback(
@@ -1786,8 +2114,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       handleApplyFieldUpdate(suggestion.field, value)
       setShowNormalisationModal(false)
       setCurrentNormalisationSuggestion(null)
-      const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE';
-      toast.success(t('normNormalized', { label: suggestion.label, value: value.toLocaleString(currencyLocale) }))
+      const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
+      toast.success(
+        t('normNormalized', {
+          label: suggestion.label,
+          value: value.toLocaleString(currencyLocale),
+        })
+      )
     },
     [handleApplyFieldUpdate, currentLocale, t]
   )
@@ -1812,7 +2145,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,
       legalForm: collectedData.legalForm,
-      businessStructure: collectedData.businessStructure || mapLegalFormToBusinessStructure(collectedData.legalForm || ''),
+      businessStructure:
+        collectedData.businessStructure ||
+        mapLegalFormToBusinessStructure(collectedData.legalForm || ''),
       address: collectedData.address,
       naceCode: collectedData.naceCode,
       naceDescription: collectedData.naceDescription,
@@ -1855,7 +2190,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // MOBILE LAYOUT
   // ═══════════════════════════════════════
   if (isMobile) {
-  return (
+    return (
       <div className="aurora-theme flex flex-col h-[100dvh] bg-background">
         <CalculatorNav
           companyName={displayCompanyName}
@@ -1866,14 +2201,26 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onShowHistory={handleShowHistory}
           hasReport={!!report}
           rightPanelView={rightPanelView}
-          userName={isAccountantMode && accountantDisplayName ? accountantDisplayName : (user?.name || user?.email || t('guest'))}
-          userInitials={getUserInitials(isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user)}
-          avatarUrl={isAccountantMode ? null : (user?.avatar_url || user?.avatar)}
+          userName={
+            isAccountantMode && accountantDisplayName
+              ? accountantDisplayName
+              : user?.name || user?.email || t('guest')
+          }
+          userInitials={getUserInitials(
+            isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
+          )}
+          avatarUrl={isAccountantMode ? null : user?.avatar_url || user?.avatar}
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
-          onOpenNormalization={() => { trackNormalizationOpen(); setShowUnifiedNormalizationModal(true) }}
+          onOpenNormalization={() => {
+            trackNormalizationOpen()
+            setShowUnifiedNormalizationModal(true)
+          }}
           normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
-          openTasksCount={suggestedNormalisations.filter((n: any) => n.status === 'pending').length + pendingUpdates.length}
+          openTasksCount={
+            suggestedNormalisations.filter((n: any) => n.status === 'pending').length +
+            pendingUpdates.length
+          }
           isExporting={isExporting}
           recentValuations={recentValuations}
           onNewValuation={handleNewValuation}
@@ -1899,10 +2246,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
               }
             }}
-            onBusinessClick={clientContextId ? () => {
-              const mercuryUrl = getMercuryUrl()
-              window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
-            } : undefined}
+            onBusinessClick={
+              clientContextId
+                ? () => {
+                    const mercuryUrl = getMercuryUrl()
+                    window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+                  }
+                : undefined
+            }
             clientApprovalStatus="none"
             onResendApproval={() => toast.info(t('reminderSent'))}
             pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending').length}
@@ -1940,14 +2291,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onShowHistory={handleShowHistory}
         hasReport={!!report}
         rightPanelView={rightPanelView}
-        userName={isAccountantMode && accountantDisplayName ? accountantDisplayName : (user?.name || user?.email || t('guest'))}
-        userInitials={getUserInitials(isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user)}
-        avatarUrl={isAccountantMode ? null : (user?.avatar_url || user?.avatar)}
+        userName={
+          isAccountantMode && accountantDisplayName
+            ? accountantDisplayName
+            : user?.name || user?.email || t('guest')
+        }
+        userInitials={getUserInitials(
+          isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
+        )}
+        avatarUrl={isAccountantMode ? null : user?.avatar_url || user?.avatar}
         onOpenAssistant={handleOpenAssistant}
         isAssistantOpen={chatDrawerOpen}
         onOpenNormalization={() => setShowUnifiedNormalizationModal(true)}
         normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
-        openTasksCount={suggestedNormalisations.filter((n: any) => n.status === 'pending').length + pendingUpdates.length}
+        openTasksCount={
+          suggestedNormalisations.filter((n: any) => n.status === 'pending').length +
+          pendingUpdates.length
+        }
         isExporting={isExporting}
         downloadHistory={downloadHistory}
         onRedownload={(item: any) => {
@@ -1960,15 +2320,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         valuationSummary={
           report
             ? {
-                priceRange: { min: Math.round(report.valuation * 0.85), max: Math.round(report.valuation * 1.15) },
+                priceRange: {
+                  min: Math.round(report.valuation * 0.85),
+                  max: Math.round(report.valuation * 1.15),
+                },
                 askPrice: report.valuation,
                 confidence: 'high' as const,
               }
             : undefined
         }
-        valuationVersions={
-          versionHistoryForNav
-        }
+        valuationVersions={versionHistoryForNav}
         selectedVersionId={selectedVersionId}
         onSelectVersion={handleSelectVersion}
         onContinueToListing={() => {
@@ -2003,10 +2364,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
             }
           }}
-          onBusinessClick={clientContextId ? () => {
-            const mercuryUrl = getMercuryUrl()
-            window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
-          } : undefined}
+          onBusinessClick={
+            clientContextId
+              ? () => {
+                  const mercuryUrl = getMercuryUrl()
+                  window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+                }
+              : undefined
+          }
           clientApprovalStatus="none"
           onResendApproval={() => toast.info(t('reminderSent'))}
           pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending').length}
@@ -2047,19 +2412,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       {report?.htmlReport ? (
                         <div className="valuation-report">
                           <div
-                            dangerouslySetInnerHTML={{ __html: HTMLProcessor.sanitize(report.htmlReport) }}
+                            dangerouslySetInnerHTML={{
+                              __html: HTMLProcessor.sanitize(report.htmlReport),
+                            }}
                           />
                         </div>
                       ) : (
                         <ReportPreviewPanel
-                          report={report ? {
-                            companyName: report.companyName,
-                            valuation: report.valuation,
-                            ebitda: report.ebitda ?? 0,
-                            multiple: report.multiple ?? 0,
-                            generatedAt: report.generatedAt,
-                            metrics: report.metrics,
-                          } : null}
+                          report={
+                            report
+                              ? {
+                                  companyName: report.companyName,
+                                  valuation: report.valuation,
+                                  ebitda: report.ebitda ?? 0,
+                                  multiple: report.multiple ?? 0,
+                                  generatedAt: report.generatedAt,
+                                  metrics: report.metrics,
+                                }
+                              : null
+                          }
                         />
                       )}
                     </motion.div>
@@ -2087,7 +2458,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     >
                       <div className="valuation-report">
                         <div
-                          dangerouslySetInnerHTML={{ __html: HTMLProcessor.sanitize(report.htmlReport) }}
+                          dangerouslySetInnerHTML={{
+                            __html: HTMLProcessor.sanitize(report.htmlReport),
+                          }}
                         />
                       </div>
                     </motion.div>
@@ -2111,7 +2484,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           setReportStatus('draft')
                           setRightPanelView('report')
                           if (reportId) {
-                            try { sessionStorage.removeItem(`pdf_${reportId}`) } catch {}
+                            try {
+                              sessionStorage.removeItem(`pdf_${reportId}`)
+                            } catch {}
                           }
                           toast.info(t('readyForRecalculation'))
                         }}

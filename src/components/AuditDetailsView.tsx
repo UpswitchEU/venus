@@ -9,8 +9,8 @@
 
 'use client'
 
-import { useTranslations } from 'next-intl'
 import { ArrowDownRight, ArrowUpRight, Calendar, Clock, Tag, User } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { ValuationVersion } from '../types/ValuationVersion'
 import { formatCurrency } from '../utils/formatters'
 
@@ -158,9 +158,7 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
         {/* Empty state for no changes */}
         {!hasChanges && version.versionNumber === 1 && (
           <div className="bg-card border border-foreground/10 rounded-lg p-6 text-center">
-            <p className="text-muted-foreground text-sm">
-              {t('initialVersionMessage')}
-            </p>
+            <p className="text-muted-foreground text-sm">{t('initialVersionMessage')}</p>
           </div>
         )}
       </div>
@@ -264,7 +262,11 @@ function renderFieldChanges(changes: any, countryCode: string, t: (key: string) 
   )
 
   if (changedFields.length === 0) {
-    return <p className="text-muted-foreground text-sm text-center py-4">{t('noFieldChangesDetected')}</p>
+    return (
+      <p className="text-muted-foreground text-sm text-center py-4">
+        {t('noFieldChangesDetected')}
+      </p>
+    )
   }
 
   // Sort fields: financial first, then business profile, then others
@@ -347,7 +349,9 @@ function FieldChangeRow({ field, change, countryCode, isSignificant, t }: FieldC
             )}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">{formatValue(change.from, field, countryCode)}</span>
+            <span className="text-muted-foreground">
+              {formatValue(change.from, field, countryCode)}
+            </span>
             <span className="text-muted-foreground">→</span>
             <span className="text-foreground font-medium">
               {formatValue(change.to, field, countryCode)}

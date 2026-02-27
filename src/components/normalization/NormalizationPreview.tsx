@@ -5,8 +5,8 @@
  * Shows reported EBITDA → total adjustments → normalized EBITDA
  */
 
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories'
 import { CustomAdjustment, NormalizationAdjustment } from '../../types/ebitdaNormalization'
 
@@ -65,7 +65,9 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
       <div className="mb-4 pb-4 border-b border-foreground/10">
         <div className="text-sm text-muted-foreground mb-1">Reported EBITDA</div>
         <div className="text-2xl font-bold text-slate-ink">{formatCurrency(reportedEbitda)}</div>
-        <div className="text-xs text-muted-foreground mt-1">{t('asShownInFinancialStatements')}</div>
+        <div className="text-xs text-muted-foreground mt-1">
+          {t('asShownInFinancialStatements')}
+        </div>
       </div>
 
       {/* Active Adjustments List */}
@@ -224,9 +226,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
       {/* Normalized EBITDA */}
       <div className="mb-4 pb-4 border-b border-foreground/10">
         <div className="text-sm text-muted-foreground mb-1">Normalized EBITDA</div>
-        <div className="text-3xl font-bold text-primary">
-          {formatCurrency(normalizedEbitda)}
-        </div>
+        <div className="text-3xl font-bold text-primary">{formatCurrency(normalizedEbitda)}</div>
         <div className="text-xs text-muted-foreground mt-1">{t('trueEarningPower')}</div>
       </div>
 

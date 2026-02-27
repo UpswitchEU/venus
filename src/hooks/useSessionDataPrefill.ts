@@ -2,39 +2,39 @@
  * useSessionDataPrefill Hook
  *
  * @deprecated This hook is deprecated. Use useBootstrapPrefill instead.
- * 
+ *
  * Bootstrap is now the SINGLE SOURCE OF TRUTH for all prefill data.
  * This hook is kept for backward compatibility but will always skip
  * when bootstrap has prefilled (which is the default behavior).
- * 
+ *
  * The bootstrap system aggregates all prefill sources:
  * - KBO registry data
  * - User profile (business card)
  * - Session data from Mercury
  * - Client context for accountant flows
- * 
+ *
  * @module hooks/useSessionDataPrefill
  */
 
 import { useEffect, useRef } from 'react'
 import { useBootstrapSafe } from '../lib/bootstrap'
+import { looksLikeNaceCode, naceBusinessTypeService } from '../services/naceBusinessTypeService'
 import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
-import { naceBusinessTypeService, looksLikeNaceCode } from '../services/naceBusinessTypeService'
 
 /**
  * Hook to prefill form from session data
- * 
+ *
  * Priority: Runs FIRST, before auth-based prefill
  * Source: sessionData from Mercury (via Titan API)
- * 
+ *
  * When accountant creates client in Mercury with KBO data:
  * 1. Mercury stores business card in users table
  * 2. Mercury generates valuation link with sessionData
  * 3. Venus loads session and this hook prefills form
- * 
+ *
  * This ensures client sees pre-filled form even though they're
  * not authenticated as themselves.
  */
@@ -50,7 +50,8 @@ export function useSessionDataPrefill() {
     // MERCURY FIX: For existing reports, allow fallback when form is empty but session has data
     // Restoration (loadSession) is async - form may stay blank until it completes.
     // If session store has sessionData with company/KBO fields and form is empty, apply as fallback.
-    const isExistingReport = bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
+    const isExistingReport =
+      bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
     const formIsEmpty = !formData.company_name?.trim() && !formData.kbo_number?.trim()
     const sessionHasData = !!(
       sessionData?.company_name?.trim() ||
@@ -60,9 +61,12 @@ export function useSessionDataPrefill() {
 
     if (isExistingReport && !formIsEmpty) {
       // Form already has data - skip (restoration or bootstrap prefill already applied)
-      generalLogger.debug('[useSessionDataPrefill] Skipping - existing report, form already has data', {
-        reportMode: bootstrap?.report?.mode,
-      })
+      generalLogger.debug(
+        '[useSessionDataPrefill] Skipping - existing report, form already has data',
+        {
+          reportMode: bootstrap?.report?.mode,
+        }
+      )
       hasPrefilledRef.current = true
       return
     }
@@ -74,7 +78,12 @@ export function useSessionDataPrefill() {
 
     // Skip if bootstrap has already prefilled with meaningful data
     // Bootstrap is the primary source - only use session data as fallback
-    if (bootstrap && !bootstrap.isBootstrapping && bootstrap.hasPrefilledData && bootstrap.prefillData.confidence > 0.1) {
+    if (
+      bootstrap &&
+      !bootstrap.isBootstrapping &&
+      bootstrap.hasPrefilledData &&
+      bootstrap.prefillData.confidence > 0.1
+    ) {
       generalLogger.debug('[useSessionDataPrefill] Skipping - bootstrap already prefilled', {
         confidence: bootstrap.prefillData.confidence.toFixed(2),
         fields: bootstrap.prefillData.fieldsPopulated.length,
@@ -87,19 +96,24 @@ export function useSessionDataPrefill() {
     if (!sessionData) {
       return
     }
-    
+
     // ✅ FIX: Reset hasPrefilledRef if sessionData changes significantly
     // This allows re-prefill if business card data arrives later
-    const hasCompanyNameInSession = !!(sessionData.company_name || sessionData._businessInfo?.company_name)
+    const hasCompanyNameInSession = !!(
+      sessionData.company_name || sessionData._businessInfo?.company_name
+    )
     if (hasCompanyNameInSession && hasPrefilledRef.current && !formData.company_name?.trim()) {
       // Business card data arrived but wasn't prefilled - reset flag to allow prefill
-      generalLogger.debug('[useSessionDataPrefill] Resetting prefill flag - business card data available but form empty', {
-        hasSessionCompanyName: hasCompanyNameInSession,
-        formCompanyName: formData.company_name,
-      })
+      generalLogger.debug(
+        '[useSessionDataPrefill] Resetting prefill flag - business card data available but form empty',
+        {
+          hasSessionCompanyName: hasCompanyNameInSession,
+          formCompanyName: formData.company_name,
+        }
+      )
       hasPrefilledRef.current = false
     }
-    
+
     // Skip if already prefilled (unless we just reset the flag above)
     if (hasPrefilledRef.current) {
       return
@@ -135,7 +149,7 @@ export function useSessionDataPrefill() {
     // Even if form has some data (like industry), we should prefill missing critical fields
     const hasCompanyName = formData.company_name && formData.company_name.trim() !== ''
     const hasBusinessTypeId = formData.business_type_id && formData.business_type_id !== ''
-    
+
     // Only skip if BOTH critical fields are filled (user has entered data)
     if (hasCompanyName && hasBusinessTypeId) {
       generalLogger.debug('[useSessionDataPrefill] Form already filled, skipping prefill', {
@@ -167,8 +181,7 @@ export function useSessionDataPrefill() {
         })
       }
       // Reject NACE-shaped values: resolve via API instead of using raw value
-      const rawBusinessType =
-        mergedData.business_type_id || mergedData.business_type
+      const rawBusinessType = mergedData.business_type_id || mergedData.business_type
       if (rawBusinessType && !hasBusinessTypeId) {
         if (looksLikeNaceCode(rawBusinessType)) {
           try {
@@ -187,9 +200,12 @@ export function useSessionDataPrefill() {
               })
             }
           } catch (err) {
-            generalLogger.debug('[useSessionDataPrefill] NACE lookup failed, skipping business_type_id', {
-              nace_code: rawBusinessType,
-            })
+            generalLogger.debug(
+              '[useSessionDataPrefill] NACE lookup failed, skipping business_type_id',
+              {
+                nace_code: rawBusinessType,
+              }
+            )
           }
         } else {
           updates.business_type_id = rawBusinessType
@@ -255,7 +271,7 @@ export function useSessionDataPrefill() {
           has_kbo_data: !!(updates.kbo_number || updates.vat_number),
           data_source: {
             from_business_info: Object.keys(businessInfo).length,
-            from_top_level: Object.keys(topLevelData).filter(k => !k.startsWith('_')).length,
+            from_top_level: Object.keys(topLevelData).filter((k) => !k.startsWith('_')).length,
           },
         })
       }
@@ -264,5 +280,15 @@ export function useSessionDataPrefill() {
     return () => {
       cancelledRef.current = true
     }
-  }, [sessionData, formData.company_name, formData.business_type_id, updateFormData, bootstrap?.report?.mode, bootstrap?.report?.hasExistingData, bootstrap?.report?.hasValuationResult, bootstrap?.hasPrefilledData, bootstrap?.prefillData?.confidence])
+  }, [
+    sessionData,
+    formData.company_name,
+    formData.business_type_id,
+    updateFormData,
+    bootstrap?.report?.mode,
+    bootstrap?.report?.hasExistingData,
+    bootstrap?.report?.hasValuationResult,
+    bootstrap?.hasPrefilledData,
+    bootstrap?.prefillData?.confidence,
+  ])
 }

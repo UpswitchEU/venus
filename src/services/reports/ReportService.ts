@@ -7,10 +7,11 @@
  */
 
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
+import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
 import { backendAPI } from '../backendApi'
-import { getApiUrl } from '../../utils/getMercuryUrl'
+
 // AUTH-FIRST: guestSessionService removed - authentication is required
 
 const reportLogger = createContextLogger('ReportService')
@@ -112,20 +113,34 @@ class ReportServiceImpl implements ReportService {
         // ✅ FIX: Map flow_type to currentView correctly
         // flow_type values: 'manual', 'conversational', 'api'
         // currentView values: 'manual', 'conversational'
-        const mapFlowTypeToCurrentView = (flowType: string | null | undefined, currentView?: string): 'manual' | 'conversational' => {
-          if (flowType === 'conversational' || currentView === 'conversational' || currentView === 'ai-guided') {
-            return 'conversational';
+        const mapFlowTypeToCurrentView = (
+          flowType: string | null | undefined,
+          currentView?: string
+        ): 'manual' | 'conversational' => {
+          if (
+            flowType === 'conversational' ||
+            currentView === 'conversational' ||
+            currentView === 'ai-guided'
+          ) {
+            return 'conversational'
           }
-          return 'manual';
-        };
-        
-        const mapFlowTypeToDataSource = (flowType: string | null | undefined, dataSource?: string): 'manual' | 'conversational' | 'mixed' => {
-          if (flowType === 'conversational' || dataSource === 'conversational' || dataSource === 'ai-guided') {
-            return 'conversational';
+          return 'manual'
+        }
+
+        const mapFlowTypeToDataSource = (
+          flowType: string | null | undefined,
+          dataSource?: string
+        ): 'manual' | 'conversational' | 'mixed' => {
+          if (
+            flowType === 'conversational' ||
+            dataSource === 'conversational' ||
+            dataSource === 'ai-guided'
+          ) {
+            return 'conversational'
           }
-          return 'manual';
-        };
-        
+          return 'manual'
+        }
+
         return {
           reportId: report.id || report.report_id,
           currentView: mapFlowTypeToCurrentView(report.flow_type, report.current_view),

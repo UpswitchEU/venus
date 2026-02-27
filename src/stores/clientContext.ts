@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CLIENT_CONTEXT_HEADERS } from '../constants/headers'
-import { generalLogger } from '../utils/logger'
 import { getApiUrl } from '../utils/getMercuryUrl'
+import { generalLogger } from '../utils/logger'
 
 interface ClientContextResponseDto {
   accountantUser: {

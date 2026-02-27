@@ -24,12 +24,9 @@ export default function GlobalError({
             textAlign: 'center',
           }}
         >
-          <h2 style={{ margin: 0, fontSize: '1.25rem' }}>
-            Something went wrong
-          </h2>
+          <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Something went wrong</h2>
           <p style={{ margin: 0, opacity: 0.8, maxWidth: 400 }}>
-            We encountered an unexpected error. Please try again or return to
-            the homepage.
+            We encountered an unexpected error. Please try again or return to the homepage.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button

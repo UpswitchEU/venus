@@ -5,8 +5,8 @@
  * Matches the company verification pattern with disabled input, checkmark, and details card
  */
 
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 
 interface NormalizedEBITDAFieldProps {
   label: string
@@ -113,7 +113,9 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
                 <div className="space-y-2 text-muted-foreground border-t border-foreground/10 pt-2">
                   <div className="flex justify-between">
                     <span>{t('original')}</span>
-                    <span className="font-mono text-foreground">{formatCurrency(originalValue)}</span>
+                    <span className="font-mono text-foreground">
+                      {formatCurrency(originalValue)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>{t('adjustedBy')}</span>

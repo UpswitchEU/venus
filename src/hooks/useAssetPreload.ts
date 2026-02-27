@@ -100,7 +100,7 @@ export function useAssetPreload(
     return () => {
       isCancelled = true
       if (idleId !== null) {
-        (window as any).cancelIdleCallback(idleId)
+        ;(window as any).cancelIdleCallback(idleId)
       }
       if (timerId !== null) {
         clearTimeout(timerId)

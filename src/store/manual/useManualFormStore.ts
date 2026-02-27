@@ -54,7 +54,7 @@ interface ManualFormStore {
 // Helper to get safe last full year (last completed fiscal year, max 2100 per backend validation)
 // Valuations use the most recent completed fiscal year, not the current calendar year
 const getSafeCurrentYear = () => {
-  return Math.min(new Date().getFullYear() - 1, 2100);
+  return Math.min(new Date().getFullYear() - 1, 2100)
 }
 
 const defaultFormData: ValuationFormData = {
@@ -175,7 +175,9 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
             ...(businessCard.vat_number && { vat_number: businessCard.vat_number }),
             ...(businessCard.legal_form && { legal_form: businessCard.legal_form }),
             ...(businessCard.nace_code && { nace_code: businessCard.nace_code }),
-            ...(businessCard.nace_description && { nace_description: businessCard.nace_description }),
+            ...(businessCard.nace_description && {
+              nace_description: businessCard.nace_description,
+            }),
           }
 
           storeLogger.info('[Manual] Form data prefilled from business card', {

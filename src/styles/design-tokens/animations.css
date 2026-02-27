@@ -74,7 +74,8 @@
 }
 
 @keyframes aurora-pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.4;
   }
   50% {
@@ -83,7 +84,8 @@
 }
 
 @keyframes aurora-float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -93,7 +95,8 @@
 
 /* Aurora gradient shift - brand signature animation */
 @keyframes aurora-shift {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 0% 50%;
   }
   50% {
@@ -102,7 +105,8 @@
 }
 
 @keyframes aurora-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.5;
     filter: blur(8px);
   }
@@ -230,7 +234,7 @@
   .aurora-accordion-up {
     animation: none;
   }
-  
+
   .spring,
   .transition-smooth,
   .transition-fast,

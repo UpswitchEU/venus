@@ -132,7 +132,13 @@ export function SaveStatusIndicator({
     return null
   }
 
-  const titleText = error || (isSaving ? t('saving') : hasUnsavedChanges ? t('unsavedChanges') : t('saved', { time: relativeTime }))
+  const titleText =
+    error ||
+    (isSaving
+      ? t('saving')
+      : hasUnsavedChanges
+        ? t('unsavedChanges')
+        : t('saved', { time: relativeTime }))
 
   if (compact) {
     return (

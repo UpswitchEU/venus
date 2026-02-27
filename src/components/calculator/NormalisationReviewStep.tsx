@@ -1,10 +1,10 @@
-'use client';
+'use client'
 
 /**
  * Normalisation Review Step
- * 
+ *
  * H8 Hypothesis: "Een overzichtelijke Normalisatie Review (1 scherm, volledig controleerbaar)"
- * 
+ *
  * World-class fintech UX (Klarna/Stripe quality):
  * - Full inline editing for amounts with type selector (+€, -€, +%, -%, ABS)
  * - Ledger account search (grootboek zoekbalk) for manual additions
@@ -14,70 +14,70 @@
  * - 60/30/10 color compliant
  */
 
-import { useState, useMemo, useCallback } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Check, 
-  X, 
-  ChevronRight, 
+import { AnimatePresence, motion } from 'framer-motion'
+import {
   AlertCircle,
   Calculator,
-  FileSpreadsheet,
-  Search,
-  Plus,
-  Minus,
-  Percent,
-  Hash,
-  Edit3,
   Calendar,
   CalendarRange,
-  Undo2,
+  Check,
+  ChevronRight,
+  Edit3,
+  FileSpreadsheet,
+  Hash,
+  Minus,
+  Percent,
+  Plus,
+  Search,
+  Sparkles,
   Trash2,
-  Sparkles
-} from 'lucide-react';
-import { cn } from '@/design-system/utils';
-import { AuroraButton as Button } from '@/design-system/components/Button';
-import { AuroraInput as Input } from '@/design-system/components/Input';
-import { Checkbox } from '@/design-system/components/Checkbox';
-import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek';
+  Undo2,
+  X,
+} from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { useCallback, useMemo, useState } from 'react'
+import { AuroraButton as Button } from '@/design-system/components/Button'
+import { Checkbox } from '@/design-system/components/Checkbox'
+import { AuroraInput as Input } from '@/design-system/components/Input'
+import { cn } from '@/design-system/utils'
+import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
 
-export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute';
-export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv' | 'ai';
+export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute'
+export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv' | 'ai'
 
 export interface SuggestedNormalisation {
-  id: string;
-  code: string;
-  description: string;
-  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other';
-  amount: number;
-  reason: string;
-  sourceRef?: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  source?: NormalizationSource;
-  type?: NormalizationType;
-  applyAllYears?: boolean;
-  marketBenchmark?: string;
+  id: string
+  code: string
+  description: string
+  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other'
+  amount: number
+  reason: string
+  sourceRef?: string
+  status: 'pending' | 'accepted' | 'rejected'
+  source?: NormalizationSource
+  type?: NormalizationType
+  applyAllYears?: boolean
+  marketBenchmark?: string
 }
 
 export interface NormalisationReviewStepProps {
-  suggestions: SuggestedNormalisation[];
-  originalEbitda: number;
-  companyName: string;
-  sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'manual';
-  onAccept: (id: string) => void;
-  onReject: (id: string) => void;
-  onAcceptAll: () => void;
-  onRejectAll: () => void;
-  onContinue: () => void;
-  onBack: () => void;
-  onUpdate?: (id: string, updates: Partial<SuggestedNormalisation>) => void;
-  onAdd?: (normalisation: Omit<SuggestedNormalisation, 'id' | 'status'>) => void;
-  onRemove?: (id: string) => void;
+  suggestions: SuggestedNormalisation[]
+  originalEbitda: number
+  companyName: string
+  sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'manual'
+  onAccept: (id: string) => void
+  onReject: (id: string) => void
+  onAcceptAll: () => void
+  onRejectAll: () => void
+  onContinue: () => void
+  onBack: () => void
+  onUpdate?: (id: string, updates: Partial<SuggestedNormalisation>) => void
+  onAdd?: (normalisation: Omit<SuggestedNormalisation, 'id' | 'status'>) => void
+  onRemove?: (id: string) => void
 }
 
 // ─────────────────────────────────────────
@@ -92,7 +92,7 @@ const categoryLabelKeys: Record<SuggestedNormalisation['category'], string> = {
   personal: 'categories.personal',
   depreciation: 'categories.depreciation',
   other: 'categories.other',
-};
+}
 
 const categoryIcons: Record<SuggestedNormalisation['category'], string> = {
   salary: '👤',
@@ -102,7 +102,7 @@ const categoryIcons: Record<SuggestedNormalisation['category'], string> = {
   personal: '🏠',
   depreciation: '📉',
   other: '📋',
-};
+}
 
 const sourceLabels: Record<NormalizationSource, { labelKey: string; color: string }> = {
   manual: { labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
@@ -110,7 +110,7 @@ const sourceLabels: Record<NormalizationSource, { labelKey: string; color: strin
   exact: { labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
   csv: { labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
   ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
-};
+}
 
 const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus }[] = [
   { value: 'add', label: '+€', icon: Plus },
@@ -118,31 +118,89 @@ const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus 
   { value: 'add_percent', label: '+%', icon: Percent },
   { value: 'subtract_percent', label: '-%', icon: Percent },
   { value: 'absolute', label: 'ABS', icon: Hash },
-];
+]
 
-const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS;
+const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS
 
 // Quick presets with market-conform defaults (use labelKey/descriptionKey/reasonKey for i18n)
 interface NormalizationPreset {
-  id: string;
-  labelKey: string;
-  icon: string;
-  code: string;
-  descriptionKey: string;
-  category: SuggestedNormalisation['category'];
-  defaultAmount: number;
-  reasonKey: string;
-  marketBenchmark?: string;
+  id: string
+  labelKey: string
+  icon: string
+  code: string
+  descriptionKey: string
+  category: SuggestedNormalisation['category']
+  defaultAmount: number
+  reasonKey: string
+  marketBenchmark?: string
 }
 
 const normalizationPresets: NormalizationPreset[] = [
-  { id: 'owner-salary', labelKey: 'presets.ownerSalary', icon: '👤', code: '620', descriptionKey: 'presets.ownerSalaryDesc', category: 'salary', defaultAmount: 60000, reasonKey: 'presets.ownerSalaryReason', marketBenchmark: '€55K - €75K' },
-  { id: 'family-salary', labelKey: 'presets.familySalary', icon: '👨‍👩‍👧', code: '620', descriptionKey: 'presets.familySalaryDesc', category: 'personal', defaultAmount: 35000, reasonKey: 'presets.familySalaryReason', marketBenchmark: '€25K - €40K' },
-  { id: 'rent', labelKey: 'presets.rent', icon: '🏢', code: '613', descriptionKey: 'presets.rentDesc', category: 'rent', defaultAmount: 24000, reasonKey: 'presets.rentReason', marketBenchmark: '€150 - €250/m²' },
-  { id: 'vehicle', labelKey: 'presets.vehicle', icon: '🚗', code: '615', descriptionKey: 'presets.vehicleDesc', category: 'vehicle', defaultAmount: 18000, reasonKey: 'presets.vehicleReason', marketBenchmark: '€12K - €24K/jaar' },
-  { id: 'legal', labelKey: 'presets.legal', icon: '⚖️', code: '640', descriptionKey: 'presets.legalDesc', category: 'one-time', defaultAmount: 25000, reasonKey: 'presets.legalReason' },
-  { id: 'advisory', labelKey: 'presets.advisory', icon: '📊', code: '617', descriptionKey: 'presets.advisoryDesc', category: 'one-time', defaultAmount: 15000, reasonKey: 'presets.advisoryReason' },
-];
+  {
+    id: 'owner-salary',
+    labelKey: 'presets.ownerSalary',
+    icon: '👤',
+    code: '620',
+    descriptionKey: 'presets.ownerSalaryDesc',
+    category: 'salary',
+    defaultAmount: 60000,
+    reasonKey: 'presets.ownerSalaryReason',
+    marketBenchmark: '€55K - €75K',
+  },
+  {
+    id: 'family-salary',
+    labelKey: 'presets.familySalary',
+    icon: '👨‍👩‍👧',
+    code: '620',
+    descriptionKey: 'presets.familySalaryDesc',
+    category: 'personal',
+    defaultAmount: 35000,
+    reasonKey: 'presets.familySalaryReason',
+    marketBenchmark: '€25K - €40K',
+  },
+  {
+    id: 'rent',
+    labelKey: 'presets.rent',
+    icon: '🏢',
+    code: '613',
+    descriptionKey: 'presets.rentDesc',
+    category: 'rent',
+    defaultAmount: 24000,
+    reasonKey: 'presets.rentReason',
+    marketBenchmark: '€150 - €250/m²',
+  },
+  {
+    id: 'vehicle',
+    labelKey: 'presets.vehicle',
+    icon: '🚗',
+    code: '615',
+    descriptionKey: 'presets.vehicleDesc',
+    category: 'vehicle',
+    defaultAmount: 18000,
+    reasonKey: 'presets.vehicleReason',
+    marketBenchmark: '€12K - €24K/jaar',
+  },
+  {
+    id: 'legal',
+    labelKey: 'presets.legal',
+    icon: '⚖️',
+    code: '640',
+    descriptionKey: 'presets.legalDesc',
+    category: 'one-time',
+    defaultAmount: 25000,
+    reasonKey: 'presets.legalReason',
+  },
+  {
+    id: 'advisory',
+    labelKey: 'presets.advisory',
+    icon: '📊',
+    code: '617',
+    descriptionKey: 'presets.advisoryDesc',
+    category: 'one-time',
+    defaultAmount: 15000,
+    reasonKey: 'presets.advisoryReason',
+  },
+]
 
 // ─────────────────────────────────────────
 // COMPONENT
@@ -163,140 +221,153 @@ export function NormalisationReviewStep({
   onAdd,
   onRemove,
 }: NormalisationReviewStepProps) {
-  const nh = useTranslations('normalizationHub');
-  const ca = useTranslations('chatAssistant');
-  const locale = useLocale();
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE';
-  const formatCurrency = useCallback((amount: number) => {
-    if (Math.abs(amount) >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`;
-    if (Math.abs(amount) >= 1000) return `€${(amount / 1000).toFixed(0)}K`;
-    return new Intl.NumberFormat(currencyLocale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
-  }, [currencyLocale]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showLedgerDropdown, setShowLedgerDropdown] = useState(false);
-  
+  const nh = useTranslations('normalizationHub')
+  const ca = useTranslations('chatAssistant')
+  const locale = useLocale()
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const formatCurrency = useCallback(
+    (amount: number) => {
+      if (Math.abs(amount) >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
+      if (Math.abs(amount) >= 1000) return `€${(amount / 1000).toFixed(0)}K`
+      return new Intl.NumberFormat(currencyLocale, {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount)
+    },
+    [currencyLocale]
+  )
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showLedgerDropdown, setShowLedgerDropdown] = useState(false)
+
   // Edit form state
-  const [editAmount, setEditAmount] = useState('');
-  const [editType, setEditType] = useState<NormalizationType>('add');
-  const [editApplyAllYears, setEditApplyAllYears] = useState(false);
-  const [editReason, setEditReason] = useState('');
-  
+  const [editAmount, setEditAmount] = useState('')
+  const [editType, setEditType] = useState<NormalizationType>('add')
+  const [editApplyAllYears, setEditApplyAllYears] = useState(false)
+  const [editReason, setEditReason] = useState('')
+
   // Add form state
-  const [selectedLedger, setSelectedLedger] = useState<LedgerAccount | null>(null);
-  const [newAmount, setNewAmount] = useState('');
-  const [newType, setNewType] = useState<NormalizationType>('add');
-  const [newApplyAllYears, setNewApplyAllYears] = useState(false);
-  const [newReason, setNewReason] = useState('');
-  
+  const [selectedLedger, setSelectedLedger] = useState<LedgerAccount | null>(null)
+  const [newAmount, setNewAmount] = useState('')
+  const [newType, setNewType] = useState<NormalizationType>('add')
+  const [newApplyAllYears, setNewApplyAllYears] = useState(false)
+  const [newReason, setNewReason] = useState('')
+
   // Calculations
-  const pendingCount = suggestions.filter(s => s.status === 'pending').length;
-  const acceptedCount = suggestions.filter(s => s.status === 'accepted').length;
-  const rejectedCount = suggestions.filter(s => s.status === 'rejected').length;
-  
+  const pendingCount = suggestions.filter((s) => s.status === 'pending').length
+  const acceptedCount = suggestions.filter((s) => s.status === 'accepted').length
+  const rejectedCount = suggestions.filter((s) => s.status === 'rejected').length
+
   const totalAcceptedAdjustment = suggestions
-    .filter(s => s.status === 'accepted')
-    .reduce((sum, s) => sum + s.amount, 0);
-  
-  const normalizedEbitda = originalEbitda + totalAcceptedAdjustment;
-  
+    .filter((s) => s.status === 'accepted')
+    .reduce((sum, s) => sum + s.amount, 0)
+
+  const normalizedEbitda = originalEbitda + totalAcceptedAdjustment
+
   const integrationLabels: Record<string, string> = {
     yuki: nh('sources.yuki'),
     exact: nh('sources.exact'),
     odoo: nh('sources.odoo'),
     manual: nh('sources.manual'),
-  };
-  
+  }
+
   // Filter ledger accounts based on search
   const filteredLedgers = useMemo(() => {
-    if (!searchQuery) return defaultLedgerAccounts.slice(0, 6);
-    const query = searchQuery.toLowerCase();
-    return defaultLedgerAccounts.filter(
-      (account) =>
-        account.code.toLowerCase().includes(query) ||
-        account.name.toLowerCase().includes(query)
-    ).slice(0, 8);
-  }, [searchQuery]);
-  
+    if (!searchQuery) return defaultLedgerAccounts.slice(0, 6)
+    const query = searchQuery.toLowerCase()
+    return defaultLedgerAccounts
+      .filter(
+        (account) =>
+          account.code.toLowerCase().includes(query) || account.name.toLowerCase().includes(query)
+      )
+      .slice(0, 8)
+  }, [searchQuery])
+
   // Start editing a normalisation
   const startEditing = useCallback((suggestion: SuggestedNormalisation) => {
-    setEditingId(suggestion.id);
-    setEditAmount(Math.abs(suggestion.amount).toString());
-    setEditType(suggestion.type || (suggestion.amount >= 0 ? 'add' : 'subtract'));
-    setEditApplyAllYears(suggestion.applyAllYears || false);
-    setEditReason(suggestion.reason || '');
-  }, []);
-  
+    setEditingId(suggestion.id)
+    setEditAmount(Math.abs(suggestion.amount).toString())
+    setEditType(suggestion.type || (suggestion.amount >= 0 ? 'add' : 'subtract'))
+    setEditApplyAllYears(suggestion.applyAllYears || false)
+    setEditReason(suggestion.reason || '')
+  }, [])
+
   // Save edit
   const saveEdit = useCallback(() => {
-    if (!editingId || !editAmount || !onUpdate) return;
-    
-    const numericValue = parseFloat(editAmount.replace(/[^0-9.-]/g, ''));
-    if (isNaN(numericValue)) return;
-    
-    let calculatedAmount = numericValue;
+    if (!editingId || !editAmount || !onUpdate) return
+
+    const numericValue = parseFloat(editAmount.replace(/[^0-9.-]/g, ''))
+    if (isNaN(numericValue)) return
+
+    let calculatedAmount = numericValue
     if (editType === 'subtract' || editType === 'subtract_percent') {
-      calculatedAmount = -numericValue;
+      calculatedAmount = -numericValue
     }
-    
+
     onUpdate(editingId, {
       amount: calculatedAmount,
       type: editType,
       applyAllYears: editApplyAllYears,
       reason: editReason || undefined,
-    });
-    
-    setEditingId(null);
-  }, [editingId, editAmount, editType, editApplyAllYears, editReason, onUpdate]);
-  
+    })
+
+    setEditingId(null)
+  }, [editingId, editAmount, editType, editApplyAllYears, editReason, onUpdate])
+
   // Cancel edit
   const cancelEdit = useCallback(() => {
-    setEditingId(null);
-  }, []);
-  
+    setEditingId(null)
+  }, [])
+
   // Add new normalisation from preset
-  const addFromPreset = useCallback((preset: NormalizationPreset) => {
-    if (!onAdd) return;
-    
-    onAdd({
-      code: preset.code,
-      description: nh(preset.descriptionKey),
-      category: preset.category,
-      amount: preset.defaultAmount,
-      reason: nh(preset.reasonKey),
-      source: 'manual',
-      type: 'add',
-      applyAllYears: false,
-      marketBenchmark: preset.marketBenchmark,
-    });
-    
-    setShowAddForm(false);
-  }, [onAdd, nh]);
-  
+  const addFromPreset = useCallback(
+    (preset: NormalizationPreset) => {
+      if (!onAdd) return
+
+      onAdd({
+        code: preset.code,
+        description: nh(preset.descriptionKey),
+        category: preset.category,
+        amount: preset.defaultAmount,
+        reason: nh(preset.reasonKey),
+        source: 'manual',
+        type: 'add',
+        applyAllYears: false,
+        marketBenchmark: preset.marketBenchmark,
+      })
+
+      setShowAddForm(false)
+    },
+    [onAdd, nh]
+  )
+
   // Add from ledger search
   const addFromLedger = useCallback(() => {
-    if (!selectedLedger || !newAmount || !onAdd) return;
-    
-    const numericValue = parseFloat(newAmount.replace(/[^0-9.-]/g, ''));
-    if (isNaN(numericValue)) return;
-    
-    let calculatedAmount = numericValue;
+    if (!selectedLedger || !newAmount || !onAdd) return
+
+    const numericValue = parseFloat(newAmount.replace(/[^0-9.-]/g, ''))
+    if (isNaN(numericValue)) return
+
+    let calculatedAmount = numericValue
     if (newType === 'subtract' || newType === 'subtract_percent') {
-      calculatedAmount = -numericValue;
+      calculatedAmount = -numericValue
     }
-    
+
     // Map ledger code to category
     const getCategory = (code: string): SuggestedNormalisation['category'] => {
-      if (code.startsWith('62')) return 'salary';
-      if (code.startsWith('61')) return code === '613' ? 'rent' : code === '615' ? 'vehicle' : 'other';
-      if (code.startsWith('64')) return 'one-time';
-      if (code.startsWith('65')) return 'personal';
-      if (code.startsWith('66')) return 'depreciation';
-      return 'other';
-    };
-    
+      if (code.startsWith('62')) return 'salary'
+      if (code.startsWith('61'))
+        return code === '613' ? 'rent' : code === '615' ? 'vehicle' : 'other'
+      if (code.startsWith('64')) return 'one-time'
+      if (code.startsWith('65')) return 'personal'
+      if (code.startsWith('66')) return 'depreciation'
+      return 'other'
+    }
+
     onAdd({
       code: selectedLedger.code,
       description: selectedLedger.name,
@@ -306,29 +377,29 @@ export function NormalisationReviewStep({
       source: 'manual',
       type: newType,
       applyAllYears: newApplyAllYears,
-    });
-    
+    })
+
     // Reset form
-    setSelectedLedger(null);
-    setNewAmount('');
-    setNewReason('');
-    setSearchQuery('');
-    setShowAddForm(false);
-  }, [selectedLedger, newAmount, newType, newApplyAllYears, newReason, onAdd, nh]);
-  
+    setSelectedLedger(null)
+    setNewAmount('')
+    setNewReason('')
+    setSearchQuery('')
+    setShowAddForm(false)
+  }, [selectedLedger, newAmount, newType, newApplyAllYears, newReason, onAdd, nh])
+
   const handleAcceptAll = () => {
-    setIsProcessing(true);
-    onAcceptAll();
-    setTimeout(() => setIsProcessing(false), 300);
-  };
-  
+    setIsProcessing(true)
+    onAcceptAll()
+    setTimeout(() => setIsProcessing(false), 300)
+  }
+
   const handleContinue = () => {
-    setIsProcessing(true);
+    setIsProcessing(true)
     setTimeout(() => {
-      onContinue();
-      setIsProcessing(false);
-    }, 500);
-  };
+      onContinue()
+      setIsProcessing(false)
+    }, 500)
+  }
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -339,11 +410,13 @@ export function NormalisationReviewStep({
             <Calculator className="w-4 h-4 md:w-5 md:h-5 text-primary" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-base md:text-lg font-semibold text-foreground truncate">Normalisatie Review</h2>
+            <h2 className="text-base md:text-lg font-semibold text-foreground truncate">
+              Normalisatie Review
+            </h2>
             <p className="text-xs md:text-sm text-foreground/50 truncate">{companyName}</p>
           </div>
         </div>
-        
+
         {/* Source Badge */}
         <div className="flex items-center gap-2 mt-3">
           <div className="flex items-center gap-1.5 px-2 py-0.5 md:px-2.5 md:py-1 rounded-full bg-foreground/[0.04] text-[10px] md:text-xs text-foreground/60 border border-foreground/[0.08]">
@@ -367,20 +440,26 @@ export function NormalisationReviewStep({
               {formatCurrency(originalEbitda)}
             </p>
           </div>
-          
+
           <div className="text-center">
             <p className="text-[8px] md:text-[10px] font-medium text-foreground/40 uppercase tracking-wider mb-0.5 md:mb-1">
               {nh('adjustment')}
             </p>
-            <p className={cn(
-              "text-sm md:text-lg font-mono font-semibold",
-              totalAcceptedAdjustment > 0 ? "text-success" : 
-              totalAcceptedAdjustment < 0 ? "text-secondary" : "text-foreground/40"
-            )}>
-              {totalAcceptedAdjustment > 0 ? '+' : ''}{formatCurrency(totalAcceptedAdjustment)}
+            <p
+              className={cn(
+                'text-sm md:text-lg font-mono font-semibold',
+                totalAcceptedAdjustment > 0
+                  ? 'text-success'
+                  : totalAcceptedAdjustment < 0
+                    ? 'text-secondary'
+                    : 'text-foreground/40'
+              )}
+            >
+              {totalAcceptedAdjustment > 0 ? '+' : ''}
+              {formatCurrency(totalAcceptedAdjustment)}
             </p>
           </div>
-          
+
           <div className="text-center">
             <p className="text-[8px] md:text-[10px] font-medium text-primary uppercase tracking-wider mb-0.5 md:mb-1">
               {nh('normalized')}
@@ -398,10 +477,12 @@ export function NormalisationReviewStep({
           <span>{acceptedCount} ✓</span>
           <span>{rejectedCount} ✗</span>
           {pendingCount > 0 && (
-            <span className="text-primary font-medium">{pendingCount} {nh('toReviewShort')}</span>
+            <span className="text-primary font-medium">
+              {pendingCount} {nh('toReviewShort')}
+            </span>
           )}
         </div>
-        
+
         {pendingCount > 0 && (
           <div className="flex items-center gap-2">
             <Button
@@ -429,9 +510,9 @@ export function NormalisationReviewStep({
         <div className="space-y-2">
           <AnimatePresence mode="popLayout">
             {suggestions.map((suggestion, index) => {
-              const isEditing = editingId === suggestion.id;
-              const source = suggestion.source || 'manual';
-              
+              const isEditing = editingId === suggestion.id
+              const source = suggestion.source || 'manual'
+
               return (
                 <motion.div
                   key={suggestion.id}
@@ -441,12 +522,12 @@ export function NormalisationReviewStep({
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ delay: index * 0.02 }}
                   className={cn(
-                    "rounded-xl border transition-all overflow-hidden",
-                    suggestion.status === 'pending' 
-                      ? "bg-foreground/[0.02] border-foreground/[0.08]"
+                    'rounded-xl border transition-all overflow-hidden',
+                    suggestion.status === 'pending'
+                      ? 'bg-foreground/[0.02] border-foreground/[0.08]'
                       : suggestion.status === 'accepted'
-                        ? "bg-success/5 border-success/20"
-                        : "bg-foreground/[0.01] border-foreground/[0.04] opacity-50"
+                        ? 'bg-success/5 border-success/20'
+                        : 'bg-foreground/[0.01] border-foreground/[0.04] opacity-50'
                   )}
                 >
                   {isEditing ? (
@@ -458,7 +539,9 @@ export function NormalisationReviewStep({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{categoryIcons[suggestion.category]}</span>
-                          <span className="text-sm font-medium text-foreground">{suggestion.description}</span>
+                          <span className="text-sm font-medium text-foreground">
+                            {suggestion.description}
+                          </span>
                         </div>
                         <button
                           onClick={cancelEdit}
@@ -467,7 +550,7 @@ export function NormalisationReviewStep({
                           <X className="w-4 h-4 text-foreground/40" />
                         </button>
                       </div>
-                      
+
                       {/* Type & Amount */}
                       <div className="flex gap-2">
                         <div className="flex gap-0.5">
@@ -476,10 +559,10 @@ export function NormalisationReviewStep({
                               key={option.value}
                               onClick={() => setEditType(option.value)}
                               className={cn(
-                                "px-2.5 py-2 rounded-lg text-xs font-medium transition-all",
+                                'px-2.5 py-2 rounded-lg text-xs font-medium transition-all',
                                 editType === option.value
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]"
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
                               )}
                             >
                               {option.label}
@@ -499,7 +582,7 @@ export function NormalisationReviewStep({
                           />
                         </div>
                       </div>
-                      
+
                       {/* Year Toggle */}
                       <label className="flex items-center gap-2 cursor-pointer">
                         <Checkbox
@@ -511,7 +594,7 @@ export function NormalisationReviewStep({
                           {nh('applyToAllYears')}
                         </span>
                       </label>
-                      
+
                       {/* Reason */}
                       <Input
                         placeholder={nh('explanationOptionalPlaceholder')}
@@ -519,13 +602,23 @@ export function NormalisationReviewStep({
                         onChange={(e) => setEditReason(e.target.value)}
                         className="text-sm"
                       />
-                      
+
                       {/* Actions */}
                       <div className="flex gap-2">
-                        <Button variant="secondary" size="sm" onClick={cancelEdit} className="flex-1">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={cancelEdit}
+                          className="flex-1"
+                        >
                           {nh('actions.cancel')}
                         </Button>
-                        <Button variant="primary" size="sm" onClick={saveEdit} className="flex-1 gap-1">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={saveEdit}
+                          className="flex-1 gap-1"
+                        >
                           <Check className="w-3.5 h-3.5" />
                           {nh('actions.save')}
                         </Button>
@@ -547,10 +640,12 @@ export function NormalisationReviewStep({
                             <span className="text-sm font-medium text-foreground truncate">
                               {suggestion.description}
                             </span>
-                            <span className={cn(
-                              "shrink-0 text-[8px] md:text-[9px] px-1.5 py-0.5 rounded font-medium",
-                              sourceLabels[source].color
-                            )}>
+                            <span
+                              className={cn(
+                                'shrink-0 text-[8px] md:text-[9px] px-1.5 py-0.5 rounded font-medium',
+                                sourceLabels[source].color
+                              )}
+                            >
                               {nh(sourceLabels[source].labelKey)}
                             </span>
                           </div>
@@ -574,11 +669,14 @@ export function NormalisationReviewStep({
                       {/* Right: Amount + Actions */}
                       <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
                         <div className="shrink-0 text-right">
-                          <p className={cn(
-                            "text-sm md:text-base font-mono font-semibold",
-                            suggestion.amount > 0 ? "text-success" : "text-secondary"
-                          )}>
-                            {suggestion.amount > 0 ? '+' : ''}{formatCurrency(suggestion.amount)}
+                          <p
+                            className={cn(
+                              'text-sm md:text-base font-mono font-semibold',
+                              suggestion.amount > 0 ? 'text-success' : 'text-secondary'
+                            )}
+                          >
+                            {suggestion.amount > 0 ? '+' : ''}
+                            {formatCurrency(suggestion.amount)}
                           </p>
                           {suggestion.marketBenchmark && (
                             <p className="text-[9px] text-foreground/40">
@@ -650,7 +748,7 @@ export function NormalisationReviewStep({
                     </div>
                   )}
                 </motion.div>
-              );
+              )
             })}
           </AnimatePresence>
         </div>
@@ -661,7 +759,9 @@ export function NormalisationReviewStep({
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-foreground/[0.04] flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-6 h-6 md:w-8 md:h-8 text-foreground/30" />
             </div>
-            <p className="text-foreground/60 mb-1 text-sm md:text-base">{nh('noNormalizationsDetected')}</p>
+            <p className="text-foreground/60 mb-1 text-sm md:text-base">
+              {nh('noNormalizationsDetected')}
+            </p>
             <p className="text-xs md:text-sm text-foreground/40 mb-4">
               {nh('noAdjustmentsInData')}
             </p>
@@ -703,9 +803,9 @@ export function NormalisationReviewStep({
                   </span>
                   <button
                     onClick={() => {
-                      setShowAddForm(false);
-                      setSelectedLedger(null);
-                      setSearchQuery('');
+                      setShowAddForm(false)
+                      setSelectedLedger(null)
+                      setSearchQuery('')
                     }}
                     className="p-1 rounded hover:bg-foreground/10"
                   >
@@ -746,7 +846,9 @@ export function NormalisationReviewStep({
                     {/* Divider */}
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-px bg-foreground/[0.06]" />
-                      <span className="text-[10px] text-foreground/30 uppercase">{nh('orSearch')}</span>
+                      <span className="text-[10px] text-foreground/30 uppercase">
+                        {nh('orSearch')}
+                      </span>
                       <div className="flex-1 h-px bg-foreground/[0.06]" />
                     </div>
                   </>
@@ -759,9 +861,9 @@ export function NormalisationReviewStep({
                     placeholder={nh('searchLedgerPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setShowLedgerDropdown(true);
-                      setSelectedLedger(null);
+                      setSearchQuery(e.target.value)
+                      setShowLedgerDropdown(true)
+                      setSelectedLedger(null)
                     }}
                     onFocus={() => setShowLedgerDropdown(true)}
                     className="pl-10 text-base"
@@ -780,9 +882,9 @@ export function NormalisationReviewStep({
                           <button
                             key={account.code}
                             onClick={() => {
-                              setSelectedLedger(account);
-                              setSearchQuery(`${account.code} · ${account.name}`);
-                              setShowLedgerDropdown(false);
+                              setSelectedLedger(account)
+                              setSearchQuery(`${account.code} · ${account.name}`)
+                              setShowLedgerDropdown(false)
                             }}
                             className="w-full px-3 py-2 text-left hover:bg-foreground/[0.04] flex items-center gap-3 transition-colors"
                           >
@@ -816,8 +918,8 @@ export function NormalisationReviewStep({
                       </span>
                       <button
                         onClick={() => {
-                          setSelectedLedger(null);
-                          setSearchQuery('');
+                          setSelectedLedger(null)
+                          setSearchQuery('')
                         }}
                         className="p-1 rounded hover:bg-foreground/10"
                       >
@@ -833,10 +935,10 @@ export function NormalisationReviewStep({
                             key={option.value}
                             onClick={() => setNewType(option.value)}
                             className={cn(
-                              "px-2.5 py-2 rounded-lg text-xs font-medium transition-all",
+                              'px-2.5 py-2 rounded-lg text-xs font-medium transition-all',
                               newType === option.value
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]"
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
                             )}
                           >
                             {option.label}
@@ -878,11 +980,7 @@ export function NormalisationReviewStep({
                     />
 
                     {/* Add Button */}
-                    <Button
-                      onClick={addFromLedger}
-                      disabled={!newAmount}
-                      className="w-full gap-2"
-                    >
+                    <Button onClick={addFromLedger} disabled={!newAmount} className="w-full gap-2">
                       <Plus className="w-4 h-4" />
                       {nh('actions.add')}
                     </Button>
@@ -912,14 +1010,13 @@ export function NormalisationReviewStep({
             loading={isProcessing}
             disabled={pendingCount > 0}
           >
-            {pendingCount > 0 
+            {pendingCount > 0
               ? `${pendingCount} ${nh('pendingToReview')}`
-              : nh('continueToEstimate')
-            }
+              : nh('continueToEstimate')}
             {pendingCount === 0 && <ChevronRight className="w-4 h-4" />}
           </Button>
         </div>
-        
+
         {pendingCount > 0 && (
           <p className="text-center text-[10px] md:text-xs text-foreground/40 mt-2">
             {nh('reviewAllToContinue')}
@@ -927,7 +1024,7 @@ export function NormalisationReviewStep({
         )}
       </div>
     </div>
-  );
+  )
 }
 
-export default NormalisationReviewStep;
+export default NormalisationReviewStep

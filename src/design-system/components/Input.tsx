@@ -1,16 +1,16 @@
 /**
  * Input Component Set - Aurora Design System
- * 
+ *
  * Premium floating-label inputs following Hybrid Aurora patterns
  * with text, password, search, and textarea variants.
- * 
+ *
  * Compatible with existing Venus form field props.
  */
 
-import * as React from 'react'
-import { motion } from 'framer-motion'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { Eye, EyeOff, Search, X, CircleX, CircleCheck } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { CircleCheck, CircleX, Eye, EyeOff, Search, X } from 'lucide-react'
+import * as React from 'react'
 import { cn } from '../../lib/utils'
 
 // ─────────────────────────────────────────
@@ -368,7 +368,10 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
           {label && (
             <label
               htmlFor={props.id || props.name}
-              className={cn(floatingLabelVariants({ state, floated: isFloated, size }), hasLeftIcon && 'left-11')}
+              className={cn(
+                floatingLabelVariants({ state, floated: isFloated, size }),
+                hasLeftIcon && 'left-11'
+              )}
             >
               {label}
               {required && (
@@ -463,16 +466,27 @@ PasswordInput.displayName = 'PasswordInput'
 // SEARCH INPUT
 // ─────────────────────────────────────────
 
-const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(({ onSearch, onKeyDown, ...props }, ref) => {
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && onSearch) {
-      onSearch(e.currentTarget.value)
+const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
+  ({ onSearch, onKeyDown, ...props }, ref) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && onSearch) {
+        onSearch(e.currentTarget.value)
+      }
+      onKeyDown?.(e)
     }
-    onKeyDown?.(e)
-  }
 
-  return <AuroraInput ref={ref} type="search" leftIcon={<Search className="w-5 h-5" />} clearable onKeyDown={handleKeyDown} {...props} />
-})
+    return (
+      <AuroraInput
+        ref={ref}
+        type="search"
+        leftIcon={<Search className="w-5 h-5" />}
+        clearable
+        onKeyDown={handleKeyDown}
+        {...props}
+      />
+    )
+  }
+)
 SearchInput.displayName = 'SearchInput'
 
 // ─────────────────────────────────────────
@@ -603,7 +617,10 @@ const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 
           {/* Floating Label */}
           {label && (
-            <label htmlFor={props.id || props.name} className={cn(floatingLabelVariants({ state, floated: isFloated, size }))}>
+            <label
+              htmlFor={props.id || props.name}
+              className={cn(floatingLabelVariants({ state, floated: isFloated, size }))}
+            >
               {label}
               {required && (
                 <span className="text-destructive ml-0.5" aria-label="required">

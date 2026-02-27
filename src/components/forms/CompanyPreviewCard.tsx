@@ -5,8 +5,8 @@
  * and allows user to change company selection
  */
 
-import React, { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useEffect, useRef, useState } from 'react'
 import type { CompanySearchResult } from '../../services/registry/types'
 
 export interface CompanyPreviewCardProps {
@@ -65,7 +65,9 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
             <p className="text-xs font-semibold text-primary uppercase tracking-wider">
               {isVerifying ? t('forms.kboLookup.verifying') : t('forms.kboLookup.verifiedCompany')}
             </p>
-            <p className="text-sm font-medium text-muted-foreground">{t('forms.kboLookup.kboBelgium')}</p>
+            <p className="text-sm font-medium text-muted-foreground">
+              {t('forms.kboLookup.kboBelgium')}
+            </p>
           </div>
         </div>
 
@@ -119,7 +121,9 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
                       : 'bg-muted text-muted-foreground'
                   }`}
                 >
-                  {company.status.toLowerCase() === 'active' ? t('forms.kboLookup.active') : company.status}
+                  {company.status.toLowerCase() === 'active'
+                    ? t('forms.kboLookup.active')
+                    : company.status}
                 </span>
               </>
             )}

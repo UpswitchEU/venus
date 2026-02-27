@@ -1,49 +1,54 @@
-'use client';
+'use client'
 
 /**
  * Normalization Views - Table & Bento Grid
- * 
+ *
  * World-class financial data visualization:
  * - Table: Professional ledger view with horizontal year columns
  * - Bento Grid: Premium card-based layout with glassmorphism
- * 
+ *
  * Design: Stripe/Klarna tier (95%+ design quality)
  */
 
-import React from 'react';
-import { useTranslations, useLocale } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Check, 
-  X, 
-  Edit3, 
-  Trash2, 
-  Clock,
-  Calendar,
-  ArrowUpRight,
+import { AnimatePresence, motion } from 'framer-motion'
+import {
   ArrowDownRight,
+  ArrowUpRight,
+  Calendar,
+  Check,
+  Clock,
+  Edit3,
   Minus,
-  TrendingUp,
+  Trash2,
   TrendingDown,
-} from 'lucide-react';
-import { cn } from '@/design-system/utils';
-import { AuroraButton as Button } from '@/design-system/components/Button';
-import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from '@/design-system/components/Tooltip';
-import type { NormalizationItem, NormalizationSource } from './UnifiedNormalizationModal';
+  TrendingUp,
+  X,
+} from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import React from 'react'
+import { AuroraButton as Button } from '@/design-system/components/Button'
+import {
+  TooltipContent,
+  TooltipProvider,
+  TooltipRoot,
+  TooltipTrigger,
+} from '@/design-system/components/Tooltip'
+import { cn } from '@/design-system/utils'
+import type { NormalizationItem, NormalizationSource } from './UnifiedNormalizationModal'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
 
 interface NormalizationViewProps {
-  items: NormalizationItem[];
-  years: number[];
-  originalEBITDA: number;
-  onAccept: (id: string) => void;
-  onReject: (id: string) => void;
-  onRemove: (id: string) => void;
-  onRestore: (id: string) => void;
-  onEdit: (item: NormalizationItem) => void;
+  items: NormalizationItem[]
+  years: number[]
+  originalEBITDA: number
+  onAccept: (id: string) => void
+  onReject: (id: string) => void
+  onRemove: (id: string) => void
+  onRestore: (id: string) => void
+  onEdit: (item: NormalizationItem) => void
 }
 
 // ─────────────────────────────────────────
@@ -58,7 +63,7 @@ const categoryIcons: Record<string, string> = {
   personal: '🏠',
   depreciation: '📉',
   other: '📋',
-};
+}
 
 const sourceColors: Record<NormalizationSource, string> = {
   manual: 'bg-foreground/10 text-foreground/70',
@@ -66,7 +71,7 @@ const sourceColors: Record<NormalizationSource, string> = {
   exact: 'bg-info/10 text-info',
   csv: 'bg-warning/10 text-warning',
   ai: 'bg-primary/10 text-primary',
-};
+}
 
 // ─────────────────────────────────────────
 // PROFESSIONAL TABLE VIEW
@@ -83,8 +88,8 @@ export function NormalizationTableView({
   onRestore,
   onEdit,
 }: NormalizationViewProps) {
-  const t = useTranslations('normalizationHub');
-  const locale = useLocale();
+  const t = useTranslations('normalizationHub')
+  const locale = useLocale()
   const formatCurrency = React.useCallback(
     (value: number) =>
       new Intl.NumberFormat(locale === 'nl' ? 'nl-NL' : 'en-GB', {
@@ -94,20 +99,44 @@ export function NormalizationTableView({
         maximumFractionDigits: 0,
       }).format(value),
     [locale]
-  );
+  )
   const categoryLabels = React.useMemo(
     () =>
       ({
-        salary: { label: t('categories.salary'), icon: categoryIcons.salary, group: 'kosten' as const },
+        salary: {
+          label: t('categories.salary'),
+          icon: categoryIcons.salary,
+          group: 'kosten' as const,
+        },
         rent: { label: t('categories.rent'), icon: categoryIcons.rent, group: 'kosten' as const },
-        vehicle: { label: t('categories.vehicle'), icon: categoryIcons.vehicle, group: 'kosten' as const },
-        'one-time': { label: t('categories.oneTime'), icon: categoryIcons['one-time'], group: 'kosten' as const },
-        personal: { label: t('categories.personal'), icon: categoryIcons.personal, group: 'kosten' as const },
-        depreciation: { label: t('categories.depreciation'), icon: categoryIcons.depreciation, group: 'kosten' as const },
-        other: { label: t('categories.other'), icon: categoryIcons.other, group: 'kosten' as const },
+        vehicle: {
+          label: t('categories.vehicle'),
+          icon: categoryIcons.vehicle,
+          group: 'kosten' as const,
+        },
+        'one-time': {
+          label: t('categories.oneTime'),
+          icon: categoryIcons['one-time'],
+          group: 'kosten' as const,
+        },
+        personal: {
+          label: t('categories.personal'),
+          icon: categoryIcons.personal,
+          group: 'kosten' as const,
+        },
+        depreciation: {
+          label: t('categories.depreciation'),
+          icon: categoryIcons.depreciation,
+          group: 'kosten' as const,
+        },
+        other: {
+          label: t('categories.other'),
+          icon: categoryIcons.other,
+          group: 'kosten' as const,
+        },
       }) as Record<string, { label: string; icon: string; group: 'omzet' | 'kosten' }>,
     [t]
-  );
+  )
   const sourceConfig = React.useMemo(
     () =>
       ({
@@ -118,37 +147,41 @@ export function NormalizationTableView({
         ai: { label: t('sources.ai'), color: sourceColors.ai },
       }) as Record<NormalizationSource, { label: string; color: string }>,
     [t]
-  );
+  )
 
   // Show each normalization as its own row, sorted by ledger code
   const rowItems = React.useMemo(() => {
-    return [...items].sort((a, b) => a.ledgerCode.localeCompare(b.ledgerCode));
-  }, [items]);
+    return [...items].sort((a, b) => a.ledgerCode.localeCompare(b.ledgerCode))
+  }, [items])
 
   // Calculate totals per year
   const yearTotals = React.useMemo(() => {
-    const totals: Record<number, { adjustment: number; normalized: number }> = {};
-    years.forEach(year => {
-      const yearItems = items.filter(item => 
-        item.status === 'accepted' && 
-        (item.applyAllYears || (item.applyYears || [item.year]).includes(year))
-      );
-      const adjustment = yearItems.reduce((sum, item) => sum + item.adjustment, 0);
+    const totals: Record<number, { adjustment: number; normalized: number }> = {}
+    years.forEach((year) => {
+      const yearItems = items.filter(
+        (item) =>
+          item.status === 'accepted' &&
+          (item.applyAllYears || (item.applyYears || [item.year]).includes(year))
+      )
+      const adjustment = yearItems.reduce((sum, item) => sum + item.adjustment, 0)
       totals[year] = {
         adjustment,
         normalized: originalEBITDA + adjustment,
-      };
-    });
-    return totals;
-  }, [items, years, originalEBITDA]);
+      }
+    })
+    return totals
+  }, [items, years, originalEBITDA])
 
   if (rowItems.length === 0) {
-    return null;
+    return null
   }
 
   return (
     <div className="overflow-x-auto rounded-xl border border-foreground/[0.08] bg-card [-webkit-overflow-scrolling:touch]">
-      <table className="text-sm border-collapse" style={{ minWidth: `${400 + years.length * 120}px` }}>
+      <table
+        className="text-sm border-collapse"
+        style={{ minWidth: `${400 + years.length * 120}px` }}
+      >
         {/* Header */}
         <thead>
           <tr className="border-b border-foreground/[0.1] bg-muted/50">
@@ -164,11 +197,11 @@ export function NormalizationTableView({
             </th>
             {/* Year columns - one column per year showing the adjustment */}
             {years.map((year, idx) => (
-              <th 
-                key={year} 
+              <th
+                key={year}
                 className={cn(
-                  "px-3 py-3.5 text-center text-[10px] font-bold uppercase tracking-wider text-foreground/70 min-w-[100px] whitespace-nowrap",
-                  idx > 0 && "border-l border-foreground/[0.08]"
+                  'px-3 py-3.5 text-center text-[10px] font-bold uppercase tracking-wider text-foreground/70 min-w-[100px] whitespace-nowrap',
+                  idx > 0 && 'border-l border-foreground/[0.08]'
                 )}
               >
                 <div className="flex items-center justify-center gap-2">
@@ -182,15 +215,15 @@ export function NormalizationTableView({
             </th>
           </tr>
         </thead>
-        
+
         {/* Body */}
         <tbody>
           <AnimatePresence mode="popLayout">
             {rowItems.map((item, index) => {
-              const cat = categoryLabels[item.category] || categoryLabels.other;
-              const isAccepted = item.status === 'accepted';
-              const adjustment = item.adjustment || 0;
-              
+              const cat = categoryLabels[item.category] || categoryLabels.other
+              const isAccepted = item.status === 'accepted'
+              const adjustment = item.adjustment || 0
+
               return (
                 <motion.tr
                   key={item.id}
@@ -202,24 +235,28 @@ export function NormalizationTableView({
                 >
                   {/* Soort */}
                   <td className="px-4 py-4 whitespace-nowrap border-r border-foreground/[0.06]">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold",
-                      cat.group === 'kosten' 
-                        ? "bg-secondary/10 text-secondary" 
-                        : "bg-success/10 text-success"
-                    )}>
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold',
+                        cat.group === 'kosten'
+                          ? 'bg-secondary/10 text-secondary'
+                          : 'bg-success/10 text-success'
+                      )}
+                    >
                       {cat.icon}
-                      <span className="hidden xl:inline">{cat.group === 'kosten' ? t('groups.kosten') : t('groups.omzet')}</span>
+                      <span className="hidden xl:inline">
+                        {cat.group === 'kosten' ? t('groups.kosten') : t('groups.omzet')}
+                      </span>
                     </span>
                   </td>
-                  
+
                   {/* Code */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     <span className="font-mono text-xs px-2.5 py-1 rounded-md bg-foreground/[0.06] text-foreground font-semibold">
                       {item.ledgerCode}
                     </span>
                   </td>
-                  
+
                   {/* Grootboekrekening */}
                   <td className="px-4 py-4 whitespace-nowrap border-r border-foreground/[0.08]">
                     <div className="flex flex-col gap-1">
@@ -231,57 +268,70 @@ export function NormalizationTableView({
                       )}
                     </div>
                   </td>
-                  
+
                   {/* Year columns - show adjustment per year */}
                   {years.map((year, idx) => {
-                    const appliesThisYear = item.applyAllYears || (item.applyYears || [item.year]).includes(year);
-                    
+                    const appliesThisYear =
+                      item.applyAllYears || (item.applyYears || [item.year]).includes(year)
+
                     return (
-                      <td 
+                      <td
                         key={year}
                         className={cn(
-                          "px-3 py-4 text-right whitespace-nowrap",
-                          idx > 0 && "border-l border-foreground/[0.08]",
-                          !appliesThisYear && "text-foreground/20"
+                          'px-3 py-4 text-right whitespace-nowrap',
+                          idx > 0 && 'border-l border-foreground/[0.08]',
+                          !appliesThisYear && 'text-foreground/20'
                         )}
                       >
                         {appliesThisYear ? (
-                          <span className={cn(
-                            "inline-flex items-center gap-1 font-mono text-xs font-bold tabular-nums",
-                            adjustment > 0 ? "text-success" : adjustment < 0 ? "text-secondary" : "text-foreground/40",
-                            !isAccepted && "opacity-40 line-through"
-                          )}>
-                            {adjustment > 0 ? <ArrowUpRight className="w-3 h-3" /> : 
-                             adjustment < 0 ? <ArrowDownRight className="w-3 h-3" /> : null}
-                            {adjustment > 0 ? '+' : ''}{formatCurrency(adjustment)}
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 font-mono text-xs font-bold tabular-nums',
+                              adjustment > 0
+                                ? 'text-success'
+                                : adjustment < 0
+                                  ? 'text-secondary'
+                                  : 'text-foreground/40',
+                              !isAccepted && 'opacity-40 line-through'
+                            )}
+                          >
+                            {adjustment > 0 ? (
+                              <ArrowUpRight className="w-3 h-3" />
+                            ) : adjustment < 0 ? (
+                              <ArrowDownRight className="w-3 h-3" />
+                            ) : null}
+                            {adjustment > 0 ? '+' : ''}
+                            {formatCurrency(adjustment)}
                           </span>
                         ) : (
-                          <span className="font-mono text-xs tabular-nums text-foreground/20">—</span>
+                          <span className="font-mono text-xs tabular-nums text-foreground/20">
+                            —
+                          </span>
                         )}
                       </td>
-                    );
+                    )
                   })}
-                  
+
                   {/* Actions */}
                   <td className="px-4 py-4 whitespace-nowrap border-l border-foreground/[0.08]">
                     <div className="flex items-center justify-center gap-1.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
                       {item.status === 'pending' && (
                         <>
-                          <ActionButton 
-                            icon={Edit3} 
-                            tooltip={t('actions.edit')} 
+                          <ActionButton
+                            icon={Edit3}
+                            tooltip={t('actions.edit')}
                             onClick={() => onEdit(item)}
                             color="primary"
                           />
-                          <ActionButton 
-                            icon={X} 
-                            tooltip={t('actions.reject')} 
+                          <ActionButton
+                            icon={X}
+                            tooltip={t('actions.reject')}
                             onClick={() => onReject(item.id)}
                             color="secondary"
                           />
-                          <ActionButton 
-                            icon={Check} 
-                            tooltip={t('actions.accept')} 
+                          <ActionButton
+                            icon={Check}
+                            tooltip={t('actions.accept')}
                             onClick={() => onAccept(item.id)}
                             color="success"
                           />
@@ -289,16 +339,16 @@ export function NormalizationTableView({
                       )}
                       {item.status === 'accepted' && (
                         <>
-                          <ActionButton 
-                            icon={Edit3} 
-                            tooltip={t('actions.edit')} 
+                          <ActionButton
+                            icon={Edit3}
+                            tooltip={t('actions.edit')}
                             onClick={() => onEdit(item)}
                             color="primary"
                           />
                           {item.source === 'manual' && (
-                            <ActionButton 
-                              icon={Trash2} 
-                              tooltip={t('actions.remove')} 
+                            <ActionButton
+                              icon={Trash2}
+                              tooltip={t('actions.remove')}
                               onClick={() => onRemove(item.id)}
                               color="secondary"
                             />
@@ -306,9 +356,9 @@ export function NormalizationTableView({
                         </>
                       )}
                       {item.status === 'rejected' && (
-                        <ActionButton 
-                          icon={Clock} 
-                          tooltip={t('actions.restore')} 
+                        <ActionButton
+                          icon={Clock}
+                          tooltip={t('actions.restore')}
                           onClick={() => onRestore(item.id)}
                           color="muted"
                         />
@@ -316,59 +366,74 @@ export function NormalizationTableView({
                     </div>
                   </td>
                 </motion.tr>
-              );
+              )
             })}
           </AnimatePresence>
         </tbody>
-        
+
         {/* Footer - EBITDA totals with Geboekt / Correctie / Genormaliseerd */}
         <tfoot>
           <tr className="border-t-2 border-foreground/[0.12] bg-muted/60">
             <td colSpan={3} className="px-4 py-3.5 border-r border-foreground/[0.08]">
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider">{t('footer.ebitdaTotal')}</span>
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                {t('footer.ebitdaTotal')}
+              </span>
             </td>
             {years.map((year, idx) => {
-              const yt = yearTotals[year];
+              const yt = yearTotals[year]
               return (
-                <td 
+                <td
                   key={year}
                   className={cn(
-                    "px-3 py-3.5 text-right whitespace-nowrap",
-                    idx > 0 && "border-l border-foreground/[0.08]"
+                    'px-3 py-3.5 text-right whitespace-nowrap',
+                    idx > 0 && 'border-l border-foreground/[0.08]'
                   )}
                 >
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-end gap-2">
-                      <span className="text-[9px] text-foreground/40 uppercase">{t('footer.geboekt')}</span>
+                      <span className="text-[9px] text-foreground/40 uppercase">
+                        {t('footer.geboekt')}
+                      </span>
                       <span className="font-mono text-xs tabular-nums text-foreground/50">
                         {formatCurrency(originalEBITDA)}
                       </span>
                     </div>
                     <div className="flex items-center justify-end gap-2">
-                      <span className="text-[9px] text-foreground/40 uppercase">{t('footer.correctie')}</span>
-                      <span className={cn(
-                        "font-mono text-xs font-bold tabular-nums",
-                        yt.adjustment > 0 ? "text-success" : yt.adjustment < 0 ? "text-secondary" : "text-foreground/40"
-                      )}>
-                        {yt.adjustment > 0 ? '+' : ''}{formatCurrency(yt.adjustment)}
+                      <span className="text-[9px] text-foreground/40 uppercase">
+                        {t('footer.correctie')}
+                      </span>
+                      <span
+                        className={cn(
+                          'font-mono text-xs font-bold tabular-nums',
+                          yt.adjustment > 0
+                            ? 'text-success'
+                            : yt.adjustment < 0
+                              ? 'text-secondary'
+                              : 'text-foreground/40'
+                        )}
+                      >
+                        {yt.adjustment > 0 ? '+' : ''}
+                        {formatCurrency(yt.adjustment)}
                       </span>
                     </div>
                     <div className="flex items-center justify-end gap-2 pt-1 border-t border-foreground/[0.08]">
-                      <span className="text-[9px] text-primary uppercase font-semibold">{t('footer.genorm')}</span>
+                      <span className="text-[9px] text-primary uppercase font-semibold">
+                        {t('footer.genorm')}
+                      </span>
                       <span className="font-mono text-sm font-bold tabular-nums text-foreground">
                         {formatCurrency(yt.normalized)}
                       </span>
                     </div>
                   </div>
                 </td>
-              );
+              )
             })}
             <td className="px-4 py-3.5 border-l border-foreground/[0.08]" />
           </tr>
         </tfoot>
       </table>
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
@@ -386,8 +451,8 @@ export function NormalizationBentoView({
   onRestore,
   onEdit,
 }: NormalizationViewProps) {
-  const t = useTranslations('normalizationHub');
-  const locale = useLocale();
+  const t = useTranslations('normalizationHub')
+  const locale = useLocale()
   const formatCurrency = React.useCallback(
     (value: number) =>
       new Intl.NumberFormat(locale === 'nl' ? 'nl-NL' : 'en-GB', {
@@ -397,20 +462,44 @@ export function NormalizationBentoView({
         maximumFractionDigits: 0,
       }).format(value),
     [locale]
-  );
+  )
   const categoryLabels = React.useMemo(
     () =>
       ({
-        salary: { label: t('categories.salary'), icon: categoryIcons.salary, group: 'kosten' as const },
+        salary: {
+          label: t('categories.salary'),
+          icon: categoryIcons.salary,
+          group: 'kosten' as const,
+        },
         rent: { label: t('categories.rent'), icon: categoryIcons.rent, group: 'kosten' as const },
-        vehicle: { label: t('categories.vehicle'), icon: categoryIcons.vehicle, group: 'kosten' as const },
-        'one-time': { label: t('categories.oneTime'), icon: categoryIcons['one-time'], group: 'kosten' as const },
-        personal: { label: t('categories.personal'), icon: categoryIcons.personal, group: 'kosten' as const },
-        depreciation: { label: t('categories.depreciation'), icon: categoryIcons.depreciation, group: 'kosten' as const },
-        other: { label: t('categories.other'), icon: categoryIcons.other, group: 'kosten' as const },
+        vehicle: {
+          label: t('categories.vehicle'),
+          icon: categoryIcons.vehicle,
+          group: 'kosten' as const,
+        },
+        'one-time': {
+          label: t('categories.oneTime'),
+          icon: categoryIcons['one-time'],
+          group: 'kosten' as const,
+        },
+        personal: {
+          label: t('categories.personal'),
+          icon: categoryIcons.personal,
+          group: 'kosten' as const,
+        },
+        depreciation: {
+          label: t('categories.depreciation'),
+          icon: categoryIcons.depreciation,
+          group: 'kosten' as const,
+        },
+        other: {
+          label: t('categories.other'),
+          icon: categoryIcons.other,
+          group: 'kosten' as const,
+        },
       }) as Record<string, { label: string; icon: string; group: 'omzet' | 'kosten' }>,
     [t]
-  );
+  )
   const sourceConfig = React.useMemo(
     () =>
       ({
@@ -421,26 +510,26 @@ export function NormalizationBentoView({
         ai: { label: t('sources.ai'), color: sourceColors.ai },
       }) as Record<NormalizationSource, { label: string; color: string }>,
     [t]
-  );
+  )
 
   // Group by category for visual organization
   const groupedByCategory = React.useMemo(() => {
-    const groups: Record<string, NormalizationItem[]> = {};
-    items.forEach(item => {
-      const cat = item.category || 'other';
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(item);
-    });
-    return groups;
-  }, [items]);
+    const groups: Record<string, NormalizationItem[]> = {}
+    items.forEach((item) => {
+      const cat = item.category || 'other'
+      if (!groups[cat]) groups[cat] = []
+      groups[cat].push(item)
+    })
+    return groups
+  }, [items])
 
   // Calculate totals
   const totalAdjustment = items
-    .filter(i => i.status === 'accepted')
-    .reduce((sum, i) => sum + i.adjustment, 0);
+    .filter((i) => i.status === 'accepted')
+    .reduce((sum, i) => sum + i.adjustment, 0)
 
   if (items.length === 0) {
-    return null;
+    return null
   }
 
   return (
@@ -449,14 +538,16 @@ export function NormalizationBentoView({
       <div className="grid grid-cols-12 gap-4">
         <AnimatePresence mode="popLayout">
           {items.map((item, index) => {
-            const cat = categoryLabels[item.category] || categoryLabels.other;
-            const source = sourceConfig[item.source] || sourceConfig.manual;
-            
+            const cat = categoryLabels[item.category] || categoryLabels.other
+            const source = sourceConfig[item.source] || sourceConfig.manual
+
             // Determine card size based on adjustment magnitude
-            const magnitude = Math.abs(item.adjustment);
-            const isLarge = magnitude > 50000;
-            const colSpan = isLarge ? 'col-span-12 md:col-span-6' : 'col-span-12 md:col-span-6 lg:col-span-4';
-            
+            const magnitude = Math.abs(item.adjustment)
+            const isLarge = magnitude > 50000
+            const colSpan = isLarge
+              ? 'col-span-12 md:col-span-6'
+              : 'col-span-12 md:col-span-6 lg:col-span-4'
+
             return (
               <motion.div
                 key={item.id}
@@ -467,29 +558,38 @@ export function NormalizationBentoView({
                 transition={{ delay: index * 0.03, type: 'spring', stiffness: 200, damping: 25 }}
                 className={cn(
                   colSpan,
-                  "group relative overflow-hidden rounded-xl transition-all duration-300",
-                  "bg-card/80 backdrop-blur-lg border hover:translate-y-[-2px]",
-                  item.status === 'pending' && "border-foreground/[0.08] hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5",
-                  item.status === 'accepted' && "border-success/20 bg-success/[0.02] hover:border-success/40 hover:shadow-lg hover:shadow-success/5",
-                  item.status === 'rejected' && "border-secondary/20 bg-secondary/[0.02] opacity-60"
+                  'group relative overflow-hidden rounded-xl transition-all duration-300',
+                  'bg-card/80 backdrop-blur-lg border hover:translate-y-[-2px]',
+                  item.status === 'pending' &&
+                    'border-foreground/[0.08] hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5',
+                  item.status === 'accepted' &&
+                    'border-success/20 bg-success/[0.02] hover:border-success/40 hover:shadow-lg hover:shadow-success/5',
+                  item.status === 'rejected' && 'border-secondary/20 bg-secondary/[0.02] opacity-60'
                 )}
               >
                 {/* Status indicator bar */}
-                <div className={cn(
-                  "absolute top-0 left-0 right-0 h-0.5",
-                  item.status === 'pending' && "bg-gradient-to-r from-warning/20 via-warning/30 to-transparent",
-                  item.status === 'accepted' && "bg-gradient-to-r from-success/50 via-success/30 to-transparent",
-                  item.status === 'rejected' && "bg-gradient-to-r from-secondary/50 via-secondary/30 to-transparent"
-                )} />
-                
+                <div
+                  className={cn(
+                    'absolute top-0 left-0 right-0 h-0.5',
+                    item.status === 'pending' &&
+                      'bg-gradient-to-r from-warning/20 via-warning/30 to-transparent',
+                    item.status === 'accepted' &&
+                      'bg-gradient-to-r from-success/50 via-success/30 to-transparent',
+                    item.status === 'rejected' &&
+                      'bg-gradient-to-r from-secondary/50 via-secondary/30 to-transparent'
+                  )}
+                />
+
                 <div className="p-4">
                   {/* Header */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center text-lg",
-                        item.status === 'accepted' ? "bg-success/10" : "bg-foreground/[0.05]"
-                      )}>
+                      <div
+                        className={cn(
+                          'w-10 h-10 rounded-xl flex items-center justify-center text-lg',
+                          item.status === 'accepted' ? 'bg-success/10' : 'bg-foreground/[0.05]'
+                        )}
+                      >
                         {cat.icon}
                       </div>
                       <div>
@@ -497,7 +597,12 @@ export function NormalizationBentoView({
                           <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.08] text-foreground/60">
                             {item.ledgerCode}
                           </span>
-                          <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-medium", source.color)}>
+                          <span
+                            className={cn(
+                              'px-2 py-0.5 rounded-full text-[9px] font-medium',
+                              source.color
+                            )}
+                          >
                             {source.label}
                           </span>
                         </div>
@@ -506,30 +611,66 @@ export function NormalizationBentoView({
                         </p>
                       </div>
                     </div>
-                    
+
                     {/* Actions */}
                     <div className="flex gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       {item.status === 'pending' && (
                         <>
-                          <ActionButton icon={Edit3} tooltip={t('actions.edit')} onClick={() => onEdit(item)} color="primary" size="sm" />
-                          <ActionButton icon={X} tooltip={t('actions.reject')} onClick={() => onReject(item.id)} color="secondary" size="sm" />
-                          <ActionButton icon={Check} tooltip={t('actions.accept')} onClick={() => onAccept(item.id)} color="success" size="sm" />
+                          <ActionButton
+                            icon={Edit3}
+                            tooltip={t('actions.edit')}
+                            onClick={() => onEdit(item)}
+                            color="primary"
+                            size="sm"
+                          />
+                          <ActionButton
+                            icon={X}
+                            tooltip={t('actions.reject')}
+                            onClick={() => onReject(item.id)}
+                            color="secondary"
+                            size="sm"
+                          />
+                          <ActionButton
+                            icon={Check}
+                            tooltip={t('actions.accept')}
+                            onClick={() => onAccept(item.id)}
+                            color="success"
+                            size="sm"
+                          />
                         </>
                       )}
                       {item.status === 'accepted' && (
                         <>
-                          <ActionButton icon={Edit3} tooltip={t('actions.edit')} onClick={() => onEdit(item)} color="primary" size="sm" />
+                          <ActionButton
+                            icon={Edit3}
+                            tooltip={t('actions.edit')}
+                            onClick={() => onEdit(item)}
+                            color="primary"
+                            size="sm"
+                          />
                           {item.source === 'manual' && (
-                            <ActionButton icon={Trash2} tooltip={t('actions.remove')} onClick={() => onRemove(item.id)} color="secondary" size="sm" />
+                            <ActionButton
+                              icon={Trash2}
+                              tooltip={t('actions.remove')}
+                              onClick={() => onRemove(item.id)}
+                              color="secondary"
+                              size="sm"
+                            />
                           )}
                         </>
                       )}
                       {item.status === 'rejected' && (
-                        <ActionButton icon={Clock} tooltip={t('actions.restore')} onClick={() => onRestore(item.id)} color="muted" size="sm" />
+                        <ActionButton
+                          icon={Clock}
+                          tooltip={t('actions.restore')}
+                          onClick={() => onRestore(item.id)}
+                          color="muted"
+                          size="sm"
+                        />
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Value Display */}
                   <div className="flex items-end justify-between mt-4 pt-3 border-t border-foreground/[0.06]">
                     <div className="flex items-center gap-2">
@@ -538,18 +679,21 @@ export function NormalizationBentoView({
                       ) : (
                         <TrendingDown className="w-4 h-4 text-secondary" />
                       )}
-                      <span className={cn(
-                        "text-xl font-bold font-mono tabular-nums",
-                        item.adjustment >= 0 ? "text-success" : "text-secondary"
-                      )}>
-                        {item.adjustment >= 0 ? '+' : ''}{formatCurrency(item.adjustment)}
+                      <span
+                        className={cn(
+                          'text-xl font-bold font-mono tabular-nums',
+                          item.adjustment >= 0 ? 'text-success' : 'text-secondary'
+                        )}
+                      >
+                        {item.adjustment >= 0 ? '+' : ''}
+                        {formatCurrency(item.adjustment)}
                       </span>
                     </div>
-                    
+
                     {/* Year badges */}
                     <div className="flex gap-1">
-                      {(item.applyYears || [item.year]).slice(0, 3).map(year => (
-                        <span 
+                      {(item.applyYears || [item.year]).slice(0, 3).map((year) => (
+                        <span
                           key={year}
                           className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-foreground/[0.06] text-foreground/50 tabular-nums"
                         >
@@ -563,21 +707,19 @@ export function NormalizationBentoView({
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Reason */}
                   {item.reason && (
-                    <p className="text-xs text-foreground/40 mt-2 line-clamp-2">
-                      {item.reason}
-                    </p>
+                    <p className="text-xs text-foreground/40 mt-2 line-clamp-2">{item.reason}</p>
                   )}
                 </div>
               </motion.div>
-            );
+            )
           })}
         </AnimatePresence>
       </div>
     </div>
-  );
+  )
 }
 
 // ─────────────────────────────────────────
@@ -585,11 +727,11 @@ export function NormalizationBentoView({
 // ─────────────────────────────────────────
 
 interface ActionButtonProps {
-  icon: React.ComponentType<{ className?: string }>;
-  tooltip: string;
-  onClick: () => void;
-  color: 'primary' | 'secondary' | 'success' | 'muted';
-  size?: 'sm' | 'md';
+  icon: React.ComponentType<{ className?: string }>
+  tooltip: string
+  onClick: () => void
+  color: 'primary' | 'secondary' | 'success' | 'muted'
+  size?: 'sm' | 'md'
 }
 
 function ActionButton({ icon: Icon, tooltip, onClick, color, size = 'md' }: ActionButtonProps) {
@@ -598,17 +740,17 @@ function ActionButton({ icon: Icon, tooltip, onClick, color, size = 'md' }: Acti
     secondary: 'hover:text-secondary hover:bg-secondary/10',
     success: 'hover:text-success hover:bg-success/10',
     muted: 'hover:text-foreground/70 hover:bg-foreground/10',
-  };
-  
+  }
+
   const sizeClasses = {
     sm: 'p-1 rounded-md',
     md: 'p-1.5 rounded-lg',
-  };
-  
+  }
+
   const iconSizeClasses = {
     sm: 'w-3 h-3',
     md: 'w-3.5 h-3.5',
-  };
+  }
 
   return (
     <TooltipProvider>
@@ -616,11 +758,11 @@ function ActionButton({ icon: Icon, tooltip, onClick, color, size = 'md' }: Acti
         <TooltipTrigger asChild>
           <button
             onClick={(e) => {
-              e.stopPropagation();
-              onClick();
+              e.stopPropagation()
+              onClick()
             }}
             className={cn(
-              "text-foreground/40 transition-colors",
+              'text-foreground/40 transition-colors',
               sizeClasses[size],
               colorClasses[color]
             )}
@@ -631,7 +773,7 @@ function ActionButton({ icon: Icon, tooltip, onClick, color, size = 'md' }: Acti
         <TooltipContent>{tooltip}</TooltipContent>
       </TooltipRoot>
     </TooltipProvider>
-  );
+  )
 }
 
-export default NormalizationTableView;
+export default NormalizationTableView

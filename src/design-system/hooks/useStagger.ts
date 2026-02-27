@@ -1,13 +1,13 @@
 /**
  * Hybrid Aurora Design System
  * Stagger Animation Utilities
- * 
+ *
  * Utilities for creating staggered animations in lists
  */
 
-import { useMemo } from 'react';
-import { useReducedMotion } from './useReducedMotion';
-import { springPresets, type SpringPreset } from './useSpring';
+import { useMemo } from 'react'
+import { useReducedMotion } from './useReducedMotion'
+import { type SpringPreset, springPresets } from './useSpring'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -15,11 +15,11 @@ import { springPresets, type SpringPreset } from './useSpring';
 
 export interface StaggerConfig {
   /** Delay between items in seconds */
-  staggerChildren?: number;
+  staggerChildren?: number
   /** Delay before starting children animation */
-  delayChildren?: number;
+  delayChildren?: number
   /** Spring preset for children */
-  spring?: SpringPreset;
+  spring?: SpringPreset
 }
 
 // ─────────────────────────────────────────
@@ -31,20 +31,16 @@ export interface StaggerConfig {
  * Returns variants for use with motion components
  */
 export function useStaggerContainer(config: StaggerConfig = {}) {
-  const {
-    staggerChildren = 0.05,
-    delayChildren = 0,
-    spring = 'default',
-  } = config;
+  const { staggerChildren = 0.05, delayChildren = 0, spring = 'default' } = config
 
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion()
 
   return useMemo(() => {
     if (prefersReducedMotion) {
       return {
         hidden: {},
         visible: {},
-      };
+      }
     }
 
     return {
@@ -56,8 +52,8 @@ export function useStaggerContainer(config: StaggerConfig = {}) {
           delayChildren,
         },
       },
-    };
-  }, [staggerChildren, delayChildren, prefersReducedMotion]);
+    }
+  }, [staggerChildren, delayChildren, prefersReducedMotion])
 }
 
 // ─────────────────────────────────────────
@@ -66,11 +62,11 @@ export function useStaggerContainer(config: StaggerConfig = {}) {
 
 export interface StaggerChildConfig {
   /** Animation variant */
-  variant?: 'fadeUp' | 'fadeDown' | 'fadeIn' | 'scaleIn' | 'slideLeft' | 'slideRight';
+  variant?: 'fadeUp' | 'fadeDown' | 'fadeIn' | 'scaleIn' | 'slideLeft' | 'slideRight'
   /** Spring preset */
-  spring?: SpringPreset;
+  spring?: SpringPreset
   /** Custom delay for this child */
-  delay?: number;
+  delay?: number
 }
 
 /**
@@ -78,21 +74,17 @@ export interface StaggerChildConfig {
  * Returns variants for use with motion components
  */
 export function useStaggerChild(config: StaggerChildConfig = {}) {
-  const {
-    variant = 'fadeUp',
-    spring = 'default',
-    delay = 0,
-  } = config;
+  const { variant = 'fadeUp', spring = 'default', delay = 0 } = config
 
-  const prefersReducedMotion = useReducedMotion();
-  const springConfig = springPresets[spring];
+  const prefersReducedMotion = useReducedMotion()
+  const springConfig = springPresets[spring]
 
   return useMemo(() => {
     if (prefersReducedMotion) {
       return {
         hidden: { opacity: 1 },
         visible: { opacity: 1 },
-      };
+      }
     }
 
     const variants: Record<string, { hidden: object; visible: object }> = {
@@ -143,8 +135,8 @@ export function useStaggerChild(config: StaggerChildConfig = {}) {
           transition: { ...springConfig, delay },
         },
       },
-    };
+    }
 
-    return variants[variant] || variants.fadeUp;
-  }, [variant, springConfig, delay, prefersReducedMotion]);
+    return variants[variant] || variants.fadeUp
+  }, [variant, springConfig, delay, prefersReducedMotion])
 }

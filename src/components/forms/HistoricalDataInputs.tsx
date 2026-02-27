@@ -70,7 +70,9 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
     return (
       <div className="text-sm text-foreground/50 bg-foreground/[0.04] border border-foreground/[0.08] rounded-xl p-4 text-center">
         <p>No historical data available yet.</p>
-        <p className="text-xs mt-1 text-foreground/40">Company was founded in {foundingYear || 'current year'}.</p>
+        <p className="text-xs mt-1 text-foreground/40">
+          Company was founded in {foundingYear || 'current year'}.
+        </p>
       </div>
     )
   }
@@ -121,7 +123,11 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
               {isNormalized && sessionId ? (
                 <NormalizedEBITDAField
                   label="EBITDA (€)"
-                  originalValue={Number.isFinite(parseFloat(ebitda.replace(/,/g, ''))) ? parseFloat(ebitda.replace(/,/g, '')) : 0}
+                  originalValue={
+                    Number.isFinite(parseFloat(ebitda.replace(/,/g, '')))
+                      ? parseFloat(ebitda.replace(/,/g, ''))
+                      : 0
+                  }
                   normalizedValue={getNormalizedEbitda(year)}
                   totalAdjustments={getTotalAdjustments(year)}
                   adjustmentCount={getAdjustmentCount(year)}

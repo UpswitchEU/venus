@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { springSnappy } from '@/design-system/components/motion'
 import { ArrowRight, CheckCircle, Sparkles, XCircle } from 'lucide-react'
 import React from 'react'
+import { springSnappy } from '@/design-system/components/motion'
 
 interface Suggestion {
   text: string

@@ -8,10 +8,10 @@
  * Bank-grade: server-safe Titan URL, 5xx vs 401 differentiation, fetch timeout.
  */
 
-import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
-import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { generalLogger } from '@/utils/logger'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
@@ -54,15 +54,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Forward request to Titan API with cookies (with timeout)
-    const response = await fetchWithTimeout(
-      `${titanApiUrl}/api/v2/auth/me`,
-      {
-        method: 'GET',
-        headers: {
-          Cookie: cookieHeader,
-        },
-      }
-    )
+    const response = await fetchWithTimeout(`${titanApiUrl}/api/v2/auth/me`, {
+      method: 'GET',
+      headers: {
+        Cookie: cookieHeader,
+      },
+    })
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))

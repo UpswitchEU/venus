@@ -1,6 +1,6 @@
 import { Code, Copy } from 'lucide-react'
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 
@@ -66,9 +66,16 @@ export const HTMLView: React.FC<HTMLViewProps> = ({ result }) => {
             {tHtml('notAvailableDesc')}
           </p>
           <div className="text-xs text-muted-foreground text-center">
-            <p>{tHtml('valuationId')}: {result.valuation_id || 'N/A'}</p>
-            <p>{tHtml('htmlReport')}: {result.html_report ? tHtml('presentButEmpty') : tHtml('notPresent')}</p>
-            <p>{tHtml('htmlLength')}: {result.html_report?.length || 0} {tHtml('characters')}</p>
+            <p>
+              {tHtml('valuationId')}: {result.valuation_id || 'N/A'}
+            </p>
+            <p>
+              {tHtml('htmlReport')}:{' '}
+              {result.html_report ? tHtml('presentButEmpty') : tHtml('notPresent')}
+            </p>
+            <p>
+              {tHtml('htmlLength')}: {result.html_report?.length || 0} {tHtml('characters')}
+            </p>
           </div>
         </div>
       </div>

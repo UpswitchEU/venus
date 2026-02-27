@@ -15,12 +15,12 @@
 
 import { create } from 'zustand'
 import type { RestorationProgress } from '../hooks/useRestorationProgress'
-import type { ValuationSession } from '../types/valuation'
-import { storeLogger } from '../utils/logger'
+import type { IdentityState } from '../lib/bootstrap/types'
 import type { ISessionEngine } from '../services/session/SessionEngine'
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
-import type { IdentityState } from '../lib/bootstrap/types'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
+import type { ValuationSession } from '../types/valuation'
+import { storeLogger } from '../utils/logger'
 
 /**
  * Explicit session states (bank-grade state machine)
@@ -97,17 +97,23 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   session: null,
   status: 'idle' as SessionStatus,
   errorMessage: null,
-  
+
   // Computed properties for backward compatibility
-  get isLoading() { return get().status === 'loading' },
-  get error() { return get().errorMessage },
-  get isInitializing() { return get().status === 'idle' || get().status === 'loading' },
-  
+  get isLoading() {
+    return get().status === 'loading'
+  },
+  get error() {
+    return get().errorMessage
+  },
+  get isInitializing() {
+    return get().status === 'idle' || get().status === 'loading'
+  },
+
   // Save state
   isSaving: false,
   lastSaved: null,
   hasUnsavedChanges: false,
-  
+
   // Other state
   restorationProgress: null,
   paywallData: null,
@@ -134,7 +140,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
    * State Machine Transitions:
    * - IDLE/ERROR -> LOADING -> LOADED (success) or ERROR (failure)
    * - Promise cache prevents duplicate concurrent loads
-   * 
+   *
    * Session Types:
    * - NEW SESSION: No existing data, show "Initializing" state
    * - EXISTING SESSION: Has data, show "Restoring" state, hydrate all stores
@@ -161,8 +167,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
     // STATE TRANSITION: -> LOADING
     const loadPromise = (async () => {
-      set({ 
-        status: 'loading' as SessionStatus, 
+      set({
+        status: 'loading' as SessionStatus,
         errorMessage: null,
         session: state.session?.reportId !== reportId ? null : state.session,
       })
@@ -174,13 +180,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         if (!currentState.engine) {
           throw new Error('Session engine not initialized. Call setEngine() first.')
         }
-        
+
         const session = await currentState.engine.loadSession(reportId, flow, prefilledQuery)
 
         if (!session) {
           throw new Error(`Session not found: ${reportId}`)
         }
-        
+
         // ✅ WORLD-CLASS: Detect new vs existing session
         // Cast to any since backend sessionData can have various shapes (snake_case, camelCase, nested)
         // ✅ BANK-GRADE FIX: Check ALL possible locations for valuation result
@@ -188,18 +194,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         const sessionAny = session as any
         const hasExistingValuationResult = !!(
           // Top-level fields (from mergeSessionFields)
-          sessionAny.valuationResult ||
-          sessionAny.htmlReport ||
-          // sessionData fields (snake_case and camelCase)
-          sessionData.valuationResult || 
-          sessionData.valuation_result ||
-          sessionData.htmlReport ||
-          sessionData.html_report ||
-          sessionData._valuationResult ||
-          sessionData._htmlReport ||
-          // Legacy fields
-          sessionAny.latestValuation ||
-          sessionAny.latest_valuation
+          (
+            sessionAny.valuationResult ||
+            sessionAny.htmlReport ||
+            // sessionData fields (snake_case and camelCase)
+            sessionData.valuationResult ||
+            sessionData.valuation_result ||
+            sessionData.htmlReport ||
+            sessionData.html_report ||
+            sessionData._valuationResult ||
+            sessionData._htmlReport ||
+            // Legacy fields
+            sessionAny.latestValuation ||
+            sessionAny.latest_valuation
+          )
         )
         // CRITICAL: Broaden check to include KBO and other form fields from Mercury
         // Empty company_name is falsy but kbo_number, vat_number, etc. may exist
@@ -229,7 +237,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
         // STATE TRANSITION: -> LOADED
         // DIAGNOSTIC: Log sessionData for Mercury data flow tracing
-        const sessionDataForLog = (session.sessionData || {}) as Record<string, unknown>;
+        const sessionDataForLog = (session.sessionData || {}) as Record<string, unknown>
         storeLogger.info('[Session] Loaded successfully', {
           reportId: session.reportId?.substring(0, 20),
           hasSessionData: !!session.sessionData,
@@ -242,17 +250,22 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             vat_number: !!sessionDataForLog.vat_number,
           },
         })
-        
+
         // ✅ WORLD-CLASS: Trigger centralized restoration
         // For EXISTING sessions: Hydrate ALL stores (form, results, versions, normalizations)
         // For NEW sessions: Skip restoration (nothing to restore)
         // BANK-GRADE: Clear prior restoration so full API session wins over bootstrap/minimal.
         // Bootstrap may have triggered restore(minimalSession); loadSession has authoritative data.
         if (isExistingSession) {
-          storeLogger.debug('[Session] Existing session detected - triggering full restoration', { reportId })
+          storeLogger.debug('[Session] Existing session detected - triggering full restoration', {
+            reportId,
+          })
           SessionRestorationService.clearRestorationState(session.reportId)
-          const restorationResult = await SessionRestorationService.restore(session.reportId, session)
-          
+          const restorationResult = await SessionRestorationService.restore(
+            session.reportId,
+            session
+          )
+
           storeLogger.debug('[Session] Restoration complete', {
             reportId: session.reportId,
             success: restorationResult.success,
@@ -265,7 +278,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         } else {
           storeLogger.debug('[Session] New session detected - skipping restoration', { reportId })
         }
-        
+
         set({
           session,
           status: 'loaded' as SessionStatus,
@@ -328,7 +341,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   /**
    * Update entire session object
-   * 
+   *
    * ✅ TWIN ENGINE: Delegates to engine (Guest or Auth)
    */
   updateSession: (updates: Partial<ValuationSession>) => {
@@ -436,7 +449,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           hasSavedCompanyName,
           savedBusinessTypeId: (savedSession.sessionData as any)?.business_type_id,
         })
-        
+
         // Update session in store with the saved session (includes merged business card data)
         set({
           session: savedSession,
@@ -466,13 +479,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save session'
-      
+
       // ✅ WORLD-CLASS FIX: Don't crash UI for non-critical errors
       // Rate limits (429) and network errors are transient - don't show error screen
-      const isRateLimit = message.includes('429') || message.includes('rate limit') || message.includes('too many requests')
-      const isNetworkError = message.includes('network') || message.includes('timeout') || message.includes('ECONNREFUSED')
+      const isRateLimit =
+        message.includes('429') ||
+        message.includes('rate limit') ||
+        message.includes('too many requests')
+      const isNetworkError =
+        message.includes('network') ||
+        message.includes('timeout') ||
+        message.includes('ECONNREFUSED')
       const isNonCritical = isRateLimit || isNetworkError
-      
+
       if (isNonCritical) {
         storeLogger.warn('[Session] Non-critical save error (will retry automatically)', {
           reportId: state.session.reportId,
@@ -480,7 +499,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           reason,
           note: 'Rate limit or network error - update will be retried on next change',
         })
-        
+
         // Don't set error state for non-critical errors - just mark as not saving
         set({
           isSaving: false,
@@ -532,12 +551,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   /**
    * Mark initialization as complete (transition to loaded state)
-   * 
+   *
    * For new reports from bootstrap: session is created by useBootstrapSync
    * before this is called. For bootstrapHasNewReport (ValuationSessionManager
    * skips loadSession): we rely on useBootstrapSync to create session and
    * call this, so session will exist.
-   * 
+   *
    * When session is null (e.g. bootstrap failed or sync not yet run):
    * set status='loaded' anyway to unblock UI - prevents infinite loading
    * when bootstrap provides new report but sync hasn't run yet.

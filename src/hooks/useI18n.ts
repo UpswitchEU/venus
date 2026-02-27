@@ -8,8 +8,8 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { useTransitionRouter } from 'next-view-transitions'
 import { useLocale, useTranslations } from 'next-intl'
+import { useTransitionRouter } from 'next-view-transitions'
 import { type Locale, locales } from '../../i18n'
 
 export function useI18n() {

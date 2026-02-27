@@ -15,15 +15,12 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { useBootstrapSafe } from '../../lib/bootstrap'
 import { useBootstrapPrefill } from '../../hooks/useBootstrapPrefill'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
 import { useSessionDataPrefill } from '../../hooks/useSessionDataPrefill'
-import {
-  businessTypesApiService,
-  type BusinessType,
-} from '../../services/businessTypesApi'
+import { useBootstrapSafe } from '../../lib/bootstrap'
+import { type BusinessType, businessTypesApiService } from '../../services/businessTypesApi'
 import { useManualFormStore, useManualResultsStore } from '../../store/manual'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
@@ -359,18 +356,19 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // Priority 1: Session data from Mercury (accountant → client flow)
   // Priority 2: Auth context (user's own business card)
   // Priority 3: URL parameters (prefilledQuery)
-  
+
   // PRE-FILL: Priority 0 - Bootstrap prefill (World-class initialization)
   // This runs first and applies data from the bootstrap system which resolves
   // auth, session, and prefill data BEFORE UI renders. This is the most
   // comprehensive prefill as it aggregates from all sources: KBO, user profile,
   // session data, and Mercury business card.
   const { prefillConfidence } = useBootstrapPrefill()
-  
+
   // ✅ WORLD-CLASS: Get bootstrap state to check if viewing existing report
   const bootstrap = useBootstrapSafe()
-  const isViewingExistingReport = bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
-  
+  const isViewingExistingReport =
+    bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
+
   // ✅ WORLD-CLASS ARCHITECTURE: Bootstrap is the SINGLE SOURCE OF TRUTH
   // useSessionDataPrefill is deprecated - it will skip when bootstrap is available
   useSessionDataPrefill()
@@ -386,13 +384,13 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       })
       return
     }
-    
+
     // Skip prefill for existing reports with data
     if (isViewingExistingReport) {
       generalLogger.debug('Skipping business card prefill - viewing existing report')
       return
     }
-    
+
     // Skip if no business card or already prefilled
     if (!isAuthenticated || !businessCard || hasPrefilledOnce || businessTypes.length === 0) {
       return
@@ -414,8 +412,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         updateFormData({
           business_type_id: matchingType.id,
           business_model: matchingType.id,
-          industry:
-            matchingType.industry || matchingType.industryMapping || businessCard.industry,
+          industry: matchingType.industry || matchingType.industryMapping || businessCard.industry,
           subIndustry: matchingType.category,
         })
       }
@@ -505,12 +502,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     return () => {
       cancelled = true
     }
-  }, [
-    formData.nace_code,
-    formData.business_type_id,
-    businessTypes,
-    updateFormData,
-  ])
+  }, [formData.nace_code, formData.business_type_id, businessTypes, updateFormData])
 
   // PRE-FILL: Priority 4 - prefilledQuery (URL parameter)
   // This runs after restoration and business types are loaded
@@ -629,24 +621,27 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const hasFormChanges = useMemo(() => {
     if (!currentVersion?.formData) return false
     const versionFormData = currentVersion.formData as any
-    
+
     // Compare key fields that affect valuation
     const changedFields = []
     if (formData.company_name !== versionFormData.company_name) changedFields.push('company_name')
     if (formData.revenue !== versionFormData.revenue) changedFields.push('revenue')
     if (formData.ebitda !== versionFormData.ebitda) changedFields.push('ebitda')
     if (formData.industry !== versionFormData.industry) changedFields.push('industry')
-    if (formData.founding_year !== versionFormData.founding_year) changedFields.push('founding_year')
-    if (formData.number_of_employees !== versionFormData.number_of_employees) changedFields.push('employees')
+    if (formData.founding_year !== versionFormData.founding_year)
+      changedFields.push('founding_year')
+    if (formData.number_of_employees !== versionFormData.number_of_employees)
+      changedFields.push('employees')
     if (formData.number_of_owners !== versionFormData.number_of_owners) changedFields.push('owners')
-    
+
     return changedFields.length > 0
   }, [currentVersion?.formData, formData])
 
   // Should show confirmation popup when:
   // 1. User has an existing valuation (version >= 1) AND (form changed OR normalizations added)
   // 2. OR just normalizations exist (backward compatibility)
-  const shouldShowVersionConfirmation = hasExistingValuation && (hasFormChanges || hasAnyNormalization)
+  const shouldShowVersionConfirmation =
+    hasExistingValuation && (hasFormChanges || hasAnyNormalization)
 
   // Memoize prefilledQuery to prevent render loops
   // ROOT CAUSE FIX: Read session state via getState(), not as subscription
@@ -683,12 +678,15 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       // This triggers when:
       // 1. User has an existing valuation AND (form changed OR normalizations added)
       if (shouldShowVersionConfirmation && !showNormalizationConfirmation) {
-        generalLogger.info('Changes detected on existing valuation, showing version confirmation popup', {
-          hasExistingValuation,
-          hasFormChanges,
-          hasAnyNormalization,
-          currentVersionNumber,
-        })
+        generalLogger.info(
+          'Changes detected on existing valuation, showing version confirmation popup',
+          {
+            hasExistingValuation,
+            hasFormChanges,
+            hasAnyNormalization,
+            currentVersionNumber,
+          }
+        )
         setPendingSubmitEvent(e)
         setShowNormalizationConfirmation(true)
         return
@@ -712,7 +710,17 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         setCalculating(false)
       }
     },
-    [shouldShowVersionConfirmation, showNormalizationConfirmation, hasExistingValuation, hasFormChanges, hasAnyNormalization, currentVersionNumber, handleSubmit, isSubmitting, clearAllErrors]
+    [
+      shouldShowVersionConfirmation,
+      showNormalizationConfirmation,
+      hasExistingValuation,
+      hasFormChanges,
+      hasAnyNormalization,
+      currentVersionNumber,
+      handleSubmit,
+      isSubmitting,
+      clearAllErrors,
+    ]
   )
 
   // Handle confirmation of normalization

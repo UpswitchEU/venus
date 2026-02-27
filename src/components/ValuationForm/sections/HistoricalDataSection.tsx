@@ -8,8 +8,8 @@
  */
 
 import React from 'react'
-import { HistoricalDataInputs } from '../../forms'
 import { AuroraFormSection } from '../../../design-system/components'
+import { HistoricalDataInputs } from '../../forms'
 
 interface HistoricalDataSectionProps {
   historicalInputs: { [key: string]: string }
@@ -33,7 +33,7 @@ export const HistoricalDataSection: React.FC<HistoricalDataSectionProps> = ({
   const lastFullYear = Math.min(new Date().getFullYear() - 1, 2100)
 
   return (
-    <AuroraFormSection 
+    <AuroraFormSection
       title="Historical Data (Optional)"
       description="Historical financials allow for CAGR (Compound Annual Growth Rate) calculation and trend analysis. Demonstrating consistent growth and margin stability reduces perceived risk, directly supporting a higher valuation tier."
     >

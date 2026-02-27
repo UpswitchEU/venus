@@ -1,4 +1,4 @@
-'use client';
+'use client'
 
 /**
  * Report Modal — Centered Modal Pattern (Aurora design)
@@ -12,35 +12,27 @@
  * - Print-friendly CSS (hides toolbar on print)
  */
 
-import {
-  X,
-  Download,
-  Share2,
-  Printer,
-  ZoomIn,
-  ZoomOut,
-  Loader2,
-} from 'lucide-react';
-import { useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { Modal, ModalContent } from '@/design-system/components/Modal';
-import { AuroraButton } from '@/design-system';
-import { HTMLProcessor } from '@/utils/htmlProcessor';
-import { ValuationReportPanel, type ValuationReportData } from './ValuationReportPanel';
+import { Download, Loader2, Printer, Share2, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { useState } from 'react'
+import { AuroraButton } from '@/design-system'
+import { Modal, ModalContent } from '@/design-system/components/Modal'
+import { HTMLProcessor } from '@/utils/htmlProcessor'
+import { type ValuationReportData, ValuationReportPanel } from './ValuationReportPanel'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
 
 export interface FullscreenReportModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  report?: ValuationReportData | null;
-  onExport?: () => void;
-  onDownload?: () => void;
-  onShare?: () => void;
-  onPrint?: () => void;
-  isExporting?: boolean;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  report?: ValuationReportData | null
+  onExport?: () => void
+  onDownload?: () => void
+  onShare?: () => void
+  onPrint?: () => void
+  isExporting?: boolean
 }
 
 // ─────────────────────────────────────────
@@ -57,12 +49,12 @@ export function FullscreenReportModal({
   onPrint,
   isExporting = false,
 }: FullscreenReportModalProps) {
-  const t = useTranslations();
-  const [zoom, setZoom] = useState(100);
+  const t = useTranslations()
+  const [zoom, setZoom] = useState(100)
 
-  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 200));
-  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50));
-  const handlePrint = onPrint ?? (() => window.print());
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 200))
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50))
+  const handlePrint = onPrint ?? (() => window.print())
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
@@ -153,8 +145,8 @@ export function FullscreenReportModal({
               )}
               <span className="hidden sm:inline">
                 {isExporting
-                  ? (t('common.exporting') || 'Exporteren...')
-                  : (t('report.exportPDF') || 'PDF')}
+                  ? t('common.exporting') || 'Exporteren...'
+                  : t('report.exportPDF') || 'PDF'}
               </span>
             </AuroraButton>
           )}
@@ -196,7 +188,7 @@ export function FullscreenReportModal({
         </div>
       </ModalContent>
     </Modal>
-  );
+  )
 }
 
-export default FullscreenReportModal;
+export default FullscreenReportModal

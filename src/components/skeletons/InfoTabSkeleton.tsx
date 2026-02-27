@@ -30,8 +30,8 @@ export function InfoTabSkeleton() {
         <div key={idx} className="mb-8">
           {/* Step header */}
           <div className="flex items-center gap-4 mb-4">
-<div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-            <div className="h-5 w-5 bg-primary/20 rounded-full" />
+            <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <div className="h-5 w-5 bg-primary/20 rounded-full" />
             </div>
             <div className="h-6 w-56 bg-foreground/10 rounded" />
           </div>

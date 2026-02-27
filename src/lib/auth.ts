@@ -19,10 +19,9 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { User } from '../contexts/AuthContextTypes'
-import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
-
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
+import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
 import { isLegacyReturnUrl } from './return-url'
 
 // Backend API URL - environment-aware (shared utility)
@@ -77,11 +76,10 @@ function getCachedRequest<T>(key: string, factory: () => Promise<T>): Promise<T>
     return cached as Promise<T>
   }
 
-  const promise = factory()
-    .finally(() => {
-      // Clear from cache after completion (success or failure)
-      requestCache.delete(key)
-    })
+  const promise = factory().finally(() => {
+    // Clear from cache after completion (success or failure)
+    requestCache.delete(key)
+  })
 
   requestCache.set(key, promise)
   return promise
@@ -94,27 +92,27 @@ function getCachedRequest<T>(key: string, factory: () => Promise<T>): Promise<T>
  * - HTTP Referer headers
  * - Analytics tools
  * - Server access logs (for future navigations)
- * 
+ *
  * @param paramsToRemove - Array of parameter names to remove from URL
  */
 function sanitizeUrl(paramsToRemove: string[]): void {
   if (typeof window === 'undefined') return
-  
+
   try {
     const url = new URL(window.location.href)
     let modified = false
-    
+
     for (const param of paramsToRemove) {
       if (url.searchParams.has(param)) {
         url.searchParams.delete(param)
         modified = true
       }
     }
-    
+
     if (modified) {
       // Replace current URL without adding to history
       window.history.replaceState({}, '', url.toString())
-      
+
       // Log sanitization (development only)
       if (process.env.NODE_ENV === 'development') {
         generalLogger.debug('[Security] Sanitized URL parameters', { paramsToRemove })
@@ -151,15 +149,21 @@ function wasRecentlyInitialized(): boolean {
   try {
     const ts = parseInt(sessionStorage.getItem(INIT_SUCCESS_KEY) || '0', 10)
     return Date.now() - ts < INIT_THROTTLE_MS
-  } catch { return false }
+  } catch {
+    return false
+  }
 }
 
 function markInitSuccess(): void {
-  try { sessionStorage.setItem(INIT_SUCCESS_KEY, String(Date.now())) } catch {}
+  try {
+    sessionStorage.setItem(INIT_SUCCESS_KEY, String(Date.now()))
+  } catch {}
 }
 
 export function clearInitThrottle(): void {
-  try { sessionStorage.removeItem(INIT_SUCCESS_KEY) } catch {}
+  try {
+    sessionStorage.removeItem(INIT_SUCCESS_KEY)
+  } catch {}
 }
 
 // ---------------------------------------------------------------------------
@@ -185,7 +189,9 @@ function isReloadLooping(): boolean {
     count++
     sessionStorage.setItem(RELOAD_COUNT_KEY, String(count))
     return count > MAX_RELOADS_IN_WINDOW
-  } catch { return false }
+  } catch {
+    return false
+  }
 }
 
 export function clearReloadCounter(): void {
@@ -199,7 +205,7 @@ export function clearReloadCounter(): void {
  * BANK GRADE: Client Context Initialization Tracking
  * Uses deferred promise pattern to prevent race conditions where API requests
  * fire before client context is loaded.
- * 
+ *
  * Key improvement: waitForClientContext() now checks if clientToken is in URL
  * and creates a promise that will be resolved when exchange completes.
  * This prevents the race where waitForClientContext() returns Promise.resolve()
@@ -258,11 +264,11 @@ export function isClientContextReady(): boolean {
 
 /**
  * Wait for client context initialization to complete
- * 
+ *
  * BANK GRADE: Uses deferred promise pattern to ensure this never returns
  * prematurely. If clientToken is in URL, this creates/returns a promise
  * that will be resolved when the exchange completes.
- * 
+ *
  * @returns Promise that resolves when client context is ready (or immediately if not needed)
  */
 export function waitForClientContext(): Promise<void> {
@@ -270,12 +276,12 @@ export function waitForClientContext(): Promise<void> {
   if (clientContextInitialized) {
     return Promise.resolve()
   }
-  
+
   // If promise already exists, return it
   if (clientContextPromise) {
     return clientContextPromise
   }
-  
+
   // Check if we're expecting client context (clientToken in URL)
   if (typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search)
@@ -284,7 +290,7 @@ export function waitForClientContext(): Promise<void> {
       return initClientContextPromise()
     }
   }
-  
+
   // No client context expected - return resolved immediately
   return Promise.resolve()
 }
@@ -296,7 +302,7 @@ interface AuthState {
   user: User | null
   loading: boolean
   error: string | null
-  /** 
+  /**
    * RACE CONDITION FIX: Tracks when initializeAuth() is running.
    * AuthGate should wait for both loading=false AND isInitializing=false
    * before checking client context. This prevents the race where
@@ -398,96 +404,98 @@ export const useAuthStore = create<AuthState>()(
               // RELOAD LOOP FIX: Signal refresh in progress so AuthGate doesn't redirect prematurely
               get().setIsRefreshing(true)
               try {
-              // CRITICAL: Deduplicate concurrent refresh attempts
-              // If already refreshing, wait for that promise
-              if (!getActiveRefreshPromise()) {
-                const promise = (async () => {
-                  try {
-                    const refreshResponse = await fetch('/api/auth/refresh', {
-                      method: 'POST',
-                      credentials: 'include',
-                      headers: { Accept: 'application/json' },
-                    })
+                // CRITICAL: Deduplicate concurrent refresh attempts
+                // If already refreshing, wait for that promise
+                if (!getActiveRefreshPromise()) {
+                  const promise = (async () => {
+                    try {
+                      const refreshResponse = await fetch('/api/auth/refresh', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { Accept: 'application/json' },
+                      })
 
-                    if (!refreshResponse.ok) {
-                      const errorData = await refreshResponse.json().catch(() => ({}))
-                      const errorMessage = errorData.message || 'Token refresh failed'
+                      if (!refreshResponse.ok) {
+                        const errorData = await refreshResponse.json().catch(() => ({}))
+                        const errorMessage = errorData.message || 'Token refresh failed'
 
-                      if (refreshResponse.status === 401 || refreshResponse.status === 403) {
-                        logAuthError('Token refresh failed - refresh token expired', {
+                        if (refreshResponse.status === 401 || refreshResponse.status === 403) {
+                          logAuthError('Token refresh failed - refresh token expired', {
+                            status: refreshResponse.status,
+                            message: errorMessage,
+                          })
+                          return false
+                        }
+
+                        logAuthError('Token refresh failed - server error', {
                           status: refreshResponse.status,
                           message: errorMessage,
                         })
                         return false
                       }
 
-                      logAuthError('Token refresh failed - server error', {
-                        status: refreshResponse.status,
-                        message: errorMessage,
+                      return true
+                    } catch (refreshError) {
+                      logAuthError('Token refresh failed - network error', {
+                        error:
+                          refreshError instanceof Error
+                            ? refreshError.message
+                            : String(refreshError),
                       })
                       return false
+                    } finally {
+                      setActiveRefreshPromise(null)
                     }
+                  })()
+                  setActiveRefreshPromise(promise)
+                }
 
-                    return true
-                  } catch (refreshError) {
-                    logAuthError('Token refresh failed - network error', {
-                      error:
-                        refreshError instanceof Error ? refreshError.message : String(refreshError),
+                const refreshSuccess = await getActiveRefreshPromise()!
+
+                if (refreshSuccess) {
+                  // Retry with new access token
+                  // Use Venus proxy route for same-origin request (no CORS issues)
+                  const retryResponse = await fetch('/api/auth/me', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                      Accept: 'application/json',
+                    },
+                  })
+
+                  if (retryResponse.ok) {
+                    const data = await retryResponse.json()
+                    const user = data.success ? data.data?.user || data.data : data.user || data
+
+                    if (user) {
+                      get().setUser(user)
+                      trackAuthSuccess(user.id, 'cookie')
+                      authMetrics.recordSuccess()
+                      // Cache successful auth result
+                      setAuthCache(user)
+
+                      // Clear any previous errors
+                      get().setError(null)
+
+                      return user
+                    }
+                  } else {
+                    // Retry failed even after refresh - might be a different issue
+                    logAuthError('Auth check failed after token refresh', {
+                      status: retryResponse.status,
                     })
-                    return false
-                  } finally {
-                    setActiveRefreshPromise(null)
-                  }
-                })()
-                setActiveRefreshPromise(promise)
-              }
-
-              const refreshSuccess = await getActiveRefreshPromise()!
-
-              if (refreshSuccess) {
-                // Retry with new access token
-                // Use Venus proxy route for same-origin request (no CORS issues)
-                const retryResponse = await fetch('/api/auth/me', {
-                  method: 'GET',
-                  credentials: 'include',
-                  headers: {
-                    Accept: 'application/json',
-                  },
-                })
-
-                if (retryResponse.ok) {
-                  const data = await retryResponse.json()
-                  const user = data.success ? data.data?.user || data.data : data.user || data
-
-                  if (user) {
-                    get().setUser(user)
-                    trackAuthSuccess(user.id, 'cookie')
-                    authMetrics.recordSuccess()
-                    // Cache successful auth result
-                    setAuthCache(user)
-
-                    // Clear any previous errors
-                    get().setError(null)
-
-                    return user
                   }
                 } else {
-                  // Retry failed even after refresh - might be a different issue
-                  logAuthError('Auth check failed after token refresh', {
-                    status: retryResponse.status,
-                  })
+                  // AUTH-FIRST: Refresh failed - authentication required
+                  logAuthError('Token refresh failed - authentication required', {})
                 }
-              } else {
-                // AUTH-FIRST: Refresh failed - authentication required
-                logAuthError('Token refresh failed - authentication required', {})
-              }
 
-              // AUTH-FIRST: Refresh failed or retry failed - user needs to re-authenticate
-              // Clear auth state and return null (BootstrapProvider will redirect to login)
-              get().setUser(null)
-              clearAuthCache()
+                // AUTH-FIRST: Refresh failed or retry failed - user needs to re-authenticate
+                // Clear auth state and return null (BootstrapProvider will redirect to login)
+                get().setUser(null)
+                clearAuthCache()
 
-              return null
+                return null
               } finally {
                 get().setIsRefreshing(false)
               }
@@ -601,38 +609,48 @@ export const useAuthStore = create<AuthState>()(
           clearAuthCache()
 
           // Clear client context on logout
-          import('../stores/clientContext').then(({ useClientContext }) => {
-            useClientContext.getState().clearClientContext()
-          }).catch(() => {
-            // Non-critical
-          })
+          import('../stores/clientContext')
+            .then(({ useClientContext }) => {
+              useClientContext.getState().clearClientContext()
+            })
+            .catch(() => {
+              // Non-critical
+            })
 
           // Clear bootstrap singleton cache so stale results aren't served after re-login
-          import('./bootstrap/SessionBootstrapService').then(({ bootstrapService }) => {
-            bootstrapService.clearCache()
-          }).catch(() => {
-            // Non-critical
-          })
+          import('./bootstrap/SessionBootstrapService')
+            .then(({ bootstrapService }) => {
+              bootstrapService.clearCache()
+            })
+            .catch(() => {
+              // Non-critical
+            })
 
           // Reset module-level guards so re-login triggers fresh auth + bootstrap
-          import('../components/AuthGate').then(({ resetAuthGateGuard }) => {
-            resetAuthGateGuard()
-          }).catch(() => {
-            // Non-critical
-          })
-          import('./bootstrap/BootstrapProvider').then(({ resetBootstrapGuard }) => {
-            resetBootstrapGuard()
-          }).catch(() => {
-            // Non-critical
-          })
+          import('../components/AuthGate')
+            .then(({ resetAuthGateGuard }) => {
+              resetAuthGateGuard()
+            })
+            .catch(() => {
+              // Non-critical
+            })
+          import('./bootstrap/BootstrapProvider')
+            .then(({ resetBootstrapGuard }) => {
+              resetBootstrapGuard()
+            })
+            .catch(() => {
+              // Non-critical
+            })
 
           // BANK-GRADE: Reset session engine singleton on logout
           // This ensures fresh engine state on next login
-          import('../services/session/SessionEngineFactory').then(({ resetSessionEngine }) => {
-            resetSessionEngine()
-          }).catch(() => {
-            // Non-critical
-          })
+          import('../services/session/SessionEngineFactory')
+            .then(({ resetSessionEngine }) => {
+              resetSessionEngine()
+            })
+            .catch(() => {
+              // Non-critical
+            })
 
           checkSessionPromise = null
           setActiveRefreshPromise(null)
@@ -721,9 +739,11 @@ async function initializeAuth(): Promise<void> {
     generalLogger.error('[Auth] Reload loop detected — breaking cycle')
     useAuthStore.getState().setLoading(false)
     useAuthStore.getState().setIsInitializing(false)
-    useAuthStore.getState().setError(
-      'Unable to sign in. The page kept reloading. Please close this tab, reopen it, and try again.'
-    )
+    useAuthStore
+      .getState()
+      .setError(
+        'Unable to sign in. The page kept reloading. Please close this tab, reopen it, and try again.'
+      )
     initCompleted = true
     return
   }
@@ -733,8 +753,8 @@ async function initializeAuth(): Promise<void> {
   // user (which Zustand persists in memory) and skip the full flow.
   // IMPORTANT: Never skip when clientToken is in the URL — the accountant→client
   // context exchange MUST run even if auth recently succeeded.
-  const hasClientToken = typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).has('clientToken')
+  const hasClientToken =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('clientToken')
 
   if (!hasClientToken && wasRecentlyInitialized()) {
     const existing = useAuthStore.getState().user
@@ -748,7 +768,9 @@ async function initializeAuth(): Promise<void> {
     // User is null (page reload cleared Zustand) but init succeeded recently.
     // The full init flow will run but this is expected — sessionStorage
     // throttle only short-circuits when the in-memory user is still present.
-    generalLogger.debug('[Auth] SessionStorage throttle active but Zustand user is null (page reload)')
+    generalLogger.debug(
+      '[Auth] SessionStorage throttle active but Zustand user is null (page reload)'
+    )
   }
 
   if (initPromise) {
@@ -760,7 +782,8 @@ async function initializeAuth(): Promise<void> {
   const traceId = currentTraceId
 
   initPromise = (async () => {
-    const { setLoading, checkSession, exchangeToken, setUser, setIsInitializing } = useAuthStore.getState()
+    const { setLoading, checkSession, exchangeToken, setUser, setIsInitializing } =
+      useAuthStore.getState()
 
     generalLogger.info(`[Auth:${traceId}] Starting initialization flow`)
 
@@ -806,11 +829,11 @@ async function initializeAuth(): Promise<void> {
 
       if (clientToken) {
         generalLogger.info(`[Auth:${traceId}] Client token detected - starting context exchange`)
-        
+
         // BANK GRADE: Initialize deferred promise IMMEDIATELY when clientToken detected
         // This ensures waitForClientContext() always has a promise to wait for
         initClientContextPromise()
-        
+
         // Validate token format before attempting exchange
         if (clientToken.length < 20 || !/^[A-Za-z0-9._-]+$/.test(clientToken)) {
           generalLogger.warn(`[Auth:${traceId}] Invalid client token format - skipping exchange`)
@@ -828,13 +851,13 @@ async function initializeAuth(): Promise<void> {
               // SECURITY: Extract token, then IMMEDIATELY sanitize URL
               // This prevents token from being logged in analytics/history
               const tokenForExchange = clientToken
-              
+
               // CRITICAL: Strip ALL sensitive params before exchange
               sanitizeUrl([
-                'clientToken',      // JWT contains sensitive claims
-                'client_id',        // UUID exposure
-                'prefilledQuery',   // Business name exposure
-                'autoSend',         // Behavioral data
+                'clientToken', // JWT contains sensitive claims
+                'client_id', // UUID exposure
+                'prefilledQuery', // Business name exposure
+                'autoSend', // Behavioral data
               ])
               // Attempt exchange with retry logic
               let lastError: Error | null = null
@@ -846,7 +869,7 @@ async function initializeAuth(): Promise<void> {
                   // BANK GRADE: Deduplicate parallel exchange-client-context requests
                   // Use token as cache key to prevent race conditions
                   const cacheKey = `exchange-client-context:${tokenForExchange.substring(0, 20)}`
-                  
+
                   const response = await getCachedRequest(cacheKey, async () => {
                     // Add 5-second timeout per attempt
                     const controller = new AbortController()
@@ -879,7 +902,7 @@ async function initializeAuth(): Promise<void> {
                     if (!user) {
                       throw new Error('Failed to authenticate after client context exchange')
                     }
-                    
+
                     // Set user before setting client context
                     setUser(user)
 
@@ -940,11 +963,14 @@ async function initializeAuth(): Promise<void> {
                     const delay = baseDelay * Math.pow(2, attempt)
                     // Silent - only log in development
                     if (process.env.NODE_ENV === 'development') {
-                      generalLogger.warn(`[Auth] Client context exchange failed, retrying in ${delay}ms...`, {
-                        attempt: attempt + 1,
-                        maxRetries,
-                        error: lastError.message,
-                      })
+                      generalLogger.warn(
+                        `[Auth] Client context exchange failed, retrying in ${delay}ms...`,
+                        {
+                          attempt: attempt + 1,
+                          maxRetries,
+                          error: lastError.message,
+                        }
+                      )
                     }
                     await new Promise((resolve) => setTimeout(resolve, delay))
                   }
@@ -961,7 +987,7 @@ async function initializeAuth(): Promise<void> {
               throw error
             }
           })()
-          
+
           // BANK GRADE FIX: Await the client context exchange before proceeding
           // This ensures client context is fully loaded before any API requests are made
           try {
@@ -971,7 +997,9 @@ async function initializeAuth(): Promise<void> {
           } catch (error) {
             // Client context exchange failed - log and continue to normal auth flow
             const lastError = error instanceof Error ? error : new Error(String(error))
-            generalLogger.error(`[Auth:${traceId}] Client context exchange failed`, { message: lastError.message })
+            generalLogger.error(`[Auth:${traceId}] Client context exchange failed`, {
+              message: lastError.message,
+            })
 
             // Show user-friendly error message
             const errorMessage = lastError.message.includes('expired')
@@ -1009,7 +1037,7 @@ async function initializeAuth(): Promise<void> {
         if (user) {
           trackAuthSuccess(user.id, 'cookie')
           authMetrics.recordSuccess()
-          
+
           // ========================================================================
           // STEP 2.5: Fetch client context for accountant viewing existing report
           // ========================================================================
@@ -1018,13 +1046,15 @@ async function initializeAuth(): Promise<void> {
           // This happens when an accountant clicks on an existing valuation in Mercury.
           const mode = params.get('mode')
           const clientIdParam = params.get('clientId')
-          
+
           if (mode === 'accountant' && clientIdParam && user.role === 'accountant') {
-            generalLogger.info(`[Auth:${traceId}] Accountant mode with clientId - fetching client context`)
-            
+            generalLogger.info(
+              `[Auth:${traceId}] Accountant mode with clientId - fetching client context`
+            )
+
             // Initialize deferred promise for client context
             initClientContextPromise()
-            
+
             try {
               const ctxAbort = new AbortController()
               const ctxTimeout = setTimeout(() => ctxAbort.abort(), 8000)
@@ -1036,24 +1066,26 @@ async function initializeAuth(): Promise<void> {
                 signal: ctxAbort.signal,
               })
               clearTimeout(ctxTimeout)
-              
+
               if (response.ok) {
                 const context = await response.json()
-                
+
                 // Validate context structure
                 if (!context.accountantUser || !context.clientUser || !context.relationship) {
                   throw new Error('Invalid client context structure received')
                 }
-                
+
                 // Set client context in store
                 const { useClientContext } = await import('../stores/clientContext')
                 useClientContext.getState().setClientContext(context)
-                
+
                 generalLogger.info(`[Auth:${traceId}] Client context established via clientId`)
                 resolveClientContext()
               } else {
                 const errorData = await response.json().catch(() => ({}))
-                throw new Error(errorData.message || `Failed to fetch client context (${response.status})`)
+                throw new Error(
+                  errorData.message || `Failed to fetch client context (${response.status})`
+                )
               }
             } catch (error) {
               generalLogger.error(`[Auth:${traceId}] Failed to fetch client context`, {
@@ -1062,12 +1094,13 @@ async function initializeAuth(): Promise<void> {
               // Don't block auth - user is authenticated, just missing client context
               // AuthGate will show an appropriate error
               rejectClientContext(error instanceof Error ? error : new Error(String(error)))
-              
-              const errorMessage = error instanceof Error ? error.message : 'Failed to establish client context'
+
+              const errorMessage =
+                error instanceof Error ? error.message : 'Failed to establish client context'
               useAuthStore.getState().setError(errorMessage)
             }
           }
-          
+
           // ========================================================================
           // STEP 2.6: Restore client context from report metadata (if no clientId in URL)
           // ========================================================================
@@ -1075,18 +1108,24 @@ async function initializeAuth(): Promise<void> {
           // This handles the case where clientToken was cleaned from URL but report still needs context
           if (!clientIdParam && user.role === 'accountant') {
             // Check if we're viewing an existing report (reportId in pathname)
-            const reportIdMatch = window.location.pathname.match(/\/reports\/([^\/]+)/)
+            const reportIdMatch = window.location.pathname.match(/\/reports\/([^/]+)/)
             const reportId = reportIdMatch ? reportIdMatch[1] : null
-            
+
             // Check if reportId is valid (session key format or UUID)
-            if (reportId && (reportId.startsWith('val_') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId))) {
+            if (
+              reportId &&
+              (reportId.startsWith('val_') ||
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId))
+            ) {
               // Check if client context already exists
               const { useClientContext } = await import('../stores/clientContext')
               const contextState = useClientContext.getState()
-              
+
               if (!contextState.isActingAsClient) {
-                generalLogger.debug(`[Auth:${traceId}] Checking report for accountant_customer_id to restore context`)
-                
+                generalLogger.debug(
+                  `[Auth:${traceId}] Checking report for accountant_customer_id to restore context`
+                )
+
                 try {
                   const reportAbort = new AbortController()
                   const reportTimeout = setTimeout(() => reportAbort.abort(), 5000)
@@ -1096,71 +1135,90 @@ async function initializeAuth(): Promise<void> {
                     {
                       method: 'GET',
                       credentials: 'include',
-                      headers: { 'Accept': 'application/json' },
+                      headers: { Accept: 'application/json' },
                       signal: reportAbort.signal,
                     }
                   )
                   clearTimeout(reportTimeout)
-                  
+
                   if (reportResponse.ok) {
                     const reportData = await reportResponse.json()
                     const report = reportData.data || reportData
                     const accountantCustomerId = report.accountant_customer_id
-                    
+
                     if (accountantCustomerId) {
-                      generalLogger.info(`[Auth:${traceId}] Found accountant_customer_id in report, restoring client context`)
-                      
+                      generalLogger.info(
+                        `[Auth:${traceId}] Found accountant_customer_id in report, restoring client context`
+                      )
+
                       // Initialize deferred promise for client context
                       initClientContextPromise()
-                      
+
                       const ctxAbort2 = new AbortController()
                       const ctxTimeout2 = setTimeout(() => ctxAbort2.abort(), 5000)
-                      const contextResponse = await fetch(`${API_URL}/api/v2/auth/get-client-context`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ clientId: accountantCustomerId }),
-                        signal: ctxAbort2.signal,
-                      })
+                      const contextResponse = await fetch(
+                        `${API_URL}/api/v2/auth/get-client-context`,
+                        {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({ clientId: accountantCustomerId }),
+                          signal: ctxAbort2.signal,
+                        }
+                      )
                       clearTimeout(ctxTimeout2)
-                      
+
                       if (contextResponse.ok) {
                         const context = await contextResponse.json()
-                        
+
                         // Validate context structure
                         if (context.accountantUser && context.clientUser && context.relationship) {
                           // Set client context in store
                           useClientContext.getState().setClientContext(context)
-                          
-                          generalLogger.info(`[Auth:${traceId}] Client context restored from report`)
+
+                          generalLogger.info(
+                            `[Auth:${traceId}] Client context restored from report`
+                          )
                           resolveClientContext()
                         } else {
-                          generalLogger.warn(`[Auth:${traceId}] Invalid client context structure from report`)
+                          generalLogger.warn(
+                            `[Auth:${traceId}] Invalid client context structure from report`
+                          )
                         }
                       } else {
                         const errorData = await contextResponse.json().catch(() => ({}))
-                        generalLogger.warn(`[Auth:${traceId}] Failed to fetch client context from report`, {
-                          message: errorData.message || contextResponse.status,
-                        })
+                        generalLogger.warn(
+                          `[Auth:${traceId}] Failed to fetch client context from report`,
+                          {
+                            message: errorData.message || contextResponse.status,
+                          }
+                        )
                       }
                     } else {
-                      generalLogger.debug(`[Auth:${traceId}] Report has no accountant_customer_id - not an accountant-client report`)
+                      generalLogger.debug(
+                        `[Auth:${traceId}] Report has no accountant_customer_id - not an accountant-client report`
+                      )
                     }
                   } else {
                     // Report not found or access denied - this is OK, might be a new report
-                    generalLogger.debug(`[Auth:${traceId}] Report not found or inaccessible (${reportResponse.status}) - may be new report`)
+                    generalLogger.debug(
+                      `[Auth:${traceId}] Report not found or inaccessible (${reportResponse.status}) - may be new report`
+                    )
                   }
                 } catch (error) {
-                  generalLogger.warn(`[Auth:${traceId}] Failed to restore client context from report (non-critical)`, {
-                    error: error instanceof Error ? error.message : String(error),
-                  })
+                  generalLogger.warn(
+                    `[Auth:${traceId}] Failed to restore client context from report (non-critical)`,
+                    {
+                      error: error instanceof Error ? error.message : String(error),
+                    }
+                  )
                   // Don't block auth - user is authenticated, just missing client context
                   // AuthGate will handle this gracefully
                 }
               }
             }
           }
-          
+
           return
         }
       }
@@ -1263,19 +1321,19 @@ function getIndustry(user: User): string {
 /**
  * Infer employee count from range string
  * Phase 1.3: Enhanced inference using typical midpoints
- * 
+ *
  * Maps common employee range strings to representative counts.
  * Uses midpoints for ranges, with special handling for open-ended ranges.
- * 
+ *
  * @param range - Employee count range string (e.g., "10-50", "1-10", "500+")
  * @returns Inferred employee count or undefined if cannot parse
  */
 function parseEmployeeCount(range?: string): number | undefined {
   if (!range) return undefined
-  
+
   // Normalize the range string
   const normalized = range.trim().toLowerCase()
-  
+
   // Map common range formats to representative values
   const rangeMap: Record<string, number> = {
     '1-10': 5,
@@ -1290,12 +1348,12 @@ function parseEmployeeCount(range?: string): number | undefined {
     '500-1000': 750,
     '1000+': 1500,
   }
-  
+
   // Check for exact match in map
   if (rangeMap[normalized]) {
     return rangeMap[normalized]
   }
-  
+
   // Try to parse as range (e.g., "10-50")
   const match = normalized.match(/(\d+)-(\d+)/)
   if (match) {
@@ -1303,7 +1361,7 @@ function parseEmployeeCount(range?: string): number | undefined {
     const max = parseInt(match[2])
     return Math.floor((min + max) / 2)
   }
-  
+
   // Try to parse as open-ended (e.g., "500+")
   const openMatch = normalized.match(/(\d+)\+/)
   if (openMatch) {
@@ -1311,7 +1369,7 @@ function parseEmployeeCount(range?: string): number | undefined {
     // For open-ended ranges, use 1.5x the minimum as estimate
     return Math.floor(min * 1.5)
   }
-  
+
   return undefined
 }
 

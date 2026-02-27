@@ -9,8 +9,8 @@
  * - Real-time formatting
  */
 
-import React, { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useEffect, useRef, useState } from 'react'
 import { NormalizationCategoryDefinition } from '../../types/ebitdaNormalization'
 
 interface AdjustmentAmountInputProps {

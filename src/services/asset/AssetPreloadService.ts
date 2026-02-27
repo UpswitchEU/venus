@@ -16,9 +16,10 @@
  * @module services/asset/AssetPreloadService
  */
 
-import { generalLogger } from '../../utils/logger'
-import { getApiUrl } from '../../utils/getMercuryUrl'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
+import { getApiUrl } from '../../utils/getMercuryUrl'
+import { generalLogger } from '../../utils/logger'
+
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 
 const API_BASE_URL = getApiUrl()
@@ -36,16 +37,16 @@ function areAssetsAlreadyLoaded(flowType: 'manual' | 'conversational'): boolean 
     generalLogger.debug('[AssetPreload] Conversational flow not supported - skipping preload check')
     return false
   }
-  
+
   const store = useManualResultsStore.getState()
-  
+
   const result = store.result as any
   if (!result) return false
-  
+
   // Check if both HTML report and info tab are already present
   const hasHtmlReport = !!(result.html_report || result.htmlReport)
   const hasInfoTabHtml = !!(result.info_tab_html || result.infoTabHtml)
-  
+
   return hasHtmlReport && hasInfoTabHtml
 }
 
@@ -188,19 +189,16 @@ class AssetPreloadServiceImpl {
       // Get client context headers for accountant-client workflows
       // This ensures proper authorization for shared sessions
       const clientContextHeaders = await getClientContextHeaders()
-      
+
       // Fetch full session data from backend
-      const response = await fetch(
-        `${API_BASE_URL}/api/v2/valuations/sessions/${reportId}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            Accept: 'application/json',
-            ...clientContextHeaders, // Include accountant context if available
-          },
-        }
-      )
+      const response = await fetch(`${API_BASE_URL}/api/v2/valuations/sessions/${reportId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+          ...clientContextHeaders, // Include accountant context if available
+        },
+      })
 
       if (!response.ok) {
         throw new Error(`Failed to fetch session assets: ${response.status}`)
@@ -249,9 +247,12 @@ class AssetPreloadServiceImpl {
           // CONVERSATIONAL STORE REMOVED: Conversational flow no longer supported
           // The conversational stores have been removed from the codebase
           // Skip updating conversational store
-          generalLogger.debug('[AssetPreload] Skipping conversational store update - stores removed', {
-            reportId: reportId.substring(0, 20) + '...',
-          })
+          generalLogger.debug(
+            '[AssetPreload] Skipping conversational store update - stores removed',
+            {
+              reportId: reportId.substring(0, 20) + '...',
+            }
+          )
         } else {
           const { setResult } = useManualResultsStore.getState()
           setResult(result as any)

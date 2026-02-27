@@ -1,6 +1,6 @@
 import nextDynamic from 'next/dynamic'
-import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { generalLogger } from '@/utils/logger'
+import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { ReportNotFoundMessage } from './ReportNotFoundMessage'
 
 // Dynamically import the client component with no SSR

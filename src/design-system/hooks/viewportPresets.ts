@@ -1,7 +1,7 @@
 /**
  * Hybrid Aurora Design System
  * Viewport Animation Presets
- * 
+ *
  * Configuration for scroll-triggered animations
  */
 
@@ -9,13 +9,13 @@
 // VIEWPORT PRESETS
 // ─────────────────────────────────────────
 
-export type ViewportPreset = 'default' | 'eager' | 'lazy' | 'center';
+export type ViewportPreset = 'default' | 'eager' | 'lazy' | 'center'
 
 export interface ViewportConfig {
   /** Margin around viewport to trigger */
-  margin: string;
+  margin: string
   /** Amount of element visible before triggering (0-1 or 'some' | 'all') */
-  amount: number | 'some' | 'all';
+  amount: number | 'some' | 'all'
 }
 
 export const viewportPresets: Record<ViewportPreset, ViewportConfig> = {
@@ -39,4 +39,4 @@ export const viewportPresets: Record<ViewportPreset, ViewportConfig> = {
     margin: '-25% 0px -25% 0px',
     amount: 0.5,
   },
-};
+}

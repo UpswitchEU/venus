@@ -1,7 +1,7 @@
 /**
  * Aurora by Upswitch Design System
  * Framer Motion Presets
- * 
+ *
  * Physics-based spring animations for natural, premium feel
  */
 
@@ -187,7 +187,7 @@ export const viewportConfig = {
   once: true,
   margin: '-100px',
   amount: 0.2 as const,
-};
+}
 
 // ─────────────────────────────────────────
 // UTILITY FUNCTIONS
@@ -195,11 +195,11 @@ export const viewportConfig = {
 
 /** Create stagger delay for index */
 export const staggerDelay = (index: number, baseDelay = 0.1): number => {
-  return index * baseDelay;
-};
+  return index * baseDelay
+}
 
 /** Create custom spring with override */
 export const createSpring = (overrides: Partial<typeof springDefault>): Transition => ({
   ...springDefault,
   ...overrides,
-});
+})

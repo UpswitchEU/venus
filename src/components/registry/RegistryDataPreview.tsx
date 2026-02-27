@@ -369,7 +369,9 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                       <th className="px-4 py-2 text-left font-medium text-foreground">Year</th>
                       <th className="px-4 py-2 text-right font-medium text-foreground">Revenue</th>
                       <th className="px-4 py-2 text-right font-medium text-foreground">EBITDA</th>
-                      <th className="px-4 py-2 text-right font-medium text-foreground">Net Income</th>
+                      <th className="px-4 py-2 text-right font-medium text-foreground">
+                        Net Income
+                      </th>
                       <th className="px-4 py-2 text-right font-medium text-foreground">Assets</th>
                     </tr>
                   </thead>

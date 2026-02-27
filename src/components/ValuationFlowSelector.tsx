@@ -9,11 +9,11 @@
 
 'use client'
 
+import { AlertCircle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 // Dynamic imports using React.lazy for code splitting (Next.js compatible)
 import React, { lazy, Suspense, useMemo } from 'react'
-import { useTranslations } from 'next-intl'
-import { AlertCircle } from 'lucide-react'
-import { GlassCard, AuroraButton } from '@/design-system'
+import { AuroraButton, GlassCard } from '@/design-system'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
 import { CalculatorShellSkeleton } from './calculator'
@@ -75,11 +75,7 @@ function LoadingErrorFallback() {
         </div>
         <h3 className="text-xl font-semibold text-foreground mb-2">{t('title')}</h3>
         <p className="text-sm text-muted-foreground mb-6">{t('description')}</p>
-        <AuroraButton
-          onClick={() => window.location.reload()}
-          variant="primary"
-          size="lg"
-        >
+        <AuroraButton onClick={() => window.location.reload()} variant="primary" size="lg">
           {t('reloadPage')}
         </AuroraButton>
       </GlassCard>

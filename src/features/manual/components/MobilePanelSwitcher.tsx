@@ -6,8 +6,8 @@
  * @module features/manual/components/MobilePanelSwitcher
  */
 
-import React from 'react'
 import { useTranslations } from 'next-intl'
+import React from 'react'
 
 /**
  * Mobile Panel Switcher Props
@@ -34,7 +34,9 @@ export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.mem
         <button
           onClick={() => onPanelChange('form')}
           className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-            activePanel === 'form' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            activePanel === 'form'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           {t('form')}

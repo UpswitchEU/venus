@@ -5,8 +5,8 @@
  * Shows suggestions and company preview card (LinkedIn pattern)
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import { debounce } from '../../utils/debounce'
@@ -81,7 +81,12 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         const controller = new AbortController()
         abortControllerRef.current = controller
         try {
-          const response = await registryService.searchCompanies(query.trim(), country, 200, controller.signal)
+          const response = await registryService.searchCompanies(
+            query.trim(),
+            country,
+            200,
+            controller.signal
+          )
 
           if (response.success && response.results) {
             const results = response.results
@@ -294,7 +299,10 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         </svg>
 
         {/* Tooltip on hover - Aurora styled */}
-        <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-background border border-foreground/[0.08] text-foreground text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[10000] transform translate-y-2 group-hover:translate-y-0" style={{ zIndex: 10000 }}>
+        <div
+          className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-background border border-foreground/[0.08] text-foreground text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[10000] transform translate-y-2 group-hover:translate-y-0"
+          style={{ zIndex: 10000 }}
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="font-bold text-primary text-xs uppercase tracking-wider">
               {t('forms.kboLookup.verifiedCompany')}
@@ -340,7 +348,13 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
 
   // Render suggestions dropdown
   const renderSuggestions = () => {
-    if (!showSuggestions || (searchResults.length === 0 && !searchError) || isLoading || selectedCompany) return null
+    if (
+      !showSuggestions ||
+      (searchResults.length === 0 && !searchError) ||
+      isLoading ||
+      selectedCompany
+    )
+      return null
 
     return (
       <div
@@ -362,63 +376,65 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           </div>
         ) : (
           <>
-        <div className="px-4 py-2.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider bg-background/95 border-b border-foreground/[0.05] sticky top-0 backdrop-blur-md z-10">
-          {t('forms.kboLookup.didYouMean')}
-        </div>
-        <div className="py-1">
-          {searchResults.map((company, index) => {
-            const isExactMatch = exactMatch?.company_id === company.company_id
-            const isHighlighted = highlightedIndex === index
+            <div className="px-4 py-2.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider bg-background/95 border-b border-foreground/[0.05] sticky top-0 backdrop-blur-md z-10">
+              {t('forms.kboLookup.didYouMean')}
+            </div>
+            <div className="py-1">
+              {searchResults.map((company, index) => {
+                const isExactMatch = exactMatch?.company_id === company.company_id
+                const isHighlighted = highlightedIndex === index
 
-            return (
-              <button
-                key={company.company_id || index}
-                type="button"
-                role="option"
-                aria-selected={isExactMatch}
-                className={`w-full text-left px-4 py-3 transition-all duration-150 group relative border-l-2 ${
-                  isHighlighted
-                    ? 'bg-primary/10 border-primary'
-                    : 'border-transparent hover:bg-foreground/[0.04] hover:border-primary/30'
-                } ${isExactMatch ? 'bg-primary/10 hover:bg-primary/15 border-primary' : ''}`}
-                onClick={() => handleSelectCompany(company)}
-                onMouseEnter={() => {
-                  setHighlightedIndex(index)
-                }}
-              >
-                <div
-                  className={`font-medium text-base transition-colors ${isExactMatch ? 'text-primary' : 'text-foreground'}`}
-                >
-                  {company.company_name}
-                </div>
-                <div className="flex items-center gap-2 mt-1 text-xs">
-                  {company.registration_number && (
-                    <span
-                      className={`font-mono ${isExactMatch ? 'text-primary/70' : 'text-foreground/40'}`}
-                    >
-                      {company.registration_number}
-                    </span>
-                  )}
-                  {company.legal_form && (
-                    <>
-                      <span className="text-foreground/20">•</span>
-                      <span className={`${isExactMatch ? 'text-primary/70' : 'text-foreground/50'}`}>
-                        {company.legal_form}
-                      </span>
-                    </>
-                  )}
-                </div>
-                {company.address && (
-                  <div
-                    className={`text-xs mt-1 truncate ${isExactMatch ? 'text-primary/60' : 'text-foreground/40'}`}
+                return (
+                  <button
+                    key={company.company_id || index}
+                    type="button"
+                    role="option"
+                    aria-selected={isExactMatch}
+                    className={`w-full text-left px-4 py-3 transition-all duration-150 group relative border-l-2 ${
+                      isHighlighted
+                        ? 'bg-primary/10 border-primary'
+                        : 'border-transparent hover:bg-foreground/[0.04] hover:border-primary/30'
+                    } ${isExactMatch ? 'bg-primary/10 hover:bg-primary/15 border-primary' : ''}`}
+                    onClick={() => handleSelectCompany(company)}
+                    onMouseEnter={() => {
+                      setHighlightedIndex(index)
+                    }}
                   >
-                    {company.address}
-                  </div>
-                )}
-              </button>
-            )
-          })}
-        </div>
+                    <div
+                      className={`font-medium text-base transition-colors ${isExactMatch ? 'text-primary' : 'text-foreground'}`}
+                    >
+                      {company.company_name}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-xs">
+                      {company.registration_number && (
+                        <span
+                          className={`font-mono ${isExactMatch ? 'text-primary/70' : 'text-foreground/40'}`}
+                        >
+                          {company.registration_number}
+                        </span>
+                      )}
+                      {company.legal_form && (
+                        <>
+                          <span className="text-foreground/20">•</span>
+                          <span
+                            className={`${isExactMatch ? 'text-primary/70' : 'text-foreground/50'}`}
+                          >
+                            {company.legal_form}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {company.address && (
+                      <div
+                        className={`text-xs mt-1 truncate ${isExactMatch ? 'text-primary/60' : 'text-foreground/40'}`}
+                      >
+                        {company.address}
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </>
         )}
       </div>

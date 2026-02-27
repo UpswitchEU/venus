@@ -18,7 +18,9 @@ export function VersionsSkeleton() {
         {[1, 2, 3].map((version, index) => (
           <div key={version} className="relative pb-8">
             {/* Vertical connector line */}
-            {index < 2 && <div className="absolute left-5 top-11 bottom-0 w-0.5 bg-foreground/10" />}
+            {index < 2 && (
+              <div className="absolute left-5 top-11 bottom-0 w-0.5 bg-foreground/10" />
+            )}
 
             {/* Version card */}
             <div className="relative bg-card border border-foreground/10 rounded-lg p-4 hover:shadow-md transition-shadow">

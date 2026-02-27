@@ -1,16 +1,16 @@
 /**
  * Aurora Design System
  * ChatPanel Component
- * 
+ *
  * Chat interface with Aurora effects, message bubbles, and glass morphism input.
  * Used for the conversational valuation flow.
  */
 
+import { AnimatePresence, motion } from 'framer-motion'
+import { Loader2, Mic, Paperclip, Send, Sparkles, User } from 'lucide-react'
 import * as React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Paperclip, Mic, Sparkles, User, Loader2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { springDefault, fadeInUp } from './motion'
+import { fadeInUp, springDefault } from './motion'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -144,7 +144,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
         {/* Timestamp */}
         {message.timestamp && (
-          <div className={cn('text-[10px] mt-1', isUser ? 'text-primary-foreground/50' : 'text-foreground/30')}>
+          <div
+            className={cn(
+              'text-[10px] mt-1',
+              isUser ? 'text-primary-foreground/50' : 'text-foreground/30'
+            )}
+          >
             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
         )}
@@ -194,7 +199,11 @@ interface ChatInputProps {
   isLoading?: boolean
 }
 
-export const AuroraChatInput: React.FC<ChatInputProps> = ({ onSend, placeholder = 'Type a message...', isLoading }) => {
+export const AuroraChatInput: React.FC<ChatInputProps> = ({
+  onSend,
+  placeholder = 'Type a message...',
+  isLoading,
+}) => {
   const [value, setValue] = React.useState('')
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 

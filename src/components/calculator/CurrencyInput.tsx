@@ -1,39 +1,39 @@
-'use client';
+'use client'
 
 /**
  * CurrencyInput -- Euro-formatted text input for accountants
- * 
+ *
  * Displays nl-BE thousand separators (dots) while typing.
  * Stores raw number internally, formats display string live.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { AuroraInput } from '@/design-system';
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AuroraInput } from '@/design-system'
 
 const formatter = new Intl.NumberFormat('nl-BE', {
   maximumFractionDigits: 0,
   useGrouping: true,
-});
+})
 
 function formatValue(n: number): string {
-  if (!n || n <= 0) return '';
-  return formatter.format(n);
+  if (!n || n <= 0) return ''
+  return formatter.format(n)
 }
 
 function parseRawDigits(str: string): number {
-  const digits = str.replace(/\D/g, '');
-  if (!digits) return 0;
-  return parseInt(digits, 10);
+  const digits = str.replace(/\D/g, '')
+  if (!digits) return 0
+  return parseInt(digits, 10)
 }
 
 export interface CurrencyInputProps {
-  value: number;
-  onChange: (value: number) => void;
-  label?: string;
-  placeholder?: string;
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
-  disabled?: boolean;
+  value: number
+  onChange: (value: number) => void
+  label?: string
+  placeholder?: string
+  size?: 'sm' | 'md' | 'lg'
+  className?: string
+  disabled?: boolean
 }
 
 export function CurrencyInput({
@@ -45,42 +45,42 @@ export function CurrencyInput({
   className,
   disabled,
 }: CurrencyInputProps) {
-  const [display, setDisplay] = useState(() => formatValue(value));
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [display, setDisplay] = useState(() => formatValue(value))
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setDisplay(formatValue(value));
-  }, [value]);
+    setDisplay(formatValue(value))
+  }, [value])
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const raw = e.target.value;
-      const num = parseRawDigits(raw);
-      setDisplay(num > 0 ? formatter.format(num) : raw.replace(/\D/g, '') === '' ? '' : '');
-      onChange(num);
+      const raw = e.target.value
+      const num = parseRawDigits(raw)
+      setDisplay(num > 0 ? formatter.format(num) : raw.replace(/\D/g, '') === '' ? '' : '')
+      onChange(num)
     },
-    [onChange],
-  );
+    [onChange]
+  )
 
   const handleFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
-    requestAnimationFrame(() => e.target.select());
-  }, []);
+    requestAnimationFrame(() => e.target.select())
+  }, [])
 
   const handleBlur = useCallback(() => {
-    const num = parseRawDigits(display);
-    setDisplay(formatValue(num));
-  }, [display]);
+    const num = parseRawDigits(display)
+    setDisplay(formatValue(num))
+  }, [display])
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLInputElement>) => {
-      e.preventDefault();
-      const pasted = e.clipboardData.getData('text');
-      const num = parseRawDigits(pasted);
-      setDisplay(num > 0 ? formatter.format(num) : '');
-      onChange(num);
+      e.preventDefault()
+      const pasted = e.clipboardData.getData('text')
+      const num = parseRawDigits(pasted)
+      setDisplay(num > 0 ? formatter.format(num) : '')
+      onChange(num)
     },
-    [onChange],
-  );
+    [onChange]
+  )
 
   return (
     <div className={className}>
@@ -97,10 +97,8 @@ export function CurrencyInput({
         placeholder={placeholder}
         size={size}
         disabled={disabled}
-        leftIcon={
-          <span className="text-foreground/40 text-xs font-medium select-none">€</span>
-        }
+        leftIcon={<span className="text-foreground/40 text-xs font-medium select-none">€</span>}
       />
     </div>
-  );
+  )
 }

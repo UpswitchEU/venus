@@ -1,16 +1,16 @@
 /**
  * Session Data Normalizer
- * 
+ *
  * World-class data normalization layer that converts backend session data
  * to a consistent frontend format. This is the SINGLE source of truth for
  * all naming conversions between backend (snake_case) and frontend (camelCase).
- * 
+ *
  * Key Principles:
  * - Normalize ONCE at the API boundary
  * - Handle both camelCase and snake_case inputs gracefully
  * - Provide type-safe output structure
  * - No scattered conversion logic elsewhere
- * 
+ *
  * @module services/session/SessionNormalizer
  */
 
@@ -36,28 +36,28 @@ export interface NormalizedSessionData {
   reportId: string
   flowType: 'manual' | 'conversational'
   status: 'active' | 'completed' | 'expired'
-  
+
   // Timestamps
   createdAt: Date | null
   updatedAt: Date | null
   completedAt: Date | null
-  
+
   // Form data (normalized to frontend format)
   formData: Partial<ValuationRequest>
-  
+
   // Valuation result (normalized)
   valuationResult: ValuationResponse | null
   htmlReport: string | null
   infoTabHtml: string | null
   pricingRange: PricingRange | null
-  
+
   // Client context (for accountant flow)
   clientContext: {
     accountantUserId: string
     clientUserId: string
     relationshipId: string
   } | null
-  
+
   // Metadata
   dataSource: 'manual' | 'conversational' | 'mixed'
   hasExistingData: boolean
@@ -68,9 +68,9 @@ export interface NormalizedSessionData {
  */
 function normalizeFlowType(input: string | undefined | null): 'manual' | 'conversational' {
   if (!input) return 'manual'
-  
+
   const normalized = input.toLowerCase().trim()
-  
+
   switch (normalized) {
     case 'conversational':
     case 'ai-guided':
@@ -91,7 +91,7 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
   if (!sessionData || typeof sessionData !== 'object') {
     return {}
   }
-  
+
   // List of all form fields we want to extract
   // Each entry: [camelCase, snake_case alternatives...]
   const fieldMappings: [string, ...string[]][] = [
@@ -129,13 +129,13 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['comparables'],
     ['_normalizations'],
   ]
-  
+
   const formData: Partial<ValuationRequest> = {}
-  
+
   for (const [primaryKey, ...alternatives] of fieldMappings) {
     // Try primary key first, then alternatives
     let value = sessionData[primaryKey]
-    
+
     if (value === undefined || value === null) {
       for (const alt of alternatives) {
         if (sessionData[alt] !== undefined && sessionData[alt] !== null) {
@@ -144,12 +144,12 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
         }
       }
     }
-    
+
     if (value !== undefined && value !== null) {
-      (formData as any)[primaryKey] = value
+      ;(formData as any)[primaryKey] = value
     }
   }
-  
+
   return formData
 }
 
@@ -164,8 +164,8 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
   // 3. sessionData.valuation_result (snake_case)
   // 4. Top-level session.valuation_result (snake_case - legacy)
   // 5. Linked report: session.report.valuation_result (from Titan JOIN)
-  
-  const result = 
+
+  const result =
     topLevelSession?.valuationResult ||
     sessionData?.valuationResult ||
     sessionData?.valuation_result ||
@@ -173,7 +173,7 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
     topLevelSession?.report?.valuation_result ||
     topLevelSession?.report?.valuationResult ||
     null
-  
+
   return result
 }
 
@@ -183,14 +183,14 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
  */
 function extractHtmlReport(sessionData: any, topLevelSession: any): string | null {
   // Get valuation result first (may contain html_report)
-  const valuationResult = 
+  const valuationResult =
     topLevelSession?.valuationResult ||
     sessionData?.valuationResult ||
     sessionData?.valuation_result ||
     topLevelSession?.valuation_result ||
     topLevelSession?.report?.valuation_result ||
     null
-  
+
   return (
     // Direct top-level fields
     topLevelSession?.htmlReport ||
@@ -213,14 +213,14 @@ function extractHtmlReport(sessionData: any, topLevelSession: any): string | nul
  */
 function extractInfoTabHtml(sessionData: any, topLevelSession: any): string | null {
   // Get valuation result first (may contain info_tab_html)
-  const valuationResult = 
+  const valuationResult =
     topLevelSession?.valuationResult ||
     sessionData?.valuationResult ||
     sessionData?.valuation_result ||
     topLevelSession?.valuation_result ||
     topLevelSession?.report?.valuation_result ||
     null
-  
+
   return (
     // Direct top-level fields
     topLevelSession?.infoTabHtml ||
@@ -244,12 +244,12 @@ function extractInfoTabHtml(sessionData: any, topLevelSession: any): string | nu
 function extractPricingRange(sessionData: any, topLevelSession: any): PricingRange | null {
   // Get valuation result for fallback extraction
   const valuationResult = extractValuationResult(sessionData, topLevelSession)
-  
+
   // Priority 1: Titan-injected _pricingRange field
   if (sessionData?._pricingRange) {
     return sessionData._pricingRange
   }
-  
+
   // Priority 2: Direct priceRange field (camelCase)
   if (sessionData?.priceRange) {
     return {
@@ -259,34 +259,34 @@ function extractPricingRange(sessionData: any, topLevelSession: any): PricingRan
       currency: sessionData.priceRange.currency || 'EUR',
     }
   }
-  
+
   // Priority 3: pricing_range from valuation result
   if ((valuationResult as any)?.pricing_range) {
     return (valuationResult as any).pricing_range
   }
-  
+
   // Priority 4: priceRange from valuation result (camelCase)
   if ((valuationResult as any)?.priceRange) {
     return (valuationResult as any).priceRange
   }
-  
+
   // Priority 5: Extract from valuation result equity values
   if (valuationResult) {
     const min = valuationResult.equity_value_low || (valuationResult as any).valuation_min
     const mid = valuationResult.equity_value_mid || (valuationResult as any).valuation_midpoint
     const max = valuationResult.equity_value_high || (valuationResult as any).valuation_max
-    
+
     // Only return if we have at least one valid value
     if (min !== undefined || mid !== undefined || max !== undefined) {
       return {
-        min: typeof min === 'string' ? parseFloat(min) : (min || 0),
-        mid: typeof mid === 'string' ? parseFloat(mid) : (mid || 0),
-        max: typeof max === 'string' ? parseFloat(max) : (max || 0),
+        min: typeof min === 'string' ? parseFloat(min) : min || 0,
+        mid: typeof mid === 'string' ? parseFloat(mid) : mid || 0,
+        max: typeof max === 'string' ? parseFloat(max) : max || 0,
         currency: (valuationResult as any).currency || 'EUR',
       }
     }
   }
-  
+
   return null
 }
 
@@ -295,16 +295,16 @@ function extractPricingRange(sessionData: any, topLevelSession: any): PricingRan
  */
 function extractClientContext(sessionData: any): NormalizedSessionData['clientContext'] {
   const context = sessionData?._client_context || sessionData?.clientContext
-  
+
   if (!context) return null
-  
+
   // Normalize field names
   const accountantUserId = context.accountant_user_id || context.accountantUserId
   const clientUserId = context.client_user_id || context.clientUserId
   const relationshipId = context.relationship_id || context.relationshipId
-  
+
   if (!accountantUserId || !clientUserId) return null
-  
+
   return {
     accountantUserId,
     clientUserId,
@@ -343,10 +343,10 @@ function hasExistingData(
 
 /**
  * Main normalization function
- * 
+ *
  * Takes raw backend session data and converts it to a consistent
  * frontend format with all naming normalized to camelCase.
- * 
+ *
  * @param backendSession - Raw session data from backend API
  * @returns Normalized session data ready for store hydration
  */
@@ -355,17 +355,13 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     generalLogger.warn('[SessionNormalizer] Received null/undefined session')
     return createEmptyNormalizedData('')
   }
-  
+
   // Extract the nested session_data/sessionData
   const sessionData = backendSession.sessionData || backendSession.session_data || {}
-  
+
   // Extract reportId from multiple possible sources
-  const reportId = 
-    backendSession.reportId ||
-    backendSession.session_key ||
-    backendSession.id ||
-    ''
-  
+  const reportId = backendSession.reportId || backendSession.session_key || backendSession.id || ''
+
   // Extract and normalize all data
   const formData = extractFormData(sessionData)
   const valuationResult = extractValuationResult(sessionData, backendSession)
@@ -379,27 +375,27 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     reportId,
     flowType: normalizeFlowType(backendSession.currentView || sessionData.currentView),
     status: backendSession.status || 'active',
-    
+
     // Timestamps
     createdAt: backendSession.createdAt ? new Date(backendSession.createdAt) : null,
     updatedAt: backendSession.updatedAt ? new Date(backendSession.updatedAt) : null,
     completedAt: backendSession.completedAt ? new Date(backendSession.completedAt) : null,
-    
+
     // Form data
     formData,
-    
+
     // Valuation result and HTML
     valuationResult,
     htmlReport,
     infoTabHtml,
     pricingRange,
-    
+
     // Context
     clientContext,
     dataSource: normalizeFlowType(backendSession.dataSource || sessionData.dataSource),
     hasExistingData: hasExistingData(formData, valuationResult, htmlReport, infoTabHtml),
   }
-  
+
   generalLogger.debug('[SessionNormalizer] Normalized session data', {
     reportId: normalized.reportId,
     flowType: normalized.flowType,
@@ -411,7 +407,7 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     hasClientContext: !!normalized.clientContext,
     formDataKeys: Object.keys(normalized.formData),
   })
-  
+
   return normalized
 }
 
@@ -447,7 +443,7 @@ export function validateNormalizedData(data: NormalizedSessionData): boolean {
     generalLogger.warn('[SessionNormalizer] Validation failed: missing reportId')
     return false
   }
-  
+
   // Flow type must be valid
   if (!['manual', 'conversational'].includes(data.flowType)) {
     generalLogger.warn('[SessionNormalizer] Validation failed: invalid flowType', {
@@ -455,6 +451,6 @@ export function validateNormalizedData(data: NormalizedSessionData): boolean {
     })
     return false
   }
-  
+
   return true
 }

@@ -9,11 +9,11 @@
 
 import { useTranslations } from 'next-intl'
 import React, { useEffect } from 'react'
-import { generalLogger } from '../../../utils/logger'
-import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
-import { useCanSave } from '../../../hooks/useCanSave'
-import type { ValuationFormData } from '../../../types/valuation'
 import { AuroraButton, AuroraFormAlert } from '../../../design-system/components'
+import { useCanSave } from '../../../hooks/useCanSave'
+import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
+import type { ValuationFormData } from '../../../types/valuation'
+import { generalLogger } from '../../../utils/logger'
 
 interface FormSubmitSectionProps {
   isSubmitting: boolean
@@ -48,7 +48,11 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
     hasNormalization(lastFullYear - 2)
 
   const isFormValid =
-    formData.revenue && formData.ebitda && formData.industry && formData.country_code && formData.business_type_id
+    formData.revenue &&
+    formData.ebitda &&
+    formData.industry &&
+    formData.country_code &&
+    formData.business_type_id
 
   const missingFields: string[] = []
   if (!formData.revenue) missingFields.push(t('forms.fields.revenue'))
@@ -71,18 +75,18 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   // Debug: Log form validation state (generalLogger.debug suppressed in production)
   useEffect(() => {
     generalLogger.debug('[FormSubmitSection] Form validation state', {
-        isFormValid,
-        isSubmitting,
-        hasRevenue: !!formData.revenue,
-        hasEbitda: !!formData.ebitda,
-        hasIndustry: !!formData.industry,
-        hasCountryCode: !!formData.country_code,
-        revenue: formData.revenue,
-        ebitda: formData.ebitda,
-        industry: formData.industry,
-        country_code: formData.country_code,
-        missingFields,
-      })
+      isFormValid,
+      isSubmitting,
+      hasRevenue: !!formData.revenue,
+      hasEbitda: !!formData.ebitda,
+      hasIndustry: !!formData.industry,
+      hasCountryCode: !!formData.country_code,
+      revenue: formData.revenue,
+      ebitda: formData.ebitda,
+      industry: formData.industry,
+      country_code: formData.country_code,
+      missingFields,
+    })
   }, [
     isFormValid,
     isSubmitting,

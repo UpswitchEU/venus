@@ -336,7 +336,8 @@ class ManualValuationStreamService {
         const hasHtmlReport = !!event.html_report
         const htmlReportLength = event.html_report?.length || 0
         const hasInfoTabHtml = !!(event as unknown as Record<string, unknown>).info_tab_html
-        const infoTabHtmlLength = ((event as unknown as Record<string, unknown>).info_tab_html as string)?.length || 0
+        const infoTabHtmlLength =
+          ((event as unknown as Record<string, unknown>).info_tab_html as string)?.length || 0
         apiLogger.info('[STREAM-FRONTEND] report_complete event received', {
           requestId: streamId,
           valuationId: event.valuation_id,

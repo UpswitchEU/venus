@@ -19,10 +19,10 @@
 
 import axios from 'axios'
 import { useCallback, useEffect, useRef } from 'react'
-import { getSessionSyncManager } from '../utils/auth/sessionSync'
-import { generalLogger } from '../utils/logger'
 import { useAuthStore } from '../lib/auth'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '../utils/auth/refreshMutex'
+import { getSessionSyncManager } from '../utils/auth/sessionSync'
+import { generalLogger } from '../utils/logger'
 
 const CHECK_INTERVAL = 5 * 60 * 1000
 
@@ -89,7 +89,9 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
           if (error.response?.status === 401) {
             const { isInitializing, loading } = useAuthStore.getState()
             if (isInitializing || loading) {
-              generalLogger.debug('Token refresh 401 during auth init — deferring to initializeAuth()')
+              generalLogger.debug(
+                'Token refresh 401 during auth init — deferring to initializeAuth()'
+              )
               return false
             }
             generalLogger.warn('Refresh token expired or invalid, user needs to re-login')
@@ -99,7 +101,9 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
 
           if (retryCount < 3) {
             const delay = Math.pow(2, retryCount) * 1000
-            generalLogger.debug(`Retrying token refresh in ${delay}ms (attempt ${retryCount + 1}/3)`)
+            generalLogger.debug(
+              `Retrying token refresh in ${delay}ms (attempt ${retryCount + 1}/3)`
+            )
             await new Promise((resolve) => setTimeout(resolve, delay))
             return refreshToken(retryCount + 1)
           }
@@ -145,7 +149,9 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
         }
       } else {
         // Network error, will retry on next interval
-        generalLogger.warn('Auth check failed (network error), will retry', { error: error.message })
+        generalLogger.warn('Auth check failed (network error), will retry', {
+          error: error.message,
+        })
       }
     }
   }, [refreshToken, onTokenExpired])

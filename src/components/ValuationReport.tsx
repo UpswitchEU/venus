@@ -172,7 +172,11 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       if (typeof window === 'undefined') return
 
       // Check if we're coming from Mercury
-      const sourceApp = urlParams.source || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('source') : null)
+      const sourceApp =
+        urlParams.source ||
+        (typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('source')
+          : null)
       const isFromMercury = sourceApp === 'mercury'
 
       if (!isFromMercury) return
@@ -194,7 +198,11 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
           )
         } else {
           if (window.location.hash !== '#ready' && window.location.hash !== '#venus-ready') {
-            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#venus-ready`)
+            window.history.replaceState(
+              null,
+              '',
+              `${window.location.pathname}${window.location.search}#venus-ready`
+            )
           }
         }
       }

@@ -1,174 +1,166 @@
-'use client';
+'use client'
 
 /**
  * Calculator Navigation Bar
- * 
+ *
  * Aurora by Upswitch — Calculator Nav
  * Minimal navigation with essential actions grouped logically.
  * Integrated with Venus's session store and i18n.
  */
 
+import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Download,
   ArrowLeft,
-  Eye,
-  Maximize2,
-  Settings,
-  Building2,
-  LogOut,
-  History,
-  ChevronDown,
-  FileText,
-  Clock,
-  MessageCircle,
-  GitBranch,
   ArrowRight,
+  Building2,
   Check,
-  Loader2,
-  FileSpreadsheet,
   CheckCircle2,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/design-system/utils';
-import { 
-  Tooltip, 
-  TooltipProvider,
-  AuroraButton,
-  Avatar,
-} from '@/design-system';
-import { useSessionStore } from '@/store/useSessionStore';
-import { useTransitionRouter } from 'next-view-transitions';
-import React, { useState } from 'react';
+  ChevronDown,
+  Clock,
+  Download,
+  Eye,
+  FileSpreadsheet,
+  FileText,
+  GitBranch,
+  History,
+  Loader2,
+  LogOut,
+  Maximize2,
+  MessageCircle,
+  Settings,
+} from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { useTransitionRouter } from 'next-view-transitions'
+import React, { useState } from 'react'
+import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
+import { cn } from '@/design-system/utils'
+import { useSessionStore } from '@/store/useSessionStore'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
 
-export type RightPanelView = 'report' | 'preview' | 'history';
+export type RightPanelView = 'report' | 'preview' | 'history'
 
 export interface RecentValuation {
-  id: string;
-  companyName: string;
-  updatedAt: Date;
-  isDraft?: boolean;
+  id: string
+  companyName: string
+  updatedAt: Date
+  isDraft?: boolean
 }
 
 export interface ValuationVersion {
-  id: string;
-  label: string;
-  priceRange: { min: number; max: number };
-  askPrice: number;
-  timestamp: Date;
-  isActive?: boolean;
+  id: string
+  label: string
+  priceRange: { min: number; max: number }
+  askPrice: number
+  timestamp: Date
+  isActive?: boolean
 }
 
 // Download history item for the dropdown
 export interface DownloadHistoryItem {
-  id: string;
-  fileName: string;
-  timestamp: Date;
-  size?: string;
-  url?: string;
+  id: string
+  fileName: string
+  timestamp: Date
+  size?: string
+  url?: string
 }
 
 export interface CalculatorNavProps {
-  companyName?: string;
-  onBack?: () => void;
-  onDownload?: () => void | Promise<void>;
-  onFullscreen?: () => void;
-  onPreview?: () => void;
-  onShowHistory?: () => void;
-  hasReport?: boolean;
-  rightPanelView?: RightPanelView;
-  userName?: string;
-  userInitials?: string;
+  companyName?: string
+  onBack?: () => void
+  onDownload?: () => void | Promise<void>
+  onFullscreen?: () => void
+  onPreview?: () => void
+  onShowHistory?: () => void
+  hasReport?: boolean
+  rightPanelView?: RightPanelView
+  userName?: string
+  userInitials?: string
   /** Avatar URL from Titan/Mercury auth - when set, shows profile image */
-  avatarUrl?: string | null;
-  onAccountSettings?: () => void;
-  onSwitchWorkspace?: () => void;
-  onLogout?: () => void;
+  avatarUrl?: string | null
+  onAccountSettings?: () => void
+  onSwitchWorkspace?: () => void
+  onLogout?: () => void
   // Recent valuations support
-  recentValuations?: RecentValuation[];
-  onSelectValuation?: (id: string) => void;
-  onNewValuation?: () => void;
+  recentValuations?: RecentValuation[]
+  onSelectValuation?: (id: string) => void
+  onNewValuation?: () => void
   /** Hide "New Valuation" when calculation is in progress */
-  isCalculating?: boolean;
+  isCalculating?: boolean
   // Chat Co-pilot drawer
-  onOpenAssistant?: () => void;
-  isAssistantOpen?: boolean;
+  onOpenAssistant?: () => void
+  isAssistantOpen?: boolean
   // Normalization Hub - globally accessible
-  onOpenNormalization?: () => void;
-  normalizationCount?: number;
+  onOpenNormalization?: () => void
+  normalizationCount?: number
   // Open tasks counter
-  openTasksCount?: number;
+  openTasksCount?: number
   // Valuation summary
   valuationSummary?: {
-    priceRange: { min: number; max: number };
-    askPrice: number;
-    confidence: 'high' | 'medium' | 'low';
-  };
-  valuationVersions?: ValuationVersion[];
-  selectedVersionId?: string;
-  onSelectVersion?: (id: string) => void;
-  onContinueToListing?: () => void;
+    priceRange: { min: number; max: number }
+    askPrice: number
+    confidence: 'high' | 'medium' | 'low'
+  }
+  valuationVersions?: ValuationVersion[]
+  selectedVersionId?: string
+  onSelectVersion?: (id: string) => void
+  onContinueToListing?: () => void
   // PDF export state
-  isExporting?: boolean;
-  downloadHistory?: DownloadHistoryItem[];
-  onRedownload?: (item: DownloadHistoryItem) => void;
+  isExporting?: boolean
+  downloadHistory?: DownloadHistoryItem[]
+  onRedownload?: (item: DownloadHistoryItem) => void
   // Accountant mode — back button exits client view
-  isAccountantMode?: boolean;
-  onExitClientView?: () => void;
+  isAccountantMode?: boolean
+  onExitClientView?: () => void
 }
 
 // ─────────────────────────────────────────
 // UTILITIES
 // ─────────────────────────────────────────
 
-const formatTimeAgo = (
-  date: Date,
-  t: (key: string, values?: Record<string, number>) => string
-) => {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / (1000 * 60));
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  if (diff < 1000 * 60 * 60) return t('common.time.minutesAgo', { count: minutes });
-  if (diff < 1000 * 60 * 60 * 24) return t('common.time.hoursAgo', { count: hours });
-  return t('common.time.daysAgo', { count: days });
-};
+const formatTimeAgo = (date: Date, t: (key: string, values?: Record<string, number>) => string) => {
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const minutes = Math.floor(diff / (1000 * 60))
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  if (diff < 1000 * 60 * 60) return t('common.time.minutesAgo', { count: minutes })
+  if (diff < 1000 * 60 * 60 * 24) return t('common.time.hoursAgo', { count: hours })
+  return t('common.time.daysAgo', { count: days })
+}
 
 const formatPrice = (value: number) => {
   if (value >= 1000000) {
-    return `€${(value / 1000000).toFixed(1)}M`;
+    return `€${(value / 1000000).toFixed(1)}M`
   }
-  return `€${Math.round(value / 1000)}K`;
-};
+  return `€${Math.round(value / 1000)}K`
+}
 
 // ─────────────────────────────────────────
 // DROPDOWN MENU (Simple implementation)
 // ─────────────────────────────────────────
 
 interface DropdownProps {
-  trigger: React.ReactNode;
-  children: React.ReactNode;
-  align?: 'start' | 'center' | 'end';
+  trigger: React.ReactNode
+  children: React.ReactNode
+  align?: 'start' | 'center' | 'end'
 }
 
 const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start' }) => {
-  const [open, setOpen] = React.useState(false);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const [open, setOpen] = React.useState(false)
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        setOpen(false)
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -181,8 +173,8 @@ const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start' 
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
             className={cn(
-              "absolute z-50 mt-2 min-w-[200px] rounded-xl border border-foreground/[0.08]",
-              "bg-background/95 backdrop-blur-xl shadow-xl",
+              'absolute z-50 mt-2 min-w-[200px] rounded-xl border border-foreground/[0.08]',
+              'bg-background/95 backdrop-blur-xl shadow-xl',
               align === 'end' && 'right-0',
               align === 'center' && 'left-1/2 -translate-x-1/2',
               align === 'start' && 'left-0'
@@ -194,8 +186,8 @@ const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start' 
         )}
       </AnimatePresence>
     </div>
-  );
-};
+  )
+}
 
 // ─────────────────────────────────────────
 // COMPONENT
@@ -236,38 +228,47 @@ export function CalculatorNav({
   isAccountantMode = false,
   onExitClientView,
 }: CalculatorNavProps) {
-  const t = useTranslations();
-  const router = useTransitionRouter();
-  const [avatarError, setAvatarError] = useState(false);
-  const showAvatar = avatarUrl && !avatarError;
+  const t = useTranslations()
+  const router = useTransitionRouter()
+  const [avatarError, setAvatarError] = useState(false)
+  const showAvatar = avatarUrl && !avatarError
 
-  const activeVersion = valuationVersions.find(v => v.id === selectedVersionId) || valuationVersions[0];
-  const displaySummary = valuationSummary || (activeVersion ? {
-    priceRange: activeVersion.priceRange,
-    askPrice: activeVersion.askPrice,
-    confidence: 'high' as const,
-  } : null);
+  const activeVersion =
+    valuationVersions.find((v) => v.id === selectedVersionId) || valuationVersions[0]
+  const displaySummary =
+    valuationSummary ||
+    (activeVersion
+      ? {
+          priceRange: activeVersion.priceRange,
+          askPrice: activeVersion.askPrice,
+          confidence: 'high' as const,
+        }
+      : null)
 
   const handleBack = () => {
     if (isAccountantMode && onExitClientView) {
-      onExitClientView();
+      onExitClientView()
     } else if (onBack) {
-      onBack();
+      onBack()
     } else {
-      router.back();
+      router.back()
     }
-  };
+  }
 
   return (
     <TooltipProvider>
-      <nav className={cn(
-        "relative h-14 w-full shrink-0 flex items-center gap-2 sm:gap-4 px-3 sm:px-4",
-        "border-b border-foreground/[0.06] bg-background",
-        "pt-[env(safe-area-inset-top)]"
-      )}>
+      <nav
+        className={cn(
+          'relative h-14 w-full shrink-0 flex items-center gap-2 sm:gap-4 px-3 sm:px-4',
+          'border-b border-foreground/[0.06] bg-background',
+          'pt-[env(safe-area-inset-top)]'
+        )}
+      >
         {/* Left: Back + Title with Recent Valuations Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <Tooltip content={isAccountantMode ? t('clientContext.exitClientView') : t('common.back')}>
+          <Tooltip
+            content={isAccountantMode ? t('clientContext.exitClientView') : t('common.back')}
+          >
             <button
               onClick={handleBack}
               className="p-2 -ml-1 sm:-ml-2 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -275,12 +276,14 @@ export function CalculatorNav({
               <ArrowLeft className="w-4 h-4" />
             </button>
           </Tooltip>
-          
+
           {/* Title with Recent Valuations Dropdown */}
           <Dropdown
             trigger={
               <button className="flex items-center gap-1 sm:gap-1.5 font-medium text-foreground hover:text-primary transition-colors group min-w-0 flex-1 max-w-[200px] sm:max-w-[320px] min-h-[44px]">
-                <span className="truncate text-sm sm:text-base">{companyName || t('toast.newEstimation')}</span>
+                <span className="truncate text-sm sm:text-base">
+                  {companyName || t('toast.newEstimation')}
+                </span>
                 <ChevronDown className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-foreground/40 group-hover:text-primary shrink-0" />
               </button>
             }
@@ -300,7 +303,9 @@ export function CalculatorNav({
                       <FileText className="w-4 h-4 text-foreground/50" />
                     </div>
                     <div className="flex-1 min-w-0 text-left">
-                      <p className="text-sm font-medium text-foreground truncate">{val.companyName}</p>
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {val.companyName}
+                      </p>
                       <div className="flex items-center gap-1.5 text-xs text-foreground/40">
                         <Clock className="w-3 h-3" />
                         <span>{formatTimeAgo(val.updatedAt, t)}</span>
@@ -330,7 +335,7 @@ export function CalculatorNav({
             </div>
           </Dropdown>
         </div>
-        
+
         {/* Center: Valuation Summary */}
         <div className="flex-1 flex items-center justify-center gap-4">
           {/* Valuation Summary Pill */}
@@ -343,33 +348,38 @@ export function CalculatorNav({
                 transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
                 className="hidden md:flex items-center"
               >
-                <div className={cn(
-                  "flex items-center rounded-full",
-                  "bg-foreground/[0.03] border border-foreground/[0.06]",
-                  "p-0.5 gap-0.5"
-                )}>
+                <div
+                  className={cn(
+                    'flex items-center rounded-full',
+                    'bg-foreground/[0.03] border border-foreground/[0.06]',
+                    'p-0.5 gap-0.5'
+                  )}
+                >
                   {/* Valuation display */}
                   <Dropdown
                     trigger={
                       <button
                         className={cn(
-                          "flex items-center gap-2.5 pl-3 pr-2.5 py-1.5 rounded-full",
-                          "hover:bg-foreground/[0.04] transition-colors",
-                          "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
-                          "group cursor-pointer"
+                          'flex items-center gap-2.5 pl-3 pr-2.5 py-1.5 rounded-full',
+                          'hover:bg-foreground/[0.04] transition-colors',
+                          'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+                          'group cursor-pointer'
                         )}
                       >
-                        <span className={cn(
-                          "w-1.5 h-1.5 rounded-full shrink-0",
-                          displaySummary.confidence === 'high' && "bg-success",
-                          displaySummary.confidence === 'medium' && "bg-warning",
-                          displaySummary.confidence === 'low' && "bg-destructive"
-                        )} />
+                        <span
+                          className={cn(
+                            'w-1.5 h-1.5 rounded-full shrink-0',
+                            displaySummary.confidence === 'high' && 'bg-success',
+                            displaySummary.confidence === 'medium' && 'bg-warning',
+                            displaySummary.confidence === 'low' && 'bg-destructive'
+                          )}
+                        />
                         <span className="text-sm font-semibold text-foreground tracking-tight">
                           {formatPrice(displaySummary.askPrice)}
                         </span>
                         <span className="text-xs text-foreground/40 font-medium">
-                          {formatPrice(displaySummary.priceRange.min)}–{formatPrice(displaySummary.priceRange.max)}
+                          {formatPrice(displaySummary.priceRange.min)}–
+                          {formatPrice(displaySummary.priceRange.max)}
                         </span>
                         <ChevronDown className="w-3 h-3 text-foreground/30 group-hover:text-foreground/50 transition-colors" />
                       </button>
@@ -386,10 +396,10 @@ export function CalculatorNav({
                             key={version.id}
                             onClick={() => onSelectVersion?.(version.id)}
                             className={cn(
-                              "w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors",
+                              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors',
                               version.id === selectedVersionId
-                                ? "bg-primary/8"
-                                : "hover:bg-foreground/[0.04]"
+                                ? 'bg-primary/8'
+                                : 'hover:bg-foreground/[0.04]'
                             )}
                           >
                             {version.id === selectedVersionId ? (
@@ -402,35 +412,43 @@ export function CalculatorNav({
                               </div>
                             )}
                             <div className="flex-1 min-w-0 text-left">
-                              <p className={cn(
-                                "text-sm font-medium",
-                                version.id === selectedVersionId ? "text-foreground" : "text-foreground/80"
-                              )}>
+                              <p
+                                className={cn(
+                                  'text-sm font-medium',
+                                  version.id === selectedVersionId
+                                    ? 'text-foreground'
+                                    : 'text-foreground/80'
+                                )}
+                              >
                                 {version.label}
                               </p>
                               <p className="text-xs text-foreground/40">
-                                {formatPrice(version.priceRange.min)}–{formatPrice(version.priceRange.max)} · {formatPrice(version.askPrice)}
+                                {formatPrice(version.priceRange.min)}–
+                                {formatPrice(version.priceRange.max)} ·{' '}
+                                {formatPrice(version.askPrice)}
                               </p>
                             </div>
                           </button>
                         ))
                       ) : (
                         <div className="px-3 py-3 text-center">
-                          <p className="text-sm text-foreground/40">{t('valuation.currentVersion')}</p>
+                          <p className="text-sm text-foreground/40">
+                            {t('valuation.currentVersion')}
+                          </p>
                         </div>
                       )}
                     </div>
                   </Dropdown>
-                  
+
                   {/* Continue button */}
                   <button
                     onClick={onContinueToListing}
                     className={cn(
-                      "flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full",
-                      "bg-primary text-primary-foreground",
-                      "hover:bg-primary/90 active:bg-primary/80",
-                      "transition-colors font-medium text-sm",
-                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
+                      'flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full',
+                      'bg-primary text-primary-foreground',
+                      'hover:bg-primary/90 active:bg-primary/80',
+                      'transition-colors font-medium text-sm',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2'
                     )}
                   >
                     <span>{t('common.continue')}</span>
@@ -441,21 +459,21 @@ export function CalculatorNav({
             )}
           </AnimatePresence>
         </div>
-        
+
         {/* Right: Assistant Button + Report Actions + User Avatar */}
         <div className="flex items-center">
           {/* Action buttons - grouped with Assistant */}
           <div className="hidden sm:flex items-center gap-0.5">
             {/* Assistant Button */}
             <AuroraButton
-              variant={isAssistantOpen ? "primary" : "ghost"}
+              variant={isAssistantOpen ? 'primary' : 'ghost'}
               size="sm"
               onClick={onOpenAssistant}
               className={cn(
-                "gap-1.5 mr-1 transition-all relative",
+                'gap-1.5 mr-1 transition-all relative',
                 isAssistantOpen
-                  ? "ring-2 ring-primary/20"
-                  : "text-foreground/60 hover:text-foreground"
+                  ? 'ring-2 ring-primary/20'
+                  : 'text-foreground/60 hover:text-foreground'
               )}
             >
               <MessageCircle className="w-4 h-4" />
@@ -466,7 +484,7 @@ export function CalculatorNav({
                 </span>
               )}
             </AuroraButton>
-            
+
             {/* Normalization Hub Button - Secondary action */}
             {onOpenNormalization && (
               <AuroraButton
@@ -474,8 +492,8 @@ export function CalculatorNav({
                 size="sm"
                 onClick={onOpenNormalization}
                 className={cn(
-                  "gap-1.5 mr-1 transition-all relative",
-                  "text-foreground/60 hover:text-foreground"
+                  'gap-1.5 mr-1 transition-all relative',
+                  'text-foreground/60 hover:text-foreground'
                 )}
               >
                 <FileSpreadsheet className="w-4 h-4" />
@@ -487,20 +505,20 @@ export function CalculatorNav({
                 )}
               </AuroraButton>
             )}
-            
+
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
-            
+
             <Tooltip content={hasReport ? t('report.preview') : t('report.noReport')}>
               <button
                 onClick={onPreview}
                 disabled={!hasReport}
                 className={cn(
-                  "p-2 rounded-lg transition-all duration-200",
+                  'p-2 rounded-lg transition-all duration-200',
                   rightPanelView === 'preview' && hasReport
-                    ? "text-primary bg-primary/15 ring-1 ring-primary/30 shadow-sm"
+                    ? 'text-primary bg-primary/15 ring-1 ring-primary/30 shadow-sm'
                     : hasReport
-                      ? "text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06]"
-                      : "text-foreground/20 cursor-not-allowed"
+                      ? 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06]'
+                      : 'text-foreground/20 cursor-not-allowed'
                 )}
                 aria-label={t('report.preview')}
                 aria-pressed={rightPanelView === 'preview'}
@@ -508,18 +526,18 @@ export function CalculatorNav({
                 <Eye className="w-4 h-4" />
               </button>
             </Tooltip>
-            
+
             <Tooltip content={hasReport ? t('report.history') : t('report.noReport')}>
               <button
                 onClick={onShowHistory}
                 disabled={!hasReport}
                 className={cn(
-                  "p-2 rounded-lg transition-all duration-200",
+                  'p-2 rounded-lg transition-all duration-200',
                   rightPanelView === 'history' && hasReport
-                    ? "text-primary bg-primary/15 ring-1 ring-primary/30 shadow-sm"
+                    ? 'text-primary bg-primary/15 ring-1 ring-primary/30 shadow-sm'
                     : hasReport
-                      ? "text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06]"
-                      : "text-foreground/20 cursor-not-allowed"
+                      ? 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06]'
+                      : 'text-foreground/20 cursor-not-allowed'
                 )}
                 aria-label={t('report.history')}
                 aria-pressed={rightPanelView === 'history'}
@@ -529,17 +547,17 @@ export function CalculatorNav({
             </Tooltip>
 
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
-            
+
             {/* PDF Download with Loading State + History Dropdown */}
             <Dropdown
               trigger={
                 <button
                   disabled={!hasReport}
                   className={cn(
-                    "flex items-center gap-1 p-2 rounded-lg transition-colors",
+                    'flex items-center gap-1 p-2 rounded-lg transition-colors',
                     hasReport
-                      ? "text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]"
-                      : "text-foreground/20 cursor-not-allowed"
+                      ? 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
+                      : 'text-foreground/20 cursor-not-allowed'
                   )}
                 >
                   {isExporting ? (
@@ -558,10 +576,8 @@ export function CalculatorNav({
                   onClick={onDownload}
                   disabled={isExporting}
                   className={cn(
-                    "w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-colors",
-                    isExporting
-                      ? "opacity-50 cursor-wait"
-                      : "hover:bg-foreground/[0.04]"
+                    'w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-colors',
+                    isExporting ? 'opacity-50 cursor-wait' : 'hover:bg-foreground/[0.04]'
                   )}
                 >
                   {isExporting ? (
@@ -594,9 +610,12 @@ export function CalculatorNav({
                           <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0 text-left">
-                          <p className="text-xs font-medium text-foreground truncate">{item.fileName}</p>
+                          <p className="text-xs font-medium text-foreground truncate">
+                            {item.fileName}
+                          </p>
                           <p className="text-[10px] text-foreground/40">
-                            {formatTimeAgo(item.timestamp, t)}{item.size && ` · ${item.size}`}
+                            {formatTimeAgo(item.timestamp, t)}
+                            {item.size && ` · ${item.size}`}
                           </p>
                         </div>
                       </button>
@@ -605,16 +624,16 @@ export function CalculatorNav({
                 )}
               </div>
             </Dropdown>
-            
+
             <Tooltip content={hasReport ? t('report.fullscreen') : t('report.noReport')}>
               <button
                 onClick={onFullscreen}
                 disabled={!hasReport}
                 className={cn(
-                  "p-2 rounded-lg transition-colors",
+                  'p-2 rounded-lg transition-colors',
                   hasReport
-                    ? "text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]"
-                    : "text-foreground/20 cursor-not-allowed"
+                    ? 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
+                    : 'text-foreground/20 cursor-not-allowed'
                 )}
               >
                 <Maximize2 className="w-4 h-4" />
@@ -632,10 +651,10 @@ export function CalculatorNav({
                   exit={{ opacity: 0, scale: 0.9 }}
                   onClick={onContinueToListing}
                   className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
-                    "bg-primary/15 border border-primary/25",
-                    "text-primary text-xs font-medium",
-                    "min-h-[44px]"
+                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg',
+                    'bg-primary/15 border border-primary/25',
+                    'text-primary text-xs font-medium',
+                    'min-h-[44px]'
                   )}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
@@ -646,31 +665,39 @@ export function CalculatorNav({
                 </motion.button>
               )}
             </AnimatePresence>
-            
+
             <Tooltip content={t('assistant.title')}>
               <button
                 onClick={onOpenAssistant}
                 className={cn(
-                  "p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center",
+                  'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
                   isAssistantOpen
-                    ? "text-primary bg-primary/10"
-                    : "text-foreground/50 hover:text-foreground"
+                    ? 'text-primary bg-primary/10'
+                    : 'text-foreground/50 hover:text-foreground'
                 )}
               >
                 <MessageCircle className="w-4 h-4" />
               </button>
             </Tooltip>
-            <Tooltip content={isExporting ? t('common.exporting') : hasReport ? t('report.download') : t('report.noReport')}>
+            <Tooltip
+              content={
+                isExporting
+                  ? t('common.exporting')
+                  : hasReport
+                    ? t('report.download')
+                    : t('report.noReport')
+              }
+            >
               <button
                 onClick={onDownload}
                 disabled={!hasReport || isExporting}
                 className={cn(
-                  "p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center",
+                  'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
                   isExporting
-                    ? "text-primary"
+                    ? 'text-primary'
                     : hasReport
-                      ? "text-foreground/50 hover:text-foreground"
-                      : "text-foreground/20 cursor-not-allowed"
+                      ? 'text-foreground/50 hover:text-foreground'
+                      : 'text-foreground/20 cursor-not-allowed'
                 )}
               >
                 {isExporting ? (
@@ -690,12 +717,13 @@ export function CalculatorNav({
             trigger={
               <button
                 className={cn(
-                  "relative flex items-center justify-center w-8 h-8 rounded-full overflow-hidden",
-                  !showAvatar && "bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-xs font-semibold",
-                  "ring-1 ring-foreground/[0.08]",
-                  "hover:ring-primary/30 transition-all",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  "min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  'relative flex items-center justify-center w-8 h-8 rounded-full overflow-hidden',
+                  !showAvatar &&
+                    'bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-xs font-semibold',
+                  'ring-1 ring-foreground/[0.08]',
+                  'hover:ring-primary/30 transition-all',
+                  'focus:outline-none focus:ring-2 focus:ring-primary/50',
+                  'min-h-[44px] min-w-[44px] flex items-center justify-center'
                 )}
               >
                 {showAvatar ? (
@@ -714,7 +742,9 @@ export function CalculatorNav({
           >
             <div className="p-2 w-56">
               <div className="px-2 py-2">
-                <p className="text-sm font-medium text-foreground">{userName || t('historyPanel.guest')}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {userName || t('historyPanel.guest')}
+                </p>
                 <p className="text-xs text-foreground/50">Accountant Pro</p>
               </div>
               <div className="h-px bg-foreground/[0.06] my-2" />
@@ -745,7 +775,7 @@ export function CalculatorNav({
         </div>
       </nav>
     </TooltipProvider>
-  );
+  )
 }
 
-export default CalculatorNav;
+export default CalculatorNav
