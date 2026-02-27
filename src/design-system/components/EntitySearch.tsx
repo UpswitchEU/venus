@@ -106,7 +106,7 @@ const searchFieldVariants = cva(
   [
     "w-full border-none rounded-xl",
     "bg-transparent",
-    "disabled:bg-transparent",
+    "disabled:bg-muted",
     "focus:outline-none focus:ring-0",
     "transition-all duration-200 ease-in-out",
     "placeholder:text-transparent",
