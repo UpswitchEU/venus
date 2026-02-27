@@ -685,7 +685,12 @@ async function initializeAuth(): Promise<void> {
   // Survives module re-evaluation (e.g. dynamic import GC / page soft-reload).
   // If init succeeded within the last 10 s, hydrate from the existing auth store
   // user (which Zustand persists in memory) and skip the full flow.
-  if (wasRecentlyInitialized()) {
+  // IMPORTANT: Never skip when clientToken is in the URL — the accountant→client
+  // context exchange MUST run even if auth recently succeeded.
+  const hasClientToken = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('clientToken')
+
+  if (!hasClientToken && wasRecentlyInitialized()) {
     const existing = useAuthStore.getState().user
     if (existing) {
       generalLogger.debug('[Auth] Skipping init — recently succeeded (sessionStorage throttle)')
