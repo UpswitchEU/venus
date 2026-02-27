@@ -430,19 +430,13 @@ export function BootstrapProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isFromMercury]); // Re-run when auth loading state changes
 
-  // AUTH-FIRST: Update engine when identity changes
-  useEffect(() => {
-    if (state.identity && state.identity.type) {
-      try {
-        const { useSessionStore } = require('../../store/useSessionStore');
-        useSessionStore.getState().setEngine(state.identity);
-      } catch (error) {
-        generalLogger.error('[BootstrapProvider] Failed to set session engine on identity change', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-  }, [state.identity.type, state.identity.userId]);
+  // NOTE: setEngine is intentionally NOT called here via a reactive useEffect.
+  // It is already invoked in two authoritative places:
+  //   1. runBootstrap() — after Titan returns the resolved identity (primary path)
+  //   2. updateIdentity() — when identity is explicitly mutated after bootstrap
+  // A third reactive effect using require() would create a third engine instance on
+  // every identity re-render, race with the primary invocations, and cause unnecessary
+  // SessionEngine churn during the bootstrap → sync cycle.
 
   // Update functions
   const updateIdentity = useCallback((identity: Partial<IdentityState>) => {

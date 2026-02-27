@@ -231,6 +231,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       : null
     const prefilledQuery = sessionPrefilledQuery || urlPrefilledQuery
 
+    // Capture prefilledQuery in a ref so the main loading effect can read the latest
+    // value without including it in the dependency array.  Including prefilledQuery in
+    // deps would re-trigger the effect every time the session loads and populates
+    // _prefilledQuery in sessionData, causing a spurious second loadSession call.
+    const prefilledQueryRef = useRef(prefilledQuery)
+    prefilledQueryRef.current = prefilledQuery
+
     // ✅ FIX: Show loading until session is loaded AND initialized
     // WORLD CLASS: Also consider bootstrap state for stage calculation
     // If bootstrap is still running, we're loading. If bootstrap failed but
@@ -319,10 +326,17 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             hasAssets: hasAssetsInSession(session),
             hasExistingData: bootstrap.report.hasExistingData,
           })
-          // Clear restoration + session state so loadSession actually runs
-          // (useSessionStore.loadSession skips when status === 'loaded' for same reportId)
+          // Clear restoration marker so the full API response wins over the bootstrap stub.
           SessionRestorationService.clearRestorationState(reportId)
-          useSessionStore.setState({ status: 'idle' as const, session: null })
+          // Only reset status when it is 'loaded' — loadSession returns early for
+          // status==='loaded' + matching reportId, so we must unlock the state machine.
+          // We intentionally keep the session object (minimal prefill data stays visible
+          // during reload).  Resetting session=null here used to cause a visual flash and
+          // raced with the concurrent useBootstrapSync.loadSession call that has now been
+          // removed (single-owner pattern).
+          if (useSessionStore.getState().status === 'loaded') {
+            useSessionStore.setState({ status: 'idle' as const })
+          }
           // Fall through to loadSession below (don't return)
         } else {
           generalLogger.debug('[SessionManager] Session load SKIPPED: already loaded via bootstrap', {
@@ -415,7 +429,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       })
 
       // Race between load and timeout
-      Promise.race([loadSession(reportId, detectedFlow, prefilledQuery), timeoutPromise])
+      Promise.race([loadSession(reportId, detectedFlow, prefilledQueryRef.current), timeoutPromise])
         .then(() => {
           clearTimeout(timeoutId)
           
@@ -539,21 +553,21 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         clearTimeout(timeoutId)
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reportId, detectedFlow, prefilledQuery, isBootstrapping, bootstrapHasSession, session?.reportId]) // loadSession is stable - don't include in deps
+    }, [reportId, detectedFlow, isBootstrapping, bootstrapHasSession]) // loadSession is stable; prefilledQuery via ref (prevents re-runs when session loads _prefilledQuery); session?.reportId intentionally excluded (prevents spurious re-runs after each load)
 
     // Retry: Clear error and reload
     const handleRetry = useCallback(() => {
       generalLogger.info('[SessionManager] Retrying load', {
         reportId,
         flow: detectedFlow,
-        prefilledQuery,
+        prefilledQuery: prefilledQueryRef.current,
       })
       // ✅ RACE CONDITION FIX: Reset refs to allow retry
       loadingInitiatedRef.current = null
       bootstrapRetryRef.current = false
-      loadSession(reportId, detectedFlow, prefilledQuery)
+      loadSession(reportId, detectedFlow, prefilledQueryRef.current)
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reportId, detectedFlow, prefilledQuery]) // loadSession is stable - don't include in deps
+    }, [reportId, detectedFlow]) // loadSession is stable; prefilledQuery read from ref
 
     // Start over: Clear and navigate home
     const handleStartOver = useCallback(() => {

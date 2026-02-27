@@ -358,21 +358,17 @@ function syncSession(state: SessionBootstrapState): void {
         });
       }
 
-      // Trigger async load - will merge/override with full session data when complete
-      logger.info('Triggering session load for existing report', {
+      // SINGLE-OWNER: Do NOT call loadSession here.
+      // ValuationSessionManager is the sole owner of session loading for existing reports.
+      // Calling loadSession from both useBootstrapSync AND ValuationSessionManager creates
+      // a race condition: both start concurrent loads, and VSM's needsFullLoad path resets
+      // session state (session=null) while useBootstrapSync's load is in-flight, causing
+      // a visual flash and unpredictable state machine transitions.
+      // VSM will detect the minimal session and trigger loadSession on its own next cycle.
+      logger.info('Bootstrap sync created minimal session — delegating full load to ValuationSessionManager', {
         reportId: report.reportId.substring(0, 20),
         hasExistingData: report.hasExistingData,
         hasValuationResult: report.hasValuationResult,
-      });
-      sessionStore.loadSession(
-        report.reportId,
-        'manual',
-        undefined
-      ).catch((error) => {
-        logger.error('Failed to load session for existing report', {
-          reportId: report.reportId.substring(0, 20),
-          error: error instanceof Error ? error.message : String(error),
-        });
       });
     }
 
