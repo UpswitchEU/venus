@@ -6,6 +6,7 @@
  * @module lib/bootstrap/utils
  */
 
+import { generalLogger } from '../../utils/logger'
 import type { BootstrapContext, BootstrapHints, FlowType } from './types'
 
 /**
@@ -122,7 +123,7 @@ export function parseUrlToContext(url: string, cookies?: string): BootstrapConte
       cookies,
     }
   } catch (error) {
-    console.error('[Bootstrap] Failed to parse URL:', error)
+    generalLogger.error('[Bootstrap] Failed to parse URL:', error)
     return {
       url,
       locale: 'en',

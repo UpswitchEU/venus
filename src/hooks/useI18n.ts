@@ -11,6 +11,7 @@ import { usePathname } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import { type Locale, locales } from '../../i18n'
+import { generalLogger } from '../utils/logger'
 
 export function useI18n() {
   const t = useTranslations()
@@ -24,7 +25,7 @@ export function useI18n() {
    */
   const changeLanguage = (newLocale: Locale) => {
     if (!locales.includes(newLocale)) {
-      console.error(`Invalid locale: ${newLocale}`)
+      generalLogger.error(`Invalid locale: ${newLocale}`)
       return
     }
 
@@ -108,9 +109,9 @@ async function updateUserLanguagePreference(locale: Locale) {
     })
 
     if (!response.ok) {
-      console.warn('Failed to update user language preference')
+      generalLogger.warn('Failed to update user language preference')
     }
   } catch (error) {
-    console.error('Error updating language preference:', error)
+    generalLogger.error('Error updating language preference:', error)
   }
 }
