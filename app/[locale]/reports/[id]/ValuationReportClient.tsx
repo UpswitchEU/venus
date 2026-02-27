@@ -8,6 +8,7 @@ import { AuthGate } from '../../../../src/components/AuthGate'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { useTokenRefresh } from '../../../../src/hooks/useTokenRefresh'
 import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
+import { generalLogger } from '../../../../src/utils/logger'
 
 /**
  * Token refresh runs INSIDE AuthGate so it only starts after auth is
@@ -16,6 +17,17 @@ import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
  */
 function TokenRefreshGuard() {
   const handleTokenExpired = useCallback(() => {
+    // If auth recently succeeded, the access token is still valid even if
+    // the refresh token is expired. Redirecting here would cause an infinite
+    // loop: Venus -> Mercury login -> Mercury auto-redirects back -> repeat.
+    try {
+      const initAt = parseInt(sessionStorage.getItem('venus_init_ok_at') || '0', 10)
+      if (Date.now() - initAt < 5 * 60 * 1000) {
+        generalLogger.warn('[TokenRefreshGuard] Refresh token expired but session is fresh — NOT redirecting')
+        return
+      }
+    } catch { /* sessionStorage unavailable */ }
+
     const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
     const mercuryUrl = getMercuryUrl()
     const locale = typeof window !== 'undefined'

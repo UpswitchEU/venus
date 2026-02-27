@@ -155,12 +155,13 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
    */
   useEffect(() => {
     generalLogger.debug(
-      'Starting token refresh checks (initial: 1.5s, interval: 5 min, access token TTL: 15 min)'
+      'Starting token refresh checks (initial: 60s, interval: 5 min, access token TTL: 15 min)'
     )
 
-    // Initial check after 1.5s — but only if auth init has completed.
-    // If initializeAuth() is still running, it handles its own token refresh;
-    // firing ours concurrently would waste a request and risk token rotation conflicts.
+    // Initial check after 60s. On a fresh page load the access token was
+    // just validated by initializeAuth(), so refreshing immediately is
+    // wasteful and dangerous: a 401 from the refresh endpoint would trigger
+    // onTokenExpired → redirect to Mercury → Mercury redirects back → loop.
     const initialTimeout = setTimeout(() => {
       const { isInitializing, loading } = useAuthStore.getState()
       if (isInitializing || loading) {
@@ -168,7 +169,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
         return
       }
       checkAndRefresh()
-    }, 1500)
+    }, 60_000)
 
     // Set up periodic checks
     intervalRef.current = setInterval(() => {

@@ -42,6 +42,7 @@ import { parseUrlToContext } from './utils';
 import { setBootstrapState } from '../sessionInitialization';
 import { AuthenticationRequiredError } from './resolvers/AuthResolver';
 import { generalLogger } from '../../utils/logger';
+import { clearReloadCounter } from '../auth';
 
 // Module-level flag: once bootstrap completes successfully, prevent
 // re-triggering from any source (effect re-run, remount, auth toggle).
@@ -310,6 +311,10 @@ export function BootstrapProvider({
       bootstrapCompletedRef.current = true;
       bootstrapCompletedGlobally = true;
       lastGlobalResult = result;
+
+      // Bootstrap succeeded — clear the reload-loop circuit breaker so
+      // future legitimate reloads aren't blocked.
+      clearReloadCounter();
       
       // Sync with SessionInitializer for backward compatibility
       setBootstrapState(result);

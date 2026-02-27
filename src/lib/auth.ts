@@ -162,6 +162,39 @@ export function clearInitThrottle(): void {
   try { sessionStorage.removeItem(INIT_SUCCESS_KEY) } catch {}
 }
 
+// ---------------------------------------------------------------------------
+// Reload-loop circuit breaker
+// If the page reloads more than MAX times within WINDOW ms, stop retrying
+// and surface an error. This breaks redirect loops (e.g. Venus→Mercury→Venus).
+// ---------------------------------------------------------------------------
+const RELOAD_COUNT_KEY = 'venus_reload_count'
+const RELOAD_WINDOW_KEY = 'venus_reload_window_start'
+const MAX_RELOADS_IN_WINDOW = 4
+const RELOAD_WINDOW_MS = 30_000
+
+function isReloadLooping(): boolean {
+  try {
+    const now = Date.now()
+    const windowStart = parseInt(sessionStorage.getItem(RELOAD_WINDOW_KEY) || '0', 10)
+    let count = parseInt(sessionStorage.getItem(RELOAD_COUNT_KEY) || '0', 10)
+
+    if (now - windowStart > RELOAD_WINDOW_MS) {
+      sessionStorage.setItem(RELOAD_WINDOW_KEY, String(now))
+      count = 0
+    }
+    count++
+    sessionStorage.setItem(RELOAD_COUNT_KEY, String(count))
+    return count > MAX_RELOADS_IN_WINDOW
+  } catch { return false }
+}
+
+export function clearReloadCounter(): void {
+  try {
+    sessionStorage.removeItem(RELOAD_COUNT_KEY)
+    sessionStorage.removeItem(RELOAD_WINDOW_KEY)
+  } catch {}
+}
+
 /**
  * BANK GRADE: Client Context Initialization Tracking
  * Uses deferred promise pattern to prevent race conditions where API requests
@@ -682,6 +715,19 @@ async function initializeAuth(): Promise<void> {
     return
   }
 
+  // Circuit breaker: if the page has reloaded too many times in a short
+  // window, stop trying and surface an error to break redirect loops.
+  if (isReloadLooping()) {
+    generalLogger.error('[Auth] Reload loop detected — breaking cycle')
+    useAuthStore.getState().setLoading(false)
+    useAuthStore.getState().setIsInitializing(false)
+    useAuthStore.getState().setError(
+      'Unable to sign in. The page kept reloading. Please close this tab, reopen it, and try again.'
+    )
+    initCompleted = true
+    return
+  }
+
   // Survives module re-evaluation (e.g. dynamic import GC / page soft-reload).
   // If init succeeded within the last 10 s, hydrate from the existing auth store
   // user (which Zustand persists in memory) and skip the full flow.
@@ -699,6 +745,10 @@ async function initializeAuth(): Promise<void> {
       useAuthStore.getState().setIsInitializing(false)
       return
     }
+    // User is null (page reload cleared Zustand) but init succeeded recently.
+    // The full init flow will run but this is expected — sessionStorage
+    // throttle only short-circuits when the in-memory user is still present.
+    generalLogger.debug('[Auth] SessionStorage throttle active but Zustand user is null (page reload)')
   }
 
   if (initPromise) {
