@@ -144,6 +144,24 @@ import { getActiveRefreshPromise, setActiveRefreshPromise } from '../utils/auth/
 let initPromise: Promise<void> | null = null
 let initCompleted = false
 
+const INIT_SUCCESS_KEY = 'venus_init_ok_at'
+const INIT_THROTTLE_MS = 10_000
+
+function wasRecentlyInitialized(): boolean {
+  try {
+    const ts = parseInt(sessionStorage.getItem(INIT_SUCCESS_KEY) || '0', 10)
+    return Date.now() - ts < INIT_THROTTLE_MS
+  } catch { return false }
+}
+
+function markInitSuccess(): void {
+  try { sessionStorage.setItem(INIT_SUCCESS_KEY, String(Date.now())) } catch {}
+}
+
+export function clearInitThrottle(): void {
+  try { sessionStorage.removeItem(INIT_SUCCESS_KEY) } catch {}
+}
+
 /**
  * BANK GRADE: Client Context Initialization Tracking
  * Uses deferred promise pattern to prevent race conditions where API requests
@@ -583,11 +601,11 @@ export const useAuthStore = create<AuthState>()(
             // Non-critical
           })
 
-          // CRITICAL: Clear all promise caches and flags to prevent stale state
           checkSessionPromise = null
           setActiveRefreshPromise(null)
           initCompleted = false
           initPromise = null
+          clearInitThrottle()
 
           // 2. Clear localStorage/sessionStorage
           if (typeof window !== 'undefined') {
@@ -660,13 +678,24 @@ export function getInitTraceId(): string | null {
  * Prevents race conditions by deduplicating concurrent initialization calls
  */
 async function initializeAuth(): Promise<void> {
-  // Once initialization succeeded, never re-run.
-  // Prevents auth store loading=true/false thrashing on subsequent calls.
   if (initCompleted) {
     return
   }
 
-  // Deduplicate concurrent initialization calls
+  // Survives module re-evaluation (e.g. dynamic import GC / page soft-reload).
+  // If init succeeded within the last 10 s, hydrate from the existing auth store
+  // user (which Zustand persists in memory) and skip the full flow.
+  if (wasRecentlyInitialized()) {
+    const existing = useAuthStore.getState().user
+    if (existing) {
+      generalLogger.debug('[Auth] Skipping init — recently succeeded (sessionStorage throttle)')
+      initCompleted = true
+      useAuthStore.getState().setLoading(false)
+      useAuthStore.getState().setIsInitializing(false)
+      return
+    }
+  }
+
   if (initPromise) {
     return initPromise
   }
@@ -1135,15 +1164,14 @@ async function initializeAuth(): Promise<void> {
       // AUTH-FIRST: Clear user on error - BootstrapProvider will redirect to login
       setUser(null)
     } finally {
-      generalLogger.info(`[Auth:${traceId}] Initialization complete - loading=false, isInitializing=false`)
+      generalLogger.info(`[Auth:${traceId}] Initialization complete`)
       setLoading(false)
-      // RACE CONDITION FIX: Mark initialization as complete
-      // AuthGate waits for both loading=false AND isInitializing=false
       setIsInitializing(false)
-      // Mark as completed so initializeAuth() is never re-entered.
-      // Full page reload resets this (new module instance).
       initCompleted = true
       initPromise = null
+      if (useAuthStore.getState().user) {
+        markInitSuccess()
+      }
     }
   })()
 

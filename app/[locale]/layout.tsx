@@ -46,8 +46,8 @@ export async function generateMetadata({ params }: LocaleLayoutProps): Promise<M
 
   return {
     title: {
-      default: 'UpSwitch Valuation Tester',
-      template: '%s | UpSwitch Valuation Tester',
+      default: 'Upswitch | Bedrijfswaardering',
+      template: '%s | Upswitch',
     },
   }
 }

@@ -12,14 +12,25 @@ export function generateStaticParams() {
 
 export const metadata: Metadata = {
   title: {
-    default: 'UpSwitch Valuation Tester',
-    template: '%s | UpSwitch Valuation Tester',
+    default: 'Upswitch | Bedrijfswaardering',
+    template: '%s | Upswitch',
   },
-  description: 'Professional business valuation platform for testing and demonstration',
-  keywords: ['valuation', 'business', 'M&A', 'financial analysis', 'business valuation'],
-  authors: [{ name: 'UpSwitch Team' }],
-  creator: 'UpSwitch',
-  publisher: 'UpSwitch',
+  description:
+    'Professionele bedrijfswaardering door Upswitch — snel, betrouwbaar en betaalbaar.',
+  keywords: [
+    'bedrijfswaardering',
+    'waardering',
+    'EBITDA',
+    'KMO',
+    'België',
+    'waardebepaling',
+    'M&A',
+    'accountant',
+    'financiële analyse',
+  ],
+  authors: [{ name: 'Upswitch' }],
+  creator: 'Upswitch',
+  publisher: 'Upswitch',
   formatDetection: {
     email: false,
     address: false,
@@ -28,49 +39,52 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://valuation.upswitch.app'),
   icons: {
     icon: [
+      { url: '/favicon.ico', sizes: '32x32' },
       {
         url: '/favicon-dark-square-var1.svg',
         type: 'image/svg+xml',
       },
       {
-        url: '/favicon-16x16.svg',
-        type: 'image/svg+xml',
-        sizes: '16x16',
+        url: '/favicon-32x32.png',
+        type: 'image/png',
+        sizes: '32x32',
       },
       {
-        url: '/favicon-32x32.svg',
-        type: 'image/svg+xml',
-        sizes: '32x32',
+        url: '/favicon-16x16.png',
+        type: 'image/png',
+        sizes: '16x16',
       },
     ],
     apple: [
       {
-        url: '/apple-touch-icon.svg',
-        type: 'image/svg+xml',
+        url: '/apple-touch-icon.png',
+        type: 'image/png',
         sizes: '180x180',
       },
     ],
-    shortcut: '/favicon-dark-square-var1.svg',
+    shortcut: '/favicon.ico',
   },
   openGraph: {
     type: 'website',
-    locale: 'en_US',
-    url: '/',
-    siteName: 'UpSwitch Valuation Tester',
-    title: 'UpSwitch Valuation Tester',
-    description: 'Professional business valuation platform for testing and demonstration',
+    locale: 'nl_BE',
+    url: 'https://valuation.upswitch.app',
+    siteName: 'Upswitch',
+    title: 'Upswitch | Bedrijfswaardering',
+    description:
+      'Het platform waarmee accountants professionele bedrijfswaarderingen uitvoeren.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'UpSwitch Valuation Tester',
-    description: 'Professional business valuation platform',
+    title: 'Upswitch | Bedrijfswaardering',
+    description:
+      'Het platform waarmee accountants professionele bedrijfswaarderingen uitvoeren.',
   },
   robots: {
-    index: false, // Tester app should not be indexed
-    follow: false,
+    index: true,
+    follow: true,
     googleBot: {
-      index: false,
-      follow: false,
+      index: true,
+      follow: true,
     },
   },
 }
@@ -113,36 +127,6 @@ gtag('config', 'G-0RW0LNCVBG', {
         {process.env.NEXT_PUBLIC_VERCEL_ENV !== 'preview' && (
           <link rel="manifest" href="/manifest.json" />
         )}
-        {/* Service Worker update check and cache clear (silent) */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                if ('serviceWorker' in navigator) {
-                  // Force update check (silent)
-                  navigator.serviceWorker.getRegistration().then(function(reg) {
-                    if (reg) {
-                      reg.update()
-                    }
-                  }).catch(function(err) {
-                    // Silent error handling
-                  })
-                  
-                  // Clear all caches to ensure fresh content (silent)
-                  caches.keys().then(function(names) {
-                    return Promise.all(
-                      names.map(function(name) {
-                        return caches.delete(name)
-                      })
-                    )
-                  }).catch(function(err) {
-                    // Silent error handling
-                  })
-                }
-              })();
-            `,
-          }}
-        />
       </head>
       <body className="bg-background text-foreground antialiased">
         <VenusAnalytics />

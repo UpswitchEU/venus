@@ -77,6 +77,9 @@ class SessionInitializer {
         }, '[SessionInitializer] Initialization complete ✓');
       } catch (error) {
         this.error = error as Error;
+        // Reset promise so the next waitForReady() retries instead of
+        // returning the same rejected promise on every API request.
+        this.initPromise = null;
         logger.error({
           error: error instanceof Error ? error.message : String(error),
         }, '[SessionInitializer] Initialization failed');
@@ -180,7 +183,7 @@ class SessionInitializer {
           }
         }),
         new Promise<void>((_, reject) => 
-          setTimeout(() => reject(new Error('Auth initialization timeout')), 10000)
+          setTimeout(() => reject(new Error('Auth initialization timeout')), 20000)
         ),
       ]);
 

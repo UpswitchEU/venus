@@ -9,6 +9,24 @@ import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { useTokenRefresh } from '../../../../src/hooks/useTokenRefresh'
 import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
 
+/**
+ * Token refresh runs INSIDE AuthGate so it only starts after auth is
+ * confirmed. This prevents competing redirect races when the refresh
+ * token is expired (useTokenRefresh redirecting AND AuthGate redirecting).
+ */
+function TokenRefreshGuard() {
+  const handleTokenExpired = useCallback(() => {
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
+    const mercuryUrl = getMercuryUrl()
+    const locale = typeof window !== 'undefined'
+      ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+      : 'en'
+    window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+  }, [])
+  useTokenRefresh({ onTokenExpired: handleTokenExpired })
+  return null
+}
+
 interface ValuationReportClientProps {
   reportId: string
   locale: string
@@ -69,18 +87,6 @@ export default function ValuationReportClient({
   // Detect Mercury flow - cookies are already present so we can render optimistically
   const isFromMercury = urlParams.source === 'mercury'
 
-  // Proactive token refresh: keeps the access token alive during long sessions.
-  // Without this, the 15-minute access token expires silently while the user fills data.
-  const handleTokenExpired = useCallback(() => {
-    const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
-    const mercuryUrl = getMercuryUrl()
-    const localeMatch = typeof window !== 'undefined'
-      ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
-      : 'en'
-    window.location.href = `${mercuryUrl}/${localeMatch}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
-  }, [])
-  useTokenRefresh({ onTokenExpired: handleTokenExpired })
-
   // Build bootstrap context from URL params.
   // Dependency array uses primitive values extracted from urlParams
   // to guarantee stability even if urlParams object reference changes.
@@ -122,6 +128,7 @@ export default function ValuationReportClient({
         loadingComponent={<CalculatorShellSkeleton />}
         optimistic={isFromMercury}
       >
+        <TokenRefreshGuard />
         <BootstrapProvider
           context={bootstrapContext}
           autoBootstrap={true}

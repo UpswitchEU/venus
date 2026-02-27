@@ -1,7 +1,7 @@
 {
-  "name": "Upswitch Valuation",
   "short_name": "Upswitch",
-  "description": "Professional business valuation platform",
+  "name": "Upswitch — Bedrijfswaarderingen voor Accountants",
+  "description": "Het platform waarmee accountants snel, betrouwbaar en betaalbaar bedrijfswaarderingen uitvoeren voor hun klanten.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F4F1EA",
@@ -14,18 +14,18 @@
       "sizes": "any"
     },
     {
-      "src": "favicon-16x16.svg",
-      "type": "image/svg+xml",
+      "src": "favicon-16x16.png",
+      "type": "image/png",
       "sizes": "16x16"
     },
     {
-      "src": "favicon-32x32.svg",
-      "type": "image/svg+xml",
+      "src": "favicon-32x32.png",
+      "type": "image/png",
       "sizes": "32x32"
     },
     {
-      "src": "apple-touch-icon.svg",
-      "type": "image/svg+xml",
+      "src": "apple-touch-icon.png",
+      "type": "image/png",
       "sizes": "180x180"
     },
     {
@@ -42,7 +42,7 @@
     }
   ],
   "categories": ["business", "finance", "productivity"],
-  "lang": "en",
+  "lang": "nl",
   "scope": "/",
   "prefer_related_applications": false
 }

@@ -212,21 +212,14 @@ export function BootstrapProvider({
       return;
     }
     
-    // ✅ FIX: Double-check auth is stable before proceeding
-    // This handles edge cases where runBootstrap is called directly
-    // OPTIMISTIC: Mercury flows skip this wait — cookies are already present,
-    // the Titan proxy will forward them automatically.
+    // AuthGate ensures auth is settled before mounting BootstrapProvider.
+    // This guard only fires when runBootstrap is called directly (e.g. force refresh).
     if (!isFromMercury) {
       const authState = useAuthStore.getState();
-      if (authState.loading) {
-        generalLogger.debug('[BootstrapProvider] Auth still loading, waiting 500ms before bootstrap');
-        await new Promise(r => setTimeout(r, 500));
-        
-        // Check again after waiting
-        const updatedAuthState = useAuthStore.getState();
-        if (updatedAuthState.loading) {
-          generalLogger.debug('[BootstrapProvider] Auth still loading after wait, proceeding anyway');
-        }
+      if (authState.loading || authState.isInitializing) {
+        generalLogger.debug('[BootstrapProvider] Auth not settled — deferring bootstrap');
+        bootstrapStartedRef.current = false;
+        return;
       }
     }
     
@@ -429,20 +422,15 @@ export function BootstrapProvider({
     await runBootstrap();
   }, [runBootstrap]);
 
-  // Subscribe to auth loading state for the auto-bootstrap effect
-  const authLoading = useAuthStore((s) => s.loading);
-  
   // Auto-bootstrap on mount if no initial state.
-  // AuthGate ensures auth and client context are ready BEFORE this runs.
+  // AuthGate ensures auth and client context are fully ready BEFORE
+  // BootstrapProvider is mounted, so we don't need to watch authLoading
+  // or add stability delays — just run once.
   useEffect(() => {
-    // Module-level guard: bootstrap already completed — nothing to do.
-    // This is the primary defense against authLoading toggles (token refresh)
-    // re-triggering bootstrap after it already succeeded.
     if (bootstrapCompletedGlobally) {
       if (!bootstrapStartedRef.current) {
         const cached = bootstrapService.getCachedResult() || lastGlobalResult;
         if (cached) {
-          generalLogger.debug('[BootstrapProvider] Auto-bootstrap effect: module guard active, hydrating from cache');
           bootstrapStartedRef.current = true;
           bootstrapCompletedRef.current = true;
           setState(cached);
@@ -457,37 +445,11 @@ export function BootstrapProvider({
       return;
     }
 
-    // Remount with singleton cache — hydrate without a full runBootstrap call
-    if (bootstrapService.hasCompletedFor(context?.reportId)) {
-      runBootstrap();
-      return;
-    }
-
-    // Mercury flows start bootstrap immediately — cookies are already present.
-    if (isFromMercury && autoBootstrap) {
-      generalLogger.debug('[BootstrapProvider] Mercury flow — starting bootstrap immediately');
-      runBootstrap();
-      return;
-    }
-    
-    if (authLoading) {
-      generalLogger.debug('[BootstrapProvider] Waiting for auth to stabilize before bootstrap');
-      return;
-    }
-    
     if (autoBootstrap) {
-      // RELOAD LOOP FIX: Slightly longer debounce to avoid rapid re-runs from auth store flicker
-      // (e.g. token refresh briefly toggling loading state)
-      const stabilityDelay = setTimeout(() => {
-        if (!bootstrapStartedRef.current) {
-          runBootstrap();
-        }
-      }, 150);
-      
-      return () => clearTimeout(stabilityDelay);
+      runBootstrap();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, isFromMercury]);
+  }, []);
 
   // NOTE: setEngine is intentionally NOT called here via a reactive useEffect.
   // It is already invoked in two authoritative places:
