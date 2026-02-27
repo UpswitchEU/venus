@@ -415,7 +415,8 @@ export class SessionBootstrapService {
     const isAuthAndContextReady = (): boolean => {
       const authState = useAuthStore.getState();
       // Require user (not just error) - bootstrap needs valid auth; error means unauthenticated
-      const authReady = !authState.loading && !authState.isInitializing && !!authState.user;
+      // RELOAD LOOP FIX: Also wait for !isRefreshing so we don't bootstrap with stale/null user
+      const authReady = !authState.loading && !authState.isInitializing && !authState.isRefreshing && !!authState.user;
       if (!authReady) return false;
       // When clientToken present, also require client context in store (headers needed for Titan delegated flow)
       if (hasClientToken && !useClientContext.getState().isActingAsClient) {

@@ -81,23 +81,34 @@ export default function ValuationReportClient({
   }, [])
   useTokenRefresh({ onTokenExpired: handleTokenExpired })
 
-  // Build bootstrap context from URL params
+  // Build bootstrap context from URL params.
+  // Dependency array uses primitive values extracted from urlParams
+  // to guarantee stability even if urlParams object reference changes.
+  const clientToken = urlParams.clientToken
+  const clientId = urlParams.clientId
+  const prefilledQuery = urlParams.prefilledQuery
+  const flow = urlParams.flow
+  const embedded = urlParams.embedded
+  const returnUrl = urlParams.return_url
+  const source = urlParams.source
+
   const bootstrapContext = useMemo<BootstrapContext>(() => {
     return {
       url: typeof window !== 'undefined' ? window.location.href : '',
       reportId,
-      clientToken: urlParams.clientToken,
-      clientId: urlParams.clientId,
-      prefilledQuery: urlParams.prefilledQuery,
-      flow: (urlParams.flow as FlowType) || undefined,
+      clientToken,
+      clientId,
+      prefilledQuery,
+      flow: (flow as FlowType) || undefined,
       mode: initialMode,
       version: initialVersion,
       locale,
-      embedded: urlParams.embedded === 'true',
-      returnUrl: urlParams.return_url,
-      sourceApp: urlParams.source,
+      embedded: embedded === 'true',
+      returnUrl,
+      sourceApp: source,
     }
-  }, [reportId, locale, initialMode, initialVersion, urlParams, hasClientToken])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportId, locale, initialMode, initialVersion, clientToken, clientId, prefilledQuery, flow, embedded, returnUrl, source])
 
   return (
     <ErrorBoundary>

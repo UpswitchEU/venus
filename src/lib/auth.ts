@@ -253,12 +253,19 @@ interface AuthState {
    * finished fetching client context yet.
    */
   isInitializing: boolean
+  /**
+   * RELOAD LOOP FIX: Tracks when token refresh is in flight (401 → refresh → retry).
+   * AuthGate must NOT redirect while refresh is in progress, or we redirect before
+   * the user is restored and cause a redirect loop.
+   */
+  isRefreshing: boolean
 
   // Actions
   setUser: (user: User | null) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setIsInitializing: (isInitializing: boolean) => void
+  setIsRefreshing: (isRefreshing: boolean) => void
   checkSession: () => Promise<User | null>
   exchangeToken: (token: string) => Promise<User | null>
   logout: () => void
@@ -276,6 +283,7 @@ export const useAuthStore = create<AuthState>()(
       loading: true,
       error: null,
       isInitializing: true, // RACE CONDITION FIX: Start as true, set false when initializeAuth completes
+      isRefreshing: false, // RELOAD LOOP FIX: True when 401 triggered refresh is in flight
 
       // Set user
       setUser: (user: User | null) => {
@@ -295,6 +303,11 @@ export const useAuthStore = create<AuthState>()(
       // RACE CONDITION FIX: Set initialization state
       setIsInitializing: (isInitializing: boolean) => {
         set({ isInitializing })
+      },
+
+      // RELOAD LOOP FIX: Set refresh-in-progress state
+      setIsRefreshing: (isRefreshing: boolean) => {
+        set({ isRefreshing })
       },
 
       // Check session with cookie (supports dual-token system with auto-refresh)
@@ -331,6 +344,9 @@ export const useAuthStore = create<AuthState>()(
 
             // If access token expired (401), try to refresh automatically
             if (response.status === 401) {
+              // RELOAD LOOP FIX: Signal refresh in progress so AuthGate doesn't redirect prematurely
+              get().setIsRefreshing(true)
+              try {
               // CRITICAL: Deduplicate concurrent refresh attempts
               // If already refreshing, wait for that promise
               if (!getActiveRefreshPromise()) {
@@ -421,6 +437,9 @@ export const useAuthStore = create<AuthState>()(
               clearAuthCache()
 
               return null
+              } finally {
+                get().setIsRefreshing(false)
+              }
             }
 
             if (response.ok) {
@@ -540,6 +559,18 @@ export const useAuthStore = create<AuthState>()(
           // Clear bootstrap singleton cache so stale results aren't served after re-login
           import('./bootstrap/SessionBootstrapService').then(({ bootstrapService }) => {
             bootstrapService.clearCache()
+          }).catch(() => {
+            // Non-critical
+          })
+
+          // Reset module-level guards so re-login triggers fresh auth + bootstrap
+          import('../components/AuthGate').then(({ resetAuthGateGuard }) => {
+            resetAuthGateGuard()
+          }).catch(() => {
+            // Non-critical
+          })
+          import('./bootstrap/BootstrapProvider').then(({ resetBootstrapGuard }) => {
+            resetBootstrapGuard()
           }).catch(() => {
             // Non-critical
           })
@@ -874,6 +905,11 @@ async function initializeAuth(): Promise<void> {
             url.searchParams.delete('client_id') // Remove if present
             url.searchParams.delete('prefilledQuery') // Remove if present
             window.history.replaceState({}, '', url.pathname + (url.search || ''))
+
+            // Stop here — do NOT fall through to setUser(null) which would
+            // clear this error via set({ error: null }). AuthGate will pick
+            // up the error and show it to the user.
+            return
           }
         }
       }

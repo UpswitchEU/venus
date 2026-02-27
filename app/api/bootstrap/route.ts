@@ -227,6 +227,17 @@ export async function POST(request: NextRequest) {
         // Add any new cookies from retry response
         const retryCookies = response.headers.getSetCookie();
         allSetCookieHeaders.push(...retryCookies);
+      } else {
+        // RELOAD LOOP FIX: Refresh failed - return explicit 401 so client redirects to login once
+        generalLogger.warn('[Bootstrap Route] Token refresh failed - returning 401');
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Session expired',
+            message: 'Token refresh failed. Please log in again.',
+          },
+          { status: 401 }
+        );
       }
     } else {
       // Get cookies from original response

@@ -31,6 +31,39 @@ import { useLanguageSync } from '../hooks/useLanguageSync'
 import type { User } from '../contexts/AuthContextTypes'
 
 // ============================================================================
+// Constants - Redirect loop protection
+// ============================================================================
+
+const REDIRECT_COUNT_KEY = 'upswitch_venus_redirect_count'
+const MAX_REDIRECTS_BEFORE_ERROR = 3
+
+function getRedirectCount(): number {
+  try {
+    return parseInt(sessionStorage.getItem(REDIRECT_COUNT_KEY) ?? '0', 10) || 0
+  } catch {
+    return 0
+  }
+}
+
+function incrementRedirectCount(): number {
+  try {
+    const next = getRedirectCount() + 1
+    sessionStorage.setItem(REDIRECT_COUNT_KEY, String(next))
+    return next
+  } catch {
+    return 1
+  }
+}
+
+function clearRedirectCount(): void {
+  try {
+    sessionStorage.removeItem(REDIRECT_COUNT_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -178,6 +211,21 @@ function DefaultErrorState({
 }
 
 // ============================================================================
+// Module-level sticky guard
+// ============================================================================
+// Survives component remounts — once auth is confirmed ready, we never
+// re-evaluate until the user explicitly logs out or does a full page reload.
+// This is the critical defense against BootstrapProvider unmount/remount
+// cycles caused by AuthGate briefly hiding children during transient
+// auth store updates.
+let wasAuthReady = false
+
+/** Reset the module-level auth ready guard (call on logout) */
+export function resetAuthGateGuard() {
+  wasAuthReady = false
+}
+
+// ============================================================================
 // AuthGate Component
 // ============================================================================
 
@@ -192,105 +240,116 @@ export function AuthGate({
   optimistic = false,
 }: AuthGateProps) {
   const t = useTranslations('auth.authGate')
-  const [state, setState] = useState<AuthGateState>('checking')
+  const [state, setState] = useState<AuthGateState>(wasAuthReady ? 'ready' : 'checking')
   const [error, setError] = useState<string | null>(null)
-  const [isReady, setIsReady] = useState(false)
-  // Sticky guard: once children have been rendered, keep them rendered.
-  // Prevents BootstrapProvider unmount/remount cycles caused by transient
-  // auth store updates triggering the effect to re-run.
-  const wasReadyRef = useRef(false)
-  const [retryCount, setRetryCount] = useState(0)
-  const maxRetries = 2 // Maximum number of automatic retries for transient errors
+  const [isReady, setIsReady] = useState(wasAuthReady)
+  const retryCountRef = useRef(0)
+  const maxRetries = 2
   const fallbackAttemptedRef = useRef(false)
+
+  // Stable refs for callback props — avoids useEffect re-runs when parent
+  // passes new closure references on every render.
+  const onAuthReadyRef = useRef(onAuthReady)
+  const onAuthErrorRef = useRef(onAuthError)
+  const tRef = useRef(t)
+  useEffect(() => { onAuthReadyRef.current = onAuthReady }, [onAuthReady])
+  useEffect(() => { onAuthErrorRef.current = onAuthError }, [onAuthError])
+  useEffect(() => { tRef.current = t }, [t])
 
   useLanguageSync()
 
   // Auth state from store
   const authLoading = useAuthStore((s) => s.loading)
   const authError = useAuthStore((s) => s.error)
-  // RACE CONDITION FIX: Track initialization state separately from loading
-  // This ensures we wait for the full initializeAuth() to complete,
-  // not just for checkSession() to return (which sets loading=false prematurely)
   const isInitializing = useAuthStore((s) => s.isInitializing)
+  // RELOAD LOOP FIX: Don't redirect while token refresh is in flight (401 → refresh → retry)
+  const isRefreshing = useAuthStore((s) => s.isRefreshing)
 
-  // BANK GRADE: Trust the prop from parent - no redundant URL checking
-  // ValuationReportClient already checks urlParams for clientToken/clientId
   const needsClientContext = hasClientToken
 
-  // Retry handler — only explicit user action clears the sticky ref
   const handleRetry = useCallback(() => {
-    wasReadyRef.current = false
+    wasAuthReady = false
     setState('checking')
     setError(null)
     setIsReady(false)
-    setRetryCount(0)
+    retryCountRef.current = 0
     fallbackAttemptedRef.current = false
+    clearRedirectCount()
     window.location.reload()
   }, [])
 
-  // Main auth gate logic
-  // BANK GRADE: auth.ts guarantees client context is ready when loading=false
-  // No need for redundant waitForClientContext() - just verify context is in store
   useEffect(() => {
+    // Module-level sticky guard: once auth was confirmed ready in ANY mount,
+    // skip the entire effect. This is the primary defense against transient
+    // auth store toggles (token refresh, etc.) causing BootstrapProvider
+    // remount cycles.
+    if (wasAuthReady) {
+      return
+    }
+
     let mounted = true
     let authResolved = false
     let maxTimeoutId: NodeJS.Timeout | null = null
+    let redirectDebounceId: NodeJS.Timeout | null = null
     const traceId = getInitTraceId() || 'unknown'
 
     maxTimeoutId = setTimeout(() => {
       if (mounted && !authResolved) {
         generalLogger.error(`[AuthGate:${traceId}] Max timeout exceeded while checking auth`)
         setState('error')
-        setError(t('timeout'))
-        onAuthError?.('Authentication timeout')
+        setError(tRef.current('timeout'))
+        onAuthErrorRef.current?.('Authentication timeout')
       }
     }, 30000)
 
     function checkAuth() {
-      // Sticky guard: once auth was confirmed ready, don't re-evaluate.
-      // This prevents transient store updates (e.g. token refresh setting
-      // loading=true briefly) from unmounting children mid-session.
-      if (wasReadyRef.current) {
+      if (wasAuthReady) {
         return
       }
 
       // Step 1: Wait for auth to complete
       // RACE CONDITION FIX: Wait for BOTH loading=false AND isInitializing=false
-      // This prevents checking client context before initializeAuth() has finished
-      // setting it up (the old bug was that checkSession() set loading=false 
-      // when returning cached user, but initializeAuth() was still running)
-      if (authLoading || isInitializing) {
-        generalLogger.debug(`[AuthGate:${traceId}] Waiting for auth to complete`, { authLoading, isInitializing })
+      // RELOAD LOOP FIX: Also wait for isRefreshing=false so we don't redirect
+      // before token refresh (401 → refresh → retry) completes and restores the user
+      if (authLoading || isInitializing || isRefreshing) {
+        generalLogger.debug(`[AuthGate:${traceId}] Waiting for auth to complete`, { authLoading, isInitializing, isRefreshing })
         setState('checking')
         return
       }
 
       // Step 2: Check for auth errors
-      // ✅ FIX: For transient 401 errors, retry automatically before showing error
       if (authError) {
-        const isTransient401 = authError.includes('401') || 
-                               authError.toLowerCase().includes('expired') ||
-                               authError.toLowerCase().includes('unauthorized') ||
-                               authError.toLowerCase().includes('authentication required') ||
-                               authError.toLowerCase().includes('required') ||
-                               authError.toLowerCase().includes('not authenticated') ||
-                               authError.toLowerCase().includes('no refresh token')
-        
-        if (isTransient401 && retryCount < maxRetries) {
+        const lowerError = authError.toLowerCase()
+
+        // Client context errors (set by auth.ts) are non-retryable — show immediately.
+        // These contain actionable instructions for the user.
+        const isClientContextError =
+          lowerError.includes('valuation link') ||
+          lowerError.includes('client context') ||
+          lowerError.includes('insufficient credits')
+
+        // Transient auth errors (token expired, 401) can be retried — the token
+        // refresh may still be in-flight and will clear the error shortly.
+        const isTransientAuthError = !isClientContextError && (
+          authError.includes('401') ||
+          lowerError.includes('token') ||
+          lowerError.includes('unauthorized') ||
+          lowerError.includes('not authenticated') ||
+          lowerError.includes('no refresh token')
+        )
+
+        if (isTransientAuthError && retryCountRef.current < maxRetries) {
+          retryCountRef.current += 1
           generalLogger.debug(`[AuthGate:${traceId}] Transient auth error - retrying`, {
-            retry: retryCount + 1,
+            retry: retryCountRef.current,
             maxRetries,
             error: authError,
           })
           
-          // Wait a moment for token refresh to complete, then re-check
           setTimeout(() => {
             if (mounted) {
-              setRetryCount(prev => prev + 1)
-              // Clear the error and re-check auth state
               const currentState = useAuthStore.getState()
               if (!currentState.error && !currentState.loading) {
-                // Error cleared, re-run checkAuth
                 checkAuth()
               }
             }
@@ -298,19 +357,43 @@ export function AuthGate({
           return
         }
         
-        // AUTH-FIRST: If auth error and no user, redirect to login instead of showing error
+        // Client context errors are actionable — show error UI so the user
+        // can read the message ("Please create a new valuation...") and act.
+        // Don't redirect to login — the issue is the link, not the session.
+        if (isClientContextError) {
+          generalLogger.debug(`[AuthGate:${traceId}] Client context error — showing error UI`, { authError })
+          if (mounted) {
+            authResolved = true
+            setState('error')
+            setError(authError)
+            onAuthErrorRef.current?.(authError)
+          }
+          return
+        }
+
+        // For auth errors (token/session issues): redirect unauthenticated
+        // users to Mercury login. Authenticated users with transient errors
+        // see the error UI with a retry button.
         const currentUser = useAuthStore.getState().user
         if (!currentUser) {
-          // Build redirect URL to return user to current page after login
+          const count = incrementRedirectCount()
+          if (count >= MAX_REDIRECTS_BEFORE_ERROR) {
+            generalLogger.error(`[AuthGate:${traceId}] Redirect loop detected (auth error) - showing error`, { count })
+            authResolved = true
+            setState('error')
+            setError('Unable to sign in. Please try again in a new tab or clear your cookies.')
+            onAuthErrorRef.current?.('Redirect loop detected')
+            return
+          }
           const currentUrl = typeof window !== 'undefined' ? window.location.href : '/reports/new'
           const mercuryUrl = getMercuryUrl()
           const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
-          // Mercury expects 'returnUrl' parameter (not 'redirect')
           const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
           
           generalLogger.debug(`[AuthGate:${traceId}] Auth error and no user - redirecting to Mercury login`, {
             redirectUrl,
             authError,
+            redirectCount: count,
           })
           
           authResolved = true
@@ -320,13 +403,12 @@ export function AuthGate({
           return
         }
         
-        // Only show error if user exists but there's still an auth error (unusual case)
         generalLogger.debug(`[AuthGate:${traceId}] Auth error detected`, { authError })
         if (mounted) {
           authResolved = true
           setState('error')
           setError(authError)
-          onAuthError?.(authError)
+          onAuthErrorRef.current?.(authError)
         }
         return
       }
@@ -349,7 +431,20 @@ export function AuthGate({
           fallbackAttemptedRef.current = true
           generalLogger.debug(`[AuthGate:${traceId}] Fallback: Attempting to restore client context from report`)
           
-          // Use async IIFE to handle async operations
+          const FALLBACK_MAX_MS = 8000
+          let fallbackCompleted = false
+          const completeFallback = () => {
+            if (fallbackCompleted) return
+            fallbackCompleted = true
+            if (mounted) checkAuth()
+          }
+          
+          // Global timeout: don't hang if fallback stalls
+          const fallbackTimeout = setTimeout(() => {
+            generalLogger.warn(`[AuthGate:${traceId}] Fallback: Timeout after ${FALLBACK_MAX_MS}ms`)
+            completeFallback()
+          }, FALLBACK_MAX_MS)
+          
           ;(async () => {
             try {
               const API_URL = getApiUrl()
@@ -403,14 +498,8 @@ export function AuthGate({
                 error: error instanceof Error ? error.message : String(error),
               })
             } finally {
-              // Always resume checkAuth after fallback attempt (success or failure).
-              // Context may or may not be set at this point — checkAuth will proceed
-              // to Step 4/5 where it checks for the user and marks ready.
-              setTimeout(() => {
-                if (mounted) {
-                  checkAuth()
-                }
-              }, 100)
+              clearTimeout(fallbackTimeout)
+              setTimeout(completeFallback, 100)
             }
           })()
           
@@ -425,17 +514,31 @@ export function AuthGate({
         const contextStateAfterFallback = useClientContext.getState()
 
         if (!contextStateAfterFallback.isActingAsClient || !contextStateAfterFallback.client || !contextStateAfterFallback.accountant) {
-          // Check if there's an auth error message from the store
           const currentAuthError = useAuthStore.getState().error
           const currentUserForError = useAuthStore.getState().user
           
-          // AUTH-FIRST: If auth error and no user, redirect to login instead of showing error
           if (currentAuthError && !currentUserForError) {
-            const isAuthError = currentAuthError.includes('401') || 
-                               currentAuthError.toLowerCase().includes('expired') ||
-                               currentAuthError.toLowerCase().includes('unauthorized')
+            const lowerErr = currentAuthError.toLowerCase()
+            const isCtxError =
+              lowerErr.includes('valuation link') ||
+              lowerErr.includes('client context') ||
+              lowerErr.includes('insufficient credits')
+            const isSessionError = !isCtxError && (
+              currentAuthError.includes('401') ||
+              lowerErr.includes('token') ||
+              lowerErr.includes('unauthorized')
+            )
             
-            if (isAuthError) {
+            if (isSessionError) {
+              const count = incrementRedirectCount()
+              if (count >= MAX_REDIRECTS_BEFORE_ERROR) {
+                generalLogger.error(`[AuthGate:${traceId}] Redirect loop detected (client context) - showing error`, { count })
+                authResolved = true
+                setState('error')
+                setError('Unable to sign in. Please try again in a new tab or clear your cookies.')
+                onAuthErrorRef.current?.('Redirect loop detected')
+                return
+              }
               const currentUrl = typeof window !== 'undefined' ? window.location.href : '/reports/new'
               const mercuryUrl = getMercuryUrl()
               const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
@@ -445,6 +548,7 @@ export function AuthGate({
                 redirectUrl,
                 currentUrl,
                 authError: currentAuthError,
+                redirectCount: count,
               })
               
               authResolved = true
@@ -460,17 +564,16 @@ export function AuthGate({
               authResolved = true
               setState('error')
               setError(currentAuthError)
-              onAuthError?.(currentAuthError)
+              onAuthErrorRef.current?.(currentAuthError)
             }
             return
           }
 
-          // Context expected but not set - this is an error, not a warning
           if (mounted) {
             authResolved = true
             setState('error')
             setError('Failed to establish client context. Please try again.')
-            onAuthError?.('Client context not established')
+            onAuthErrorRef.current?.('Client context not established')
           }
           return
         }
@@ -480,37 +583,54 @@ export function AuthGate({
       const currentUser = useAuthStore.getState().user
       
       if (!currentUser) {
-        // AUTH-FIRST: Redirect to Mercury login when no user is found
-        // Build redirect URL to return user to current page after login
-        const currentUrl = typeof window !== 'undefined' ? window.location.href : '/reports/new'
-        const mercuryUrl = getMercuryUrl()
-        const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
-        // Mercury expects 'returnUrl' parameter (not 'redirect')
-        const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
-        
-        generalLogger.debug(`[AuthGate:${traceId}] No user found - redirecting to Mercury login`, {
-          redirectUrl,
-          currentUrl,
-        })
-        
-        authResolved = true
-        if (typeof window !== 'undefined') {
-          window.location.href = redirectUrl
-        }
+        // RELOAD LOOP FIX: Debounce redirect to give in-flight token refresh time to complete.
+        const REDIRECT_DEBOUNCE_MS = 600
+        redirectDebounceId = setTimeout(() => {
+          if (!mounted) return
+          const userAfterDelay = useAuthStore.getState().user
+          if (userAfterDelay) {
+            generalLogger.debug(`[AuthGate:${traceId}] User restored during debounce - skipping redirect`)
+            checkAuth()
+            return
+          }
+          // REDIRECT LOOP PROTECTION: After N redirects, show error instead of looping
+          const count = incrementRedirectCount()
+          if (count >= MAX_REDIRECTS_BEFORE_ERROR) {
+            generalLogger.error(`[AuthGate:${traceId}] Redirect loop detected - showing error instead`, { count })
+            authResolved = true
+            setState('error')
+            setError('Unable to sign in. Please try again in a new tab or clear your cookies.')
+            onAuthErrorRef.current?.('Redirect loop detected')
+            return
+          }
+          authResolved = true
+          const currentUrl = typeof window !== 'undefined' ? window.location.href : '/reports/new'
+          const mercuryUrl = getMercuryUrl()
+          const locale = typeof window !== 'undefined' ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en' : 'en'
+          const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+          generalLogger.debug(`[AuthGate:${traceId}] No user after debounce - redirecting to Mercury login`, {
+            redirectUrl,
+            currentUrl,
+            redirectCount: count,
+          })
+          if (typeof window !== 'undefined') {
+            window.location.href = redirectUrl
+          }
+        }, REDIRECT_DEBOUNCE_MS)
         return
       }
 
-      // Step 5: All checks passed - ready to render children
       if (mounted) {
         authResolved = true
-        wasReadyRef.current = true
+        wasAuthReady = true
+        clearRedirectCount()
         generalLogger.debug(`[AuthGate:${traceId}] All checks passed - rendering children`, {
           userId: currentUser.id.substring(0, 8) + '...',
           isAccountantFlow: needsClientContext,
         })
         setState('ready')
         setIsReady(true)
-        onAuthReady?.(currentUser)
+        onAuthReadyRef.current?.(currentUser)
       }
     }
 
@@ -519,9 +639,10 @@ export function AuthGate({
     return () => {
       mounted = false
       if (maxTimeoutId) clearTimeout(maxTimeoutId)
+      if (redirectDebounceId) clearTimeout(redirectDebounceId)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, authError, isInitializing, needsClientContext, onAuthReady, onAuthError, retryCount, t])
+  }, [authLoading, authError, isInitializing, isRefreshing, needsClientContext])
 
   // Render based on state
   // In optimistic mode, render children immediately.
@@ -538,7 +659,7 @@ export function AuthGate({
     return <DefaultErrorState error={error} returnUrl={returnUrl} onRetry={handleRetry} />
   }
 
-  if (!isReady && !wasReadyRef.current) {
+  if (!isReady && !wasAuthReady) {
     if (loadingComponent) {
       return <>{loadingComponent}</>
     }

@@ -43,6 +43,22 @@ import { setBootstrapState } from '../sessionInitialization';
 import { AuthenticationRequiredError } from './resolvers/AuthResolver';
 import { generalLogger } from '../../utils/logger';
 
+// Module-level flag: once bootstrap completes successfully, prevent
+// re-triggering from any source (effect re-run, remount, auth toggle).
+// Only reset on explicit forceRefresh or page reload.
+let bootstrapCompletedGlobally = false;
+// Module-level snapshot of the last successful result. Unlike the service's
+// TTL-based cache (10s), this never expires — it survives component remounts
+// indefinitely and is the authoritative hydration source for remounted
+// BootstrapProviders. Cleared only on logout or explicit force-refresh.
+let lastGlobalResult: SessionBootstrapState | null = null;
+
+/** Reset the module-level bootstrap guard (call on logout) */
+export function resetBootstrapGuard() {
+  bootstrapCompletedGlobally = false;
+  lastGlobalResult = null;
+}
+
 // ============================================================================
 // Context Types
 // ============================================================================
@@ -139,6 +155,13 @@ export function BootstrapProvider({
   const bootstrapCompletedRef = useRef(false);
   const contextReportIdRef = useRef(context?.reportId);
 
+  // Stable refs for parent callbacks — avoids runBootstrap re-creation
+  // when parent passes new closure references on every render.
+  const onBootstrapCompleteRef = useRef(onBootstrapComplete);
+  const onBootstrapErrorRef = useRef(onBootstrapError);
+  useEffect(() => { onBootstrapCompleteRef.current = onBootstrapComplete; }, [onBootstrapComplete]);
+  useEffect(() => { onBootstrapErrorRef.current = onBootstrapError; }, [onBootstrapError]);
+
   // Abort guard: prevents stale setState calls after unmount
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -156,7 +179,23 @@ export function BootstrapProvider({
       return;
     }
 
-    // Guard 2 (singleton cache): prevent re-bootstrap after component remount
+    // Guard 2 (module-level): bootstrap already completed in a previous mount
+    if (bootstrapCompletedGlobally) {
+      const cached = bootstrapService.getCachedResult() || lastGlobalResult;
+      if (cached) {
+        generalLogger.debug('[BootstrapProvider] Module-level guard — hydrating from cache (no callbacks)', {
+          reportId: context?.reportId?.substring(0, 20),
+        });
+        bootstrapStartedRef.current = true;
+        bootstrapCompletedRef.current = true;
+        setState(cached);
+        setIsBootstrapping(false);
+        setBootstrapState(cached);
+        return;
+      }
+    }
+
+    // Guard 3 (singleton cache): prevent re-bootstrap after component remount
     const cachedResult = bootstrapService.getCachedResult();
     if (bootstrapService.hasCompletedFor(context?.reportId) && cachedResult) {
       generalLogger.debug('[BootstrapProvider] Singleton cache hit — using cached result instead of re-fetching', {
@@ -164,10 +203,12 @@ export function BootstrapProvider({
       });
       bootstrapStartedRef.current = true;
       bootstrapCompletedRef.current = true;
+      bootstrapCompletedGlobally = true;
+      lastGlobalResult = cachedResult;
       setState(cachedResult);
       setIsBootstrapping(false);
       setBootstrapState(cachedResult);
-      onBootstrapComplete?.(cachedResult);
+      onBootstrapCompleteRef.current?.(cachedResult);
       return;
     }
     
@@ -246,7 +287,7 @@ export function BootstrapProvider({
       
       if (result.creditStatus && !result.creditStatus.allowed && !isExistingReport) {
         const creditError = result.creditStatus.message || 'Insufficient credits to create valuation';
-        onBootstrapError?.(creditError);
+        onBootstrapErrorRef.current?.(creditError);
         
         generalLogger.error('[BootstrapProvider] Credit check failed - preventing new valuation', {
           message: creditError,
@@ -274,6 +315,8 @@ export function BootstrapProvider({
 
       if (mountedRef.current) setState(result);
       bootstrapCompletedRef.current = true;
+      bootstrapCompletedGlobally = true;
+      lastGlobalResult = result;
       
       // Sync with SessionInitializer for backward compatibility
       setBootstrapState(result);
@@ -331,7 +374,7 @@ export function BootstrapProvider({
         });
       }
       
-      onBootstrapComplete?.(result);
+      onBootstrapCompleteRef.current?.(result);
 
       generalLogger.debug('[BootstrapProvider] Bootstrap complete', {
         method,
@@ -364,13 +407,14 @@ export function BootstrapProvider({
       
       // Handle other errors normally
       if (mountedRef.current) setBootstrapError(errorMessage);
-      onBootstrapError?.(errorMessage);
+      onBootstrapErrorRef.current?.(errorMessage);
 
       generalLogger.error('[BootstrapProvider] Bootstrap failed:', errorMessage);
     } finally {
       if (mountedRef.current) setIsBootstrapping(false);
     }
-  }, [context, method, onBootstrapComplete, onBootstrapError, isFromMercury]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context, method, isFromMercury]);
 
   // Explicit retry: resets all guards and forces a fresh bootstrap call.
   // Used when bootstrap fails and the user/UI needs to retry.
@@ -378,6 +422,7 @@ export function BootstrapProvider({
     generalLogger.debug('[BootstrapProvider] Force refresh — resetting all guards');
     bootstrapStartedRef.current = false;
     bootstrapCompletedRef.current = false;
+    bootstrapCompletedGlobally = false;
     bootstrapService.clearCache();
     bootstrapService.resetCircuitBreaker();
     if (mountedRef.current) setBootstrapError(null);
@@ -387,48 +432,62 @@ export function BootstrapProvider({
   // Subscribe to auth loading state for the auto-bootstrap effect
   const authLoading = useAuthStore((s) => s.loading);
   
-  // Auto-bootstrap on mount if no initial state
-  // BANK GRADE: AuthGate ensures auth and client context are ready BEFORE this runs
-  // We can now trust that client context is in the store (if applicable)
+  // Auto-bootstrap on mount if no initial state.
+  // AuthGate ensures auth and client context are ready BEFORE this runs.
   useEffect(() => {
-    // Skip if already started, has initial state, or singleton already has a fresh result
-    if (bootstrapStartedRef.current || initialState || bootstrapService.hasCompletedFor(context?.reportId)) {
-      if (bootstrapService.hasCompletedFor(context?.reportId) && !bootstrapStartedRef.current) {
-        // Remount with cached result — hydrate immediately without a network call
-        runBootstrap();
+    // Module-level guard: bootstrap already completed — nothing to do.
+    // This is the primary defense against authLoading toggles (token refresh)
+    // re-triggering bootstrap after it already succeeded.
+    if (bootstrapCompletedGlobally) {
+      if (!bootstrapStartedRef.current) {
+        const cached = bootstrapService.getCachedResult() || lastGlobalResult;
+        if (cached) {
+          generalLogger.debug('[BootstrapProvider] Auto-bootstrap effect: module guard active, hydrating from cache');
+          bootstrapStartedRef.current = true;
+          bootstrapCompletedRef.current = true;
+          setState(cached);
+          setIsBootstrapping(false);
+          setBootstrapState(cached);
+        }
       }
       return;
     }
 
-    // OPTIMISTIC: Mercury flows start bootstrap immediately — no auth wait, no delay.
-    // Cookies from .upswitch.app are already present and the proxy forwards them.
+    if (bootstrapStartedRef.current || initialState) {
+      return;
+    }
+
+    // Remount with singleton cache — hydrate without a full runBootstrap call
+    if (bootstrapService.hasCompletedFor(context?.reportId)) {
+      runBootstrap();
+      return;
+    }
+
+    // Mercury flows start bootstrap immediately — cookies are already present.
     if (isFromMercury && autoBootstrap) {
-      generalLogger.debug('[BootstrapProvider] Mercury flow — starting bootstrap immediately (no auth wait, no delay)');
+      generalLogger.debug('[BootstrapProvider] Mercury flow — starting bootstrap immediately');
       runBootstrap();
       return;
     }
     
-    // ✅ FIX: Wait for auth to be stable before running bootstrap
-    // This prevents race condition where bootstrap runs with stale/expired token
     if (authLoading) {
       generalLogger.debug('[BootstrapProvider] Waiting for auth to stabilize before bootstrap');
-      return; // Will re-run when authLoading changes
+      return;
     }
     
     if (autoBootstrap) {
-      // Small delay to ensure token refresh has propagated
-      // This handles the edge case where authLoading just became false
-      // but the new token hasn't been applied to all pending requests yet
+      // RELOAD LOOP FIX: Slightly longer debounce to avoid rapid re-runs from auth store flicker
+      // (e.g. token refresh briefly toggling loading state)
       const stabilityDelay = setTimeout(() => {
         if (!bootstrapStartedRef.current) {
           runBootstrap();
         }
-      }, 100);
+      }, 150);
       
       return () => clearTimeout(stabilityDelay);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, isFromMercury]); // Re-run when auth loading state changes
+  }, [authLoading, isFromMercury]);
 
   // NOTE: setEngine is intentionally NOT called here via a reactive useEffect.
   // It is already invoked in two authoritative places:

@@ -23,12 +23,17 @@ const SUPPORTED_LOCALES: readonly string[] = ['en', 'nl']
  */
 export function useLanguageSync() {
   const user = useAuthStore((s) => s.user)
+  const isInitializing = useAuthStore((s) => s.isInitializing)
   const locale = useLocale() as Locale
   const pathname = usePathname()
   const synced = useRef(false)
 
   useEffect(() => {
     if (synced.current) return
+    // Defer locale redirect until auth initialization is fully complete.
+    // Redirecting while initializeAuth() is still running would abort the
+    // client context exchange and cause a broken state on the new page.
+    if (isInitializing) return
     if (!user?.language_preference) return
 
     const preferred = user.language_preference
@@ -52,5 +57,5 @@ export function useLanguageSync() {
     const pathWithoutLocale = pathname.replace(/^\/(en|nl)/, '')
     const newPath = `/${preferred}${pathWithoutLocale}`
     window.location.replace(newPath)
-  }, [user, locale, pathname])
+  }, [user, locale, pathname, isInitializing])
 }

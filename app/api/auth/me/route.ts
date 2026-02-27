@@ -89,13 +89,21 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json()
 
-    return NextResponse.json(data, {
+    const res = NextResponse.json(data, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         Pragma: 'no-cache',
         Expires: '0',
       },
     })
+
+    // Forward Set-Cookie headers from Titan so token rotations reach the browser
+    const setCookies = response.headers.getSetCookie?.() ?? []
+    for (const cookie of setCookies) {
+      res.headers.append('Set-Cookie', cookie)
+    }
+
+    return res
   } catch (error) {
     generalLogger.error('[Venus /api/auth/me] Error', {
       error: error instanceof Error ? error.message : String(error),
