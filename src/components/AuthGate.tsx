@@ -19,11 +19,11 @@
  * @module components/AuthGate
  */
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertCircle } from 'lucide-react'
 import { GlassCard, AuroraButton } from '@/design-system'
-import { useAuthStore, waitForClientContext, getInitTraceId } from '../lib/auth'
+import { useAuthStore, getInitTraceId } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { getMercuryUrl, getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
@@ -197,6 +197,7 @@ export function AuthGate({
   const [isReady, setIsReady] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const maxRetries = 2 // Maximum number of automatic retries for transient errors
+  const fallbackAttemptedRef = useRef(false)
 
   useLanguageSync()
 
@@ -217,8 +218,8 @@ export function AuthGate({
     setState('checking')
     setError(null)
     setIsReady(false)
-    setRetryCount(0) // Reset retry count on manual retry
-    // Force a page reload to retry auth from scratch
+    setRetryCount(0)
+    fallbackAttemptedRef.current = false
     window.location.reload()
   }, [])
 
@@ -227,19 +228,18 @@ export function AuthGate({
   // No need for redundant waitForClientContext() - just verify context is in store
   useEffect(() => {
     let mounted = true
-    let timeoutId: NodeJS.Timeout | null = null
+    let authResolved = false
     let maxTimeoutId: NodeJS.Timeout | null = null
     const traceId = getInitTraceId() || 'unknown'
 
-    // ✅ FIX: Set maximum timeout to prevent infinite loading
     maxTimeoutId = setTimeout(() => {
-      if (mounted && state === 'checking') {
+      if (mounted && !authResolved) {
         generalLogger.error(`[AuthGate:${traceId}] Max timeout exceeded while checking auth`)
         setState('error')
         setError(t('timeout'))
         onAuthError?.('Authentication timeout')
       }
-    }, 30000) // 30 second maximum
+    }, 30000)
 
     function checkAuth() {
       // Step 1: Wait for auth to complete
@@ -301,7 +301,7 @@ export function AuthGate({
             authError,
           })
           
-          // Immediate redirect - no error state, no loading state
+          authResolved = true
           if (typeof window !== 'undefined') {
             window.location.href = redirectUrl
           }
@@ -311,6 +311,7 @@ export function AuthGate({
         // Only show error if user exists but there's still an auth error (unusual case)
         generalLogger.debug(`[AuthGate:${traceId}] Auth error detected`, { authError })
         if (mounted) {
+          authResolved = true
           setState('error')
           setError(authError)
           onAuthError?.(authError)
@@ -325,13 +326,15 @@ export function AuthGate({
       const userForContextCheck = useAuthStore.getState().user
       const contextState = useClientContext.getState()
       
-      // If accountant viewing report but no client context, try to restore from report metadata
-      if (!needsClientContext && userForContextCheck?.role === 'accountant' && !contextState.isActingAsClient) {
+      // If accountant viewing report but no client context, try to restore from report metadata.
+      // Guard with fallbackAttemptedRef to prevent re-entering this path on every checkAuth() call.
+      if (!needsClientContext && userForContextCheck?.role === 'accountant' && !contextState.isActingAsClient && !fallbackAttemptedRef.current) {
         // Check if we're on a report page
         const reportIdMatch = typeof window !== 'undefined' ? window.location.pathname.match(/\/reports\/([^\/]+)/) : null
         const reportId = reportIdMatch ? reportIdMatch[1] : null
         
         if (reportId && (reportId.startsWith('val_') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId))) {
+          fallbackAttemptedRef.current = true
           generalLogger.debug(`[AuthGate:${traceId}] Fallback: Attempting to restore client context from report`)
           
           // Use async IIFE to handle async operations
@@ -379,14 +382,6 @@ export function AuthGate({
                       useClientContextStore.getState().setClientContext(context)
                       
                       generalLogger.debug(`[AuthGate:${traceId}] Fallback: Client context restored from report`)
-                      
-                      // Retry checkAuth after context is set (with small delay to allow state update)
-                      setTimeout(() => {
-                        if (mounted) {
-                          checkAuth()
-                        }
-                      }, 100)
-                      return
                     }
                   }
                 }
@@ -395,12 +390,20 @@ export function AuthGate({
               generalLogger.warn(`[AuthGate:${traceId}] Fallback: Failed to restore client context from report`, {
                 error: error instanceof Error ? error.message : String(error),
               })
-              // Continue to normal flow - will show error if context is actually needed
+            } finally {
+              // Always resume checkAuth after fallback attempt (success or failure).
+              // Context may or may not be set at this point — checkAuth will proceed
+              // to Step 4/5 where it checks for the user and marks ready.
+              setTimeout(() => {
+                if (mounted) {
+                  checkAuth()
+                }
+              }, 100)
             }
           })()
           
-          // Return early to allow async restoration to complete before checking context
-          // The async IIFE will retry checkAuth() when done
+          // Return early to allow async restoration to complete before checking context.
+          // The finally block above guarantees checkAuth() will be called when done.
           return
         }
       }
@@ -432,6 +435,7 @@ export function AuthGate({
                 authError: currentAuthError,
               })
               
+              authResolved = true
               if (typeof window !== 'undefined') {
                 window.location.href = redirectUrl
               }
@@ -441,6 +445,7 @@ export function AuthGate({
           
           if (currentAuthError) {
             if (mounted) {
+              authResolved = true
               setState('error')
               setError(currentAuthError)
               onAuthError?.(currentAuthError)
@@ -450,6 +455,7 @@ export function AuthGate({
 
           // Context expected but not set - this is an error, not a warning
           if (mounted) {
+            authResolved = true
             setState('error')
             setError('Failed to establish client context. Please try again.')
             onAuthError?.('Client context not established')
@@ -475,7 +481,7 @@ export function AuthGate({
           currentUrl,
         })
         
-        // Immediate redirect - no error state, no loading state
+        authResolved = true
         if (typeof window !== 'undefined') {
           window.location.href = redirectUrl
         }
@@ -484,6 +490,7 @@ export function AuthGate({
 
       // Step 5: All checks passed - ready to render children
       if (mounted) {
+        authResolved = true
         generalLogger.debug(`[AuthGate:${traceId}] All checks passed - rendering children`, {
           userId: currentUser.id.substring(0, 8) + '...',
           isAccountantFlow: needsClientContext,
@@ -498,10 +505,10 @@ export function AuthGate({
 
     return () => {
       mounted = false
-      if (timeoutId) clearTimeout(timeoutId)
       if (maxTimeoutId) clearTimeout(maxTimeoutId)
     }
-  }, [authLoading, authError, isInitializing, needsClientContext, onAuthReady, onAuthError, retryCount, state, t])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authError, isInitializing, needsClientContext, onAuthReady, onAuthError, retryCount, t])
 
   // Render based on state
   // In optimistic mode, render children immediately.

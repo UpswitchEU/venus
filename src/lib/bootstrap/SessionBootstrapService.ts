@@ -65,6 +65,11 @@ export class SessionBootstrapService {
   // In-flight bootstrap cache to prevent duplicate requests
   private bootstrapPromiseCache: Map<string, Promise<SessionBootstrapState>> = new Map();
 
+  // Circuit breaker: hard cap on bootstrap API calls per page load.
+  // Prevents cascading retries from compounding into excessive Titan traffic.
+  private static readonly MAX_BOOTSTRAP_CALLS = 3;
+  private bootstrapCallCount = 0;
+
   constructor(
     authResolver?: AuthResolver,
     sessionResolver?: SessionResolver,
@@ -408,21 +413,32 @@ export class SessionBootstrapService {
   }
 
   /**
-   * Make bootstrap API request with retry logic for 401 errors
-   * Handles race condition where token refresh may not have completed
+   * Make bootstrap API request with retry logic for transient errors.
+   *
+   * 401 errors are NOT retried here because the Venus proxy route
+   * (/api/bootstrap) already handles 401 by refreshing the token and
+   * retrying the Titan call. If the proxy still returns 401, the token
+   * is genuinely expired and retrying from the client would just
+   * compound requests (each attempt triggers another proxy-level retry).
+   *
+   * Only 5xx, 408/504 timeout, and network errors are retried.
    */
   private async makeBootstrapRequest(
     requestBody: Record<string, unknown>,
     headers: Record<string, string>,
     traceId: string
   ): Promise<Response> {
-    const maxRetries = 3;
-    const baseDelay = 500; // 500ms initial delay
+    const maxRetries = 2;
+    const baseDelay = 500;
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      // Add timeout to prevent hanging
+      this.bootstrapCallCount++;
+      if (this.bootstrapCallCount > SessionBootstrapService.MAX_BOOTSTRAP_CALLS) {
+        throw new Error(`Bootstrap circuit breaker: exceeded ${SessionBootstrapService.MAX_BOOTSTRAP_CALLS} calls this page load`);
+      }
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       try {
         const response = await fetch('/api/bootstrap', {
@@ -435,32 +451,18 @@ export class SessionBootstrapService {
         
         clearTimeout(timeoutId);
         
-        // Handle 401 specifically - auth token may still be refreshing
-        if (response.status === 401 && attempt < maxRetries - 1) {
-          const delay = baseDelay * Math.pow(2, attempt);
-          this.logger.warn(`[Bootstrap:${traceId}] 401 on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`, {
-            note: 'Auth token may still be refreshing',
-          });
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
-        
-        // Handle 5xx server errors - these are typically retryable
+        // 5xx server errors — retryable
         if (response.status >= 500 && attempt < maxRetries - 1) {
           const delay = baseDelay * Math.pow(2, attempt);
-          this.logger.warn(`[Bootstrap:${traceId}] Server error ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`, {
-            note: 'Server error may be transient',
-          });
+          this.logger.warn(`[Bootstrap:${traceId}] Server error ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`);
           await new Promise(r => setTimeout(r, delay));
           continue;
         }
         
-        // Handle 408/504 timeout errors - also retryable
+        // 408/504 timeout errors — retryable
         if ((response.status === 408 || response.status === 504) && attempt < maxRetries - 1) {
           const delay = baseDelay * Math.pow(2, attempt);
-          this.logger.warn(`[Bootstrap:${traceId}] Timeout ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`, {
-            note: 'Request timed out - may succeed on retry',
-          });
+          this.logger.warn(`[Bootstrap:${traceId}] Timeout ${response.status} on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`);
           await new Promise(r => setTimeout(r, delay));
           continue;
         }
@@ -473,7 +475,6 @@ export class SessionBootstrapService {
           throw new Error('Bootstrap request timed out after 30 seconds');
         }
         
-        // Retry network errors on non-final attempts
         if (attempt < maxRetries - 1) {
           const delay = baseDelay * Math.pow(2, attempt);
           this.logger.warn(`[Bootstrap:${traceId}] Network error on attempt ${attempt + 1}/${maxRetries}, retrying in ${delay}ms`);
@@ -485,7 +486,6 @@ export class SessionBootstrapService {
       }
     }
     
-    // Should not reach here, but TypeScript needs this
     throw new Error('Bootstrap failed after all retries');
   }
 
@@ -527,6 +527,12 @@ export class SessionBootstrapService {
     const startTime = performance.now();
     const hints = parseBootstrapHints(context);
     const traceId = getInitTraceId() || 'unknown';
+
+    // Reset circuit breaker for each new bootstrap flow.
+    // This prevents the counter from accumulating across SPA navigations
+    // (the singleton persists across client-side route changes) while still
+    // protecting against cascading retries within a single flow.
+    this.bootstrapCallCount = 0;
 
     this.logger.info(`[Bootstrap:${traceId}] Starting Titan API bootstrap`, {
       reportId: context.reportId?.substring(0, 20) || 'new',
@@ -628,7 +634,7 @@ export class SessionBootstrapService {
         headerKeys: Object.keys(headers).filter((k) => k.toLowerCase().startsWith('x-')),
       });
 
-      // BANK GRADE: Make request with retry logic for 401 errors
+      // Make request (proxy handles 401 refresh; only 5xx/network errors retried here)
       const apiStart = performance.now();
       const response = await this.makeBootstrapRequest(requestBody, headers, traceId);
       const apiMs = Math.round(performance.now() - apiStart);
@@ -834,106 +840,15 @@ export class SessionBootstrapService {
         });
       }
 
-      // ✅ FIX: Retry if session was expected but not found
-      // This handles race condition where auth token was stale during first request
-      // 
-      // CRITICAL: Handle BOTH ID formats using centralized identifier utilities:
-      // - val_xxx: Direct Venus session key format
-      // - UUID: Mercury passes valuation_reports.id (UUID format)
-      const urlIndicatesExisting = looksLikeExistingReportId(context.reportId);
-      
-      if (state.report.mode === 'new' && context.reportId && urlIndicatesExisting) {
-        this.logger.warn(`[Bootstrap:${traceId}] Session not found for existing reportId - retrying once`, {
+      // Log if reportId looked like an existing session but Titan returned mode='new'.
+      // This typically means the session doesn't exist for this user (deleted, wrong owner, etc.).
+      // We no longer retry here — waitForAuth() above already ensures auth is stable,
+      // and the proxy route handles token refresh on 401.
+      if (state.report.mode === 'new' && context.reportId && looksLikeExistingReportId(context.reportId)) {
+        this.logger.warn(`[Bootstrap:${traceId}] Expected existing session but got mode=new — accepting result`, {
           reportId: context.reportId.substring(0, 25),
-          mode: state.report.mode,
           identifierType: getIdentifierType(context.reportId),
         });
-        
-        // Wait for auth to fully stabilize
-        await new Promise(r => setTimeout(r, 1000));
-        
-        // Retry the request
-        const retryResponse = await this.makeBootstrapRequest(requestBody, headers, `${traceId}-retry`);
-        
-        if (retryResponse.ok) {
-          const retryData = await retryResponse.json();
-          
-          if (retryData.success && retryData.data) {
-            const { identity: retryIdentity, report: retryReport, prefill: retryPrefill, ui: retryUi, creditStatus: retryCreditStatus, valuationPackage: retryValuationPackage } = retryData.data;
-            
-            // If retry found the session, use that instead
-            if (retryReport.mode === 'existing') {
-              this.logger.info(`[Bootstrap:${traceId}] Retry found existing session`, {
-                reportId: retryReport.reportId?.substring(0, 25),
-              });
-              
-              // Phase 2 (G4): Include valuationPackage so report assets are not lost on retry
-              const retryState: SessionBootstrapState = {
-                identity: {
-                  type: retryIdentity.type,
-                  userId: retryIdentity.userId,
-                  clientContext: retryIdentity.clientContext,
-                  email: retryIdentity.email,
-                  firstName: retryIdentity.firstName,
-                  lastName: retryIdentity.lastName,
-                },
-                report: {
-                  mode: retryReport.mode,
-                  reportId: retryReport.reportId,
-                  hasExistingData: retryReport.hasExistingData,
-                  hasValuationResult: retryReport.hasValuationResult || !!retryValuationPackage?.htmlReport,
-                  version: retryReport.version,
-                  status: retryReport.status,
-                  createdAt: retryReport.createdAt ? new Date(retryReport.createdAt) : undefined,
-                  updatedAt: retryReport.updatedAt ? new Date(retryReport.updatedAt) : undefined,
-                  completedAt: retryReport.completedAt ? new Date(retryReport.completedAt) : undefined,
-                  currentStep: retryReport.currentStep,
-                },
-                prefillData: {
-                  sources: retryPrefill?.sources || [],
-                  companyInfo: retryPrefill?.companyInfo,
-                  financials: retryPrefill?.financials,
-                  businessType: retryPrefill?.businessType,
-                  kboData: retryPrefill?.kboData,
-                  confidence: retryPrefill?.confidence || 0,
-                  fieldsPopulated: retryPrefill?.fieldsPopulated || [],
-                  fieldsRemaining: retryPrefill?.fieldsRemaining || [],
-                },
-                ui: {
-                  showWelcomeBack: retryUi?.showWelcomeBack || false,
-                  resumableSession: retryUi?.resumableSession || false,
-                  suggestedFlow: retryUi?.suggestedFlow || 'manual',
-                  prefilledFieldCount: retryUi?.prefilledFieldCount || 0,
-                  totalFieldCount: retryUi?.totalFieldCount || 0,
-                  showKboVerification: retryUi?.showKboVerification || false,
-                  showAccountantBanner: retryUi?.showAccountantBanner || false,
-                  returnUrl: context.returnUrl,
-                  sourceApp: context.sourceApp,
-                },
-                creditStatus: retryCreditStatus,
-                valuationPackage: retryValuationPackage ? {
-                  htmlReport: retryValuationPackage.htmlReport || null,
-                  infoTabHtml: retryValuationPackage.infoTabHtml || null,
-                  pricingRange: retryValuationPackage.pricingRange || null,
-                  versions: retryValuationPackage.versions || { current: 1, total: 1 },
-                  pdf: retryValuationPackage.pdf || { url: null, status: 'none' },
-                  formData: retryValuationPackage.formData || undefined,
-                } : undefined,
-                bootstrapVersion: BOOTSTRAP_VERSION,
-                bootstrappedAt: new Date(),
-                bootstrapDurationMs: performance.now() - startTime,
-              };
-              
-              // Sync client context from bootstrap response
-              await this.syncClientContext(retryState.identity);
-              
-              return retryState;
-            }
-          }
-        }
-        
-        // Retry didn't help - continue with original 'new' response
-        this.logger.warn(`[Bootstrap:${traceId}] Retry still returned 'new' mode - session may not exist or access denied`);
       }
 
       this.logger.info(`[Bootstrap:${traceId}] Titan API bootstrap complete`, {
@@ -947,13 +862,15 @@ export class SessionBootstrapService {
 
       return state;
     } catch (error) {
+      // Propagate errors — no silent fallback to client-side bootstrap.
+      // Falling back would make a separate set of API calls that compound
+      // the load on Titan without improving the outcome.
+      if (error instanceof AuthenticationRequiredError) {
+        throw error;
+      }
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.warn('[Bootstrap] Titan API failed, falling back to client-side', {
-        error: errorMessage,
-      });
-
-      // Fall back to client-side resolution
-      return this.bootstrap(context, options);
+      this.logger.error('[Bootstrap] Titan API bootstrap failed', { error: errorMessage });
+      throw error;
     }
   }
 }
