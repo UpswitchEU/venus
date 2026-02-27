@@ -867,6 +867,16 @@ async function initializeAuth(): Promise<void> {
           // BANK GRADE: Resolve promise since invalid token = no client context expected
           resolveClientContext()
         } else {
+          // Clear persisted client context - prevents stale rehydration from overwriting fresh exchange result
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.removeItem('client-context')
+              localStorage.removeItem('client-context-version')
+            }
+          } catch {
+            /* ignore */
+          }
+
           // BANK GRADE: Execute client context exchange
           // Using IIFE to run async code, but resolving/rejecting the DEFERRED promise
           // (not creating a new promise - initClientContextPromise already did that)

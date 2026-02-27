@@ -270,6 +270,11 @@ export function AuthGate({
 
   const needsClientContext = hasClientToken
 
+  // Subscribe to client context when needsClientContext - ensures effect re-runs when context becomes available
+  const clientContextReady = useClientContext((s) =>
+    !needsClientContext || (s.isActingAsClient && !!s.client && !!s.accountant)
+  )
+
   const handleRetry = useCallback(() => {
     wasAuthReady = false
     clearRedirectCount()
@@ -363,6 +368,11 @@ export function AuthGate({
       if (needsClientContext) {
         const ctx = useClientContext.getState()
         if (!ctx.isActingAsClient || !ctx.client || !ctx.accountant) {
+          generalLogger.warn('[AuthGate] Client context check failed', {
+            isActingAsClient: ctx.isActingAsClient,
+            hasClient: !!ctx.client,
+            hasAccountant: !!ctx.accountant,
+          })
           const storeError = useAuthStore.getState().error
           settle('error', storeError || 'Failed to establish client context. Please try again.')
           return
@@ -386,7 +396,7 @@ export function AuthGate({
       clearTimeout(maxTimeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, authError, isInitializing, isRefreshing, needsClientContext])
+  }, [authLoading, authError, isInitializing, isRefreshing, needsClientContext, clientContextReady])
 
   // Render based on state
   // In optimistic mode, render children immediately.

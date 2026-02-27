@@ -229,7 +229,7 @@ export function BootstrapProvider({
     // Previously we skipped this when isFromMercury (optimistic), which caused
     // bootstrap to run before auth validated cookies → 401 → redirect → loop.
     const authState = useAuthStore.getState()
-    if (authState.loading || authState.isInitializing) {
+    if (authState.loading || authState.isInitializing || authState.isRefreshing) {
       generalLogger.debug('[BootstrapProvider] Auth not settled — deferring bootstrap')
       bootstrapStartedRef.current = false
       return

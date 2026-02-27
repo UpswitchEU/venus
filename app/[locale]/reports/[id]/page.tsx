@@ -45,7 +45,7 @@ export default async function Page({ params, searchParams }: PageProps) {
     id = p.id
     locale = p.locale
   } catch (e) {
-    console.error('[Page] params error:', e)
+    generalLogger.error('[Page] params error:', e)
   }
 
   // Resolve searchParams safely
@@ -63,7 +63,7 @@ export default async function Page({ params, searchParams }: PageProps) {
     mode = (urlParams.mode as 'edit' | 'view') || 'edit'
     version = urlParams.version ? parseInt(urlParams.version) : undefined
   } catch (e) {
-    console.error('[Page] searchParams error:', e)
+    generalLogger.error('[Page] searchParams error:', e)
   }
 
   // Return error UI if no ID
