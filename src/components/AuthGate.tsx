@@ -23,7 +23,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertCircle } from 'lucide-react'
 import { GlassCard, AuroraButton } from '@/design-system'
-import { useAuthStore, getInitTraceId } from '../lib/auth'
+import { useAuthStore, getInitTraceId, clearReloadCounter } from '../lib/auth'
 import { useClientContext } from '../stores/clientContext'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
@@ -267,6 +267,7 @@ export function AuthGate({
   const handleRetry = useCallback(() => {
     wasAuthReady = false
     clearRedirectCount()
+    clearReloadCounter()
     window.location.reload()
   }, [])
 
@@ -332,7 +333,9 @@ export function AuthGate({
         const isActionable =
           lower.includes('valuation link') ||
           lower.includes('client context') ||
-          lower.includes('insufficient credits')
+          lower.includes('insufficient credits') ||
+          lower.includes('page kept reloading') ||
+          lower.includes('reload')
 
         if (isActionable) {
           settle('error', authError)
