@@ -267,7 +267,7 @@ export function CalculatorNav({
         {/* Left: Back + Title with Recent Valuations Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <Tooltip
-            content={isAccountantMode ? t('clientContext.exitClientView') : t('common.back')}
+            content={isAccountantMode ? t('clientContext.exitClientView') : t('common.actions.back')}
           >
             <button
               onClick={handleBack}

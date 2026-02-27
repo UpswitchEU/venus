@@ -38,6 +38,14 @@ export function useLanguageSync() {
 
   useEffect(() => {
     if (synced.current) return
+    // Skip locale redirect when coming from Mercury - avoids extra reload during critical flow
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('source') === 'mercury') {
+        synced.current = true
+        return
+      }
+    }
     // Defer locale redirect until auth initialization is fully complete.
     // Redirecting while initializeAuth() is still running would abort the
     // client context exchange and cause a broken state on the new page.
