@@ -199,12 +199,14 @@
   }
 }
 
-/* Valuation Report (inline HTML from Python engine) — dark mode container */
+/* Valuation Report (inline HTML from ValuationIQ) — always light, matches report-template */
+/* Report is a document preview: white content pages, dark cover. Never inherit app dark mode. */
 .valuation-report {
-  background-color: hsl(var(--card));
+  background-color: #f3f4f6; /* Gray-100, matches report-template modal background */
   padding: 24px;
   min-height: 100%;
   overflow-y: auto;
+  color-scheme: light; /* Force light rendering so report always looks like printed document */
 }
 
 /* Valuation Report Preview Styles (Google Docs / Print Preview Style) */

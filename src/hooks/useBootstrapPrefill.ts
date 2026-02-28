@@ -89,7 +89,7 @@ export function useBootstrapPrefill(): {
       logger.info(
         'Skipping prefill - existing report, no meaningful prefill data (deferring to restoration)',
         {
-          reportId: bootstrap.report.reportId?.substring(0, 20),
+          reportId: bootstrap.report.reportId?.substring(0, 30),
           mode: bootstrap.report.mode,
           hasExistingData: bootstrap.report.hasExistingData,
           confidence: bootstrap.prefillData.confidence,

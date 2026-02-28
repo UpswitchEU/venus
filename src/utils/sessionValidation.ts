@@ -199,7 +199,6 @@ export function sanitizeSessionData(session: any): ValuationSession {
     // These fields are used by cache completeness checks and restoration logic
     valuationResult: session.valuationResult || undefined,
     htmlReport: session.htmlReport || undefined,
-    infoTabHtml: session.infoTabHtml || undefined,
   }
 
   // Validate sanitized data

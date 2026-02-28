@@ -93,18 +93,15 @@ export class SessionCacheManager {
 
       // Exclude large HTML reports from cache to prevent localStorage quota errors.
       // HTML reports are fetched from backend on demand via background revalidation.
-      const { htmlReport, infoTabHtml, ...sessionWithoutHtml } = session
+      const { htmlReport, ...sessionWithoutHtml } = session
 
       // Also strip HTML from nested sessionData (backend stores htmlReport/html_report inside session_data JSONB)
-      // Plan: strip _htmlReport and _infoTabHtml (Titan-injected) to avoid localStorage bloat
+      // Plan: strip _htmlReport (Titan-injected) to avoid localStorage bloat
       if (sessionWithoutHtml.sessionData && typeof sessionWithoutHtml.sessionData === 'object') {
         const sd = { ...sessionWithoutHtml.sessionData } as Record<string, unknown>
         delete sd.htmlReport
         delete sd.html_report
-        delete sd.infoTabHtml
-        delete sd.info_tab_html
         delete sd._htmlReport
-        delete sd._infoTabHtml
         sessionWithoutHtml.sessionData = sd
       }
 
@@ -141,7 +138,7 @@ export class SessionCacheManager {
             })
             try {
               // Create minimal cache with essential metadata and sessionData (for form restoration)
-              // Exclude large fields: htmlReport, infoTabHtml, valuationResult
+              // Exclude large fields: htmlReport, valuationResult
               const minimalSession: Partial<ValuationSession> = {
                 reportId: session.reportId,
                 currentView: session.currentView,
@@ -151,7 +148,7 @@ export class SessionCacheManager {
                 createdAt: session.createdAt,
                 updatedAt: session.updatedAt,
                 calculatedAt: session.calculatedAt,
-                // Exclude large fields: htmlReport, infoTabHtml, valuationResult
+                // Exclude large fields: htmlReport, valuationResult
               }
               const minimalCached: CachedSession = {
                 session: minimalSession as ValuationSession,
@@ -181,7 +178,6 @@ export class SessionCacheManager {
         expiresIn_hours: CACHE_TTL_MS / (60 * 60 * 1000),
         version: cached.version,
         hasHtmlReportInBackend: !!session.htmlReport,
-        hasInfoTabHtmlInBackend: !!session.infoTabHtml,
         note: 'HTML reports excluded from cache, fetched from backend on demand',
       })
 

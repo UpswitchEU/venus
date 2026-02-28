@@ -114,12 +114,6 @@ export function AssetInspector() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Info Tab:</span>
-                <span className={session.infoTabHtml ? 'text-success' : 'text-muted-foreground'}>
-                  {session.infoTabHtml ? '✓' : '✗'}
-                </span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">Result:</span>
                 <span
                   className={session.valuationResult ? 'text-success' : 'text-muted-foreground'}

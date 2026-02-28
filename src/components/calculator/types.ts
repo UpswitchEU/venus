@@ -30,8 +30,6 @@ export interface ValuationReportData {
   metrics?: ReportMetric[]
   /** Full HTML report from ValuationIQ - single source of truth for report content */
   htmlReport?: string
-  /** Info tab HTML from ValuationIQ */
-  infoTabHtml?: string
   /** Recommended asking price */
   recommendedAskingPrice?: number
 }

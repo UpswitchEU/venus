@@ -85,7 +85,7 @@ export async function handleSessionError(
     {
       code: sessionError.code,
       message: sessionError.message,
-      session_key: sessionKey.substring(0, 20) + '...',
+      session_key: sessionKey.substring(0, 30) + '...',
     },
     '[SessionRecovery] Session error detected'
   )
@@ -102,7 +102,7 @@ export async function handleSessionError(
       // Don't auto-recover from network errors (let retry logic handle it)
       logger.warn(
         {
-          session_key: sessionKey.substring(0, 20) + '...',
+          session_key: sessionKey.substring(0, 30) + '...',
         },
         '[SessionRecovery] Network error, will retry'
       )
@@ -112,7 +112,7 @@ export async function handleSessionError(
     default:
       logger.error(
         {
-          session_key: sessionKey.substring(0, 20) + '...',
+          session_key: sessionKey.substring(0, 30) + '...',
           error: sessionError.message,
         },
         '[SessionRecovery] Unknown error, cannot recover'
@@ -136,7 +136,7 @@ async function recoverFromNotFound(
 ): Promise<string | null> {
   logger.info(
     {
-      old_session_key: oldSessionKey.substring(0, 20) + '...',
+      old_session_key: oldSessionKey.substring(0, 30) + '...',
       hasDataToPreserve: !!preserveData,
     },
     '[SessionRecovery] Recovering from not found/expired'
@@ -151,7 +151,7 @@ async function recoverFromNotFound(
 
     logger.info(
       {
-        new_session_key: newSession.session_key.substring(0, 20) + '...',
+        new_session_key: newSession.session_key.substring(0, 30) + '...',
       },
       '[SessionRecovery] New session created'
     )
@@ -164,8 +164,8 @@ async function recoverFromNotFound(
 
       logger.debug(
         {
-          old_key: oldSessionKey.substring(0, 20) + '...',
-          new_key: newSession.session_key.substring(0, 20) + '...',
+          old_key: oldSessionKey.substring(0, 30) + '...',
+          new_key: newSession.session_key.substring(0, 30) + '...',
         },
         '[SessionRecovery] URL updated'
       )
@@ -197,7 +197,7 @@ async function recoverFromNotFound(
 async function recoverFromAccessDenied(sessionKey: string): Promise<string | null> {
   logger.warn(
     {
-      session_key: sessionKey.substring(0, 20) + '...',
+      session_key: sessionKey.substring(0, 30) + '...',
     },
     '[SessionRecovery] Access denied, clearing session'
   )
@@ -231,7 +231,7 @@ async function recoverFromAccessDenied(sessionKey: string): Promise<string | nul
 export async function attemptSessionRecovery(sessionKey: string): Promise<boolean> {
   logger.debug(
     {
-      session_key: sessionKey.substring(0, 20) + '...',
+      session_key: sessionKey.substring(0, 30) + '...',
     },
     '[SessionRecovery] Attempting session recovery'
   )
@@ -248,7 +248,7 @@ export async function attemptSessionRecovery(sessionKey: string): Promise<boolea
     if (recoveredKey) {
       logger.info(
         {
-          new_session_key: recoveredKey.substring(0, 20) + '...',
+          new_session_key: recoveredKey.substring(0, 30) + '...',
         },
         '[SessionRecovery] Session recovered successfully'
       )

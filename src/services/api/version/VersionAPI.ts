@@ -242,7 +242,6 @@ export class VersionAPI {
         form_data: request.formData,
         valuation_result: request.valuationResult,
         html_report: request.htmlReport,
-        info_tab_html: request.infoTabHtml,
         changes_summary: request.changesSummary,
         notes: request.notes,
         tags: request.tags,
@@ -540,13 +539,6 @@ export class VersionAPI {
         versionData.outputs?.html_report ||
         versionData.outputs?.details?.html_report ||
         backendVersion.html_report ||
-        null,
-      infoTabHtml:
-        backendVersion.infoTabHtml ||
-        versionData.infoTabHtml ||
-        versionData.outputs?.info_tab_html ||
-        versionData.outputs?.details?.info_tab_html ||
-        backendVersion.info_tab_html ||
         null,
       changesSummary: backendVersion.changesSummary ||
         backendVersion.changes_summary || { totalChanges: 0, significantChanges: [] },

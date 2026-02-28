@@ -107,8 +107,6 @@ export interface ValuationReportData {
 
   // Python-generated HTML report (main 5-page report)
   htmlReport?: string
-  // Python-generated info tab HTML (summary panel)
-  infoTabHtml?: string
 
   // Recommended asking price (premium over equity mid)
   recommendedAskingPrice?: number
@@ -215,7 +213,6 @@ export function convertApiResponseToReportData(
         : undefined,
 
     htmlReport: apiResponse.html_report ? String(apiResponse.html_report) : undefined,
-    infoTabHtml: apiResponse.info_tab_html ? String(apiResponse.info_tab_html) : undefined,
     recommendedAskingPrice:
       apiResponse.recommended_asking_price != null
         ? Number(apiResponse.recommended_asking_price)

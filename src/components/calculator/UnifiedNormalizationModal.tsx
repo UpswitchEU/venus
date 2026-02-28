@@ -511,16 +511,17 @@ export function UnifiedNormalizationModal({
     }))
   }, [searchQuery, availableLedgers])
 
-  // Calculate totals
+  // Calculate totals — defensive Number() to prevent string concatenation
+  const safeOriginalEBITDA = Number(originalEBITDA) || 0
   const totals = useMemo(() => {
     const acceptedNormalizations = normalizations.filter((n) => n.status === 'accepted')
-    const totalAdjustment = acceptedNormalizations.reduce((sum, n) => sum + n.adjustment, 0)
+    const totalAdjustment = acceptedNormalizations.reduce((sum, n) => sum + Number(n.adjustment), 0)
     return {
-      original: originalEBITDA,
+      original: safeOriginalEBITDA,
       adjustment: totalAdjustment,
-      normalized: originalEBITDA + totalAdjustment,
+      normalized: safeOriginalEBITDA + totalAdjustment,
     }
-  }, [normalizations, originalEBITDA])
+  }, [normalizations, safeOriginalEBITDA])
 
   // Filter normalizations by tab, year, and search
   const filteredNormalizations = useMemo(() => {

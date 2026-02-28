@@ -31,12 +31,6 @@ describe('useManualResultsStore', () => {
       expect(result.current.htmlReport).toBeNull()
     })
 
-    it('should have no info tab HTML initially', () => {
-      const { result } = renderHook(() => useManualResultsStore())
-
-      expect(result.current.infoTabHtml).toBeNull()
-    })
-
     it('should not be calculating initially', () => {
       const { result } = renderHook(() => useManualResultsStore())
 
@@ -147,7 +141,6 @@ describe('useManualResultsStore', () => {
       const mockResult = {
         valuation_id: 'val-123',
         html_report: '<html>Report</html>',
-        info_tab_html: '<html>Info</html>',
       } as any
 
       act(() => {
@@ -156,7 +149,6 @@ describe('useManualResultsStore', () => {
 
       expect(result.current.result).toEqual(mockResult)
       expect(result.current.htmlReport).toBe('<html>Report</html>')
-      expect(result.current.infoTabHtml).toBe('<html>Info</html>')
     })
 
     it('should clear result when null is passed', () => {
@@ -165,7 +157,6 @@ describe('useManualResultsStore', () => {
       const mockResult = {
         valuation_id: 'val-123',
         html_report: '<html>Report</html>',
-        info_tab_html: '<html>Info</html>',
       } as any
 
       act(() => {
@@ -209,38 +200,6 @@ describe('useManualResultsStore', () => {
 
       expect(result.current.result?.html_report).toBe('<html>New</html>')
       expect(result.current.htmlReport).toBe('<html>New</html>')
-    })
-  })
-
-  describe('setInfoTabHtml', () => {
-    it('should set info tab HTML', () => {
-      const { result } = renderHook(() => useManualResultsStore())
-
-      act(() => {
-        result.current.setInfoTabHtml('<html>Info</html>')
-      })
-
-      expect(result.current.infoTabHtml).toBe('<html>Info</html>')
-    })
-
-    it('should update info tab HTML in existing result', () => {
-      const { result } = renderHook(() => useManualResultsStore())
-
-      const mockResult = {
-        valuation_id: 'val-123',
-        info_tab_html: '<html>Old</html>',
-      } as any
-
-      act(() => {
-        result.current.setResult(mockResult)
-      })
-
-      act(() => {
-        result.current.setInfoTabHtml('<html>New</html>')
-      })
-
-      expect(result.current.result?.info_tab_html).toBe('<html>New</html>')
-      expect(result.current.infoTabHtml).toBe('<html>New</html>')
     })
   })
 
@@ -294,7 +253,6 @@ describe('useManualResultsStore', () => {
       const mockResult = {
         valuation_id: 'val-123',
         html_report: '<html>Report</html>',
-        info_tab_html: '<html>Info</html>',
       } as any
 
       act(() => {
@@ -308,7 +266,6 @@ describe('useManualResultsStore', () => {
 
       expect(result.current.result).toBeNull()
       expect(result.current.htmlReport).toBeNull()
-      expect(result.current.infoTabHtml).toBeNull()
       expect(result.current.error).toBeNull()
     })
   })
@@ -334,7 +291,6 @@ describe('useManualResultsStore', () => {
       const mockResult = {
         valuation_id: 'val-123',
         html_report: '<html>Report</html>',
-        info_tab_html: '<html>Info</html>',
       } as any
 
       act(() => {

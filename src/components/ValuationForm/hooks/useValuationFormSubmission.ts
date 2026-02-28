@@ -302,19 +302,15 @@ export const useValuationFormSubmission = (
             valuationId: result.valuation_id,
             hasHtmlReport: !!result.html_report,
             htmlReportLength: result.html_report?.length || 0,
-            hasInfoTabHtml: !!result.info_tab_html,
-            infoTabHtmlLength: result.info_tab_html?.length || 0,
             resultKeys: Object.keys(result),
             htmlReportPreview: result.html_report?.substring(0, 200) || 'N/A',
             calculationDuration: `${calculationDuration.toFixed(2)}ms`,
           })
 
           // Use structured logger instead of console.log to avoid "Object" spam
-          generalLogger.debug('Before setResult: checking html_report and info_tab_html', {
+          generalLogger.debug('Before setResult: checking html_report', {
             hasHtmlReport: !!result.html_report,
             htmlReportLength: result.html_report?.length || 0,
-            hasInfoTabHtml: !!result.info_tab_html,
-            infoTabHtmlLength: result.info_tab_html?.length || 0,
             resultKeys: Object.keys(result).join(','),
           })
 
@@ -327,23 +323,6 @@ export const useValuationFormSubmission = (
               resultKeys: Object.keys(result),
               resultType: typeof result,
               resultStringified: JSON.stringify(result).substring(0, 500),
-            })
-          }
-
-          // CRITICAL: Warn if info_tab_html is missing
-          if (!result.info_tab_html || result.info_tab_html.trim().length === 0) {
-            generalLogger.error('CRITICAL: info_tab_html missing or empty in valuation result', {
-              valuationId: result.valuation_id,
-              hasInfoTabHtml: !!result.info_tab_html,
-              infoTabHtmlLength: result.info_tab_html?.length || 0,
-              resultKeys: Object.keys(result),
-              infoTabHtmlInKeys: 'info_tab_html' in result,
-              resultType: typeof result,
-              resultStringified: JSON.stringify(result).substring(0, 1000),
-            })
-          } else {
-            generalLogger.debug('info_tab_html present before setResult', {
-              infoTabHtmlLength: result.info_tab_html.length,
             })
           }
 
@@ -372,7 +351,6 @@ export const useValuationFormSubmission = (
                   formData: request,
                   valuationResult: result,
                   htmlReport: result.html_report || undefined,
-                  infoTabHtml: result.info_tab_html || undefined,
                   changesSummary: effectiveChanges,
                   versionLabel: generateAutoLabel(
                     effectivePrevious.versionNumber + 1,
@@ -406,7 +384,6 @@ export const useValuationFormSubmission = (
                   formData: request,
                   valuationResult: result,
                   htmlReport: result.html_report || undefined,
-                  infoTabHtml: result.info_tab_html || undefined,
                   changesSummary: { totalChanges: 0, significantChanges: [] },
                   versionLabel: 'v1 - Initial valuation',
                 })
@@ -455,13 +432,11 @@ export const useValuationFormSubmission = (
               // - sessionData: Original form inputs for restoration
               // - valuationResult: Calculation result
               // - htmlReport: Main report HTML
-              // - infoTabHtml: Info tab HTML
               // - name: Custom valuation name (e.g., "Amadeus report")
               await reportService.saveReportAssets(reportId, {
                 sessionData: formData, // ✅ NEW: Include input data
                 valuationResult: result,
                 htmlReport: result.html_report,
-                infoTabHtml: result.info_tab_html,
                 name: sessionName, // ✅ NEW: Include custom valuation name
               })
 
@@ -474,8 +449,6 @@ export const useValuationFormSubmission = (
                   hasResult: !!result,
                   hasHtmlReport: !!result.html_report,
                   htmlReportLength: result.html_report?.length || 0,
-                  hasInfoTabHtml: !!result.info_tab_html,
-                  infoTabHtmlLength: result.info_tab_html?.length || 0,
                 }
               )
 

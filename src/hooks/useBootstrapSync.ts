@@ -201,7 +201,7 @@ function syncSession(state: SessionBootstrapState): void {
 
     if (storeHasSession) {
       logger.debug('Session already in store, checking for prefill updates', {
-        reportId: report.reportId.substring(0, 20),
+        reportId: report.reportId.substring(0, 30),
       })
 
       // If bootstrap has prefill data, merge it into session and hydrate form store
@@ -227,7 +227,7 @@ function syncSession(state: SessionBootstrapState): void {
           })
 
           logger.info('Updated session with bootstrap prefill data', {
-            reportId: report.reportId.substring(0, 20),
+            reportId: report.reportId.substring(0, 30),
             fieldsAdded: prefillData.fieldsPopulated.length,
           })
         }
@@ -238,7 +238,7 @@ function syncSession(state: SessionBootstrapState): void {
           if (Object.keys(formDataUpdate).length > 0) {
             useManualFormStore.getState().updateFormData(formDataUpdate as any)
             logger.info('Hydrated form store (session already in store, form was empty)', {
-              reportId: report.reportId.substring(0, 20),
+              reportId: report.reportId.substring(0, 30),
               formFieldsCount: Object.keys(formDataUpdate).length,
             })
           }
@@ -275,14 +275,14 @@ function syncSession(state: SessionBootstrapState): void {
           if (Object.keys(formDataUpdate).length > 0) {
             useManualFormStore.getState().updateFormData(formDataUpdate as any)
             logger.info('Hydrated form store from bootstrap prefill (new report)', {
-              reportId: report.reportId.substring(0, 20),
+              reportId: report.reportId.substring(0, 30),
               formFieldsCount: Object.keys(formDataUpdate).length,
             })
           }
         }
 
         logger.info('Created minimal session for new report from bootstrap', {
-          reportId: report.reportId.substring(0, 20),
+          reportId: report.reportId.substring(0, 30),
           prefillConfidence: prefillData.confidence.toFixed(2),
           hasCompanyName: !!prefillData.companyInfo?.companyName,
           prefillFieldsCount: Object.keys(sessionData).length - 2, // Exclude _bootstrapCreated and _bootstrapPrefill flags
@@ -292,7 +292,7 @@ function syncSession(state: SessionBootstrapState): void {
         })
       } else {
         logger.debug('New report - session already exists in store', {
-          reportId: report.reportId.substring(0, 20),
+          reportId: report.reportId.substring(0, 30),
         })
       }
     } else if (report.mode === 'existing') {
@@ -308,7 +308,6 @@ function syncSession(state: SessionBootstrapState): void {
       }
       if (hasPackage) {
         sessionData._htmlReport = pkg.htmlReport
-        sessionData._infoTabHtml = pkg.infoTabHtml
         sessionData._pricingRange = pkg.pricingRange
         if (pkg.pdf?.url) sessionData.pdfUrl = pkg.pdf.url
         // Merge formData for restore() when loadSession is skipped (hasAssetsInSession path)
@@ -335,7 +334,6 @@ function syncSession(state: SessionBootstrapState): void {
         // Merge valuationPackage into session for instant display (htmlReport, pdfUrl, etc.)
         if (hasPackage && pkg.htmlReport) {
           ;(minimalSession as any).htmlReport = pkg.htmlReport
-          ;(minimalSession as any).infoTabHtml = pkg.infoTabHtml
           if (pkg.pdf?.url) (minimalSession as any).pdfUrl = pkg.pdf.url
           if (pkg.pricingRange) {
             ;(minimalSession as any).valuationResult = {
@@ -353,14 +351,14 @@ function syncSession(state: SessionBootstrapState): void {
           if (Object.keys(formDataUpdate).length > 0) {
             useManualFormStore.getState().updateFormData(formDataUpdate as any)
             logger.info('Hydrated form store from bootstrap prefill (existing report)', {
-              reportId: report.reportId.substring(0, 20),
+              reportId: report.reportId.substring(0, 30),
               formFieldsCount: Object.keys(formDataUpdate).length,
             })
           }
         }
 
         logger.info('Merged bootstrap into session for existing report (before loadSession)', {
-          reportId: report.reportId.substring(0, 20),
+          reportId: report.reportId.substring(0, 30),
           hasPrefill,
           hasPackage,
           prefillFieldsCount: Object.keys(sessionData).length - 1,
@@ -377,7 +375,7 @@ function syncSession(state: SessionBootstrapState): void {
       logger.info(
         'Bootstrap sync created minimal session — delegating full load to ValuationSessionManager',
         {
-          reportId: report.reportId.substring(0, 20),
+          reportId: report.reportId.substring(0, 30),
           hasExistingData: report.hasExistingData,
           hasValuationResult: report.hasValuationResult,
         }

@@ -186,7 +186,6 @@ export class SessionAPI extends HttpClient {
         // Promote key fields from normalized data to top level
         valuationResult: normalized.valuationResult,
         htmlReport: normalized.htmlReport,
-        infoTabHtml: normalized.infoTabHtml,
         // Keep the normalized form data accessible
         _normalizedFormData: normalized.formData,
         // Mark as normalized so consumers know they can trust field names
@@ -938,7 +937,7 @@ export class SessionAPI extends HttpClient {
 
   /**
    * Save complete valuation package to session
-   * Persists sessionData (input fields), valuation result, HTML report, and info tab HTML for restoration
+   * Persists sessionData (input fields), valuation result, and HTML report for restoration
    *
    * ATOMIC SAVE: All data saved in single API call to ensure consistency
    */
@@ -948,7 +947,6 @@ export class SessionAPI extends HttpClient {
       sessionData?: any // ✅ NEW: Input data (form fields or collected data)
       valuationResult: any
       htmlReport?: string
-      infoTabHtml?: string
       name?: string // ✅ NEW: Custom valuation name (e.g., "Amadeus report")
     },
     options?: APIRequestConfig
@@ -962,7 +960,6 @@ export class SessionAPI extends HttpClient {
             sessionData: data.sessionData, // ✅ NEW: Send input data
             valuationResult: data.valuationResult,
             htmlReport: data.htmlReport,
-            infoTabHtml: data.infoTabHtml,
             name: data.name, // ✅ NEW: Send custom valuation name
           },
           headers: {},
@@ -977,8 +974,6 @@ export class SessionAPI extends HttpClient {
         hasValuationResult: !!data.valuationResult,
         hasHtmlReport: !!data.htmlReport,
         htmlReportLength: data.htmlReport?.length || 0,
-        hasInfoTabHtml: !!data.infoTabHtml,
-        infoTabHtmlLength: data.infoTabHtml?.length || 0,
       })
 
       return response

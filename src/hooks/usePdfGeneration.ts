@@ -144,7 +144,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             progress: 100,
           })
           generalLogger.info('[PDF] PDF ready after polling', {
-            reportId: reportId.substring(0, 20),
+            reportId: reportId.substring(0, 30),
             pollCount,
           })
         } else if (data.status === 'none') {

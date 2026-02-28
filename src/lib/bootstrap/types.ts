@@ -210,8 +210,6 @@ export interface VersionSummary {
 export interface ValuationPackage {
   /** HTML content for main report */
   htmlReport: string | null
-  /** HTML content for info tab */
-  infoTabHtml: string | null
   /** Pricing range summary */
   pricingRange: {
     min: number

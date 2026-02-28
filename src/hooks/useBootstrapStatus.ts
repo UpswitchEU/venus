@@ -164,7 +164,7 @@ export function useBootstrapStatusForLogging(): Record<string, string | number |
       bootstrap_duration_ms: status.bootstrapDurationMs,
       identity_type: status.identityType,
       report_mode: status.reportMode,
-      report_id: status.reportId?.substring(0, 20) || 'none',
+      report_id: status.reportId?.substring(0, 30) || 'none',
       prefill_confidence: Math.round(status.prefillConfidence * 100),
       prefill_sources: status.prefillSources.join(',') || 'none',
       fields_populated: status.fieldsPopulated,

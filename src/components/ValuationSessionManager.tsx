@@ -43,14 +43,10 @@ function hasAssetsInSession(session: ValuationSession | null): boolean {
   const sd = (session.sessionData || {}) as Record<string, unknown>
   return !!(
     session.htmlReport?.trim() ||
-    session.infoTabHtml?.trim() ||
     session.valuationResult ||
     sd._htmlReport ||
     sd.htmlReport ||
     sd.html_report ||
-    sd._infoTabHtml ||
-    sd.infoTabHtml ||
-    sd.info_tab_html ||
     sd.valuation_result ||
     sd.valuationResult
   )
@@ -118,13 +114,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // DIAGNOSTIC (dev only): Log bootstrap/session state for stuck loading debugging
     generalLogger.debug('[SessionManager] Bootstrap state', {
-      reportId: reportId?.substring(0, 20),
+      reportId: reportId?.substring(0, 30),
       bootstrapComplete,
       bootstrapHasExistingSession,
       bootstrapHasNewReport,
       bootstrapHasSession,
       isBootstrapping,
-      bootstrapReportId: bootstrapReportId?.substring(0, 20),
+      bootstrapReportId: bootstrapReportId?.substring(0, 30),
       bootstrapMode: bootstrap?.report?.mode,
       sessionLoadSkipped: bootstrapHasSession,
     })
@@ -212,7 +208,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         generalLogger.debug(
           '[SessionManager] Bootstrap mismatch detected - proceeding without retry',
           {
-            reportId: reportId?.substring(0, 20),
+            reportId: reportId?.substring(0, 30),
             bootstrapMode: bootstrap?.report.mode,
             note: 'Trusting bootstrap result for single loading state',
           }

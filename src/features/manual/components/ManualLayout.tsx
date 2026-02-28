@@ -267,18 +267,18 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     shares_for_sale: data.equityStake || 100,
     business_type: data.businessStructure || 'company',
     revenue: current?.revenue,
-    ebitda: current?.normalizedEbitda || current?.ebitda,
+    ebitda: current?.ebitda,
     current_year_data: current
       ? {
           year: parseInt(current.year),
           revenue: current.revenue,
-          ebitda: current.normalizedEbitda || current.ebitda,
+          ebitda: current.ebitda,
         }
       : undefined,
     historical_years_data: historical.map((h: any) => ({
       year: parseInt(h.year),
       revenue: h.revenue,
-      ebitda: h.normalizedEbitda || h.ebitda,
+      ebitda: h.ebitda,
     })),
     ...(data.kboNumber && { kbo_number: data.kboNumber }),
     ...(data.naceCode && { nace_code: data.naceCode }),
@@ -806,7 +806,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const enrichedResult = {
           ...version.valuationResult,
           html_report: version.valuationResult.html_report || version.htmlReport || undefined,
-          info_tab_html: version.valuationResult.info_tab_html || version.infoTabHtml || undefined,
         }
         setResult(enrichedResult)
         toast.info(t('versionLoaded', { label: version.versionLabel }))
@@ -827,7 +826,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         Number(r.equity_value_low ?? r.valuation_min ?? r.details?.equity_value_low) || 0
       const equityHigh =
         Number(r.equity_value_high ?? r.valuation_max ?? r.details?.equity_value_high) || 0
-      const ebitda = r.current_year_data?.ebitda || 0
+      const ebitda = Number(r.current_year_data?.ebitda) || 0
       const normalizedEbitda = Number(r.latest_normalized_ebitda) || ebitda
       const revenue = r.current_year_data?.revenue || 0
       const ebitdaMultiple = r.multiples_valuation?.ebitda_multiple || 0
@@ -842,7 +841,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const askingPrice =
         Number(r.recommended_asking_price ?? r.details?.recommended_asking_price) || 0
       const htmlReport = r.html_report ?? r.details?.html_report
-      const infoTabHtml = r.info_tab_html ?? r.details?.info_tab_html
 
       setReport({
         id: reportId || r.valuation_id || r.id || 'draft',
@@ -857,7 +855,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         generatedAt: new Date(),
         confidenceLevel: confidence || 'medium',
         htmlReport: htmlReport || undefined,
-        infoTabHtml: infoTabHtml || undefined,
         recommendedAskingPrice: askingPrice || undefined,
         metrics: [
           { label: 'Gem. Omzet', value: `€${(revenue / 1_000_000).toFixed(2)}M` },
@@ -1009,7 +1006,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   formData: request,
                   valuationResult: calcResult,
                   htmlReport: calcResult.html_report || undefined,
-                  infoTabHtml: calcResult.info_tab_html || undefined,
                   changesSummary: effectiveChanges,
                   versionLabel: generateAutoLabel(
                     effectivePrevious.versionNumber + 1,
@@ -1047,7 +1043,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               sessionData: storeSnapshot,
               valuationResult: calcResult,
               htmlReport: calcResult.html_report || undefined,
-              infoTabHtml: calcResult.info_tab_html || undefined,
               name: sessionName,
             })
             useSessionStore.getState().markSaved()
@@ -1933,8 +1928,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           const enrichedResult = {
             ...version.valuationResult,
             html_report: version.valuationResult.html_report || version.htmlReport || undefined,
-            info_tab_html:
-              version.valuationResult.info_tab_html || version.infoTabHtml || undefined,
           }
           setResult(enrichedResult)
         }
@@ -2502,13 +2495,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         companyName={collectedData.companyName}
       />
 
-      {/* Unified Normalization Modal */}
+      {/* Unified Normalization Modal — single source of truth for all normalization entry points */}
       <UnifiedNormalizationModal
         open={showUnifiedNormalizationModal}
         onOpenChange={setShowUnifiedNormalizationModal}
         companyName={collectedData.companyName || t('company')}
         currentYear={new Date().getFullYear() - 1}
-        originalEBITDA={report?.ebitda || 0}
+        originalEBITDA={
+          report?.ebitda ||
+          Number(formStoreData?.current_year_data?.ebitda) ||
+          0
+        }
         normalizations={normalizationItems}
         onNormalizationsChange={(norms) => normalizationActions.setItems(norms)}
         onUploadClick={() => {}}

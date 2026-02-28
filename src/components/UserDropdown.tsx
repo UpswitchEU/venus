@@ -285,7 +285,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
     // Check report state
     const hasValuationResults =
-      !!session?.valuationResult || !!session?.htmlReport || !!session?.infoTabHtml
+      !!session?.valuationResult || !!session?.htmlReport
     const hasMeaningfulData = hasMeaningfulSessionData(session?.sessionData || {}, session)
 
     generalLogger.info('[UserDropdown] Report state check', {
@@ -684,7 +684,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         onSaveAndExit={handleSaveAndExit}
         hasUnsavedChanges={hasUnsavedChanges}
         hasValuationResults={
-          !!session?.valuationResult || !!session?.htmlReport || !!session?.infoTabHtml
+          !!session?.valuationResult || !!session?.htmlReport
         }
         isSaving={isSaving}
       />

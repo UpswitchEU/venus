@@ -16,7 +16,7 @@
  * This is the single source of truth for detecting NEW vs EXISTING reports
  * based on sessionData content.
  *
- * ENHANCED: Also checks top-level session fields (valuationResult, htmlReport, infoTabHtml)
+ * ENHANCED: Also checks top-level session fields (valuationResult, htmlReport)
  * because backend stores these separately from sessionData.
  *
  * @param sessionData - Session data to check
@@ -41,7 +41,7 @@ export function hasMeaningfulSessionData(sessionData: any, session?: any): boole
     if (keys.length === 0) {
       // Check top-level session fields before returning false
       if (session) {
-        if (session.valuationResult || session.htmlReport || session.infoTabHtml) {
+        if (session.valuationResult || session.htmlReport) {
           return true
         }
       }
@@ -82,7 +82,6 @@ export function hasMeaningfulSessionData(sessionData: any, session?: any): boole
 
       // Generated content
       'html_report',
-      'info_tab_html',
       'valuation_result',
 
       // Other user-entered data
@@ -100,10 +99,10 @@ export function hasMeaningfulSessionData(sessionData: any, session?: any): boole
     }
   }
 
-  // Check top-level session fields (valuationResult, htmlReport, infoTabHtml)
+  // Check top-level session fields (valuationResult, htmlReport)
   // Backend stores these separately from sessionData
   if (session) {
-    if (session.valuationResult || session.htmlReport || session.infoTabHtml) {
+    if (session.valuationResult || session.htmlReport) {
       return true
     }
   }

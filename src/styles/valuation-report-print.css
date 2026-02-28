@@ -81,6 +81,17 @@
   box-sizing: border-box;
 }
 
+/* A4 content pages — white on screen (matches report-template, ValuationIQ base.html) */
+.valuation-report .a4-page {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm 25mm 35mm 25mm;
+  margin: 0 auto 24px auto;
+  background: hsl(var(--report-bg)) !important; /* Always white: 0 0% 100% */
+  position: relative;
+  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 8px 48px -8px rgba(0, 0, 0, 0.08);
+}
+
 /* Display Typography */
 .valuation-report .display-hero {
   font-size: 56pt;

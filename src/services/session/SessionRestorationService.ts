@@ -421,7 +421,7 @@ class SessionRestorationServiceImpl {
         restoredFormFields = Object.keys(data.formData).length
 
         generalLogger.info('[SessionRestoration] Form data hydrated', {
-          reportId: data.reportId?.substring(0, 20),
+          reportId: data.reportId?.substring(0, 30),
           fieldCount: restoredFormFields,
           fields: Object.keys(data.formData),
           kboFields: {
@@ -438,9 +438,9 @@ class SessionRestorationServiceImpl {
     }
 
     // 2. Hydrate results store
-    // CRITICAL: Restore BOTH valuation result AND output assets (htmlReport, infoTabHtml)
+    // CRITICAL: Restore valuation result AND output assets (htmlReport)
     // Sessions may have: (a) full result, (b) output-only, or (c) input-only
-    const hasOutputAssets = !!(data.htmlReport?.trim() || data.infoTabHtml?.trim())
+    const hasOutputAssets = !!data.htmlReport?.trim()
     const hasResult = !!data.valuationResult
 
     if (hasResult || hasOutputAssets) {
@@ -450,7 +450,6 @@ class SessionRestorationServiceImpl {
           ...(data.valuationResult || {}),
           valuation_id: (data.valuationResult as any)?.valuation_id || data.reportId,
           html_report: data.htmlReport || (data.valuationResult as any)?.html_report,
-          info_tab_html: data.infoTabHtml || (data.valuationResult as any)?.info_tab_html,
           ...(data.pricingRange && {
             equity_value_low: data.pricingRange.min,
             equity_value_mid: data.pricingRange.mid,
@@ -470,9 +469,8 @@ class SessionRestorationServiceImpl {
         } else {
           const manualStore = useManualResultsStore.getState()
           manualStore.setResult(fullResult as any)
-          // Explicitly set HTML assets so components reading htmlReport/infoTabHtml directly get them
+          // Explicitly set HTML assets so components reading htmlReport directly get them
           if (data.htmlReport) manualStore.setHtmlReport(data.htmlReport)
-          if (data.infoTabHtml) manualStore.setInfoTabHtml(data.infoTabHtml)
         }
 
         restoredValuationResult = !!data.valuationResult
@@ -483,7 +481,6 @@ class SessionRestorationServiceImpl {
           reportId: data.reportId,
           hasValuationResult: restoredValuationResult,
           hasHtmlReport: restoredHtmlReport,
-          hasInfoTabHtml: !!data.infoTabHtml,
           hasPricingRange: restoredPricingRange,
         })
       } catch (error) {
@@ -589,7 +586,6 @@ class SessionRestorationServiceImpl {
         const resultsStore = useManualResultsStore.getState()
         const hasResult = !!resultsStore.result
         const hasHtmlReport = !!(resultsStore.result?.html_report || resultsStore.htmlReport)
-        const hasInfoTabHtml = !!(resultsStore.result?.info_tab_html || resultsStore.infoTabHtml)
 
         if (manifest.valuationResult && !hasResult) {
           warnings.push('Valuation result missing from store')
@@ -597,10 +593,6 @@ class SessionRestorationServiceImpl {
         }
         if (manifest.htmlReport && !hasHtmlReport) {
           warnings.push('HTML report missing from results store')
-          allVerified = false
-        }
-        if (data.infoTabHtml && !hasInfoTabHtml) {
-          warnings.push('Info tab HTML missing from results store')
           allVerified = false
         }
       }
@@ -672,7 +664,6 @@ class SessionRestorationServiceImpl {
     reportId: string,
     pkg: {
       htmlReport: string | null
-      infoTabHtml?: string | null
       pricingRange: { min: number; mid: number; max: number; currency: string } | null
       versions: {
         current: number
@@ -692,9 +683,8 @@ class SessionRestorationServiceImpl {
     const startTime = performance.now()
 
     generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration from package', {
-      reportId: reportId.substring(0, 20),
+      reportId: reportId.substring(0, 30),
       hasHtmlReport: !!pkg.htmlReport,
-      hasInfoTab: !!pkg.infoTabHtml,
       hasPricing: !!pkg.pricingRange,
       formFieldCount: pkg.formData ? Object.keys(pkg.formData).length : 0,
       versionCount: pkg.versions.total,
@@ -708,7 +698,7 @@ class SessionRestorationServiceImpl {
           const { updateFormData } = useManualFormStore.getState()
           updateFormData(pkg.formData as any)
           generalLogger.info('[SessionRestoration] Form data hydrated from package', {
-            reportId: reportId.substring(0, 20),
+            reportId: reportId.substring(0, 30),
             fieldCount: Object.keys(pkg.formData).length,
           })
         } catch (formError) {
@@ -736,7 +726,6 @@ class SessionRestorationServiceImpl {
         valuation_id: reportId,
         ...pricingResult,
         html_report: pkg.htmlReport || undefined,
-        info_tab_html: pkg.infoTabHtml || undefined,
       }
 
       if (flow === 'manual') {
@@ -746,9 +735,8 @@ class SessionRestorationServiceImpl {
           ...existingResult,
           ...fullResult,
         } as any)
-        // Explicitly set both HTML assets for components that read them directly
+        // Explicitly set HTML assets for components that read them directly
         if (pkg.htmlReport) manualStore.setHtmlReport(pkg.htmlReport)
-        if (pkg.infoTabHtml) manualStore.setInfoTabHtml(pkg.infoTabHtml)
         // Sync session store for instant display (Results component reads session.htmlReport)
         // Include pdfUrl in sessionData so usePdfGeneration shows "ready" on refresh when PDF exists
         try {
@@ -758,7 +746,6 @@ class SessionRestorationServiceImpl {
             if (session) {
               useSessionStore.getState().updateSession({
                 htmlReport: pkg.htmlReport || undefined,
-                infoTabHtml: pkg.infoTabHtml || undefined,
                 valuationResult: { ...existingResult, ...fullResult },
                 sessionData: {
                   ...(session.sessionData || {}),
@@ -774,7 +761,7 @@ class SessionRestorationServiceImpl {
         generalLogger.debug(
           '[SessionRestoration] Skipping conversational hydration - stores removed',
           {
-            reportId: reportId.substring(0, 20),
+            reportId: reportId.substring(0, 30),
           }
         )
       }
@@ -839,7 +826,7 @@ class SessionRestorationServiceImpl {
         versionStore.versions[reportId] = mergedVersions as unknown as typeof existingVersions
 
         generalLogger.debug('[SessionRestoration] Hydrated version history from package', {
-          reportId: reportId.substring(0, 20),
+          reportId: reportId.substring(0, 30),
           versionCount: versions.length,
           total: pkg.versions.total,
         })
@@ -850,12 +837,12 @@ class SessionRestorationServiceImpl {
 
       const durationMs = performance.now() - startTime
       generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration complete', {
-        reportId: reportId.substring(0, 20),
+        reportId: reportId.substring(0, 30),
         durationMs: Math.round(durationMs),
       })
     } catch (error) {
       generalLogger.error('[SessionRestoration] Package hydration failed', {
-        reportId: reportId.substring(0, 20),
+        reportId: reportId.substring(0, 30),
         error: error instanceof Error ? error.message : String(error),
       })
       // Don't throw - fall back to normal restoration
@@ -880,7 +867,7 @@ class SessionRestorationServiceImpl {
   markForRestoration(reportId: string): void {
     this.pendingRestorationIds.add(reportId)
     generalLogger.info('[SessionRestoration] Marked report for pending restoration', {
-      reportId: reportId.substring(0, 20),
+      reportId: reportId.substring(0, 30),
     })
   }
 

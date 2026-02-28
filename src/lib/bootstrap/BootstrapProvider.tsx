@@ -180,7 +180,7 @@ export function BootstrapProvider({
       generalLogger.debug(
         '[BootstrapProvider] Bootstrap already started, skipping duplicate call',
         {
-          reportId: context?.reportId?.substring(0, 20),
+          reportId: context?.reportId?.substring(0, 30),
         }
       )
       return
@@ -193,7 +193,7 @@ export function BootstrapProvider({
         generalLogger.debug(
           '[BootstrapProvider] Module-level guard — hydrating from cache (no callbacks)',
           {
-            reportId: context?.reportId?.substring(0, 20),
+            reportId: context?.reportId?.substring(0, 30),
           }
         )
         bootstrapStartedRef.current = true
@@ -211,7 +211,7 @@ export function BootstrapProvider({
       generalLogger.debug(
         '[BootstrapProvider] Singleton cache hit — using cached result instead of re-fetching',
         {
-          reportId: context?.reportId?.substring(0, 20),
+          reportId: context?.reportId?.substring(0, 30),
         }
       )
       bootstrapStartedRef.current = true
@@ -247,7 +247,7 @@ export function BootstrapProvider({
         context || parseUrlToContext(typeof window !== 'undefined' ? window.location.href : '/')
 
       generalLogger.debug('[BootstrapProvider] Starting bootstrap', {
-        contextReportId: bootstrapContext.reportId?.substring(0, 20) || 'none',
+        contextReportId: bootstrapContext.reportId?.substring(0, 30) || 'none',
         method,
       })
 
@@ -318,7 +318,7 @@ export function BootstrapProvider({
         generalLogger.debug(
           '[BootstrapProvider] Viewing existing report despite insufficient credits',
           {
-            reportId: result.report.reportId.substring(0, 20),
+            reportId: result.report.reportId.substring(0, 30),
             creditsRemaining: result.creditStatus.credits_remaining,
           }
         )
@@ -349,7 +349,7 @@ export function BootstrapProvider({
             result.ui.suggestedFlow || 'manual'
           )
           generalLogger.debug('[BootstrapProvider] WORLD-CLASS: Instant hydration complete', {
-            reportId: result.report.reportId.substring(0, 20),
+            reportId: result.report.reportId.substring(0, 30),
             hasHtmlReport: !!result.valuationPackage.htmlReport,
           })
         } catch (hydrationError) {
@@ -372,7 +372,7 @@ export function BootstrapProvider({
               generalLogger.debug(
                 '[BootstrapProvider] Marking report for fallback restoration...',
                 {
-                  reportId: result.report.reportId.substring(0, 20),
+                  reportId: result.report.reportId.substring(0, 30),
                 }
               )
               // Mark for restoration so ManualLayout/ConversationalLayout know to restore
@@ -404,7 +404,7 @@ export function BootstrapProvider({
 
       generalLogger.debug('[BootstrapProvider] Bootstrap complete', {
         method,
-        reportId: result.report.reportId.substring(0, 20),
+        reportId: result.report.reportId.substring(0, 30),
         identityType: result.identity.type,
         reportMode: result.report.mode,
         prefillConfidence: result.prefillData.confidence.toFixed(2),

@@ -302,7 +302,6 @@ export class SessionService {
     session: ValuationSession
     currentReport?: {
       html_report: string
-      info_tab_html: string
       valuation_result: any
     }
     versions?: any[]
@@ -373,7 +372,6 @@ export class SessionService {
   private async loadCurrentReport(reportId: string): Promise<
     | {
         html_report: string
-        info_tab_html: string
         valuation_result: any
       }
     | undefined
@@ -383,7 +381,6 @@ export class SessionService {
       if (response?.html_report) {
         return {
           html_report: response.html_report,
-          info_tab_html: response.info_tab_html || '',
           valuation_result: response || null, // The response itself is the valuation result
         }
       }
@@ -585,7 +582,7 @@ export class SessionService {
         // trigger immediate background fetch. This handles the case where HTML reports are
         // excluded from localStorage cache (to save space) but exist in the backend.
         // Without this, users would see a blank report panel until the 5-minute stale threshold.
-        if (!cachedSession.htmlReport && !cachedSession.infoTabHtml) {
+        if (!cachedSession.htmlReport) {
           const sessionData = cachedSession.sessionData as any
           const hasValuationResult = sessionData?.valuation_result || cachedSession.valuationResult
 
@@ -634,7 +631,7 @@ export class SessionService {
 
         if (looksCompleted && !hasValuationResult && attempt === 0) {
           logger.info('Completed report missing valuation result - retrying once', {
-            reportId: reportId.substring(0, 20),
+            reportId: reportId.substring(0, 30),
             hasReportId,
             status: session?.status,
           })
@@ -1492,7 +1489,6 @@ export class SessionService {
       formData?: any
       valuationResult?: any
       htmlReport?: string
-      infoTabHtml?: string
     }
   ): Promise<void> {
     const startTime = performance.now()
@@ -1503,7 +1499,6 @@ export class SessionService {
         hasFormData: !!data.formData,
         hasResult: !!data.valuationResult,
         hasHtmlReport: !!data.htmlReport,
-        hasInfoTab: !!data.infoTabHtml,
       })
 
       // Import SessionAPI dynamically to avoid circular dependencies
@@ -1544,17 +1539,15 @@ export class SessionService {
       }
 
       // Save valuation result and HTML reports
-      if (data.valuationResult || data.htmlReport || data.infoTabHtml) {
+      if (data.valuationResult || data.htmlReport) {
         await sessionAPI.saveValuationResult(reportId, {
           valuationResult: data.valuationResult,
           htmlReport: data.htmlReport,
-          infoTabHtml: data.infoTabHtml,
         })
 
         logger.debug('Valuation result saved', {
           reportId,
           hasHtmlReport: !!data.htmlReport,
-          hasInfoTab: !!data.infoTabHtml,
         })
       }
 
@@ -1576,7 +1569,6 @@ export class SessionService {
           logger.debug('Cache updated with fresh valuation data', {
             reportId,
             hasHtmlReport: !!freshSession.htmlReport,
-            hasInfoTabHtml: !!freshSession.infoTabHtml,
             hasValuationResult: !!freshSession.valuationResult,
           })
         } else {
@@ -1761,7 +1753,6 @@ export class SessionService {
         logger.debug('Cache revalidated in background', {
           reportId,
           hasHtmlReport: !!mergedSession.htmlReport,
-          hasInfoTabHtml: !!mergedSession.infoTabHtml,
         })
 
         // ✅ CRITICAL FIX: Also update session store AND results store to trigger reactive UI updates
@@ -1776,18 +1767,13 @@ export class SessionService {
             // Update the session with the revalidated HTML reports
             useSessionStore.getState().updateSession({
               htmlReport: mergedSession.htmlReport,
-              infoTabHtml: mergedSession.infoTabHtml,
               valuationResult: mergedSession.valuationResult,
               // Also update sessionData with merged fields
               sessionData: mergedSession.sessionData,
             })
 
             // Hydrate results store so report panel displays HTML (ManualLayout reads from useManualResultsStore)
-            if (
-              mergedSession.htmlReport ||
-              mergedSession.infoTabHtml ||
-              mergedSession.valuationResult
-            ) {
+            if (mergedSession.htmlReport || mergedSession.valuationResult) {
               try {
                 const { useManualResultsStore } = await import(
                   '../../store/manual/useManualResultsStore'
@@ -1797,15 +1783,10 @@ export class SessionService {
                   ...(existingResult || {}),
                   ...(mergedSession.valuationResult || {}),
                   html_report: mergedSession.htmlReport || (existingResult as any)?.html_report,
-                  info_tab_html:
-                    mergedSession.infoTabHtml || (existingResult as any)?.info_tab_html,
                 }
                 useManualResultsStore.getState().setResult(fullResult as any)
                 if (mergedSession.htmlReport) {
                   useManualResultsStore.getState().setHtmlReport(mergedSession.htmlReport)
-                }
-                if (mergedSession.infoTabHtml) {
-                  useManualResultsStore.getState().setInfoTabHtml(mergedSession.infoTabHtml)
                 }
               } catch (resultsStoreError) {
                 logger.warn('Failed to hydrate results store after revalidation', {
@@ -1821,7 +1802,6 @@ export class SessionService {
             logger.info('Session store updated with revalidated HTML reports', {
               reportId,
               hasHtmlReport: !!mergedSession.htmlReport,
-              hasInfoTabHtml: !!mergedSession.infoTabHtml,
             })
           } else {
             logger.debug('Skipping store update - reportId changed during revalidation', {

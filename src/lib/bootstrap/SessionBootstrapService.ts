@@ -582,7 +582,7 @@ export class SessionBootstrapService {
   ): Promise<SessionBootstrapState> {
     // Full ID for cache matching; truncated only for log readability
     const cacheReportId = context.reportId || 'new'
-    const logReportId = context.reportId?.substring(0, 20) || 'new'
+    const logReportId = context.reportId?.substring(0, 30) || 'new'
 
     // Guard 1: Sliding-window circuit breaker — blocks rapid-fire calls
     const now = Date.now()
@@ -642,7 +642,7 @@ export class SessionBootstrapService {
     this.logger.info(
       `[Bootstrap:${traceId}] Starting Titan API bootstrap (${this.callTimestamps.length} calls in window)`,
       {
-        reportId: context.reportId?.substring(0, 20) || 'new',
+        reportId: context.reportId?.substring(0, 30) || 'new',
         hasClientToken: hints.hasClientToken,
       }
     )
@@ -664,7 +664,7 @@ export class SessionBootstrapService {
         this.logger.info(
           `[Bootstrap:${traceId}] Mercury accountant existing-report flow detected — waiting for client context`,
           {
-            reportId: context.reportId?.substring(0, 20),
+            reportId: context.reportId?.substring(0, 30),
           }
         )
       }
@@ -687,7 +687,8 @@ export class SessionBootstrapService {
 
       // ✅ CRITICAL FIX: Only include mode if it's a valid value ('edit' or 'view')
       // The Zod schema on the backend only accepts these two values, so invalid values cause 400 errors
-      // Mercury may send mode=accountant in the URL, but we should NOT send this to Titan
+      // Mercury may send mode=accountant in the URL - this is intentionally omitted. Accountant flow
+      // context is conveyed via clientToken, clientId, and X-Client-User-Id headers, not mode.
       const validMode =
         context.mode === 'edit' || context.mode === 'view' ? context.mode : undefined
 
@@ -713,8 +714,8 @@ export class SessionBootstrapService {
 
       // CRITICAL LOGGING: Log exactly what we're sending to debug ID mismatch
       this.logger.info('[Bootstrap] Sending to Titan API', {
-        reportIdFromContext: context.reportId?.substring(0, 25) || 'none',
-        reportIdInRequest: validReportId?.substring(0, 25) || 'none',
+        reportIdFromContext: context.reportId?.substring(0, 30) || 'none',
+        reportIdInRequest: validReportId?.substring(0, 30) || 'none',
         reportIdLength: validReportId?.length || 0,
       })
 
@@ -826,7 +827,7 @@ export class SessionBootstrapService {
           status: response.status,
           success: data.success,
           reportMode: data.data?.report?.mode,
-          reportId: data.data?.report?.reportId?.substring(0, 25),
+          reportId: data.data?.report?.reportId?.substring(0, 30),
           identityType: data.data?.identity?.type,
           hasExistingData: data.data?.report?.hasExistingData,
         })
@@ -978,7 +979,6 @@ export class SessionBootstrapService {
         valuationPackage: valuationPackage
           ? {
               htmlReport: valuationPackage.htmlReport || null,
-              infoTabHtml: valuationPackage.infoTabHtml || null,
               pricingRange: valuationPackage.pricingRange || null,
               versions: valuationPackage.versions || { current: 1, total: 1 },
               pdf: valuationPackage.pdf || { url: null, status: 'none' },
@@ -1001,7 +1001,6 @@ export class SessionBootstrapService {
       if (valuationPackage) {
         this.logger.info(`[Bootstrap:${traceId}] Received valuationPackage`, {
           hasHtmlReport: !!valuationPackage.htmlReport,
-          hasInfoTab: !!valuationPackage.infoTabHtml,
           hasPricing: !!valuationPackage.pricingRange,
           versionCount: valuationPackage.versions?.total,
           pdfStatus: valuationPackage.pdf?.status,
@@ -1020,7 +1019,7 @@ export class SessionBootstrapService {
         this.logger.warn(
           `[Bootstrap:${traceId}] Expected existing session but got mode=new — accepting result`,
           {
-            reportId: context.reportId.substring(0, 25),
+            reportId: context.reportId.substring(0, 30),
             identifierType: getIdentifierType(context.reportId),
           }
         )

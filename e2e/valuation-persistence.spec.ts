@@ -278,10 +278,9 @@ test.describe('Cache Update Strategy (Cursor/ChatGPT-Style)', () => {
       return cached ? JSON.parse(cached) : null
     }, reportId)
     
-    // Cache should exist and have HTML reports
+    // Cache should exist and have HTML report (info tab removed)
     expect(cacheBeforeRefresh).toBeTruthy()
     expect(cacheBeforeRefresh.session.htmlReport).toBeTruthy()
-    expect(cacheBeforeRefresh.session.infoTabHtml).toBeTruthy()
     
     // Step 3: Refresh and verify instant load from cache
     const refreshStartTime = Date.now()
@@ -372,7 +371,7 @@ test.describe('Cache Update Strategy (Cursor/ChatGPT-Style)', () => {
           reportId: id,
           currentView: 'manual',
           sessionData: { company_name: 'Old Incomplete Session' },
-          // No htmlReport or infoTabHtml - INCOMPLETE
+          // No htmlReport - INCOMPLETE
         },
         cachedAt: Date.now() - 15 * 60 * 1000, // 15 minutes old
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
@@ -421,11 +420,10 @@ test.describe('Cache Update Strategy (Cursor/ChatGPT-Style)', () => {
       return cached ? JSON.parse(cached) : null
     }, reportId)
     
-    // Cache should have been updated optimistically
+    // Cache should have been updated optimistically (info tab removed)
     expect(cache).toBeTruthy()
     expect(cache.session.valuationResult).toBeTruthy()
     expect(cache.session.htmlReport).toBeTruthy()
-    expect(cache.session.infoTabHtml).toBeTruthy()
     
     // Immediate refresh should show report without delay
     await page.reload({ waitUntil: 'domcontentloaded' })

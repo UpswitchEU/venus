@@ -11,6 +11,17 @@
 /* Import Valuation Report Print (Aurora tokens for .valuation-report) */
 @import "../src/styles/valuation-report-print.css";
 
+/* Valuation Report container (ValuationIQ HTML) — always light, matches report-template */
+/* Report is a document preview: white .a4-page, dark .cover-page. Never inherit app dark mode. */
+/* !important: ValuationIQ inline styles can override; we must win for correct appearance. */
+.valuation-report {
+  background-color: #f3f4f6 !important; /* Gray-100, matches report-template modal (bg-muted) */
+  padding: 24px;
+  min-height: 100%;
+  overflow-y: auto;
+  color-scheme: light; /* Force light rendering so report always looks like printed document */
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -319,9 +330,10 @@
   color: hsl(var(--report-text));
 }
 
-/* Dark mode: report panels use dark theme tokens (app uses .dark on html) */
-.dark .valuation-report-preview,
-.dark .valuation-report {
+/* Dark mode: valuation-report-preview only (legacy preview component).
+   .valuation-report (ValuationIQ HTML) MUST stay light — it's a document that should
+   always look like the report-template: white content pages, dark cover. */
+.dark .valuation-report-preview {
   --report-bg: 224 18% 8%;
   --report-surface: 224 16% 12%;
   --report-text: 224 12% 96%;
@@ -342,6 +354,9 @@
   --bg-subtle: hsl(224 16% 12%);
   --border-light: hsl(224 16% 24%);
 }
+
+/* .valuation-report (ValuationIQ HTML) — NEVER apply dark overrides.
+   Report must always match report-template: white .a4-page, dark .cover-page. */
 
 .dark .valuation-report-preview .cover-sheet,
 .dark .valuation-report-preview .table-card {

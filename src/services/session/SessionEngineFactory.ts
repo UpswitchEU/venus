@@ -43,7 +43,7 @@ export function createSessionEngine(identity: IdentityState): ISessionEngine {
       identityType: identity.type,
       userId: identity.userId?.substring(0, 8) + '...',
       hasSession: !!engineInstance.getSession(),
-      sessionReportId: engineInstance.getReportId()?.substring(0, 20) || 'none',
+      sessionReportId: engineInstance.getReportId()?.substring(0, 30) || 'none',
     })
     return engineInstance
   }

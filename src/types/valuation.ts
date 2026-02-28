@@ -945,8 +945,6 @@ export interface ValuationResponse {
   // HTML Reports (REQUIRED for display)
   /** Complete Accountant View HTML report (20-30 pages) */
   html_report?: string
-  /** Info tab HTML (legacy - may be returned by API) */
-  info_tab_html?: string
 }
 
 export interface CompanyLookupResult {
@@ -1219,5 +1217,4 @@ export interface ValuationSession {
   // Valuation result data (for completed valuations)
   valuationResult?: ValuationResponse // Full valuation result including calculations
   htmlReport?: string // Generated HTML report
-  infoTabHtml?: string // Info tab HTML content
 }

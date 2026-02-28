@@ -79,7 +79,7 @@ export function mergePrefilledQuery(partialData: any, prefilledQuery?: string | 
 }
 
 /**
- * Merge top-level session fields (valuationResult, htmlReport, infoTabHtml) into sessionData
+ * Merge top-level session fields (valuationResult, htmlReport) into sessionData
  *
  * Backend stores these separately as top-level fields, but frontend needs them in sessionData
  * for consistent access across restoration and UI components.
@@ -98,31 +98,25 @@ export function mergePrefilledQuery(partialData: any, prefilledQuery?: string | 
  * // - All original sessionData fields
  * // - valuation_result (from session.valuationResult)
  * // - html_report (from session.htmlReport)
- * // - info_tab_html (from session.infoTabHtml)
  * ```
  */
 export function mergeSessionFields(session: ValuationSession): ValuationSession {
   if (!session) return session
 
   // ✅ FIX: Preserve ALL existing sessionData fields
-  // Only add/override the special fields (valuation_result, html_report, info_tab_html)
+  // Only add/override the special fields (valuation_result, html_report)
   // Cast to any to access session_data (backend may return snake_case)
   const sessionAny = session as any
   const existingSessionData = session.sessionData || sessionAny.session_data || {}
 
   // ✅ BANK-GRADE: Extract from BOTH top-level AND session_data locations
   // Titan controller exposes at top level, but also check session_data for defense-in-depth
-  // _htmlReport/_infoTabHtml are bootstrap-injected for instant restoration
+  // _htmlReport is bootstrap-injected for instant restoration
   const htmlReport =
     session.htmlReport ||
     (existingSessionData as any).htmlReport ||
     (existingSessionData as any).html_report ||
     (existingSessionData as any)._htmlReport
-  const infoTabHtml =
-    session.infoTabHtml ||
-    (existingSessionData as any).infoTabHtml ||
-    (existingSessionData as any).info_tab_html ||
-    (existingSessionData as any)._infoTabHtml
   const valuationResult =
     session.valuationResult ||
     (existingSessionData as any).valuationResult ||
@@ -136,7 +130,6 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
     ...existingSessionData,
     ...(valuationResult && { valuation_result: valuationResult }),
     ...(htmlReport && { html_report: htmlReport }),
-    ...(infoTabHtml && { info_tab_html: infoTabHtml }),
     ...(priceRange && { _pricingRange: priceRange }),
   }
 
@@ -144,7 +137,6 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
     ...session,
     sessionData: mergedSessionData,
     htmlReport,
-    infoTabHtml,
     valuationResult,
   }
 }

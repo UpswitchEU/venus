@@ -57,7 +57,7 @@ export const useUnifiedSessionStore = create<SessionStore>()(
 
         logger.debug(
           {
-            session_key: sessionKey.substring(0, 20) + '...',
+            session_key: sessionKey.substring(0, 30) + '...',
           },
           '[UnifiedSessionStore] Loading session'
         )
@@ -68,7 +68,7 @@ export const useUnifiedSessionStore = create<SessionStore>()(
 
           logger.debug(
             {
-              session_key: session.session_key.substring(0, 20) + '...',
+              session_key: session.session_key.substring(0, 30) + '...',
             },
             '[UnifiedSessionStore] Session loaded successfully'
           )
@@ -80,7 +80,7 @@ export const useUnifiedSessionStore = create<SessionStore>()(
 
           logger.error(
             {
-              session_key: sessionKey.substring(0, 20) + '...',
+              session_key: sessionKey.substring(0, 30) + '...',
               error: errorMessage,
             },
             '[UnifiedSessionStore] Failed to load session'
@@ -104,7 +104,7 @@ export const useUnifiedSessionStore = create<SessionStore>()(
 
           logger.info(
             {
-              session_key: session.session_key.substring(0, 20) + '...',
+              session_key: session.session_key.substring(0, 30) + '...',
             },
             '[UnifiedSessionStore] Session created successfully'
           )
@@ -141,7 +141,7 @@ export const useUnifiedSessionStore = create<SessionStore>()(
 
         logger.debug(
           {
-            session_key: currentSession.session_key.substring(0, 20) + '...',
+            session_key: currentSession.session_key.substring(0, 30) + '...',
           },
           '[UnifiedSessionStore] Updating session (optimistic)'
         )
@@ -160,7 +160,7 @@ export const useUnifiedSessionStore = create<SessionStore>()(
 
           logger.debug(
             {
-              session_key: updated.session_key.substring(0, 20) + '...',
+              session_key: updated.session_key.substring(0, 30) + '...',
             },
             '[UnifiedSessionStore] Session updated successfully'
           )
@@ -170,7 +170,7 @@ export const useUnifiedSessionStore = create<SessionStore>()(
 
           logger.error(
             {
-              session_key: currentSession.session_key.substring(0, 20) + '...',
+              session_key: currentSession.session_key.substring(0, 30) + '...',
               error: error?.message,
             },
             '[UnifiedSessionStore] Failed to update session, rolled back'

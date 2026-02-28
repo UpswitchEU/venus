@@ -48,7 +48,6 @@ export interface NormalizedSessionData {
   // Valuation result (normalized)
   valuationResult: ValuationResponse | null
   htmlReport: string | null
-  infoTabHtml: string | null
   pricingRange: PricingRange | null
 
   // Client context (for accountant flow)
@@ -208,36 +207,6 @@ function extractHtmlReport(sessionData: any, topLevelSession: any): string | nul
 }
 
 /**
- * Extract info tab HTML from session data
- * Checks multiple locations including valuation result and Titan-injected fields
- */
-function extractInfoTabHtml(sessionData: any, topLevelSession: any): string | null {
-  // Get valuation result first (may contain info_tab_html)
-  const valuationResult =
-    topLevelSession?.valuationResult ||
-    sessionData?.valuationResult ||
-    sessionData?.valuation_result ||
-    topLevelSession?.valuation_result ||
-    topLevelSession?.report?.valuation_result ||
-    null
-
-  return (
-    // Direct top-level fields
-    topLevelSession?.infoTabHtml ||
-    sessionData?.infoTabHtml ||
-    sessionData?.info_tab_html ||
-    topLevelSession?.info_tab_html ||
-    // Titan-injected field (prefixed with _)
-    sessionData?._infoTabHtml ||
-    // Inside valuation result
-    valuationResult?.info_tab_html ||
-    valuationResult?.infoTabHtml ||
-    valuationResult?.details?.info_tab_html ||
-    null
-  )
-}
-
-/**
  * Extract pricing range from session data
  * Checks multiple locations including Titan-injected fields and valuation result
  */
@@ -319,8 +288,7 @@ function extractClientContext(sessionData: any): NormalizedSessionData['clientCo
 function hasExistingData(
   formData: Partial<ValuationRequest>,
   valuationResult: any,
-  htmlReport?: string | null,
-  infoTabHtml?: string | null
+  htmlReport?: string | null
 ): boolean {
   // Has form data if company_name or key financial data exists
   const hasFormData = !!(
@@ -336,7 +304,7 @@ function hasExistingData(
   const hasResult = !!valuationResult
 
   // Has output assets (HTML reports)
-  const hasOutput = !!(htmlReport?.trim() || infoTabHtml?.trim())
+  const hasOutput = !!htmlReport?.trim()
 
   return hasFormData || hasResult || hasOutput
 }
@@ -366,7 +334,6 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
   const formData = extractFormData(sessionData)
   const valuationResult = extractValuationResult(sessionData, backendSession)
   const htmlReport = extractHtmlReport(sessionData, backendSession)
-  const infoTabHtml = extractInfoTabHtml(sessionData, backendSession)
   const pricingRange = extractPricingRange(sessionData, backendSession)
   const clientContext = extractClientContext(sessionData)
 
@@ -387,13 +354,12 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     // Valuation result and HTML
     valuationResult,
     htmlReport,
-    infoTabHtml,
     pricingRange,
 
     // Context
     clientContext,
     dataSource: normalizeFlowType(backendSession.dataSource || sessionData.dataSource),
-    hasExistingData: hasExistingData(formData, valuationResult, htmlReport, infoTabHtml),
+    hasExistingData: hasExistingData(formData, valuationResult, htmlReport),
   }
 
   generalLogger.debug('[SessionNormalizer] Normalized session data', {
@@ -402,7 +368,6 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     hasFormData: Object.keys(normalized.formData).length > 0,
     hasValuationResult: !!normalized.valuationResult,
     hasHtmlReport: !!normalized.htmlReport,
-    hasInfoTabHtml: !!normalized.infoTabHtml,
     hasPricingRange: !!normalized.pricingRange,
     hasClientContext: !!normalized.clientContext,
     formDataKeys: Object.keys(normalized.formData),
@@ -425,7 +390,6 @@ export function createEmptyNormalizedData(reportId: string): NormalizedSessionDa
     formData: {},
     valuationResult: null,
     htmlReport: null,
-    infoTabHtml: null,
     pricingRange: null,
     clientContext: null,
     dataSource: 'manual',

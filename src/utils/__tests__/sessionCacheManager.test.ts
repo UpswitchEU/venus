@@ -24,7 +24,6 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     htmlReport: '<html>Complete Report</html>',
-    infoTabHtml: '<html>Info Tab</html>',
     valuationResult: {
       valuation_id: 'val_123',
       final_valuation_eur: 1000000,
@@ -39,7 +38,7 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
     partialData: {},
     createdAt: new Date(),
     updatedAt: new Date(),
-    // No htmlReport or infoTabHtml - INCOMPLETE
+    // No htmlReport - INCOMPLETE
   }
 
   beforeEach(() => {
@@ -84,14 +83,13 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
   })
 
   describe('Cache Completeness Validation', () => {
-    it('should return complete session with HTML reports', () => {
+    it('should return complete session with HTML report', () => {
       cacheManager.set(mockReportId, completeSession)
 
       const result = cacheManager.get(mockReportId)
 
       expect(result).toBeTruthy()
       expect(result?.htmlReport).toBe('<html>Complete Report</html>')
-      expect(result?.infoTabHtml).toBe('<html>Info Tab</html>')
     })
 
     it('should return incomplete session if cache is fresh (<10 min)', () => {
@@ -102,7 +100,6 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       // Should return incomplete session if it's fresh
       expect(result).toBeTruthy()
       expect(result?.htmlReport).toBeUndefined()
-      expect(result?.infoTabHtml).toBeUndefined()
     })
 
     it('should INVALIDATE incomplete stale cache (>10 min)', () => {
@@ -142,7 +139,6 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       // Should return complete session even if stale
       expect(result).toBeTruthy()
       expect(result?.htmlReport).toBeTruthy()
-      expect(result?.infoTabHtml).toBeTruthy()
     })
   })
 
@@ -175,36 +171,18 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       expect(result).toBeNull()
     })
 
-    it('should handle session with only htmlReport (no infoTabHtml)', () => {
+    it('should handle session with htmlReport', () => {
       const partiallyCompleteSession = {
         ...incompleteSession,
         htmlReport: '<html>Report only</html>',
-        // No infoTabHtml
       }
 
       cacheManager.set(mockReportId, partiallyCompleteSession)
 
       const result = cacheManager.get(mockReportId)
 
-      // Should be considered complete (has htmlReport)
       expect(result).toBeTruthy()
       expect(result?.htmlReport).toBeTruthy()
-    })
-
-    it('should handle session with only infoTabHtml (no htmlReport)', () => {
-      const partiallyCompleteSession = {
-        ...incompleteSession,
-        // No htmlReport
-        infoTabHtml: '<html>Info only</html>',
-      }
-
-      cacheManager.set(mockReportId, partiallyCompleteSession)
-
-      const result = cacheManager.get(mockReportId)
-
-      // Should be considered complete (has infoTabHtml)
-      expect(result).toBeTruthy()
-      expect(result?.infoTabHtml).toBeTruthy()
     })
   })
 

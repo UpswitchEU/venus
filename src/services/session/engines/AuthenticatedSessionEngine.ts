@@ -140,7 +140,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
       // BANK-GRADE: If we're currently loading, queue the update
       if (this.loadingPromise && this.loadingReportId) {
         generalLogger.debug('[AuthenticatedSessionEngine] Queueing update during load', {
-          loadingReportId: this.loadingReportId.substring(0, 20),
+          loadingReportId: this.loadingReportId.substring(0, 30),
           updateKeys: Object.keys(updates),
         })
         this.pendingUpdates.push(updates)

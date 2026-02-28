@@ -69,7 +69,7 @@ export class UnifiedSessionAPI extends HttpClient {
 
       const duration = performance.now() - startTime
       apiLogger.info('[UnifiedSessionAPI] Session created successfully', {
-        session_key: response.data.session.session_key.substring(0, 20) + '...',
+        session_key: response.data.session.session_key.substring(0, 30) + '...',
         duration_ms: duration.toFixed(2),
       })
 
@@ -89,7 +89,7 @@ export class UnifiedSessionAPI extends HttpClient {
    */
   async get(sessionKey: string): Promise<Session> {
     apiLogger.debug('[UnifiedSessionAPI] Getting session', {
-      session_key: sessionKey.substring(0, 20) + '...',
+      session_key: sessionKey.substring(0, 30) + '...',
     })
 
     try {
@@ -100,7 +100,7 @@ export class UnifiedSessionAPI extends HttpClient {
       return response.data.session
     } catch (error) {
       apiLogger.error('[UnifiedSessionAPI] Failed to get session', {
-        session_key: sessionKey.substring(0, 20) + '...',
+        session_key: sessionKey.substring(0, 30) + '...',
         error,
       })
       throw error
@@ -114,7 +114,7 @@ export class UnifiedSessionAPI extends HttpClient {
    */
   async update(sessionKey: string, request: UpdateSessionRequest): Promise<Session> {
     apiLogger.debug('[UnifiedSessionAPI] Updating session', {
-      session_key: sessionKey.substring(0, 20) + '...',
+      session_key: sessionKey.substring(0, 30) + '...',
       hasDataUpdate: !!request.data,
     })
 
@@ -125,13 +125,13 @@ export class UnifiedSessionAPI extends HttpClient {
       )
 
       apiLogger.debug('[UnifiedSessionAPI] Session updated successfully', {
-        session_key: sessionKey.substring(0, 20) + '...',
+        session_key: sessionKey.substring(0, 30) + '...',
       })
 
       return response.data.session
     } catch (error) {
       apiLogger.error('[UnifiedSessionAPI] Failed to update session', {
-        session_key: sessionKey.substring(0, 20) + '...',
+        session_key: sessionKey.substring(0, 30) + '...',
         error,
       })
       throw error
@@ -143,18 +143,18 @@ export class UnifiedSessionAPI extends HttpClient {
    */
   async delete(sessionKey: string): Promise<void> {
     apiLogger.info('[UnifiedSessionAPI] Deleting session', {
-      session_key: sessionKey.substring(0, 20) + '...',
+      session_key: sessionKey.substring(0, 30) + '...',
     })
 
     try {
       await this.client.delete(`/api/v2/sessions/${sessionKey}`)
 
       apiLogger.info('[UnifiedSessionAPI] Session deleted successfully', {
-        session_key: sessionKey.substring(0, 20) + '...',
+        session_key: sessionKey.substring(0, 30) + '...',
       })
     } catch (error) {
       apiLogger.error('[UnifiedSessionAPI] Failed to delete session', {
-        session_key: sessionKey.substring(0, 20) + '...',
+        session_key: sessionKey.substring(0, 30) + '...',
         error,
       })
       throw error

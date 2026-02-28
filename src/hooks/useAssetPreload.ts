@@ -51,7 +51,7 @@ export function useAssetPreload(
     // Skip if service is already preloading this reportId
     if (AssetPreloadService.isPreloading(reportId)) {
       generalLogger.debug('[useAssetPreload] Already preloading, skipping', {
-        reportId: reportId.substring(0, 20) + '...',
+        reportId: reportId.substring(0, 30) + '...',
       })
       // Still mark as initiated to prevent future attempts
       lastPreloadedRef.current = reportId
@@ -69,7 +69,7 @@ export function useAssetPreload(
       if (isCancelled) return
 
       generalLogger.debug('[useAssetPreload] Scheduling asset preload', {
-        reportId: reportId.substring(0, 20) + '...',
+        reportId: reportId.substring(0, 30) + '...',
         flowType,
       })
 
@@ -79,7 +79,7 @@ export function useAssetPreload(
       // Fire and forget - don't await
       AssetPreloadService.preloadAssets(reportId, flowType).catch((error) => {
         generalLogger.warn('[useAssetPreload] Preload failed (non-critical)', {
-          reportId: reportId.substring(0, 20) + '...',
+          reportId: reportId.substring(0, 30) + '...',
           error: error instanceof Error ? error.message : String(error),
         })
       })

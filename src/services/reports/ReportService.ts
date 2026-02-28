@@ -154,7 +154,6 @@ class ReportServiceImpl implements ReportService {
           // CRITICAL: Include valuation result fields from backend
           valuationResult: report.valuation_result || null,
           htmlReport: report.html_report || null,
-          infoTabHtml: report.info_tab_html || null,
           calculatedAt: report.calculated_at ? new Date(report.calculated_at) : undefined,
         } as ValuationSession
       })

@@ -239,7 +239,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         // DIAGNOSTIC: Log sessionData for Mercury data flow tracing
         const sessionDataForLog = (session.sessionData || {}) as Record<string, unknown>
         storeLogger.info('[Session] Loaded successfully', {
-          reportId: session.reportId?.substring(0, 20),
+          reportId: session.reportId?.substring(0, 30),
           hasSessionData: !!session.sessionData,
           isExistingSession,
           hasExistingValuationResult,
@@ -566,7 +566,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ status: 'loaded' as SessionStatus })
     storeLogger.debug('[Session] Initialization complete', {
       hasSession: !!state.session,
-      reportId: state.session?.reportId?.substring(0, 20) || 'none',
+      reportId: state.session?.reportId?.substring(0, 30) || 'none',
     })
   },
 

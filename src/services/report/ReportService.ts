@@ -69,7 +69,6 @@ export class ReportService {
       sessionData?: any // ✅ NEW: Input data (form fields or collected data)
       valuationResult?: ValuationResponse
       htmlReport?: string
-      infoTabHtml?: string // Info tab HTML (legacy)
       name?: string // Custom valuation name (e.g., "Amadeus report")
     }
   ): Promise<void> {
@@ -107,7 +106,6 @@ export class ReportService {
       sessionData?: any
       valuationResult?: ValuationResponse
       htmlReport?: string
-      infoTabHtml?: string
       name?: string // Custom valuation name (e.g., "Amadeus report")
     }
   ): Promise<void> {
@@ -170,7 +168,6 @@ export class ReportService {
         sessionData: sessionDataWithContext,
         valuationResult: assets.valuationResult,
         htmlReport: assets.htmlReport,
-        infoTabHtml: assets.infoTabHtml,
         name: assets.name,
       })
       const putResultDuration = performance.now() - putResultStartTime

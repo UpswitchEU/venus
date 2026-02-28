@@ -3,7 +3,7 @@
  *
  * Utility functions to extract summary data from backend response.
  *
- * NOTE: Calculation details are now available in info_tab_html (server-generated HTML).
+ * NOTE: Calculation details are in the main report (html_report).
  * This file only extracts summary fields needed for basic display.
  */
 

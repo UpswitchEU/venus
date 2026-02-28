@@ -18,7 +18,7 @@ import { generalLogger } from './logger'
  * - Re-injects CSS if DOMPurify strips style tags (known issue)
  * - Preserves CSS @import statements and all CSS content
  *
- * WHEN: Use for all server-generated HTML content (info_tab_html, html_report)
+ * WHEN: Use for all server-generated HTML content (html_report)
  *
  * SECURITY NOTE: CSS is server-generated from templates (not user input),
  *                so re-injection is safe. DOMPurify still sanitizes CSS

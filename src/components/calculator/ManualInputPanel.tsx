@@ -16,17 +16,13 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertCircle,
   Building2,
-  Calculator,
   Check,
-  ChevronDown,
   ChevronRight,
   FileSpreadsheet,
   HelpCircle,
   Link2,
   Plus,
-  TrendingUp,
   X,
-  Zap,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -47,7 +43,6 @@ import {
   ModalTitle,
 } from '@/design-system/components/Modal'
 import { AuroraSelect } from '@/design-system/components/Select'
-import { Switch } from '@/design-system/components/Switch'
 import {
   TooltipContent,
   TooltipProvider,
@@ -62,11 +57,8 @@ import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
+import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { CurrencyInput } from './CurrencyInput'
-import {
-  type NormalizationItem as UnifiedNormalizationItem,
-  UnifiedNormalizationModal,
-} from './UnifiedNormalizationModal'
 
 // Types
 export interface YearlyFinancials {
@@ -74,7 +66,6 @@ export interface YearlyFinancials {
   revenue: number
   ebitda: number
   normalizedEbitda?: number
-  normalizations: NormalizationItem[]
 }
 
 export interface ValuationFormData {
@@ -97,18 +88,6 @@ export interface ValuationFormData {
   yearlyFinancials: YearlyFinancials[]
   // Calculated values
   averageNormalizedEbitda?: number
-}
-
-export interface NormalizationItem {
-  id: string
-  code: string
-  name: string
-  category: string
-  originalValue: number
-  adjustedValue: number
-  adjustment: number
-  reason: string
-  enabled: boolean
 }
 
 // Field help context for AI assistant integration
@@ -157,76 +136,6 @@ const businessStructures = [
   { value: 'cvba', label: 'CVBA' },
   { value: 'vzw', label: 'VZW' },
 ]
-
-function getNormalizationTemplates(
-  t: (key: string) => string
-): Omit<NormalizationItem, 'id' | 'originalValue' | 'adjustedValue' | 'adjustment'>[] {
-  return [
-    {
-      code: '6100',
-      name: t('normalizationHub.presets.ownerSalary'),
-      category: t('normalizationHub.categories.personnelCosts'),
-      reason: t('normalizationHub.presets.ownerSalaryReason'),
-      enabled: true,
-    },
-    {
-      code: '6101',
-      name: t('normalizationHub.presets.familySalary'),
-      category: t('normalizationHub.categories.personnelCosts'),
-      reason: t('normalizationHub.presets.ownerSalaryReason'),
-      enabled: false,
-    },
-    {
-      code: '6200',
-      name: t('normalizationHub.presets.depreciation'),
-      category: t('normalizationHub.categories.depreciation'),
-      reason: t('normalizationHub.presets.restructuringReason'),
-      enabled: false,
-    },
-    {
-      code: '6300',
-      name: t('normalizationHub.presets.rent'),
-      category: t('normalizationHub.categories.housingCosts'),
-      reason: t('normalizationHub.presets.rentReason'),
-      enabled: false,
-    },
-    {
-      code: '6400',
-      name: t('normalizationHub.presets.vehicle'),
-      category: t('normalizationHub.categories.vehicleCosts'),
-      reason: t('normalizationHub.presets.vehicleReason'),
-      enabled: false,
-    },
-    {
-      code: '6500',
-      name: t('normalizationHub.presets.advisory'),
-      category: t('normalizationHub.categories.oneTimeCosts'),
-      reason: t('normalizationHub.presets.restructuringReason'),
-      enabled: false,
-    },
-    {
-      code: '6600',
-      name: t('normalizationHub.presets.legal'),
-      category: t('normalizationHub.categories.oneTimeCosts'),
-      reason: t('normalizationHub.presets.legalReason'),
-      enabled: false,
-    },
-    {
-      code: '6700',
-      name: t('normalizationHub.presets.restructuring'),
-      category: t('normalizationHub.categories.oneTimeCosts'),
-      reason: t('normalizationHub.presets.restructuringReason'),
-      enabled: false,
-    },
-    {
-      code: '7400',
-      name: t('normalizationHub.presets.assetSale'),
-      category: t('normalizationHub.categories.oneTimeRevenue'),
-      reason: t('normalizationHub.presets.assetSaleReason'),
-      enabled: false,
-    },
-  ]
-}
 
 // Inline FieldHelpTrigger component for contextual AI assistance
 function FieldHelpTrigger({
@@ -284,9 +193,9 @@ const currentYear = new Date().getFullYear()
 // Generate default yearly financials for last 3 years
 const generateDefaultYearlyFinancials = (): YearlyFinancials[] => {
   return [
-    { year: String(currentYear - 1), revenue: 0, ebitda: 0, normalizations: [] },
-    { year: String(currentYear - 2), revenue: 0, ebitda: 0, normalizations: [] },
-    { year: String(currentYear - 3), revenue: 0, ebitda: 0, normalizations: [] },
+    { year: String(currentYear - 1), revenue: 0, ebitda: 0 },
+    { year: String(currentYear - 2), revenue: 0, ebitda: 0 },
+    { year: String(currentYear - 3), revenue: 0, ebitda: 0 },
   ]
 }
 
@@ -502,26 +411,31 @@ export function ManualInputPanel({
   const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessType | null>(null)
 
   // Section collapse states
-  const [showNormalizationModal, setShowNormalizationModal] = useState(false)
   const [showConnectModal, setShowConnectModal] = useState(false)
   const [connectedIntegration, setConnectedIntegration] = useState<string | null>(null)
-  const [activeNormalizationYear, setActiveNormalizationYear] = useState(String(currentYear - 1))
   const [hideUploadHint, setHideUploadHint] = useState(false)
 
-  // Unified normalization items for the enhanced modal
-  const [unifiedNormalizations, setUnifiedNormalizations] = useState<UnifiedNormalizationItem[]>([])
+  // Read normalizations from the global store (single source of truth)
+  const normalizationItems = useNormalizationStore((s) => s.items)
 
-  // Calculate normalized EBITDA per year and average
+  // Calculate normalized EBITDA per year and average using global normalization store
   const normalizedData = useMemo(() => {
+    const acceptedItems = normalizationItems.filter((n) => n.status === 'accepted')
+
     const years = formData.yearlyFinancials.map((yf) => {
-      const totalAdjustment = yf.normalizations
-        .filter((n) => n.enabled)
-        .reduce((sum, n) => sum + n.adjustment, 0)
+      const yearNum = Number(yf.year)
+      const yearNorms = acceptedItems.filter((n) => {
+        if (n.applyAllYears) return true
+        if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(yearNum)
+        return n.year === yearNum
+      })
+      const totalAdjustment = yearNorms.reduce((sum, n) => sum + n.adjustment, 0)
       const normalizedEbitda = yf.ebitda + totalAdjustment
       return {
         ...yf,
         normalizedEbitda,
         totalAdjustment,
+        normalizationCount: yearNorms.length,
       }
     })
 
@@ -542,7 +456,7 @@ export function ManualInputPanel({
       averageNormalizedEbitda,
       totalYearsWithData: validYears.length,
     }
-  }, [formData.yearlyFinancials])
+  }, [formData.yearlyFinancials, normalizationItems])
 
   // KBO search: real registry API (Titan) with AbortSignal, throws on failure for retry UI
   const kboSearchFn = useCallback(
@@ -697,64 +611,6 @@ export function ManualInputPanel({
     updateField('yearlyFinancials', updated)
   }
 
-  const updateYearNormalization = (year: string, normalizationId: string, enabled: boolean) => {
-    const updated = formData.yearlyFinancials.map((yf) => {
-      if (yf.year !== year) return yf
-      return {
-        ...yf,
-        normalizations: yf.normalizations.map((n) =>
-          n.id === normalizationId ? { ...n, enabled } : n
-        ),
-      }
-    })
-    updateField('yearlyFinancials', updated)
-  }
-
-  const normalizationTemplates = getNormalizationTemplates(t)
-
-  const addNormalizationToYear = (year: string, template: (typeof normalizationTemplates)[0]) => {
-    const updated = formData.yearlyFinancials.map((yf) => {
-      if (yf.year !== year) return yf
-      const exists = yf.normalizations.find((n) => n.code === template.code)
-      if (exists) return yf
-
-      return {
-        ...yf,
-        normalizations: [
-          ...yf.normalizations,
-          {
-            id: `${year}-${template.code}-${Date.now()}`,
-            ...template,
-            originalValue: 0,
-            adjustedValue: 0,
-            adjustment: 0,
-          },
-        ],
-      }
-    })
-    updateField('yearlyFinancials', updated)
-  }
-
-  const updateNormalizationValue = (
-    year: string,
-    normalizationId: string,
-    field: 'originalValue' | 'adjustedValue',
-    value: number
-  ) => {
-    const updated = formData.yearlyFinancials.map((yf) => {
-      if (yf.year !== year) return yf
-      return {
-        ...yf,
-        normalizations: yf.normalizations.map((n) => {
-          if (n.id !== normalizationId) return n
-          const newN = { ...n, [field]: value }
-          newN.adjustment = newN.adjustedValue - newN.originalValue
-          return newN
-        }),
-      }
-    })
-    updateField('yearlyFinancials', updated)
-  }
 
   // ─── Field-level Validation ───
   const fieldValidation = useMemo(() => {
@@ -952,17 +808,13 @@ export function ManualInputPanel({
     .filter((yf) => (yf.revenue > 0 && yf.ebitda === 0) || (yf.ebitda !== 0 && yf.revenue <= 0))
     .map((yf) => yf.year)
 
-  // Get current year normalizations for display
-  const currentYearData = normalizedData.years.find((y) => y.year === activeNormalizationYear)
-  const totalCurrentYearAdjustment = currentYearData?.totalAdjustment || 0
-
   // Calculate progress
   const totalSteps = 4
   const completedSteps = [
     hasCompanyInfo && hasBusinessType, // Step 1: Company
     formData.ownerManagers > 0 && formData.fteEmployees > 0, // Step 2: Ownership
     hasFinancials, // Step 3: Financials
-    normalizedData.years.some((y) => y.normalizations.filter((n) => n.enabled).length > 0), // Step 4: Normalizations
+    normalizedData.years.some((y) => y.normalizationCount > 0), // Step 4: Normalizations
   ].filter(Boolean).length
 
   return (
@@ -1313,7 +1165,7 @@ export function ManualInputPanel({
                           </div>
                           <motion.button
                             type="button"
-                            onClick={() => setShowNormalizationModal(true)}
+                            onClick={() => onViewAllNormalizations?.()}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             className={cn(
@@ -1347,8 +1199,7 @@ export function ManualInputPanel({
                     const normalizedYear = normalizedData.years.find(
                       (y) => y.year === yearData.year
                     )
-                    const hasNormalizations =
-                      yearData.normalizations.filter((n) => n.enabled).length > 0
+                    const normCount = normalizedYear?.normalizationCount || 0
 
                     return (
                       <div
@@ -1366,10 +1217,9 @@ export function ManualInputPanel({
                           <span className="text-sm font-semibold text-foreground">
                             {yearData.year}
                           </span>
-                          {hasNormalizations && (
+                          {normCount > 0 && (
                             <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                              {yearData.normalizations.filter((n) => n.enabled).length}{' '}
-                              {mi('normalizations')}
+                              {normCount} {mi('normalizations')}
                             </span>
                           )}
                         </div>
@@ -1464,7 +1314,7 @@ export function ManualInputPanel({
                         const nextYear = Math.min(...existingYears) - 1
                         updateField('yearlyFinancials', [
                           ...formData.yearlyFinancials,
-                          { year: String(nextYear), revenue: 0, ebitda: 0, normalizations: [] },
+                          { year: String(nextYear), revenue: 0, ebitda: 0 },
                         ])
                       }}
                       className="w-full p-3 rounded-xl border border-dashed border-foreground/[0.08] text-sm text-foreground/40 hover:text-foreground/60 hover:border-foreground/[0.15] hover:bg-foreground/[0.02] transition-colors flex items-center justify-center gap-2"
@@ -1506,48 +1356,6 @@ export function ManualInputPanel({
           )}
         </div>
       </div>
-
-      {/* Unified Normalization Modal - Enhanced with presets, search, and granular control */}
-      <UnifiedNormalizationModal
-        open={showNormalizationModal}
-        onOpenChange={setShowNormalizationModal}
-        companyName={formData.companyName || t('calculator.businessValuation')}
-        currentYear={Number(activeNormalizationYear) || currentYear}
-        originalEBITDA={currentYearData?.ebitda || 0}
-        normalizations={unifiedNormalizations}
-        onNormalizationsChange={(items) => {
-          setUnifiedNormalizations(items)
-          // Sync accepted normalizations back to yearly financials
-          const acceptedAdjustment = items
-            .filter((n) => n.status === 'accepted')
-            .reduce((sum, n) => sum + n.adjustment, 0)
-          // Update the yearly financials with the new normalizations
-          const updated = formData.yearlyFinancials.map((yf) => {
-            if (yf.year === activeNormalizationYear) {
-              return {
-                ...yf,
-                normalizations: items
-                  .filter((n) => n.status === 'accepted')
-                  .map((n) => ({
-                    id: n.id,
-                    code: n.ledgerCode,
-                    name: n.ledgerName,
-                    category: n.category,
-                    originalValue: n.value,
-                    adjustedValue: n.value + n.adjustment,
-                    adjustment: n.adjustment,
-                    reason: n.reason || '',
-                    enabled: true,
-                  })),
-              }
-            }
-            return yf
-          })
-          updateField('yearlyFinancials', updated)
-        }}
-        hasUploadedData={!!connectedIntegration}
-        onUploadClick={() => setShowConnectModal(true)}
-      />
 
       {/* Upload CSV Modal */}
       <Modal open={showConnectModal} onOpenChange={setShowConnectModal}>

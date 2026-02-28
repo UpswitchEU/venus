@@ -43,11 +43,10 @@ function areAssetsAlreadyLoaded(flowType: 'manual' | 'conversational'): boolean 
   const result = store.result as any
   if (!result) return false
 
-  // Check if both HTML report and info tab are already present
+  // Check if HTML report is already present
   const hasHtmlReport = !!(result.html_report || result.htmlReport)
-  const hasInfoTabHtml = !!(result.info_tab_html || result.infoTabHtml)
 
-  return hasHtmlReport && hasInfoTabHtml
+  return hasHtmlReport
 }
 
 /**
@@ -78,7 +77,6 @@ export type AssetStatus = 'idle' | 'loading' | 'loaded' | 'error'
  */
 export interface PreloadProgress {
   htmlReport: AssetStatus
-  infoTabHtml: AssetStatus
   startTime: number
   completedTime?: number
 }
@@ -134,13 +132,12 @@ class AssetPreloadServiceImpl {
     // This prevents unnecessary API calls and potential race conditions
     if (areAssetsAlreadyLoaded(flowType)) {
       generalLogger.debug('[AssetPreload] Assets already loaded in store, skipping preload', {
-        reportId: reportId.substring(0, 20) + '...',
+        reportId: reportId.substring(0, 30) + '...',
         flowType,
       })
       // Mark progress as already loaded
       this.preloadProgress.set(reportId, {
         htmlReport: 'loaded',
-        infoTabHtml: 'loaded',
         startTime: performance.now(),
         completedTime: performance.now(),
       })
@@ -157,7 +154,6 @@ class AssetPreloadServiceImpl {
     // Initialize progress tracking
     this.preloadProgress.set(reportId, {
       htmlReport: 'loading',
-      infoTabHtml: 'loading',
       startTime: performance.now(),
     })
 
@@ -181,7 +177,7 @@ class AssetPreloadServiceImpl {
     const startTime = performance.now()
 
     generalLogger.info('[AssetPreload] Starting background asset preload', {
-      reportId: reportId.substring(0, 20) + '...',
+      reportId: reportId.substring(0, 30) + '...',
       flowType,
     })
 
@@ -215,12 +211,6 @@ class AssetPreloadServiceImpl {
         sessionData._htmlReport ||
         session.htmlReport ||
         null
-      const infoTabHtml =
-        sessionData.infoTabHtml ||
-        sessionData.info_tab_html ||
-        sessionData._infoTabHtml ||
-        session.infoTabHtml ||
-        null
       const valuationResult =
         sessionData.valuationResult ||
         sessionData.valuation_result ||
@@ -231,16 +221,14 @@ class AssetPreloadServiceImpl {
       const progress = this.preloadProgress.get(reportId)
       if (progress) {
         progress.htmlReport = htmlReport ? 'loaded' : 'idle'
-        progress.infoTabHtml = infoTabHtml ? 'loaded' : 'idle'
         progress.completedTime = performance.now()
       }
 
       // Update the appropriate store with loaded assets
-      if (valuationResult || htmlReport || infoTabHtml) {
+      if (valuationResult || htmlReport) {
         const result = {
           ...valuationResult,
           html_report: htmlReport || valuationResult?.html_report,
-          info_tab_html: infoTabHtml || valuationResult?.info_tab_html,
         }
 
         if (flowType === 'conversational') {
@@ -250,7 +238,7 @@ class AssetPreloadServiceImpl {
           generalLogger.debug(
             '[AssetPreload] Skipping conversational store update - stores removed',
             {
-              reportId: reportId.substring(0, 20) + '...',
+              reportId: reportId.substring(0, 30) + '...',
             }
           )
         } else {
@@ -259,16 +247,15 @@ class AssetPreloadServiceImpl {
         }
 
         generalLogger.info('[AssetPreload] Assets loaded and stores updated', {
-          reportId: reportId.substring(0, 20) + '...',
+          reportId: reportId.substring(0, 30) + '...',
           durationMs: Math.round(performance.now() - startTime),
           hasHtmlReport: !!htmlReport,
-          hasInfoTabHtml: !!infoTabHtml,
           hasValuationResult: !!valuationResult,
           htmlReportSize: htmlReport?.length || 0,
         })
       } else {
         generalLogger.debug('[AssetPreload] No assets found in session', {
-          reportId: reportId.substring(0, 20) + '...',
+          reportId: reportId.substring(0, 30) + '...',
         })
       }
     } catch (error) {
@@ -278,12 +265,11 @@ class AssetPreloadServiceImpl {
       const progress = this.preloadProgress.get(reportId)
       if (progress) {
         progress.htmlReport = 'error'
-        progress.infoTabHtml = 'error'
         progress.completedTime = performance.now()
       }
 
       generalLogger.error('[AssetPreload] Failed to preload assets', {
-        reportId: reportId.substring(0, 20) + '...',
+        reportId: reportId.substring(0, 30) + '...',
         error: errorMessage,
         durationMs: Math.round(performance.now() - startTime),
       })

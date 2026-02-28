@@ -82,7 +82,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
           this.logger.info(
             '[SessionResolver] Session completed but no report exists - auto-creating report',
             {
-              sessionKey: session.session_key.substring(0, 20) + '...',
+              sessionKey: session.session_key.substring(0, 30) + '...',
               status: session.status,
               hasExistingData: this.hasExistingData(session),
             }
@@ -95,7 +95,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
               const report = reportCreationResult.data
 
               this.logger.info('[SessionResolver] Report auto-created successfully', {
-                sessionKey: session.session_key.substring(0, 20) + '...',
+                sessionKey: session.session_key.substring(0, 30) + '...',
                 reportId: report.id.substring(0, 8) + '...',
               })
 
@@ -120,14 +120,14 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
               this.logger.warn(
                 '[SessionResolver] Failed to auto-create report, falling back to session mode',
                 {
-                  sessionKey: session.session_key.substring(0, 20) + '...',
+                  sessionKey: session.session_key.substring(0, 30) + '...',
                   error: reportCreationResult.error,
                 }
               )
             }
           } catch (error) {
             this.logger.error('[SessionResolver] Error auto-creating report', {
-              sessionKey: session.session_key.substring(0, 20) + '...',
+              sessionKey: session.session_key.substring(0, 30) + '...',
               error: error instanceof Error ? error.message : String(error),
             })
           }
@@ -176,7 +176,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       // BANK-GRADE: Log error with full context for debugging
       this.logger.error('[SessionResolver] Resolution failed - returning error state', {
         error: errorMessage,
-        reportId: context.reportId?.substring(0, 20),
+        reportId: context.reportId?.substring(0, 30),
         note: 'UI will show error state, not silent fallback',
       })
 

@@ -454,7 +454,6 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 formData: request.formData,
                 valuationResult: request.valuationResult || null,
                 htmlReport: request.htmlReport || null,
-                infoTabHtml: request.infoTabHtml || null,
                 changesSummary: request.changesSummary || {
                   totalChanges: 0,
                   significantChanges: [],
@@ -765,11 +764,9 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           versionsWithoutHtml[reportId] = versions.map((version) => ({
             ...version,
             htmlReport: null, // Don't store large HTML reports in localStorage
-            infoTabHtml: null, // Don't store large info tab HTML in localStorage
             // ✅ BANK-GRADE: Keep metadata flags to indicate HTML reports exist in backend
             // These flags enable the restoration service to know it should fetch from backend
             _hasHtmlReport: !!(version as any)._hasHtmlReport || !!version.htmlReport,
-            _hasInfoTabHtml: !!(version as any)._hasInfoTabHtml || !!version.infoTabHtml,
           }))
         }
 
