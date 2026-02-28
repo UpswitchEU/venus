@@ -38,6 +38,12 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   private loadingReportId: string | null = null
   private pendingUpdates: Partial<ValuationSession>[] = []
 
+  // The reportId originally requested (from URL). The API may return a different
+  // format (session_key like "val_xxx" instead of the UUID used in Mercury URLs).
+  // We always normalize this.currentSession.reportId back to the requested value
+  // so the Zustand store's stage check (session.reportId === reportId) never fails.
+  private requestedReportId: string | null = null
+
   // ✅ RACE CONDITION FIX: Track ongoing save operations to prevent concurrent saves
   // Multiple hooks can trigger saves simultaneously, causing data loss when they race
   private savePromise: Promise<void> | null = null
@@ -64,6 +70,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
       if (session) {
         this.currentSession = session
+        this.requestedReportId = reportId
+        this.normalizeReportId()
 
         generalLogger.debug('[AuthenticatedSessionEngine] Loaded session from backend', {
           reportId,
@@ -84,7 +92,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         }
       }
 
-      return session
+      return this.currentSession
     } catch (error) {
       generalLogger.error('[AuthenticatedSessionEngine] Failed to load session', {
         reportId,
@@ -298,6 +306,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
         if (updatedSession) {
           this.currentSession = updatedSession
+          this.normalizeReportId()
 
           if (attempt > 0) {
             generalLogger.info('[AuthenticatedSessionEngine] Session saved after retry', {
@@ -350,6 +359,25 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   }
 
   /**
+   * Ensure this.currentSession.reportId matches the originally requested reportId.
+   *
+   * The Titan API returns reportId as session_key (e.g. "val_xxx") even when the
+   * lookup was performed with a UUID (report_id). The Zustand store compares
+   * session.reportId against the URL's reportId to decide the loading stage, so
+   * a mismatch causes an infinite loading screen. This method is called after
+   * every operation that replaces this.currentSession.
+   */
+  private normalizeReportId(): void {
+    if (
+      this.currentSession &&
+      this.requestedReportId &&
+      this.currentSession.reportId !== this.requestedReportId
+    ) {
+      this.currentSession = { ...this.currentSession, reportId: this.requestedReportId }
+    }
+  }
+
+  /**
    * Clear session (backend + local state)
    */
   clearSession(): void {
@@ -362,6 +390,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     }
 
     this.currentSession = null
+    this.requestedReportId = null
   }
 
   /**

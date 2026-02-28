@@ -193,9 +193,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           throw new Error(`Session not found: ${reportId}`)
         }
 
-        // CRITICAL: Normalize reportId for Mercury flow
-        // API returns reportId: session_key when lookup was by UUID (report_id)
-        // Venus must use requested reportId so stage check (session.reportId === reportId) passes
+        // Defensive: ensure reportId matches the URL even if engine normalization
+        // did not fire (e.g. guest engine or future engine variants).
+        // Primary normalization lives in AuthenticatedSessionEngine.normalizeReportId().
         if (session.reportId !== reportId) {
           session = { ...session, reportId }
         }
