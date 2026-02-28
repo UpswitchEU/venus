@@ -12,13 +12,13 @@ export function generateStaticParams() {
 
 export const metadata: Metadata = {
   title: {
-    default: 'Upswitch | Bedrijfswaardering',
+    default: 'Upswitch | Indicatieve bedrijfsschatting',
     template: '%s | Upswitch',
   },
-  description: 'Professionele bedrijfswaardering door Upswitch — snel, betrouwbaar en betaalbaar.',
+  description: 'Indicatieve bedrijfsschatting door Upswitch — snel, betrouwbaar en betaalbaar.',
   keywords: [
-    'bedrijfswaardering',
-    'waardering',
+    'indicatieve bedrijfsschatting',
+    'bedrijfsschatting',
     'EBITDA',
     'KMO',
     'België',

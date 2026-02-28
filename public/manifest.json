@@ -1,7 +1,7 @@
 {
   "short_name": "Upswitch",
-  "name": "Upswitch — Bedrijfswaarderingen voor Accountants",
-  "description": "Het platform waarmee accountants snel, betrouwbaar en betaalbaar bedrijfswaarderingen uitvoeren voor hun klanten.",
+  "name": "Upswitch — Indicatieve bedrijfsschattingen voor Accountants",
+  "description": "Het platform waarmee accountants snel, betrouwbaar en betaalbaar indicatieve bedrijfsschattingen uitvoeren voor hun klanten.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F4F1EA",

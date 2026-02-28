@@ -1509,7 +1509,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setIsExporting(true)
 
     try {
-      const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-Waardering.pdf`
+      const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-Schattingsrapport.pdf`
       let succeeded = false
 
       // Path 1: Server-side PDF via Titan API (Python-generated)

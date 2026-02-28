@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: LocaleLayoutProps): Promise<M
 
   return {
     title: {
-      default: 'Upswitch | Bedrijfswaardering',
+      default: 'Upswitch | Indicatieve bedrijfsschatting',
       template: '%s | Upswitch',
     },
   }

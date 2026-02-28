@@ -115,7 +115,7 @@
       "retry": "Opnieuw proberen",
       "dismiss": "Sluiten"
     },
-    "noValuationData": "Geen waarderingsgegevens beschikbaar",
+    "noValuationData": "Geen schattingsgegevens beschikbaar",
     "loadingBusinessTypes": "Bedrijfstypes laden...",
     "selectBusinessType": "Selecteer uw bedrijfstype...",
     "continue": "Doorgaan",
@@ -144,14 +144,14 @@
     },
     "breadcrumbs": {
       "home": "Home",
-      "valuations": "Waarderingen",
+      "valuations": "Indicatieve bedrijfsschattingen",
       "reports": "Rapporten",
-      "newValuation": "Nieuwe Waardering"
+      "newValuation": "Nieuwe Indicatieve bedrijfsschatting"
     }
   },
   "toolbar": {
     "actions": {
-      "newValuation": "Nieuwe Waardering",
+      "newValuation": "Nieuwe Indicatieve bedrijfsschatting",
       "save": "Opslaan",
       "downloadPDF": "PDF Downloaden",
       "downloadReport": "Rapport Downloaden",
@@ -168,9 +168,9 @@
       "continueToDashboard": "Doorgaan naar Dashboard"
     },
     "tooltips": {
-      "save": "Waardering opslaan",
+      "save": "Indicatieve bedrijfsschatting opslaan",
       "download": "PDF-rapport downloaden",
-      "refresh": "Nieuwe waardering starten",
+      "refresh": "Nieuwe schatting starten",
       "fullscreen": "Bekijken in volledig scherm",
       "switchFlow": "Overschakelen naar {flow} modus",
       "editName": "Klik om naam te bewerken",
@@ -180,7 +180,7 @@
       "logout": "Uitloggen"
     },
     "confirmations": {
-      "newValuation": "Weet u zeker dat u een nieuwe waardering wilt starten? Huidige voortgang gaat verloren.",
+      "newValuation": "Weet u zeker dat u een nieuwe schatting wilt starten? Huidige voortgang gaat verloren.",
       "switchFlow": "Het wisselen van flows slaat uw huidige voortgang op. Doorgaan?",
       "downloadFailed": "PDF genereren mislukt. Probeer het opnieuw."
     },
@@ -191,27 +191,27 @@
     }
   },
   "valuation": {
-    "title": "Bedrijfswaardering",
-    "subtitle": "Professionele waardering voor uw bedrijf",
+    "title": "Indicatieve bedrijfsschatting",
+    "subtitle": "Professionele schatting voor uw bedrijf",
     "manual": {
-      "title": "Handmatige Waardering",
+      "title": "Handmatige Indicatieve bedrijfsschatting",
       "description": "Voer uw bedrijfsgegevens handmatig in",
       "emptyState": {
-        "title": "Start Uw Waardering",
+        "title": "Start Uw Indicatieve bedrijfsschatting",
         "description": "Vul het formulier in om uw bedrijfswaarde te berekenen",
         "action": "Aan de slag"
       },
       "panels": {
         "form": "Bedrijfsinformatie",
-        "report": "Waarderingsrapport",
+        "report": "Schattingsrapport",
         "results": "Resultaten",
         "switchToConversational": "Probeer AI Assistent"
       }
     },
     "conversational": {
-      "title": "AI-Gestuurde Waardering",
+      "title": "AI-Gestuurde Indicatieve bedrijfsschatting",
       "description": "Laat onze AI-assistent u begeleiden",
-      "welcome": "Hallo! Ik ben uw waarderingsassistent. Vertel me over uw bedrijf en ik help u een nauwkeurige waardering te krijgen.",
+      "welcome": "Hallo! Ik ben uw schattingsassistent. Vertel me over uw bedrijf en ik help u een nauwkeurige schatting te krijgen.",
       "welcomeBack": "Welkom terug! Laten we doorgaan waar we gebleven waren.",
       "inputPlaceholder": "Typ hier uw bericht...",
       "inputPlaceholderStart": "Vertel me over uw bedrijf (bijv. 'Ik heb een restaurant')",
@@ -229,14 +229,14 @@
       },
       "panels": {
         "chat": "Gesprek",
-        "report": "Waarderingsrapport",
+        "report": "Schattingsrapport",
         "profile": "Bedrijfsprofiel",
         "switchToManual": "Overschakelen naar Handmatige Invoer"
       },
       "status": {
         "thinking": "Nadenken...",
         "typing": "Typen...",
-        "generating": "Waardering genereren...",
+        "generating": "Indicatieve bedrijfsschatting genereren...",
         "analyzing": "Uw bedrijf analyseren...",
         "collecting": "Gegevens verzamelen...",
         "calculating": "Waarde berekenen..."
@@ -248,8 +248,8 @@
       }
     },
     "results": {
-      "title": "Waarderingsresultaten",
-      "subtitle": "Uw bedrijfswaarderingsrapport",
+      "title": "Indicatieve bedrijfsschattingsresultaten",
+      "subtitle": "Uw bedrijfsschattingsrapport",
       "loadingReport": "Rapport laden...",
       "reportNotAvailable": "Rapport niet beschikbaar",
       "reportNotAvailableDesc": "HTML-rapport is niet gegenereerd door de backend",
@@ -275,8 +275,8 @@
       }
     },
     "calculation": {
-      "inProgress": "Waardering berekenen...",
-      "complete": "Waardering voltooid",
+      "inProgress": "Indicatieve bedrijfsschatting berekenen...",
+      "complete": "Indicatieve bedrijfsschatting voltooid",
       "failed": "Berekening mislukt",
       "retry": "Berekening opnieuw proberen"
     },
@@ -416,7 +416,7 @@
       "kboNumber": "Uw officiële bedrijfsregistratienummer"
     },
     "actions": {
-      "calculate": "Waardering Berekenen",
+      "calculate": "Indicatieve bedrijfsschatting Berekenen",
       "calculateWithNormalization": "Berekenen met Normalisatie",
       "recalculate": "Herberekenen",
       "regenerate": "Rapport Opnieuw Genereren",
@@ -427,8 +427,8 @@
       "fillSample": "Voorbeeldgegevens Invullen"
     },
     "messages": {
-      "calculationStarted": "Waarderingsberekening gestart",
-      "calculationComplete": "Waardering voltooid",
+      "calculationStarted": "Indicatieve bedrijfsschattingsberekening gestart",
+      "calculationComplete": "Indicatieve bedrijfsschatting voltooid",
       "calculationFailed": "Berekening mislukt. Probeer het opnieuw.",
       "savedSuccessfully": "Succesvol opgeslagen",
       "saveFailed": "Opslaan mislukt. Probeer het opnieuw.",
@@ -472,7 +472,7 @@
     "noAuditTrailYet": "Nog geen audit trail",
     "changesWillAppearHere": "Wijzigingen en regeneraties verschijnen hier",
     "noChangesYet": "Nog geen wijzigingen",
-    "editOrRegenerateDesc": "Bewerk velden of genereer de waardering opnieuw om de audit trail hier te zien",
+    "editOrRegenerateDesc": "Bewerk velden of genereer de schatting opnieuw om de audit trail hier te zien",
     "title": "Audit Trail",
     "exportCsv": "Exporteer CSV",
     "totalEdits": "Totaal Bewerkingen",
@@ -485,7 +485,7 @@
     "filterVersionCreations": "Versie Aanmaak",
     "filterFlowSwitches": "Flow Wissels",
     "operationEdit": "Veld Bewerkt",
-    "operationRegenerate": "Waardering Regenereren",
+    "operationRegenerate": "Indicatieve bedrijfsschatting Regenereren",
     "operationVersionCreate": "Versie Aangemaakt",
     "operationSwitchView": "Flow Gewisseld",
     "changed": " gewijzigd",
@@ -519,7 +519,7 @@
   },
   "valuationEmptyState": {
     "reportsWillAppearHere": "Rapporten verschijnen hier",
-    "startConversationDesc": "Start een gesprek in de chat om inzichten en rapporten over uw waardering te genereren"
+    "startConversationDesc": "Start een gesprek in de chat om inzichten en rapporten over uw schatting te genereren"
   },
   "businessProfile": {
     "title": "Bedrijfsprofiel",
@@ -605,7 +605,7 @@
     "suggestedListingPrice": "Voorgestelde vraagprijs",
     "negotiationBuffer": "Strategische buffer voor onderhandeling",
     "methodology": "Methodologie",
-    "methodologyText": "De waardering is gebaseerd op een EBITDA-multiplier methode, waarbij de genormaliseerde EBITDA wordt vermenigvuldigd met een branche-specifieke multiple.",
+    "methodologyText": "De schatting is gebaseerd op een EBITDA-multiplier methode, waarbij de genormaliseerde EBITDA wordt vermenigvuldigd met een branche-specifieke multiple.",
     "fullReport": "Volledig rapport",
     "regenerate": "Analyse opnieuw genereren",
     "preview": "Voorbeeld",
@@ -619,7 +619,7 @@
     "defaultFilename": "Rapport",
     "placeholder": {
       "title": "Uw rapport verschijnt hier",
-      "description": "Vul de bedrijfsgegevens in en klik op 'Bereken Schatting' om uw waarderingsrapport te genereren.",
+      "description": "Vul de bedrijfsgegevens in en klik op 'Bereken Schatting' om uw schattingsrapport te genereren.",
       "time": "±15 min gemiddelde doorlooptijd"
     },
     "generating": {
@@ -632,8 +632,8 @@
     }
   },
   "reports": {
-    "title": "Waarderingsrapport",
-    "subtitle": "Uitgebreide bedrijfswaarderingsanalyse",
+    "title": "Schattingsrapport",
+    "subtitle": "Uitgebreide indicatieve bedrijfsschattingsanalyse",
     "closeEsc": "Sluiten (ESC)",
     "saveStatus": {
       "saving": "Opslaan...",
@@ -654,7 +654,7 @@
       "companyOverview": "Bedrijfsoverzicht",
       "financialAnalysis": "Financiële Analyse",
       "marketAnalysis": "Marktanalyse",
-      "valuationAnalysis": "Waarderingsanalyse",
+      "valuationAnalysis": "Indicatieve bedrijfsschattingsanalyse",
       "riskAssessment": "Risicobeoordeling",
       "recommendations": "Aanbevelingen",
       "appendices": "Bijlagen",
@@ -692,8 +692,8 @@
   "htmlView": {
     "title": "HTML Rapport",
     "notAvailable": "HTML Rapport Niet Beschikbaar",
-    "notAvailableDesc": "Het door de server gegenereerde HTML-rapport is niet beschikbaar. Dit wijst op een probleem met de waarderingsrespons. Fallback HTML-generatie is verwijderd volgens bankstandaarden.",
-    "valuationId": "Waarderings-ID",
+    "notAvailableDesc": "Het door de server gegenereerde HTML-rapport is niet beschikbaar. Dit wijst op een probleem met de schattingsrespons. Fallback HTML-generatie is verwijderd volgens bankstandaarden.",
+    "valuationId": "Indicatieve bedrijfsschattings-ID",
     "htmlReport": "HTML Rapport",
     "htmlLength": "HTML Lengte",
     "copyHtml": "HTML Kopiëren",
@@ -703,7 +703,7 @@
   },
   "versions": {
     "title": "Versiegeschiedenis",
-    "subtitle": "Volg wijzigingen aan uw waardering",
+    "subtitle": "Volg wijzigingen aan uw schatting",
     "current": "Huidige Versie",
     "previous": "Vorige Versies",
     "version": "Versie {number}",
@@ -734,7 +734,7 @@
     "restore": {
       "title": "Versie Herstellen",
       "confirm": "Weet u zeker dat u versie {version} wilt herstellen?",
-      "description": "Dit zal uw huidige waardering vervangen door versie {version}.",
+      "description": "Dit zal uw huidige schatting vervangen door versie {version}.",
       "success": "Versie succesvol hersteld",
       "failed": "Versie herstellen mislukt"
     }
@@ -757,7 +757,7 @@
     },
     "calculation": {
       "title": "Berekeningsfout",
-      "description": "Waardering berekenen mislukt",
+      "description": "Indicatieve bedrijfsschatting berekenen mislukt",
       "invalidData": "Ongeldige gegevens opgegeven",
       "retry": "Berekening opnieuw proberen"
     },
@@ -791,9 +791,9 @@
       "pageNotFound": "Pagina niet gevonden",
       "description": "Sorry, de pagina die u zoekt bestaat niet of is verplaatst.",
       "report": "Rapport niet gevonden",
-      "valuation": "Waardering niet gevonden",
+      "valuation": "Indicatieve bedrijfsschatting niet gevonden",
       "goHome": "Ga naar Home",
-      "startValuation": "Start waardering"
+      "startValuation": "Start schatting"
     },
     "serverError": {
       "title": "Serverfout",
@@ -810,27 +810,27 @@
     },
     "loadingError": {
       "title": "Laadfout",
-      "description": "Kon waarderingsflow niet laden. Vernieuw de pagina.",
+      "description": "Kon schattingsflow niet laden. Vernieuw de pagina.",
       "reloadPage": "Pagina vernieuwen"
     },
     "fallback": {
       "authFailed": "Authenticatie mislukt",
       "authFailedDesc": "Uw toegang kon niet worden geverifieerd. Probeer opnieuw in te loggen.",
       "clientAccessError": "Klanttoegangsfout",
-      "clientAccessErrorDesc": "Kon klantcontext niet laden. De link is mogelijk verlopen. Maak een nieuwe waardering aan.",
+      "clientAccessErrorDesc": "Kon klantcontext niet laden. De link is mogelijk verlopen. Maak een nieuwe schatting aan.",
       "connectionError": "Verbindingsfout",
       "connectionErrorDesc": "Kon geen verbinding maken met de server. Controleer uw internetverbinding en probeer opnieuw.",
       "sessionError": "Sessiefout",
-      "sessionErrorDesc": "Kon waarderingssessie niet initialiseren. Vernieuw de pagina.",
+      "sessionErrorDesc": "Kon schattingssessie niet initialiseren. Vernieuw de pagina.",
       "failedToLoadReport": "Rapport laden mislukt",
-      "failedToLoadReportDesc": "Kon waarderingsrapport niet laden. Dit kan een netwerkprobleem of een probleem met het rapport zijn.",
+      "failedToLoadReportDesc": "Kon schattingsrapport niet laden. Dit kan een netwerkprobleem of een probleem met het rapport zijn.",
       "reloadPage": "Pagina vernieuwen",
       "returnToDashboard": "Terug naar Dashboard",
       "contactSupport": "neem contact op met support",
       "contactSupportPrefix": "Als dit probleem aanhoudt,"
     },
     "errorState": {
-      "generationFailed": "Waardering genereren mislukt",
+      "generationFailed": "Indicatieve bedrijfsschatting genereren mislukt",
       "generationFailedDesc": "Er is een onverwacht probleem opgetreden bij het genereren van uw rapport. Controleer uw invoer en probeer opnieuw.",
       "goBack": "Terug",
       "tryAgain": "Opnieuw proberen"
@@ -857,17 +857,17 @@
     },
     "regeneration": {
       "title": "Rapport Opnieuw Genereren",
-      "description": "Weet u zeker dat u dit waarderingsrapport opnieuw wilt genereren?",
+      "description": "Weet u zeker dat u dit schattingsrapport opnieuw wilt genereren?",
       "warning": "Dit zal een nieuwe versie van het rapport maken.",
       "confirm": "Opnieuw Genereren",
       "cancel": "Annuleren",
       "inProgress": "Rapport opnieuw genereren...",
       "overwriteTitle": "Bestaand rapport overschrijven?",
-      "overwriteDesc": "U heeft een bestaand waarderingsrapport dat permanent wordt overschreven.",
+      "overwriteDesc": "U heeft een bestaand schattingsrapport dat permanent wordt overschreven.",
       "overwritePrevious": "Vorige rapport werd gegenereerd op",
       "overwriteCannotUndo": "Deze actie kan niet ongedaan worden gemaakt",
-      "overwriteReplace": "Het vorige waarderingsrapport wordt vervangen door een nieuw rapport op basis van uw huidige invoer.",
-      "overwriteTip": "Tip: Als u verschillende waarderingen wilt vergelijken, overweeg eerst het huidige rapport te downloaden."
+      "overwriteReplace": "Het vorige schattingsrapport wordt vervangen door een nieuw rapport op basis van uw huidige invoer.",
+      "overwriteTip": "Tip: Als u verschillende indicatieve bedrijfsschattingen wilt vergelijken, overweeg eerst het huidige rapport te downloaden."
     },
     "normalization": {
       "title": "EBITDA Normalisatie",
@@ -884,12 +884,12 @@
     },
     "outOfCredits": {
       "title": "U heeft alle 3 gratis credits gebruikt!",
-      "description": "U heeft 3 AI-begeleide waarderingen voltooid. Meld u aan voor 3 extra gratis credits en bewaar uw rapporten voor altijd.",
+      "description": "U heeft 3 AI-begeleide indicatieve bedrijfsschattingen voltooid. Meld u aan voor 3 extra gratis credits en bewaar uw rapporten voor altijd.",
       "signUp": "Gratis aanmelden (3 extra credits)",
       "tryManual": "Probeer handmatige invoer (altijd gratis)",
       "maybeLater": "Misschien later",
       "signUpFree": "Aanmelden is volledig gratis",
-      "getMoreCredits": "Krijg 3 extra AI-begeleide waarderingen",
+      "getMoreCredits": "Krijg 3 extra AI-begeleide indicatieve bedrijfsschattingen",
       "saveReportsForever": "Bewaar rapporten voor altijd",
       "noCreditCard": "Geen creditcard vereist",
       "upgrade": "Plan Upgraden",
@@ -904,17 +904,17 @@
       "upgrade": "Upgrade",
       "unlimitedAccess": "Onbeperkte toegang",
       "unlimited": "Onbeperkt",
-      "generateUnlimited": "Genereer onbeperkt waarderingen",
-      "unlimitedAccessAria": "Onbeperkte toegang tot waarderingen",
+      "generateUnlimited": "Genereer onbeperkt indicatieve bedrijfsschattingen",
+      "unlimitedAccessAria": "Onbeperkte toegang tot indicatieve bedrijfsschattingen",
       "premium": "Premium"
     },
     "paywall": {
       "title": "Upgrade naar Premium",
-      "message": "Upgrade naar Premium voor onbeperkte waarderingen",
+      "message": "Upgrade naar Premium voor onbeperkte indicatieve bedrijfsschattingen",
       "upgrade": "Upgrade naar Premium",
       "cancel": "Misschien Later",
-      "accountantProRequired": "Pro-plan vereist om waarderingen voor klanten te maken. Upgrade naar Pro om door te gaan.",
-      "insufficientCredits": "Onvoldoende credits om waardering te maken. Upgrade naar Premium voor onbeperkte waarderingen."
+      "accountantProRequired": "Pro-plan vereist om indicatieve bedrijfsschattingen voor klanten te maken. Upgrade naar Pro om door te gaan.",
+      "insufficientCredits": "Onvoldoende credits om schatting te maken. Upgrade naar Premium voor onbeperkte indicatieve bedrijfsschattingen."
     },
     "versionComparison": {
       "title": "Versies Vergelijken",
@@ -935,16 +935,16 @@
       "title": "Wat wilt u doen?",
       "description": "Kies een actie voor {reportName}",
       "editReport": "Rapport Bewerken",
-      "editReportDesc": "Werk uw waarderingsrapport bij: invoer, bedrijfsinformatie en andere gegevens.",
+      "editReportDesc": "Werk uw schattingsrapport bij: invoer, bedrijfsinformatie en andere gegevens.",
       "deleteReport": "Rapport Verwijderen",
       "deleteReportDesc": "Verwijder {reportName} permanent en alle bijbehorende gegevens. Deze actie kan niet ongedaan worden gemaakt.",
       "businessInfo": "Bedrijfsinfo",
       "financialData": "Financiële Gegevens",
-      "valuationSettings": "Waarderingsinstellingen",
+      "valuationSettings": "Indicatieve bedrijfsschattingsinstellingen",
       "permanent": "Permanent",
       "cannotUndo": "Kan Niet Ongedaan",
       "allDataLost": "Alle Gegevens Verloren",
-      "tip": "Tip: Een rapport bewerken stelt u in staat bedrijfsinformatie bij te werken en de waardering opnieuw te berekenen. Verwijderen verwijdert alle gegevens permanent.",
+      "tip": "Tip: Een rapport bewerken stelt u in staat bedrijfsinformatie bij te werken en de schatting opnieuw te berekenen. Verwijderen verwijdert alle gegevens permanent.",
       "cancel": "Annuleren",
       "thisReport": "dit rapport"
     }
@@ -1110,7 +1110,7 @@
     "adjust": "Aanpassen",
     "normalize": "Normaliseren",
     "whyNormalize": "Waarom normaliseren?",
-    "whyNormalizeExplanation": "Fiscaal-geoptimaliseerde cijfers onderschatten de werkelijke winst — dat maakt een groot verschil bij waardering. Normalisatie corrigeert eenmalige kosten en bovenmatige vergoedingen naar",
+    "whyNormalizeExplanation": "Fiscaal-geoptimaliseerde cijfers onderschatten de werkelijke winst — dat maakt een groot verschil bij schatting. Normalisatie corrigeert eenmalige kosten en bovenmatige vergoedingen naar",
     "marketConformLevels": "marktconforme niveaus",
     "fillBothFields": "Vul zowel omzet als EBITDA in voor dit jaar",
     "addYear": "Jaar toevoegen",
@@ -1180,7 +1180,7 @@
     "pdfExportFailedDesc": "Probeer het opnieuw.",
     "pdfRegenerating": "PDF wordt opnieuw gegenereerd...",
     "pdfRegeneratingDesc": "Dit kan even duren.",
-    "recalculatedWithNorms": "Waardering herberekend met normalisaties",
+    "recalculatedWithNorms": "Indicatieve bedrijfsschatting herberekend met normalisaties",
     "recalculatedWithNormsDesc": "{count} normalisatie(s) toegepast",
     "normalizationsSaved": "Normalisaties opgeslagen",
     "versionRestored": "Versie {version} hersteld",
@@ -1214,7 +1214,7 @@
     "swap": "Versies wisselen",
     "version": "Versie",
     "changes": "Wijzigingen",
-    "valuation": "Waardering",
+    "valuation": "Indicatieve bedrijfsschatting",
     "ebitda": "EBITDA",
     "multiple": "Multiple",
     "title": "Versie Vergelijking",
@@ -1241,16 +1241,16 @@
     "noHistoryDesc": "Genereer eerst een bedrijfsschatting om de versiegeschiedenis te bekijken.",
     "noVersions": "Nog geen versies",
     "noVersionsDesc": "Na uw eerste berekening wordt automatisch een versie aangemaakt.",
-    "versionsAppearAfterRegen": "Versies verschijnen hier na het opnieuw genereren van de waardering",
+    "versionsAppearAfterRegen": "Versies verschijnen hier na het opnieuw genereren van de schatting",
     "loadingVersionHistory": "Versiegeschiedenis laden...",
     "noVersionsTitle": "Nog geen versies",
-    "noVersionsDescLong": "Versies worden automatisch aangemaakt wanneer u waarderingen opnieuw genereert met bijgewerkte gegevens. Breng wijzigingen aan in uw waarderingsgegevens en herbereken om versiegeschiedenis aan te maken.",
+    "noVersionsDescLong": "Versies worden automatisch aangemaakt wanneer u indicatieve bedrijfsschattingen opnieuw genereert met bijgewerkte gegevens. Breng wijzigingen aan in uw schattingsgegevens en herbereken om versiegeschiedenis aan te maken.",
     "selectVersionTitle": "Selecteer een versie",
     "selectVersionDesc": "Kies een versie uit de tijdlijn om de details te bekijken",
     "noFieldChangesDetected": "Geen veldwijzigingen gedetecteerd",
     "invalidDate": "Ongeldige datum",
     "loadMore": "Meer laden ({displayed} van {total})",
-    "valuationFlow": "Waarderingsverloop",
+    "valuationFlow": "Indicatieve bedrijfsschattingsverloop",
     "indicativeEV": "Indicatieve Ondernemingswaarde (EV)",
     "current": "HUIDIG",
     "bandwidth": "Bandbreedte",
@@ -1272,7 +1272,7 @@
     "typeDataUpdate": "Data update",
     "typeMethodology": "Methodologie",
     "typeRevision": "Revisie",
-    "initialVersionLabel": "v1 - Initiële waardering",
+    "initialVersionLabel": "v1 - Initiële schatting",
     "active": "Actief",
     "guest": "Gast",
     "changeStatistics": "Wijzigingsstatistieken",
@@ -1355,9 +1355,9 @@
     "retry": "Opnieuw proberen",
     "newConversation": "Nieuw gesprek",
     "tools": {
-      "get_valuation_session": "Waarderingsdata ophalen...",
+      "get_valuation_session": "Indicatieve bedrijfsschattingsdata ophalen...",
       "get_normalization_adjustments": "Normalisaties ophalen...",
-      "get_valuation_results": "Waarderingsresultaten ophalen...",
+      "get_valuation_results": "Indicatieve bedrijfsschattingsresultaten ophalen...",
       "get_company_info": "Bedrijfsgegevens ophalen...",
       "get_industry_benchmarks": "Sector benchmarks ophalen...",
       "suggest_normalization": "Normalisatie voorstel maken...",
@@ -1525,7 +1525,7 @@
     "yearsShort": "jr",
     "aiSuggestion": "AI",
     "adjustedBy": "Aangepast met:",
-    "usedInValuation": "Gebruikt in waardering:",
+    "usedInValuation": "Gebruikt in schatting:",
     "originalValue": "Origineel:",
     "editToModify": "Klik op \"Bewerken\" om aanpassingen te wijzigen",
     "removeToUseOriginal": "Klik op \"Verwijderen\" om originele waarde te gebruiken",
@@ -1855,7 +1855,7 @@
   },
   "valuationReport": {
     "printPdf": "Afdrukken / PDF",
-    "businessValuation": "Ondernemingswaardering",
+    "businessValuation": "Indicatieve ondernemingsschatting",
     "indicativeValue": "Indicatieve Waarde",
     "bandwidth": "Bandbreedte: {low} - {high}",
     "reportId": "Rapport ID: {id}",
@@ -1864,7 +1864,7 @@
     "sustainableEbitda": "Duurzame EBITDA",
     "multiple": "Multiple",
     "enterpriseValue": "Ondernemingswaarde",
-    "valuationRange": "Waarderingsbereik",
+    "valuationRange": "Schattingsbereik",
     "conservative": "Conservatief (P25)",
     "median": "Mediaan (P50)",
     "optimistic": "Optimistisch (P75)",
@@ -1886,8 +1886,8 @@
     "weight": "Weging",
     "contribution": "Bijdrage",
     "sustainableEbitdaWeighted": "Duurzame EBITDA (Gewogen Gemiddelde)",
-    "valuationCalibration": "Waarderingskalibratie",
-    "calibrationIntro": "De waardering wordt bepaald door het toepassen van een marktconforme multiple op de genormaliseerde EBITDA.",
+    "valuationCalibration": "Indicatieve bedrijfsschattingskalibratie",
+    "calibrationIntro": "De schatting wordt bepaald door het toepassen van een marktconforme multiple op de genormaliseerde EBITDA.",
     "calculation": "Berekening",
     "appliedMethod": "Toegepaste methode:",
     "comparableTransactions": "Vergelijkbare Transacties",
@@ -1897,10 +1897,10 @@
     "confidenceScore": "Betrouwbaarheidsscore",
     "disclaimers": "Disclaimer & Voorwaarden",
     "page": "Pagina {number}",
-    "disclaimer1Title": "Indicatieve Waardering",
-    "disclaimer1Text": "Dit rapport bevat een indicatieve waardering gebaseerd op de verstrekte financiële gegevens en marktstandaarden. De uitkomst is geen garantie voor een definitieve transactieprijs en kan afwijken op basis van verdere due diligence, onderhandelingen en marktomstandigheden.",
+    "disclaimer1Title": "Indicatieve bedrijfsschatting",
+    "disclaimer1Text": "Dit rapport bevat een indicatieve schatting gebaseerd op de verstrekte financiële gegevens en marktstandaarden. De uitkomst is geen garantie voor een definitieve transactieprijs en kan afwijken op basis van verdere due diligence, onderhandelingen en marktomstandigheden.",
     "disclaimer2Title": "Gegevensbronnen",
-    "disclaimer2Text": "De waardering is gebaseerd op door de gebruiker aangeleverde financiële data. Upswitch heeft de nauwkeurigheid van deze gegevens niet onafhankelijk geverifieerd. De betrouwbaarheid van de waardering is direct afhankelijk van de kwaliteit en volledigheid van de aangeleverde informatie.",
+    "disclaimer2Text": "De schatting is gebaseerd op door de gebruiker aangeleverde financiële data. Upswitch heeft de nauwkeurigheid van deze gegevens niet onafhankelijk geverifieerd. De betrouwbaarheid van de schatting is direct afhankelijk van de kwaliteit en volledigheid van de aangeleverde informatie.",
     "disclaimer3Title": "Geen Financieel Advies",
     "disclaimer3Text": "Dit rapport vormt geen financieel, juridisch of fiscaal advies. Wij raden aan om voor belangrijke zakelijke beslissingen onafhankelijk advies in te winnen bij een gekwalificeerde adviseur.",
     "disclaimer4Title": "Intellectueel Eigendom",
