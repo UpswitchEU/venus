@@ -711,13 +711,13 @@ export function UnifiedNormalizationModal({
 
     let adjustment = numericValue
     if (editType === 'add_percent') {
-      adjustment = (originalEBITDA * numericValue) / 100
+      adjustment = (safeOriginalEBITDA * numericValue) / 100
     } else if (editType === 'subtract_percent') {
-      adjustment = -((originalEBITDA * numericValue) / 100)
+      adjustment = -((safeOriginalEBITDA * numericValue) / 100)
     } else if (editType === 'subtract') {
       adjustment = -numericValue
     } else if (editType === 'absolute') {
-      adjustment = numericValue - originalEBITDA
+      adjustment = numericValue - safeOriginalEBITDA
     }
 
     trackNormalizationEdit()
@@ -746,6 +746,7 @@ export function UnifiedNormalizationModal({
     availableYears.length,
     normalizations,
     onNormalizationsChange,
+    safeOriginalEBITDA,
   ])
 
   const acceptAll = useCallback(() => {
@@ -777,8 +778,8 @@ export function UnifiedNormalizationModal({
 
     // ── Validation: warn/block extreme adjustments ──
     const absValue = Math.abs(numericValue)
-    if (originalEBITDA > 0) {
-      const pctOfEbitda = (absValue / originalEBITDA) * 100
+    if (safeOriginalEBITDA > 0) {
+      const pctOfEbitda = (absValue / safeOriginalEBITDA) * 100
 
       // Block if adjustment exceeds 200% of EBITDA (likely a data entry error)
       if (pctOfEbitda > 200) {
@@ -803,14 +804,13 @@ export function UnifiedNormalizationModal({
     // Calculate adjustment based on type
     let adjustment = numericValue
     if (newType === 'add_percent') {
-      adjustment = (originalEBITDA * numericValue) / 100
+      adjustment = (safeOriginalEBITDA * numericValue) / 100
     } else if (newType === 'subtract_percent') {
-      adjustment = -((originalEBITDA * numericValue) / 100)
+      adjustment = -((safeOriginalEBITDA * numericValue) / 100)
     } else if (newType === 'subtract') {
       adjustment = -numericValue
     } else if (newType === 'absolute') {
-      // Absolute: the adjustment is the difference from original
-      adjustment = numericValue - originalEBITDA
+      adjustment = numericValue - safeOriginalEBITDA
     }
 
     // If editing an existing item, update it instead of creating new
@@ -873,6 +873,7 @@ export function UnifiedNormalizationModal({
     normalizations,
     onNormalizationsChange,
     editingId,
+    safeOriginalEBITDA,
   ])
 
   // File input ref for CSV upload
@@ -1829,7 +1830,7 @@ export function UnifiedNormalizationModal({
                           {nh('originalEbitda')}
                         </p>
                         <p className="text-sm font-mono font-medium text-foreground/60">
-                          {formatCurrency(originalEBITDA)}
+                          {formatCurrency(safeOriginalEBITDA)}
                         </p>
                       </div>
                       <div className="text-foreground/30">→</div>
@@ -1846,7 +1847,7 @@ export function UnifiedNormalizationModal({
                           {newType === 'add_percent' ? '+' : '-'}
                           {formatCurrency(
                             Math.abs(
-                              (originalEBITDA *
+                              (safeOriginalEBITDA *
                                 (parseFloat(newValue.replace(/[^0-9.-]/g, '')) || 0)) /
                                 100
                             )
@@ -1860,9 +1861,9 @@ export function UnifiedNormalizationModal({
                         </p>
                         <p className="text-sm font-mono font-bold text-foreground">
                           {formatCurrency(
-                            originalEBITDA +
+                            safeOriginalEBITDA +
                               ((newType === 'add_percent' ? 1 : -1) *
-                                originalEBITDA *
+                                safeOriginalEBITDA *
                                 (parseFloat(newValue.replace(/[^0-9.-]/g, '')) || 0)) /
                                 100
                           )}
@@ -1892,7 +1893,7 @@ export function UnifiedNormalizationModal({
             <NormalizationTableView
               items={filteredNormalizations}
               years={availableYears}
-              originalEBITDA={originalEBITDA}
+              originalEBITDA={safeOriginalEBITDA}
               onAccept={(id) => updateStatus(id, 'accepted')}
               onReject={(id) => updateStatus(id, 'rejected')}
               onRemove={removeNormalization}
@@ -1904,7 +1905,7 @@ export function UnifiedNormalizationModal({
             <NormalizationBentoView
               items={filteredNormalizations}
               years={availableYears}
-              originalEBITDA={originalEBITDA}
+              originalEBITDA={safeOriginalEBITDA}
               onAccept={(id) => updateStatus(id, 'accepted')}
               onReject={(id) => updateStatus(id, 'rejected')}
               onRemove={removeNormalization}

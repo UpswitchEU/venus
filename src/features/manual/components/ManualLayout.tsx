@@ -1796,6 +1796,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setShowUnifiedNormalizationModal(true)
   }, [])
 
+  const handleNormalizationsChange = useCallback(
+    (norms: NormalizationItem[]) => {
+      useNormalizationStore.getState().setItems(norms)
+    },
+    []
+  )
+
   const handleAcceptNormalisation = useCallback(
     (id: string) => {
       trackAINormalizationAccept()
@@ -2265,6 +2272,30 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           report={report}
           onDownload={handleExport}
         />
+
+        <NormalisationSuggestionModal
+          open={showNormalisationModal}
+          onOpenChange={setShowNormalisationModal}
+          suggestion={currentNormalisationSuggestion}
+          onAccept={handleNormalisationSuggestionAccept}
+          onReject={handleNormalisationSuggestionReject}
+          companyName={collectedData.companyName}
+        />
+
+        <UnifiedNormalizationModal
+          open={showUnifiedNormalizationModal}
+          onOpenChange={setShowUnifiedNormalizationModal}
+          companyName={collectedData.companyName || t('company')}
+          currentYear={new Date().getFullYear() - 1}
+          originalEBITDA={
+            Number(report?.ebitda) ||
+            Number(formStoreData?.current_year_data?.ebitda) ||
+            0
+          }
+          normalizations={normalizationItems}
+          onNormalizationsChange={handleNormalizationsChange}
+          onUploadClick={() => {}}
+        />
       </div>
     )
   }
@@ -2502,12 +2533,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         companyName={collectedData.companyName || t('company')}
         currentYear={new Date().getFullYear() - 1}
         originalEBITDA={
-          report?.ebitda ||
+          Number(report?.ebitda) ||
           Number(formStoreData?.current_year_data?.ebitda) ||
           0
         }
         normalizations={normalizationItems}
-        onNormalizationsChange={(norms) => normalizationActions.setItems(norms)}
+        onNormalizationsChange={handleNormalizationsChange}
         onUploadClick={() => {}}
       />
     </div>
