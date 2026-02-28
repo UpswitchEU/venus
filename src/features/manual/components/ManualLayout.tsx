@@ -23,7 +23,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
-import React, { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   trackAIFieldUpdate,
@@ -519,6 +519,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const normalizationItems = useNormalizationStore((s) => s.items)
   const normalizationActions = useNormalizationStore()
   const [suggestedNormalisations, setSuggestedNormalisations] = useState<any[]>([])
+
+  // Derive financial years from form store for the normalization modal
+  const financialYears = useMemo(() => {
+    const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+    const years = new Set<number>([lastFullYear])
+    formStoreData.historical_years_data
+      ?.filter((y: any) => y.year >= 2000 && y.year <= 2100)
+      .forEach((y: any) => years.add(y.year))
+    return Array.from(years).sort((a, b) => b - a)
+  }, [formStoreData.historical_years_data])
 
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
@@ -2295,6 +2305,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           normalizations={normalizationItems}
           onNormalizationsChange={handleNormalizationsChange}
           onUploadClick={() => {}}
+          financialYears={financialYears}
         />
       </div>
     )
@@ -2540,6 +2551,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         normalizations={normalizationItems}
         onNormalizationsChange={handleNormalizationsChange}
         onUploadClick={() => {}}
+        financialYears={financialYears}
       />
     </div>
   )

@@ -429,8 +429,8 @@ export function ManualInputPanel({
         if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(yearNum)
         return n.year === yearNum
       })
-      const totalAdjustment = yearNorms.reduce((sum, n) => sum + n.adjustment, 0)
-      const normalizedEbitda = yf.ebitda + totalAdjustment
+      const totalAdjustment = yearNorms.reduce((sum, n) => sum + Number(n.adjustment), 0)
+      const normalizedEbitda = Number(yf.ebitda) + totalAdjustment
       return {
         ...yf,
         normalizedEbitda,

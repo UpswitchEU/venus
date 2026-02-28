@@ -107,8 +107,8 @@ export function NormalizationHub({
     const rejected = normalizations.filter((n) => n.status === 'rejected').length
     const totalAdjustment = normalizations
       .filter((n) => n.status === 'accepted')
-      .reduce((sum, n) => sum + n.adjustment, 0)
-    const normalizedEbitda = originalEbitda + totalAdjustment
+      .reduce((sum, n) => sum + Number(n.adjustment), 0)
+    const normalizedEbitda = Number(originalEbitda) + totalAdjustment
 
     return {
       pending,

@@ -6,9 +6,10 @@
  * `unifiedNormalizations` state in ManualLayout.
  *
  * Persistence:
- * - Auto-syncs to session JSONB (debounced 500ms)
- * - Persists to Titan API on accept/reject (immediate)
+ * - Auto-syncs to session JSONB (debounced 300ms)
+ * - Persists to Titan API on accept/reject (serialized per year)
  * - Loads from Titan API on session restoration
+ * - Flushes pending saves on beforeunload
  *
  * @module store/useNormalizationStore
  */
@@ -120,10 +121,42 @@ function getToastMessage(key: 'normalizationNotSaved' | 'normalizationNotSavedDe
 }
 
 // ─────────────────────────────────────────
-// DEBOUNCE HELPER
+// PERSISTENCE GUARDS
+// Prevent concurrent persist operations and data loss.
 // ─────────────────────────────────────────
 
 let sessionPersistTimer: ReturnType<typeof setTimeout> | null = null
+let isSessionPersistInFlight = false
+let pendingSessionReportId: string | null = null
+
+const titanPersistQueue = new Map<string, Promise<void>>()
+
+function getTitanQueueKey(reportId: string, year: number) {
+  return `${reportId}:${year}`
+}
+
+/**
+ * Serialize Titan persist calls per reportId+year.
+ * If a persist is already in-flight for this key, the new call waits for it to finish
+ * then runs with the latest state (preventing stale-state overwrites).
+ */
+async function serializedPersistToTitan(
+  reportId: string,
+  year: number,
+  fn: () => Promise<void>
+): Promise<void> {
+  const key = getTitanQueueKey(reportId, year)
+  const prev = titanPersistQueue.get(key) ?? Promise.resolve()
+  const next = prev.then(fn, fn)
+  titanPersistQueue.set(key, next)
+  try {
+    await next
+  } finally {
+    if (titanPersistQueue.get(key) === next) {
+      titanPersistQueue.delete(key)
+    }
+  }
+}
 
 // ─────────────────────────────────────────
 // STORE
@@ -232,52 +265,53 @@ export const useNormalizationStore = create<NormalizationStore>()(
 
       persistToTitan: async (reportId, year) => {
         if (!reportId) return
-        const { items } = get()
-        set({ isSaving: true })
-        try {
-          const { normalizationService } = await import('../services/ebitdaNormalizationService')
-          // Include accepted items that apply to this year: applyAllYears, applyYears, or year match
-          const yearItems = items.filter((n) => {
-            if (n.status !== 'accepted') return false
-            if (n.applyAllYears) return true
-            if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(year)
-            return n.year === year
-          })
-          const adjustments = yearItems.map((n) => ({
-            category: mapFrontendCategoryToBackend(n.category),
-            amount: n.adjustment,
-            note: n.reason,
-            confidence: n.confidence,
-            ledger_code: n.ledgerCode || undefined,
-            ledger_name: n.ledgerName || undefined,
-          }))
-          await normalizationService.saveNormalization({
-            session_id: reportId,
-            year,
-            reported_ebitda: 0, // Will be calculated server-side
-            adjustments,
-          } as any)
-          generalLogger.debug('[NormalizationStore] Persisted to Titan API', {
-            reportId: reportId.substring(0, 12),
-            year,
-            count: yearItems.length,
-          })
-        } catch (error) {
-          generalLogger.warn('[NormalizationStore] Titan persist failed (non-blocking)', {
-            error: error instanceof Error ? error.message : String(error),
-          })
-          // Import toast dynamically to avoid circular deps
-          import('sonner')
-            .then(({ toast }) => {
-              toast.warning(getToastMessage('normalizationNotSaved'), {
-                description: getToastMessage('normalizationNotSavedDesc'),
-                duration: 5000,
-              })
+        await serializedPersistToTitan(reportId, year, async () => {
+          // Read latest state INSIDE the serialized executor to avoid stale snapshots
+          const { items } = get()
+          set({ isSaving: true })
+          try {
+            const { normalizationService } = await import('../services/ebitdaNormalizationService')
+            const yearItems = items.filter((n) => {
+              if (n.status !== 'accepted') return false
+              if (n.applyAllYears) return true
+              if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(year)
+              return n.year === year
             })
-            .catch(() => {})
-        } finally {
-          set({ isSaving: false })
-        }
+            const adjustments = yearItems.map((n) => ({
+              category: mapFrontendCategoryToBackend(n.category),
+              amount: Number(n.adjustment),
+              note: n.reason,
+              confidence: n.confidence,
+              ledger_code: n.ledgerCode || undefined,
+              ledger_name: n.ledgerName || undefined,
+            }))
+            await normalizationService.saveNormalization({
+              session_id: reportId,
+              year,
+              reported_ebitda: 0,
+              adjustments,
+            } as any)
+            generalLogger.debug('[NormalizationStore] Persisted to Titan API', {
+              reportId: reportId.substring(0, 12),
+              year,
+              count: yearItems.length,
+            })
+          } catch (error) {
+            generalLogger.warn('[NormalizationStore] Titan persist failed (non-blocking)', {
+              error: error instanceof Error ? error.message : String(error),
+            })
+            import('sonner')
+              .then(({ toast }) => {
+                toast.warning(getToastMessage('normalizationNotSaved'), {
+                  description: getToastMessage('normalizationNotSavedDesc'),
+                  duration: 5000,
+                })
+              })
+              .catch(() => {})
+          } finally {
+            set({ isSaving: false })
+          }
+        })
       },
 
       loadFromTitan: async (sessionId) => {
@@ -296,8 +330,8 @@ export const useNormalizationStore = create<NormalizationStore>()(
             for (const adj of resp.adjustments || []) {
               items.push({
                 id: `titan-${resp.year}-${adj.category}-${Math.random().toString(36).substring(2, 8)}`,
-                ledgerCode: adj.ledger_code || '',
-                ledgerName: adj.ledger_name || adj.note || adj.category,
+                ledgerCode: (adj as any).ledger_code || '',
+                ledgerName: (adj as any).ledger_name || adj.note || adj.category,
                 category: mapBackendCategoryToFrontend(adj.category),
                 type: adj.amount >= 0 ? 'add' : 'subtract',
                 value: Math.abs(adj.amount),
@@ -306,7 +340,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 source: 'manual' as NormalizationSource,
                 sourceRef: '',
                 status: 'accepted' as NormalizationStatus,
-                applyAllYears: false, // Titan stores per-year; no multi-year metadata
+                applyAllYears: false,
                 year: resp.year,
                 confidence: adj.confidence as any,
               })
@@ -316,8 +350,8 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 id:
                   custom.id ||
                   `titan-custom-${resp.year}-${Math.random().toString(36).substring(2, 8)}`,
-                ledgerCode: custom.ledger_code || '',
-                ledgerName: custom.ledger_name || custom.description,
+                ledgerCode: (custom as any).ledger_code || '',
+                ledgerName: (custom as any).ledger_name || custom.description,
                 category: 'other',
                 type: custom.amount >= 0 ? 'add' : 'subtract',
                 value: Math.abs(custom.amount),
@@ -326,7 +360,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 source: 'manual' as NormalizationSource,
                 sourceRef: '',
                 status: 'accepted' as NormalizationStatus,
-                applyAllYears: false, // Titan stores per-year
+                applyAllYears: false,
                 year: resp.year,
               })
             }
@@ -368,10 +402,10 @@ export const useNormalizationStore = create<NormalizationStore>()(
           .items.filter((n) => n.status === 'accepted')
           .reduce((sum, n) => sum + n.adjustment, 0),
       getNormalizedEbitda: (originalEbitda) =>
-        originalEbitda +
+        Number(originalEbitda) +
         get()
           .items.filter((n) => n.status === 'accepted')
-          .reduce((sum, n) => sum + n.adjustment, 0),
+          .reduce((sum, n) => sum + Number(n.adjustment), 0),
     }),
     { name: 'normalization-store' }
   )
@@ -380,16 +414,50 @@ export const useNormalizationStore = create<NormalizationStore>()(
 // ─────────────────────────────────────────
 // AUTO-PERSIST SUBSCRIPTION
 // Debounced session persist on any item change.
+// Includes beforeunload flush for data safety.
 // ─────────────────────────────────────────
 
 let lastItemsJson = ''
 
 /**
  * Call this once with the current reportId to enable auto-persist.
- * Returns an unsubscribe function.
+ * Returns an unsubscribe function that also removes the beforeunload handler.
  */
 export function enableNormalizationAutoPersist(getReportId: () => string | undefined) {
-  return useNormalizationStore.subscribe((state) => {
+  const flushPendingSave = () => {
+    if (sessionPersistTimer) {
+      clearTimeout(sessionPersistTimer)
+      sessionPersistTimer = null
+    }
+    const reportId = getReportId()
+    if (!reportId) return
+    const { items } = useNormalizationStore.getState()
+    const json = JSON.stringify(items)
+    if (json === lastItemsJson && !pendingSessionReportId) return
+
+    // Synchronous save via sendBeacon for beforeunload
+    try {
+      const payload = JSON.stringify({ _normalizations: items })
+      if (typeof navigator?.sendBeacon === 'function') {
+        navigator.sendBeacon(
+          `/api/sessions/${reportId}`,
+          new Blob([payload], { type: 'application/json' })
+        )
+      }
+    } catch {
+      // Best-effort; main persist path handles errors
+    }
+  }
+
+  const handleBeforeUnload = () => {
+    flushPendingSave()
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', handleBeforeUnload)
+  }
+
+  const unsubStore = useNormalizationStore.subscribe((state) => {
     const json = JSON.stringify(state.items)
     if (json === lastItemsJson) return
     lastItemsJson = json
@@ -397,10 +465,29 @@ export function enableNormalizationAutoPersist(getReportId: () => string | undef
     const reportId = getReportId()
     if (!reportId) return
 
-    // Debounced session persist
+    pendingSessionReportId = reportId
+
     if (sessionPersistTimer) clearTimeout(sessionPersistTimer)
-    sessionPersistTimer = setTimeout(() => {
-      useNormalizationStore.getState().persistToSession(reportId)
-    }, 500)
+    sessionPersistTimer = setTimeout(async () => {
+      if (isSessionPersistInFlight) return
+      isSessionPersistInFlight = true
+      try {
+        await useNormalizationStore.getState().persistToSession(reportId)
+      } finally {
+        isSessionPersistInFlight = false
+        pendingSessionReportId = null
+      }
+    }, 300)
   })
+
+  return () => {
+    unsubStore()
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+    if (sessionPersistTimer) {
+      clearTimeout(sessionPersistTimer)
+      sessionPersistTimer = null
+    }
+  }
 }

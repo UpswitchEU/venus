@@ -17,7 +17,6 @@
 
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import { generalLogger } from '../../utils/logger'
@@ -256,7 +255,7 @@ class SessionRestorationServiceImpl {
    * - Form data (useManualFormStore)
    * - Valuation results with HTML (useManualResultsStore/useConversationalResultsStore)
    * - Version history (useVersionHistoryStore)
-   * - EBITDA normalizations (useEbitdaNormalizationStore)
+   * - EBITDA normalizations (useNormalizationStore)
    *
    * **Idempotent per reportId:** Once restored, subsequent calls for the same reportId
    * return early without re-hydrating. To force re-hydration (e.g. after recalculation),

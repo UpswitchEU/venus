@@ -108,6 +108,8 @@ export interface UnifiedNormalizationModalProps {
   hasUploadedData?: boolean
   onUploadClick?: () => void
   initialSearchQuery?: string
+  /** Financial years entered by the user (e.g. [2022, 2023, 2024, 2025]) */
+  financialYears?: number[]
 }
 
 // ─────────────────────────────────────────
@@ -311,13 +313,14 @@ export function UnifiedNormalizationModal({
   open,
   onOpenChange,
   companyName,
-  currentYear = new Date().getFullYear(),
+  currentYear = new Date().getFullYear() - 1,
   originalEBITDA,
   normalizations,
   onNormalizationsChange,
   ledgerAccounts = [],
   onUploadClick,
   initialSearchQuery = '',
+  financialYears,
 }: UnifiedNormalizationModalProps) {
   const nh = useTranslations('normalizationHub')
   const ca = useTranslations('chatAssistant')
@@ -422,10 +425,13 @@ export function UnifiedNormalizationModal({
     }
   }, [showAddForm])
 
-  // Available years for selection (current year + 3 previous years)
+  // Derive available years from user-entered financial data, falling back to 4-year range
   const availableYears = useMemo(() => {
+    if (financialYears && financialYears.length > 0) {
+      return [...financialYears].sort((a, b) => b - a)
+    }
     return [currentYear, currentYear - 1, currentYear - 2, currentYear - 3]
-  }, [currentYear])
+  }, [currentYear, financialYears])
 
   // Get unique years from normalizations for filter
   const yearsInData = useMemo(() => {
