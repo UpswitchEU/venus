@@ -1813,6 +1813,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     []
   )
 
+  const getYearsToPersist = useCallback(
+    (item: NormalizationItem): number[] => {
+      const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+      const historicalYears =
+        formStoreData.historical_years_data
+          ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+          .map((y: any) => y.year) ?? []
+      const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+      return item.applyAllYears
+        ? allDataYears
+        : item.applyYears?.length
+          ? item.applyYears
+          : [item.year]
+    },
+    [formStoreData.historical_years_data]
+  )
+
   const handleAcceptNormalisation = useCallback(
     (id: string) => {
       trackAINormalizationAccept()
@@ -1820,28 +1837,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setSuggestedNormalisations((prev: any[]) =>
         prev.map((n: any) => (n.id === id ? { ...n, status: 'accepted' } : n))
       )
-      // Immediate persist to Titan on accept — persist for each year the item applies to
       if (reportId) {
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
-          const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
-          const historicalYears =
-            formStoreData.historical_years_data
-              ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
-              .map((y: any) => y.year) ?? []
-          const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
-          const yearsToPersist = item.applyAllYears
-            ? allDataYears
-            : item.applyYears?.length
-              ? item.applyYears
-              : [item.year]
-          yearsToPersist.forEach((y) => normalizationActions.persistToTitan(reportId!, y))
+          const years = getYearsToPersist(item)
+          Promise.all(years.map((y) => normalizationActions.persistToTitan(reportId!, y))).catch(
+            (error) => {
+              generalLogger.warn('[ManualLayout] Titan persist failed after accept', {
+                id,
+                error: error instanceof Error ? error.message : String(error),
+              })
+            }
+          )
         }
       }
-      // Real-time recalculation
       recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, normalizationActions, formStoreData]
+    [reportId, normalizationActions, getYearsToPersist]
   )
 
   const handleRejectNormalisation = useCallback(
@@ -1850,28 +1862,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setSuggestedNormalisations((prev: any[]) =>
         prev.map((n: any) => (n.id === id ? { ...n, status: 'rejected' } : n))
       )
-      // Immediate persist to Titan on reject — persist for each year the item applies to
       if (reportId) {
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
-          const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
-          const historicalYears =
-            formStoreData.historical_years_data
-              ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
-              .map((y: any) => y.year) ?? []
-          const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
-          const yearsToPersist = item.applyAllYears
-            ? allDataYears
-            : item.applyYears?.length
-              ? item.applyYears
-              : [item.year]
-          yearsToPersist.forEach((y) => normalizationActions.persistToTitan(reportId!, y))
+          const years = getYearsToPersist(item)
+          Promise.all(years.map((y) => normalizationActions.persistToTitan(reportId!, y))).catch(
+            (error) => {
+              generalLogger.warn('[ManualLayout] Titan persist failed after reject', {
+                id,
+                error: error instanceof Error ? error.message : String(error),
+              })
+            }
+          )
         }
       }
-      // Real-time recalculation
       recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, normalizationActions, formStoreData]
+    [reportId, normalizationActions, getYearsToPersist]
   )
 
   // ─── Auto-recalculate valuation with normalized EBITDA ───
@@ -1886,9 +1893,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (acceptedNorms.length === 0) return
 
       try {
-        // buildValuationRequest reads from useNormalizationStore and applies
-        // accepted normalizations to the reported EBITDA — single source of truth.
-        const request = buildValuationRequest(formStoreData)
+        // Pass normalizations directly to avoid a redundant store read
+        const request = buildValuationRequest(formStoreData, normalizations)
         ;(request as any).dataSource = 'manual'
         if (reportId) (request as any).reportId = reportId
 

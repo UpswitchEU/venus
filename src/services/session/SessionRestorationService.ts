@@ -499,26 +499,39 @@ class SessionRestorationServiceImpl {
     restoredVersionHistory = false // Will be loaded on demand
 
     // 4. Normalizations — hydrate unified store
-    // Try formData metadata first (instant), then Titan API fallback
+    // Priority: localStorage recovery > session JSONB > Titan API
     try {
-      const { useNormalizationStore } = await import('../../store/useNormalizationStore')
+      const { useNormalizationStore, recoverPendingNormalizations } = await import(
+        '../../store/useNormalizationStore'
+      )
       const normStore = useNormalizationStore.getState()
 
-      // Check if normalizations are embedded in form metadata (session JSONB _normalizations)
-      const rawMeta = (data.formData as any)?._normalizations
-      if (rawMeta && Array.isArray(rawMeta) && rawMeta.length > 0) {
-        normStore.setItems(rawMeta)
+      // First: check for items buffered to localStorage during a previous beforeunload
+      const recovered = recoverPendingNormalizations(data.reportId)
+      if (recovered && recovered.length > 0) {
+        normStore.setItems(recovered)
         restoredEbitdaNormalizations = true
-        generalLogger.info('[SessionRestoration] Normalizations hydrated from session metadata', {
-          count: rawMeta.length,
+        generalLogger.info('[SessionRestoration] Normalizations recovered from localStorage', {
+          count: recovered.length,
         })
       } else {
-        // Fallback: load from Titan API
-        await normStore.loadFromTitan(data.reportId)
-        restoredEbitdaNormalizations = normStore.items.length > 0
-        generalLogger.info('[SessionRestoration] Normalizations loaded from Titan API', {
-          count: normStore.items.length,
-        })
+        // Check if normalizations are embedded in form metadata (session JSONB _normalizations)
+        const rawMeta = (data.formData as any)?._normalizations
+        if (rawMeta && Array.isArray(rawMeta) && rawMeta.length > 0) {
+          normStore.setItems(rawMeta)
+          restoredEbitdaNormalizations = true
+          generalLogger.info(
+            '[SessionRestoration] Normalizations hydrated from session metadata',
+            { count: rawMeta.length }
+          )
+        } else {
+          // Fallback: load from Titan API
+          await normStore.loadFromTitan(data.reportId)
+          restoredEbitdaNormalizations = normStore.items.length > 0
+          generalLogger.info('[SessionRestoration] Normalizations loaded from Titan API', {
+            count: normStore.items.length,
+          })
+        }
       }
     } catch (error) {
       generalLogger.warn('[SessionRestoration] Normalization hydration failed (non-blocking)', {

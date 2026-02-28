@@ -249,18 +249,12 @@ export const useNormalizationStore = create<NormalizationStore>()(
       persistToSession: async (reportId) => {
         if (!reportId) return
         const { items } = get()
-        try {
-          const { sessionService } = await import('../services')
-          await sessionService.saveSession(reportId, { _normalizations: items } as any)
-          generalLogger.debug('[NormalizationStore] Persisted to session', {
-            reportId: reportId.substring(0, 12),
-            count: items.length,
-          })
-        } catch (error) {
-          generalLogger.warn('[NormalizationStore] Session persist failed (non-blocking)', {
-            error: error instanceof Error ? error.message : String(error),
-          })
-        }
+        const { sessionService } = await import('../services')
+        await sessionService.saveSession(reportId, { _normalizations: items } as any)
+        generalLogger.debug('[NormalizationStore] Persisted to session', {
+          reportId: reportId.substring(0, 12),
+          count: items.length,
+        })
       },
 
       persistToTitan: async (reportId, year) => {
@@ -330,8 +324,8 @@ export const useNormalizationStore = create<NormalizationStore>()(
             for (const adj of resp.adjustments || []) {
               items.push({
                 id: `titan-${resp.year}-${adj.category}-${Math.random().toString(36).substring(2, 8)}`,
-                ledgerCode: (adj as any).ledger_code || '',
-                ledgerName: (adj as any).ledger_name || adj.note || adj.category,
+                ledgerCode: adj.ledger_code || '',
+                ledgerName: adj.ledger_name || adj.note || adj.category,
                 category: mapBackendCategoryToFrontend(adj.category),
                 type: adj.amount >= 0 ? 'add' : 'subtract',
                 value: Math.abs(adj.amount),
@@ -350,8 +344,8 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 id:
                   custom.id ||
                   `titan-custom-${resp.year}-${Math.random().toString(36).substring(2, 8)}`,
-                ledgerCode: (custom as any).ledger_code || '',
-                ledgerName: (custom as any).ledger_name || custom.description,
+                ledgerCode: custom.ledger_code || '',
+                ledgerName: custom.ledger_name || custom.description,
                 category: 'other',
                 type: custom.amount >= 0 ? 'add' : 'subtract',
                 value: Math.abs(custom.amount),
@@ -396,11 +390,11 @@ export const useNormalizationStore = create<NormalizationStore>()(
       getPending: () => get().items.filter((n) => n.status === 'pending'),
       getRejected: () => get().items.filter((n) => n.status === 'rejected'),
       getByYear: (year) => get().items.filter((n) => n.year === year),
-      getTotalAdjustment: () => get().items.reduce((sum, n) => sum + n.adjustment, 0),
+      getTotalAdjustment: () => get().items.reduce((sum, n) => sum + Number(n.adjustment), 0),
       getAcceptedTotalAdjustment: () =>
         get()
           .items.filter((n) => n.status === 'accepted')
-          .reduce((sum, n) => sum + n.adjustment, 0),
+          .reduce((sum, n) => sum + Number(n.adjustment), 0),
       getNormalizedEbitda: (originalEbitda) =>
         Number(originalEbitda) +
         get()
@@ -412,9 +406,55 @@ export const useNormalizationStore = create<NormalizationStore>()(
 )
 
 // ─────────────────────────────────────────
+// LOCAL-STORAGE SAFETY NET
+// Synchronous fallback for beforeunload — survives even if the
+// network request started by the debounced persist hasn't completed.
+// ─────────────────────────────────────────
+
+const LS_PENDING_PREFIX = '_norm_pending_'
+
+function saveToLocalStorage(reportId: string, items: NormalizationItem[]) {
+  try {
+    localStorage.setItem(`${LS_PENDING_PREFIX}${reportId}`, JSON.stringify(items))
+  } catch {
+    // localStorage may be full or disabled
+  }
+}
+
+function clearLocalStorage(reportId: string) {
+  try {
+    localStorage.removeItem(`${LS_PENDING_PREFIX}${reportId}`)
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Recover normalizations that were buffered to localStorage during a
+ * previous beforeunload but never persisted to the session backend.
+ * Call during session restoration, after loadFromSession / loadFromTitan.
+ */
+export function recoverPendingNormalizations(reportId: string): NormalizationItem[] | null {
+  if (!reportId || typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(`${LS_PENDING_PREFIX}${reportId}`)
+    if (!raw) return null
+    const items = JSON.parse(raw)
+    if (Array.isArray(items) && items.length > 0) {
+      clearLocalStorage(reportId)
+      return items
+    }
+    clearLocalStorage(reportId)
+  } catch {
+    // ignore parse errors
+  }
+  return null
+}
+
+// ─────────────────────────────────────────
 // AUTO-PERSIST SUBSCRIPTION
 // Debounced session persist on any item change.
-// Includes beforeunload flush for data safety.
+// Includes beforeunload flush via localStorage for data safety.
 // ─────────────────────────────────────────
 
 let lastItemsJson = ''
@@ -424,7 +464,11 @@ let lastItemsJson = ''
  * Returns an unsubscribe function that also removes the beforeunload handler.
  */
 export function enableNormalizationAutoPersist(getReportId: () => string | undefined) {
-  const flushPendingSave = () => {
+  // Snapshot current items so we don't re-persist data that was just loaded from the backend.
+  // Also prevents cross-report leaks where lastItemsJson retained a previous report's value.
+  lastItemsJson = JSON.stringify(useNormalizationStore.getState().items)
+
+  const handleBeforeUnload = () => {
     if (sessionPersistTimer) {
       clearTimeout(sessionPersistTimer)
       sessionPersistTimer = null
@@ -435,22 +479,9 @@ export function enableNormalizationAutoPersist(getReportId: () => string | undef
     const json = JSON.stringify(items)
     if (json === lastItemsJson && !pendingSessionReportId) return
 
-    // Synchronous save via sendBeacon for beforeunload
-    try {
-      const payload = JSON.stringify({ _normalizations: items })
-      if (typeof navigator?.sendBeacon === 'function') {
-        navigator.sendBeacon(
-          `/api/sessions/${reportId}`,
-          new Blob([payload], { type: 'application/json' })
-        )
-      }
-    } catch {
-      // Best-effort; main persist path handles errors
-    }
-  }
-
-  const handleBeforeUnload = () => {
-    flushPendingSave()
+    // Synchronous write to localStorage — guaranteed to complete during beforeunload.
+    // On next page load, recoverPendingNormalizations() picks this up and persists properly.
+    saveToLocalStorage(reportId, items)
   }
 
   if (typeof window !== 'undefined') {
@@ -468,14 +499,24 @@ export function enableNormalizationAutoPersist(getReportId: () => string | undef
     pendingSessionReportId = reportId
 
     if (sessionPersistTimer) clearTimeout(sessionPersistTimer)
-    sessionPersistTimer = setTimeout(async () => {
-      if (isSessionPersistInFlight) return
+    sessionPersistTimer = setTimeout(async function attemptPersist() {
+      if (isSessionPersistInFlight) {
+        sessionPersistTimer = setTimeout(attemptPersist, 200)
+        return
+      }
       isSessionPersistInFlight = true
       try {
         await useNormalizationStore.getState().persistToSession(reportId)
+        // Only clear safety buffers on confirmed success
+        clearLocalStorage(reportId)
+        pendingSessionReportId = null
+      } catch (error) {
+        generalLogger.warn('[NormalizationStore] Session persist failed — keeping safety buffer', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+        // pendingSessionReportId stays set → beforeunload will write to localStorage
       } finally {
         isSessionPersistInFlight = false
-        pendingSessionReportId = null
       }
     }, 300)
   })

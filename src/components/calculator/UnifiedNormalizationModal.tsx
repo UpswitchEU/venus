@@ -366,26 +366,25 @@ export function UnifiedNormalizationModal({
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  // Smart default: show "Te beoordelen" only if there ARE pending items when modal opens
+  // Full state reset when modal opens/closes to prevent stale UI between sessions
   useEffect(() => {
     if (open) {
       const pendingCount = normalizations.filter((n) => n.status === 'pending').length
       setActiveTab(pendingCount > 0 ? 'pending' : 'all')
-      // Reset selection when modal opens
       setSelectedIds(new Set())
-    }
-  }, [open])
-
-  // Ensure overlays never persist between modal sessions
-  useEffect(() => {
-    if (!open) {
+      setShowLedgerDropdown(false)
+    } else {
+      setShowAddForm(false)
+      setSearchQuery(initialSearchQuery)
+      setSelectedLedger(null)
       setShowLedgerDropdown(false)
       setInputRect(null)
-    } else {
-      // Never auto-open the dropdown when the modal appears
-      setShowLedgerDropdown(false)
+      setEditingId(null)
+      setYearFilter(null)
+      setCollapsedYears(new Set())
+      setNewSelectedYears([currentYear])
     }
-  }, [open])
+  }, [open, currentYear, initialSearchQuery])
 
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -1956,7 +1955,7 @@ export function UnifiedNormalizationModal({
                     const isCollapsed = collapsedYears.has(year)
                     const yearTotal = items
                       .filter((n) => n.status === 'accepted')
-                      .reduce((sum, n) => sum + n.adjustment, 0)
+                      .reduce((sum, n) => sum + Number(n.adjustment), 0)
 
                     return (
                       <div

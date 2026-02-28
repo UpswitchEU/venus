@@ -8,6 +8,7 @@
  */
 
 import { useNormalizationStore } from '../store/useNormalizationStore'
+import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import type { DataResponse } from '../types/data-collection'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
@@ -31,10 +32,13 @@ import { generalLogger } from './logger'
  * - Business context mapping
  *
  * @param source - Either ValuationFormData or DataResponse[] array
+ * @param overrideItems - If provided, use these normalizations instead of reading from the store.
+ *                        Eliminates a redundant store read when the caller already has the items.
  * @returns ValuationRequest ready for calculateValuation()
  */
 export function buildValuationRequest(
-  source: ValuationFormData | DataResponse[]
+  source: ValuationFormData | DataResponse[],
+  overrideItems?: NormalizationItem[]
 ): ValuationRequest {
   // Convert DataResponse[] to formData if needed
   let formData: ValuationFormData
@@ -93,9 +97,9 @@ export function buildValuationRequest(
         ? Number(formData.current_year_data.ebitda)
         : 20000
 
-  // Get normalization store state (unified store, NormalizationItem[])
-  const normStore = useNormalizationStore.getState()
-  const acceptedNorms = normStore.items.filter((n) => n.status === 'accepted')
+  // Use provided items or read from store — avoids redundant getState() in recalculation paths
+  const allItems = overrideItems ?? useNormalizationStore.getState().items
+  const acceptedNorms = allItems.filter((n) => n.status === 'accepted')
 
   // Collect all years that have financial data (current + historical)
   const historicalYears =
@@ -116,7 +120,7 @@ export function buildValuationRequest(
         : [n.year]
     for (const y of yearsToApply) {
       if (!normByYear[y]) normByYear[y] = { totalAdjustment: 0, count: 0, confidence: 'medium' }
-      normByYear[y].totalAdjustment += n.adjustment
+      normByYear[y].totalAdjustment += Number(n.adjustment)
       normByYear[y].count++
       if (n.confidence === 'high') normByYear[y].confidence = 'high'
     }
