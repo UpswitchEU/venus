@@ -44,9 +44,14 @@ export async function generateMetadata({ params }: LocaleLayoutProps): Promise<M
     locale = 'en' // Fallback to default locale instead of 404
   }
 
+  const defaultTitle =
+    locale === 'en'
+      ? 'Upswitch | Indicative business estimate'
+      : 'Upswitch | Indicatieve bedrijfsschatting'
+
   return {
     title: {
-      default: 'Upswitch | Indicatieve bedrijfsschatting',
+      default: defaultTitle,
       template: '%s | Upswitch',
     },
   }

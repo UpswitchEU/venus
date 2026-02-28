@@ -187,10 +187,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           throw new Error('Session engine not initialized. Call setEngine() first.')
         }
 
-        const session = await currentState.engine.loadSession(reportId, flow, prefilledQuery)
+        let session = await currentState.engine.loadSession(reportId, flow, prefilledQuery)
 
         if (!session) {
           throw new Error(`Session not found: ${reportId}`)
+        }
+
+        // CRITICAL: Normalize reportId for Mercury flow
+        // API returns reportId: session_key when lookup was by UUID (report_id)
+        // Venus must use requested reportId so stage check (session.reportId === reportId) passes
+        if (session.reportId !== reportId) {
+          session = { ...session, reportId }
         }
 
         // ✅ WORLD-CLASS: Detect new vs existing session
