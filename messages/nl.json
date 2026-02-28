@@ -192,7 +192,7 @@
   },
   "valuation": {
     "title": "Indicatieve bedrijfsschatting",
-    "subtitle": "Professionele schatting voor uw bedrijf",
+    "subtitle": "Professionele indicatieve bedrijfsschatting",
     "manual": {
       "title": "Handmatige Indicatieve bedrijfsschatting",
       "description": "Voer uw bedrijfsgegevens handmatig in",
@@ -211,7 +211,7 @@
     "conversational": {
       "title": "AI-Gestuurde Indicatieve bedrijfsschatting",
       "description": "Laat onze AI-assistent u begeleiden",
-      "welcome": "Hallo! Ik ben uw schattingsassistent. Vertel me over uw bedrijf en ik help u een nauwkeurige schatting te krijgen.",
+      "welcome": "Hallo! Ik ben uw indicatieve bedrijfsschatting-assistent. Vertel me over uw bedrijf en ik help u een nauwkeurige indicatieve bedrijfsschatting te krijgen.",
       "welcomeBack": "Welkom terug! Laten we doorgaan waar we gebleven waren.",
       "inputPlaceholder": "Typ hier uw bericht...",
       "inputPlaceholderStart": "Vertel me over uw bedrijf (bijv. 'Ik heb een restaurant')",
@@ -1066,7 +1066,7 @@
     }
   },
   "calculator": {
-    "businessValuation": "Bedrijfsschatting",
+    "businessValuation": "Indicatieve bedrijfsschatting",
     "stepOf": "Stap {current} van {total}",
     "contextBar": {
       "pendingToReview": "{count} normalisaties te reviewen",
@@ -1164,7 +1164,7 @@
     "financialDataIncompleteDesc": "Vul minstens 1 jaar met omzet én EBITDA in.",
     "calculationFailed": "Berekening mislukt",
     "calculationFailedNoResult": "Geen resultaat ontvangen.",
-    "calculationComplete": "Bedrijfsschatting voltooid",
+    "calculationComplete": "Indicatieve bedrijfsschatting voltooid",
     "unknownError": "Onbekende fout",
     "fieldUpdated": "{field} bijgewerkt naar {value}",
     "fieldApplied": "✓ {field} is toegepast in het formulier",
@@ -1238,7 +1238,7 @@
     "loadingVersions": "Versies laden...",
     "retry": "Opnieuw proberen",
     "noHistory": "Geen geschiedenis beschikbaar",
-    "noHistoryDesc": "Genereer eerst een bedrijfsschatting om de versiegeschiedenis te bekijken.",
+    "noHistoryDesc": "Genereer eerst een indicatieve bedrijfsschatting om de versiegeschiedenis te bekijken.",
     "noVersions": "Nog geen versies",
     "noVersionsDesc": "Na uw eerste berekening wordt automatisch een versie aangemaakt.",
     "versionsAppearAfterRegen": "Versies verschijnen hier na het opnieuw genereren van de schatting",
@@ -1914,7 +1914,7 @@
     "failedToLoadReport": "Rapport laden mislukt",
     "date": "Datum",
     "emptyTitle": "Jouw bedrijfsschatting",
-    "emptyDesc": "Vul de gegevens in of start een gesprek om je gepersonaliseerde schattingsrapport te genereren.",
+    "emptyDesc": "Vul de gegevens in of start een gesprek om je gepersonaliseerde indicatieve schattingsrapport te genereren.",
     "conceptReport": "Concept Rapport",
     "indicativeValuation": "Indicatieve Bedrijfsschatting",
     "estimatedEnterpriseValue": "Geschatte Ondernemingswaarde",

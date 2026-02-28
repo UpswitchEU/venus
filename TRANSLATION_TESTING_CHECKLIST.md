@@ -40,14 +40,14 @@
 ## 🧭 Navigation & Toolbar Testing
 
 ### Toolbar Actions (EN)
-- [ ] "New Valuation" button shows English text
+- [ ] "New Indicative Estimate" button shows English text
 - [ ] "Download PDF" tooltip shows English
 - [ ] "Refresh" tooltip shows English
 - [ ] "Fullscreen" tooltip shows English
 - [ ] Save status shows "Saving...", "Saved", "Auto-saving..." in English
 
 ### Toolbar Actions (NL)
-- [ ] "Nieuwe Waardering" button shows Dutch text
+- [ ] "Nieuwe Indicatieve bedrijfsschatting" button shows Dutch text
 - [ ] "PDF Downloaden" tooltip shows Dutch
 - [ ] "Vernieuwen" tooltip shows Dutch
 - [ ] "Volledig scherm" tooltip shows Dutch
@@ -114,14 +114,14 @@
 
 ### Submit Button (EN)
 
-- [ ] Default: "Calculate Valuation"
+- [ ] Default: "Calculate Indicative Estimate"
 - [ ] With normalization: "Calculate with Normalization"
 - [ ] Regeneration mode: "Regenerate Report"
 - [ ] Submitting state: "Calculating..."
 
 ### Submit Button (NL)
 
-- [ ] Default: "Waardering Berekenen"
+- [ ] Default: "Indicatieve bedrijfsschatting Berekenen"
 - [ ] With normalization: "Berekenen met Normalisatie"
 - [ ] Regeneration mode: "Rapport Opnieuw Genereren"
 - [ ] Submitting state: "Berekenen..."
@@ -168,7 +168,7 @@
 
 ### Welcome Message (EN)
 
-- [ ] Opens to: "Hi! I'm your valuation assistant..."
+- [ ] Opens to: "Hi! I'm your indicative business estimate assistant..."
 - [ ] Input placeholder: "Type your message here..."
 - [ ] Suggestion chips in English:
   - [ ] "Your business type"
@@ -177,7 +177,7 @@
 
 ### Welcome Message (NL)
 
-- [ ] Opens to: "Hallo! Ik ben uw waarderingsassistent..."
+- [ ] Opens to: "Hallo! Ik ben uw schattingsassistent..."
 - [ ] Input placeholder: "Typ hier uw bericht..."
 - [ ] Suggestion chips in Dutch:
   - [ ] "Uw bedrijfstype"
@@ -221,7 +221,7 @@
 - [ ] "Managementsamenvatting"
 - [ ] "Bedrijfsoverzicht"
 - [ ] "Financiële Analyse"
-- [ ] "Waarderingsanalyse"
+- [ ] "Indicatieve bedrijfsschattingsanalyse"
 - [ ] "Aanbevelingen"
 
 ### Report Actions (EN)

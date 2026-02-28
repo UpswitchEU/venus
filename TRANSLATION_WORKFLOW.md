@@ -34,9 +34,9 @@ When you need to add or change copy:
     }
   },
   "valuation": {
-    "title": "Business Valuation",
+    "title": "Indicative Business Estimate",
     // ✅ CHANGE EXISTING TEXT HERE
-    "subtitle": "Professional valuation for your business"
+    "subtitle": "Professional indicative business estimate"
   }
 }
 ```
@@ -78,7 +78,7 @@ Dutch (nl) Translation Status
 
   [valuation]:
     - valuation.subtitle
-      EN: "Professional valuation for your business"
+      EN: "Professional indicative business estimate"
     - valuation.actions.export
       EN: "Export Report"
 ```
@@ -100,9 +100,9 @@ Open `messages/nl.json` and add the missing translations:
     }
   },
   "valuation": {
-    "title": "Bedrijfswaardering",
+    "title": "Indicatieve bedrijfsschatting",
     // ✅ ADD DUTCH TRANSLATION
-    "subtitle": "Professionele waardering voor uw bedrijf"
+    "subtitle": "Professionele indicatieve bedrijfsschatting voor uw bedrijf"
   }
 }
 ```
@@ -273,7 +273,7 @@ const t = useTranslations();
 **Step 3: Replace hardcoded strings**
 ```typescript
 // ❌ Before
-<button>Calculate Valuation</button>
+<button>Calculate Indicative Estimate</button>
 <p>Failed to calculate valuation</p>
 
 // ✅ After

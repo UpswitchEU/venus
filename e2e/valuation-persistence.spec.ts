@@ -34,7 +34,7 @@ test.describe('Valuation Data Persistence', () => {
     await page.fill('input[name="founding_year"]', '2020')
     
     // Step 3: Submit valuation
-    await page.click('button[type="submit"]:has-text("Calculate Valuation")')
+    await page.click('button[type="submit"]:has-text("Calculate Indicative Estimate")')
     
     // Step 4: Wait for valuation to complete
     // Wait for report to appear in preview panel
@@ -265,7 +265,7 @@ test.describe('Cache Update Strategy (Cursor/ChatGPT-Style)', () => {
     await page.selectOption('select[name="business_model"]', 'b2b_saas')
     await page.fill('input[name="founding_year"]', '2020')
     
-    await page.click('button[type="submit"]:has-text("Calculate Valuation")')
+    await page.click('button[type="submit"]:has-text("Calculate Indicative Estimate")')
     await page.waitForSelector('.valuation-report-container', { timeout: 30000 })
     
     const reportUrl = page.url()
@@ -336,7 +336,7 @@ test.describe('Cache Update Strategy (Cursor/ChatGPT-Style)', () => {
     await page.selectOption('select[name="business_model"]', 'ecommerce')
     await page.fill('input[name="founding_year"]', '2019')
     
-    await page.click('button[type="submit"]:has-text("Calculate Valuation")')
+    await page.click('button[type="submit"]:has-text("Calculate Indicative Estimate")')
     await page.waitForSelector('.valuation-report-container', { timeout: 30000 })
     
     // Now test instant load
@@ -407,7 +407,7 @@ test.describe('Cache Update Strategy (Cursor/ChatGPT-Style)', () => {
     await page.fill('input[name="founding_year"]', '2021')
     
     // Submit and wait for completion
-    await page.click('button[type="submit"]:has-text("Calculate Valuation")')
+    await page.click('button[type="submit"]:has-text("Calculate Indicative Estimate")')
     await page.waitForSelector('.valuation-report-container', { timeout: 30000 })
     
     const reportUrl = page.url()

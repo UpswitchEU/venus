@@ -68,13 +68,13 @@ export const metadata: Metadata = {
     locale: 'nl_BE',
     url: 'https://valuation.upswitch.app',
     siteName: 'Upswitch',
-    title: 'Upswitch | Bedrijfswaardering',
-    description: 'Het platform waarmee accountants professionele bedrijfswaarderingen uitvoeren.',
+    title: 'Upswitch | Indicatieve bedrijfsschatting',
+    description: 'Het platform waarmee accountants indicatieve bedrijfsschattingen uitvoeren.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Upswitch | Bedrijfswaardering',
-    description: 'Het platform waarmee accountants professionele bedrijfswaarderingen uitvoeren.',
+    title: 'Upswitch | Indicatieve bedrijfsschatting',
+    description: 'Het platform waarmee accountants indicatieve bedrijfsschattingen uitvoeren.',
   },
   robots: {
     index: true,
