@@ -110,7 +110,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const data = await backendResponse.json().catch(() => ({ success: false }))
+    const data = await backendResponse.json().catch(() => ({
+      success: false,
+      results: [],
+      error: 'Invalid response',
+    }))
     return NextResponse.json(data)
   } catch (error) {
     console.error('[Venus Registry API] Error:', error)

@@ -61,7 +61,11 @@ export class RegistryService {
       throw new ValidationError('Limit must be between 1 and 200', { limit })
     }
 
-    const cacheKey = `search:${country}:${query}:${limit}`
+    // Normalize: trim, collapse spaces, cap at 30 chars for backend performance
+    const trimmed = query.trim().replace(/\s+/g, ' ')
+    const normalizedQuery = trimmed.length > 30 ? trimmed.slice(0, 30) : trimmed
+
+    const cacheKey = `search:${country}:${normalizedQuery}:${limit}`
 
     // Check cache first
     const cached = this.cache.get(cacheKey)
@@ -77,12 +81,14 @@ export class RegistryService {
     }
 
     // Create new request
-    const requestPromise = this._searchCompanies(query, country, limit, signal)
+    const requestPromise = this._searchCompanies(normalizedQuery, country, limit, signal)
     this.pendingRequests.set(cacheKey, requestPromise)
 
     try {
       const result = await requestPromise
-      this.cache.set(cacheKey, result)
+      if (result.success) {
+        this.cache.set(cacheKey, result)
+      }
       return result
     } catch (error) {
       // Handle error with recovery
@@ -156,6 +162,17 @@ export class RegistryService {
       }
 
       const data = await response.json()
+
+      // Proxy may return 200 with success:false (e.g. JSON parse error fallback)
+      if (data && data.success === false) {
+        return {
+          success: false,
+          results: [],
+          error: data.error || 'Search failed',
+          requestId,
+        }
+      }
+
       serviceLogger.info('Search successful', {
         requestId,
         resultsCount: data.results?.length || data.length || 0,
@@ -163,7 +180,12 @@ export class RegistryService {
       })
 
       // Handle both array response and object with results property
-      const results = Array.isArray(data) ? data : data.results || []
+      const rawResults = Array.isArray(data) ? data : data.results || []
+      // Normalize: Titan returns kbo_number; Venus components expect registration_number
+      const results = rawResults.map((r: any) => ({
+        ...r,
+        registration_number: r.registration_number ?? r.kbo_number ?? '',
+      }))
 
       return {
         success: true,
