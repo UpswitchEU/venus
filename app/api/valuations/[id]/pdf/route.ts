@@ -32,13 +32,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    const body = await request.json().catch(() => ({}))
-    const async = body.async ?? true
-
     const TITAN_API_URL = getTitanApiUrl(request)
-    const titanUrl = async
-      ? `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf/async`
-      : `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf`
+    const titanUrl = `${TITAN_API_URL}/api/v2/valuations/reports/${id}/pdf`
 
     const response = await fetch(titanUrl, {
       method: 'POST',
@@ -46,9 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         'Content-Type': 'application/json',
         Cookie: cookieHeader,
       },
-      body: JSON.stringify(body),
-      // Longer timeout for sync PDF generation
-      signal: AbortSignal.timeout(async ? 10000 : 60000),
+      signal: AbortSignal.timeout(60000),
     })
 
     if (!response.ok) {
