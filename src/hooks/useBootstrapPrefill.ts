@@ -73,13 +73,21 @@ export function useBootstrapPrefill(): {
     // so the form stayed blank until it completed. Bootstrap prefill has the data from
     // Titan's buildPrefill (session_data) - apply it immediately for instant display.
     // Restoration will run when loadSession completes and merge any additional data.
+    // Include financials (revenue/EBITDA) so we apply prefill when only financial data exists
     const hasMeaningfulPrefill =
       bootstrap.hasPrefilledData &&
       bootstrap.prefillData.confidence >= 0.05 &&
       (!!bootstrap.prefillData.companyInfo?.companyName?.trim() ||
         !!bootstrap.prefillData.companyInfo?.kboNumber ||
         !!bootstrap.prefillData.kboData?.kboNumber ||
-        !!bootstrap.prefillData.companyInfo?.vatNumber)
+        !!bootstrap.prefillData.companyInfo?.vatNumber ||
+        (bootstrap.prefillData.financials &&
+          ((bootstrap.prefillData.financials.revenue != null &&
+            bootstrap.prefillData.financials.revenue > 0) ||
+            (bootstrap.prefillData.financials.ebitda != null &&
+              bootstrap.prefillData.financials.ebitda > 0) ||
+            (bootstrap.prefillData.financials.yearData &&
+              Object.keys(bootstrap.prefillData.financials.yearData).length > 0))))
 
     if (
       bootstrap.report.mode === 'existing' &&

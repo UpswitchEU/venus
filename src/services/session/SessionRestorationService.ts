@@ -18,6 +18,7 @@
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
+import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import { generalLogger } from '../../utils/logger'
 import {
@@ -272,6 +273,10 @@ class SessionRestorationServiceImpl {
     // Idempotent check: Skip if already restored
     if (this.restoredReportIds.has(reportId)) {
       generalLogger.debug('[SessionRestoration] Skipping - already restored', { reportId })
+      // Re-assert flag in case loadSession reset it between calls
+      if (!useSessionStore.getState().restorationComplete) {
+        useSessionStore.getState().setRestorationComplete(true)
+      }
       return {
         success: true,
         reportId,
@@ -329,6 +334,7 @@ class SessionRestorationServiceImpl {
       if (!normalized.hasExistingData) {
         generalLogger.debug('[SessionRestoration] New report - no data to restore', { reportId })
         this.restoredReportIds.add(reportId)
+        useSessionStore.getState().setRestorationComplete(true)
         return {
           success: true,
           reportId,
@@ -344,7 +350,10 @@ class SessionRestorationServiceImpl {
       // 4. Hydrate ALL stores atomically
       const result = await this.hydrateStores(normalized)
 
-      // 5. Verify restoration completed successfully
+      // 5. Signal restoration complete so ManualLayout can unblock the UI immediately
+      useSessionStore.getState().setRestorationComplete(true)
+
+      // 6. Verify restoration completed successfully
       const verified = this.verifyRestoration(normalized)
       if (!verified) {
         generalLogger.warn('[SessionRestoration] Verification found missing assets', {
@@ -353,7 +362,7 @@ class SessionRestorationServiceImpl {
         })
       }
 
-      // 6. Mark as restored and clear pending restoration (G2 fix)
+      // 7. Mark as restored and clear pending restoration (G2 fix)
       this.restoredReportIds.add(reportId)
       this.clearPendingRestoration(reportId)
 
@@ -374,6 +383,9 @@ class SessionRestorationServiceImpl {
         reportId,
         error: errorMessage,
       })
+
+      // Always unblock the UI even when restoration fails
+      useSessionStore.getState().setRestorationComplete(true)
 
       return {
         success: false,

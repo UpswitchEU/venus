@@ -364,6 +364,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const session = useSessionStore((s) => s.session)
   const sessionError = useSessionStore((s) => s.errorMessage)
   const reportIdFromSession = useSessionStore((s) => s.session?.reportId)
+  const restorationComplete = useSessionStore((s) => s.restorationComplete)
   const sessionName = useSessionStore((s) => s.session?.name)
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
   const {
@@ -443,7 +444,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const sd = (session.sessionData || session) as any
       return !!(sd.valuationResult || sd.valuation_result || sd.htmlReport || sd.html_report)
     })()
-  // Safety timeout: if isRestoringExistingReport stays true for 5s, unblock UI (prevents infinite loading)
+  // Unblock UI as soon as SessionRestorationService signals completion.
+  // Keep a 5s safety timeout as a last resort in case the signal is never set.
   const [restoreTimeoutFired, setRestoreTimeoutFired] = useState(false)
   useEffect(() => {
     if (!isRestoringExistingReport) {
@@ -458,7 +460,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }, 5000)
     return () => clearTimeout(id)
   }, [isRestoringExistingReport])
-  const effectiveIsRestoringExistingReport = isRestoringExistingReport && !restoreTimeoutFired
+  const effectiveIsRestoringExistingReport =
+    isRestoringExistingReport && !restorationComplete && !restoreTimeoutFired
   const [reportStatus, setReportStatus] = useState<'draft' | 'final'>('draft')
   const [isExporting, setIsExporting] = useState(false)
   const [downloadHistory, setDownloadHistory] = useState<
@@ -758,17 +761,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const versions = useVersionHistoryStore((s) => s.versions[reportId] || [])
   const [selectedVersionId, setSelectedVersionId] = useState<string>('current')
 
-  // Fetch versions on mount
-  useEffect(() => {
-    if (reportId) {
-      useVersionHistoryStore
-        .getState()
-        .fetchVersions(reportId)
-        .catch(() => {
-          // Non-critical: versions will show empty
-        })
-    }
-  }, [reportId])
+  // NOTE: Version fetching is owned by HistoryPanel (single owner pattern).
+  // Do NOT fetch here to avoid duplicate API calls and race conditions.
 
   // Map versions to CalculatorNav format
   const versionHistoryForNav = React.useMemo(() => {

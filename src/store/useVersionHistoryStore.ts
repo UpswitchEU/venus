@@ -175,31 +175,15 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           },
         }))
 
-        try {
-          versionLogger.info('Fetching versions', { reportId })
-
-          // ✅ FIX: Get existing local versions BEFORE fetching to merge properly
+        const applyBackendResponse = (response: any) => {
           const existingLocalVersions = get().versions[reportId] || []
-
-          // Try backend API first
-          const response = await versionAPI.listVersions(reportId)
-
-          // ✅ FIX: Deduplicate versions by versionNumber to prevent duplicates
-          // Use a Map to ensure unique versions by versionNumber
-          // Backend versions are source of truth, but merge with local if backend is missing any
           const versionMap = new Map<number, ValuationVersion>()
-
-          // First, add existing local versions (in case backend hasn't synced yet)
           existingLocalVersions.forEach((version) => {
             versionMap.set(version.versionNumber, version)
           })
-
-          // Then, add backend versions (these override local versions - backend is source of truth)
-          response.versions.forEach((version) => {
+          response.versions.forEach((version: ValuationVersion) => {
             versionMap.set(version.versionNumber, version)
           })
-
-          // Convert back to array and sort by versionNumber
           const deduplicatedVersions = Array.from(versionMap.values()).sort(
             (a, b) => a.versionNumber - b.versionNumber
           )
@@ -230,15 +214,14 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             deduplicatedCount: deduplicatedVersions.length,
             hadLocalVersions: existingLocalVersions.length > 0,
           })
-        } catch (error) {
-          // Fallback to local storage (already populated from persist middleware)
+        }
+
+        const fallbackToLocal = (error: unknown) => {
           const localVersions = get().versions[reportId] || []
 
-          // ✅ FIX: Deduplicate local versions too (in case of duplicates)
           const localVersionMap = new Map<number, ValuationVersion>()
           localVersions.forEach((version) => {
             const existing = localVersionMap.get(version.versionNumber)
-            // Keep the version with the latest createdAt if duplicates exist
             if (
               !existing ||
               (version.createdAt && existing.createdAt && version.createdAt > existing.createdAt)
@@ -273,8 +256,25 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
               },
             },
           }))
+        }
+
+        const fetchWithRetry = async (): Promise<any> => {
+          try {
+            return await versionAPI.listVersions(reportId)
+          } catch (firstError) {
+            versionLogger.info('Retrying version fetch after 1s', { reportId })
+            await new Promise((r) => setTimeout(r, 1000))
+            return await versionAPI.listVersions(reportId)
+          }
+        }
+
+        try {
+          versionLogger.info('Fetching versions', { reportId })
+          const response = await fetchWithRetry()
+          applyBackendResponse(response)
+        } catch (error) {
+          fallbackToLocal(error)
         } finally {
-          // Ensure loading is always cleared (prevents infinite spinner on unhandled edge cases)
           set({ loading: false })
         }
       },

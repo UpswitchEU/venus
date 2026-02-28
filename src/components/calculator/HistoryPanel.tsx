@@ -327,7 +327,9 @@ export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore 
   const reportId = reportIdProp ?? report?.id
   const storeVersions = useVersionHistoryStore((s) => (reportId ? s.versions[reportId] || [] : []))
   const fetchVersions = useVersionHistoryStore((s) => s.fetchVersions)
-  const storeLoading = useVersionHistoryStore((s) => s.loading)
+  const storeLoading = useVersionHistoryStore((s) =>
+    reportId ? s.syncStatus[reportId]?.isSyncing ?? false : false
+  )
   const storeError = useVersionHistoryStore((s) => s.error)
   const activeVersionNumber = useVersionHistoryStore((s) =>
     reportId ? s.activeVersions[reportId] : undefined

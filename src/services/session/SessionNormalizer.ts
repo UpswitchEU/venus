@@ -149,6 +149,24 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     }
   }
 
+  // Build historical_years_data from current_year_data when missing (Mercury accountant flow)
+  // Form expects array of { year, revenue, ebitda } for year-by-year inputs
+  const fd = formData as Record<string, unknown>
+  if (!fd.historical_years_data && (fd.current_year_data || fd.revenue != null || fd.ebitda != null)) {
+    const cyd = fd.current_year_data as
+      | { year?: number; revenue?: number | null; ebitda?: number | null }
+      | undefined
+    const rev = (fd.revenue as number) ?? cyd?.revenue ?? 0
+    const ebit = (fd.ebitda as number) ?? cyd?.ebitda ?? 0
+    const year = cyd?.year ?? new Date().getFullYear()
+    if (rev > 0 || ebit > 0) {
+      fd.historical_years_data = [
+        { year, revenue: rev, ebitda: ebit },
+        { year: year - 1, revenue: rev, ebitda: ebit },
+      ].sort((a, b) => b.year - a.year)
+    }
+  }
+
   return formData
 }
 

@@ -53,6 +53,10 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
   if (prefillData.financials?.ebitda !== undefined) fields.ebitda = prefillData.financials.ebitda
   if (prefillData.financials?.employeeCount !== undefined)
     fields.number_of_employees = prefillData.financials.employeeCount
+  // NOTE: historical_years_data is intentionally NOT built here.
+  // It is constructed by useBootstrapPrefill (for initial paint) and
+  // SessionNormalizer (for authoritative restoration). Building it in
+  // multiple places creates a race condition where the last writer wins.
   return fields
 }
 

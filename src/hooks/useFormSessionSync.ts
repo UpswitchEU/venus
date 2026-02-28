@@ -76,6 +76,11 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
   // Uses debounceWithFlush for page unload - flush() saves pending changes before tab close
   const debouncedSyncToSession = useCallback(
     debounceWithFlush(async (data: typeof formData) => {
+      // Guard: don't sync while restoration is in progress to avoid overwriting restored data
+      if (!useSessionStore.getState().restorationComplete) {
+        return
+      }
+
       // Read session state inside the debounced function (not subscribed)
       const currentSession = useSessionStore.getState().session
       const updateSessionData = useSessionStore.getState().updateSessionData
@@ -248,4 +253,18 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       debouncedSyncToSession(formData)
     }
   }, [formData, debouncedSyncToSession, reportId])
+
+  // Flush pending debounced sync on page unload to prevent data loss
+  useEffect(() => {
+    const handleUnload = () => {
+      debouncedSyncToSession.flush?.()
+    }
+    window.addEventListener('beforeunload', handleUnload)
+    window.addEventListener('pagehide', handleUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload)
+      window.removeEventListener('pagehide', handleUnload)
+      debouncedSyncToSession.flush?.()
+    }
+  }, [debouncedSyncToSession])
 }

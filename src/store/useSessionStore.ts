@@ -45,6 +45,7 @@ interface SessionStore {
 
   // Restoration progress tracking
   restorationProgress: RestorationProgress | null
+  restorationComplete: boolean
 
   // Callbacks
   onSaveSuccess?: () => void
@@ -72,6 +73,9 @@ interface SessionStore {
   saveSession: (reason?: 'user' | 'autosave' | 'system') => Promise<void>
   clearSession: () => void
   completeInitialization: () => void
+
+  // Restoration actions
+  setRestorationComplete: (value: boolean) => void
 
   // Paywall actions
   clearPaywall: () => void
@@ -116,6 +120,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   // Other state
   restorationProgress: null,
+  restorationComplete: false,
   paywallData: null,
   engine: null,
   onSaveSuccess: undefined,
@@ -170,6 +175,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       set({
         status: 'loading' as SessionStatus,
         errorMessage: null,
+        restorationComplete: false,
         session: state.session?.reportId !== reportId ? null : state.session,
       })
 
@@ -277,6 +283,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           })
         } else {
           storeLogger.debug('[Session] New session detected - skipping restoration', { reportId })
+          set({ restorationComplete: true })
         }
 
         set({
@@ -298,6 +305,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           set({
             status: 'idle' as SessionStatus,
             errorMessage: null,
+            restorationComplete: true,
             paywallData: {
               current: (error as any).current || 0,
               limit: (error as any).limit || 1,
@@ -312,6 +320,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         set({
           status: 'error' as SessionStatus,
           errorMessage: rawMessage,
+          restorationComplete: true,
         })
 
         // Handle 404 - redirect if on report page
@@ -546,6 +555,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       isSaving: false,
       lastSaved: null,
       hasUnsavedChanges: false,
+      restorationComplete: false,
     })
   },
 
@@ -568,6 +578,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       hasSession: !!state.session,
       reportId: state.session?.reportId?.substring(0, 30) || 'none',
     })
+  },
+
+  /**
+   * Set restoration complete flag.
+   * Called by SessionRestorationService after hydrateStores() finishes.
+   * Resets to false when a new session loads or session is cleared.
+   */
+  setRestorationComplete: (value: boolean) => {
+    set({ restorationComplete: value })
   },
 
   /**
