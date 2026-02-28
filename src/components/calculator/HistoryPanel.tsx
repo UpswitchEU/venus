@@ -50,6 +50,8 @@ export interface ReportLike {
 
 export interface HistoryPanelProps {
   report: ReportLike | null
+  /** Session key or report ID for version fetching. Use when report is null (new session). */
+  reportId?: string
   // Receives the full ValuationVersion from the store (not the stripped HistoryVersion)
   onVersionRestore?: (version: any) => void
 }
@@ -317,11 +319,12 @@ function ValuationSummaryCard({
 // MAIN COMPONENT
 // ─────────────────────────────────────────
 
-export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
+export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore }: HistoryPanelProps) {
   const hp = useTranslations('historyPanel')
   const locale = useLocale() as 'nl' | 'en'
   // ── Real version data from store ──
-  const reportId = report?.id
+  // Use explicit reportId prop (session key) when report is null (new session)
+  const reportId = reportIdProp ?? report?.id
   const storeVersions = useVersionHistoryStore((s) => (reportId ? s.versions[reportId] || [] : []))
   const fetchVersions = useVersionHistoryStore((s) => s.fetchVersions)
   const storeLoading = useVersionHistoryStore((s) => s.loading)

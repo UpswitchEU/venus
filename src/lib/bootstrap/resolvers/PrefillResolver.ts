@@ -76,6 +76,9 @@ interface SessionDataForPrefill {
   number_of_employees?: number
   revenue?: number
   ebitda?: number
+  current_year_data?: { year?: number; revenue?: number | null; ebitda?: number | null }
+  historical_years_data?: Array<{ year: number; revenue?: number; ebitda?: number }>
+  year_data?: Record<number, { revenue?: number; ebitda?: number }>
   kbo_number?: string
   vat_number?: string
   legal_form?: string
@@ -83,7 +86,6 @@ interface SessionDataForPrefill {
   postal_code?: string
   nace_code?: string
   nace_description?: string
-  year_data?: Record<number, { revenue?: number; ebitda?: number }>
   _businessInfo?: Record<string, unknown>
 }
 
@@ -470,11 +472,32 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       naceDescription: merged.nace_description as string,
     }
 
+    // Extract financials: prefer top-level, fallback to current_year_data (Mercury accountant flow)
+    const cyd = merged.current_year_data as { year?: number; revenue?: number | null; ebitda?: number | null } | undefined
+    const revenue =
+      (merged.revenue as number) ?? (cyd?.revenue != null ? Number(cyd.revenue) : undefined)
+    const ebitda =
+      (merged.ebitda as number) ?? (cyd?.ebitda != null ? Number(cyd.ebitda) : undefined)
+    const yearData =
+      (merged.year_data as Record<number, { revenue?: number; ebitda?: number }>) ??
+      (merged.historical_years_data &&
+      Array.isArray(merged.historical_years_data) &&
+      merged.historical_years_data.length > 0
+        ? Object.fromEntries(
+            merged.historical_years_data.map((y: { year: number; revenue?: number; ebitda?: number }) => [
+              y.year,
+              { revenue: y.revenue, ebitda: y.ebitda },
+            ])
+          )
+        : cyd?.revenue != null || cyd?.ebitda != null
+          ? { [cyd!.year ?? new Date().getFullYear()]: { revenue: cyd!.revenue ?? undefined, ebitda: cyd!.ebitda ?? undefined } }
+          : undefined)
+
     const financials: PartialFinancials = {
-      revenue: merged.revenue as number,
-      ebitda: merged.ebitda as number,
+      revenue,
+      ebitda,
       employeeCount: (merged.employee_count ?? merged.number_of_employees) as number,
-      yearData: merged.year_data as Record<number, { revenue?: number; ebitda?: number }>,
+      yearData,
     }
 
     let businessType: BusinessTypeInfo | undefined

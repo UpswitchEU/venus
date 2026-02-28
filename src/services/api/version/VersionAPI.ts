@@ -48,15 +48,29 @@ const versionLogger = createContextLogger('VersionAPI')
  *
  * Note: Uses direct fetch calls since backend endpoints don't exist yet
  */
+const VERSION_API_TIMEOUT_MS = 10_000 // 10s - prevents indefinite hangs
+
 export class VersionAPI {
   private baseURL: string
+  /** Use same-origin proxy in browser to avoid CORS; direct Titan URL in Node */
+  private useProxy: boolean
 
   constructor() {
-    this.baseURL = getApiUrl()
+    this.useProxy = typeof window !== 'undefined'
+    this.baseURL = this.useProxy ? '' : getApiUrl()
+  }
+
+  /** Resolve URL: proxy path for browser, Titan path for server */
+  private resolveUrl(path: string): string {
+    if (this.useProxy) {
+      // Proxy: /api/valuations/sessions/... maps to Titan /api/v2/valuations/sessions/...
+      return path.replace('/api/v2/valuations/sessions/', '/api/valuations/sessions/')
+    }
+    return `${this.baseURL}${path}`
   }
 
   /**
-   * Execute API request with error handling
+   * Execute API request with error handling and timeout
    */
   private async executeRequest<T>(
     config: {
@@ -67,24 +81,37 @@ export class VersionAPI {
     },
     options?: APIRequestConfig
   ): Promise<T> {
-    const url = `${this.baseURL}${config.url}`
-
-    const response = await fetch(url, {
-      method: config.method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...config.headers,
-      },
-      body: config.data ? JSON.stringify(config.data) : undefined,
-      credentials: 'include',
-      signal: options?.signal,
-    })
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`)
+    const url = this.resolveUrl(config.url)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      options?.timeout ?? VERSION_API_TIMEOUT_MS
+    )
+    if (options?.signal) {
+      options.signal.addEventListener('abort', () => controller.abort())
     }
+    const signal = controller.signal
 
-    return response.json()
+    try {
+      const response = await fetch(url, {
+        method: config.method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...config.headers,
+        },
+        body: config.data ? JSON.stringify(config.data) : undefined,
+        credentials: 'include',
+        signal,
+      })
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`)
+      }
+
+      return response.json()
+    } finally {
+      clearTimeout(timeoutId)
+    }
   }
   /**
    * List all versions for a report

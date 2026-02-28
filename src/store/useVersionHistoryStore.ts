@@ -273,6 +273,9 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
               },
             },
           }))
+        } finally {
+          // Ensure loading is always cleared (prevents infinite spinner on unhandled edge cases)
+          set({ loading: false })
         }
       },
 

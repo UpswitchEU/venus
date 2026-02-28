@@ -443,6 +443,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const sd = (session.sessionData || session) as any
       return !!(sd.valuationResult || sd.valuation_result || sd.htmlReport || sd.html_report)
     })()
+  // Safety timeout: if isRestoringExistingReport stays true for 5s, unblock UI (prevents infinite loading)
+  const [restoreTimeoutFired, setRestoreTimeoutFired] = useState(false)
+  useEffect(() => {
+    if (!isRestoringExistingReport) {
+      setRestoreTimeoutFired(false)
+      return
+    }
+    const id = setTimeout(() => {
+      setRestoreTimeoutFired(true)
+      generalLogger.warn(
+        '[ManualLayout] isRestoringExistingReport safety timeout fired - unblocking right panel'
+      )
+    }, 5000)
+    return () => clearTimeout(id)
+  }, [isRestoringExistingReport])
+  const effectiveIsRestoringExistingReport = isRestoringExistingReport && !restoreTimeoutFired
   const [reportStatus, setReportStatus] = useState<'draft' | 'final'>('draft')
   const [isExporting, setIsExporting] = useState(false)
   const [downloadHistory, setDownloadHistory] = useState<
@@ -2239,7 +2255,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           isExporting={isExporting}
           recentValuations={recentValuations}
           onNewValuation={handleNewValuation}
-          isCalculating={isGenerating || isCalculating || isRestoringExistingReport}
+          isCalculating={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
           onSelectValuation={handleSelectValuation}
           onLogout={handleLogout}
           onAccountSettings={handleAccountSettings}
@@ -2382,7 +2398,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }}
         recentValuations={recentValuations}
         onNewValuation={handleNewValuation}
-        isCalculating={isGenerating || isCalculating || isRestoringExistingReport}
+        isCalculating={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
         onSelectValuation={handleSelectValuation}
         onLogout={handleLogout}
         onAccountSettings={handleAccountSettings}
@@ -2459,7 +2475,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                         </div>
                       ) : (
                         <div className="h-full flex flex-col">
-                          {(isGenerating || isCalculating || isRestoringExistingReport) && (
+                          {(isGenerating || isCalculating || effectiveIsRestoringExistingReport) && (
                             <div className="flex items-center justify-center gap-2 py-4">
                               <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                               <span className="text-sm text-foreground/60">
@@ -2481,7 +2497,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       className="h-full"
                     >
                       <Suspense fallback={<PanelSkeleton />}>
-                        <HistoryPanel report={report} onVersionRestore={handleVersionRestore} />
+                        <HistoryPanel
+                          report={report}
+                          reportId={reportId}
+                          onVersionRestore={handleVersionRestore}
+                        />
                       </Suspense>
                     </motion.div>
                   ) : report?.htmlReport ? (

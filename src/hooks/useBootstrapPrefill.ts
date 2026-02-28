@@ -306,6 +306,50 @@ function applyPrefillToForm(
     if (financials.employeeCount !== undefined)
       allData.number_of_employees = financials.employeeCount
     if (financials.yearData) allData.year_data = financials.yearData
+
+    // Convert yearData or revenue+ebitda to historical_years_data for form display
+    // Form expects array of { year, revenue, ebitda } for year-by-year inputs
+    const historicalYears: Array<{ year: number; revenue: number; ebitda: number }> = []
+    if (financials.yearData && Object.keys(financials.yearData).length > 0) {
+      Object.entries(financials.yearData).forEach(([yearStr, data]) => {
+        const year = parseInt(yearStr, 10)
+        if (year >= 2000 && year <= 2100 && (data?.revenue || data?.ebitda)) {
+          historicalYears.push({
+            year,
+            revenue: data.revenue ?? 0,
+            ebitda: data.ebitda ?? 0,
+          })
+        }
+      })
+      // When we have only one year from yearData, add previous year (user expects 2024+2025)
+      if (historicalYears.length === 1) {
+        const single = historicalYears[0]
+        historicalYears.push({
+          year: single.year - 1,
+          revenue: single.revenue,
+          ebitda: single.ebitda,
+        })
+      }
+    } else if (
+      (financials.revenue !== undefined && financials.revenue > 0) ||
+      (financials.ebitda !== undefined && financials.ebitda > 0)
+    ) {
+      // Single year from revenue/ebitda: prefill current year and previous year (user expects 2024+2025)
+      const currentYear = new Date().getFullYear()
+      const rev = financials.revenue ?? 0
+      const ebit = financials.ebitda ?? 0
+      historicalYears.push({ year: currentYear, revenue: rev, ebitda: ebit })
+      historicalYears.push({ year: currentYear - 1, revenue: rev, ebitda: ebit })
+    }
+    if (historicalYears.length > 0) {
+      historicalYears.sort((a, b) => b.year - a.year) // Most recent first
+      allData.historical_years_data = historicalYears
+      allData.current_year_data = {
+        year: historicalYears[0].year,
+        revenue: historicalYears[0].revenue,
+        ebitda: historicalYears[0].ebitda,
+      }
+    }
   }
 
   // 4. Apply business type
