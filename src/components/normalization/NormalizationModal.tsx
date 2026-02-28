@@ -5,7 +5,7 @@
  * Displays 12 category inputs with live preview
  */
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import React, { useEffect, useState } from 'react'
 import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories'
 import { NormalizationAPIError } from '../../services/ebitdaNormalizationService'
@@ -139,8 +139,10 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
     }
   }
 
+  const locale = useLocale()
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-BE', {
+    return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,

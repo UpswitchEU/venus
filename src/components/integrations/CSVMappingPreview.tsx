@@ -24,7 +24,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { Badge } from '@/design-system/components/Badge'
 import { AuroraButton as Button } from '@/design-system/components/Button'
@@ -174,6 +174,15 @@ export function CSVMappingPreview({
   className,
 }: CSVMappingPreviewProps) {
   const t = useTranslations('normalizationHub')
+  const locale = useLocale() as 'nl' | 'en'
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat(currencyLocale, {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
   const [mappedAccounts, setMappedAccounts] = useState<MappedAccount[]>(() =>
     mapCSVToAccounts(parsedData)
   )

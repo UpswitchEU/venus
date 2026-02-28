@@ -28,7 +28,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   type BusinessType,
@@ -228,15 +228,6 @@ function getNormalizationTemplates(
   ]
 }
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('nl-BE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
 // Inline FieldHelpTrigger component for contextual AI assistance
 function FieldHelpTrigger({
   context,
@@ -313,6 +304,18 @@ export function ManualInputPanel({
   const t = useTranslations()
   const mi = useTranslations('manualInput')
   const tKbo = useTranslations('forms.kboLookup')
+  const locale = useLocale()
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const formatCurrency = useCallback(
+    (amount: number) =>
+      new Intl.NumberFormat(currencyLocale, {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount),
+    [currencyLocale]
+  )
   const [formData, setFormData] = useState<ValuationFormData>({
     companyName: initialData.companyName || '',
     kboNumber: initialData.kboNumber || '',

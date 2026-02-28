@@ -1507,6 +1507,7 @@
     "allSuggestionsProcessed": "Great! All AI suggestions have been processed.",
     "acceptOrAddManually": "Accept suggestions or add normalizations manually via the search bar above.",
     "useSearchOrQuickAdd": "Use the search bar or click a quick option above to add a normalization.",
+    "normalizationsCountOf": "{filtered} of {total} normalizations",
     "avgCosts": "Avg. costs",
     "fiscalYears": "Fiscal years",
     "lowConfidenceWarning": "{count, plural, one {# account} other {# accounts}} with uncertain categorization. Click the category to adjust.",

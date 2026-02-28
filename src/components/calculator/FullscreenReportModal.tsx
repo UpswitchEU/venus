@@ -17,8 +17,9 @@ import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { AuroraButton } from '@/design-system'
 import { Modal, ModalContent } from '@/design-system/components/Modal'
+import { ReportSkeleton } from '@/components/skeletons/ReportSkeleton'
 import { HTMLProcessor } from '@/utils/htmlProcessor'
-import { type ValuationReportData, ValuationReportPanel } from './ValuationReportPanel'
+import type { ValuationReportData } from './types'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -179,11 +180,7 @@ export function FullscreenReportModal({
               />
             </div>
           ) : (
-            <ValuationReportPanel
-              report={report ?? null}
-              onExport={onExport}
-              isExporting={isExporting}
-            />
+            <ReportSkeleton />
           )}
         </div>
       </ModalContent>

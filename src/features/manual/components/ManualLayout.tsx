@@ -12,7 +12,7 @@
  *   │ ContextBar (accountant mode)                           │
  *   ├────────────┬──────────────────────────────────────────┤
  *   │ Left 35%   │ Right 65%                                 │
- *   │ ManualInput│ ValuationReportPanel / Preview / History  │
+ *   │ ManualInput│ Report (HTML) / Preview / History       │
  *   └────────────┴──────────────────────────────────────────┘
  *   + ChatAssistantDrawer (slide-in from right)
  *   + FullscreenReportModal, NormalisationSuggestionModal, UnifiedNormalizationModal
@@ -47,12 +47,11 @@ import {
   type NormalisationSuggestion,
   NormalisationSuggestionModal,
   type NormalizationItem,
-  ReportPreviewPanel,
   type RightPanelView,
   UnifiedNormalizationModal,
   type ValuationReportData,
-  ValuationReportPanel,
 } from '../../../components/calculator'
+import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { springDefault } from '../../../design-system/components/motion'
 // Design System
 import {
@@ -2418,20 +2417,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           />
                         </div>
                       ) : (
-                        <ReportPreviewPanel
-                          report={
-                            report
-                              ? {
-                                  companyName: report.companyName,
-                                  valuation: report.valuation,
-                                  ebitda: report.ebitda ?? 0,
-                                  multiple: report.multiple ?? 0,
-                                  generatedAt: report.generatedAt,
-                                  metrics: report.metrics,
-                                }
-                              : null
-                          }
-                        />
+                        <div className="h-full flex flex-col">
+                          {(isGenerating || isCalculating || isRestoringExistingReport) && (
+                            <div className="flex items-center justify-center gap-2 py-4">
+                              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                              <span className="text-sm text-foreground/60">
+                                {tReport('generating.title')}
+                              </span>
+                            </div>
+                          )}
+                          <ReportSkeleton />
+                        </div>
                       )}
                     </motion.div>
                   ) : rightPanelView === 'history' ? (
@@ -2473,26 +2469,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       transition={springDefault}
                       className="h-full"
                     >
-                      <ValuationReportPanel
-                        report={report}
-                        isGenerating={isGenerating || isCalculating || isRestoringExistingReport}
-                        isExporting={isExporting}
-                        onExport={handleExport}
-                        onRegenerate={() => {
-                          setReport(null)
-                          setResult(null as any)
-                          setReportStatus('draft')
-                          setRightPanelView('report')
-                          if (reportId) {
-                            try {
-                              sessionStorage.removeItem(`pdf_${reportId}`)
-                            } catch {}
-                          }
-                          toast.info(t('readyForRecalculation'))
-                        }}
-                        reportStatus={reportStatus}
-                        onStatusChange={setReportStatus}
-                      />
+                      <ReportSkeleton />
                     </motion.div>
                   )}
                 </AnimatePresence>

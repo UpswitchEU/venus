@@ -2113,11 +2113,10 @@ export function UnifiedNormalizationModal({
                   </div>
                 </motion.div>
                 <p className="text-lg font-medium text-foreground/80 mb-2">
-                  Nog geen normalisaties
+                  {nh('noNormalizationsYet')}
                 </p>
                 <p className="text-sm text-foreground/45 max-w-sm mx-auto leading-relaxed">
-                  Gebruik de zoekbalk of klik op een snelkeuze hierboven om een normalisatie toe te
-                  voegen.
+                  {nh('useSearchOrQuickAdd')}
                 </p>
               </motion.div>
             )}
@@ -2127,8 +2126,12 @@ export function UnifiedNormalizationModal({
         <ModalFooter className="border-t border-foreground/[0.06] px-6 py-4">
           <div className="flex items-center justify-between w-full">
             <p className="text-xs text-foreground/50">
-              {filteredNormalizations.length} van {normalizations.length} normalisaties
-              {yearFilter && ` · Filter: ${yearFilter}`}
+              {nh('normalizationsCountOf', {
+                filtered: filteredNormalizations.length,
+                total: normalizations.length,
+              })}
+              {yearFilter &&
+                ` · ${tCommon('filter')}: ${yearFilter}`}
             </p>
             <Button onClick={() => onOpenChange(false)}>{tCommon('close')}</Button>
           </div>

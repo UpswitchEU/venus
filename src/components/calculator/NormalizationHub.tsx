@@ -28,7 +28,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { cn } from '@/design-system/utils'
@@ -60,21 +60,6 @@ export interface NormalizationHubProps {
 // HELPERS
 // ─────────────────────────────────────────
 
-const formatCurrency = (amount: number) => {
-  if (Math.abs(amount) >= 1000000) {
-    return `€${(amount / 1000000).toFixed(2)}M`
-  }
-  if (Math.abs(amount) >= 1000) {
-    return `€${Math.round(amount / 1000)}K`
-  }
-  return new Intl.NumberFormat('nl-BE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
 const sourceIcons: Record<string, string> = {
   yuki: '🟣',
   exact: '🔵',
@@ -101,6 +86,18 @@ export function NormalizationHub({
   ledgerAccounts = [],
 }: NormalizationHubProps) {
   const nh = useTranslations('normalizationHub')
+  const locale = useLocale() as 'nl' | 'en'
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const formatCurrency = (amount: number) => {
+    if (Math.abs(amount) >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
+    if (Math.abs(amount) >= 1000) return `€${Math.round(amount / 1000)}K`
+    return new Intl.NumberFormat(currencyLocale, {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Calculate stats

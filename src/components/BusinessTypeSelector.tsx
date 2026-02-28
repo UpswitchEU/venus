@@ -8,7 +8,7 @@
  * @version 2.0.0
  */
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import React, { useState } from 'react'
 import type { BusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypeFull } from '../hooks/useBusinessTypeFull'
@@ -38,6 +38,8 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
   className = '',
 }) => {
   const t = useTranslations('common')
+  const locale = useLocale()
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const { businessTypeOptions, loading: loadingTypes } = useBusinessTypes()
   const [selectedId, setSelectedId] = useState<string | null>(value)
 
@@ -61,7 +63,7 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
   // Format currency
   const formatCurrency = (amount?: number) => {
     if (!amount) return 'N/A'
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',
       currency: 'EUR',
       maximumFractionDigits: 0,

@@ -5,7 +5,7 @@
  * Shows reported EBITDA → total adjustments → normalized EBITDA
  */
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
 import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories'
 import { CustomAdjustment, NormalizationAdjustment } from '../../types/ebitdaNormalization'
@@ -32,11 +32,13 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
   onRemoveCustomAdjustment,
 }) => {
   const t = useTranslations('normalizationHub')
+  const locale = useLocale()
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const adjustmentPercentage =
     reportedEbitda !== 0 ? ((totalAdjustments / reportedEbitda) * 100).toFixed(1) : '0.0'
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-BE', {
+    return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,

@@ -1,9 +1,8 @@
 /**
- * Valuation Report Components
+ * Valuation Report Types
  *
- * React components for rendering valuation reports.
- * Replaces server-side HTML generation with client-side React rendering.
+ * Types for valuation report data.
+ * Report content is rendered from backend HTML (htmlReport).
  */
 
 export * from './types'
-export { default, ValuationReportTemplate } from './ValuationReportTemplate'

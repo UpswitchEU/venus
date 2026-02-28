@@ -23,7 +23,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
 
 export interface CalculationBreakdownPanelProps {
@@ -38,15 +38,6 @@ export interface CalculationBreakdownPanelProps {
       change?: number
     }>
   } | null
-}
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('nl-BE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
 }
 
 // Sample EBITDA adjustments for demo (use labelKey/descriptionKey for i18n)
@@ -84,6 +75,15 @@ const ebitdaAdjustments: Array<{
 
 export function CalculationBreakdownPanel({ report }: CalculationBreakdownPanelProps) {
   const t = useTranslations('calculationBreakdown')
+  const locale = useLocale() as 'nl' | 'en'
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat(currencyLocale, {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
   if (!report) {
     return (
       <div className="h-full flex items-center justify-center p-8 bg-background">

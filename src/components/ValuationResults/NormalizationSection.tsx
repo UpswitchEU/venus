@@ -5,7 +5,7 @@
  * Shows visual bridge and adjustment breakdown table
  */
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
 import { getCategoryLabel } from '../../config/normalizationCategories'
 import { EbitdaNormalization } from '../../types/ebitdaNormalization'
@@ -20,12 +20,14 @@ export const NormalizationSection: React.FC<NormalizationSectionProps> = ({
   versionNumber,
 }) => {
   const t = useTranslations('normalizationHub')
+  const locale = useLocale() as 'nl' | 'en'
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   if (!normalizations || normalizations.length === 0) {
     return null
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-BE', {
+    return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,

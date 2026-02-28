@@ -353,7 +353,7 @@ export function VersionCompareModal({
   const formatCurrency = (amount: number) => {
     if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
     if (amount >= 1000) return `€${Math.round(amount / 1000)}K`
-    return new Intl.NumberFormat(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+    return new Intl.NumberFormat(locale === 'nl' ? 'nl-BE' : 'en-BE', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
@@ -361,7 +361,7 @@ export function VersionCompareModal({
     }).format(amount)
   }
   const formatTime = (date: Date) =>
-    date.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-GB', {
+    date.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-BE', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',

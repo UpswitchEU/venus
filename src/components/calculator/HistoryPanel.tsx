@@ -26,7 +26,7 @@ import {
   TrendingUp,
   User,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { AuroraButton as Button, Checkbox } from '@/design-system'
@@ -89,11 +89,11 @@ const typeConfig: Record<HistoryVersion['type'], { icon: typeof Clock; labelKey:
   revision: { icon: User, labelKey: 'typeRevision' },
 }
 
-const formatCurrency = (amount: number) => {
-  if (amount >= 1000000) {
-    return `€${(amount / 1000000).toFixed(2)}M`
-  }
-  return new Intl.NumberFormat('nl-BE', {
+const currencyLocaleFor = (locale: 'nl' | 'en') => (locale === 'nl' ? 'nl-BE' : 'en-BE')
+
+const formatCurrency = (amount: number, locale: 'nl' | 'en') => {
+  if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
+  return new Intl.NumberFormat(currencyLocaleFor(locale), {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 0,
@@ -101,17 +101,21 @@ const formatCurrency = (amount: number) => {
   }).format(amount)
 }
 
-const formatTime = (date: Date, hp: (key: string, values?: Record<string, number>) => string) => {
+const formatTime = (
+  date: Date,
+  hp: (key: string, values?: Record<string, number>) => string,
+  locale: 'nl' | 'en'
+) => {
   const now = new Date()
   const diff = now.getTime() - date.getTime()
-
+  const loc = currencyLocaleFor(locale)
   if (diff < 1000 * 60) return hp('timeJustNow')
   if (diff < 1000 * 60 * 60) return hp('timeMinutesAgo', { count: Math.floor(diff / (1000 * 60)) })
   if (diff < 1000 * 60 * 60 * 24)
     return hp('timeHoursAgo', { count: Math.floor(diff / (1000 * 60 * 60)) })
   if (diff < 1000 * 60 * 60 * 24 * 7)
     return hp('timeDaysAgo', { count: Math.floor(diff / (1000 * 60 * 60 * 24)) })
-  return date.toLocaleDateString('nl-BE', {
+  return date.toLocaleDateString(loc, {
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
@@ -119,8 +123,8 @@ const formatTime = (date: Date, hp: (key: string, values?: Record<string, number
   })
 }
 
-const formatDate = (date: Date) => {
-  return date.toLocaleDateString('nl-BE', {
+const formatDate = (date: Date, locale: 'nl' | 'en') => {
+  return date.toLocaleDateString(currencyLocaleFor(locale), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -136,9 +140,11 @@ const formatDate = (date: Date) => {
 function VisualTimeline({
   versions,
   hp,
+  locale,
 }: {
   versions: HistoryVersion[]
   hp: (k: string) => string
+  locale: 'nl' | 'en'
 }) {
   const firstVal = versions[0]?.valuation
   const lastVal = versions[versions.length - 1]?.valuation
@@ -163,7 +169,7 @@ function VisualTimeline({
             <TrendingUp className={cn('w-3.5 h-3.5', totalChange < 0 && 'rotate-180')} />
             <span className="font-mono">
               {totalChange > 0 ? '+' : ''}
-              {formatCurrency(totalChange)}
+              {formatCurrency(totalChange, locale)}
             </span>
             <span className="text-foreground/40">
               ({percentChange > 0 ? '+' : ''}
@@ -239,9 +245,11 @@ function VisualTimeline({
 function ValuationSummaryCard({
   version,
   hp,
+  locale,
 }: {
   version: HistoryVersion
   hp: (k: string) => string
+  locale: 'nl' | 'en'
 }) {
   if (!version.valuation) return null
 
@@ -256,7 +264,7 @@ function ValuationSummaryCard({
         {/* Main Value */}
         <div className="flex items-baseline gap-3 mb-4">
           <span className="text-2xl font-bold leading-none tracking-tight font-mono text-foreground">
-            {formatCurrency(version.valuation)}
+            {formatCurrency(version.valuation, locale)}
           </span>
           {version.isCurrent && (
             <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded text-primary bg-primary/10 border border-primary/20">
@@ -275,7 +283,7 @@ function ValuationSummaryCard({
                   {hp('bandwidth')}
                 </p>
                 <p className="text-xs font-medium text-foreground/80 font-mono">
-                  {formatCurrency(version.valuationLow)} — {formatCurrency(version.valuationHigh)}
+                  {formatCurrency(version.valuationLow, locale)} — {formatCurrency(version.valuationHigh, locale)}
                 </p>
               </div>
             )}
@@ -285,7 +293,7 @@ function ValuationSummaryCard({
                 {hp('normalizedEbitda')}
               </p>
               <p className="text-xs font-medium text-foreground/80 font-mono">
-                {formatCurrency(version.ebitda)}
+                {formatCurrency(version.ebitda, locale)}
               </p>
             </div>
           )}
@@ -311,6 +319,7 @@ function ValuationSummaryCard({
 
 export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
   const hp = useTranslations('historyPanel')
+  const locale = useLocale() as 'nl' | 'en'
   // ── Real version data from store ──
   const reportId = report?.id
   const storeVersions = useVersionHistoryStore((s) => (reportId ? s.versions[reportId] || [] : []))
@@ -543,7 +552,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
       </div>
 
       {/* Visual Timeline */}
-      {historyVersions.length > 0 && <VisualTimeline versions={historyVersions} hp={hp} />}
+      {historyVersions.length > 0 && <VisualTimeline versions={historyVersions} hp={hp} locale={locale} />}
 
       {/* Timeline List */}
       <div className="flex-1 overflow-y-auto scrollbar-hide pb-20 sm:pb-6">
@@ -668,7 +677,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        {formatTime(version.timestamp, hp)}
+                        {formatTime(version.timestamp, hp, locale)}
                       </span>
                     </div>
                   </div>
@@ -678,7 +687,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                     {version.valuation && (
                       <div className="text-right">
                         <p className="text-sm font-semibold text-foreground/90 font-mono tabular-nums">
-                          {formatCurrency(version.valuation)}
+                          {formatCurrency(version.valuation, locale)}
                         </p>
                         {/* Deltas: Success (green) for positive, Secondary (clay) for negative */}
                         {valuationDiff !== 0 && (
@@ -689,7 +698,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                             )}
                           >
                             {valuationDiff > 0 ? '+' : ''}
-                            {formatCurrency(valuationDiff)}
+                            {formatCurrency(valuationDiff, locale)}
                           </p>
                         )}
                       </div>
@@ -717,7 +726,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                     >
                       <div className="px-4 pb-4 pt-0">
                         {/* Valuation Summary Card */}
-                        <ValuationSummaryCard version={version} hp={hp} />
+                        <ValuationSummaryCard version={version} hp={hp} locale={locale} />
 
                         {/* Changes List with Source References */}
                         {version.changes.length > 0 && (
@@ -763,7 +772,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                                       )}
                                     >
                                       {change.impact > 0 ? '+' : ''}
-                                      {formatCurrency(change.impact)}
+                                      {formatCurrency(change.impact, locale)}
                                     </span>
                                   )}
                                 </div>
@@ -776,7 +785,7 @@ export function HistoryPanel({ report, onVersionRestore }: HistoryPanelProps) {
                         <div className="mt-4 pt-3 border-t border-foreground/[0.04]">
                           <div className="flex items-center justify-between mb-3">
                             <span className="text-[10px] text-foreground/40">
-                              {formatDate(version.timestamp)}
+                              {formatDate(version.timestamp, locale)}
                             </span>
                           </div>
 

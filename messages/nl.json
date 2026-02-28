@@ -1507,6 +1507,7 @@
     "allSuggestionsProcessed": "Goed bezig! Alle AI-suggesties zijn verwerkt.",
     "acceptOrAddManually": "Accepteer suggesties of voeg handmatig normalisaties toe via de zoekbalk hierboven.",
     "useSearchOrQuickAdd": "Gebruik de zoekbalk of klik op een snelkeuze hierboven om een normalisatie toe te voegen.",
+    "normalizationsCountOf": "{filtered} van {total} normalisaties",
     "avgCosts": "Gem. Kosten",
     "fiscalYears": "Boekjaren",
     "lowConfidenceWarning": "{count, plural, one {# rekening} other {# rekeningen}} met onzekere categorisatie. Klik op de categorie om aan te passen.",

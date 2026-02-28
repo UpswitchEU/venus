@@ -5,7 +5,7 @@
  * Matches the company verification pattern with disabled input, checkmark, and details card
  */
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
 
 interface NormalizedEBITDAFieldProps {
@@ -33,8 +33,10 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
 }) => {
   const t = useTranslations('normalizationHub')
   const tTime = useTranslations('relativeTime')
+  const locale = useLocale()
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-BE', {
+    return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,

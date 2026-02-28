@@ -45,7 +45,7 @@ export function formatNumber(value: number, locale = 'en-US'): string {
  * formatCurrency(50000) // "50.000 €"
  * formatCurrency(50000, 'USD', 'en-US') // "$50,000"
  */
-export function formatCurrency(value: number, currency = 'EUR', locale = 'de-DE'): string {
+export function formatCurrency(value: number, currency = 'EUR', locale = 'en-BE'): string {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,

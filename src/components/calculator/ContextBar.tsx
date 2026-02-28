@@ -9,7 +9,7 @@
 
 import { motion } from 'framer-motion'
 import { Building2, Check, ChevronRight, Clock, Send, User, UserCheck } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { springDefault } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
 
@@ -45,10 +45,12 @@ export function ContextBar({
   onShowNormalisationReview,
 }: ContextBarProps) {
   const t = useTranslations('calculator.contextBar')
+  const locale = useLocale() as 'nl' | 'en'
+  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   if (!clientName && !businessName) return null
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleTimeString(currencyLocale, { hour: '2-digit', minute: '2-digit' })
   }
 
   return (

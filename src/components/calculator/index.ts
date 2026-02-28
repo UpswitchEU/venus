@@ -106,8 +106,6 @@ export type {
   QuickActionsPanelProps,
 } from './QuickActionsPanel'
 export { QuickActionsPanel } from './QuickActionsPanel'
-export type { ReportPreviewPanelProps } from './ReportPreviewPanel'
-export { ReportPreviewPanel } from './ReportPreviewPanel'
 export type {
   LedgerAccount,
   NormalizationItem,
@@ -117,16 +115,7 @@ export type {
   UnifiedNormalizationModalProps,
 } from './UnifiedNormalizationModal'
 export { UnifiedNormalizationModal } from './UnifiedNormalizationModal'
-export type {
-  ReportMetric,
-  ReportStatus,
-  ValuationReportData,
-  ValuationReportPanelProps,
-} from './ValuationReportPanel'
-// ─────────────────────────────────────────
-// REPORT & VALUATION
-// ─────────────────────────────────────────
-export { ValuationReportPanel } from './ValuationReportPanel'
+export type { ReportMetric, ValuationReportData } from './types'
 export type {
   VersionChange,
   VersionCompareModalProps,
