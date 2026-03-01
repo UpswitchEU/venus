@@ -126,7 +126,8 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   }
 
   // Use client avatar when acting as client, otherwise use user avatar
-  const avatarUrl = isActingAsClient && client ? client.avatarUrl : user?.avatar_url || user?.avatar
+  const avatarUrl =
+    isActingAsClient && client ? client.avatarUrl : user?.avatar_url || user?.avatar || user?.profile_picture
   const hasAvatar = !!avatarUrl
   // Always show accountant identity in toolbar; client name belongs in breadcrumb/context bar
   const displayName = user?.name || user?.email
@@ -536,6 +537,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       {/* Avatar Button */}
       <button
         ref={buttonRef}
+        data-testid="user-menu"
         onClick={handleUserClick}
         className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-full bg-foreground/10 text-foreground text-sm font-medium hover:bg-foreground/15 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
         aria-label={user ? `${displayName} - ${t('accountMenu')}` : t('guestAccountMenu')}

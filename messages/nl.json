@@ -1039,8 +1039,16 @@
     "title": "Normalisaties"
   },
   "account": {
+    "accountMenu": "Accountmenu",
+    "guestMenu": "Gastmenu",
     "settings": "Account instellingen",
-    "switchWorkspace": "Wissel workspace"
+    "switchWorkspace": "Wissel workspace",
+    "roleAccountantPro": "Accountant Pro",
+    "clients": "Klanten",
+    "valuation": "Indicatieve bedrijfsschatting",
+    "profile": "Profiel",
+    "billing": "Facturatie",
+    "helpCenter": "Hulp & Support"
   },
   "auth": {
     "logout": "Uitloggen",

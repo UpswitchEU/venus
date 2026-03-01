@@ -1039,8 +1039,16 @@
     "title": "Normalizations"
   },
   "account": {
+    "accountMenu": "Account menu",
+    "guestMenu": "Guest menu",
     "settings": "Account settings",
-    "switchWorkspace": "Switch workspace"
+    "switchWorkspace": "Switch workspace",
+    "roleAccountantPro": "Accountant Pro",
+    "clients": "Clients",
+    "valuation": "Indicative Estimate",
+    "profile": "Profile",
+    "billing": "Billing",
+    "helpCenter": "Help & Support"
   },
   "auth": {
     "logout": "Logout",

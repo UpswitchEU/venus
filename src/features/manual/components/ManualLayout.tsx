@@ -65,7 +65,10 @@ import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
-import { getSafeMercuryReturnUrl } from '../../../lib/return-url'
+import {
+  getSafeMercuryReturnUrl,
+  isLegacyReturnUrl,
+} from '../../../lib/return-url'
 import { reportService, valuationService } from '../../../services'
 import { DownloadService } from '../../../services/downloadService'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
@@ -77,6 +80,7 @@ import {
   setNormalizationToastMessages,
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
+import { useClientContext } from '../../../stores/clientContext'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import type {
@@ -1734,8 +1738,55 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [currentLocale])
 
   const handleSwitchWorkspace = useCallback(() => {
+    // When embedded from Mercury (return_url exists), go to Mercury clients; else Venus home
+    if (typeof window !== 'undefined') {
+      try {
+        const returnUrl = sessionStorage.getItem('upswitch_return_url')
+        const sourceApp = sessionStorage.getItem('upswitch_source')
+        if (returnUrl && !isLegacyReturnUrl(returnUrl) && sourceApp?.includes('mercury')) {
+          const { relationshipId } = useClientContext.getState()
+          const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+            clientContextId: relationshipId ?? undefined,
+            locale: currentLocale,
+            sourceApp: sourceApp ?? undefined,
+          })
+          window.location.href = targetUrl
+          return
+        }
+      } catch (error) {
+        generalLogger.warn('[ManualLayout] handleSwitchWorkspace: sessionStorage unavailable, falling back to Venus home', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
     router.push(`/${currentLocale}/home`)
   }, [router, currentLocale])
+
+  // Accountant dropdown navigation (Mercury parity)
+  const handleNavigateToClients = useCallback(() => {
+    const mercuryBaseUrl = getMercuryUrl()
+    window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/clients`
+  }, [currentLocale])
+
+  const handleNavigateToValuation = useCallback(() => {
+    const mercuryBaseUrl = getMercuryUrl()
+    window.location.href = `${mercuryBaseUrl}/${currentLocale}/calculator`
+  }, [currentLocale])
+
+  const handleNavigateToProfile = useCallback(() => {
+    const mercuryBaseUrl = getMercuryUrl()
+    window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/settings?tab=profile`
+  }, [currentLocale])
+
+  const handleNavigateToBilling = useCallback(() => {
+    const mercuryBaseUrl = getMercuryUrl()
+    window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/settings?tab=billing`
+  }, [currentLocale])
+
+  const handleNavigateToHelp = useCallback(() => {
+    const mercuryBaseUrl = getMercuryUrl()
+    window.location.href = `${mercuryBaseUrl}/${currentLocale}/help`
+  }, [currentLocale])
 
   // ─── Field Help (opens Chat with context) - Clarity parity: full getContextualQuestion ───
   const handleFieldHelpRequest = useCallback(
@@ -2234,7 +2285,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           userInitials={getUserInitials(
             isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
           )}
-          avatarUrl={isAccountantMode ? null : user?.avatar_url || user?.avatar}
+          userEmail={user?.email}
+          avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture}
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
           onOpenNormalization={() => {
@@ -2254,6 +2306,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onLogout={handleLogout}
           onAccountSettings={handleAccountSettings}
           onSwitchWorkspace={handleSwitchWorkspace}
+          onNavigateToClients={handleNavigateToClients}
+          onNavigateToValuation={handleNavigateToValuation}
+          onNavigateToProfile={handleNavigateToProfile}
+          onNavigateToBilling={handleNavigateToBilling}
+          onNavigateToHelp={handleNavigateToHelp}
           isAccountantMode={isAccountantMode}
           onExitClientView={handleExitClientView}
         />
@@ -2349,7 +2406,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         userInitials={getUserInitials(
           isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
         )}
-        avatarUrl={isAccountantMode ? null : user?.avatar_url || user?.avatar}
+        userEmail={user?.email}
+        avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture}
         onOpenAssistant={handleOpenAssistant}
         isAssistantOpen={chatDrawerOpen}
         onOpenNormalization={() => setShowUnifiedNormalizationModal(true)}
@@ -2367,6 +2425,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             toast.info(t('pdfRegenerating'), { description: t('pdfRegeneratingDesc') })
           }
         }}
+        onNavigateToClients={handleNavigateToClients}
+        onNavigateToValuation={handleNavigateToValuation}
+        onNavigateToProfile={handleNavigateToProfile}
+        onNavigateToBilling={handleNavigateToBilling}
+        onNavigateToHelp={handleNavigateToHelp}
         valuationSummary={
           report
             ? {

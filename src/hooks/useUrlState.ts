@@ -40,11 +40,15 @@ interface UseUrlStateReturn {
  * - Handles browser navigation (back/forward)
  * - Preserves other query parameters
  */
+/** Delay before resetting isUpdatingRef - gives Next.js time to propagate searchParams (RACE_CONDITION_FIX) */
+const URL_UPDATE_RESET_DELAY_MS = 400
+
 export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): UseUrlStateReturn {
   const router = useTransitionRouter()
   const searchParams = useSearchParams()
   const isUpdatingRef = useRef(false)
   const lastStateRef = useRef<UrlState>({})
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Read initial state from URL
   // SECURITY: prefilledQuery is read-only from URL (backward compatibility)
@@ -123,8 +127,21 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
         if (onStateChange) {
           onStateChange(newState)
         }
-      } finally {
+
+        // RACE CONDITION FIX: Delay reset so Next.js can propagate searchParams.
+        // Resetting immediately causes effects to re-run with stale searchParams → duplicate updateUrl → loop.
+        if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current)
+        updateTimeoutRef.current = setTimeout(() => {
+          updateTimeoutRef.current = null
+          isUpdatingRef.current = false
+        }, URL_UPDATE_RESET_DELAY_MS)
+      } catch (err) {
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current)
+          updateTimeoutRef.current = null
+        }
         isUpdatingRef.current = false
+        throw err
       }
     },
     [router, onStateChange]
@@ -167,6 +184,16 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
   useEffect(() => {
     lastStateRef.current = urlState
   }, []) // Only on mount
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+        updateTimeoutRef.current = null
+      }
+    }
+  }, [])
 
   return {
     urlState,

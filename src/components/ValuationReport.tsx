@@ -1,7 +1,7 @@
 'use client'
 
 import { useTransitionRouter } from 'next-view-transitions'
-import React, { Suspense, useEffect } from 'react'
+import React, { Suspense, useEffect, useRef } from 'react'
 import { useBootstrapSync } from '../hooks/useBootstrapSync'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { useUrlState } from '../hooks/useUrlState'
@@ -80,8 +80,19 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       onStateChange: () => {},
     })
 
+    // LOOP FIX: Ref to prevent duplicate URL sync when effect re-runs (e.g. after remount)
+    const urlSyncAttemptedRef = useRef(false)
+
+    // Reset when reportId changes (client-side nav to different report)
+    useEffect(() => {
+      urlSyncAttemptedRef.current = false
+    }, [reportId])
+
     // Sync initial mode and version to URL on mount
     useEffect(() => {
+      if (urlSyncAttemptedRef.current) return
+      urlSyncAttemptedRef.current = true
+
       const currentMode = urlState.mode || initialMode
       const currentVersion = urlState.version !== undefined ? urlState.version : initialVersion
 
@@ -98,7 +109,9 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
           { replace: true }
         )
       }
-    }, []) // Only on mount
+      // reportId in deps: re-sync when navigating to a different report
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reportId])
 
     // Handle valuation completion
     // NOTE: saveCompleteSession is already called in useValuationFormSubmission

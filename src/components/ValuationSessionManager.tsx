@@ -169,12 +169,19 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // ✅ RACE CONDITION FIX: Track if we've already initiated loading for this reportId
     // This prevents multiple concurrent loads when dependencies change rapidly
     const loadingInitiatedRef = useRef<string | null>(null)
+    // LOOP FIX: Prevents concurrent restore() when effect re-runs before restore completes
+    const restorationInProgressRef = useRef<string | null>(null)
     const bootstrapRetryRef = useRef(false)
+    // ✅ LOOP FIX: Track restoration completion to prevent repeated restore() calls
+    // when the effect re-runs due to bootstrap/context updates
+    const restorationCompletedForReportIdRef = useRef<string | null>(null)
 
     // Reset refs when reportId changes (component reused for different report)
     useEffect(() => {
       loadingInitiatedRef.current = null
       bootstrapRetryRef.current = false
+      restorationCompletedForReportIdRef.current = null
+      restorationInProgressRef.current = null
     }, [reportId])
 
     // ✅ TIMEOUT WARNING: Show warning after 10 seconds of loading
@@ -340,6 +347,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           )
           // Clear restoration marker so the full API response wins over the bootstrap stub.
           SessionRestorationService.clearRestorationState(reportId)
+          restorationCompletedForReportIdRef.current = null
           // Only reset status when it is 'loaded' — loadSession returns early for
           // status==='loaded' + matching reportId, so we must unlock the state machine.
           // We intentionally keep the session object (minimal prefill data stays visible
@@ -351,6 +359,22 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           }
           // Fall through to loadSession below (don't return)
         } else {
+          // ✅ LOOP FIX: Skip restore if already completed or in progress for this reportId
+          // Prevents repeated auth/bootstrap/normalization calls when effect re-runs
+          if (
+            SessionRestorationService.isRestored(reportId) ||
+            restorationCompletedForReportIdRef.current === reportId ||
+            restorationInProgressRef.current === reportId
+          ) {
+            generalLogger.debug(
+              '[SessionManager] Skipping restore - already completed or in progress for reportId',
+              { reportId: reportId?.substring(0, 30) }
+            )
+            loadingInitiatedRef.current = null
+            return
+          }
+
+          restorationInProgressRef.current = reportId
           generalLogger.debug(
             '[SessionManager] Session load SKIPPED: already loaded via bootstrap',
             {
@@ -361,6 +385,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           // Restore from session - form and output assets hydrated from sessionData
           SessionRestorationService.restore(reportId, session)
             .then((result) => {
+              restorationInProgressRef.current = null
+              restorationCompletedForReportIdRef.current = reportId
               // Phase 3.1: If restore completed but assets still missing, fetch from backend
               if (
                 bootstrap.report.hasExistingData &&
@@ -382,10 +408,12 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
               }
             })
             .catch((err) => {
+              restorationInProgressRef.current = null
               generalLogger.warn('[SessionManager] Restoration failed when skipping loadSession', {
                 reportId,
                 error: err instanceof Error ? err.message : String(err),
               })
+              // Don't set restorationCompletedForReportIdRef on failure - allow retry
             })
           loadingInitiatedRef.current = null
           return

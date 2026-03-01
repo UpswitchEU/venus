@@ -17,17 +17,22 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  CreditCard,
   Download,
   Eye,
   FileSpreadsheet,
   FileText,
   GitBranch,
+  HelpCircle,
   History,
   Loader2,
   LogOut,
   Maximize2,
   MessageCircle,
   Settings,
+  TrendingUp,
+  User,
+  Users,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
@@ -78,11 +83,19 @@ export interface CalculatorNavProps {
   rightPanelView?: RightPanelView
   userName?: string
   userInitials?: string
+  /** User email for dropdown header (Mercury parity) */
+  userEmail?: string
   /** Avatar URL from Titan/Mercury auth - when set, shows profile image */
   avatarUrl?: string | null
   onAccountSettings?: () => void
   onSwitchWorkspace?: () => void
   onLogout?: () => void
+  /** Accountant mode navigation (Mercury parity) */
+  onNavigateToClients?: () => void
+  onNavigateToValuation?: () => void
+  onNavigateToProfile?: () => void
+  onNavigateToBilling?: () => void
+  onNavigateToHelp?: () => void
   // Recent valuations support
   recentValuations?: RecentValuation[]
   onSelectValuation?: (id: string) => void
@@ -162,6 +175,15 @@ const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start' 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  React.useEffect(() => {
+    if (!open) return
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [open])
+
   return (
     <div className="relative" ref={dropdownRef}>
       <div onClick={() => setOpen(!open)}>{trigger}</div>
@@ -204,10 +226,16 @@ export function CalculatorNav({
   rightPanelView = 'report',
   userName,
   userInitials = 'GL',
+  userEmail,
   avatarUrl,
   onAccountSettings,
   onSwitchWorkspace,
   onLogout,
+  onNavigateToClients,
+  onNavigateToValuation,
+  onNavigateToProfile,
+  onNavigateToBilling,
+  onNavigateToHelp,
   recentValuations = [],
   onSelectValuation,
   onNewValuation,
@@ -712,64 +740,174 @@ export function CalculatorNav({
           {/* Separator before avatar */}
           <div className="h-5 w-px bg-foreground/[0.08] mx-1 sm:mx-2" />
 
-          {/* User Avatar with Dropdown */}
+          {/* User Avatar with Dropdown — Mercury parity */}
           <Dropdown
             trigger={
               <button
+                type="button"
+                data-testid="user-menu"
+                aria-haspopup="menu"
+                aria-label={userName ? t('account.accountMenu') : t('account.guestMenu')}
                 className={cn(
                   'relative flex items-center justify-center w-8 h-8 rounded-full overflow-hidden',
-                  !showAvatar &&
-                    'bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-xs font-semibold',
-                  'ring-1 ring-foreground/[0.08]',
-                  'hover:ring-primary/30 transition-all',
+                  'bg-primary/20 border-2 border-foreground/10',
+                  'text-foreground/70 font-medium text-xs',
+                  'hover:ring-2 hover:ring-primary/30 transition-all',
                   'focus:outline-none focus:ring-2 focus:ring-primary/50',
-                  'min-h-[44px] min-w-[44px] flex items-center justify-center'
+                  'p-0.5 flex items-center justify-center'
                 )}
               >
                 {showAvatar ? (
                   <img
                     src={avatarUrl}
-                    alt={userName}
-                    className="w-full h-full object-cover"
+                    alt={userName || t('account.accountMenu')}
+                    className="w-full h-full object-cover rounded-full"
                     onError={() => setAvatarError(true)}
                   />
                 ) : (
-                  <span>{userInitials}</span>
+                  <span className="text-foreground/70 font-medium">
+                    {userInitials?.charAt(0)?.toUpperCase() || '?'}
+                  </span>
                 )}
               </button>
             }
             align="end"
           >
-            <div className="p-2 w-56">
-              <div className="px-2 py-2">
-                <p className="text-sm font-medium text-foreground">
-                  {userName || t('historyPanel.guest')}
-                </p>
-                <p className="text-xs text-foreground/50">Accountant Pro</p>
+            <div className="p-1.5 w-56 min-w-[220px]" role="menu">
+              {/* Header — Mercury AvatarMenuHeader parity */}
+              <div className="px-3 py-3 border-b border-foreground/10 mb-1.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden border border-foreground/10 flex-shrink-0">
+                    {showAvatar ? (
+                      <img
+                        src={avatarUrl}
+                        alt={userName || t('account.accountMenu')}
+                        className="w-full h-full object-cover"
+                        onError={() => setAvatarError(true)}
+                      />
+                    ) : (
+                      <span className="text-foreground/70 font-medium text-sm">
+                        {userInitials?.charAt(0)?.toUpperCase() || '?'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {userName || t('historyPanel.guest')}
+                    </p>
+                    {userEmail && (
+                      <p className="text-xs text-foreground/50 truncate">{userEmail}</p>
+                    )}
+                    {isAccountantMode && (
+                      <p className="text-xs text-primary/80 mt-0.5">
+                        {t('account.roleAccountantPro')}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="h-px bg-foreground/[0.06] my-2" />
-              <button
-                onClick={onAccountSettings}
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
-              >
-                <Settings className="w-4 h-4 text-foreground/50" />
-                <span className="text-sm">{t('account.settings')}</span>
-              </button>
-              <button
-                onClick={onSwitchWorkspace}
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
-              >
-                <Building2 className="w-4 h-4 text-foreground/50" />
-                <span className="text-sm">{t('account.switchWorkspace')}</span>
-              </button>
-              <div className="h-px bg-foreground/[0.06] my-2" />
-              <button
-                onClick={onLogout}
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="text-sm">{t('auth.logout')}</span>
-              </button>
+
+              {/* Menu items — isAccountantMode: full Mercury menu; else: simple menu */}
+              {isAccountantMode ? (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onNavigateToClients?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                  >
+                    <Users className="w-4 h-4 text-foreground/50" />
+                    <span>{t('account.clients')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onNavigateToValuation?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                  >
+                    <TrendingUp className="w-4 h-4 text-foreground/50" />
+                    <span>{t('account.valuation')}</span>
+                  </button>
+                  <div className="h-px bg-foreground/10 -mx-1 my-1.5" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onNavigateToProfile?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                  >
+                    <User className="w-4 h-4 text-foreground/50" />
+                    <span>{t('account.profile')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onAccountSettings?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                  >
+                    <Settings className="w-4 h-4 text-foreground/50" />
+                    <span>{t('account.settings')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onNavigateToBilling?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                  >
+                    <CreditCard className="w-4 h-4 text-foreground/50" />
+                    <span>{t('account.billing')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onNavigateToHelp?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                  >
+                    <HelpCircle className="w-4 h-4 text-foreground/50" />
+                    <span>{t('account.helpCenter')}</span>
+                  </button>
+                  <div className="h-px bg-foreground/10 -mx-1 my-1.5" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onLogout?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>{t('auth.logout')}</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onAccountSettings?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                  >
+                    <Settings className="w-4 h-4 text-foreground/50" />
+                    <span>{t('account.settings')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onSwitchWorkspace?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                  >
+                    <Building2 className="w-4 h-4 text-foreground/50" />
+                    <span>{t('account.switchWorkspace')}</span>
+                  </button>
+                  <div className="h-px bg-foreground/10 -mx-1 my-1.5" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => onLogout?.()}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>{t('auth.logout')}</span>
+                  </button>
+                </>
+              )}
             </div>
           </Dropdown>
         </div>
