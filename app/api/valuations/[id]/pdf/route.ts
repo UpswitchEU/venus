@@ -41,7 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         'Content-Type': 'application/json',
         Cookie: cookieHeader,
       },
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(75000),
     })
 
     if (!response.ok) {

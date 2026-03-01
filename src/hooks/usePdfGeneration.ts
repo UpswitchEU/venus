@@ -23,10 +23,10 @@ export interface PdfGenerationState {
 export interface UsePdfGenerationReturn {
   /** Current PDF generation state */
   state: PdfGenerationState
-  /** Trigger PDF generation */
-  generatePdf: () => Promise<void>
+  /** Trigger PDF generation — returns the PDF URL if available synchronously */
+  generatePdf: () => Promise<string | null>
   /** Download existing PDF */
-  downloadPdf: () => Promise<void>
+  downloadPdf: (url?: string) => Promise<void>
   /** Check if PDF is ready */
   isReady: boolean
   /** Check if generating */
@@ -173,14 +173,14 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   /**
    * Trigger PDF generation via Titan API
    */
-  const generatePdf = useCallback(async () => {
+  const generatePdf = useCallback(async (): Promise<string | null> => {
     if (!reportId) {
       setState((prev) => ({
         ...prev,
         status: 'error',
         error: 'No report ID available',
       }))
-      return
+      return null
     }
 
     // Abort any existing request
@@ -197,8 +197,6 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     })
 
     try {
-      // Call Titan API to generate PDF
-      // Route: POST /api/valuations/:id/pdf (proxies to Titan)
       const response = await fetch(`/api/valuations/${reportId}/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -213,7 +211,6 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
       const data = await response.json()
 
-      // Check if PDF was generated synchronously
       if (data.pdfUrl) {
         setState({
           status: 'ready',
@@ -221,24 +218,25 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           error: null,
           progress: 100,
         })
-        return
+        return data.pdfUrl
       }
 
-      // Async generation - start polling
       if (data.jobId) {
         setState((prev) => ({ ...prev, progress: 30 }))
         startPolling(data.jobId)
-      } else {
-        setState({
-          status: 'error',
-          url: null,
-          error: 'No PDF URL or job ID returned — please try again',
-          progress: 0,
-        })
+        return null
       }
+
+      setState({
+        status: 'error',
+        url: null,
+        error: 'No PDF URL or job ID returned — please try again',
+        progress: 0,
+      })
+      return null
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        return // Cancelled
+        return null
       }
       setState({
         status: 'error',
@@ -246,6 +244,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         error: error instanceof Error ? error.message : 'PDF generation failed',
         progress: 0,
       })
+      return null
     }
   }, [reportId])
 
@@ -317,9 +316,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   /**
    * Download the PDF file
    */
-  const downloadPdf = useCallback(async () => {
-    if (!state.url) {
-      // If no URL, try to generate first
+  const downloadPdf = useCallback(async (url?: string) => {
+    const pdfUrl = url || state.url
+    if (!pdfUrl) {
       if (state.status !== 'generating') {
         await generatePdf()
       }
@@ -327,8 +326,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     }
 
     try {
-      // Fetch the PDF
-      const response = await fetch(state.url, {
+      const response = await fetch(pdfUrl, {
         credentials: 'include',
       })
 
@@ -338,21 +336,21 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
       const blob = await response.blob()
 
-      // Create download link
-      const url = URL.createObjectURL(blob)
+      const blobUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.href = url
+      link.href = blobUrl
       link.download = `valuation-report-${reportId || 'unknown'}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      URL.revokeObjectURL(blobUrl)
     } catch (error) {
       generalLogger.error('[PDF] Download error', { error })
       setState((prev) => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Download failed',
       }))
+      throw error
     }
   }, [state.url, state.status, reportId, generatePdf])
 

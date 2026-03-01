@@ -1519,12 +1519,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           succeeded = true
         } else if (reportId) {
           toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
-          await generatePdf()
+          const pdfUrl = await generatePdf()
           toast.dismiss('pdf-gen')
-          if (isPdfReady) {
-            await downloadPdf()
+          if (pdfUrl) {
+            await downloadPdf(pdfUrl)
           }
-          succeeded = true
+          succeeded = !!pdfUrl
         }
       } catch (serverError) {
         toast.dismiss('pdf-gen')
