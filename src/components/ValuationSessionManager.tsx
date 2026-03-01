@@ -623,19 +623,25 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reportId, detectedFlow, isBootstrapping, bootstrapHasSession]) // loadSession is stable; prefilledQuery via ref (prevents re-runs when session loads _prefilledQuery); session?.reportId intentionally excluded (prevents spurious re-runs after each load)
 
-    // Retry: Clear error and reload
-    const handleRetry = useCallback(() => {
+    // Retry: When bootstrap failed, refresh bootstrap first; otherwise reload session
+    const handleRetry = useCallback(async () => {
       generalLogger.info('[SessionManager] Retrying load', {
         reportId,
         flow: detectedFlow,
         prefilledQuery: prefilledQueryRef.current,
+        hadBootstrapError: !!bootstrap?.bootstrapError,
       })
       // ✅ RACE CONDITION FIX: Reset refs to allow retry
       loadingInitiatedRef.current = null
       bootstrapRetryRef.current = false
-      loadSession(reportId, detectedFlow, prefilledQueryRef.current)
+      // When bootstrap failed, refresh bootstrap first (engine not set yet)
+      if (bootstrap?.bootstrapError && bootstrap.refreshBootstrap) {
+        await bootstrap.refreshBootstrap()
+      } else {
+        loadSession(reportId, detectedFlow, prefilledQueryRef.current)
+      }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reportId, detectedFlow]) // loadSession is stable; prefilledQuery read from ref
+    }, [reportId, detectedFlow, bootstrap?.bootstrapError, bootstrap?.refreshBootstrap])
 
     // Start over: Clear and navigate home
     const handleStartOver = useCallback(() => {
@@ -644,6 +650,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       router.push('/')
     }, [reportId, clearSession, router])
 
+    // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
+    const effectiveError =
+      error || (bootstrap?.bootstrapError && stage === 'error' ? bootstrap.bootstrapError : null)
+
     // ✅ FIX: Pass isLoading to children so they can prevent UI from rendering during initial load
     return (
       <>
@@ -651,7 +661,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           session,
           stage,
           isLoading,
-          error,
+          error: effectiveError,
           showOutOfCreditsModal: false, // TODO: Re-implement if needed
           onCloseModal: () => {}, // No-op
           prefilledQuery,
