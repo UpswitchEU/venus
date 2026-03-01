@@ -45,10 +45,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      console.error('[PDF] Titan API error:', response.status, error)
+      const errBody = await response.json().catch(() => ({}))
+      const errMsg = errBody.message ?? errBody.error ?? errBody.detail ?? 'PDF generation failed'
+      console.error('[PDF] Titan API error:', response.status, errBody)
       return NextResponse.json(
-        { success: false, error: error.message || 'PDF generation failed' },
+        { success: false, error: typeof errMsg === 'string' ? errMsg : String(errMsg) },
         { status: response.status }
       )
     }

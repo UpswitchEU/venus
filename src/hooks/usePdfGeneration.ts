@@ -205,8 +205,10 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       })
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.message || 'Failed to start PDF generation')
+        const errBody = await response.json().catch(() => ({}))
+        const errMsg =
+          errBody.message ?? errBody.error ?? errBody.detail ?? 'Failed to start PDF generation'
+        throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg))
       }
 
       const data = await response.json()
@@ -238,10 +240,11 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       if ((error as Error).name === 'AbortError') {
         return null
       }
+      const message = error instanceof Error ? error.message : 'PDF generation failed'
       setState({
         status: 'error',
         url: null,
-        error: error instanceof Error ? error.message : 'PDF generation failed',
+        error: message,
         progress: 0,
       })
       return null
