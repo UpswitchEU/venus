@@ -49,6 +49,7 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
   const isUpdatingRef = useRef(false)
   const lastStateRef = useRef<UrlState>({})
   const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const targetStateRef = useRef<UrlState | null>(null)
 
   // Read initial state from URL
   // SECURITY: prefilledQuery is read-only from URL (backward compatibility)
@@ -122,6 +123,7 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
         }
 
         lastStateRef.current = newState
+        targetStateRef.current = newState
 
         // Notify parent component of state change
         if (onStateChange) {
@@ -133,6 +135,7 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
         if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current)
         updateTimeoutRef.current = setTimeout(() => {
           updateTimeoutRef.current = null
+          targetStateRef.current = null
           isUpdatingRef.current = false
         }, URL_UPDATE_RESET_DELAY_MS)
       } catch (err) {
@@ -140,6 +143,7 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
           clearTimeout(updateTimeoutRef.current)
           updateTimeoutRef.current = null
         }
+        targetStateRef.current = null
         isUpdatingRef.current = false
         throw err
       }
@@ -185,6 +189,26 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
     lastStateRef.current = urlState
   }, []) // Only on mount
 
+  // EARLY RESET: When searchParams update and match target, reset immediately (no need to wait for timeout)
+  useEffect(() => {
+    if (!isUpdatingRef.current || !targetStateRef.current) return
+
+    const target = targetStateRef.current
+    const modeMatch = (urlState.mode ?? 'edit') === (target.mode ?? 'edit')
+    const versionMatch = (urlState.version ?? null) === (target.version ?? null)
+    const flowMatch = (urlState.flow ?? 'manual') === (target.flow ?? 'manual')
+    const autoSendMatch = (urlState.autoSend ?? false) === (target.autoSend ?? false)
+
+    if (modeMatch && versionMatch && flowMatch && autoSendMatch) {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+        updateTimeoutRef.current = null
+      }
+      targetStateRef.current = null
+      isUpdatingRef.current = false
+    }
+  }, [urlState.mode, urlState.version, urlState.flow, urlState.autoSend])
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -192,6 +216,7 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
         clearTimeout(updateTimeoutRef.current)
         updateTimeoutRef.current = null
       }
+      targetStateRef.current = null
     }
   }, [])
 

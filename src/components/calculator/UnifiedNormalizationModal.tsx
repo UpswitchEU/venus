@@ -74,6 +74,7 @@ export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv' | 'ai'
 export type NormalizationStatus = 'pending' | 'accepted' | 'rejected'
 
 import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
+import { generalLogger } from '../../utils/logger'
 
 export type { LedgerAccount } from '../../constants/grootboek'
 
@@ -461,7 +462,12 @@ export function UnifiedNormalizationModal({
           }))
         )
       })
-      .catch(() => {})
+      .catch((err) => {
+        // Non-critical: falls back to default ledger accounts
+        generalLogger.debug('[UnifiedNormalizationModal] Grootboek fetch failed, using defaults', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      })
     return () => {
       cancelled = true
     }

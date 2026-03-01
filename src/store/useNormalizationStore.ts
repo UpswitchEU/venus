@@ -301,7 +301,11 @@ export const useNormalizationStore = create<NormalizationStore>()(
                   duration: 5000,
                 })
               })
-              .catch(() => {})
+              .catch((err) => {
+                generalLogger.debug('[NormalizationStore] Toast display failed (non-critical)', {
+                  error: err instanceof Error ? err.message : String(err),
+                })
+              })
           } finally {
             set({ isSaving: false })
           }

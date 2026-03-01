@@ -116,9 +116,15 @@ export default function ValuationReportClient({
   const returnUrl = urlParams.return_url
   const source = urlParams.source
 
+  // LOOP FIX: Derive url from reportId+locale instead of window.location.href to avoid
+  // context churn when router.replace updates the URL (mode, version, etc.)
   const bootstrapContext = useMemo<BootstrapContext>(() => {
+    const baseUrl =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/${locale}/reports/${reportId || 'new'}`
+        : ''
     return {
-      url: typeof window !== 'undefined' ? window.location.href : '',
+      url: baseUrl,
       reportId,
       clientToken,
       clientId,

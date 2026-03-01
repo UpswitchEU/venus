@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
 import { ErrorBoundary } from '../src/components/ErrorBoundary'
 import { LogoutListener } from '../src/components/LogoutListener'
 import { ToastProvider } from '../src/hooks/useToast'
+import { generalLogger } from '../src/utils/logger'
 import { ScrollToTop } from '../src/utils'
 import { registerServiceWorker } from '../src/utils/serviceWorkerRegistration'
 // RUM is auto-initialized on import
@@ -23,6 +24,20 @@ import '../src/lib/auth'
  * - RUM for performance monitoring
  */
 export function Providers({ children }: { children: React.ReactNode }) {
+  // LAUNCH READY: Global unhandled rejection handler - log for debugging, prevent silent failures
+  useEffect(() => {
+    const handler = (event: PromiseRejectionEvent) => {
+      generalLogger.error('[UnhandledRejection] Promise rejection', {
+        reason: event.reason,
+        message: event.reason?.message ?? String(event.reason),
+        stack: event.reason?.stack,
+      })
+      // Don't preventDefault - let the error propagate for dev tools, but we've logged it
+    }
+    window.addEventListener('unhandledrejection', handler)
+    return () => window.removeEventListener('unhandledrejection', handler)
+  }, [])
+
   useEffect(() => {
     // TEMPORARILY DISABLED: Service worker registration
     // The service worker was causing infinite reload loops and fetch failures.

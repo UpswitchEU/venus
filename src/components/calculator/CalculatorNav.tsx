@@ -159,9 +159,10 @@ interface DropdownProps {
   trigger: React.ReactNode
   children: React.ReactNode
   align?: 'start' | 'center' | 'end'
+  variant?: 'default' | 'glass'
 }
 
-const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start' }) => {
+const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start', variant = 'default' }) => {
   const [open, setOpen] = React.useState(false)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
 
@@ -196,7 +197,8 @@ const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start' 
             transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
             className={cn(
               'absolute z-50 mt-2 min-w-[200px] rounded-xl border border-foreground/[0.08]',
-              'bg-background/95 backdrop-blur-xl shadow-xl',
+              'backdrop-blur-xl shadow-xl',
+              variant === 'glass' ? 'bg-background/80' : 'bg-background/95',
               align === 'end' && 'right-0',
               align === 'center' && 'left-1/2 -translate-x-1/2',
               align === 'start' && 'left-0'
@@ -742,6 +744,7 @@ export function CalculatorNav({
 
           {/* User Avatar with Dropdown — Mercury parity */}
           <Dropdown
+            variant="glass"
             trigger={
               <button
                 type="button"
