@@ -67,6 +67,20 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       return false
     }
 
+    // Compare historical_years_data (prevents skipping sync when only historical data changed)
+    const formHist = formData.historical_years_data
+    const sessHist = sessionData.historical_years_data
+    if (!Array.isArray(formHist) && !Array.isArray(sessHist)) return true
+    if (!Array.isArray(formHist) || !Array.isArray(sessHist)) return false
+    if (formHist.length !== sessHist.length) return false
+    const formStr = JSON.stringify(
+      formHist.map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda })).sort((a: any, b: any) => a.year - b.year)
+    )
+    const sessStr = JSON.stringify(
+      sessHist.map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda })).sort((a: any, b: any) => a.year - b.year)
+    )
+    if (formStr !== sessStr) return false
+
     return true
   }, [])
 

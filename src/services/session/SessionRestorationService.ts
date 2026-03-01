@@ -882,6 +882,8 @@ class SessionRestorationServiceImpl {
 
       // Mark as restored to prevent duplicate restoration
       this.restoredReportIds.add(reportId)
+      // CRITICAL: Unblock UI - ManualLayout waits for restorationComplete
+      useSessionStore.getState().setRestorationComplete(true)
 
       const durationMs = performance.now() - startTime
       generalLogger.info('[SessionRestoration] WORLD-CLASS: Instant hydration complete', {
