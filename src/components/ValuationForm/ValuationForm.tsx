@@ -108,6 +108,10 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const [historicalInputs, setHistoricalInputs] = useState<{ [key: string]: string }>({})
   const [hasPrefilledOnce, setHasPrefilledOnce] = useState(false)
   const [employeeCountError, setEmployeeCountError] = useState<string | null>(null)
+  // Tracks whether historicalInputs has ever been populated (by user or restoration).
+  // Prevents the historicalInputs→formData sync effect from clearing restored
+  // historical_years_data on initial mount when historicalInputs is still {}.
+  const historicalInputsEverPopulatedRef = useRef(false)
   // ✅ IMPROVED: Restore historical data whenever formData.historical_years_data changes
   // This ensures all years with revenue or EBITDA data are preserved, even if outside display range
   // Only restores missing data - preserves existing user edits
@@ -129,8 +133,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
             const revenueKey = `${yearData.year}_revenue`
             const ebitdaKey = `${yearData.year}_ebitda`
 
-            // Only restore revenue if it has a truthy value (not 0, not null, not undefined)
-            if (yearData.revenue) {
+            // Restore revenue when it's a number (including 0 - break-even is valid)
+            if (typeof yearData.revenue === 'number') {
               const currentRevenue = currentInputs[revenueKey]
               if (!currentRevenue || currentRevenue.trim() === '') {
                 restoredInputs[revenueKey] = yearData.revenue.toString()
@@ -138,8 +142,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
               }
             }
 
-            // Only restore ebitda if it has a truthy value (not 0, not null, not undefined)
-            if (yearData.ebitda) {
+            // Restore ebitda when it's a number (including 0 - break-even is valid)
+            if (typeof yearData.ebitda === 'number') {
               const currentEbitda = currentInputs[ebitdaKey]
               if (!currentEbitda || currentEbitda.trim() === '') {
                 restoredInputs[ebitdaKey] = yearData.ebitda.toString()
@@ -150,6 +154,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         )
 
         if (hasNewData) {
+          historicalInputsEverPopulatedRef.current = true
           generalLogger.info('[ValuationForm] Restored historical data to inputs', {
             reportId,
             yearsRestored: historicalYearsData.length,
@@ -321,10 +326,14 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
     // Update formData with sorted historical data
     if (historicalYears.length > 0) {
+      historicalInputsEverPopulatedRef.current = true
       updateFormData({
         historical_years_data: historicalYears,
       })
-    } else {
+    } else if (historicalInputsEverPopulatedRef.current) {
+      // Only clear if user previously had data and then removed it.
+      // On initial mount historicalInputs is {} -- skip clearing to preserve
+      // historical_years_data that was set by bootstrap prefill / restoration.
       updateFormData({
         historical_years_data: undefined,
       })

@@ -2,6 +2,7 @@ import { AlertTriangle, Home, Save } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 interface ExitReportConfirmationModalProps {
   isOpen: boolean
@@ -31,6 +32,10 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
   isSaving = false,
 }) => {
   const t = useTranslations()
+
+  // Robust scroll lock (iOS Safari + Android)
+  useScrollLock(isOpen)
+
   // Close modal on Escape key
   useEffect(() => {
     if (!isOpen) return
@@ -62,8 +67,13 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
 
   const modal = (
     <div className="fixed inset-0 z-[100000]">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/65" onClick={onClose} aria-hidden="false" />
+      {/* Backdrop - touch-none/overscroll-none prevent background scroll on iOS */}
+      <div
+        className="absolute inset-0 bg-black/65 touch-none overscroll-none"
+        onClick={onClose}
+        onTouchMove={(e) => e.preventDefault()}
+        aria-hidden="true"
+      />
 
       {/* Modal */}
       <div

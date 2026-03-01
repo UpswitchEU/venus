@@ -7,6 +7,7 @@
 
 import { useLocale, useTranslations } from 'next-intl'
 import React, { useEffect, useState } from 'react'
+import { useScrollLock } from '@/hooks/useScrollLock'
 import { NORMALIZATION_CATEGORIES } from '../../config/normalizationCategories'
 import { NormalizationAPIError } from '../../services/ebitdaNormalizationService'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
@@ -52,6 +53,9 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
   const [localAdjustments, setLocalAdjustments] = useState<
     Record<string, { amount: string; note: string }>
   >({})
+
+  // Robust scroll lock when modal is open (iOS Safari + Android) - must be before early return
+  useScrollLock(isOpen)
 
   useEffect(() => {
     if (normalization) {
@@ -152,8 +156,12 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
+      {/* Backdrop - touch-none/overscroll-none prevent background scroll on iOS */}
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity touch-none overscroll-none"
+        onClick={onClose}
+        onTouchMove={(e) => e.preventDefault()}
+      />
 
       {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center p-4">

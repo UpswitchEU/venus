@@ -2,6 +2,7 @@ import { Maximize2, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 interface FullScreenModalProps {
   isOpen: boolean
@@ -19,6 +20,9 @@ export const FullScreenModal: React.FC<FullScreenModalProps> = ({
   const rt = useTranslations('reports')
   const displayTitle = title || rt('title')
 
+  // Robust scroll lock (iOS Safari + Android)
+  useScrollLock(isOpen)
+
   // Handle escape key
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -29,30 +33,7 @@ export const FullScreenModal: React.FC<FullScreenModalProps> = ({
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape)
-
-      // Store original values
-      const originalOverflow = document.body.style.overflow
-      const originalPaddingRight = document.body.style.paddingRight
-
-      // Calculate scrollbar width to prevent layout shift
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
-
-      // Prevent body scroll and compensate for scrollbar removal
-      document.body.style.overflow = 'hidden'
-      if (scrollbarWidth > 0) {
-        document.body.style.paddingRight = `${scrollbarWidth}px`
-      }
-
-      return () => {
-        document.removeEventListener('keydown', handleEscape)
-        // Restore original values
-        document.body.style.overflow = originalOverflow
-        document.body.style.paddingRight = originalPaddingRight
-      }
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape)
+      return () => document.removeEventListener('keydown', handleEscape)
     }
   }, [isOpen, onClose])
 
@@ -60,8 +41,12 @@ export const FullScreenModal: React.FC<FullScreenModalProps> = ({
 
   const modal = (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop without blur to avoid full-screen repaints */}
-      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+      {/* Backdrop - touch-none/overscroll-none prevent background scroll on iOS */}
+      <div
+        className="absolute inset-0 bg-black/80 touch-none overscroll-none"
+        onClick={onClose}
+        onTouchMove={(e) => e.preventDefault()}
+      />
 
       {/* Modal Content */}
       <div className="relative w-full h-full bg-background flex flex-col">

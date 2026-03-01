@@ -720,10 +720,34 @@ class SessionRestorationServiceImpl {
       if (flow === 'manual' && pkg.formData && Object.keys(pkg.formData).length > 0) {
         try {
           const { updateFormData } = useManualFormStore.getState()
-          updateFormData(pkg.formData as any)
+          const raw = pkg.formData as Record<string, unknown>
+
+          // Map camelCase package keys to snake_case form store keys.
+          // Single-word keys (revenue, ebitda, city, industry) are the same in
+          // both conventions and are passed through via the spread below.
+          const camelToSnake: Record<string, string> = {
+            companyName: 'company_name',
+            kboNumber: 'kbo_number',
+            vatNumber: 'vat_number',
+            businessTypeId: 'business_type_id',
+            employeeCount: 'number_of_employees',
+            foundingYear: 'founding_year',
+            countryCode: 'country_code',
+            postalCode: 'postal_code',
+            netIncome: 'net_income',
+          }
+
+          const mapped: Record<string, unknown> = {}
+          for (const [key, value] of Object.entries(raw)) {
+            if (value === undefined) continue
+            const snakeKey = camelToSnake[key] ?? key
+            mapped[snakeKey] = value
+          }
+
+          updateFormData(mapped as any)
           generalLogger.info('[SessionRestoration] Form data hydrated from package', {
             reportId: reportId.substring(0, 30),
-            fieldCount: Object.keys(pkg.formData).length,
+            fieldCount: Object.keys(mapped).length,
           })
         } catch (formError) {
           generalLogger.warn(

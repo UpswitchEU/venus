@@ -115,10 +115,12 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           business_highlights: data.business_highlights,
           reason_for_selling: data.reason_for_selling,
           city: data.city,
+          revenue: data.revenue,
+          ebitda: data.ebitda,
           current_year_data: {
             year: new Date().getFullYear() - 1,
-            revenue: data.revenue || data.current_year_data?.revenue || 0,
-            ebitda: data.ebitda || data.current_year_data?.ebitda || 0,
+            revenue: data.revenue ?? data.current_year_data?.revenue ?? 0,
+            ebitda: data.ebitda ?? data.current_year_data?.ebitda ?? 0,
             ...(data.current_year_data?.total_assets && {
               total_assets: data.current_year_data.total_assets,
             }),

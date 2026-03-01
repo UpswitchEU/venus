@@ -7,6 +7,7 @@
  */
 
 import React from 'react'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 interface RecalculateConfirmationPopupProps {
   isOpen: boolean
@@ -61,10 +62,11 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
-      {/* Backdrop */}
+      {/* Backdrop - touch-none/overscroll-none prevent background scroll on iOS */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity touch-none overscroll-none"
         onClick={isCreating ? undefined : onCancel}
+        onTouchMove={(e) => e.preventDefault()}
       />
 
       {/* Popup */}

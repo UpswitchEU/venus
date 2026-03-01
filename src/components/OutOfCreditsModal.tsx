@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import React from 'react'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 interface OutOfCreditsModalProps {
   isOpen: boolean
@@ -17,10 +18,17 @@ export const OutOfCreditsModal: React.FC<OutOfCreditsModalProps> = ({
   onTryManual,
 }) => {
   const t = useTranslations('modals.outOfCredits')
+  useScrollLock(isOpen)
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 touch-none overscroll-none"
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault()
+      }}
+    >
       <div className="bg-card border border-foreground/10 rounded-2xl p-8 max-w-md w-full mx-4">
         <div className="text-center">
           <div className="w-16 h-16 bg-destructive/20 rounded-full flex items-center justify-center mx-auto mb-4">

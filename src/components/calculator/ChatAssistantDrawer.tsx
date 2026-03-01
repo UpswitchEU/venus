@@ -33,6 +33,7 @@ import remarkGfm from 'remark-gfm'
 import { AuroraButton } from '@/design-system/components/Button'
 import { springDefault } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
+import { useScrollLock } from '@/hooks/useScrollLock'
 import { trackAIAssistantMessage, trackAIAssistantOpen } from '@/lib/analytics'
 
 // ─────────────────────────────────────────
@@ -467,6 +468,9 @@ export function ChatAssistantDrawer({
   const suggestionKeys = getContextualSuggestionKeys(fieldContext)
   const suggestions = suggestionKeys.map((k) => ca(k))
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Robust scroll lock when drawer is open (iOS Safari + Android)
+  useScrollLock(open)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Scroll to bottom on new messages and during streaming content updates
@@ -576,14 +580,15 @@ export function ChatAssistantDrawer({
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop - touch-none/overscroll-none prevent background scroll on iOS */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={springDefault}
             onClick={() => onOpenChange(false)}
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            onTouchMove={(e) => e.preventDefault()}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm touch-none overscroll-none"
           />
 
           {/* Drawer Panel */}

@@ -167,6 +167,41 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     }
   }
 
+  // Build historical_years_data from year_data when missing (PrefillResolver/bootstrap format)
+  const yearData = sessionData.year_data ?? sessionData.yearData
+  if (
+    !fd.historical_years_data &&
+    yearData &&
+    typeof yearData === 'object' &&
+    !Array.isArray(yearData)
+  ) {
+    const years = Object.keys(yearData)
+      .map((y) => parseInt(y, 10))
+      .filter((y) => !isNaN(y) && y >= 2000 && y <= 2100)
+    if (years.length > 0) {
+      fd.historical_years_data = years
+        .sort((a, b) => b - a)
+        .map((year) => {
+          const data = (yearData as Record<number, { revenue?: number; ebitda?: number }>)[year]
+          return {
+            year,
+            revenue: data?.revenue ?? 0,
+            ebitda: data?.ebitda ?? 0,
+          }
+        })
+    }
+  }
+
+  // Fallback: populate revenue/ebitda from current_year_data when not at top-level
+  // Venus saves 2025 data in current_year_data; form expects formData.revenue, formData.ebitda
+  const cyd = fd.current_year_data as
+    | { year?: number; revenue?: number | null; ebitda?: number | null }
+    | undefined
+  if (cyd && (fd.revenue === undefined || fd.ebitda === undefined)) {
+    if (fd.revenue === undefined && cyd.revenue != null) (fd as any).revenue = Number(cyd.revenue)
+    if (fd.ebitda === undefined && cyd.ebitda != null) (fd as any).ebitda = Number(cyd.ebitda)
+  }
+
   return formData
 }
 

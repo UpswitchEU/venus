@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import React from 'react'
 import { createPortal } from 'react-dom'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 interface RegenerationWarningModalProps {
   isOpen: boolean
@@ -40,8 +41,12 @@ export const RegenerationWarningModal: React.FC<RegenerationWarningModalProps> =
 
   const modal = (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop without blur to avoid GPU repaints */}
-      <div className="absolute inset-0 bg-black/70" onClick={onCancel} />
+      {/* Backdrop - touch-none/overscroll-none prevent background scroll on iOS */}
+      <div
+        className="absolute inset-0 bg-black/70 touch-none overscroll-none"
+        onClick={onCancel}
+        onTouchMove={(e) => e.preventDefault()}
+      />
 
       {/* Modal */}
       <div className="relative z-10 w-full max-w-md mx-4 bg-popover border border-foreground/10 rounded-2xl shadow-2xl">
