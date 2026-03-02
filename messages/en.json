@@ -492,7 +492,9 @@
     "createdVersion": "Created",
     "version": "Version",
     "saved": " saved",
-    "significantChanges": "Significant changes:"
+    "significantChanges": "Significant changes:",
+    "user": "User",
+    "guest": "Guest"
   },
   "dataCompleteness": {
     "title": "Data Completeness",

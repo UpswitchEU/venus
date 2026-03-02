@@ -63,7 +63,7 @@ export function FullscreenReportModal({
         size="full"
         variant="default"
         showClose={false}
-        className="report-modal p-0 flex flex-col overflow-hidden"
+        className="report-modal fixed inset-0 w-screen h-screen max-w-none max-h-none translate-x-0 translate-y-0 rounded-none p-0 flex flex-col overflow-hidden bg-background"
       >
         {/* Print Styles */}
         <style>{`
@@ -163,9 +163,9 @@ export function FullscreenReportModal({
           </button>
         </header>
 
-        {/* Report Content */}
+        {/* Report Content — dark mode background (Clarity Aurora) */}
         <div
-          className="flex-1 min-h-0 overflow-y-auto pt-2 bg-card"
+          className="flex-1 min-h-0 overflow-y-auto pt-2 bg-background"
           style={{
             transform: `scale(${zoom / 100})`,
             transformOrigin: 'top center',

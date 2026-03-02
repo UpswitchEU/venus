@@ -492,7 +492,9 @@
     "createdVersion": "Aangemaakt",
     "version": "Versie",
     "saved": " opgeslagen",
-    "significantChanges": "Significante wijzigingen:"
+    "significantChanges": "Significante wijzigingen:",
+    "user": "Gebruiker",
+    "guest": "Gast"
   },
   "dataCompleteness": {
     "title": "Data Volledigheid",

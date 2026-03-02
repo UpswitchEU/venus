@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Loader2,
   Minus,
+  User,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCallback, useState } from 'react'
@@ -42,6 +43,8 @@ export interface VersionTimelineProps {
   totalVersions?: number
   /** Callback to fetch more versions */
   onLoadMore?: () => Promise<void>
+  /** Format createdBy (user ID) to display name/email */
+  formatAuthor?: (createdBy: string | null) => string
 }
 
 /**
@@ -71,6 +74,7 @@ export function VersionTimeline({
   compact = false,
   totalVersions,
   onLoadMore,
+  formatAuthor,
 }: VersionTimelineProps) {
   const t = useTranslations('historyPanel')
   // WORLD-CLASS: Pagination state for large version lists
@@ -147,10 +151,11 @@ export function VersionTimeline({
   return (
     <div className="w-full p-6">
       <div className="relative">
-        {displayedVersions.map((version, index) => (
+          {displayedVersions.map((version, index) => (
           <div key={version.id} className="relative pb-8">
             <VersionTimelineItem
               version={version}
+              formatAuthor={formatAuthor}
               previousVersion={
                 index < displayedVersions.length - 1 ? displayedVersions[index + 1] : null
               }
@@ -203,6 +208,7 @@ interface VersionTimelineItemProps {
   onClick: () => void
   onPin?: () => void
   compact?: boolean
+  formatAuthor?: (createdBy: string | null) => string
 }
 
 function VersionTimelineItem({
@@ -213,6 +219,7 @@ function VersionTimelineItem({
   onClick,
   onPin: _onPin, // Kept for backward compatibility but not used in rendering
   compact,
+  formatAuthor,
 }: VersionTimelineItemProps) {
   const t = useTranslations('historyPanel')
   const formatDate = (date: Date | string) => {
@@ -291,6 +298,12 @@ function VersionTimelineItem({
                   <Calendar className="w-4 h-4" />
                   <span>{formatDate(version.createdAt)}</span>
                 </div>
+                {formatAuthor && (version as any).createdBy != null && (
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-4 h-4" />
+                    <span>{formatAuthor((version as any).createdBy)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

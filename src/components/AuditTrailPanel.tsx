@@ -11,7 +11,9 @@
 
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
+import { formatVersionAuthor } from '../utils/formatters'
 import { generalLogger } from '../utils/logger'
 import { VersionTimeline } from './VersionTimeline'
 
@@ -30,6 +32,7 @@ export interface AuditTrailPanelProps {
  */
 export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelProps) {
   const t = useTranslations('historyPanel')
+  const { user } = useAuth()
   const {
     versions: allVersions,
     getActiveVersion,
@@ -170,6 +173,12 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
             // WORLD-CLASS: Fetch more versions from backend
             await fetchVersions(reportId)
           }}
+          formatAuthor={(createdBy) =>
+            formatVersionAuthor(createdBy, user, {
+              user: t('user'),
+              guest: t('guest'),
+            })
+          }
         />
       </div>
     </div>

@@ -12,6 +12,8 @@
 import { Calendar, Edit3, RefreshCw, Save, User } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React, { useMemo, useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
+import { formatVersionAuthor } from '../utils/formatters'
 import { formatCurrency } from '../config/countries'
 import { valuationAuditService } from '../services/audit/ValuationAuditService'
 import type { SessionAuditEntry } from '../utils/sessionAuditTrail'
@@ -39,7 +41,14 @@ export interface AuditLogPanelProps {
  */
 export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelProps) {
   const t = useTranslations('auditLog')
+  const { user } = useAuth()
   const [filterOperation, setFilterOperation] = useState<string>('all')
+
+  const formatAuthor = (userId: string | null | undefined) =>
+    formatVersionAuthor(userId, user, {
+      user: t('user'),
+      guest: t('guest'),
+    })
 
   // Get audit log
   const auditLog = useMemo(() => {
@@ -158,7 +167,12 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
       <div className="flex-1 overflow-y-auto">
         <div className="divide-y divide-foreground/10">
           {sortedEntries.map((entry) => (
-            <AuditLogEntry key={entry.id} entry={entry} countryCode={countryCode} />
+            <AuditLogEntry
+              key={entry.id}
+              entry={entry}
+              countryCode={countryCode}
+              formatAuthor={formatAuthor}
+            />
           ))}
         </div>
       </div>
@@ -174,9 +188,10 @@ export function AuditLogPanel({ reportId, countryCode = 'BE' }: AuditLogPanelPro
 interface AuditLogEntryProps {
   entry: SessionAuditEntry
   countryCode: string
+  formatAuthor: (userId: string | null | undefined) => string
 }
 
-function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactElement {
+function AuditLogEntry({ entry, countryCode, formatAuthor }: AuditLogEntryProps): React.ReactElement {
   const t = useTranslations('auditLog')
 
   const formatDate = (date: Date): string => {
@@ -331,7 +346,7 @@ function AuditLogEntry({ entry, countryCode }: AuditLogEntryProps): React.ReactE
           {entry.userId && (
             <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
               <User className="w-3 h-3" />
-              <span>{entry.userId}</span>
+              <span>{formatAuthor(entry.userId)}</span>
             </div>
           )}
         </div>

@@ -11,8 +11,9 @@
 
 import { ArrowDownRight, ArrowUpRight, Calendar, Clock, Tag, User } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useAuth } from '../hooks/useAuth'
 import type { ValuationVersion } from '../types/ValuationVersion'
-import { formatCurrency } from '../utils/formatters'
+import { formatCurrency, formatVersionAuthor } from '../utils/formatters'
 
 export interface AuditDetailsViewProps {
   version: ValuationVersion | null
@@ -30,6 +31,10 @@ export interface AuditDetailsViewProps {
  */
 export function AuditDetailsView({ version, className = '' }: AuditDetailsViewProps) {
   const t = useTranslations('historyPanel')
+  const { user } = useAuth()
+  const formatAuthor = (createdBy: string | null | undefined) =>
+    formatVersionAuthor(createdBy, user, { user: t('user'), guest: t('guest') })
+
   if (!version) {
     return (
       <div className={`flex items-center justify-center h-full ${className}`}>
@@ -66,7 +71,7 @@ export function AuditDetailsView({ version, className = '' }: AuditDetailsViewPr
                 {version.createdBy && (
                   <div className="flex items-center gap-1.5">
                     <User className="w-4 h-4" />
-                    <span>{version.createdBy === 'guest' ? t('guest') : t('user')}</span>
+                    <span>{formatAuthor(version.createdBy)}</span>
                   </div>
                 )}
                 {version.calculationDuration_ms && (

@@ -7,6 +7,7 @@
  * @module utils/formatters
  */
 
+import type { User } from '../contexts/AuthContextTypes'
 import type { ValuationVersion } from '../types/ValuationVersion'
 import { type DecimalInput, parseDecimal, toNumber } from './decimal'
 
@@ -155,4 +156,46 @@ export function formatVersionLabel(version: ValuationVersion): string {
     : ''
 
   return `${low} - ${high} (Ask: ${asking})${normalizationIndicator}`
+}
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isUuid(str: string | null | undefined): boolean {
+  return !!str && UUID_REGEX.test(str)
+}
+
+/**
+ * Format version author for display.
+ * Shows user name/email instead of raw user ID when possible.
+ *
+ * @param createdBy - User ID from version (or 'guest', null)
+ * @param currentUser - Current authenticated user (for matching)
+ * @param fallbacks - Translated fallbacks for generic user/guest
+ * @returns Display string: name, email, "User", or "Guest"
+ */
+export function formatVersionAuthor(
+  createdBy: string | null | undefined,
+  currentUser: User | null,
+  fallbacks: { user?: string; guest?: string } = {}
+): string {
+  const { user: userFallback = 'User', guest: guestFallback = 'Guest' } = fallbacks
+
+  if (!createdBy || createdBy === 'guest' || createdBy.trim() === '') {
+    return guestFallback
+  }
+
+  if (currentUser && createdBy === currentUser.id) {
+    return currentUser.name?.trim() || currentUser.email || userFallback
+  }
+
+  if (isUuid(createdBy)) {
+    return userFallback
+  }
+
+  if (createdBy.includes('@')) {
+    return createdBy
+  }
+
+  return userFallback
 }

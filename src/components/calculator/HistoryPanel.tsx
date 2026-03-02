@@ -33,7 +33,9 @@ import { AuroraButton as Button, Checkbox } from '@/design-system'
 import { springDefault, springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
 import { trackVersionCompare, trackVersionRestore } from '@/lib/analytics'
+import { useAuth } from '../../hooks/useAuth'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
+import { formatVersionAuthor } from '../../utils/formatters'
 import { type HistoryVersion, VersionCompareModal } from './VersionCompareModal'
 
 // Re-export types
@@ -320,6 +322,7 @@ function ValuationSummaryCard({
 // ─────────────────────────────────────────
 
 export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore }: HistoryPanelProps) {
+  const { user } = useAuth()
   const hp = useTranslations('historyPanel')
   const locale = useLocale() as 'nl' | 'en'
   // ── Real version data from store ──
@@ -367,12 +370,18 @@ export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore 
       .sort((a, b) => (b.versionNumber || 0) - (a.versionNumber || 0))
       .map((v) => {
         const vr = (v as any).valuationResult
+        const createdBy = (v as any).createdBy as string | null | undefined
+        const authorDisplay = formatVersionAuthor(createdBy, user, {
+          user: hp('user'),
+          guest: hp('guest'),
+        })
+        const authorInitials = authorDisplay.substring(0, 2).toUpperCase().replace(/\s/g, '') || '??'
         return {
           id: v.id || String(v.versionNumber),
           version: v.versionNumber || 1,
           timestamp: v.createdAt ? new Date(v.createdAt) : new Date(),
-          author: (v as any).createdBy || hp('user'),
-          authorInitials: ((v as any).createdBy || 'GE').substring(0, 2).toUpperCase(),
+          author: authorDisplay,
+          authorInitials,
           type: deriveVersionType(v),
           summary: v.versionLabel || hp('versionN', { number: v.versionNumber ?? 1 }),
           changes: deriveChanges(v, hp('changed')),
@@ -405,7 +414,7 @@ export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore 
             activeVersionNumber != null ? v.versionNumber === activeVersionNumber : v.isActive,
         }
       })
-  }, [storeVersions, activeVersionNumber, hp, report])
+  }, [storeVersions, activeVersionNumber, hp, report, user])
 
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set())
   const [restoringVersion, setRestoringVersion] = useState<string | null>(null)

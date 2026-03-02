@@ -41,11 +41,33 @@
   --report-warning: 37 65% 55%;
   --report-danger: 6 55% 50%;
 
-  /* Print Surfaces */
+  /* Print Surfaces (white for PDF export) */
   --report-bg: 0 0% 100%;
   --report-surface: 40 15% 98%;
   --report-text: 225 18% 12%;
   --report-text-muted: 224 10% 45%;
+}
+
+/* Screen: Clarity Aurora dark mode — no white background, readable content */
+@media not print {
+  .valuation-report {
+    --report-bg: var(--background);
+    --report-surface: var(--card);
+    --report-text: var(--foreground);
+    --report-text-muted: var(--muted-foreground);
+    /* Map slate palette to design system for dark mode readability */
+    --report-slate-900: var(--foreground);
+    --report-slate-800: var(--foreground);
+    --report-slate-700: var(--muted-foreground);
+    --report-slate-600: var(--muted-foreground);
+    --report-slate-500: var(--muted-foreground);
+    --report-slate-200: var(--border);
+    --report-slate-100: var(--border);
+  }
+  /* Result row: keep dark background (uses --report-slate-900 for bg, overridden above) */
+  .valuation-report tr.row-result {
+    background: hsl(var(--card));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -81,13 +103,13 @@
   box-sizing: border-box;
 }
 
-/* A4 content pages — white on screen (matches report-template, ValuationIQ base.html) */
+/* A4 content pages — dark on screen (Aurora), white when printing */
 .valuation-report .a4-page {
   width: 210mm;
   min-height: 297mm;
   padding: 20mm 25mm 35mm 25mm;
   margin: 0 auto 24px auto;
-  background: hsl(var(--report-bg)) !important; /* Always white: 0 0% 100% */
+  background: hsl(var(--report-bg)) !important;
   position: relative;
   box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.12), 0 8px 48px -8px rgba(0, 0, 0, 0.08);
 }

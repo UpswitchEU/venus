@@ -125,6 +125,8 @@ interface ManualInputPanelProps {
   onQuickActionAccept?: (id: string) => void
   onQuickActionReject?: (id: string) => void
   onViewAllNormalizations?: () => void
+  /** Called when form data changes (debounced 300ms). Enables AI assistant to access financials before submit. */
+  onFormDataChange?: (data: Partial<ValuationFormData>) => void
 }
 
 // Options
@@ -209,6 +211,7 @@ export function ManualInputPanel({
   onQuickActionAccept,
   onQuickActionReject,
   onViewAllNormalizations,
+  onFormDataChange,
 }: ManualInputPanelProps) {
   const t = useTranslations()
   const mi = useTranslations('manualInput')
@@ -352,17 +355,53 @@ export function ManualInputPanel({
     initialData?.companyName,
     initialData?.kboNumber,
     initialData?.legalForm,
+    initialData?.businessStructure,
+    initialData?.address,
+    initialData?.naceCode,
+    initialData?.naceDescription,
     initialData?.businessType,
     initialData?.industry,
     initialData?.country,
     initialData?.yearFounded,
-    initialData?.naceCode,
-    initialData?.naceDescription,
-    initialData?.address,
-    initialData?.businessStructure,
     initialData?.ownerManagers,
     initialData?.equityStake,
+    initialData?.yearlyFinancials,
     updateFormData,
+  ])
+
+  // Sync form data to parent for AI context (debounced 300ms)
+  const onFormDataChangeRef = useRef(onFormDataChange)
+  onFormDataChangeRef.current = onFormDataChange
+  useEffect(() => {
+    if (!onFormDataChangeRef.current) return
+    const t = setTimeout(() => {
+      const current = formData.yearlyFinancials?.[0]
+      onFormDataChangeRef.current?.({
+        companyName: formData.companyName,
+        industry: formData.industry,
+        country: formData.country,
+        yearFounded: formData.yearFounded,
+        ownerManagers: formData.ownerManagers,
+        equityStake: formData.equityStake,
+        businessType: formData.businessType,
+        revenue: current?.revenue,
+        ebitda: current?.ebitda,
+        yearlyFinancials: formData.yearlyFinancials,
+        current_year_data: current
+          ? { year: parseInt(current.year, 10), revenue: current.revenue, ebitda: current.ebitda }
+          : undefined,
+      })
+    }, 300)
+    return () => clearTimeout(t)
+  }, [
+    formData.companyName,
+    formData.industry,
+    formData.country,
+    formData.yearFounded,
+    formData.ownerManagers,
+    formData.equityStake,
+    formData.businessType,
+    formData.yearlyFinancials,
   ])
 
   // Ensure companySearchValue is synced when initialData.companyName arrives late (e.g. after async store hydration)

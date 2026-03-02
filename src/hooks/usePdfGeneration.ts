@@ -25,8 +25,8 @@ export interface UsePdfGenerationReturn {
   state: PdfGenerationState
   /** Trigger PDF generation — returns the PDF URL if available synchronously */
   generatePdf: () => Promise<string | null>
-  /** Download existing PDF */
-  downloadPdf: (url?: string) => Promise<void>
+  /** Download existing PDF with optional custom filename */
+  downloadPdf: (url?: string, filename?: string) => Promise<void>
   /** Check if PDF is ready */
   isReady: boolean
   /** Check if generating */
@@ -319,7 +319,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   /**
    * Download the PDF file
    */
-  const downloadPdf = useCallback(async (url?: string) => {
+  const downloadPdf = useCallback(async (url?: string, filename?: string) => {
     const pdfUrl = url || state.url
     if (!pdfUrl) {
       if (state.status !== 'generating') {
@@ -342,7 +342,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       const blobUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = blobUrl
-      link.download = `valuation-report-${reportId || 'unknown'}.pdf`
+      link.download = filename || `valuation-report-${reportId || 'unknown'}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)

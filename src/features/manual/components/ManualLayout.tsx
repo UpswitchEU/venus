@@ -71,7 +71,6 @@ import {
   isLegacyReturnUrl,
 } from '../../../lib/return-url'
 import { reportService, valuationService } from '../../../services'
-import { DownloadService } from '../../../services/downloadService'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useConversationStore } from '../../../store/useConversationStore'
@@ -118,6 +117,11 @@ interface CollectedData {
   yearFounded?: string
   ownerManagers?: number
   equityStake?: number
+  /** Financial data from ManualInputPanel (for AI context before submit) */
+  revenue?: number
+  ebitda?: number
+  yearlyFinancials?: Array<{ year: string; revenue: number; ebitda: number }>
+  current_year_data?: { year: number; revenue: number; ebitda: number }
 }
 
 /** Compute display initials from user name (Titan/Mercury profile) */
@@ -597,6 +601,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     ownerManagers: 1,
     equityStake: 100,
   })
+
+  /** Latest financial data from ManualInputPanel (for AI context before submit) */
+  const latestFormDataRef = useRef<Partial<CollectedData>>({})
+
+  const handleFormDataChange = useCallback((data: Partial<CollectedData>) => {
+    latestFormDataRef.current = {
+      ...latestFormDataRef.current,
+      ...data,
+    }
+  }, [])
 
   // Sync form store changes into collectedData
   useEffect(() => {
@@ -1267,8 +1281,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const formCompletenessScore = Math.round((formFields.length / 7) * 100)
         const versions = reportId ? useVersionHistoryStore.getState().versions[reportId] || [] : []
 
+        const latestFinancials = latestFormDataRef.current
         const enrichedFormData = {
           ...collectedData,
+          revenue: latestFinancials.revenue ?? collectedData.revenue,
+          ebitda: latestFinancials.ebitda ?? collectedData.ebitda,
+          yearlyFinancials: latestFinancials.yearlyFinancials ?? collectedData.yearlyFinancials,
+          current_year_data: latestFinancials.current_year_data ?? collectedData.current_year_data,
           _normalizationSummary: {
             total: normalizationItems.length,
             accepted: accepted.length,
@@ -1508,85 +1527,33 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     conversationStore.setConversationId(null)
   }, [conversationStore])
 
-  // ─── Export Handler (server-side primary, DOM capture fallback) ───
+  // ─── Export Handler (server-side only — no client-side fallbacks) ───
   const handleExport = useCallback(async () => {
     if (!report) return
     setIsExporting(true)
 
+    const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-Schattingsrapport.pdf`
+
     try {
-      const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-Schattingsrapport.pdf`
-      let succeeded = false
-
-      // Path 1: Server-side PDF via Titan API (Python-generated)
-      try {
-        if (isPdfReady) {
-          await downloadPdf()
-          succeeded = true
-        } else if (reportId) {
-          toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
-          const pdfUrl = await generatePdf()
-          toast.dismiss('pdf-gen')
-          if (pdfUrl) {
-            await downloadPdf(pdfUrl)
-          }
-          succeeded = !!pdfUrl
-        }
-      } catch (serverError) {
+      if (isPdfReady) {
+        await downloadPdf(undefined, filename)
+      } else if (reportId) {
+        toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
+        const pdfUrl = await generatePdf()
         toast.dismiss('pdf-gen')
-        generalLogger.warn('[ManualLayout] Server PDF failed, falling back to DOM capture', {
-          error: serverError instanceof Error ? serverError.message : String(serverError),
-        })
-      }
-
-      // Path 2: DOM capture fallback (only when report view is active — never capture history/preview panels)
-      if (
-        !succeeded &&
-        reportPanelRef.current &&
-        (rightPanelView === 'report' || report?.htmlReport)
-      ) {
-        try {
-          const html2pdfModule = await import('html2pdf.js')
-          const html2pdf = html2pdfModule.default
-
-          await html2pdf()
-            .set({
-              margin: [10, 10, 10, 10],
-              filename,
-              image: { type: 'jpeg', quality: 0.95 },
-              html2canvas: {
-                scale: 2,
-                useCORS: true,
-                letterRendering: true,
-                scrollY: 0,
-                windowWidth: reportPanelRef.current.scrollWidth,
-              },
-              jsPDF: {
-                unit: 'mm',
-                format: 'a4',
-                orientation: 'portrait' as const,
-              },
-            })
-            .from(reportPanelRef.current)
-            .save()
-
-          succeeded = true
-        } catch (domError) {
-          generalLogger.warn('[ManualLayout] DOM PDF capture failed', {
-            error: domError instanceof Error ? domError.message : String(domError),
+        if (pdfUrl) {
+          await downloadPdf(pdfUrl, filename)
+        } else {
+          toast.error(t('pdfExportFailed'), {
+            description: t('pdfExportFailedDesc'),
           })
+          return
         }
-      }
-
-      // Path 3: Generic template fallback
-      if (!succeeded) {
-        await DownloadService.downloadPDF(
-          {
-            companyName: report.companyName,
-            valuationAmount: report.valuation,
-            htmlContent: result?.html_report || '',
-          },
-          { format: 'pdf', filename }
-        )
+      } else {
+        toast.error(t('pdfExportFailed'), {
+          description: t('pdfExportFailedDesc'),
+        })
+        return
       }
 
       setDownloadHistory((prev) => [
@@ -1607,7 +1574,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsExporting(false)
     }
-  }, [report, reportId, result, isPdfReady, downloadPdf, generatePdf, rightPanelView, tReport])
+  }, [report, reportId, isPdfReady, downloadPdf, generatePdf, tReport])
 
   // ─── Navigation Handlers ───
   const handleBack = useCallback(() => {
@@ -1735,7 +1702,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleAccountSettings = useCallback(() => {
     // Settings page lives in Mercury (cross-app navigation)
     const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/settings`
+    const locale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'en'
+    window.location.href = `${mercuryBaseUrl}/${locale}/accountant/settings`
   }, [currentLocale])
 
   const handleSwitchWorkspace = useCallback(() => {
@@ -1764,20 +1732,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [router, currentLocale])
 
   // Accountant dropdown navigation (Mercury parity)
+  // Venus locales (en, nl) map 1:1 to Mercury; fallback to 'en' for robustness
+  const mercuryLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'en'
+
   const handleNavigateToDashboard = useCallback(() => {
     const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/dashboard`
-  }, [currentLocale])
+    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/accountant/dashboard`
+  }, [mercuryLocale])
 
   const handleNavigateToBilling = useCallback(() => {
     const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/settings?tab=billing`
-  }, [currentLocale])
+    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/accountant/settings?tab=billing`
+  }, [mercuryLocale])
 
   const handleNavigateToHelp = useCallback(() => {
     const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${currentLocale}/help`
-  }, [currentLocale])
+    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/help`
+  }, [mercuryLocale])
 
   // ─── Field Help (opens Chat with context) - Clarity parity: full getContextualQuestion ───
   const handleFieldHelpRequest = useCallback(
@@ -2208,6 +2179,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onQuickActionAccept: handleAcceptNormalisation,
     onQuickActionReject: handleRejectNormalisation,
     onViewAllNormalizations: handleShowNormalisationReview,
+    onFormDataChange: handleFormDataChange,
     initialData: {
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,
@@ -2314,14 +2286,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             onClientClick={() => {
               if (clientContextId) {
                 const mercuryUrl = getMercuryUrl()
-                window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+                window.location.href = `${mercuryUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
               }
             }}
             onBusinessClick={
               clientContextId
                 ? () => {
                     const mercuryUrl = getMercuryUrl()
-                    window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+                    window.location.href = `${mercuryUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
                   }
                 : undefined
             }
@@ -2436,8 +2408,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           trackReturnToMercury()
           const mercuryBaseUrl = getMercuryUrl()
           const returnPath = clientContextId
-            ? `${mercuryBaseUrl}/${currentLocale}/accountant/clients/${clientContextId}?from=venus`
-            : `${mercuryBaseUrl}/${currentLocale}/accountant/clients`
+            ? `${mercuryBaseUrl}/${mercuryLocale}/accountant/clients/${clientContextId}?from=venus`
+            : `${mercuryBaseUrl}/${mercuryLocale}/accountant/clients`
           window.location.href = returnPath
         }}
         recentValuations={recentValuations}
@@ -2461,14 +2433,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onClientClick={() => {
             if (clientContextId) {
               const mercuryUrl = getMercuryUrl()
-              window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+              window.location.href = `${mercuryUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
             }
           }}
           onBusinessClick={
             clientContextId
               ? () => {
                   const mercuryUrl = getMercuryUrl()
-                  window.location.href = `${mercuryUrl}/${currentLocale}/accountant/clients/${clientContextId}`
+                  window.location.href = `${mercuryUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
                 }
               : undefined
           }
