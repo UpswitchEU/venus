@@ -1033,7 +1033,8 @@
   },
   "assistant": {
     "ask": "Vraag Assistent",
-    "title": "Assistent"
+    "title": "Assistent",
+    "shortcut": "⌘K"
   },
   "normalization": {
     "title": "Normalisaties"

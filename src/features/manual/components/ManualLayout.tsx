@@ -2531,7 +2531,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                             }}
                           />
                         </div>
-                      ) : (isGenerating || isCalculating || effectiveIsRestoringExistingReport) ? (
+                      ) : (isGenerating || isCalculating) ? (
                         <div className="h-full flex flex-col">
                           <div className="flex items-center justify-center gap-2 py-4">
                             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -2541,7 +2541,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           </div>
                           <ReportSkeleton />
                         </div>
-                      ) : null}
+                      ) : (
+                        <ReportPlaceholder />
+                      )}
                     </motion.div>
                   ) : rightPanelView === 'history' ? (
                     <motion.div
@@ -2577,7 +2579,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                         />
                       </div>
                     </motion.div>
-                  ) : (isGenerating || isCalculating || effectiveIsRestoringExistingReport) ? (
+                  ) : (isGenerating || isCalculating) ? (
                     <motion.div
                       key="report"
                       initial={{ opacity: 0 }}

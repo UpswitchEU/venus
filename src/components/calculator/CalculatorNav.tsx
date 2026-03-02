@@ -494,38 +494,44 @@ export function CalculatorNav({
         <div className="flex items-center">
           {/* Action buttons - grouped with Assistant */}
           <div className="hidden sm:flex items-center gap-0.5">
-            {/* Assistant Button */}
-            <AuroraButton
-              variant={isAssistantOpen ? 'primary' : 'ghost'}
-              size="sm"
-              onClick={onOpenAssistant}
-              className={cn(
-                'gap-1.5 mr-1 transition-all relative',
-                isAssistantOpen
-                  ? 'ring-2 ring-primary/20'
-                  : 'text-foreground/60 hover:text-foreground'
-              )}
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>{t('assistant.ask')}</span>
-              {openTasksCount > 0 && (
+            {/* Assistant Button - Primary action (Clarity parity) */}
+            <Tooltip content={t('assistant.title')}>
+              <AuroraButton
+                variant={isAssistantOpen ? 'primary' : 'ghost'}
+                size="sm"
+                onClick={onOpenAssistant}
+                className={cn(
+                  'gap-1.5 transition-all duration-200 relative',
+                  isAssistantOpen
+                    ? 'ring-2 ring-primary/20'
+                    : 'text-foreground/60 hover:text-foreground'
+                )}
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>{t('assistant.title')}</span>
+                <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded bg-foreground/[0.06] text-[10px] font-mono text-foreground/40 ml-1">
+                  {t('assistant.shortcut')}
+                </kbd>
+                {openTasksCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-secondary text-secondary-foreground shadow-sm">
                   {openTasksCount > 9 ? '9+' : openTasksCount}
                 </span>
               )}
             </AuroraButton>
+            </Tooltip>
 
-            {/* Normalization Hub Button - Secondary action */}
+            {/* Normalization Hub Button - Secondary action (Clarity parity) */}
             {onOpenNormalization && (
-              <AuroraButton
-                variant="ghost"
-                size="sm"
-                onClick={onOpenNormalization}
-                className={cn(
-                  'gap-1.5 mr-1 transition-all relative',
-                  'text-foreground/60 hover:text-foreground'
-                )}
-              >
+              <Tooltip content={t('normalization.title')}>
+                <AuroraButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenNormalization}
+                  className={cn(
+                    'gap-1.5 mr-1 transition-all duration-200 relative',
+                    'text-foreground/60 hover:text-foreground'
+                  )}
+                >
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>{t('normalization.title')}</span>
                 {normalizationCount > 0 && (
@@ -534,6 +540,7 @@ export function CalculatorNav({
                   </span>
                 )}
               </AuroraButton>
+              </Tooltip>
             )}
 
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
