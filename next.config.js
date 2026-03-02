@@ -31,11 +31,15 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     scrollRestoration: true,
-    // Exclude dev-only packages from serverless bundles (Vercel limits) - Next.js 13 format
+    // Exclude dev-only and platform-specific packages from serverless bundles
+    // Fixes Vercel "Deploying outputs" internal error (250MB function limit / trace bloat)
     outputFileTracingExcludes: {
       '/*': [
         'node_modules/@swc/core-linux-x64-gnu/**',
         'node_modules/@swc/core-linux-x64-musl/**',
+        'node_modules/@swc/core-darwin-x64/**',
+        'node_modules/@swc/core-darwin-arm64/**',
+        'node_modules/@swc/core-win32-x64-msvc/**',
         'node_modules/@esbuild/**',
         'node_modules/typescript/**',
         'node_modules/@biomejs/**',
@@ -44,8 +48,10 @@ const nextConfig = {
         'node_modules/@vitest/**',
         'node_modules/@testing-library/**',
         'node_modules/jsdom/**',
+        'node_modules/@parcel/watcher/**',
         '**/__tests__/**',
         '**/.storybook/**',
+        '**/docs/**',
       ],
     },
   },
