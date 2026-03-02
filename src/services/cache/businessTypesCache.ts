@@ -296,6 +296,19 @@ export class BusinessTypesCacheService {
   }
 
   private loadStats(): CacheStats {
+    const defaultStats: CacheStats = {
+      hitCount: 0,
+      missCount: 0,
+      size: 0,
+      lastUpdated: Date.now(),
+      isExpired: true,
+    }
+
+    // localStorage is only available in browser; skip during SSG/build (Node.js)
+    if (typeof window === 'undefined') {
+      return defaultStats
+    }
+
     try {
       const stats = localStorage.getItem(CACHE_CONFIG.KEYS.STATS)
       if (stats) {
@@ -305,13 +318,7 @@ export class BusinessTypesCacheService {
       generalLogger.error('[BusinessTypesCache] Error loading stats', { error })
     }
 
-    return {
-      hitCount: 0,
-      missCount: 0,
-      size: 0,
-      lastUpdated: Date.now(),
-      isExpired: true,
-    }
+    return defaultStats
   }
 
   private saveStats(): void {
