@@ -31,24 +31,23 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     scrollRestoration: true,
-  },
-
-  // Exclude dev-only and platform-specific packages from serverless bundles (Vercel limits)
-  outputFileTracingExcludes: {
-    '/*': [
-      'node_modules/@swc/core-linux-x64-gnu/**',
-      'node_modules/@swc/core-linux-x64-musl/**',
-      'node_modules/@esbuild/**',
-      'node_modules/typescript/**',
-      'node_modules/@biomejs/**',
-      'node_modules/@playwright/**',
-      'node_modules/vitest/**',
-      'node_modules/@vitest/**',
-      'node_modules/@testing-library/**',
-      'node_modules/jsdom/**',
-      '**/__tests__/**',
-      '**/.storybook/**',
-    ],
+    // Exclude dev-only packages from serverless bundles (Vercel limits) - Next.js 13 format
+    outputFileTracingExcludes: {
+      '/*': [
+        'node_modules/@swc/core-linux-x64-gnu/**',
+        'node_modules/@swc/core-linux-x64-musl/**',
+        'node_modules/@esbuild/**',
+        'node_modules/typescript/**',
+        'node_modules/@biomejs/**',
+        'node_modules/@playwright/**',
+        'node_modules/vitest/**',
+        'node_modules/@vitest/**',
+        'node_modules/@testing-library/**',
+        'node_modules/jsdom/**',
+        '**/__tests__/**',
+        '**/.storybook/**',
+      ],
+    },
   },
 
   // Optimize bundle splitting and tree-shaking

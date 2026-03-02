@@ -88,6 +88,10 @@ export interface ValuationFormData {
   yearlyFinancials: YearlyFinancials[]
   // Calculated values
   averageNormalizedEbitda?: number
+  // Convenience fields for AI context (derived from yearlyFinancials[0])
+  revenue?: number
+  ebitda?: number
+  current_year_data?: { year: number; revenue: number; ebitda: number }
 }
 
 // Field help context for AI assistant integration
