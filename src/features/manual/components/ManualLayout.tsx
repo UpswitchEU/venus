@@ -51,6 +51,7 @@ import {
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
+import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { springDefault } from '../../../design-system/components/motion'
 // Design System
@@ -889,7 +890,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setDraftStatus('saved')
       setLastSaved(new Date())
 
-      setRightPanelView('report')
+      setRightPanelView('preview')
 
       // On mobile, auto-open fullscreen modal since there's no right panel
       if (isMobile && htmlReport) {
@@ -2070,7 +2071,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           await useVersionHistoryStore.getState().fetchVersions(reportId)
         }
 
-        setRightPanelView('report')
+        setRightPanelView('preview')
         toast.success(t('versionRestored', { version: versionNumber }))
       } catch (error) {
         generalLogger.warn('[ManualLayout] Version restore failed', {
@@ -2530,19 +2531,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                             }}
                           />
                         </div>
-                      ) : (
+                      ) : (isGenerating || isCalculating || effectiveIsRestoringExistingReport) ? (
                         <div className="h-full flex flex-col">
-                          {(isGenerating || isCalculating || effectiveIsRestoringExistingReport) && (
-                            <div className="flex items-center justify-center gap-2 py-4">
-                              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                              <span className="text-sm text-foreground/60">
-                                {tReport('generating.title')}
-                              </span>
-                            </div>
-                          )}
+                          <div className="flex items-center justify-center gap-2 py-4">
+                            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm text-foreground/60">
+                              {tReport('generating.title')}
+                            </span>
+                          </div>
                           <ReportSkeleton />
                         </div>
-                      )}
+                      ) : null}
                     </motion.div>
                   ) : rightPanelView === 'history' ? (
                     <motion.div
@@ -2578,7 +2577,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                         />
                       </div>
                     </motion.div>
-                  ) : (
+                  ) : (isGenerating || isCalculating || effectiveIsRestoringExistingReport) ? (
                     <motion.div
                       key="report"
                       initial={{ opacity: 0 }}
@@ -2588,6 +2587,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       className="h-full"
                     >
                       <ReportSkeleton />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="placeholder"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={springDefault}
+                      className="h-full"
+                    >
+                      <ReportPlaceholder />
                     </motion.div>
                   )}
                 </AnimatePresence>

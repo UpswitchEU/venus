@@ -619,7 +619,7 @@
     "defaultFilename": "Report",
     "placeholder": {
       "title": "Your report will appear here",
-      "description": "Fill in the business details and click 'Calculate Indicative Estimate' to generate your indicative business estimate report.",
+      "description": "Fill in the business details on the left. Once you're done, the system will automatically generate a defensible indicative estimate report with audit trail.",
       "time": "±15 min average processing time"
     },
     "generating": {

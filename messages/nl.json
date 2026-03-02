@@ -619,7 +619,7 @@
     "defaultFilename": "Rapport",
     "placeholder": {
       "title": "Uw rapport verschijnt hier",
-      "description": "Vul de bedrijfsgegevens in en klik op 'Bereken Schatting' om uw schattingsrapport te genereren.",
+      "description": "Vul links de bedrijfsgegevens in. Zodra u klaar bent, genereert het systeem automatisch een verdedigbaar schattingsrapport met audit trail.",
       "time": "±15 min gemiddelde doorlooptijd"
     },
     "generating": {
