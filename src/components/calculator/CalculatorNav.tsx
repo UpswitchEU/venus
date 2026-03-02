@@ -25,14 +25,12 @@ import {
   GitBranch,
   HelpCircle,
   History,
+  Home,
   Loader2,
   LogOut,
   Maximize2,
   MessageCircle,
   Settings,
-  TrendingUp,
-  User,
-  Users,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
@@ -91,9 +89,7 @@ export interface CalculatorNavProps {
   onSwitchWorkspace?: () => void
   onLogout?: () => void
   /** Accountant mode navigation (Mercury parity) */
-  onNavigateToClients?: () => void
-  onNavigateToValuation?: () => void
-  onNavigateToProfile?: () => void
+  onNavigateToDashboard?: () => void
   onNavigateToBilling?: () => void
   onNavigateToHelp?: () => void
   // Recent valuations support
@@ -233,9 +229,7 @@ export function CalculatorNav({
   onAccountSettings,
   onSwitchWorkspace,
   onLogout,
-  onNavigateToClients,
-  onNavigateToValuation,
-  onNavigateToProfile,
+  onNavigateToDashboard,
   onNavigateToBilling,
   onNavigateToHelp,
   recentValuations = [],
@@ -823,30 +817,11 @@ export function CalculatorNav({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => onNavigateToClients?.()}
+                    onClick={() => onNavigateToDashboard?.()}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
                   >
-                    <Users className="w-4 h-4 text-foreground/50" />
-                    <span>{t('account.clients')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => onNavigateToValuation?.()}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
-                  >
-                    <TrendingUp className="w-4 h-4 text-foreground/50" />
-                    <span>{t('account.valuation')}</span>
-                  </button>
-                  <div className="h-px bg-foreground/10 -mx-1 my-1.5" />
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => onNavigateToProfile?.()}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground/80 hover:text-foreground hover:bg-foreground/5 transition-colors"
-                  >
-                    <User className="w-4 h-4 text-foreground/50" />
-                    <span>{t('account.profile')}</span>
+                    <Home className="w-4 h-4 text-foreground/50" />
+                    <span>{t('account.returnToDashboard')}</span>
                   </button>
                   <button
                     type="button"

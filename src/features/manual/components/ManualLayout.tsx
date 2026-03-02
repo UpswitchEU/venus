@@ -1764,19 +1764,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [router, currentLocale])
 
   // Accountant dropdown navigation (Mercury parity)
-  const handleNavigateToClients = useCallback(() => {
+  const handleNavigateToDashboard = useCallback(() => {
     const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/clients`
-  }, [currentLocale])
-
-  const handleNavigateToValuation = useCallback(() => {
-    const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${currentLocale}/calculator`
-  }, [currentLocale])
-
-  const handleNavigateToProfile = useCallback(() => {
-    const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/settings?tab=profile`
+    window.location.href = `${mercuryBaseUrl}/${currentLocale}/accountant/dashboard`
   }, [currentLocale])
 
   const handleNavigateToBilling = useCallback(() => {
@@ -2307,9 +2297,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onLogout={handleLogout}
           onAccountSettings={handleAccountSettings}
           onSwitchWorkspace={handleSwitchWorkspace}
-          onNavigateToClients={handleNavigateToClients}
-          onNavigateToValuation={handleNavigateToValuation}
-          onNavigateToProfile={handleNavigateToProfile}
+          onNavigateToDashboard={handleNavigateToDashboard}
           onNavigateToBilling={handleNavigateToBilling}
           onNavigateToHelp={handleNavigateToHelp}
           isAccountantMode={isAccountantMode}
@@ -2426,9 +2414,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             toast.info(t('pdfRegenerating'), { description: t('pdfRegeneratingDesc') })
           }
         }}
-        onNavigateToClients={handleNavigateToClients}
-        onNavigateToValuation={handleNavigateToValuation}
-        onNavigateToProfile={handleNavigateToProfile}
+        onNavigateToDashboard={handleNavigateToDashboard}
         onNavigateToBilling={handleNavigateToBilling}
         onNavigateToHelp={handleNavigateToHelp}
         valuationSummary={
