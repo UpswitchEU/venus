@@ -62,13 +62,19 @@ export async function POST(request: NextRequest) {
       reportId: body.reportId || body.sessionId,
       hasRevenue: !!body.formData?.revenue,
       hasEbitda: !!body.formData?.ebitda,
-      hasOwnerSalary: body.normalizations?.some((n: any) => n.category === 'salary'),
-      needsNormalization: body.normalizations?.some((n: any) => n.status === 'pending'),
+      hasOwnerSalary: !!body.normalizations?.some((n: any) => n.category === 'salary'),
+      needsNormalization: !!body.normalizations?.some((n: any) => n.status === 'pending'),
     }
 
     const titanPayload: any = { messages, context }
     if (body.conversationId) {
       titanPayload.conversationId = body.conversationId
+    }
+    if (body.formData) {
+      titanPayload.formData = body.formData
+    }
+    if (body.normalizations) {
+      titanPayload.normalizations = body.normalizations
     }
 
     const titanResponse = await fetch(titanEndpoint, {
