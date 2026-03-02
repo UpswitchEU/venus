@@ -1,0 +1,9 @@
+packages:
+  - '.'
+
+onlyBuiltDependencies:
+  - '@heroui/shared-utils'
+  - '@parcel/watcher'
+  - '@swc/core'
+  - 'core-js'
+  - 'esbuild'
