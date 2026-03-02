@@ -126,7 +126,7 @@ interface ManualInputPanelProps {
   onQuickActionReject?: (id: string) => void
   onViewAllNormalizations?: () => void
   /** Called when form data changes (debounced 300ms). Enables AI assistant to access financials before submit. */
-  onFormDataChange?: (data: Partial<ValuationFormData>) => void
+  onFormDataChange?: (data: Record<string, unknown>) => void
 }
 
 // Options

@@ -605,10 +605,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   /** Latest financial data from ManualInputPanel (for AI context before submit) */
   const latestFormDataRef = useRef<Partial<CollectedData>>({})
 
-  const handleFormDataChange = useCallback((data: Partial<CollectedData>) => {
+  const handleFormDataChange = useCallback((data: Record<string, unknown>) => {
     latestFormDataRef.current = {
       ...latestFormDataRef.current,
-      ...data,
+      ...(data as Partial<CollectedData>),
     }
   }, [])
 
