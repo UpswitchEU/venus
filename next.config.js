@@ -52,6 +52,21 @@ const nextConfig = {
         '**/__tests__/**',
         '**/.storybook/**',
         '**/docs/**',
+        // pnpm store: platform-specific binaries (Vercel uses Linux)
+        'node_modules/.pnpm/@swc+core-darwin*/**',
+        'node_modules/.pnpm/@swc+core-win32*/**',
+        'node_modules/.pnpm/@parcel+watcher*/**',
+        'node_modules/.pnpm/esbuild*/**',
+      ],
+      // API routes: exclude heavy dev/build deps from each serverless function
+      '/api/*': [
+        'node_modules/typescript/**',
+        'node_modules/@biomejs/**',
+        'node_modules/@playwright/**',
+        'node_modules/vitest/**',
+        'node_modules/@vitest/**',
+        'node_modules/@testing-library/**',
+        'node_modules/jsdom/**',
       ],
     },
   },

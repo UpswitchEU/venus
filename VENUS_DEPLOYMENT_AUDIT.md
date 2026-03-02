@@ -98,14 +98,15 @@ No obvious deployment risks here.
 
 ---
 
-## 6. Fix Applied: outputFileTracingExcludes
+## 6. Fix Applied: outputFileTracingExcludes (expanded)
 
 **Problem:** "Deploying outputs" failures are often caused by serverless functions exceeding Vercel's 250 MB uncompressed limit. File tracing can pull in unnecessary dev/build deps.
 
 **Fix:** Expanded `experimental.outputFileTracingExcludes` in `next.config.js`:
-- Added platform-specific @swc binaries (darwin, win32) so only Linux deps are traced
-- Added `@parcel/watcher`, `**/docs/**`
-- Keeps serverless bundles smaller
+- Platform-specific @swc binaries (darwin, win32) so only Linux deps are traced
+- `@parcel/watcher`, `**/docs/**`
+- **pnpm store patterns** for Venus (uses pnpm): `.pnpm/@swc+core-darwin*/**`, `.pnpm/@swc+core-win32*/**`, `.pnpm/@parcel+watcher*/**`, `.pnpm/esbuild*/**`
+- **API route exclusions** (`/api/*`): typescript, @biomejs, @playwright, vitest, @vitest, @testing-library, jsdom
 
 ## 7. Recommended Next Steps
 
