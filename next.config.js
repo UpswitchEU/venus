@@ -31,21 +31,6 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     scrollRestoration: true,
-    // Exclude unnecessary files from serverless bundles to reduce deployment size
-    outputFileTracingExcludes: {
-      '/*': [
-        'node_modules/@swc/core-linux-x64-gnu/**',
-        'node_modules/@swc/core-linux-x64-musl/**',
-        '**/*.test.ts',
-        '**/*.test.tsx',
-        '**/*.spec.ts',
-        '**/*.spec.tsx',
-        '**/__tests__/**',
-        '**/tests/**',
-        '**/docs/**',
-        '**/.storybook/**',
-      ],
-    },
   },
 
   // Optimize bundle splitting and tree-shaking

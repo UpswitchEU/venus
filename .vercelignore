@@ -5,3 +5,6 @@ dist
 build
 node_modules
 .vite
+
+# Venus uses pnpm; avoid package manager conflict warning
+package-lock.json
