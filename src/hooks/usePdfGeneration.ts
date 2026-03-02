@@ -98,7 +98,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     }
 
     let pollCount = 0
-    const maxPolls = 60 // 5 minutes max (5s intervals)
+    const maxPolls = 150 // 5 minutes max (2s intervals)
 
     pollingRef.current = setInterval(async () => {
       pollCount++
@@ -126,7 +126,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             // PDF not ready yet, continue polling
             setState((prev) => ({
               ...prev,
-              progress: Math.min(20 + pollCount * 2, 90),
+              progress: Math.min(20 + pollCount, 90),
             }))
             return
           }
@@ -160,14 +160,14 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           // Still generating, update progress
           setState((prev) => ({
             ...prev,
-            progress: Math.min(20 + pollCount * 2, 90),
+            progress: Math.min(20 + pollCount, 90),
           }))
         }
       } catch (error) {
         // Don't fail on polling errors - keep trying
         generalLogger.warn('[PDF] Polling error', { error })
       }
-    }, 5000)
+    }, 2000)
   }, [reportId])
 
   /**
@@ -261,7 +261,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     }
 
     let pollCount = 0
-    const maxPolls = 60 // 5 minutes max (5s intervals)
+    const maxPolls = 150 // 5 minutes max (2s intervals)
 
     pollingRef.current = setInterval(async () => {
       pollCount++
@@ -289,7 +289,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         const data = await response.json()
 
         // Update progress
-        const progress = Math.min(30 + pollCount * 2, 90)
+        const progress = Math.min(30 + pollCount, 90)
         setState((prev) => ({ ...prev, progress }))
 
         if (data.status === 'completed' && data.pdfUrl) {
@@ -313,7 +313,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         // Don't fail on polling errors - keep trying
         generalLogger.warn('[PDF] Polling error', { error })
       }
-    }, 5000)
+    }, 2000)
   }, [])
 
   /**
