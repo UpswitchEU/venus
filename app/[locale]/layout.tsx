@@ -113,7 +113,18 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
       `[LocaleLayout] Failed to load messages for locale: ${validFinalLocale}`,
       error instanceof Error ? error.message : String(error)
     )
-    messages = {}
+    // Fallback: load messages directly from JSON (same pattern as i18n.ts)
+    try {
+      messages = (await import(`../../messages/${validFinalLocale}.json`)).default
+    } catch (fallbackError) {
+      if (validFinalLocale !== 'en') {
+        try {
+          messages = (await import(`../../messages/en.json`)).default
+        } catch {
+          // Keep empty as last resort
+        }
+      }
+    }
   }
 
   // Use the validated final locale for the provider
