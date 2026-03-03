@@ -78,19 +78,22 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
     locale = 'en'
   }
 
-  // Get locale from request context (set by middleware) as fallback
-  // This ensures next-intl can find the locale even if params resolution fails
+  // CRITICAL: Prefer params.locale (from URL path) over getLocale() (from request context).
+  // When user navigates to /nl/reports/xxx, params.locale is 'nl' - that must win.
+  // getLocale() can return 'en' from NEXT_LOCALE cookie or Accept-Language, which would
+  // incorrectly override the explicit path locale (Mercury→Venus Dutch persistence bug).
   let requestLocale: string | undefined
   try {
     requestLocale = await getLocale()
   } catch (_e) {
-    // getLocale() can fail if called outside request context - that's OK
     requestLocale = undefined
   }
 
-  // Use request locale if available, otherwise use resolved locale from params
-  // Ensure we always have a valid locale string
-  const finalLocale: string = requestLocale || locale || 'en'
+  // Path locale (params) always wins when valid - ensures Mercury /nl/ → Venus shows Dutch
+  const finalLocale: string =
+    locale && locales.includes(locale as Locale)
+      ? locale
+      : (requestLocale || locale || 'en')
 
   // Validate final locale
   const validFinalLocale: Locale = locales.includes(finalLocale as Locale)

@@ -19,12 +19,42 @@ const intlMiddleware = createMiddleware({
 });
 
 /**
- * Detect locale from cookie, query param, or Accept-Language header
+ * Cookie options for NEXT_LOCALE - use cross-subdomain domain in production
+ * so Mercury (upswitch.app) and Venus (valuation.upswitch.app) share the cookie
+ */
+function getLocaleCookieOptions(request: NextRequest): { path: string; maxAge: number; sameSite: 'lax'; domain?: string } {
+	const host = request.headers.get('host') || request.nextUrl.hostname || '';
+	const isProduction = host.includes('upswitch.app');
+	return {
+		path: '/',
+		maxAge: 60 * 60 * 24 * 365,
+		sameSite: 'lax',
+		...(isProduction && { domain: '.upswitch.app' }),
+	};
+}
+
+/**
+ * Detect locale from query param, return_url (Mercury flow), cookie, or Accept-Language header
  */
 function detectLocale(request: NextRequest): string {
 	const localeParam = request.nextUrl.searchParams.get('locale');
 	if (localeParam && locales.includes(localeParam as typeof locales[number])) {
 		return localeParam;
+	}
+	// When source=mercury, parse return_url for locale (e.g. .../nl/accountant/clients/...)
+	if (request.nextUrl.searchParams.get('source') === 'mercury') {
+		const returnUrl = request.nextUrl.searchParams.get('return_url');
+		if (returnUrl) {
+			try {
+				const path = new URL(returnUrl).pathname;
+				const m = path.match(/\/(nl|en)(\/|$)/);
+				if (m && locales.includes(m[1] as typeof locales[number])) {
+					return m[1];
+				}
+			} catch {
+				// Invalid URL, continue to other sources
+			}
+		}
 	}
 	const cookieLocale = request.cookies.get('NEXT_LOCALE')?.value;
 	if (cookieLocale && locales.includes(cookieLocale as typeof locales[number])) {
@@ -82,6 +112,25 @@ export async function middleware(request: NextRequest) {
 		return NextResponse.redirect(newUrl);
 	}
 
+	// Path locale always wins: when path has /nl/ or /en/, use it and set cookie — never redirect
+	const pathLocaleMatch = pathname.match(/^\/(nl|en)(\/|$)/);
+	if (pathLocaleMatch) {
+		const pathLocale = pathLocaleMatch[1];
+		const response = intlMiddleware(request);
+		if (response instanceof Response) {
+			response.cookies.set('NEXT_LOCALE', pathLocale, getLocaleCookieOptions(request));
+			response.headers.delete('X-Frame-Options');
+			const existingCSP = response.headers.get('Content-Security-Policy');
+			if (!existingCSP || !existingCSP.includes('frame-ancestors')) {
+				response.headers.set(
+					'Content-Security-Policy',
+					"frame-ancestors 'self' https://upswitch.app https://*.upswitch.app"
+				);
+			}
+		}
+		return response;
+	}
+
 	// Priority 1: Check for locale in URL params (from Mercury embedding)
 	const localeParam = request.nextUrl.searchParams.get('locale');
 	if (localeParam && locales.includes(localeParam as typeof locales[number])) {
@@ -91,11 +140,7 @@ export async function middleware(request: NextRequest) {
 			const cleanUrl = request.nextUrl.clone();
 			cleanUrl.searchParams.delete('locale');
 			const res = NextResponse.redirect(cleanUrl);
-			res.cookies.set('NEXT_LOCALE', localeParam, {
-				path: '/',
-				maxAge: 60 * 60 * 24 * 365,
-				sameSite: 'lax',
-			});
+			res.cookies.set('NEXT_LOCALE', localeParam, getLocaleCookieOptions(request));
 			return res;
 		}
 
@@ -106,11 +151,7 @@ export async function middleware(request: NextRequest) {
 		newUrl.pathname = `/${localeParam}${pathWithoutLocale}`;
 		newUrl.searchParams.delete('locale');
 		const res = NextResponse.redirect(newUrl);
-		res.cookies.set('NEXT_LOCALE', localeParam, {
-			path: '/',
-			maxAge: 60 * 60 * 24 * 365,
-			sameSite: 'lax',
-		});
+		res.cookies.set('NEXT_LOCALE', localeParam, getLocaleCookieOptions(request));
 		return res;
 	}
 
