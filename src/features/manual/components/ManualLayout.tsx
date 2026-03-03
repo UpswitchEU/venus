@@ -2470,8 +2470,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           />
 
           {/* Right Panel: Report / Preview / History */}
+          {/* Match Clarity: bg-white so report (dark cover + white content) stands out from dark Venus UI */}
           <ResizablePanel defaultSize={65} minSize={40}>
-            <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
+            <div ref={reportPanelRef} className="h-full bg-white flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">
                   {rightPanelView === 'preview' ? (
@@ -2481,7 +2482,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="valuation-report-container h-full overflow-y-auto"
+                      className="valuation-report-container h-full overflow-y-auto bg-white"
                     >
                       {report?.htmlReport ? (
                         <div className="valuation-report">
@@ -2492,7 +2493,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           />
                         </div>
                       ) : (isGenerating || isCalculating) ? (
-                        <div className="h-full flex flex-col">
+                        <div className="h-full flex flex-col bg-white">
                           <div className="flex items-center justify-center gap-2 py-4">
                             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                             <span className="text-sm text-foreground/60">
@@ -2512,7 +2513,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="h-full"
+                      className="h-full bg-white"
                     >
                       <Suspense fallback={<PanelSkeleton />}>
                         <HistoryPanel
@@ -2529,7 +2530,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="valuation-report-container h-full overflow-y-auto"
+                      className="valuation-report-container h-full overflow-y-auto bg-white"
                     >
                       <div className="valuation-report">
                         <div
@@ -2546,7 +2547,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="h-full"
+                      className="h-full bg-white"
                     >
                       <ReportSkeleton />
                     </motion.div>
@@ -2557,7 +2558,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="h-full"
+                      className="h-full bg-white"
                     >
                       <ReportPlaceholder />
                     </motion.div>
