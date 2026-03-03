@@ -1139,10 +1139,13 @@
     "valuationMethod": {
       "label": "Waarderingsmethode",
       "upswitchRecommended": "UpSwitch Adaptive Valuation",
-      "dcf": "Handmatig: Discounted Cash Flow (DCF)",
-      "marketMultiples": "Handmatig: Marktmultiples",
-      "comingSoon": "Binnenkort",
-      "tooltip": "Onze engine analyseert de specifieke financiële context, sector en omvang van het bedrijf om automatisch het meest wiskundig correcte waarderingsmodel te selecteren (bijv. EBITDA-multiple, SDE, omzetmultiple, DCF of asset-based).",
+      "ebitdaMultiple": "EBITDA-multiple",
+      "sdeMultiple": "SDE-multiple",
+      "revenueMultiple": "Omzetmultiple",
+      "dcf": "DCF",
+      "assetBased": "Activa-gebaseerd",
+      "comingSoon": "Binnenkort beschikbaar",
+      "tooltip": "Onze engine analyseert de specifieke financiële context, sector en omvang van het bedrijf om automatisch het meest wiskundig correcte waarderingsmodel te selecteren (EBITDA-multiple, SDE-multiple, omzetmultiple, DCF of activa-gebaseerd).",
       "tooltipAriaLabel": "Hoe de waarderingsmethode wordt geselecteerd"
     },
     "validation": {

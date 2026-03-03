@@ -1139,10 +1139,13 @@
     "valuationMethod": {
       "label": "Valuation method",
       "upswitchRecommended": "UpSwitch Adaptive Valuation",
-      "dcf": "Manual: Discounted Cash Flow (DCF)",
-      "marketMultiples": "Manual: Market Multiples",
+      "ebitdaMultiple": "EBITDA Multiple",
+      "sdeMultiple": "SDE Multiple",
+      "revenueMultiple": "Revenue Multiple",
+      "dcf": "DCF",
+      "assetBased": "Asset-Based",
       "comingSoon": "Coming soon",
-      "tooltip": "Our engine analyzes the specific financial context, industry, and size of the company to automatically select the most mathematically sound valuation model (e.g., EBITDA multiple, SDE, Revenue multiple, DCF, or Asset-based).",
+      "tooltip": "Our engine analyzes the specific financial context, industry, and size of the company to automatically select the most mathematically sound valuation model (EBITDA multiple, SDE multiple, Revenue multiple, DCF, or Asset-based).",
       "tooltipAriaLabel": "How the valuation method is selected"
     },
     "validation": {

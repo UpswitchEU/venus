@@ -632,7 +632,7 @@ const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 
           {/* State Icon */}
           {(hasError || success) && (
-            <div className="absolute right-3 top-3">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
               {hasError ? (
                 <CircleX className="w-5 h-5 text-destructive" aria-hidden="true" />
               ) : success ? (

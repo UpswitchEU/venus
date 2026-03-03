@@ -175,7 +175,7 @@ const FieldInput: React.FC<FieldInputProps> = ({
             max="100"
             className={baseClasses}
           />
-          <span className="absolute right-3 top-2 text-muted-foreground">%</span>
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
         </div>
       )
     }

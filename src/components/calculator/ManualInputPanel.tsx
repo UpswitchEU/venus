@@ -864,9 +864,27 @@ export function ManualInputPanel({
   const valuationMethodOptions = useMemo(
     () => [
       {
-        value: 'upswitch',
+        value: 'auto',
         label: mi('valuationMethod.upswitchRecommended'),
         disabled: false,
+      },
+      {
+        value: 'ebitda_multiples',
+        label: mi('valuationMethod.ebitdaMultiple'),
+        description: mi('valuationMethod.comingSoon'),
+        disabled: true,
+      },
+      {
+        value: 'sde_multiples',
+        label: mi('valuationMethod.sdeMultiple'),
+        description: mi('valuationMethod.comingSoon'),
+        disabled: true,
+      },
+      {
+        value: 'ev_revenue',
+        label: mi('valuationMethod.revenueMultiple'),
+        description: mi('valuationMethod.comingSoon'),
+        disabled: true,
       },
       {
         value: 'dcf',
@@ -874,12 +892,12 @@ export function ManualInputPanel({
         description: mi('valuationMethod.comingSoon'),
         disabled: true,
       },
-      {
-        value: 'multiples',
-        label: mi('valuationMethod.marketMultiples'),
-        description: mi('valuationMethod.comingSoon'),
-        disabled: true,
-      },
+        {
+          value: 'asset_based',
+          label: mi('valuationMethod.assetBased'),
+          description: mi('valuationMethod.comingSoon'),
+          disabled: true,
+        },
     ],
     [mi]
   )
@@ -1078,7 +1096,7 @@ export function ManualInputPanel({
                       size="sm"
                       placeholder="1"
                     />
-                    <div className="absolute right-1 top-0">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
                       <FieldHelpTrigger
                         context={{
                           field: 'ownerManagers',
@@ -1329,7 +1347,7 @@ export function ManualInputPanel({
                                   fieldValidation.warnings[`margin-${yearData.year}`]}
                               </p>
                             )}
-                            <div className="absolute right-1 top-0">
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
                               <FieldHelpTrigger
                                 context={{
                                   field: 'ebitda',
@@ -1391,6 +1409,42 @@ export function ManualInputPanel({
                       {Math.min(...formData.yearlyFinancials.map((yf) => Number(yf.year))) - 1})
                     </button>
                   )}
+
+                  {/* Valuation method — inline setting under historical years */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 mt-1 border-t border-foreground/[0.06]">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <label className="text-xs text-foreground/50">
+                        {mi('valuationMethod.label')}
+                      </label>
+                      <TooltipProvider delayDuration={300}>
+                        <TooltipRoot>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center rounded-md text-foreground/40 hover:text-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 w-4 h-4"
+                              aria-label={mi('valuationMethod.tooltipAriaLabel')}
+                            >
+                              <HelpCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
+                            {mi('valuationMethod.tooltip')}
+                          </TooltipContent>
+                        </TooltipRoot>
+                      </TooltipProvider>
+                    </div>
+                    <div className="sm:min-w-[200px]">
+                      <AuroraSelect
+                        value="auto"
+                        options={valuationMethodOptions}
+                        onChange={() => {}}
+                        size="sm"
+                        onDisabledOptionInteract={(value, action) =>
+                          trackValuationMethodComingSoon(value, action)
+                        }
+                      />
+                    </div>
+                  </div>
                 </div>
               </motion.section>
             )}
@@ -1398,39 +1452,6 @@ export function ManualInputPanel({
 
           {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
           <div className="sticky bottom-0 shrink-0 px-6 py-4 border-t border-foreground/[0.06] bg-background mt-auto">
-          {/* Valuation method dropdown (UpSwitch Adaptive Valuation + Painted Door) */}
-          <div className="mb-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <label className="text-xs font-medium text-foreground/60">
-                {mi('valuationMethod.label')}
-              </label>
-              <TooltipProvider delayDuration={300}>
-                <TooltipRoot>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center rounded-md text-foreground/40 hover:text-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 w-4 h-4"
-                      aria-label={mi('valuationMethod.tooltipAriaLabel')}
-                    >
-                      <HelpCircle className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
-                    {mi('valuationMethod.tooltip')}
-                  </TooltipContent>
-                </TooltipRoot>
-              </TooltipProvider>
-            </div>
-            <AuroraSelect
-              value="upswitch"
-              options={valuationMethodOptions}
-              onChange={() => {}}
-              size="sm"
-              onDisabledOptionInteract={(value, action) =>
-                trackValuationMethodComingSoon(value, action)
-              }
-            />
-          </div>
           <AuroraButton
             type="submit"
             variant="primary"
