@@ -55,6 +55,7 @@ import { useCanSave } from '../../hooks/useCanSave'
 import { looksLikeNaceCode, naceBusinessTypeService } from '../../services/naceBusinessTypeService'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
+import { trackValuationMethodComingSoon } from '../../lib/analytics'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
@@ -860,6 +861,29 @@ export function ManualInputPanel({
     normalizedData.years.some((y) => y.normalizationCount > 0), // Step 4: Normalizations
   ].filter(Boolean).length
 
+  const valuationMethodOptions = useMemo(
+    () => [
+      {
+        value: 'upswitch',
+        label: mi('valuationMethod.upswitchRecommended'),
+        disabled: false,
+      },
+      {
+        value: 'dcf',
+        label: mi('valuationMethod.dcf'),
+        description: mi('valuationMethod.comingSoon'),
+        disabled: true,
+      },
+      {
+        value: 'multiples',
+        label: mi('valuationMethod.marketMultiples'),
+        description: mi('valuationMethod.comingSoon'),
+        disabled: true,
+      },
+    ],
+    [mi]
+  )
+
   return (
     <>
       <div className="h-full flex flex-col bg-background overflow-hidden">
@@ -886,8 +910,8 @@ export function ManualInputPanel({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1">
             {/* Quick Actions moved to right panel for better UX */}
 
             {/* Step 0: Integration CTA */}
@@ -1371,10 +1395,42 @@ export function ManualInputPanel({
               </motion.section>
             )}
           </form>
-        </div>
 
-        {/* Fixed Bottom CTA */}
-        <div className="shrink-0 px-6 py-4 border-t border-foreground/[0.06] bg-background">
+          {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
+          <div className="sticky bottom-0 shrink-0 px-6 py-4 border-t border-foreground/[0.06] bg-background mt-auto">
+          {/* Valuation method dropdown (UpSwitch Adaptive Valuation + Painted Door) */}
+          <div className="mb-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className="text-xs font-medium text-foreground/60">
+                {mi('valuationMethod.label')}
+              </label>
+              <TooltipProvider delayDuration={300}>
+                <TooltipRoot>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-md text-foreground/40 hover:text-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 w-4 h-4"
+                      aria-label={mi('valuationMethod.tooltipAriaLabel')}
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
+                    {mi('valuationMethod.tooltip')}
+                  </TooltipContent>
+                </TooltipRoot>
+              </TooltipProvider>
+            </div>
+            <AuroraSelect
+              value="upswitch"
+              options={valuationMethodOptions}
+              onChange={() => {}}
+              size="sm"
+              onDisabledOptionInteract={(value, action) =>
+                trackValuationMethodComingSoon(value, action)
+              }
+            />
+          </div>
           <AuroraButton
             type="submit"
             variant="primary"
@@ -1397,6 +1453,7 @@ export function ManualInputPanel({
                     : mi('validation.enterFinancials')}
             </p>
           )}
+          </div>
         </div>
       </div>
 

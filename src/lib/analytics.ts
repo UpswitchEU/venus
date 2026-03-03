@@ -56,6 +56,11 @@ export function trackValuationCalculate(isRecalculation: boolean): void {
   })
 }
 
+/** User hovers or clicks a disabled valuation method (DCF, Market Multiples) - Painted Door demand signal */
+export function trackValuationMethodComingSoon(method: string, action: 'click' | 'hover'): void {
+  trackEvent('venus_valuation_method_coming_soon', { method, action })
+}
+
 /** Valuation calculation completes successfully */
 export function trackValuationResult(durationMs: number): void {
   trackEvent('venus_valuation_result', {

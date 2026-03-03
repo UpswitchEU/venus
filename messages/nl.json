@@ -1136,6 +1136,15 @@
     "askAiAbout": "Vraag AI-assistent over {label}",
     "askAi": "Vraag AI over {label}",
     "ledger": "Grootboek",
+    "valuationMethod": {
+      "label": "Waarderingsmethode",
+      "upswitchRecommended": "UpSwitch Adaptive Valuation",
+      "dcf": "Handmatig: Discounted Cash Flow (DCF)",
+      "marketMultiples": "Handmatig: Marktmultiples",
+      "comingSoon": "Binnenkort",
+      "tooltip": "Onze engine analyseert de specifieke financiële context, sector en omvang van het bedrijf om automatisch het meest wiskundig correcte waarderingsmodel te selecteren (bijv. EBITDA-multiple, SDE, omzetmultiple, DCF of asset-based).",
+      "tooltipAriaLabel": "Hoe de waarderingsmethode wordt geselecteerd"
+    },
     "validation": {
       "checkFields": "Controleer de invoervelden",
       "enterCompanyName": "Vul een bedrijfsnaam in of zoek via KBO",

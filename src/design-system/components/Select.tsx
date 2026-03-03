@@ -141,6 +141,8 @@ export interface AuroraSelectProps extends VariantProps<typeof selectTriggerVari
   helpTextPlacement?: 'tooltip' | 'below'
   name?: string
   dropdownRef?: React.RefObject<HTMLDivElement>
+  /** Called when user clicks or hovers a disabled option (e.g. Painted Door demand tracking) */
+  onDisabledOptionInteract?: (value: string, action: 'click' | 'hover') => void
 }
 
 export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
@@ -164,6 +166,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
       helpText,
       helpTextPlacement = 'below',
       dropdownRef,
+      onDisabledOptionInteract,
     },
     ref
   ) => {
@@ -505,6 +508,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                               isFocused={focusedIndex === flatIndex}
                               dataIndex={flatIndex}
                               onSelect={handleSelect}
+                              onDisabledOptionInteract={onDisabledOptionInteract}
                             />
                           )
                         })}
@@ -520,6 +524,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                         isFocused={focusedIndex === index}
                         dataIndex={index}
                         onSelect={handleSelect}
+                        onDisabledOptionInteract={onDisabledOptionInteract}
                       />
                     ))
                   )}
@@ -551,12 +556,15 @@ AuroraSelect.displayName = 'AuroraSelect'
 // OPTION ITEM
 // ─────────────────────────────────────────
 
+const HOVER_DEBOUNCE_MS = 5000
+
 interface SelectOptionItemProps {
   option: SelectOption
   isSelected: boolean
   isFocused: boolean
   dataIndex: number
   onSelect: (value: string) => void
+  onDisabledOptionInteract?: (value: string, action: 'click' | 'hover') => void
 }
 
 const SelectOptionItem: React.FC<SelectOptionItemProps> = ({
@@ -565,13 +573,39 @@ const SelectOptionItem: React.FC<SelectOptionItemProps> = ({
   isFocused,
   dataIndex,
   onSelect,
+  onDisabledOptionInteract,
 }) => {
+  const lastHoverRef = React.useRef<Record<string, number>>({})
+  const descId = React.useId()
+
+  const handleClick = () => {
+    if (option.disabled) {
+      onDisabledOptionInteract?.(option.value, 'click')
+    } else {
+      onSelect(option.value)
+    }
+  }
+
+  const handleMouseEnter = () => {
+    if (option.disabled && onDisabledOptionInteract) {
+      const now = Date.now()
+      const last = lastHoverRef.current[option.value] ?? 0
+      if (now - last >= HOVER_DEBOUNCE_MS) {
+        lastHoverRef.current[option.value] = now
+        onDisabledOptionInteract(option.value, 'hover')
+      }
+    }
+  }
+
+  const hasDescription = option.disabled && option.description
+
   return (
     <div
       data-index={dataIndex}
       role="option"
       aria-selected={isSelected}
       aria-disabled={option.disabled}
+      aria-describedby={hasDescription ? descId : undefined}
       className={cn(
         'px-4 py-2.5 cursor-pointer transition-colors',
         'flex items-center gap-3',
@@ -579,13 +613,16 @@ const SelectOptionItem: React.FC<SelectOptionItemProps> = ({
         !option.disabled && (isFocused || isSelected) && 'bg-primary/10',
         !option.disabled && !isFocused && !isSelected && 'hover:bg-foreground/[0.04]'
       )}
-      onClick={() => !option.disabled && onSelect(option.value)}
+      onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
     >
       {option.icon && <span className="shrink-0 text-foreground/60">{option.icon}</span>}
       <div className="flex-1 min-w-0">
         <div className="text-sm text-foreground truncate">{option.label}</div>
         {option.description && (
-          <div className="text-xs text-foreground/50 truncate">{option.description}</div>
+          <div id={descId} className="text-xs text-foreground/50 truncate">
+            {option.description}
+          </div>
         )}
       </div>
       {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
