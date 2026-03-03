@@ -12,18 +12,12 @@
 @import "../src/styles/valuation-report-print.css";
 
 /* Valuation Report container (ValuationIQ HTML) */
-/* Screen: use --background so report's embedded --report-bg cannot override (no white flash) */
+/* Screen: use --report-bg (white) from valuation-report-print.css for Clarity parity */
 /* Print: white for PDF export */
 .valuation-report {
   padding: 24px;
   min-height: 100%;
   overflow-y: auto;
-}
-
-@media not print {
-  .valuation-report {
-    background-color: hsl(var(--background)) !important;
-  }
 }
 
 @media print {

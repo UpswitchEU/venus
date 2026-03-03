@@ -242,8 +242,8 @@ class BusinessTypesApiService {
 
     return businessTypes.map((bt) => ({
       value: bt.id,
-      label: `${bt.icon} ${bt.title}`,
-      icon: bt.icon,
+      label: `${bt.icon || '🏢'} ${bt.title}`,
+      icon: bt.icon || '🏢',
       category: bt.category,
     }))
   }

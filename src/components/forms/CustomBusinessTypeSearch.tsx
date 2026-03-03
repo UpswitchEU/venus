@@ -339,7 +339,7 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
                       >
                         <div className="flex items-start gap-3">
                           <span className="text-2xl flex-shrink-0 transform transition-transform duration-200 group-hover:scale-110">
-                            {type.icon}
+                            {type.icon || '🏢'}
                           </span>
                           <div className="flex-1 min-w-0">
                             <div
@@ -393,7 +393,7 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
             <div className="flex items-start gap-3">
               {/* Icon badge */}
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary flex items-center justify-center shadow-sm text-primary-foreground">
-                <span className="text-xl">{selectedType.icon}</span>
+                <span className="text-xl">{selectedType.icon || '🏢'}</span>
               </div>
 
               <div className="flex-1 min-w-0">

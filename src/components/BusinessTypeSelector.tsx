@@ -111,7 +111,7 @@ export const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({
             <div className="bg-gradient-to-br from-primary-50 to-canvas rounded-lg p-6 space-y-4">
               {/* Header */}
               <div className="flex items-center space-x-3">
-                <span className="text-4xl">{selectedMetadata.icon}</span>
+                <span className="text-4xl">{selectedMetadata.icon || '🏢'}</span>
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">
                     {selectedMetadata.title}
