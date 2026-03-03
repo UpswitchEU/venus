@@ -100,55 +100,19 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
     ? (finalLocale as Locale)
     : 'en'
 
-  // Load messages for the current locale with comprehensive error handling
-  // CRITICAL: Never throw errors - always return valid data to prevent Server Components render errors
+  // Load messages for the validated locale
+  // Always pass locale explicitly so we never depend on request context alone
   let messages: Record<string, any> = {}
   try {
-    // Try to get messages using request context locale first (most reliable)
-    // If that fails, fall back to explicit locale
-    try {
-      const contextMessages = await getMessages()
-      // Validate messages object
-      if (contextMessages && typeof contextMessages === 'object') {
-        messages = contextMessages
-      }
-    } catch (contextError) {
-      // If request context doesn't have locale, use explicit locale
-      try {
-        const explicitMessages = await getMessages({ locale: validFinalLocale })
-        // Validate messages object
-        if (explicitMessages && typeof explicitMessages === 'object') {
-          messages = explicitMessages
-        }
-      } catch (explicitError) {
-        // Both methods failed - use empty object (non-fatal)
-        console.warn(`[LocaleLayout] Failed to load messages (both methods), using empty object`, {
-          locale: validFinalLocale,
-          contextError: contextError instanceof Error ? contextError.message : String(contextError),
-          explicitError:
-            explicitError instanceof Error ? explicitError.message : String(explicitError),
-        })
-        messages = {}
-      }
-    }
-
-    // Ensure messages is a plain object (not undefined/null)
-    if (!messages || typeof messages !== 'object') {
-      console.warn(
-        `[LocaleLayout] Invalid messages for locale: ${validFinalLocale}, using empty object`
-      )
-      messages = {}
+    const loaded = await getMessages({ locale: validFinalLocale })
+    if (loaded && typeof loaded === 'object') {
+      messages = loaded
     }
   } catch (error) {
-    // CRITICAL: Catch any unexpected errors and prevent Server Components render error
     console.error(
-      `[LocaleLayout] Unexpected error loading messages for locale: ${validFinalLocale}`,
-      {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      }
+      `[LocaleLayout] Failed to load messages for locale: ${validFinalLocale}`,
+      error instanceof Error ? error.message : String(error)
     )
-    // Fallback to empty messages object - app will still work
     messages = {}
   }
 

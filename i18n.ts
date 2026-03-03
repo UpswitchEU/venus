@@ -17,24 +17,15 @@ export const defaultLocale: Locale = 'en';
 /**
  * Load messages for the given locale
  */
-export default getRequestConfig(async ({ locale }) => {
-	// Handle undefined locale (can happen during build/SSR before middleware runs)
-	// This is normal and expected - just use default locale silently
-	if (!locale) {
+export default getRequestConfig(async ({ requestLocale }) => {
+	// next-intl v4: requestLocale is a Promise resolving to the [locale] dynamic segment
+	let locale = await requestLocale;
+
+	if (!locale || !locales.includes(locale as Locale)) {
 		locale = defaultLocale;
 	}
 
-	// Validate that the incoming locale is valid
-	// FIX: Don't call notFound() as it causes Server Component errors during SSR
-	// Instead, fall back to default locale for robustness
-	if (!locales.includes(locale as Locale)) {
-		// Silently fall back to default locale - no warning needed
-		// This is expected during middleware redirects
-		locale = defaultLocale;
-	}
-
-	// Ensure locale is a valid string (TypeScript guard)
-	const validLocale: Locale = locales.includes(locale as Locale) ? (locale as Locale) : defaultLocale;
+	const validLocale: Locale = locale as Locale;
 
 	// Load messages with error handling
 	let messages;
