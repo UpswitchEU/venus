@@ -1589,7 +1589,7 @@ export function ManualInputPanel({
 
       {/* Valuation Method Modal */}
       <Modal open={showValuationMethodModal} onOpenChange={setShowValuationMethodModal}>
-        <ModalContent className="max-w-md">
+        <ModalContent className="max-w-md pt-14">
           <ModalHeader>
             <ModalTitle>{mi('valuationMethod.label')}</ModalTitle>
             <ModalDescription className="text-sm text-foreground/60">
@@ -1638,15 +1638,6 @@ export function ManualInputPanel({
               )
             })}
           </div>
-
-          <ModalFooter>
-            <AuroraButton
-              variant="ghost"
-              onClick={() => setShowValuationMethodModal(false)}
-            >
-              {mi('importModal.cancel')}
-            </AuroraButton>
-          </ModalFooter>
         </ModalContent>
       </Modal>
     </>
