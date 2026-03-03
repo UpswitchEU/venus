@@ -563,6 +563,7 @@ export function ManualInputPanel({
         name: bt.title,
         category,
         icon: categoryIcons[iconKey] ?? categoryIcons['other'] ?? Building2,
+        emoji: bt.icon || '🏢',
         popular: bt.popular ?? false,
       }
     })
