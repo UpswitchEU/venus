@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Building2,
   Check,
+  ChevronDown,
   ChevronRight,
   FileSpreadsheet,
   HelpCircle,
@@ -38,6 +39,7 @@ import { AuroraInput } from '@/design-system/components/Input'
 import {
   Modal,
   ModalContent,
+  ModalDescription,
   ModalFooter,
   ModalHeader,
   ModalTitle,
@@ -456,6 +458,7 @@ export function ManualInputPanel({
 
   // Section collapse states
   const [showConnectModal, setShowConnectModal] = useState(false)
+  const [showValuationMethodModal, setShowValuationMethodModal] = useState(false)
   const [connectedIntegration, setConnectedIntegration] = useState<string | null>(null)
   const [hideUploadHint, setHideUploadHint] = useState(false)
 
@@ -1410,40 +1413,49 @@ export function ManualInputPanel({
                     </button>
                   )}
 
-                  {/* Valuation method — inline setting under historical years */}
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 mt-1 border-t border-foreground/[0.06]">
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <label className="text-xs text-foreground/50">
+                  {/* Valuation method — trigger button opens modal */}
+                  <div className="pt-4 mt-4 border-t border-foreground/[0.06]">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <h3 className="text-sm font-medium text-foreground/70">
                         {mi('valuationMethod.label')}
-                      </label>
+                      </h3>
                       <TooltipProvider delayDuration={300}>
                         <TooltipRoot>
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="inline-flex items-center justify-center rounded-md text-foreground/40 hover:text-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 w-4 h-4"
+                              className="inline-flex items-center justify-center rounded-md text-foreground/40 hover:text-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[44px] min-h-[44px]"
                               aria-label={mi('valuationMethod.tooltipAriaLabel')}
                             >
                               <HelpCircle className="w-3.5 h-3.5" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
+                          <TooltipContent
+                            side="top"
+                            sideOffset={8}
+                            collisionPadding={16}
+                            className="max-w-[280px] text-xs leading-relaxed"
+                          >
                             {mi('valuationMethod.tooltip')}
                           </TooltipContent>
                         </TooltipRoot>
                       </TooltipProvider>
                     </div>
-                    <div className="sm:min-w-[200px]">
-                      <AuroraSelect
-                        value="auto"
-                        options={valuationMethodOptions}
-                        onChange={() => {}}
-                        size="sm"
-                        onDisabledOptionInteract={(value, action) =>
-                          trackValuationMethodComingSoon(value, action)
-                        }
-                      />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowValuationMethodModal(true)}
+                      className={cn(
+                        'w-full flex items-center justify-between p-4 rounded-xl min-h-[44px]',
+                        'border border-foreground/[0.10] hover:border-foreground/[0.20]',
+                        'bg-foreground/[0.02] hover:bg-foreground/[0.04]',
+                        'text-left transition-colors'
+                      )}
+                    >
+                      <span className="text-sm font-medium text-foreground">
+                        {mi('valuationMethod.upswitchRecommended')}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-foreground/50 shrink-0" />
+                    </button>
                   </div>
                 </div>
               </motion.section>
@@ -1569,6 +1581,69 @@ export function ManualInputPanel({
 
           <ModalFooter>
             <AuroraButton variant="ghost" onClick={() => setShowConnectModal(false)}>
+              {mi('importModal.cancel')}
+            </AuroraButton>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Valuation Method Modal */}
+      <Modal open={showValuationMethodModal} onOpenChange={setShowValuationMethodModal}>
+        <ModalContent className="max-w-md">
+          <ModalHeader>
+            <ModalTitle>{mi('valuationMethod.label')}</ModalTitle>
+            <ModalDescription className="text-sm text-foreground/60">
+              {mi('valuationMethod.tooltip')}
+            </ModalDescription>
+          </ModalHeader>
+
+          <div className="py-4 space-y-2">
+            {valuationMethodOptions.map((opt) => {
+              const selected = opt.value === 'auto'
+              const disabled = opt.disabled ?? false
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    if (disabled) {
+                      trackValuationMethodComingSoon(opt.value, 'click')
+                    } else {
+                      setShowValuationMethodModal(false)
+                    }
+                  }}
+                  onMouseEnter={() => {
+                    if (disabled) trackValuationMethodComingSoon(opt.value, 'hover')
+                  }}
+                  className={cn(
+                    'w-full flex items-center gap-3 p-4 rounded-xl text-left transition-colors',
+                    'border border-foreground/[0.08]',
+                    disabled
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'hover:border-primary/30 hover:bg-primary/5',
+                    selected && 'border-primary/50 bg-primary/5'
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">{opt.label}</p>
+                    {opt.description && (
+                      <p className="text-xs text-foreground/50 mt-0.5">{opt.description}</p>
+                    )}
+                  </div>
+                  {selected && (
+                    <Check className="w-5 h-5 text-primary shrink-0" aria-hidden />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          <ModalFooter>
+            <AuroraButton
+              variant="ghost"
+              onClick={() => setShowValuationMethodModal(false)}
+            >
               {mi('importModal.cancel')}
             </AuroraButton>
           </ModalFooter>
