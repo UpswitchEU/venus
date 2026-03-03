@@ -34,11 +34,13 @@ import { generalLogger } from './logger'
  * @param source - Either ValuationFormData or DataResponse[] array
  * @param overrideItems - If provided, use these normalizations instead of reading from the store.
  *                        Eliminates a redundant store read when the caller already has the items.
+ * @param locale - Report language ('nl' or 'en'). Passed through to ValuationIQ for i18n.
  * @returns ValuationRequest ready for calculateValuation()
  */
 export function buildValuationRequest(
   source: ValuationFormData | DataResponse[],
-  overrideItems?: NormalizationItem[]
+  overrideItems?: NormalizationItem[],
+  locale?: 'nl' | 'en',
 ): ValuationRequest {
   // Convert DataResponse[] to formData if needed
   let formData: ValuationFormData
@@ -243,6 +245,7 @@ export function buildValuationRequest(
     business_type: formData.business_type,
     shares_for_sale: formData.shares_for_sale || 100,
     business_context: businessContext,
+    ...(locale && { locale }),
   }
 
   // BANK-GRADE: Log request structure for diagnostics (only in development)

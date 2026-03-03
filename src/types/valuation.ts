@@ -122,6 +122,9 @@ export interface ValuationRequest {
   government_bond_yield?: number
   long_term_gdp_growth?: number
 
+  // Localization
+  locale?: 'nl' | 'en'
+
   // Valuation preferences
   use_dcf?: boolean
   use_multiples?: boolean

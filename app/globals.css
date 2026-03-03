@@ -12,18 +12,24 @@
 @import "../src/styles/valuation-report-print.css";
 
 /* Valuation Report container (ValuationIQ HTML) */
-/* On screen: inherits Aurora dark mode via --report-bg (set in valuation-report-print.css) */
-/* In print: forced light via @media print in valuation-report-print.css */
+/* Screen: use --background so report's embedded --report-bg cannot override (no white flash) */
+/* Print: white for PDF export */
 .valuation-report {
-  background-color: hsl(var(--report-bg)) !important;
   padding: 24px;
   min-height: 100%;
   overflow-y: auto;
 }
 
+@media not print {
+  .valuation-report {
+    background-color: hsl(var(--background)) !important;
+  }
+}
+
 @media print {
   .valuation-report {
     color-scheme: light;
+    background-color: white !important;
   }
 }
 
@@ -245,10 +251,23 @@
 }
 
 /* Valuation Report Preview Styles (Google Docs / Print Preview Style) */
+/* Screen: Aurora-aligned; print: white */
 .valuation-report-preview {
-  background-color: #f3f4f6; /* Gray-100 background for the preview area */
   padding: 40px;
   min-height: 100%;
+}
+
+@media not print {
+  .valuation-report-preview {
+    background-color: hsl(var(--background));
+  }
+}
+
+@media print {
+  .valuation-report-preview {
+    background: white;
+    padding: 0;
+  }
 }
 
 .valuation-report-preview .page {

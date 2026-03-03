@@ -49,6 +49,7 @@
 }
 
 /* Screen: Clarity Aurora dark mode — no white background, readable content */
+/* Use direct --background/--card overrides so report's embedded --report-bg cannot win (race condition fix) */
 @media not print {
   .valuation-report {
     --report-bg: var(--background);
@@ -67,6 +68,28 @@
   /* Result row: keep dark background (uses --report-slate-900 for bg, overridden above) */
   .valuation-report tr.row-result {
     background: hsl(var(--card));
+  }
+  /* Override report-embedded vars (report HTML sets --report-bg white) — use app tokens directly */
+  .valuation-report,
+  .valuation-report .a4-page {
+    background: hsl(var(--background)) !important;
+  }
+  .valuation-report .stat-card,
+  .valuation-report th {
+    background: hsl(var(--card)) !important;
+  }
+  /* Inline styles in report HTML use --report-surface (report overwrites to light) — force Aurora */
+  .valuation-report [style*="--report-surface"] {
+    background: hsl(var(--card)) !important;
+  }
+  /* Calibration ledger odd rows — hardcoded light in template */
+  .valuation-report tr[style*="40, 15%, 98%"] {
+    background: hsl(var(--card)) !important;
+  }
+  /* Value bridge — light gray from report embedded CSS */
+  .valuation-report .value-bridge {
+    background: hsl(var(--card)) !important;
+    border-color: hsl(var(--border));
   }
 }
 

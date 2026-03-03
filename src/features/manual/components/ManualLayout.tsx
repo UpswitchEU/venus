@@ -968,7 +968,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         // Step 2: Build API request from store
         const storeSnapshot = { ...formStoreData, ...venusFormData }
-        const request = buildValuationRequest(storeSnapshot)
+        const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
+        const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
         if (reportId) (request as any).reportId = reportId
 
@@ -1917,7 +1918,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       try {
         // Pass normalizations directly to avoid a redundant store read
-        const request = buildValuationRequest(formStoreData, normalizations)
+        const recalcLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
+        const request = buildValuationRequest(formStoreData, normalizations, recalcLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
         if (reportId) (request as any).reportId = reportId
 
@@ -2469,7 +2471,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
           {/* Right Panel: Report / Preview / History */}
           <ResizablePanel defaultSize={65} minSize={40}>
-            <div ref={reportPanelRef} className="h-full bg-card flex flex-col">
+            <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">
                   {rightPanelView === 'preview' ? (
@@ -2479,7 +2481,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="h-full overflow-y-auto"
+                      className="valuation-report-container h-full overflow-y-auto"
                     >
                       {report?.htmlReport ? (
                         <div className="valuation-report">
@@ -2527,7 +2529,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="h-full overflow-y-auto"
+                      className="valuation-report-container h-full overflow-y-auto"
                     >
                       <div className="valuation-report">
                         <div
