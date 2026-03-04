@@ -126,12 +126,13 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           )
           setShowSuggestions(true)
         } finally {
+          const wasReplaced = abortControllerRef.current !== controller
           if (!controller.signal.aborted) {
             abortControllerRef.current = null
           }
-          setIsLoading(false)
+          if (!wasReplaced) setIsLoading(false)
         }
-      }, 400)
+      }, 450)
     }
   }, [])
 

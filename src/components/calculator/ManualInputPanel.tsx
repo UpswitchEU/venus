@@ -57,6 +57,7 @@ import { useCanSave } from '../../hooks/useCanSave'
 import { looksLikeNaceCode, naceBusinessTypeService } from '../../services/naceBusinessTypeService'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
+import { shouldShowLedgerUploadHint } from '../../config/features'
 import { trackValuationMethodComingSoon } from '../../lib/analytics'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
@@ -476,8 +477,16 @@ export function ManualInputPanel({
         if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(yearNum)
         return n.year === yearNum
       })
-      const totalAdjustment = yearNorms.reduce((sum, n) => sum + Number(n.adjustment), 0)
-      const normalizedEbitda = Number(yf.ebitda) + totalAdjustment
+      const yearEbitda = Number(yf.ebitda) || 0
+      const totalAdjustment = yearNorms.reduce((sum, n) => {
+        const val = Number(n.value) || 0
+        const adj = Number(n.adjustment) || 0
+        if (n.type === 'add_percent') return sum + (yearEbitda * val) / 100
+        if (n.type === 'subtract_percent') return sum - (yearEbitda * val) / 100
+        if (n.type === 'absolute') return sum + (val - yearEbitda)
+        return sum + adj
+      }, 0)
+      const normalizedEbitda = yearEbitda + totalAdjustment
       return {
         ...yf,
         normalizedEbitda,
@@ -486,12 +495,15 @@ export function ManualInputPanel({
       }
     })
 
-    // Calculate weighted average (more recent years weighted higher)
-    const validYears = years.filter((y) => y.ebitda > 0)
+    // Weighted average: most recent years weighted higher (McKinsey method)
+    // Include all years with financial data (including negative EBITDA / loss-making years)
+    const validYears = years
+      .filter((y) => y.ebitda !== 0 || y.normalizationCount > 0)
+      .sort((a, b) => Number(a.year) - Number(b.year))
     let weightedSum = 0
     let totalWeight = 0
     validYears.forEach((y, index) => {
-      const weight = validYears.length - index // Most recent = highest weight
+      const weight = index + 1 // Ascending: oldest=1, most recent=highest
       weightedSum += y.normalizedEbitda * weight
       totalWeight += weight
     })
@@ -936,9 +948,9 @@ export function ManualInputPanel({
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1">
             {/* Quick Actions moved to right panel for better UX */}
 
-            {/* Step 0: Integration CTA */}
+            {/* Step 0: Integration CTA - Hidden for launch until CSV import ships (SHOW_LEDGER_UPLOAD_HINT) */}
             <AnimatePresence>
-              {!connectedIntegration && !hideUploadHint && (
+              {shouldShowLedgerUploadHint() && !connectedIntegration && !hideUploadHint && (
                 <motion.section
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}

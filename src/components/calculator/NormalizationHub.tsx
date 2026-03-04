@@ -45,6 +45,8 @@ import {
 export interface NormalizationHubProps {
   companyName: string
   originalEbitda: number
+  /** Per-year reported EBITDA for multi-year accuracy */
+  originalEBITDAByYear?: Record<number, number>
   currentYear?: number
   sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'csv' | 'manual'
   normalizations: NormalizationItem[]
@@ -54,6 +56,8 @@ export interface NormalizationHubProps {
   onUploadClick?: () => void
   hasUploadedData?: boolean
   ledgerAccounts?: { code: string; name: string; category?: string; balance?: number }[]
+  /** Financial years the user has entered data for */
+  financialYears?: number[]
 }
 
 // ─────────────────────────────────────────
@@ -75,6 +79,7 @@ const sourceIcons: Record<string, string> = {
 export function NormalizationHub({
   companyName,
   originalEbitda,
+  originalEBITDAByYear,
   currentYear = new Date().getFullYear(),
   sourceIntegration = 'manual',
   normalizations,
@@ -84,6 +89,7 @@ export function NormalizationHub({
   onUploadClick,
   hasUploadedData = false,
   ledgerAccounts = [],
+  financialYears,
 }: NormalizationHubProps) {
   const nh = useTranslations('normalizationHub')
   const locale = useLocale() as 'nl' | 'en'
@@ -105,10 +111,16 @@ export function NormalizationHub({
     const pending = normalizations.filter((n) => n.status === 'pending').length
     const accepted = normalizations.filter((n) => n.status === 'accepted').length
     const rejected = normalizations.filter((n) => n.status === 'rejected').length
+    const safeEbitda = Number(originalEbitda) || 0
     const totalAdjustment = normalizations
       .filter((n) => n.status === 'accepted')
-      .reduce((sum, n) => sum + Number(n.adjustment), 0)
-    const normalizedEbitda = Number(originalEbitda) + totalAdjustment
+      .reduce((sum, n) => {
+        if (n.type === 'add_percent') return sum + (safeEbitda * n.value) / 100
+        if (n.type === 'subtract_percent') return sum - (safeEbitda * n.value) / 100
+        if (n.type === 'absolute') return sum + (n.value - safeEbitda)
+        return sum + Number(n.adjustment)
+      }, 0)
+    const normalizedEbitda = safeEbitda + totalAdjustment
 
     return {
       pending,
@@ -408,11 +420,13 @@ export function NormalizationHub({
         companyName={companyName}
         currentYear={currentYear}
         originalEBITDA={originalEbitda}
+        originalEBITDAByYear={originalEBITDAByYear}
         normalizations={normalizations}
         onNormalizationsChange={onNormalizationsChange}
         ledgerAccounts={ledgerAccounts}
         hasUploadedData={hasUploadedData}
         onUploadClick={onUploadClick}
+        financialYears={financialYears}
       />
     </>
   )

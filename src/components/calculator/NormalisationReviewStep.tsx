@@ -35,7 +35,7 @@ import {
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { Checkbox } from '@/design-system/components/Checkbox'
 import { AuroraInput as Input } from '@/design-system/components/Input'
@@ -257,6 +257,33 @@ export function NormalisationReviewStep({
   const [newApplyAllYears, setNewApplyAllYears] = useState(false)
   const [newReason, setNewReason] = useState('')
 
+  // Fetch grootboek codes from Titan API (DB-backed), fall back to hardcoded
+  const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/reference/grootboek')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.codes) return
+        setFetchedLedgers(
+          data.codes.map((c: { code: string; name: string; category?: string }) => ({
+            code: c.code,
+            name: c.name,
+            category: c.category,
+          }))
+        )
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const availableLedgers = useMemo(() => {
+    if (fetchedLedgers.length > 0) return fetchedLedgers
+    return defaultLedgerAccounts
+  }, [fetchedLedgers])
+
   // Calculations
   const pendingCount = suggestions.filter((s) => s.status === 'pending').length
   const acceptedCount = suggestions.filter((s) => s.status === 'accepted').length
@@ -277,15 +304,15 @@ export function NormalisationReviewStep({
 
   // Filter ledger accounts based on search
   const filteredLedgers = useMemo(() => {
-    if (!searchQuery) return defaultLedgerAccounts.slice(0, 6)
+    if (!searchQuery) return availableLedgers.slice(0, 6)
     const query = searchQuery.toLowerCase()
-    return defaultLedgerAccounts
+    return availableLedgers
       .filter(
         (account) =>
           account.code.toLowerCase().includes(query) || account.name.toLowerCase().includes(query)
       )
       .slice(0, 8)
-  }, [searchQuery])
+  }, [searchQuery, availableLedgers])
 
   // Start editing a normalisation
   const startEditing = useCallback((suggestion: SuggestedNormalisation) => {

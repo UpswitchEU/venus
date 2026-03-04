@@ -103,6 +103,8 @@ export interface UnifiedNormalizationModalProps {
   companyName: string
   currentYear?: number
   originalEBITDA: number
+  /** Per-year reported EBITDA for accurate multi-year totals */
+  originalEBITDAByYear?: Record<number, number>
   normalizations: NormalizationItem[]
   onNormalizationsChange: (normalizations: NormalizationItem[]) => void
   ledgerAccounts?: LedgerAccount[]
@@ -214,7 +216,7 @@ const PRESET_CONFIGS: Array<{
     labelKey: 'presetLabels.familySalary',
     ledgerCode: '620',
     ledgerNameKey: 'presetLedgerNames.familyCompensation',
-    category: 'personal',
+    category: 'salary',
     defaultType: 'add',
     defaultValue: 35000,
     descriptionKey: 'presetDescriptions.familySalary',
@@ -223,7 +225,7 @@ const PRESET_CONFIGS: Array<{
   {
     id: 'rent-office',
     labelKey: 'presetLabels.rent',
-    ledgerCode: '613',
+    ledgerCode: '610',
     ledgerNameKey: 'presetLedgerNames.rent',
     category: 'rent',
     defaultType: 'add',
@@ -234,7 +236,7 @@ const PRESET_CONFIGS: Array<{
   {
     id: 'vehicle-costs',
     labelKey: 'presetLabels.vehicle',
-    ledgerCode: '615',
+    ledgerCode: '614',
     ledgerNameKey: 'presetLedgerNames.vehicle',
     category: 'vehicle',
     defaultType: 'add',
@@ -245,7 +247,7 @@ const PRESET_CONFIGS: Array<{
   {
     id: 'one-time-legal',
     labelKey: 'presetLabels.oneTimeLegal',
-    ledgerCode: '640',
+    ledgerCode: '647',
     ledgerNameKey: 'presetLedgerNames.oneTime',
     category: 'one-time',
     defaultType: 'add',
@@ -255,7 +257,7 @@ const PRESET_CONFIGS: Array<{
   {
     id: 'one-time-advisory',
     labelKey: 'presetLabels.oneTimeAdvisory',
-    ledgerCode: '617',
+    ledgerCode: '613',
     ledgerNameKey: 'presetLedgerNames.fees',
     category: 'one-time',
     defaultType: 'add',
@@ -265,7 +267,7 @@ const PRESET_CONFIGS: Array<{
   {
     id: 'restructuring',
     labelKey: 'presetLabels.restructuring',
-    ledgerCode: '640',
+    ledgerCode: '644',
     ledgerNameKey: 'presetLedgerNames.restructuring',
     category: 'one-time',
     defaultType: 'add',
@@ -275,7 +277,7 @@ const PRESET_CONFIGS: Array<{
   {
     id: 'depreciation',
     labelKey: 'presetLabels.depreciation',
-    ledgerCode: '660',
+    ledgerCode: '632',
     ledgerNameKey: 'presetLedgerNames.depreciation',
     category: 'depreciation',
     defaultType: 'add',
@@ -285,7 +287,7 @@ const PRESET_CONFIGS: Array<{
   {
     id: 'personal-expenses',
     labelKey: 'presetLabels.personalExpenses',
-    ledgerCode: '650',
+    ledgerCode: '649',
     ledgerNameKey: 'presetLedgerNames.personal',
     category: 'personal',
     defaultType: 'add',
@@ -295,7 +297,7 @@ const PRESET_CONFIGS: Array<{
   {
     id: 'asset-sale',
     labelKey: 'presetLabels.assetSale',
-    ledgerCode: '740',
+    ledgerCode: '741',
     ledgerNameKey: 'presetLedgerNames.assetGains',
     category: 'one-time',
     defaultType: 'subtract',
@@ -305,6 +307,20 @@ const PRESET_CONFIGS: Array<{
 ]
 
 const generateId = () => Math.random().toString(36).substring(2, 11)
+
+/** Infer normalization category from Belgian MAR grootboek code range */
+export function inferCategoryFromCode(code: string): NormalizationItem['category'] {
+  const num = parseInt(code, 10)
+  if (isNaN(num)) return 'other'
+  if (num >= 620 && num <= 629) return 'salary'
+  if (num === 610) return 'rent'
+  if (num === 614) return 'vehicle'
+  if (num >= 630 && num <= 636) return 'depreciation'
+  if (num === 649) return 'personal'
+  if (num >= 640 && num <= 648) return 'one-time'
+  if (num === 660) return 'depreciation'
+  return 'other'
+}
 
 // ─────────────────────────────────────────
 // COMPONENT
@@ -316,6 +332,7 @@ export function UnifiedNormalizationModal({
   companyName,
   currentYear = new Date().getFullYear() - 1,
   originalEBITDA,
+  originalEBITDAByYear,
   normalizations,
   onNormalizationsChange,
   ledgerAccounts = [],
@@ -337,22 +354,6 @@ export function UnifiedNormalizationModal({
         maximumFractionDigits: 0,
       }).format(amount),
     [currencyLocale]
-  )
-  const normalizationPresets = useMemo(
-    () =>
-      PRESET_CONFIGS.map((c) => ({
-        id: c.id,
-        label: nh(c.labelKey as any),
-        icon: '',
-        ledgerCode: c.ledgerCode,
-        ledgerName: nh(c.ledgerNameKey as any),
-        category: c.category,
-        defaultType: c.defaultType,
-        defaultValue: c.defaultValue,
-        description: nh(c.descriptionKey as any),
-        marketBenchmark: c.marketBenchmark,
-      })),
-    [nh]
   )
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all')
 
@@ -480,6 +481,28 @@ export function UnifiedNormalizationModal({
     return defaultLedgerAccounts
   }, [ledgerAccounts, fetchedLedgers])
 
+  // Resolve presets against the canonical reference data so ledgerName
+  // always matches the official Belgian MAR name for the code.
+  const normalizationPresets = useMemo(
+    () =>
+      PRESET_CONFIGS.map((c) => {
+        const refAccount = availableLedgers.find((l) => l.code === c.ledgerCode)
+        return {
+          id: c.id,
+          label: nh(c.labelKey as any),
+          icon: '',
+          ledgerCode: c.ledgerCode,
+          ledgerName: refAccount?.name ?? nh(c.ledgerNameKey as any),
+          category: c.category,
+          defaultType: c.defaultType,
+          defaultValue: c.defaultValue,
+          description: nh(c.descriptionKey as any),
+          marketBenchmark: c.marketBenchmark,
+        }
+      }),
+    [nh, availableLedgers]
+  )
+
   // Filter ledger accounts based on search with fuzzy matching
   const filteredLedgers = useMemo(() => {
     const query = searchQuery.trim()
@@ -524,15 +547,6 @@ export function UnifiedNormalizationModal({
 
   // Calculate totals — defensive Number() to prevent string concatenation
   const safeOriginalEBITDA = Number(originalEBITDA) || 0
-  const totals = useMemo(() => {
-    const acceptedNormalizations = normalizations.filter((n) => n.status === 'accepted')
-    const totalAdjustment = acceptedNormalizations.reduce((sum, n) => sum + Number(n.adjustment), 0)
-    return {
-      original: safeOriginalEBITDA,
-      adjustment: totalAdjustment,
-      normalized: safeOriginalEBITDA + totalAdjustment,
-    }
-  }, [normalizations, safeOriginalEBITDA])
 
   // Filter normalizations by tab, year, and search
   const filteredNormalizations = useMemo(() => {
@@ -554,6 +568,7 @@ export function UnifiedNormalizationModal({
     // Filter by year
     if (yearFilter !== null) {
       result = result.filter((n) => {
+        if (n.applyAllYears) return true
         if (n.applyYears && n.applyYears.length > 0) {
           return n.applyYears.includes(yearFilter)
         }
@@ -575,26 +590,49 @@ export function UnifiedNormalizationModal({
     return result
   }, [normalizations, activeTab, yearFilter, searchQuery, showAddForm])
 
+  // Header totals — derived from filtered items and year-specific EBITDA
+  const totals = useMemo(() => {
+    const accepted = filteredNormalizations.filter((n) => n.status === 'accepted')
+    const ebitdaForCalc =
+      yearFilter !== null
+        ? (originalEBITDAByYear?.[yearFilter] ?? safeOriginalEBITDA)
+        : safeOriginalEBITDA
+    const totalAdjustment = accepted.reduce((sum, n) => {
+      if (n.type === 'add_percent') return sum + (ebitdaForCalc * n.value) / 100
+      if (n.type === 'subtract_percent') return sum - (ebitdaForCalc * n.value) / 100
+      if (n.type === 'absolute') return sum + (n.value - ebitdaForCalc)
+      return sum + Number(n.adjustment)
+    }, 0)
+    return {
+      original: ebitdaForCalc,
+      adjustment: totalAdjustment,
+      normalized: ebitdaForCalc + totalAdjustment,
+    }
+  }, [filteredNormalizations, yearFilter, originalEBITDAByYear, safeOriginalEBITDA])
+
   // Group normalizations by year for collapsible sections
   const groupedByYear = useMemo(() => {
     const groups = new Map<number, NormalizationItem[]>()
 
     filteredNormalizations.forEach((n) => {
-      // Use the primary year for grouping
-      const primaryYear =
-        n.applyYears && n.applyYears.length > 0 ? Math.max(...n.applyYears) : n.year
+      const years =
+        n.applyAllYears
+          ? availableYears
+          : n.applyYears && n.applyYears.length > 0
+            ? n.applyYears
+            : [n.year]
 
-      if (!groups.has(primaryYear)) {
-        groups.set(primaryYear, [])
+      for (const y of years) {
+        if (!groups.has(y)) groups.set(y, [])
+        groups.get(y)!.push(n)
       }
-      groups.get(primaryYear)!.push(n)
     })
 
     // Sort years descending
     return Array.from(groups.entries())
       .sort(([a], [b]) => b - a)
       .map(([year, items]) => ({ year, items }))
-  }, [filteredNormalizations])
+  }, [filteredNormalizations, availableYears])
 
   // Toggle year collapse
   const toggleYearCollapse = useCallback((year: number) => {
@@ -622,10 +660,6 @@ export function UnifiedNormalizationModal({
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editType, setEditType] = useState<NormalizationType>('add')
-  const [editValue, setEditValue] = useState('')
-  const [editReason, setEditReason] = useState('')
-  const [editSelectedYears, setEditSelectedYears] = useState<number[]>([currentYear])
 
   // Virtualization ref
   const listContainerRef = useRef<HTMLDivElement>(null)
@@ -714,52 +748,6 @@ export function UnifiedNormalizationModal({
     setNewSelectedYears([currentYear])
   }, [currentYear])
 
-  const saveEdit = useCallback(() => {
-    if (!editingId || !editValue) return
-
-    const numericValue = parseFloat(editValue.replace(/[^0-9.-]/g, ''))
-    if (isNaN(numericValue)) return
-
-    let adjustment = numericValue
-    if (editType === 'add_percent') {
-      adjustment = (safeOriginalEBITDA * numericValue) / 100
-    } else if (editType === 'subtract_percent') {
-      adjustment = -((safeOriginalEBITDA * numericValue) / 100)
-    } else if (editType === 'subtract') {
-      adjustment = -numericValue
-    } else if (editType === 'absolute') {
-      adjustment = numericValue - safeOriginalEBITDA
-    }
-
-    trackNormalizationEdit()
-    onNormalizationsChange(
-      normalizations.map((n) =>
-        n.id === editingId
-          ? {
-              ...n,
-              type: editType,
-              value: numericValue,
-              adjustment,
-              reason: editReason || undefined,
-              applyAllYears: editSelectedYears.length === availableYears.length,
-              applyYears: editSelectedYears,
-            }
-          : n
-      )
-    )
-    setEditingId(null)
-  }, [
-    editingId,
-    editValue,
-    editType,
-    editReason,
-    editSelectedYears,
-    availableYears.length,
-    normalizations,
-    onNormalizationsChange,
-    safeOriginalEBITDA,
-  ])
-
   const acceptAll = useCallback(() => {
     const pendingCount = normalizations.filter((n) => n.status === 'pending').length
     trackNormalizationAcceptAll(pendingCount)
@@ -833,6 +821,7 @@ export function UnifiedNormalizationModal({
                 ...n,
                 ledgerCode: selectedLedger.code,
                 ledgerName: selectedLedger.name,
+                category: inferCategoryFromCode(selectedLedger.code),
                 type: newType,
                 value: numericValue,
                 adjustment,
@@ -850,7 +839,7 @@ export function UnifiedNormalizationModal({
         id: generateId(),
         ledgerCode: selectedLedger.code,
         ledgerName: selectedLedger.name,
-        category: 'other',
+        category: inferCategoryFromCode(selectedLedger.code),
         type: newType,
         value: numericValue,
         adjustment,
@@ -900,6 +889,7 @@ export function UnifiedNormalizationModal({
   // Handle AI prompt submission - parse for ledger code/name and values
   const handlePromptSubmit = useCallback(
     (value: string) => {
+      setEditingId(null)
       // Try to parse the input for ledger codes (3-digit numbers)
       const codeMatch = value.match(/\b(\d{3})\b/)
       // Try to parse for amounts (€60.000 or 60000 or 60k)
@@ -1033,7 +1023,7 @@ export function UnifiedNormalizationModal({
                       : 'text-foreground/50'
                 )}
               >
-                {totals.adjustment >= 0 ? '+' : ''}
+                {totals.adjustment > 0 ? '+' : ''}
                 {formatCurrency(totals.adjustment)}
               </motion.p>
             </div>
@@ -1248,6 +1238,7 @@ export function UnifiedNormalizationModal({
                         whileHover={{ y: -2, scale: 1.02 }}
                         whileTap={{ scale: 0.97 }}
                         onClick={() => {
+                          setEditingId(null)
                           setSelectedLedger({
                             code: preset.ledgerCode,
                             name: preset.ledgerName,
@@ -1469,8 +1460,8 @@ export function UnifiedNormalizationModal({
 
             {/* Right: Year Filter + View Mode Toggle (with visual separator) */}
             <div className="flex items-center gap-3">
-              {/* Year Filter Pills - hide when only 1 year in data */}
-              {yearsInData.length > 1 && (
+              {/* Year Filter Pills - show all available financial years */}
+              {availableYears.length > 1 && (
                 <div className="flex items-center gap-1 p-1 rounded-xl bg-background/80 border border-foreground/[0.06]">
                   <button
                     onClick={() => setYearFilter(null)}
@@ -1483,7 +1474,7 @@ export function UnifiedNormalizationModal({
                   >
                     {nh('all')}
                   </button>
-                  {yearsInData.slice(0, 4).map((year) => (
+                  {availableYears.slice(0, 4).map((year) => (
                     <button
                       key={year}
                       onClick={() => setYearFilter(yearFilter === year ? null : year)}
@@ -1518,7 +1509,7 @@ export function UnifiedNormalizationModal({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-[10px]">
-                      Compact
+                      {nh('viewCompact')}
                     </TooltipContent>
                   </TooltipRoot>
                 </TooltipProvider>
@@ -1538,7 +1529,7 @@ export function UnifiedNormalizationModal({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-[10px]">
-                      Financiële tabel
+                      {nh('viewFinancial')}
                     </TooltipContent>
                   </TooltipRoot>
                 </TooltipProvider>
@@ -1558,7 +1549,7 @@ export function UnifiedNormalizationModal({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-[10px]">
-                      Bento Grid
+                      {nh('viewBento')}
                     </TooltipContent>
                   </TooltipRoot>
                 </TooltipProvider>
@@ -1579,13 +1570,13 @@ export function UnifiedNormalizationModal({
               <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-foreground/70">
-                    {selectedIds.size} geselecteerd
+                    {nh('bulkSelected', { count: selectedIds.size })}
                   </span>
                   <button
                     onClick={deselectAll}
                     className="text-xs text-foreground/50 hover:text-foreground/70 underline"
                   >
-                    Deselecteer
+                    {nh('bulkDeselect')}
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1692,7 +1683,7 @@ export function UnifiedNormalizationModal({
                 {selectedLedger && (
                   <div className="mb-4">
                     <label className="text-xs font-medium text-foreground/60 mb-1.5 block">
-                      Grootboekrekening
+                      {nh('ledgerAccountLabel')}
                     </label>
                     <div className="flex items-center gap-2">
                       <button
@@ -1905,6 +1896,7 @@ export function UnifiedNormalizationModal({
               items={filteredNormalizations}
               years={availableYears}
               originalEBITDA={safeOriginalEBITDA}
+              originalEBITDAByYear={originalEBITDAByYear}
               onAccept={(id) => updateStatus(id, 'accepted')}
               onReject={(id) => updateStatus(id, 'rejected')}
               onRemove={removeNormalization}
@@ -1917,6 +1909,7 @@ export function UnifiedNormalizationModal({
               items={filteredNormalizations}
               years={availableYears}
               originalEBITDA={safeOriginalEBITDA}
+              originalEBITDAByYear={originalEBITDAByYear}
               onAccept={(id) => updateStatus(id, 'accepted')}
               onReject={(id) => updateStatus(id, 'rejected')}
               onRemove={removeNormalization}
@@ -1944,13 +1937,13 @@ export function UnifiedNormalizationModal({
                       )}
                     </button>
                   </div>
-                  <div className="w-16 flex-shrink-0">Code</div>
-                  <div className="flex-1 min-w-0">Omschrijving</div>
-                  <div className="w-20 flex-shrink-0 text-center">Jaar</div>
-                  <div className="w-16 flex-shrink-0 text-center">Bron</div>
-                  <div className="w-20 flex-shrink-0 text-center">Status</div>
+                  <div className="w-16 flex-shrink-0">{nh('table.code')}</div>
+                  <div className="flex-1 min-w-0">{nh('table.grootboekrekening')}</div>
+                  <div className="w-20 flex-shrink-0 text-center">{nh('table.jaar')}</div>
+                  <div className="w-16 flex-shrink-0 text-center">{nh('table.bron')}</div>
+                  <div className="w-20 flex-shrink-0 text-center">{nh('table.status')}</div>
                   <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
-                  <div className="w-24 flex-shrink-0 text-right">Acties</div>
+                  <div className="w-24 flex-shrink-0 text-right">{nh('table.acties')}</div>
                 </div>
               )}
 
@@ -1959,9 +1952,15 @@ export function UnifiedNormalizationModal({
                 <div className="space-y-3">
                   {groupedByYear.map(({ year, items }) => {
                     const isCollapsed = collapsedYears.has(year)
+                    const yearEbitda = originalEBITDAByYear?.[year] ?? safeOriginalEBITDA
                     const yearTotal = items
                       .filter((n) => n.status === 'accepted')
-                      .reduce((sum, n) => sum + Number(n.adjustment), 0)
+                      .reduce((sum, n) => {
+                        if (n.type === 'add_percent') return sum + (yearEbitda * n.value) / 100
+                        if (n.type === 'subtract_percent') return sum - (yearEbitda * n.value) / 100
+                        if (n.type === 'absolute') return sum + (n.value - yearEbitda)
+                        return sum + Number(n.adjustment)
+                      }, 0)
 
                     return (
                       <div
@@ -1988,17 +1987,21 @@ export function UnifiedNormalizationModal({
                               {year}
                             </span>
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-foreground/[0.06] text-foreground/50">
-                              {items.length} {items.length === 1 ? 'item' : 'items'}
+                              {nh('itemCount', { count: items.length })}
                             </span>
                           </div>
                           <div className="flex items-center gap-4">
                             <span
                               className={cn(
                                 'text-sm font-mono font-semibold tabular-nums',
-                                yearTotal >= 0 ? 'text-success' : 'text-secondary'
+                                yearTotal > 0
+                                  ? 'text-success'
+                                  : yearTotal < 0
+                                    ? 'text-secondary'
+                                    : 'text-foreground/40'
                               )}
                             >
-                              {yearTotal >= 0 ? '+' : ''}
+                              {yearTotal > 0 ? '+' : ''}
                               {formatCurrency(yearTotal)}
                             </span>
                           </div>
@@ -2016,12 +2019,12 @@ export function UnifiedNormalizationModal({
                               {/* Table header inside group for compact mode */}
                               <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/40 border-t border-b border-foreground/[0.06] bg-foreground/[0.01]">
                                 <div className="w-6 flex-shrink-0" />
-                                <div className="w-16 flex-shrink-0">Code</div>
-                                <div className="flex-1 min-w-0">Omschrijving</div>
-                                <div className="w-16 flex-shrink-0 text-center">Bron</div>
-                                <div className="w-20 flex-shrink-0 text-center">Status</div>
+                                <div className="w-16 flex-shrink-0">{nh('table.code')}</div>
+                                <div className="flex-1 min-w-0">{nh('table.grootboekrekening')}</div>
+                                <div className="w-16 flex-shrink-0 text-center">{nh('table.bron')}</div>
+                                <div className="w-20 flex-shrink-0 text-center">{nh('table.status')}</div>
                                 <div className="w-28 flex-shrink-0 text-right">{nh('amount')}</div>
-                                <div className="w-24 flex-shrink-0 text-right">Acties</div>
+                                <div className="w-24 flex-shrink-0 text-right">{nh('table.acties')}</div>
                               </div>
 
                               {/* Items */}
@@ -2041,6 +2044,7 @@ export function UnifiedNormalizationModal({
                                       onRestore={() => updateStatus(item.id, 'pending')}
                                       onEdit={() => startEditing(item)}
                                       hideYear
+                                      yearEbitda={yearEbitda}
                                     />
                                   )
                                 })}
@@ -2168,6 +2172,8 @@ interface CompactTableRowProps {
   onRestore: () => void
   onEdit: () => void
   hideYear?: boolean
+  /** Year-specific EBITDA for recalculating percentage/absolute adjustments */
+  yearEbitda?: number
 }
 
 function CompactTableRow({
@@ -2180,6 +2186,7 @@ function CompactTableRow({
   onRestore,
   onEdit,
   hideYear = false,
+  yearEbitda,
 }: CompactTableRowProps) {
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
@@ -2198,6 +2205,15 @@ function CompactTableRow({
   const tCommon = useTranslations('common.actions')
   const category = categoryConfig[item.category] || categoryConfig.other
   const source = sourceConfig[item.source] || sourceConfig.manual
+
+  // Recalculate adjustment for percentage/absolute types when year-specific EBITDA is available
+  const displayAdjustment = useMemo(() => {
+    if (yearEbitda == null) return item.adjustment
+    if (item.type === 'add_percent') return (yearEbitda * item.value) / 100
+    if (item.type === 'subtract_percent') return -((yearEbitda * item.value) / 100)
+    if (item.type === 'absolute') return item.value - yearEbitda
+    return item.adjustment
+  }, [item.adjustment, item.type, item.value, yearEbitda])
 
   // Year display
   const yearDisplay = item.applyAllYears
@@ -2293,11 +2309,15 @@ function CompactTableRow({
         <span
           className={cn(
             'text-sm font-mono font-semibold tabular-nums',
-            item.adjustment >= 0 ? 'text-success' : 'text-secondary'
+            displayAdjustment > 0
+              ? 'text-success'
+              : displayAdjustment < 0
+                ? 'text-secondary'
+                : 'text-foreground/40'
           )}
         >
-          {item.adjustment >= 0 ? '+' : ''}
-          {formatCurrency(item.adjustment)}
+          {displayAdjustment > 0 ? '+' : ''}
+          {formatCurrency(displayAdjustment)}
         </span>
       </div>
 
@@ -2397,414 +2417,6 @@ function CompactTableRow({
         )}
       </div>
     </div>
-  )
-}
-
-// ─────────────────────────────────────────
-// CARD ROW COMPONENT (Original design)
-// ─────────────────────────────────────────
-
-interface NormalizationRowProps {
-  item: NormalizationItem
-  isEditing: boolean
-  isSelected: boolean
-  onToggleSelect: () => void
-  editType: NormalizationType
-  editValue: string
-  editReason: string
-  editSelectedYears: number[]
-  availableYears: number[]
-  onEditTypeChange: (type: NormalizationType) => void
-  onEditValueChange: (value: string) => void
-  onEditReasonChange: (reason: string) => void
-  onEditSelectedYearsChange: (years: number[]) => void
-  onAccept: () => void
-  onReject: () => void
-  onRemove: () => void
-  onRestore: () => void
-  onEdit: () => void
-  onSaveEdit: () => void
-  onCancelEdit: () => void
-  typeOptions: typeof typeOptions
-}
-
-function NormalizationRow({
-  item,
-  isEditing,
-  isSelected,
-  onToggleSelect,
-  editType,
-  editValue,
-  editReason,
-  editSelectedYears,
-  availableYears,
-  onEditTypeChange,
-  onEditValueChange,
-  onEditReasonChange,
-  onEditSelectedYearsChange,
-  onAccept,
-  onReject,
-  onRemove,
-  onRestore,
-  onEdit,
-  onSaveEdit,
-  onCancelEdit,
-  typeOptions,
-}: NormalizationRowProps) {
-  const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
-  const formatCurrency = useCallback(
-    (amount: number) =>
-      new Intl.NumberFormat(currencyLocale, {
-        style: 'currency',
-        currency: 'EUR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(amount),
-    [currencyLocale]
-  )
-  const ca = useTranslations('chatAssistant')
-  const nh = useTranslations('normalizationHub')
-  const tCommon = useTranslations('common.actions')
-  const category = categoryConfig[item.category] || categoryConfig.other
-  const source = sourceConfig[item.source] || sourceConfig.manual
-
-  if (isEditing) {
-    return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="p-4 rounded-xl border-2 border-primary/30 bg-primary/[0.02] space-y-4"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-lg">
-              {category.icon}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.06] text-foreground/50">
-                  {item.ledgerCode}
-                </span>
-                <span className="text-sm font-medium text-foreground/80">{item.ledgerName}</span>
-              </div>
-              <span className={cn('text-[10px] font-medium', source.color)}>
-                {nh(source.labelKey)}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={onCancelEdit}
-            className="p-1.5 rounded-lg hover:bg-foreground/10 text-foreground/40"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Type & Value Row */}
-        <div className="flex gap-3 items-end">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-foreground/60">Type</label>
-            <div className="flex gap-1">
-              {typeOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => onEditTypeChange(option.value)}
-                  className={cn(
-                    'px-2.5 py-2 rounded-lg text-xs font-medium transition-all',
-                    editType === option.value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex-1">
-            <Input
-              label={editType.includes('percent') ? nh('percentage') : nh('amount')}
-              type="text"
-              placeholder={nh('amountPlaceholder')}
-              value={editValue}
-              onChange={(e) => onEditValueChange(e.target.value)}
-              leftIcon={
-                <span className="text-foreground/40 text-sm font-medium">
-                  {editType.includes('percent') ? '%' : '€'}
-                </span>
-              }
-              size="sm"
-              autoFocus
-            />
-          </div>
-        </div>
-
-        {/* Year Scope Selection - Individual year buttons */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-foreground/60">{nh('applyTo')}</label>
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-foreground/[0.03] w-fit">
-            {availableYears.map((year) => (
-              <button
-                key={year}
-                type="button"
-                onClick={() => {
-                  if (editSelectedYears.includes(year)) {
-                    // Don't allow deselecting if it's the only selected year
-                    if (editSelectedYears.length > 1) {
-                      onEditSelectedYearsChange(editSelectedYears.filter((y) => y !== year))
-                    }
-                  } else {
-                    onEditSelectedYearsChange([...editSelectedYears, year].sort((a, b) => b - a))
-                  }
-                }}
-                className={cn(
-                  'px-2.5 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-1.5',
-                  editSelectedYears.includes(year)
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.04]'
-                )}
-              >
-                {year}
-              </button>
-            ))}
-            <div className="w-px h-6 bg-foreground/10 mx-1" />
-            <button
-              type="button"
-              onClick={() => onEditSelectedYearsChange([...availableYears])}
-              className={cn(
-                'px-2.5 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-1.5',
-                editSelectedYears.length === availableYears.length
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.04]'
-              )}
-            >
-              <CalendarRange className="w-3 h-3" />
-              {nh('all')}
-            </button>
-          </div>
-        </div>
-
-        {/* Reason with label */}
-        <Input
-          label={nh('explanation')}
-          placeholder={nh('adjustmentExplanationPlaceholder')}
-          value={editReason}
-          onChange={(e) => onEditReasonChange(e.target.value)}
-          size="sm"
-        />
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 justify-end">
-          <Button variant="ghost" size="sm" onClick={onCancelEdit}>
-            {tCommon('cancel')}
-          </Button>
-          <Button size="sm" onClick={onSaveEdit} disabled={!editValue} className="gap-1.5">
-            <Check className="w-3.5 h-3.5" />
-            {tCommon('save')}
-          </Button>
-        </div>
-      </motion.div>
-    )
-  }
-
-  // View mode
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className={cn(
-        'p-3 rounded-xl border transition-all group',
-        item.status === 'pending' &&
-          'bg-foreground/[0.02] border-foreground/[0.08] hover:border-foreground/[0.12]',
-        item.status === 'accepted' && 'bg-success/[0.03] border-success/20',
-        item.status === 'rejected' && 'bg-secondary/[0.03] border-secondary/20 opacity-60',
-        isSelected && 'ring-2 ring-primary/30'
-      )}
-    >
-      <div className="flex items-start gap-3">
-        {/* Checkbox */}
-        <button
-          onClick={onToggleSelect}
-          className="p-0.5 rounded mt-1 hover:bg-foreground/10 transition-colors flex-shrink-0"
-        >
-          {isSelected ? (
-            <CheckSquare className="w-4 h-4 text-primary" />
-          ) : (
-            <Square className="w-4 h-4 text-foreground/30 group-hover:text-foreground/50" />
-          )}
-        </button>
-
-        {/* Icon */}
-        <div
-          className={cn(
-            'w-8 h-8 rounded-lg flex items-center justify-center text-lg shrink-0',
-            item.status === 'accepted' && 'bg-success/10',
-            item.status === 'rejected' && 'bg-secondary/10',
-            item.status === 'pending' && 'bg-foreground/[0.04]'
-          )}
-        >
-          {category.icon}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.06] text-foreground/50">
-              {item.ledgerCode}
-            </span>
-            <span className="text-sm font-medium text-foreground/80 truncate">
-              {item.ledgerName}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {/* Source Badge */}
-            <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', source.color)}>
-              {nh(source.labelKey)}
-              {item.sourceRef && ` · ${item.sourceRef}`}
-            </span>
-            {/* Year Badge */}
-            {item.applyYears && item.applyYears.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-foreground/[0.06] text-foreground/50">
-                <Calendar className="w-2.5 h-2.5" />
-                {item.applyAllYears
-                  ? nh('allYears')
-                  : item.applyYears.length === 1
-                    ? item.applyYears[0]
-                    : item.applyYears.join(', ')}
-              </span>
-            )}
-            {/* Status for accepted/rejected */}
-            {item.status === 'accepted' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/10 text-success">
-                <Check className="w-2.5 h-2.5" />
-                {ca('accepted')}
-              </span>
-            )}
-            {item.status === 'rejected' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary/10 text-secondary">
-                <X className="w-2.5 h-2.5" />
-                {ca('rejected')}
-              </span>
-            )}
-          </div>
-          {item.reason && <p className="text-xs text-foreground/50 mt-1 truncate">{item.reason}</p>}
-        </div>
-
-        {/* Value & Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span
-            className={cn(
-              'text-sm font-mono font-semibold',
-              item.adjustment >= 0 ? 'text-success' : 'text-secondary'
-            )}
-          >
-            {item.adjustment >= 0 ? '+' : ''}
-            {formatCurrency(item.adjustment)}
-          </span>
-
-          {item.status === 'pending' && (
-            <div className="flex gap-1">
-              <TooltipProvider>
-                <TooltipRoot>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={onEdit}
-                      className="p-1.5 rounded-lg text-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{tCommon('edit')}</TooltipContent>
-                </TooltipRoot>
-              </TooltipProvider>
-              <TooltipProvider>
-                <TooltipRoot>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={onReject}
-                      className="p-1.5 rounded-lg text-foreground/40 hover:text-secondary hover:bg-secondary/10 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{ca('reject')}</TooltipContent>
-                </TooltipRoot>
-              </TooltipProvider>
-              <TooltipProvider>
-                <TooltipRoot>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={onAccept}
-                      className="p-1.5 rounded-lg text-foreground/40 hover:text-success hover:bg-success/10 transition-colors"
-                    >
-                      <Check className="w-4 h-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{ca('accept')}</TooltipContent>
-                </TooltipRoot>
-              </TooltipProvider>
-            </div>
-          )}
-
-          {item.status === 'accepted' && (
-            <div className="flex gap-1">
-              <TooltipProvider>
-                <TooltipRoot>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={onEdit}
-                      className="p-1.5 rounded-lg text-foreground/30 hover:text-primary hover:bg-primary/10 transition-colors"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{tCommon('edit')}</TooltipContent>
-                </TooltipRoot>
-              </TooltipProvider>
-              {item.source === 'manual' && (
-                <TooltipProvider>
-                  <TooltipRoot>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={onRemove}
-                        className="p-1.5 rounded-lg text-foreground/30 hover:text-secondary hover:bg-secondary/10 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>{tCommon('delete')}</TooltipContent>
-                  </TooltipRoot>
-                </TooltipProvider>
-              )}
-            </div>
-          )}
-
-          {item.status === 'rejected' && (
-            <div className="flex gap-1">
-              <TooltipProvider>
-                <TooltipRoot>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={onRestore}
-                      className="p-1.5 rounded-lg text-foreground/30 hover:text-foreground/60 hover:bg-foreground/10 transition-colors"
-                    >
-                      <Clock className="w-4 h-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{nh('reassess')}</TooltipContent>
-                </TooltipRoot>
-              </TooltipProvider>
-            </div>
-          )}
-        </div>
-      </div>
-    </motion.div>
   )
 }
 

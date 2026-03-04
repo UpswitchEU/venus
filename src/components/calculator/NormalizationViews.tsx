@@ -18,7 +18,6 @@ import {
   Check,
   Clock,
   Edit3,
-  Minus,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -44,6 +43,8 @@ interface NormalizationViewProps {
   items: NormalizationItem[]
   years: number[]
   originalEBITDA: number
+  /** Per-year reported EBITDA for accurate multi-year display */
+  originalEBITDAByYear?: Record<number, number>
   onAccept: (id: string) => void
   onReject: (id: string) => void
   onRemove: (id: string) => void
@@ -73,6 +74,23 @@ const sourceColors: Record<NormalizationSource, string> = {
   ai: 'bg-primary/10 text-primary',
 }
 
+/**
+ * Recalculate adjustment for a normalization item in the context of a specific year.
+ * Percentage and absolute types must use the year-specific EBITDA, not the stored amount.
+ */
+function adjustmentForYear(
+  item: NormalizationItem,
+  year: number,
+  originalEBITDA: number,
+  originalEBITDAByYear?: Record<number, number>
+): number {
+  const yearEbitda = originalEBITDAByYear?.[year] ?? originalEBITDA
+  if (item.type === 'add_percent') return (yearEbitda * item.value) / 100
+  if (item.type === 'subtract_percent') return -((yearEbitda * item.value) / 100)
+  if (item.type === 'absolute') return item.value - yearEbitda
+  return item.adjustment || 0
+}
+
 // ─────────────────────────────────────────
 // PROFESSIONAL TABLE VIEW
 // Multi-year horizontal layout with financial precision
@@ -82,6 +100,7 @@ export function NormalizationTableView({
   items,
   years,
   originalEBITDA,
+  originalEBITDAByYear,
   onAccept,
   onReject,
   onRemove,
@@ -92,7 +111,7 @@ export function NormalizationTableView({
   const locale = useLocale()
   const formatCurrency = React.useCallback(
     (value: number) =>
-      new Intl.NumberFormat(locale === 'nl' ? 'nl-NL' : 'en-GB', {
+      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,
@@ -154,23 +173,28 @@ export function NormalizationTableView({
     return [...items].sort((a, b) => a.ledgerCode.localeCompare(b.ledgerCode))
   }, [items])
 
-  // Calculate totals per year
+  // Calculate totals per year using year-specific EBITDA when available
   const yearTotals = React.useMemo(() => {
-    const totals: Record<number, { adjustment: number; normalized: number }> = {}
+    const totals: Record<number, { reported: number; adjustment: number; normalized: number }> = {}
     years.forEach((year) => {
       const yearItems = items.filter(
         (item) =>
           item.status === 'accepted' &&
           (item.applyAllYears || (item.applyYears || [item.year]).includes(year))
       )
-      const adjustment = yearItems.reduce((sum, item) => sum + item.adjustment, 0)
+      const adjustment = yearItems.reduce(
+        (sum, item) => sum + adjustmentForYear(item, year, originalEBITDA, originalEBITDAByYear),
+        0
+      )
+      const reported = originalEBITDAByYear?.[year] ?? originalEBITDA
       totals[year] = {
+        reported,
         adjustment,
-        normalized: originalEBITDA + adjustment,
+        normalized: reported + adjustment,
       }
     })
     return totals
-  }, [items, years, originalEBITDA])
+  }, [items, years, originalEBITDA, originalEBITDAByYear])
 
   if (rowItems.length === 0) {
     return null
@@ -222,7 +246,6 @@ export function NormalizationTableView({
             {rowItems.map((item, index) => {
               const cat = categoryLabels[item.category] || categoryLabels.other
               const isAccepted = item.status === 'accepted'
-              const adjustment = item.adjustment || 0
 
               return (
                 <motion.tr
@@ -273,6 +296,12 @@ export function NormalizationTableView({
                   {years.map((year, idx) => {
                     const appliesThisYear =
                       item.applyAllYears || (item.applyYears || [item.year]).includes(year)
+                    const adjustment = adjustmentForYear(
+                      item,
+                      year,
+                      originalEBITDA,
+                      originalEBITDAByYear
+                    )
 
                     return (
                       <td
@@ -395,7 +424,7 @@ export function NormalizationTableView({
                         {t('footer.geboekt')}
                       </span>
                       <span className="font-mono text-xs tabular-nums text-foreground/50">
-                        {formatCurrency(originalEBITDA)}
+                        {formatCurrency(yt.reported)}
                       </span>
                     </div>
                     <div className="flex items-center justify-end gap-2">
@@ -445,6 +474,7 @@ export function NormalizationBentoView({
   items,
   years,
   originalEBITDA,
+  originalEBITDAByYear,
   onAccept,
   onReject,
   onRemove,
@@ -455,7 +485,7 @@ export function NormalizationBentoView({
   const locale = useLocale()
   const formatCurrency = React.useCallback(
     (value: number) =>
-      new Intl.NumberFormat(locale === 'nl' ? 'nl-NL' : 'en-GB', {
+      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,
@@ -512,22 +542,6 @@ export function NormalizationBentoView({
     [t]
   )
 
-  // Group by category for visual organization
-  const groupedByCategory = React.useMemo(() => {
-    const groups: Record<string, NormalizationItem[]> = {}
-    items.forEach((item) => {
-      const cat = item.category || 'other'
-      if (!groups[cat]) groups[cat] = []
-      groups[cat].push(item)
-    })
-    return groups
-  }, [items])
-
-  // Calculate totals
-  const totalAdjustment = items
-    .filter((i) => i.status === 'accepted')
-    .reduce((sum, i) => sum + i.adjustment, 0)
-
   if (items.length === 0) {
     return null
   }
@@ -541,8 +555,10 @@ export function NormalizationBentoView({
             const cat = categoryLabels[item.category] || categoryLabels.other
             const source = sourceConfig[item.source] || sourceConfig.manual
 
-            // Determine card size based on adjustment magnitude
-            const magnitude = Math.abs(item.adjustment)
+            // Recalculate adjustment for % and absolute types using most recent year
+            const displayYear = item.applyYears?.[0] ?? item.year ?? years[0]
+            const displayAdj = adjustmentForYear(item, displayYear, originalEBITDA, originalEBITDAByYear)
+            const magnitude = Math.abs(displayAdj)
             const isLarge = magnitude > 50000
             const colSpan = isLarge
               ? 'col-span-12 md:col-span-6'
@@ -674,36 +690,48 @@ export function NormalizationBentoView({
                   {/* Value Display */}
                   <div className="flex items-end justify-between mt-4 pt-3 border-t border-foreground/[0.06]">
                     <div className="flex items-center gap-2">
-                      {item.adjustment >= 0 ? (
+                      {displayAdj > 0 ? (
                         <TrendingUp className="w-4 h-4 text-success" />
-                      ) : (
+                      ) : displayAdj < 0 ? (
                         <TrendingDown className="w-4 h-4 text-secondary" />
-                      )}
+                      ) : null}
                       <span
                         className={cn(
                           'text-xl font-bold font-mono tabular-nums',
-                          item.adjustment >= 0 ? 'text-success' : 'text-secondary'
+                          displayAdj > 0
+                            ? 'text-success'
+                            : displayAdj < 0
+                              ? 'text-secondary'
+                              : 'text-foreground/40'
                         )}
                       >
-                        {item.adjustment >= 0 ? '+' : ''}
-                        {formatCurrency(item.adjustment)}
+                        {displayAdj > 0 ? '+' : ''}
+                        {formatCurrency(displayAdj)}
                       </span>
                     </div>
 
                     {/* Year badges */}
                     <div className="flex gap-1">
-                      {(item.applyYears || [item.year]).slice(0, 3).map((year) => (
-                        <span
-                          key={year}
-                          className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-foreground/[0.06] text-foreground/50 tabular-nums"
-                        >
-                          {year}
+                      {item.applyAllYears ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-primary/10 text-primary tabular-nums">
+                          {t('all')}
                         </span>
-                      ))}
-                      {(item.applyYears || []).length > 3 && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-foreground/[0.06] text-foreground/50">
-                          +{(item.applyYears?.length || 0) - 3}
-                        </span>
+                      ) : (
+                        <>
+                          {(item.applyYears || [item.year]).slice(0, 3).map((year) => (
+                            <span
+                              key={year}
+                              className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-foreground/[0.06] text-foreground/50 tabular-nums"
+                            >
+                              {year}
+                            </span>
+                          ))}
+                          {(item.applyYears || []).length > 3 && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-foreground/[0.06] text-foreground/50">
+                              +{(item.applyYears?.length || 0) - 3}
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

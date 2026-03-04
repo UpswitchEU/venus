@@ -20,7 +20,6 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
-  MessageSquarePlus,
   Paperclip,
   RotateCcw,
   Send,
@@ -634,23 +633,6 @@ export function ChatAssistantDrawer({
                     <ChevronRight className="w-3.5 h-3.5" />
                     {ca('openHub')}
                   </AuroraButton>
-                )}
-                {/* New conversation button */}
-                {onNewConversation && (
-                  <button
-                    onClick={onNewConversation}
-                    className={cn(
-                      'shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg',
-                      'flex items-center justify-center',
-                      'text-foreground/40 hover:text-foreground/70',
-                      'hover:bg-foreground/[0.06] active:bg-foreground/[0.08]',
-                      'transition-colors touch-manipulation'
-                    )}
-                    aria-label={ca('newConversation')}
-                    title={ca('newConversation')}
-                  >
-                    <MessageSquarePlus className="w-5 h-5 sm:w-4 sm:h-4" />
-                  </button>
                 )}
                 {/* Close button */}
                 <button

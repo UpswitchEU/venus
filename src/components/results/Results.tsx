@@ -103,7 +103,7 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   const sanitizedHtml = HTMLProcessor.sanitize(htmlReport)
 
   return (
-    <div className="valuation-report-container h-full overflow-y-auto bg-white">
+    <div className="valuation-report-container h-full overflow-y-auto bg-background">
       <div className="valuation-report">
         <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
       </div>

@@ -31,7 +31,7 @@ import {
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { Checkbox } from '@/design-system/components/Checkbox'
 import { AuroraInput as Input } from '@/design-system/components/Input'
@@ -150,10 +150,34 @@ export function NormalizationEditor({
   const [newSource, setNewSource] = useState<NormalizationSource>('manual')
   const [newReason, setNewReason] = useState('')
 
-  // Use uploaded ledger accounts or defaults
+  // Fetch grootboek codes from Titan API (same as UnifiedNormalizationModal)
+  const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/reference/grootboek')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.codes) return
+        setFetchedLedgers(
+          data.codes.map((c: { code: string; name: string; category?: string }) => ({
+            code: c.code,
+            name: c.name,
+            category: c.category,
+          }))
+        )
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Available ledger accounts: prop > API fetch > hardcoded fallback
   const availableLedgers = useMemo(() => {
-    return ledgerAccounts.length > 0 ? ledgerAccounts : defaultLedgerAccounts
-  }, [ledgerAccounts])
+    if (ledgerAccounts.length > 0) return ledgerAccounts
+    if (fetchedLedgers.length > 0) return fetchedLedgers
+    return defaultLedgerAccounts
+  }, [ledgerAccounts, fetchedLedgers])
 
   // Filter ledger accounts based on search
   const filteredLedgers = useMemo(() => {

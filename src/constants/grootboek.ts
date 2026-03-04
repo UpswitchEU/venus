@@ -1,10 +1,16 @@
 /**
  * Belgian MAR (Minimum Algemeen Rekeningenstelsel) grootboek codes.
  *
- * Used as a local fallback when the Titan API endpoint
- * GET /api/v2/reference-data/grootboek is unavailable.
- * The canonical source of truth is Titan; this list covers the
- * most common codes used in EBITDA normalization.
+ * OFFLINE FALLBACK ONLY — do NOT treat this as source of truth.
+ *
+ * Data flow:
+ *   PostgreSQL (grootboek_codes table)
+ *     -> Titan API  GET /api/v2/reference-data/grootboek
+ *       -> Venus proxy  GET /api/reference/grootboek
+ *         -> UnifiedNormalizationModal / NormalizationEditor
+ *
+ * This constant is only used when the Titan API is unreachable.
+ * To update grootboek codes, update the database table via migration.
  */
 
 export interface LedgerAccount {

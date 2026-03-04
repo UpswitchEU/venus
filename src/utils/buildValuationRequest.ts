@@ -110,8 +110,16 @@ export function buildValuationRequest(
       .map((y) => y.year) ?? []
   const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
 
+  // Build year-to-EBITDA map for percentage recalculation
+  const yearEbitdaMap: Record<number, number> = {}
+  yearEbitdaMap[lastFullYear] = ebitda
+  formData.historical_years_data?.forEach((y) => {
+    if (y.ebitda != null) yearEbitdaMap[y.year] = Number(y.ebitda)
+  })
+
   // Build year-keyed normalization lookup from accepted items
   // CRITICAL: Respect applyAllYears and applyYears — items can apply to multiple years
+  // Percentage/absolute types recalculate using year-specific EBITDA
   const normByYear: Record<number, { totalAdjustment: number; count: number; confidence: string }> =
     {}
   for (const n of acceptedNorms) {
@@ -122,7 +130,13 @@ export function buildValuationRequest(
         : [n.year]
     for (const y of yearsToApply) {
       if (!normByYear[y]) normByYear[y] = { totalAdjustment: 0, count: 0, confidence: 'medium' }
-      normByYear[y].totalAdjustment += Number(n.adjustment)
+      const yearEbitda = yearEbitdaMap[y] ?? 0
+      const val = Number(n.value) || 0
+      let amount = Number(n.adjustment) || 0
+      if (n.type === 'add_percent') amount = (yearEbitda * val) / 100
+      else if (n.type === 'subtract_percent') amount = -((yearEbitda * val) / 100)
+      else if (n.type === 'absolute') amount = val - yearEbitda
+      normByYear[y].totalAdjustment += amount
       normByYear[y].count++
       if (n.confidence === 'high') normByYear[y].confidence = 'high'
     }

@@ -54,6 +54,8 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const hasCheckedSessionRef = useRef(false)
+  const mountedRef = useRef(true)
+  const isGeneratingRef = useRef(false)
 
   // Get session data to check existing PDF
   const getSessionData = useSessionStore((s) => s.getSessionData)
@@ -74,9 +76,14 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     }
   }, [getSessionData])
 
+  // Keep isGeneratingRef in sync with status
+  isGeneratingRef.current = state.status === 'generating'
+
   // Cleanup on unmount
   useEffect(() => {
+    mountedRef.current = true
     return () => {
+      mountedRef.current = false
       if (pollingRef.current) {
         clearInterval(pollingRef.current)
       }
@@ -103,14 +110,16 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     pollingRef.current = setInterval(async () => {
       pollCount++
 
-      if (pollCount > maxPolls) {
+        if (pollCount > maxPolls) {
         clearInterval(pollingRef.current!)
-        setState({
-          status: 'error',
-          url: null,
-          error: 'PDF generation timed out',
-          progress: 0,
-        })
+        if (mountedRef.current) {
+          setState({
+            status: 'error',
+            url: null,
+            error: 'PDF generation timed out',
+            progress: 0,
+          })
+        }
         return
       }
 
@@ -137,12 +146,14 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
         if (data.status === 'ready' && data.pdfUrl) {
           clearInterval(pollingRef.current!)
-          setState({
-            status: 'ready',
-            url: data.pdfUrl,
-            error: null,
-            progress: 100,
-          })
+          if (mountedRef.current) {
+            setState({
+              status: 'ready',
+              url: data.pdfUrl,
+              error: null,
+              progress: 100,
+            })
+          }
           generalLogger.info('[PDF] PDF ready after polling', {
             reportId: reportId.substring(0, 30),
             pollCount,
@@ -150,12 +161,14 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         } else if (data.status === 'none') {
           // PDF generation completed but no URL - may have failed silently
           clearInterval(pollingRef.current!)
-          setState({
-            status: 'none',
-            url: null,
-            error: null,
-            progress: 0,
-          })
+          if (mountedRef.current) {
+            setState({
+              status: 'none',
+              url: null,
+              error: null,
+              progress: 0,
+            })
+          }
         } else {
           // Still generating, update progress
           setState((prev) => ({
@@ -172,6 +185,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
   /**
    * Trigger PDF generation via Titan API
+   * ROBUST: Guards against double-invocation and race conditions
    */
   const generatePdf = useCallback(async (): Promise<string | null> => {
     if (!reportId) {
@@ -183,7 +197,14 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       return null
     }
 
-    // Abort any existing request
+    // Guard: Prevent concurrent generation (double-click, rapid navigation)
+    if (isGeneratingRef.current) {
+      generalLogger.debug('[PDF] Generation already in progress, ignoring duplicate request')
+      return null
+    }
+    isGeneratingRef.current = true
+
+    // Abort any existing request before starting new one
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
@@ -213,7 +234,13 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
       const data = await response.json()
 
+      if (!mountedRef.current) {
+        isGeneratingRef.current = false
+        return null
+      }
+
       if (data.pdfUrl) {
+        isGeneratingRef.current = false
         setState({
           status: 'ready',
           url: data.pdfUrl,
@@ -229,6 +256,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         return null
       }
 
+      isGeneratingRef.current = false
       setState({
         status: 'error',
         url: null,
@@ -237,16 +265,19 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       })
       return null
     } catch (error) {
+      isGeneratingRef.current = false
       if ((error as Error).name === 'AbortError') {
         return null
       }
-      const message = error instanceof Error ? error.message : 'PDF generation failed'
-      setState({
-        status: 'error',
-        url: null,
-        error: message,
-        progress: 0,
-      })
+      if (mountedRef.current) {
+        const message = error instanceof Error ? error.message : 'PDF generation failed'
+        setState({
+          status: 'error',
+          url: null,
+          error: message,
+          progress: 0,
+        })
+      }
       return null
     }
   }, [reportId])
@@ -268,12 +299,15 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
       if (pollCount > maxPolls) {
         clearInterval(pollingRef.current!)
-        setState({
-          status: 'error',
-          url: null,
-          error: 'PDF generation timed out',
-          progress: 0,
-        })
+        isGeneratingRef.current = false
+        if (mountedRef.current) {
+          setState({
+            status: 'error',
+            url: null,
+            error: 'PDF generation timed out',
+            progress: 0,
+          })
+        }
         return
       }
 
@@ -288,26 +322,34 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
         const data = await response.json()
 
+        if (!mountedRef.current) return
+
         // Update progress
         const progress = Math.min(30 + pollCount, 90)
         setState((prev) => ({ ...prev, progress }))
 
         if (data.status === 'completed' && data.pdfUrl) {
           clearInterval(pollingRef.current!)
-          setState({
-            status: 'ready',
-            url: data.pdfUrl,
-            error: null,
-            progress: 100,
-          })
+          isGeneratingRef.current = false
+          if (mountedRef.current) {
+            setState({
+              status: 'ready',
+              url: data.pdfUrl,
+              error: null,
+              progress: 100,
+            })
+          }
         } else if (data.status === 'failed') {
           clearInterval(pollingRef.current!)
-          setState({
-            status: 'error',
-            url: null,
-            error: data.error || 'PDF generation failed',
-            progress: 0,
-          })
+          isGeneratingRef.current = false
+          if (mountedRef.current) {
+            setState({
+              status: 'error',
+              url: null,
+              error: data.error || 'PDF generation failed',
+              progress: 0,
+            })
+          }
         }
       } catch (error) {
         // Don't fail on polling errors - keep trying
@@ -317,24 +359,25 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   }, [])
 
   /**
-   * Download the PDF file
+   * Download the PDF file via proxy (avoids CORS/403 when fetching Supabase storage directly)
    */
   const downloadPdf = useCallback(async (url?: string, filename?: string) => {
-    const pdfUrl = url || state.url
-    if (!pdfUrl) {
-      if (state.status !== 'generating') {
+    if (!reportId) {
+      if (!isGeneratingRef.current) {
         await generatePdf()
       }
       return
     }
 
     try {
-      const response = await fetch(pdfUrl, {
+      // Use proxy to avoid CORS/403 when fetching Supabase storage from browser
+      const response = await fetch(`/api/valuations/${reportId}/pdf/download`, {
         credentials: 'include',
       })
 
       if (!response.ok) {
-        throw new Error('Failed to download PDF')
+        const errBody = await response.json().catch(() => ({}))
+        throw new Error(errBody.error || 'Failed to download PDF')
       }
 
       const blob = await response.blob()
@@ -342,20 +385,22 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       const blobUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = blobUrl
-      link.download = filename || `valuation-report-${reportId || 'unknown'}.pdf`
+      link.download = filename || `valuation-report-${reportId}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(blobUrl)
     } catch (error) {
       generalLogger.error('[PDF] Download error', { error })
-      setState((prev) => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Download failed',
-      }))
+      if (mountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'Download failed',
+        }))
+      }
       throw error
     }
-  }, [state.url, state.status, reportId, generatePdf])
+  }, [reportId, generatePdf])
 
   return {
     state,

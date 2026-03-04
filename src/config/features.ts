@@ -18,6 +18,8 @@ export const FEATURE_FLAGS = {
   SHOW_ONBOARDING_TOOLTIPS: process.env.NEXT_PUBLIC_SHOW_ONBOARDING_TOOLTIPS !== 'false',
   ENABLE_ANIMATIONS: process.env.NEXT_PUBLIC_ENABLE_ANIMATIONS !== 'false',
   SHOW_CREDIT_ANALYTICS: process.env.NEXT_PUBLIC_SHOW_CREDIT_ANALYTICS === 'true',
+  /** "Sneller met grootboek upload?" CTA in valuation left panel. Hidden for launch until CSV import ships. */
+  SHOW_LEDGER_UPLOAD_HINT: process.env.NEXT_PUBLIC_SHOW_LEDGER_UPLOAD_HINT === 'true',
 
   // Session & Persistence Flags
   ENABLE_SESSION_RESTORATION: process.env.NEXT_PUBLIC_ENABLE_SESSION_RESTORATION !== 'false', // Default: enabled
@@ -35,6 +37,7 @@ export const shouldEnablePremiumUpsell = (): boolean => FEATURE_FLAGS.ENABLE_PRE
 export const shouldShowOnboardingTooltips = (): boolean => FEATURE_FLAGS.SHOW_ONBOARDING_TOOLTIPS
 export const shouldEnableAnimations = (): boolean => FEATURE_FLAGS.ENABLE_ANIMATIONS
 export const shouldShowCreditAnalytics = (): boolean => FEATURE_FLAGS.SHOW_CREDIT_ANALYTICS
+export const shouldShowLedgerUploadHint = (): boolean => FEATURE_FLAGS.SHOW_LEDGER_UPLOAD_HINT
 export const shouldEnableSessionRestoration = (): boolean =>
   FEATURE_FLAGS.ENABLE_SESSION_RESTORATION
 export const isDebugCreditSystem = (): boolean => FEATURE_FLAGS.DEBUG_CREDIT_SYSTEM

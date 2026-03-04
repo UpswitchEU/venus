@@ -1479,9 +1479,19 @@
     "table": {
       "soort": "Type",
       "code": "Code",
-      "grootboekrekening": "Ledger account",
-      "acties": "Actions"
+      "grootboekrekening": "Description",
+      "acties": "Actions",
+      "bron": "Source",
+      "status": "Status",
+      "jaar": "Year"
     },
+    "bulkSelected": "{count} selected",
+    "bulkDeselect": "Deselect",
+    "viewCompact": "Compact",
+    "viewFinancial": "Financial table",
+    "viewBento": "Bento Grid",
+    "ledgerAccountLabel": "Ledger account",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
     "actions": {
       "edit": "Edit",
       "reject": "Reject",

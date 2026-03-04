@@ -558,6 +558,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return Array.from(years).sort((a, b) => b - a)
   }, [formStoreData.historical_years_data])
 
+  // Per-year reported EBITDA for accurate multi-year normalization display
+  const originalEBITDAByYear = useMemo(() => {
+    const byYear: Record<number, number> = {}
+    const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+    const currentEbitda =
+      Number(formStoreData?.current_year_data?.ebitda) || Number(formStoreData?.ebitda) || 0
+    if (currentEbitda) byYear[lastFullYear] = currentEbitda
+    formStoreData.historical_years_data
+      ?.filter((y: any) => y.year >= 2000 && y.year <= 2100 && y.ebitda != null)
+      .forEach((y: any) => {
+        byYear[y.year] = Number(y.ebitda)
+      })
+    return byYear
+  }, [formStoreData])
+
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
   const [showNormalisationModal, setShowNormalisationModal] = useState(false)
@@ -1541,14 +1556,35 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       } else if (reportId) {
         toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
         const pdfUrl = await generatePdf()
-        toast.dismiss('pdf-gen')
         if (pdfUrl) {
-          await downloadPdf(pdfUrl, filename)
+          toast.dismiss('pdf-gen')
+          await downloadPdf(undefined, filename)
         } else {
-          toast.error(t('pdfExportFailed'), {
-            description: t('pdfExportFailedDesc'),
-          })
-          return
+          // Async path: PDF is generating in background. Poll until ready or timeout.
+          const maxWaitMs = 120_000
+          const pollIntervalMs = 2_000
+          let elapsed = 0
+          while (elapsed < maxWaitMs) {
+            const res = await fetch(`/api/valuations/${reportId}/pdf`, {
+              method: 'GET',
+              credentials: 'include',
+            })
+            const data = res.ok ? await res.json().catch(() => null) : null
+            if (data?.status === 'ready' && data?.pdfUrl) {
+              toast.dismiss('pdf-gen')
+              await downloadPdf(undefined, filename)
+              break
+            }
+            await new Promise((r) => setTimeout(r, pollIntervalMs))
+            elapsed += pollIntervalMs
+          }
+          if (elapsed >= maxWaitMs) {
+            toast.dismiss('pdf-gen')
+            toast.error(t('pdfExportFailed'), {
+              description: t('pdfExportFailedDesc'),
+            })
+            return
+          }
         }
       } else {
         toast.error(t('pdfExportFailed'), {
@@ -1568,6 +1604,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       ])
       toast.success(t('pdfDownloaded'))
     } catch (error) {
+      toast.dismiss('pdf-gen')
       generalLogger.error('[ManualLayout] PDF export failed', {
         error: error instanceof Error ? error.message : String(error),
       })
@@ -2338,6 +2375,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             Number(formStoreData?.current_year_data?.ebitda) ||
             0
           }
+          originalEBITDAByYear={originalEBITDAByYear}
           normalizations={normalizationItems}
           onNormalizationsChange={handleNormalizationsChange}
           onUploadClick={() => {}}
@@ -2470,9 +2508,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           />
 
           {/* Right Panel: Report / Preview / History */}
-          {/* Match Clarity: bg-white so report (dark cover + white content) stands out from dark Venus UI */}
+          {/* Design system: bg-background for theme consistency. Report HTML has its own light styling. */}
           <ResizablePanel defaultSize={65} minSize={40}>
-            <div ref={reportPanelRef} className="h-full bg-white flex flex-col">
+            <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AnimatePresence mode="wait">
                   {rightPanelView === 'preview' ? (
@@ -2482,7 +2520,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="valuation-report-container h-full overflow-y-auto bg-white"
+                      className="valuation-report-container h-full overflow-y-auto bg-background"
                     >
                       {report?.htmlReport ? (
                         <div className="valuation-report">
@@ -2493,10 +2531,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           />
                         </div>
                       ) : (isGenerating || isCalculating) ? (
-                        <div className="h-full flex flex-col bg-white">
+                        <div className="h-full flex flex-col bg-background">
                           <div className="flex items-center justify-center gap-2 py-4">
                             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                            <span className="text-sm text-foreground/60">
+                            <span className="text-sm text-foreground/70">
                               {tReport('generating.title')}
                             </span>
                           </div>
@@ -2513,7 +2551,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="h-full bg-white"
+                      className="h-full bg-background"
                     >
                       <Suspense fallback={<PanelSkeleton />}>
                         <HistoryPanel
@@ -2530,7 +2568,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="valuation-report-container h-full overflow-y-auto bg-white"
+                      className="valuation-report-container h-full overflow-y-auto bg-background"
                     >
                       <div className="valuation-report">
                         <div
@@ -2547,7 +2585,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="h-full bg-white"
+                      className="h-full bg-background"
                     >
                       <ReportSkeleton />
                     </motion.div>
@@ -2558,7 +2596,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="h-full bg-white"
+                      className="h-full bg-background"
                     >
                       <ReportPlaceholder />
                     </motion.div>
@@ -2604,6 +2642,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           Number(formStoreData?.current_year_data?.ebitda) ||
           0
         }
+        originalEBITDAByYear={originalEBITDAByYear}
         normalizations={normalizationItems}
         onNormalizationsChange={handleNormalizationsChange}
         onUploadClick={() => {}}

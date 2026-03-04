@@ -1479,9 +1479,19 @@
     "table": {
       "soort": "Soort",
       "code": "Code",
-      "grootboekrekening": "Grootboekrekening",
-      "acties": "Acties"
+      "grootboekrekening": "Omschrijving",
+      "acties": "Acties",
+      "bron": "Bron",
+      "status": "Status",
+      "jaar": "Jaar"
     },
+    "bulkSelected": "{count} geselecteerd",
+    "bulkDeselect": "Deselecteer",
+    "viewCompact": "Compact",
+    "viewFinancial": "Financiële tabel",
+    "viewBento": "Bento Grid",
+    "ledgerAccountLabel": "Grootboekrekening",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
     "actions": {
       "edit": "Bewerken",
       "reject": "Afwijzen",

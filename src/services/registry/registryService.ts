@@ -52,7 +52,7 @@ export class RegistryService {
     limit: number = 10,
     signal?: AbortSignal
   ): Promise<CompanySearchResponse> {
-    // Validate input
+    // Validate input (min 2 chars to support short names e.g. AX, AB, and KBO prefix)
     if (!query || query.trim().length < 2) {
       throw new ValidationError('Query must be at least 2 characters long', { query, country })
     }

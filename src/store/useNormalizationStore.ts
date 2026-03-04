@@ -85,7 +85,7 @@ interface NormalizationStore {
 
   // Persistence actions
   persistToSession: (reportId: string) => Promise<void>
-  persistToTitan: (reportId: string, year: number) => Promise<void>
+  persistToTitan: (reportId: string, year: number, reportedEbitda?: number) => Promise<void>
   loadFromTitan: (sessionId: string) => Promise<void>
   loadFromSession: (sessionData: any) => void
 
@@ -257,7 +257,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
         })
       },
 
-      persistToTitan: async (reportId, year) => {
+      persistToTitan: async (reportId, year, reportedEbitda) => {
         if (!reportId) return
         await serializedPersistToTitan(reportId, year, async () => {
           // Read latest state INSIDE the serialized executor to avoid stale snapshots
@@ -271,18 +271,30 @@ export const useNormalizationStore = create<NormalizationStore>()(
               if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(year)
               return n.year === year
             })
-            const adjustments = yearItems.map((n) => ({
-              category: mapFrontendCategoryToBackend(n.category),
-              amount: Number(n.adjustment),
-              note: n.reason,
-              confidence: n.confidence,
-              ledger_code: n.ledgerCode || undefined,
-              ledger_name: n.ledgerName || undefined,
-            }))
+            const yearEbitda = reportedEbitda ?? 0
+            const adjustments = yearItems.map((n) => {
+              let amount = Number(n.adjustment)
+              if (n.type === 'add_percent') amount = (yearEbitda * n.value) / 100
+              else if (n.type === 'subtract_percent') amount = -((yearEbitda * n.value) / 100)
+              else if (n.type === 'absolute') amount = n.value - yearEbitda
+              return {
+                category: mapFrontendCategoryToBackend(n.category),
+                amount,
+                note: n.reason,
+                confidence: n.confidence,
+                ledger_code: n.ledgerCode || undefined,
+                ledger_name: n.ledgerName || undefined,
+                normalization_type: n.type,
+                normalization_value: n.value,
+                frontend_id: n.id,
+                apply_years: n.applyYears,
+                apply_all_years: n.applyAllYears,
+              }
+            })
             await normalizationService.saveNormalization({
               session_id: reportId,
               year,
-              reported_ebitda: 0,
+              reported_ebitda: reportedEbitda ?? 0,
               adjustments,
             } as any)
             generalLogger.debug('[NormalizationStore] Persisted to Titan API', {
@@ -323,44 +335,66 @@ export const useNormalizationStore = create<NormalizationStore>()(
             return
           }
 
+          const seenFrontendIds = new Map<string, NormalizationItem>()
           const items: NormalizationItem[] = []
           for (const resp of responses) {
-            for (const adj of resp.adjustments || []) {
-              items.push({
-                id: `titan-${resp.year}-${adj.category}-${Math.random().toString(36).substring(2, 8)}`,
+            for (let idx = 0; idx < (resp.adjustments || []).length; idx++) {
+              const adj = resp.adjustments[idx] as any
+              const restoredType = adj.normalization_type || (adj.amount >= 0 ? 'add' : 'subtract')
+              const restoredValue = adj.normalization_value ?? Math.abs(adj.amount)
+
+              // Deduplicate multi-year normalizations by frontend_id
+              if (adj.frontend_id && seenFrontendIds.has(adj.frontend_id)) {
+                continue
+              }
+
+              const item: NormalizationItem = {
+                id: adj.frontend_id || `titan-${resp.year}-${adj.category}-${idx}`,
                 ledgerCode: adj.ledger_code || '',
                 ledgerName: adj.ledger_name || adj.note || adj.category,
                 category: mapBackendCategoryToFrontend(adj.category),
-                type: adj.amount >= 0 ? 'add' : 'subtract',
-                value: Math.abs(adj.amount),
+                type: restoredType,
+                value: restoredValue,
                 adjustment: adj.amount,
                 reason: adj.note,
                 source: 'manual' as NormalizationSource,
                 sourceRef: '',
                 status: 'accepted' as NormalizationStatus,
-                applyAllYears: false,
+                applyAllYears: adj.apply_all_years ?? false,
+                applyYears: adj.apply_years,
                 year: resp.year,
                 confidence: adj.confidence as any,
-              })
+              }
+
+              if (adj.frontend_id) seenFrontendIds.set(adj.frontend_id, item)
+              items.push(item)
             }
-            for (const custom of resp.custom_adjustments || []) {
-              items.push({
-                id:
-                  custom.id ||
-                  `titan-custom-${resp.year}-${Math.random().toString(36).substring(2, 8)}`,
+            for (let idx = 0; idx < (resp.custom_adjustments || []).length; idx++) {
+              const custom = resp.custom_adjustments[idx] as any
+
+              if (custom.frontend_id && seenFrontendIds.has(custom.frontend_id)) {
+                continue
+              }
+
+              const item: NormalizationItem = {
+                id: custom.frontend_id || custom.id || `titan-custom-${resp.year}-${idx}`,
                 ledgerCode: custom.ledger_code || '',
                 ledgerName: custom.ledger_name || custom.description,
                 category: 'other',
-                type: custom.amount >= 0 ? 'add' : 'subtract',
-                value: Math.abs(custom.amount),
+                type: custom.normalization_type || (custom.amount >= 0 ? 'add' : 'subtract'),
+                value: custom.normalization_value ?? Math.abs(custom.amount),
                 adjustment: custom.amount,
                 reason: custom.note,
                 source: 'manual' as NormalizationSource,
                 sourceRef: '',
                 status: 'accepted' as NormalizationStatus,
-                applyAllYears: false,
+                applyAllYears: custom.apply_all_years ?? false,
+                applyYears: custom.apply_years,
                 year: resp.year,
-              })
+              }
+
+              if (custom.frontend_id) seenFrontendIds.set(custom.frontend_id, item)
+              items.push(item)
             }
           }
 
@@ -393,7 +427,10 @@ export const useNormalizationStore = create<NormalizationStore>()(
       getAccepted: () => get().items.filter((n) => n.status === 'accepted'),
       getPending: () => get().items.filter((n) => n.status === 'pending'),
       getRejected: () => get().items.filter((n) => n.status === 'rejected'),
-      getByYear: (year) => get().items.filter((n) => n.year === year),
+      getByYear: (year) =>
+        get().items.filter(
+          (n) => n.applyAllYears || (n.applyYears && n.applyYears.length > 0 ? n.applyYears.includes(year) : n.year === year)
+        ),
       getTotalAdjustment: () => get().items.reduce((sum, n) => sum + Number(n.adjustment), 0),
       getAcceptedTotalAdjustment: () =>
         get()
