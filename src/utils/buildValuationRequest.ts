@@ -130,12 +130,14 @@ export function buildValuationRequest(
         : [n.year]
     for (const y of yearsToApply) {
       if (!normByYear[y]) normByYear[y] = { totalAdjustment: 0, count: 0, confidence: 'medium' }
-      const yearEbitda = yearEbitdaMap[y] ?? 0
-      const val = Number(n.value) || 0
-      let amount = Number(n.adjustment) || 0
+      const rawYearEbitda = yearEbitdaMap[y] ?? 0
+      const yearEbitda = Number.isFinite(rawYearEbitda) ? rawYearEbitda : 0
+      const val = Number.isFinite(Number(n.value)) ? Number(n.value) || 0 : 0
+      let amount = Number.isFinite(Number(n.adjustment)) ? Number(n.adjustment) || 0 : 0
       if (n.type === 'add_percent') amount = (yearEbitda * val) / 100
       else if (n.type === 'subtract_percent') amount = -((yearEbitda * val) / 100)
       else if (n.type === 'absolute') amount = val - yearEbitda
+      if (!Number.isFinite(amount)) amount = 0
       normByYear[y].totalAdjustment += amount
       normByYear[y].count++
       if (n.confidence === 'high') normByYear[y].confidence = 'high'

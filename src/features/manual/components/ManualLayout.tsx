@@ -1902,9 +1902,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
           const years = getYearsToPersist(item)
-          Promise.all(years.map((y) => normalizationActions.persistToTitan(reportId!, y))).catch(
-            (error) => {
-              generalLogger.warn('[ManualLayout] Titan persist failed after accept', {
+          Promise.all(
+            years.map((y) =>
+              normalizationActions.persistToTitan(reportId!, y, originalEBITDAByYear[y] ?? 0)
+            )
+          ).catch((error) => {
+            generalLogger.warn('[ManualLayout] Titan persist failed after accept', {
                 id,
                 error: error instanceof Error ? error.message : String(error),
               })
@@ -1914,7 +1917,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
       recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, normalizationActions, getYearsToPersist]
+    [reportId, normalizationActions, getYearsToPersist, originalEBITDAByYear]
   )
 
   const handleRejectNormalisation = useCallback(
@@ -1927,9 +1930,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
           const years = getYearsToPersist(item)
-          Promise.all(years.map((y) => normalizationActions.persistToTitan(reportId!, y))).catch(
-            (error) => {
-              generalLogger.warn('[ManualLayout] Titan persist failed after reject', {
+          Promise.all(
+            years.map((y) =>
+              normalizationActions.persistToTitan(reportId!, y, originalEBITDAByYear[y] ?? 0)
+            )
+          ).catch((error) => {
+            generalLogger.warn('[ManualLayout] Titan persist failed after reject', {
                 id,
                 error: error instanceof Error ? error.message : String(error),
               })
@@ -1939,7 +1945,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
       recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, normalizationActions, getYearsToPersist]
+    [reportId, normalizationActions, getYearsToPersist, originalEBITDAByYear]
   )
 
   // ─── Auto-recalculate valuation with normalized EBITDA ───

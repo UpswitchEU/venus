@@ -496,15 +496,16 @@ export function ManualInputPanel({
     })
 
     // Weighted average: most recent years weighted higher (McKinsey method)
-    // Include all years with financial data (including negative EBITDA / loss-making years)
+    // Include all years with financial data (loss years, break-even, and positive)
     const validYears = years
-      .filter((y) => y.ebitda !== 0 || y.normalizationCount > 0)
+      .filter((y) => y.year != null && Number(y.year) >= 2000 && Number(y.year) <= 2100)
       .sort((a, b) => Number(a.year) - Number(b.year))
     let weightedSum = 0
     let totalWeight = 0
     validYears.forEach((y, index) => {
       const weight = index + 1 // Ascending: oldest=1, most recent=highest
-      weightedSum += y.normalizedEbitda * weight
+      const norm = Number.isFinite(y.normalizedEbitda) ? y.normalizedEbitda : 0
+      weightedSum += norm * weight
       totalWeight += weight
     })
 
