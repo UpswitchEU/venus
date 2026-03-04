@@ -735,6 +735,11 @@ class SessionRestorationServiceImpl {
             countryCode: 'country_code',
             postalCode: 'postal_code',
             netIncome: 'net_income',
+            historicalYearsData: 'historical_years_data',
+            currentYearData: 'current_year_data',
+            naceCode: 'nace_code',
+            naceDescription: 'nace_description',
+            legalForm: 'legal_form',
           }
 
           const mapped: Record<string, unknown> = {}

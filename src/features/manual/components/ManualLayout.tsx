@@ -259,7 +259,7 @@ function mapFrontendCategoryToBackend(category: string): string {
 
 function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
   const allYears = (data.yearlyFinancials || [])
-    .filter((yf: any) => yf.year && (yf.revenue > 0 || yf.ebitda > 0))
+    .filter((yf: any) => yf.year && (yf.revenue > 0 || yf.ebitda !== 0))
     .sort((a: any, b: any) => parseInt(b.year) - parseInt(a.year))
 
   const current = allYears[0]
@@ -557,6 +557,40 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       .forEach((y: any) => years.add(y.year))
     return Array.from(years).sort((a, b) => b - a)
   }, [formStoreData.historical_years_data])
+
+  // Restored yearly financials from form store for ManualInputPanel initialData.
+  // Memoized to stabilize the reference and prevent unnecessary prefill effect runs.
+  const restoredYearlyFinancials = useMemo(() => {
+    const allYears: Array<{ year: string; revenue: number; ebitda: number }> = []
+    const cyd = formStoreData.current_year_data as
+      | { year?: number; revenue?: number; ebitda?: number }
+      | undefined
+    if (cyd?.year && cyd.year >= 2000 && cyd.year <= 2100) {
+      allYears.push({
+        year: String(cyd.year),
+        revenue: Number(cyd.revenue) || 0,
+        ebitda: Number(cyd.ebitda) || 0,
+      })
+    }
+    if (formStoreData.historical_years_data?.length) {
+      for (const y of formStoreData.historical_years_data as any[]) {
+        if (
+          y.year >= 2000 &&
+          y.year <= 2100 &&
+          !allYears.some((a) => a.year === String(y.year))
+        ) {
+          allYears.push({
+            year: String(y.year),
+            revenue: Number(y.revenue) || 0,
+            ebitda: Number(y.ebitda) || 0,
+          })
+        }
+      }
+    }
+    return allYears.length > 0
+      ? allYears.sort((a, b) => Number(b.year) - Number(a.year))
+      : undefined
+  }, [formStoreData.current_year_data, formStoreData.historical_years_data])
 
   // Per-year reported EBITDA for accurate multi-year normalization display
   const originalEBITDAByYear = useMemo(() => {
@@ -2250,6 +2284,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       yearFounded: collectedData.yearFounded,
       equityStake: collectedData.equityStake,
       ownerManagers: collectedData.ownerManagers,
+      yearlyFinancials: restoredYearlyFinancials,
     },
   }
 

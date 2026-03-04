@@ -334,6 +334,17 @@ export function ManualInputPanel({
         applyPrefill(prev, updates, 'yearFounded', prefill.yearFounded)
         applyPrefill(prev, updates, 'ownerManagers', prefill.ownerManagers)
         applyPrefill(prev, updates, 'equityStake', prefill.equityStake)
+        if (
+          prefill.yearlyFinancials?.length &&
+          prefill.yearlyFinancials.some((yf: any) => yf.revenue > 0 || yf.ebitda !== 0)
+        ) {
+          const currentIsDefault = prev.yearlyFinancials.every(
+            (yf) => yf.revenue === 0 && yf.ebitda === 0
+          )
+          if (currentIsDefault) {
+            ;(updates as Record<string, unknown>).yearlyFinancials = prefill.yearlyFinancials
+          }
+        }
         if (updates.companyName) companyNameUpdate = String(updates.companyName)
         if (Object.keys(updates).length === 0) return prev
         return { ...prev, ...updates }
@@ -1477,7 +1488,7 @@ export function ManualInputPanel({
           </form>
 
           {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
-          <div className="sticky bottom-0 shrink-0 px-6 py-4 border-t border-foreground/[0.06] bg-background mt-auto">
+          <div className="sticky bottom-0 z-20 shrink-0 px-6 py-4 border-t border-foreground/[0.06] bg-background mt-auto">
           <AuroraButton
             type="submit"
             variant="primary"
