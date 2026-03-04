@@ -106,12 +106,16 @@ export function NormalizationHub({
   }
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // Calculate stats
+  // Calculate stats — use per-year EBITDA when available for accurate multi-year summary
   const stats = useMemo(() => {
     const pending = normalizations.filter((n) => n.status === 'pending').length
     const accepted = normalizations.filter((n) => n.status === 'accepted').length
     const rejected = normalizations.filter((n) => n.status === 'rejected').length
-    const safeEbitda = Number(originalEbitda) || 0
+    const ebitdaForSummary =
+      originalEBITDAByYear && Number.isFinite(originalEBITDAByYear[currentYear])
+        ? originalEBITDAByYear[currentYear]!
+        : Number(originalEbitda) || 0
+    const safeEbitda = Number.isFinite(ebitdaForSummary) ? ebitdaForSummary : 0
     const totalAdjustment = normalizations
       .filter((n) => n.status === 'accepted')
       .reduce((sum, n) => {
@@ -130,7 +134,7 @@ export function NormalizationHub({
       totalAdjustment,
       normalizedEbitda,
     }
-  }, [normalizations, originalEbitda])
+  }, [normalizations, originalEbitda, originalEBITDAByYear, currentYear])
 
   const sourceKey = ['yuki', 'exact', 'odoo', 'csv', 'manual'].includes(sourceIntegration)
     ? sourceIntegration

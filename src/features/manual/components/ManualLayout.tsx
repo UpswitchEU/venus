@@ -564,11 +564,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
     const currentEbitda =
       Number(formStoreData?.current_year_data?.ebitda) || Number(formStoreData?.ebitda) || 0
-    if (currentEbitda) byYear[lastFullYear] = currentEbitda
+    if (Number.isFinite(currentEbitda)) byYear[lastFullYear] = currentEbitda
     formStoreData.historical_years_data
       ?.filter((y: any) => y.year >= 2000 && y.year <= 2100 && y.ebitda != null)
       .forEach((y: any) => {
-        byYear[y.year] = Number(y.ebitda)
+        const val = Number(y.ebitda)
+        byYear[y.year] = Number.isFinite(val) ? val : 0
       })
     return byYear
   }, [formStoreData])
@@ -1904,7 +1905,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           const years = getYearsToPersist(item)
           Promise.all(
             years.map((y) =>
-              normalizationActions.persistToTitan(reportId!, y, originalEBITDAByYear[y] ?? 0)
+              normalizationActions.persistToTitan(
+                reportId!,
+                y,
+                Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
+              )
             )
           ).catch((error) => {
             generalLogger.warn('[ManualLayout] Titan persist failed after accept', {
@@ -1932,7 +1937,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           const years = getYearsToPersist(item)
           Promise.all(
             years.map((y) =>
-              normalizationActions.persistToTitan(reportId!, y, originalEBITDAByYear[y] ?? 0)
+              normalizationActions.persistToTitan(
+                reportId!,
+                y,
+                Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
+              )
             )
           ).catch((error) => {
             generalLogger.warn('[ManualLayout] Titan persist failed after reject', {
