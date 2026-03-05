@@ -582,6 +582,8 @@
     }
   },
   "report": {
+    "saveReportFailed": "Rapport opslaan mislukt. Probeer het opnieuw.",
+    "deleteReportFailed": "Rapport verwijderen mislukt. Probeer het opnieuw.",
     "saveStatus": {
       "saving": "Opslaan...",
       "savingSoon": "Binnenkort automatisch opslaan...",
@@ -631,6 +633,17 @@
       "step2": "EBITDA berekenen",
       "step3": "Multiples toepassen",
       "step4": "Rapport genereren"
+    },
+    "newValuationModal": {
+      "title": "Weet je zeker dat je een nieuwe schatting wilt maken?",
+      "description": "Je start een volledig nieuwe indicatieve bedrijfsschatting.",
+      "warningTitle": "Let op",
+      "warning": "Dit overschrijft het huidige concept. Alle voortgang wordt gewist en je begint met een leeg formulier.",
+      "version2Note": "Om Versie 2 van je bestaande rapport te maken met je wijzigingen, gebruik dan de knop 'Opnieuw berekenen'.",
+      "checkboxLabel": "Ik begrijp dat mijn huidige concept wordt overschreven en dat ik opnieuw begin.",
+      "cancel": "Annuleren",
+      "confirm": "Nieuwe schatting starten",
+      "confirming": "Bezig..."
     }
   },
   "reports": {
@@ -1305,6 +1318,22 @@
     "significantFields": "Significante velden (>10% wijziging):",
     "fieldChanges": "Veldwijzigingen",
     "initialVersionMessage": "Dit is de eerste versie. Er is geen eerdere versie om mee te vergelijken.",
+    "recalculatePopup": {
+      "title": "Nieuwe versie van bedrijfsschatting maken?",
+      "descFormAndNorms": "U heeft wijzigingen aangebracht in uw bedrijfsgegevens en EBITDA-normalisaties. Dit maakt versie v{nextVersion} met uw bijgewerkte gegevens.",
+      "descFormOnly": "U heeft wijzigingen aangebracht in uw bedrijfsgegevens. Dit maakt versie v{nextVersion} met uw bijgewerkte invoer.",
+      "descNormsOnly": "U heeft EBITDA-waarden genormaliseerd. Dit maakt versie v{nextVersion} met de genormaliseerde EBITDA.",
+      "whatHappens": "Wat gebeurt er:",
+      "bulletVersionCreated": "Versie v{nextVersion} wordt aangemaakt met al uw wijzigingen",
+      "bulletDataAndNorms": "Bijgewerkte gegevens en genormaliseerde EBITDA worden gebruikt",
+      "bulletNormsOnly": "Genormaliseerde EBITDA wordt gebruikt in de berekeningen",
+      "bulletFormOnly": "Bijgewerkte bedrijfsgegevens worden gebruikt in de berekeningen",
+      "bulletPreviousUnchanged": "Vorige versie v{currentVersion} blijft ongewijzigd",
+      "bulletCompareVersions": "U kunt versies naast elkaar vergelijken in de versiegeschiedenis",
+      "cancel": "Annuleren",
+      "createVersion": "Versie v{nextVersion} maken",
+      "creating": "Versie v{nextVersion} wordt aangemaakt..."
+    },
     "fieldLabels": {
       "revenue": "Omzet",
       "ebitda": "EBITDA",

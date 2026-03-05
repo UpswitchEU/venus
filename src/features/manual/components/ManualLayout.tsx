@@ -51,6 +51,7 @@ import {
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
+import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
@@ -415,10 +416,26 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
   }, [])
 
+  // Resolve session key (val_xxx) to UUID for Titan API calls - session.reportId is set after first calculation
+  // When reportId is 'new' but we have session.reportId (e.g. after first calc), use UUID so version/recalc flows work
+  const resolvedReportId = useMemo(() => {
+    if (!reportId) return reportId
+    if (reportId === 'new' && session?.reportId) return session.reportId
+    if (typeof reportId === 'string' && reportId.startsWith('val_') && session?.reportId) {
+      return session.reportId
+    }
+    return reportId
+  }, [reportId, session?.reportId])
+
+  // Session matches when reportId equals session.reportId (UUID) or session.key (session key)
+  const sessionMatchesReport =
+    session &&
+    (session.reportId === reportId || (session as any)?.key === reportId)
+
   // Async loading: show calculator shell skeleton instead of blocking LoadingState
   const isLoading = status === 'loading'
   const isInitializing = status === 'idle' || status === 'loading'
-  if (isLoading || isInitializing || !session || session.reportId !== reportId) {
+  if (isLoading || isInitializing || !session || !sessionMatchesReport) {
     return <CalculatorShellSkeleton />
   }
   if (sessionError) {
@@ -477,6 +494,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [downloadHistory, setDownloadHistory] = useState<
     { id: string; fileName: string; timestamp: Date; size: string }[]
   >([])
+  const [showNewValuationModal, setShowNewValuationModal] = useState(false)
+  const [isConfirmingNewValuation, setIsConfirmingNewValuation] = useState(false)
 
   // ─── Panel View State ───
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab ?? 'preview')
@@ -656,12 +675,93 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   /** Latest financial data from ManualInputPanel (for AI context before submit) */
   const latestFormDataRef = useRef<Partial<CollectedData>>({})
 
-  const handleFormDataChange = useCallback((data: Record<string, unknown>) => {
-    latestFormDataRef.current = {
-      ...latestFormDataRef.current,
-      ...(data as Partial<CollectedData>),
+  /** Dirty state: user edited financial inputs after a report was generated. Reset on successful submit. */
+  const [isDirty, setIsDirty] = useState(false)
+  /** Snapshot of financial data from last successful submit. Used to detect edits. */
+  const lastSubmittedFinancialSnapshotRef = useRef<{
+    revenue?: number
+    ebitda?: number
+    yearlyFinancials?: Array<{ year: string; revenue: number; ebitda: number }>
+  } | null>(null)
+
+  const handleFormDataChange = useCallback(
+    (data: Record<string, unknown>) => {
+      latestFormDataRef.current = {
+        ...latestFormDataRef.current,
+        ...(data as Partial<CollectedData>),
+      }
+      // Mark dirty when report exists and user changed financial inputs
+      if (!result) return
+      const yf = (data.yearlyFinancials || []) as Array<{
+        year: string
+        revenue: number
+        ebitda: number
+      }>
+      const current = yf[0]
+      const revenue = current?.revenue ?? (data.revenue as number)
+      const ebitda = current?.ebitda ?? (data.ebitda as number)
+      const snapshot = lastSubmittedFinancialSnapshotRef.current
+      if (!snapshot) {
+        setIsDirty(true)
+        return
+      }
+      const revNum = revenue != null ? Number(revenue) : undefined
+      const ebitdaNum = ebitda != null ? Number(ebitda) : undefined
+      const snapRev = snapshot.revenue != null ? Number(snapshot.revenue) : undefined
+      const snapEbitda = snapshot.ebitda != null ? Number(snapshot.ebitda) : undefined
+      const revMatch = revNum === undefined || snapRev === undefined || revNum === snapRev
+      const ebitdaMatch = ebitdaNum === undefined || snapEbitda === undefined || ebitdaNum === snapEbitda
+      const sortYf = (arr: Array<{ year: string; revenue: number; ebitda: number }>) =>
+        [...arr].sort((a, b) => parseInt(b.year) - parseInt(a.year))
+      const norm = (y: { year: string; revenue: number; ebitda: number }) => ({
+        y: y.year,
+        r: Number(y.revenue),
+        e: Number(y.ebitda),
+      })
+      const yfNormalized = sortYf(yf).map(norm)
+      const snapNormalized = sortYf(snapshot.yearlyFinancials || []).map(norm)
+      const yfMatch = !yf?.length || JSON.stringify(yfNormalized) === JSON.stringify(snapNormalized)
+      if (revMatch && ebitdaMatch && yfMatch) {
+        setIsDirty(false)
+      } else if (!revMatch || !ebitdaMatch || !yfMatch) {
+        setIsDirty(true)
+      }
+    },
+    [result]
+  )
+
+  // When report is restored (e.g. from URL) without our submit, set baseline from form store so we can detect edits
+  useEffect(() => {
+    if (!result || lastSubmittedFinancialSnapshotRef.current) return
+    const cyd = formStoreData.current_year_data as
+      | { year?: number; revenue?: number; ebitda?: number }
+      | undefined
+    const hy = (formStoreData.historical_years_data || []) as Array<{
+      year: number
+      revenue: number
+      ebitda: number
+    }>
+    const hasFinancials =
+      (cyd && ((cyd.revenue ?? 0) > 0 || (cyd.ebitda ?? 0) !== 0)) ||
+      hy.some((h) => (h.revenue ?? 0) > 0 || (h.ebitda ?? 0) !== 0)
+    if (!hasFinancials) return
+    const allYf = [
+      ...(cyd ? [{ year: String(cyd.year), revenue: cyd.revenue ?? 0, ebitda: cyd.ebitda ?? 0 }] : []),
+      ...hy.map((h) => ({ year: String(h.year), revenue: h.revenue, ebitda: h.ebitda })),
+    ].sort((a, b) => parseInt(b.year) - parseInt(a.year))
+    lastSubmittedFinancialSnapshotRef.current = {
+      revenue: cyd?.revenue ?? formStoreData.revenue,
+      ebitda: cyd?.ebitda ?? formStoreData.ebitda,
+      yearlyFinancials: allYf,
     }
-  }, [])
+    setIsDirty(false)
+  }, [result, formStoreData.current_year_data, formStoreData.historical_years_data, formStoreData.revenue, formStoreData.ebitda])
+
+  // Reset dirty state when switching reports
+  useEffect(() => {
+    lastSubmittedFinancialSnapshotRef.current = null
+    setIsDirty(false)
+  }, [reportId])
 
   // Sync form store changes into collectedData
   useEffect(() => {
@@ -828,7 +928,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [showFullscreenModal, chatDrawerOpen])
 
   // ─── Version History (REAL - from useVersionHistoryStore) ───
-  const versions = useVersionHistoryStore((s) => s.versions[reportId] || [])
+  const versions = useVersionHistoryStore(
+    (s) => s.versions[resolvedReportId || reportId] || []
+  )
   const [selectedVersionId, setSelectedVersionId] = useState<string>('current')
 
   // NOTE: Version fetching is owned by HistoryPanel (single owner pattern).
@@ -1030,13 +1132,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
         const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
-        if (reportId) (request as any).reportId = reportId
+        const idForApi = resolvedReportId || reportId
+        if (idForApi) (request as any).reportId = idForApi
 
-        // Step 3: Detect version changes for M&A workflow
+        // Step 3: Detect version changes for M&A workflow (use resolved UUID for version API)
         let previousVersion: any = null
         let changes: any = null
-        if (reportId) {
-          previousVersion = getLatestVersion(reportId)
+        if (idForApi) {
+          previousVersion = getLatestVersion(idForApi)
           if (previousVersion) {
             changes = detectVersionChanges(previousVersion.formData, request)
             generalLogger.info('Regeneration detected', {
@@ -1077,20 +1180,34 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setIsGenerating(false)
         setDraftStatus('saved')
         setLastSaved(new Date())
+        setIsDirty(false)
+        const cyd = (request as any).current_year_data
+        const hy = (request as any).historical_years_data || []
+        const allYf = [
+          ...(cyd ? [{ year: String(cyd.year), revenue: cyd.revenue, ebitda: cyd.ebitda }] : []),
+          ...hy.map((h: any) => ({ year: String(h.year), revenue: h.revenue, ebitda: h.ebitda })),
+        ]
+          .filter((y: any) => y.revenue > 0 || y.ebitda !== 0)
+          .sort((a: any, b: any) => parseInt(b.year) - parseInt(a.year))
+        lastSubmittedFinancialSnapshotRef.current = {
+          revenue: cyd?.revenue ?? (request as any).revenue,
+          ebitda: cyd?.ebitda ?? (request as any).ebitda,
+          yearlyFinancials: allYf,
+        }
 
         // Step 6: Create version (M&A workflow)
         // Titan creates V1 automatically during the calculate call.
         // Venus only creates a NEW version when there was already a previous version
         // BEFORE this calculation started AND the user made significant changes.
-        if (reportId) {
+        if (idForApi) {
           try {
-            await useVersionHistoryStore.getState().fetchVersions(reportId)
+            await useVersionHistoryStore.getState().fetchVersions(idForApi)
 
             if (previousVersion) {
               // Re-calculation: a version existed BEFORE we called calculate.
               // Titan created a new version server-side. Check if Venus should
               // also snapshot (only if the changes are significant vs the pre-calc state).
-              const latestAfterSync = useVersionHistoryStore.getState().getLatestVersion(reportId)
+              const latestAfterSync = useVersionHistoryStore.getState().getLatestVersion(idForApi)
               const effectivePrevious = latestAfterSync ?? previousVersion
 
               // Only create a Venus-side version when there are significant form-data changes
@@ -1101,7 +1218,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 effectivePrevious.versionNumber === previousVersion.versionNumber
               ) {
                 const newVersion = await createVersion({
-                  reportId,
+                  reportId: idForApi,
                   formData: request,
                   valuationResult: calcResult,
                   htmlReport: calcResult.html_report || undefined,
@@ -1111,14 +1228,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     effectiveChanges
                   ),
                 })
-                await snapshotNormalizationsToVersion(reportId, newVersion.id)
+                await snapshotNormalizationsToVersion(idForApi, newVersion.id)
               }
             }
             // else: first calculation — Titan already created V1, nothing to do
           } catch (versionError) {
             const errMsg =
               versionError instanceof Error ? versionError.message : String(versionError)
-            generalLogger.error('Failed to create version', { reportId, error: errMsg })
+            generalLogger.error('Failed to create version', { reportId: idForApi, error: errMsg })
             toast.error(t('versionCreateFailed'), {
               description: errMsg,
             })
@@ -1127,7 +1244,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             setTimeout(() => {
               useVersionHistoryStore
                 .getState()
-                .fetchVersions(reportId)
+                .fetchVersions(idForApi)
                 .catch((err) => {
                   generalLogger.warn('[ManualLayout] Version history sync failed', {
                     error: err instanceof Error ? err.message : String(err),
@@ -1138,9 +1255,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         // Step 7: Save complete report package to backend
-        if (reportId) {
+        if (idForApi) {
           try {
-            await reportService.saveReportAssets(reportId, {
+            await reportService.saveReportAssets(idForApi, {
               sessionData: storeSnapshot,
               valuationResult: calcResult,
               htmlReport: calcResult.html_report || undefined,
@@ -1151,7 +1268,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             const errMsg =
               saveError instanceof Error ? saveError.message : String(saveError)
             generalLogger.error('[ManualLayout] Failed to save report assets', {
-              reportId,
+              reportId: idForApi,
               error: errMsg,
             })
             toast.error(tReport('saveReportFailed'), {
@@ -1181,6 +1298,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     },
     [
       reportId,
+      resolvedReportId,
       formStoreData,
       updateFormData,
       trySetCalculating,
@@ -1194,7 +1312,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Wrapped Submit: Intercept to show RecalculateConfirmationPopup when changes detected ───
   const hasAnyNormalization = normalizationItems.some((n) => n.status === 'accepted')
-  const currentVersion = reportId ? getLatestVersion(reportId) : null
+  const currentVersion = resolvedReportId ? getLatestVersion(resolvedReportId) : null
   const currentVersionNumber = currentVersion?.versionNumber ?? 1
   const hasExistingValuation = currentVersionNumber >= 1
 
@@ -1204,11 +1322,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         handleManualSubmit(data)
         return
       }
+      // Dirty-state interceptor: if user edited after report was generated, always show confirmation
+      if (report && isDirty) {
+        generalLogger.info('[ManualLayout] Dirty state detected, showing recalculation confirmation', {
+          isDirty,
+        })
+        pendingSubmitDataRef.current = data
+        pendingPopupFlagsRef.current = { hasFormChanges: true, hasNormalizations: hasAnyNormalization }
+        setShowRecalculateConfirmation(true)
+        return
+      }
+      // Use resolved UUID for version API - Titan expects UUID, session key causes 404
+      const idForVersions = resolvedReportId || reportId
       // Sync versions before submit so currentVersion is fresh (avoids stale hasFormChanges)
-      await useVersionHistoryStore.getState().fetchVersions(reportId).catch(() => {
+      await useVersionHistoryStore.getState().fetchVersions(idForVersions).catch(() => {
         // Non-blocking: proceed with submit even if fetch fails
       })
-      const latestVersion = getLatestVersion(reportId)
+      const latestVersion = getLatestVersion(idForVersions)
       const hasExistingValuationNow = (latestVersion?.versionNumber ?? 1) >= 1
       if (!hasExistingValuationNow) {
         handleManualSubmit(data)
@@ -1219,9 +1349,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
       const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
       ;(request as any).dataSource = 'manual'
-      ;(request as any).reportId = reportId
+      ;(request as any).reportId = idForVersions
 
-      const previousVersion = getLatestVersion(reportId)
+      const previousVersion = getLatestVersion(idForVersions)
       if (!previousVersion) {
         handleManualSubmit(data)
         return
@@ -1244,6 +1374,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     },
     [
       reportId,
+      resolvedReportId,
+      report,
+      isDirty,
       formStoreData,
       currentLocale,
       getLatestVersion,
@@ -1413,7 +1546,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ([, v]) => v !== '' && v !== undefined && v !== null
         )
         const formCompletenessScore = Math.round((formFields.length / 7) * 100)
-        const versions = reportId ? useVersionHistoryStore.getState().versions[reportId] || [] : []
+        const versions = (resolvedReportId || reportId)
+          ? useVersionHistoryStore.getState().versions[resolvedReportId || reportId] || []
+          : []
 
         const latestFinancials = latestFormDataRef.current
         const enrichedFormData = {
@@ -1671,7 +1806,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     try {
       if (isPdfReady) {
         await downloadPdf(undefined, filename)
-      } else if (reportId) {
+      } else if (resolvedReportId || reportId) {
+        const idForPdf = resolvedReportId || reportId
         toast.loading(t('pdfGenerating'), { id: 'pdf-gen' })
         const pdfUrl = await generatePdf()
         if (pdfUrl) {
@@ -1683,7 +1819,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           const pollIntervalMs = 2_000
           let elapsed = 0
           while (elapsed < maxWaitMs) {
-            const res = await fetch(`/api/valuations/${reportId}/pdf`, {
+            const res = await fetch(`/api/valuations/${idForPdf}/pdf`, {
               method: 'GET',
               credentials: 'include',
             })
@@ -1730,7 +1866,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsExporting(false)
     }
-  }, [report, reportId, isPdfReady, downloadPdf, generatePdf, tReport])
+  }, [report, reportId, resolvedReportId, isPdfReady, downloadPdf, generatePdf, tReport])
 
   // ─── Navigation Handlers ───
   const handleBack = useCallback(() => {
@@ -1796,18 +1932,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     Array<{ id: string; companyName: string; updatedAt: Date; isDraft?: boolean }>
   >([])
 
-  useEffect(() => {
-    // Load recent valuations from reports API (proxies to Titan)
-    fetch('/api/reports?limit=5&offset=0', { credentials: 'include' })
+  const fetchRecentValuations = useCallback(() => {
+    const headers: HeadersInit = {}
+    try {
+      const ctx = useClientContext.getState()
+      if (ctx.isActingAsClient && ctx.getContextHeaders) {
+        Object.assign(headers, ctx.getContextHeaders())
+      }
+    } catch {
+      /* clientContext not available */
+    }
+
+    fetch('/api/reports?limit=5&offset=0', {
+      credentials: 'include',
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
+    })
       .then((res) => (res.ok ? res.json() : { reports: [] }))
       .then((data) => {
-        const reports = data.reports || data.data || data.items || []
+        const reports = data.reports || data.data || data.items || data.sessions || []
         setRawRecentValuations(
-          reports.slice(0, 5).map((r: any) => ({
-            id: r.id || r.reportId,
-            companyName: r.company_name || r.companyName || t('unnamed'),
-            updatedAt: new Date(r.updated_at || r.updatedAt || r.created_at),
-            isDraft: r.status === 'draft',
+          (Array.isArray(reports) ? reports : []).slice(0, 5).map((r: any) => ({
+            id: r.id || r.report_id || r.reportId,
+            companyName:
+              r.company_name || r.companyName || r.name || t('unnamed'),
+            updatedAt: new Date(r.updated_at || r.updatedAt || r.created_at || Date.now()),
+            isDraft: r.status === 'draft' || r.status === 'in_progress',
           }))
         )
       })
@@ -1816,35 +1965,63 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           error: err instanceof Error ? err.message : String(err),
         })
       })
-  }, [])
+  }, [t])
+
+  useEffect(() => {
+    fetchRecentValuations()
+  }, [fetchRecentValuations])
 
   // Augment with current session when it's not in the reports list (e.g. pre-first-calculation or session_key vs UUID)
+  // CRITICAL: Always show current valuation in dropdown - prevents "Geen recente schattingen" when viewing one
+  // Prefer session.reportId (UUID) over session.key - Titan returns UUIDs, session key causes 404
   const recentValuations = useMemo(() => {
-    const currentId = reportId || session?.reportId || (session as any)?.key
-    if (!currentId || currentId === 'new') return rawRecentValuations
-    const inList = rawRecentValuations.some(
-      (v) => v.id === currentId || v.id === session?.reportId || v.id === (session as any)?.key
-    )
-    if (inList) return rawRecentValuations
-    const companyName =
-      collectedData.companyName?.trim() ||
-      session?.name ||
-      (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim()) ||
-      t('unnamed')
-    const updatedAt =
-      session?.updatedAt instanceof Date
-        ? session.updatedAt
-        : session?.createdAt instanceof Date
-          ? session.createdAt
-          : new Date()
-    return [
-      { id: currentId, companyName, updatedAt, isDraft: !report },
-      ...rawRecentValuations,
-    ]
+    const currentId =
+      session?.reportId ||
+      (reportId && reportId !== 'new' ? reportId : null) ||
+      (session as any)?.key
+    const idForMatch = resolvedReportId || currentId
+    const inList =
+      idForMatch &&
+      rawRecentValuations.some(
+        (v) =>
+          v.id === idForMatch ||
+          v.id === currentId ||
+          v.id === session?.reportId ||
+          v.id === (session as any)?.key ||
+          v.id === reportId ||
+          v.id === resolvedReportId
+      )
+    // Prepend when: we have a current report (reportId or report) and it's not in the list
+    const shouldPrepend =
+      (currentId || (reportId && reportId !== 'new') || report) && !inList
+    if (shouldPrepend && (currentId || reportId)) {
+      const companyName =
+        report?.companyName?.trim() ||
+        collectedData.companyName?.trim() ||
+        session?.name ||
+        (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim()) ||
+        t('unnamed')
+      const updatedAt =
+        session?.updatedAt instanceof Date
+          ? session.updatedAt
+          : session?.createdAt instanceof Date
+            ? session.createdAt
+            : report?.generatedAt instanceof Date
+              ? report.generatedAt
+              : new Date()
+      const prependedId = session?.reportId || resolvedReportId || currentId || reportId
+      return [
+        { id: prependedId, companyName, updatedAt, isDraft: !report },
+        ...rawRecentValuations,
+      ]
+    }
+    return rawRecentValuations
   }, [
     rawRecentValuations,
     reportId,
+    resolvedReportId,
     session?.reportId,
+    (session as any)?.key,
     session?.name,
     session?.updatedAt,
     session?.createdAt,
@@ -1856,18 +2033,35 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   ])
 
   const handleNewValuation = useCallback(() => {
+    setShowNewValuationModal(true)
+  }, [])
+
+  const handleConfirmNewValuation = useCallback(() => {
+    setIsConfirmingNewValuation(true)
     const prefilled =
       collectedData.companyName?.trim() ||
       (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim())
-    const url = `/${currentLocale}/reports/new`
-    if (prefilled) {
-      router.push(`${url}?prefilledQuery=${encodeURIComponent(prefilled)}`)
-    } else {
-      router.push(url)
+    try {
+      // Reset all local state so user can start fresh without being stuck
+      useSessionStore.getState().clearSession()
+      useManualFormStore.getState().resetForm()
+      useManualResultsStore.getState().clearResults()
+      useManualResultsStore.getState().setCalculating(false)
+      useNormalizationStore.getState().clear()
+      if (reportId) useVersionHistoryStore.getState().clearVersions(reportId)
+      setShowNewValuationModal(false)
+      // Use full page navigation to ensure clean slate and UI unlock (avoids skeleton trap)
+      const url = `/${currentLocale}/reports/new`
+      const fullUrl = prefilled
+        ? `${url}?prefilledQuery=${encodeURIComponent(prefilled)}`
+        : url
+      window.location.href = fullUrl
+    } finally {
+      setIsConfirmingNewValuation(false)
     }
   }, [
-    router,
     currentLocale,
+    reportId,
     collectedData.companyName,
     isAccountantFlow,
     identity.clientContext?.clientCompanyName,
@@ -1880,23 +2074,53 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     [router, currentLocale]
   )
 
+  const [deletingValuationId, setDeletingValuationId] = useState<string | null>(null)
+
   const handleDeleteValuation = useCallback(
     async (id: string) => {
+      setDeletingValuationId(id)
       try {
         await reportService.deleteReport(id)
-        if (id === reportId) {
+        const isCurrentReport =
+          id === reportId ||
+          id === resolvedReportId ||
+          id === session?.reportId ||
+          id === (session as any)?.key
+        if (isCurrentReport) {
           useSessionStore.getState().clearSession()
-          router.push(`/${currentLocale}/reports/new`)
+          const remaining = rawRecentValuations.filter((v) => v.id !== id)
+          if (remaining.length > 0) {
+            // Navigate to most recent remaining valuation (both accountant and client)
+            router.push(`/${currentLocale}/reports/${remaining[0].id}`)
+          } else {
+            // No valuations left: accountant → Mercury dashboard, client → new valuation
+            window.location.href = isAccountantMode
+              ? `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
+              : `/${currentLocale}/reports/new`
+          }
         } else {
           setRawRecentValuations((prev) => prev.filter((v) => v.id !== id))
+          fetchRecentValuations() // Refetch to sync with backend
         }
       } catch (err) {
         toast.error(tReport('deleteReportFailed'), {
           description: err instanceof Error ? err.message : undefined,
         })
+      } finally {
+        setDeletingValuationId(null)
       }
     },
-    [reportId, router, currentLocale, tReport]
+    [
+      reportId,
+      resolvedReportId,
+      session?.reportId,
+      rawRecentValuations,
+      isAccountantMode,
+      router,
+      currentLocale,
+      tReport,
+      fetchRecentValuations,
+    ]
   )
 
   const handleLogout = useCallback(async () => {
@@ -2072,14 +2296,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setSuggestedNormalisations((prev: any[]) =>
         prev.map((n: any) => (n.id === id ? { ...n, status: 'accepted' } : n))
       )
-      if (reportId) {
+      const idForApi = resolvedReportId || reportId
+      if (idForApi) {
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
           const years = getYearsToPersist(item)
           Promise.all(
             years.map((y) =>
               normalizationActions.persistToTitan(
-                reportId!,
+                idForApi,
                 y,
                 Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
               )
@@ -2095,7 +2320,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
       recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, normalizationActions, getYearsToPersist, originalEBITDAByYear]
+    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear]
   )
 
   const handleRejectNormalisation = useCallback(
@@ -2104,14 +2329,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setSuggestedNormalisations((prev: any[]) =>
         prev.map((n: any) => (n.id === id ? { ...n, status: 'rejected' } : n))
       )
-      if (reportId) {
+      const idForApi = resolvedReportId || reportId
+      if (idForApi) {
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
           const years = getYearsToPersist(item)
           Promise.all(
             years.map((y) =>
               normalizationActions.persistToTitan(
-                reportId!,
+                idForApi,
                 y,
                 Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
               )
@@ -2127,7 +2353,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
       recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, normalizationActions, getYearsToPersist, originalEBITDAByYear]
+    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear]
   )
 
   // ─── Auto-recalculate valuation with normalized EBITDA ───
@@ -2136,7 +2362,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // would cause double-counting because buildValuationRequest adds adjustments on top.
   const recalculateWithNormalizations = useCallback(
     async (normalizations: NormalizationItem[]) => {
-      if (!report || !reportId) return
+      const idForApi = resolvedReportId || reportId
+      if (!report || !idForApi) return
 
       const acceptedNorms = normalizations.filter((n) => n.status === 'accepted')
       if (acceptedNorms.length === 0) return
@@ -2146,7 +2373,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const recalcLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
         const request = buildValuationRequest(formStoreData, normalizations, recalcLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
-        if (reportId) (request as any).reportId = reportId
+        ;(request as any).reportId = idForApi
 
         const calcResult = await valuationService.calculateValuation(request)
         if (calcResult) {
@@ -2163,7 +2390,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       }
     },
-    [report, reportId, formStoreData, buildValuationRequest, valuationService, setResult]
+    [report, reportId, resolvedReportId, formStoreData, buildValuationRequest, valuationService, setResult]
   )
 
   // ─── Version Restore ───
@@ -2174,11 +2401,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const versionNumber = version.versionNumber || version.version
 
         // 1. Notify backend (graceful — don't block on failure)
-        if (reportId && versionNumber) {
+        const idForApi = resolvedReportId || reportId
+        if (idForApi && versionNumber) {
           import('../../../services/api/version/VersionAPI')
             .then(({ VersionAPI }) => {
               const api = new VersionAPI()
-              api.restoreVersion(reportId, versionNumber).catch(() => {
+              api.restoreVersion(idForApi, versionNumber).catch(() => {
                 generalLogger.warn(
                   '[ManualLayout] Backend restore notification failed (non-blocking)'
                 )
@@ -2254,9 +2482,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         // 5. Update version history active version and re-fetch from backend
         //    (restore creates a new version copy on the backend)
-        if (reportId && versionNumber) {
-          useVersionHistoryStore.getState().setActiveVersion(reportId, versionNumber)
-          await useVersionHistoryStore.getState().fetchVersions(reportId)
+        if (idForApi && versionNumber) {
+          useVersionHistoryStore.getState().setActiveVersion(idForApi, versionNumber)
+          await useVersionHistoryStore.getState().fetchVersions(idForApi)
         }
 
         setRightPanelView('preview')
@@ -2268,7 +2496,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         toast.error(t('versionRestoreFailed'))
       }
     },
-    [reportId, updateFormData, setResult, normalizationActions]
+    [reportId, resolvedReportId, updateFormData, setResult, normalizationActions]
   )
 
   // ─── CSV Import → Normalization Hub ───
@@ -2491,10 +2719,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
           isExporting={isExporting}
           recentValuations={recentValuations}
+          activeReportId={resolvedReportId || reportId}
           onNewValuation={handleNewValuation}
           isCalculating={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
           onSelectValuation={handleSelectValuation}
           onDeleteValuation={handleDeleteValuation}
+          deletingValuationId={deletingValuationId}
           onLogout={handleLogout}
           onAccountSettings={handleAccountSettings}
           onSwitchWorkspace={handleSwitchWorkspace}
@@ -2557,6 +2787,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           isCreating={isGenerating || isCalculating}
           hasFormChanges={pendingPopupFlagsRef.current.hasFormChanges}
           hasNormalizations={pendingPopupFlagsRef.current.hasNormalizations}
+        />
+
+        <NewValuationModal
+          isOpen={showNewValuationModal}
+          onConfirm={handleConfirmNewValuation}
+          onCancel={() => setShowNewValuationModal(false)}
+          isConfirming={isConfirmingNewValuation}
         />
 
         <NormalisationSuggestionModal
@@ -2656,6 +2893,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           window.location.href = returnPath
         }}
         recentValuations={recentValuations}
+        activeReportId={resolvedReportId || reportId}
         onNewValuation={handleNewValuation}
         isCalculating={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
         onSelectValuation={handleSelectValuation}
@@ -2834,9 +3072,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setShowRecalculateConfirmation(false)
           pendingSubmitDataRef.current = null
         }}
-        isCreating={calculating}
+        isCreating={isGenerating || isCalculating}
         hasFormChanges={pendingPopupFlagsRef.current.hasFormChanges}
         hasNormalizations={pendingPopupFlagsRef.current.hasNormalizations}
+      />
+
+      <NewValuationModal
+        isOpen={showNewValuationModal}
+        onConfirm={handleConfirmNewValuation}
+        onCancel={() => setShowNewValuationModal(false)}
+        isConfirming={isConfirmingNewValuation}
       />
 
       {/* Normalisation Suggestion Modal */}

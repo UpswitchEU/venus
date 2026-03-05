@@ -507,13 +507,14 @@ export function ManualInputPanel({
     })
 
     // Weighted average: most recent years weighted higher (McKinsey method)
-    // Include all years with financial data (loss years, break-even, and positive)
+    // Only include years with EBITDA > 0 — prevents premature "Normalize EBITDA" when adding empty year
     const validYears = years
       .filter((y) => y.year != null && Number(y.year) >= 2000 && Number(y.year) <= 2100)
       .sort((a, b) => Number(a.year) - Number(b.year))
+    const yearsWithEbitda = validYears.filter((y) => (Number(y.ebitda) || 0) > 0)
     let weightedSum = 0
     let totalWeight = 0
-    validYears.forEach((y, index) => {
+    yearsWithEbitda.forEach((y, index) => {
       const weight = index + 1 // Ascending: oldest=1, most recent=highest
       const norm = Number.isFinite(y.normalizedEbitda) ? y.normalizedEbitda : 0
       weightedSum += norm * weight
@@ -525,7 +526,7 @@ export function ManualInputPanel({
     return {
       years,
       averageNormalizedEbitda,
-      totalYearsWithData: validYears.length,
+      totalYearsWithData: yearsWithEbitda.length,
     }
   }, [formData.yearlyFinancials, normalizationItems])
 
@@ -871,8 +872,14 @@ export function ManualInputPanel({
   // Check if core fields are filled
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0
   const hasBusinessType = !!selectedBusinessType || formData.businessType.length > 0
-  const hasFinancials = formData.yearlyFinancials.some((yf) => yf.revenue > 0 && yf.ebitda !== 0)
+  // Use (Number(x) || 0) > 0 for consistency - prevents premature show when "Add year" adds empty rows
+  const hasFinancials = formData.yearlyFinancials.some(
+    (yf) => (Number(yf.revenue) || 0) > 0 && (Number(yf.ebitda) || 0) > 0
+  )
   const hasEbitdaValue = formData.yearlyFinancials.some((yf) => (Number(yf.ebitda) || 0) > 0)
+  const totalYearsWithEbitda = formData.yearlyFinancials.filter(
+    (yf) => (Number(yf.ebitda) || 0) > 0
+  ).length
   const { canSave, reason: canSaveReason } = useCanSave()
   const canSubmit = hasCompanyInfo && hasBusinessType && hasFinancials && canSave
 
@@ -1206,7 +1213,7 @@ export function ManualInputPanel({
                 </div>
 
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
-                {hasEbitdaValue && hasFinancials && (
+                {hasEbitdaValue && hasFinancials && totalYearsWithEbitda > 0 && (
                   <motion.div
                     className="relative rounded-xl overflow-hidden"
                     initial={{ opacity: 0, y: 8 }}

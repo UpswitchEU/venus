@@ -111,6 +111,14 @@ export async function GET(request: NextRequest) {
       titanHeaders['x-guest-session-id'] = guestSessionId
     }
 
+    // Forward client context headers for accountant-client flow (filter reports by client)
+    const clientUserId = requestHeaders.get('x-client-user-id') || requestHeaders.get('x-client-context-user')
+    const accountantUserId = requestHeaders.get('x-accountant-user-id') || requestHeaders.get('x-client-context-accountant')
+    const relationshipId = requestHeaders.get('x-relationship-id') || requestHeaders.get('x-client-context-relationship')
+    if (clientUserId) titanHeaders['X-Client-User-Id'] = clientUserId
+    if (accountantUserId) titanHeaders['X-Accountant-User-Id'] = accountantUserId
+    if (relationshipId) titanHeaders['X-Relationship-Id'] = relationshipId
+
     // Forward request to Titan API with optimized parameters
     const response = await fetchWithTimeout(
       `${titanApiUrl}/api/v2/valuations/reports?skip=${skip}&take=${take}&status=${status}`,

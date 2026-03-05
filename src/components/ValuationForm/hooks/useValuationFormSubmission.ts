@@ -8,6 +8,8 @@
  */
 
 import { useCallback } from 'react'
+import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import { trackValuationCalculate, trackValuationResult } from '@/lib/analytics'
 import { useCanSave } from '../../../hooks/useCanSave'
 import { reportService, sessionService, valuationService } from '../../../services'
@@ -44,6 +46,8 @@ interface UseValuationFormSubmissionReturn {
 export const useValuationFormSubmission = (
   setEmployeeCountError: (error: string | null) => void
 ): UseValuationFormSubmissionReturn => {
+  const t = useTranslations('toast')
+  const tReport = useTranslations('report')
   const { formData } = useManualFormStore()
   const { trySetCalculating, setCalculating, isCalculating, setResult } = useManualResultsStore()
   // ROOT CAUSE FIX: Only subscribe to reportId, not entire session object
@@ -401,8 +405,9 @@ export const useValuationFormSubmission = (
                 // Versions will be synced when version history panel opens or on next mount
               }
             } catch (versionError) {
-              // Don't fail the valuation if versioning fails
-              // BANK-GRADE: Specific error handling - version creation failure
+              // Don't fail the valuation if versioning fails, but surface error to user
+              const errMsg =
+                versionError instanceof Error ? versionError.message : String(versionError)
               if (versionError instanceof Error) {
                 generalLogger.error('Failed to create version', {
                   reportId,
@@ -417,6 +422,7 @@ export const useValuationFormSubmission = (
                   isFirstVersion: !previousVersion,
                 })
               }
+              toast.error(t('versionCreateFailed'), { description: errMsg })
             }
           }
 
@@ -454,11 +460,13 @@ export const useValuationFormSubmission = (
 
               useSessionStore.getState().markSaved()
             } catch (saveError) {
+              const errMsg =
+                saveError instanceof Error ? saveError.message : String(saveError)
               generalLogger.error('[Manual] Failed to save complete report package', {
                 reportId,
-                error: saveError instanceof Error ? saveError.message : String(saveError),
+                error: errMsg,
               })
-              // Error logged, continue - don't block user even if save fails
+              toast.error(tReport('saveReportFailed'), { description: errMsg })
             }
           } else {
             generalLogger.debug('[Manual] No reportId, skipping save')
@@ -501,6 +509,8 @@ export const useValuationFormSubmission = (
       isCalculating,
       canSave,
       canSaveReason,
+      t,
+      tReport,
     ]
   )
 

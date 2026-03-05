@@ -582,6 +582,8 @@
     }
   },
   "report": {
+    "saveReportFailed": "Failed to save report. Please try again.",
+    "deleteReportFailed": "Failed to delete report. Please try again.",
     "saveStatus": {
       "saving": "Saving...",
       "savingSoon": "Auto-saving soon...",
@@ -631,6 +633,17 @@
       "step2": "Calculating EBITDA",
       "step3": "Applying multiples",
       "step4": "Generating report"
+    },
+    "newValuationModal": {
+      "title": "Are you sure you want to create a new indicative estimate?",
+      "description": "You will start a completely new indicative business estimate.",
+      "warningTitle": "Warning",
+      "warning": "This will overwrite the current draft. All progress will be cleared and you will start with an empty form.",
+      "version2Note": "To create Version 2 of your existing report with your changes, use the recalculate button instead.",
+      "checkboxLabel": "I understand that my current draft will be overwritten and I will start fresh.",
+      "cancel": "Cancel",
+      "confirm": "Start new estimate",
+      "confirming": "Starting..."
     }
   },
   "reports": {
@@ -1226,7 +1239,8 @@
     "currentVersion": "Current version",
     "guest": "Guest",
     "retry": "Retry",
-    "reminderSent": "Reminder sent to client"
+    "reminderSent": "Reminder sent to client",
+    "versionCreateFailed": "Failed to create version"
   },
   "versionCompare": {
     "typeInitial": "Initial",
@@ -1305,6 +1319,22 @@
     "significantFields": "Significant Fields (>10% change):",
     "fieldChanges": "Field Changes",
     "initialVersionMessage": "This is the initial version. No previous version to compare against.",
+    "recalculatePopup": {
+      "title": "Create New Valuation Version?",
+      "descFormAndNorms": "You've made changes to your business data and EBITDA normalizations. This will create valuation version v{nextVersion} with your updated data.",
+      "descFormOnly": "You've made changes to your business data. This will create valuation version v{nextVersion} with your updated inputs.",
+      "descNormsOnly": "You've normalized EBITDA values. This will create valuation version v{nextVersion} with the normalized EBITDA.",
+      "whatHappens": "What happens:",
+      "bulletVersionCreated": "Version v{nextVersion} will be created with all your changes",
+      "bulletDataAndNorms": "Updated data and normalized EBITDA will be used",
+      "bulletNormsOnly": "Normalized EBITDA will be used in calculations",
+      "bulletFormOnly": "Updated business data will be used in calculations",
+      "bulletPreviousUnchanged": "Previous version v{currentVersion} remains unchanged",
+      "bulletCompareVersions": "You can compare versions side-by-side in version history",
+      "cancel": "Cancel",
+      "createVersion": "Create Version v{nextVersion}",
+      "creating": "Creating v{nextVersion}..."
+    },
     "fieldLabels": {
       "revenue": "Revenue",
       "ebitda": "EBITDA",

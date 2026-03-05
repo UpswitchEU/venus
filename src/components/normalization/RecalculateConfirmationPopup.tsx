@@ -4,10 +4,12 @@
  * Confirms creation of new valuation version when:
  * - User has normalized EBITDA values
  * - User has made changes to form data on an existing valuation
+ *
+ * Launch-ready: Escape to cancel, aria-modal, role=dialog for accountants.
  */
 
-import React from 'react'
-import { useScrollLock } from '@/hooks/useScrollLock'
+import React, { useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 
 interface RecalculateConfirmationPopupProps {
   isOpen: boolean
@@ -30,6 +32,29 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
   hasFormChanges = false,
   hasNormalizations = true, // Default to true for backward compatibility
 }) => {
+  const t = useTranslations('historyPanel.recalculatePopup')
+  const confirmRef = useRef<HTMLButtonElement>(null)
+
+  // Escape key cancels (when not creating)
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isCreating) {
+        e.preventDefault()
+        onCancel()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, isCreating, onCancel])
+
+  // Focus confirm button when opened (accessibility)
+  useEffect(() => {
+    if (isOpen && confirmRef.current) {
+      confirmRef.current.focus()
+    }
+  }, [isOpen])
+
   if (!isOpen) return null
 
   const nextVersion = currentVersion + 1
@@ -37,36 +62,28 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
   // Determine the description based on what changed
   const getDescription = () => {
     if (hasFormChanges && hasNormalizations) {
-      return (
-        <>
-          You've made changes to your business data and EBITDA normalizations. This will create
-          valuation version <strong>v{nextVersion}</strong> with your updated data.
-        </>
-      )
+      return t('descFormAndNorms', { nextVersion })
     }
     if (hasFormChanges) {
-      return (
-        <>
-          You've made changes to your business data. This will create valuation version{' '}
-          <strong>v{nextVersion}</strong> with your updated inputs.
-        </>
-      )
+      return t('descFormOnly', { nextVersion })
     }
-    return (
-      <>
-        You've normalized EBITDA values. This will create valuation version{' '}
-        <strong>v{nextVersion}</strong> with the normalized EBITDA.
-      </>
-    )
+    return t('descNormsOnly', { nextVersion })
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="recalculate-popup-title"
+      aria-describedby="recalculate-popup-desc"
+    >
       {/* Backdrop - touch-none/overscroll-none prevent background scroll on iOS */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity touch-none overscroll-none"
         onClick={isCreating ? undefined : onCancel}
         onTouchMove={(e) => e.preventDefault()}
+        aria-hidden="true"
       />
 
       {/* Popup */}
@@ -92,15 +109,17 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
           </div>
 
           {/* Content */}
-          <h3 className="text-xl font-semibold text-foreground mb-2 text-center">
-            Create New Valuation Version?
+          <h3 id="recalculate-popup-title" className="text-xl font-semibold text-foreground mb-2 text-center">
+            {t('title')}
           </h3>
 
-          <p className="text-muted-foreground mb-4 text-center">{getDescription()}</p>
+          <p id="recalculate-popup-desc" className="text-muted-foreground mb-4 text-center">
+            {getDescription()}
+          </p>
 
           {/* Info Box */}
           <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
-            <p className="text-sm font-semibold text-foreground mb-2">What happens:</p>
+            <p className="text-sm font-semibold text-foreground mb-2">{t('whatHappens')}</p>
             <ul className="text-sm text-muted-foreground space-y-2">
               <li className="flex items-start">
                 <svg
@@ -114,9 +133,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
                     clipRule="evenodd"
                   />
                 </svg>
-                <span>
-                  Version <strong>v{nextVersion}</strong> will be created with all your changes
-                </span>
+                <span>{t('bulletVersionCreated', { nextVersion })}</span>
               </li>
               <li className="flex items-start">
                 <svg
@@ -132,10 +149,10 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
                 </svg>
                 <span>
                   {hasNormalizations && hasFormChanges
-                    ? 'Updated data and normalized EBITDA will be used'
+                    ? t('bulletDataAndNorms')
                     : hasNormalizations
-                      ? 'Normalized EBITDA will be used in calculations'
-                      : 'Updated business data will be used in calculations'}
+                      ? t('bulletNormsOnly')
+                      : t('bulletFormOnly')}
                 </span>
               </li>
               <li className="flex items-start">
@@ -150,9 +167,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
                     clipRule="evenodd"
                   />
                 </svg>
-                <span>
-                  Previous version <strong>v{currentVersion}</strong> remains unchanged
-                </span>
+                <span>{t('bulletPreviousUnchanged', { currentVersion })}</span>
               </li>
               <li className="flex items-start">
                 <svg
@@ -166,7 +181,7 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
                     clipRule="evenodd"
                   />
                 </svg>
-                <span>You can compare versions side-by-side in version history</span>
+                <span>{t('bulletCompareVersions')}</span>
               </li>
             </ul>
           </div>
@@ -179,9 +194,10 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
               disabled={isCreating}
               className="flex-1 px-4 py-2 text-muted-foreground bg-background border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <button
+              ref={confirmRef}
               type="button"
               onClick={onConfirm}
               disabled={isCreating}
@@ -204,10 +220,10 @@ export const RecalculateConfirmationPopup: React.FC<RecalculateConfirmationPopup
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     />
                   </svg>
-                  Creating v{nextVersion}...
+                  {t('creating', { nextVersion })}
                 </span>
               ) : (
-                `Create Version v${nextVersion}`
+                t('createVersion', { nextVersion })
               )}
             </button>
           </div>

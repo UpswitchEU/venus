@@ -480,6 +480,27 @@ export class ReportService {
   }
 
   /**
+   * Delete report
+   *
+   * Permanently deletes a report and all associated data.
+   *
+   * @param reportId - Report identifier
+   */
+  async deleteReport(reportId: string): Promise<void> {
+    try {
+      logger.info('Deleting report', { reportId })
+      await backendAPI.deleteReport(reportId)
+      logger.info('Report deleted successfully', { reportId })
+    } catch (error) {
+      logger.error('Failed to delete report', {
+        reportId,
+        error: getErrorMessage(error),
+      })
+      throw error
+    }
+  }
+
+  /**
    * Get report
    *
    * Retrieves a saved report by ID.

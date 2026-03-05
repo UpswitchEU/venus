@@ -96,8 +96,12 @@ export interface CalculatorNavProps {
   onNavigateToHelp?: () => void
   // Recent valuations support
   recentValuations?: RecentValuation[]
+  /** Current report ID for highlighting active valuation in dropdown */
+  activeReportId?: string
   onSelectValuation?: (id: string) => void
   onDeleteValuation?: (id: string) => void
+  /** ID of valuation currently being deleted (shows loading state) */
+  deletingValuationId?: string | null
   onNewValuation?: () => void
   /** Hide "New Valuation" when calculation is in progress */
   isCalculating?: boolean
@@ -236,8 +240,10 @@ export function CalculatorNav({
   onNavigateToBilling,
   onNavigateToHelp,
   recentValuations = [],
+  activeReportId,
   onSelectValuation,
   onDeleteValuation,
+  deletingValuationId,
   onNewValuation,
   isCalculating = false,
   onOpenAssistant,
@@ -292,7 +298,7 @@ export function CalculatorNav({
           'pt-[env(safe-area-inset-top)]'
         )}
       >
-        {/* Left: Back + Title with Recent Valuations Dropdown */}
+        {/* Left: Back + New Valuation + Title with Recent Valuations Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <Tooltip
             content={isAccountantMode ? t('clientContext.exitClientView') : t('common.actions.back')}
@@ -304,6 +310,24 @@ export function CalculatorNav({
               <ArrowLeft className="w-4 h-4" />
             </button>
           </Tooltip>
+
+          {/* Explicit "Nieuwe Schatting" button — always visible so user can escape when stuck */}
+          {onNewValuation && (
+            <Tooltip content={t('valuation.new')}>
+              <button
+                type="button"
+                onClick={onNewValuation}
+                className={cn(
+                  'flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium',
+                  'text-primary hover:bg-primary/10 transition-colors',
+                  'min-h-[44px] shrink-0'
+                )}
+              >
+                <FileText className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">{t('valuation.new')}</span>
+              </button>
+            </Tooltip>
+          )}
 
           {/* Title with Recent Valuations Dropdown */}
           <Dropdown
@@ -321,10 +345,15 @@ export function CalculatorNav({
                 {t('valuation.recentValuations')}
               </div>
               {recentValuations.length > 0 ? (
-                recentValuations.slice(0, 5).map((val) => (
+                recentValuations.slice(0, 5).map((val) => {
+                  const isActive = !!activeReportId && val.id === activeReportId
+                  return (
                   <div
                     key={val.id}
-                    className="flex items-center gap-2 group rounded-lg hover:bg-foreground/[0.04] transition-colors"
+                    className={cn(
+                      'flex items-center gap-2 group rounded-lg transition-colors',
+                      isActive ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-foreground/[0.04]'
+                    )}
                   >
                     <button
                       onClick={() => onSelectValuation?.(val.id)}
@@ -349,40 +378,71 @@ export function CalculatorNav({
                       </div>
                     </button>
                     {onDeleteValuation && (
-                      <Dropdown
-                        trigger={
-                          <button
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-foreground/[0.08] text-foreground/50 hover:text-foreground transition-all"
-                            aria-label={t('common.actions.delete')}
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                        }
-                        align="end"
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="shrink-0"
                       >
-                        <div className="p-1">
-                          <button
-                            onClick={() => onDeleteValuation(val.id)}
-                            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-sm"
+                        {deletingValuationId === val.id ? (
+                          <div
+                            className="p-1.5 rounded-lg text-foreground/40 flex items-center justify-center"
+                            aria-label={t('common.states.processing')}
                           >
-                            <Trash2 className="w-4 h-4" />
-                            {t('common.actions.delete')}
-                          </button>
-                        </div>
-                      </Dropdown>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          </div>
+                        ) : (
+                          <Dropdown
+                            trigger={
+                              <button
+                                type="button"
+                                className="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-foreground/[0.08] text-foreground/50 hover:text-foreground transition-all"
+                                aria-label={t('valuation.deleteReportTitle')}
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                            }
+                            align="end"
+                          >
+                            <div className="p-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      t('valuation.deleteReportConfirm', {
+                                        name: val.companyName || t('valuation.untitledValuation'),
+                                      })
+                                    )
+                                  ) {
+                                    onDeleteValuation(val.id)
+                                  }
+                                }}
+                                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-sm"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                {t('common.actions.delete')}
+                              </button>
+                            </div>
+                          </Dropdown>
+                        )}
+                      </div>
                     )}
                   </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="px-3 py-4 text-center">
                   <p className="text-sm text-foreground/40">{t('valuation.noRecent')}</p>
                 </div>
               )}
               <div className="h-px bg-foreground/[0.06] my-2" />
-              {!isCalculating && (
+              {!isCalculating && onNewValuation && (
                 <button
-                  onClick={onNewValuation}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onNewValuation()
+                  }}
                   className="w-full px-2 py-2 rounded-lg text-primary font-medium hover:bg-primary/10 transition-colors text-left"
                 >
                   + {t('valuation.new')}
