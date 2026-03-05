@@ -61,9 +61,11 @@ export class RegistryService {
       throw new ValidationError('Limit must be between 1 and 200', { limit })
     }
 
-    // Normalize: trim, collapse spaces, cap at 30 chars for backend performance
+    // Normalize: trim, collapse spaces, cap at 30 chars, lowercase for case-insensitive search
     const trimmed = query.trim().replace(/\s+/g, ' ')
-    const normalizedQuery = trimmed.length > 30 ? trimmed.slice(0, 30) : trimmed
+    const normalizedQuery = (
+      trimmed.length > 30 ? trimmed.slice(0, 30) : trimmed
+    ).toLowerCase()
 
     const cacheKey = `search:${country}:${normalizedQuery}:${limit}`
 

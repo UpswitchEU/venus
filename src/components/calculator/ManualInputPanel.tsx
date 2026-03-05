@@ -872,6 +872,7 @@ export function ManualInputPanel({
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0
   const hasBusinessType = !!selectedBusinessType || formData.businessType.length > 0
   const hasFinancials = formData.yearlyFinancials.some((yf) => yf.revenue > 0 && yf.ebitda !== 0)
+  const hasEbitdaValue = formData.yearlyFinancials.some((yf) => (Number(yf.ebitda) || 0) > 0)
   const { canSave, reason: canSaveReason } = useCanSave()
   const canSubmit = hasCompanyInfo && hasBusinessType && hasFinancials && canSave
 
@@ -1204,107 +1205,109 @@ export function ManualInputPanel({
                   {mi('financialInstruction')}
                 </div>
 
-                {/* Aurora EBITDA Summary Card - Animated gradient border */}
-                <motion.div
-                  className="relative rounded-xl overflow-hidden"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  {/* Animated Aurora gradient border */}
-                  <div
-                    className="absolute inset-0 rounded-xl opacity-60"
-                    style={{
-                      background:
-                        'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(175 60% 50%) 25%, hsl(264 80% 60%) 50%, hsl(var(--primary)) 75%, hsl(175 60% 50%) 100%)',
-                      backgroundSize: '300% 300%',
-                      animation: 'aurora-shift 8s ease-in-out infinite',
-                      padding: '1px',
-                    }}
-                  />
+                {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
+                {hasEbitdaValue && hasFinancials && (
+                  <motion.div
+                    className="relative rounded-xl overflow-hidden"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    {/* Animated Aurora gradient border */}
+                    <div
+                      className="absolute inset-0 rounded-xl opacity-60"
+                      style={{
+                        background:
+                          'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(175 60% 50%) 25%, hsl(264 80% 60%) 50%, hsl(var(--primary)) 75%, hsl(175 60% 50%) 100%)',
+                        backgroundSize: '300% 300%',
+                        animation: 'aurora-shift 8s ease-in-out infinite',
+                        padding: '1px',
+                      }}
+                    />
 
-                  {/* Inner content with solid background */}
-                  <div className="relative m-[1px] rounded-[11px] bg-background p-4">
-                    {/* Subtle inner glow */}
-                    <div className="absolute inset-0 rounded-[11px] bg-gradient-to-br from-primary/[0.04] via-transparent to-violet-500/[0.04] pointer-events-none" />
+                    {/* Inner content with solid background */}
+                    <div className="relative m-[1px] rounded-[11px] bg-background p-4">
+                      {/* Subtle inner glow */}
+                      <div className="absolute inset-0 rounded-[11px] bg-gradient-to-br from-primary/[0.04] via-transparent to-violet-500/[0.04] pointer-events-none" />
 
-                    <div className="relative">
-                      {/* Normalization Trigger - always visible when financials entered */}
-                      {hasFinancials ? (
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
-                                {mi('fields.normalizedEbitda')}
-                              </span>
-                              {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-success/10 text-success text-[9px] font-semibold uppercase tracking-wider">
-                                  <Check className="w-2.5 h-2.5" />
-                                  {mi('normalized')}
+                      <div className="relative">
+                        {/* Normalization Trigger - always visible when financials entered */}
+                        {hasFinancials ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
+                                  {mi('fields.normalizedEbitda')}
                                 </span>
-                              )}
-                            </div>
-                            <div className="flex items-baseline gap-2">
-                              <motion.span
-                                className="text-xl font-bold text-foreground font-mono tabular-nums"
-                                key={normalizedData.averageNormalizedEbitda}
-                                initial={{ scale: 1.05, opacity: 0.7 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                              >
-                                {formatCurrency(normalizedData.averageNormalizedEbitda)}
-                              </motion.span>
-                              <span className="text-[10px] text-foreground/40">
-                                ({normalizedData.totalYearsWithData}{' '}
-                                {normalizedData.totalYearsWithData === 1 ? mi('year') : mi('years')}
-                                )
-                              </span>
-                              {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (
+                                {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-success/10 text-success text-[9px] font-semibold uppercase tracking-wider">
+                                    <Check className="w-2.5 h-2.5" />
+                                    {mi('normalized')}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-baseline gap-2">
                                 <motion.span
-                                  className="text-xs font-semibold text-success"
-                                  initial={{ x: -4, opacity: 0 }}
-                                  animate={{ x: 0, opacity: 1 }}
+                                  className="text-xl font-bold text-foreground font-mono tabular-nums"
+                                  key={normalizedData.averageNormalizedEbitda}
+                                  initial={{ scale: 1.05, opacity: 0.7 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                                 >
-                                  +
-                                  {formatCurrency(
-                                    normalizedData.years.reduce(
-                                      (sum, y) => sum + y.totalAdjustment,
-                                      0
-                                    ) / Math.max(1, normalizedData.totalYearsWithData)
-                                  )}
+                                  {formatCurrency(normalizedData.averageNormalizedEbitda)}
                                 </motion.span>
-                              )}
+                                <span className="text-[10px] text-foreground/40">
+                                  ({normalizedData.totalYearsWithData}{' '}
+                                  {normalizedData.totalYearsWithData === 1 ? mi('year') : mi('years')}
+                                  )
+                                </span>
+                                {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (
+                                  <motion.span
+                                    className="text-xs font-semibold text-success"
+                                    initial={{ x: -4, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                  >
+                                    +
+                                    {formatCurrency(
+                                      normalizedData.years.reduce(
+                                        (sum, y) => sum + y.totalAdjustment,
+                                        0
+                                      ) / Math.max(1, normalizedData.totalYearsWithData)
+                                    )}
+                                  </motion.span>
+                                )}
+                              </div>
                             </div>
+                            <motion.button
+                              type="button"
+                              onClick={() => onViewAllNormalizations?.()}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className={cn(
+                                'shrink-0 px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+                                normalizedData.years.some((y) => y.totalAdjustment !== 0)
+                                  ? 'bg-foreground/[0.04] text-foreground/70 hover:bg-foreground/[0.08] border border-foreground/[0.08]'
+                                  : 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-sm hover:shadow-md hover:shadow-primary/20'
+                              )}
+                            >
+                              {normalizedData.years.some((y) => y.totalAdjustment !== 0)
+                                ? mi('adjust')
+                                : mi('normalize')}
+                            </motion.button>
                           </div>
-                          <motion.button
-                            type="button"
-                            onClick={() => onViewAllNormalizations?.()}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            className={cn(
-                              'shrink-0 px-4 py-2 rounded-lg text-xs font-semibold transition-all',
-                              normalizedData.years.some((y) => y.totalAdjustment !== 0)
-                                ? 'bg-foreground/[0.04] text-foreground/70 hover:bg-foreground/[0.08] border border-foreground/[0.08]'
-                                : 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-sm hover:shadow-md hover:shadow-primary/20'
-                            )}
-                          >
-                            {normalizedData.years.some((y) => y.totalAdjustment !== 0)
-                              ? mi('adjust')
-                              : mi('normalize')}
-                          </motion.button>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-foreground/50 leading-relaxed">
-                          <span className="text-foreground/70 font-medium">
-                            {mi('whyNormalize')}
-                          </span>{' '}
-                          {mi('whyNormalizeExplanation')}{' '}
-                          <span className="text-foreground/70">{mi('marketConformLevels')}</span>.
-                        </p>
-                      )}
+                        ) : (
+                          <p className="text-xs text-foreground/50 leading-relaxed">
+                            <span className="text-foreground/70 font-medium">
+                              {mi('whyNormalize')}
+                            </span>{' '}
+                            {mi('whyNormalizeExplanation')}{' '}
+                            <span className="text-foreground/70">{mi('marketConformLevels')}</span>.
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                )}
 
                 {/* Year-by-year financial input */}
                 <div className="space-y-3">

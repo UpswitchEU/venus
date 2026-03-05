@@ -73,7 +73,7 @@ const searchContainerVariants = cva('relative w-full transition-all duration-200
 })
 
 const searchGroupVariants = cva(
-  ['relative border rounded-xl shadow-sm transition-all duration-200', 'bg-muted'],
+  ['relative border rounded-xl shadow-sm transition-all duration-200', 'bg-foreground/[0.04]'],
   {
     variants: {
       state: {

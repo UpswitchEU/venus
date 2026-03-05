@@ -51,6 +51,7 @@ import {
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
+import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { springDefault } from '../../../design-system/components/motion'
@@ -974,6 +975,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
 
+  // ─── Recalculation Confirmation Modal (intercept CTA when changes detected) ───
+  const [showRecalculateConfirmation, setShowRecalculateConfirmation] = useState(false)
+  const pendingSubmitDataRef = useRef<any>(null)
+  const pendingPopupFlagsRef = useRef<{ hasFormChanges: boolean; hasNormalizations: boolean }>({
+    hasFormChanges: false,
+    hasNormalizations: false,
+  })
+
   // ─── Manual Form Submit Handler (REAL - wired to Venus services) ───
   const handleManualSubmit = useCallback(
     async (data: any) => {
@@ -1107,9 +1116,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             }
             // else: first calculation — Titan already created V1, nothing to do
           } catch (versionError) {
-            generalLogger.error('Failed to create version', {
-              reportId,
-              error: versionError instanceof Error ? versionError.message : String(versionError),
+            const errMsg =
+              versionError instanceof Error ? versionError.message : String(versionError)
+            generalLogger.error('Failed to create version', { reportId, error: errMsg })
+            toast.error(t('versionCreateFailed'), {
+              description: errMsg,
             })
           } finally {
             // Always re-sync version history from backend after calculation so panels show latest
@@ -1137,9 +1148,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             })
             useSessionStore.getState().markSaved()
           } catch (saveError) {
+            const errMsg =
+              saveError instanceof Error ? saveError.message : String(saveError)
             generalLogger.error('[ManualLayout] Failed to save report assets', {
               reportId,
-              error: saveError instanceof Error ? saveError.message : String(saveError),
+              error: errMsg,
+            })
+            toast.error(tReport('saveReportFailed'), {
+              description: errMsg,
             })
           }
         }
@@ -1175,6 +1191,73 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       sessionName,
     ]
   )
+
+  // ─── Wrapped Submit: Intercept to show RecalculateConfirmationPopup when changes detected ───
+  const hasAnyNormalization = normalizationItems.some((n) => n.status === 'accepted')
+  const currentVersion = reportId ? getLatestVersion(reportId) : null
+  const currentVersionNumber = currentVersion?.versionNumber ?? 1
+  const hasExistingValuation = currentVersionNumber >= 1
+
+  const wrappedOnSubmit = useCallback(
+    async (data: any) => {
+      if (!reportId) {
+        handleManualSubmit(data)
+        return
+      }
+      // Sync versions before submit so currentVersion is fresh (avoids stale hasFormChanges)
+      await useVersionHistoryStore.getState().fetchVersions(reportId).catch(() => {
+        // Non-blocking: proceed with submit even if fetch fails
+      })
+      const latestVersion = getLatestVersion(reportId)
+      const hasExistingValuationNow = (latestVersion?.versionNumber ?? 1) >= 1
+      if (!hasExistingValuationNow) {
+        handleManualSubmit(data)
+        return
+      }
+      const venusFormData = mapClarityFormToVenusStore(data)
+      const storeSnapshot = { ...formStoreData, ...venusFormData }
+      const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
+      const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
+      ;(request as any).dataSource = 'manual'
+      ;(request as any).reportId = reportId
+
+      const previousVersion = getLatestVersion(reportId)
+      if (!previousVersion) {
+        handleManualSubmit(data)
+        return
+      }
+      const changes = detectVersionChanges(previousVersion.formData, request)
+      const hasFormChanges = areChangesSignificant(changes)
+
+      if (hasFormChanges || hasAnyNormalization) {
+        generalLogger.info('[ManualLayout] Changes detected, showing recalculation confirmation', {
+          hasFormChanges,
+          hasAnyNormalization,
+          currentVersionNumber: previousVersion.versionNumber,
+        })
+        pendingSubmitDataRef.current = data
+        pendingPopupFlagsRef.current = { hasFormChanges, hasNormalizations: hasAnyNormalization }
+        setShowRecalculateConfirmation(true)
+        return
+      }
+      handleManualSubmit(data)
+    },
+    [
+      reportId,
+      formStoreData,
+      currentLocale,
+      getLatestVersion,
+      handleManualSubmit,
+      hasAnyNormalization,
+    ]
+  )
+
+  const handleConfirmRecalculate = useCallback(() => {
+    const pending = pendingSubmitDataRef.current
+    setShowRecalculateConfirmation(false)
+    pendingSubmitDataRef.current = null
+    if (pending) handleManualSubmit(pending)
+  }, [handleManualSubmit])
 
   // ─── Chat Handlers (bi-directional sync) ───
   const handleApplyFieldUpdate = useCallback(
@@ -1709,7 +1792,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleOpenAssistant = useCallback(() => setChatDrawerOpen((prev) => !prev), [])
 
   // ─── Session Navigation (New, Select, Recent) ───
-  const [recentValuations, setRecentValuations] = useState<
+  const [rawRecentValuations, setRawRecentValuations] = useState<
     Array<{ id: string; companyName: string; updatedAt: Date; isDraft?: boolean }>
   >([])
 
@@ -1719,7 +1802,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       .then((res) => (res.ok ? res.json() : { reports: [] }))
       .then((data) => {
         const reports = data.reports || data.data || data.items || []
-        setRecentValuations(
+        setRawRecentValuations(
           reports.slice(0, 5).map((r: any) => ({
             id: r.id || r.reportId,
             companyName: r.company_name || r.companyName || t('unnamed'),
@@ -1734,6 +1817,43 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       })
   }, [])
+
+  // Augment with current session when it's not in the reports list (e.g. pre-first-calculation or session_key vs UUID)
+  const recentValuations = useMemo(() => {
+    const currentId = reportId || session?.reportId || (session as any)?.key
+    if (!currentId || currentId === 'new') return rawRecentValuations
+    const inList = rawRecentValuations.some(
+      (v) => v.id === currentId || v.id === session?.reportId || v.id === (session as any)?.key
+    )
+    if (inList) return rawRecentValuations
+    const companyName =
+      collectedData.companyName?.trim() ||
+      session?.name ||
+      (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim()) ||
+      t('unnamed')
+    const updatedAt =
+      session?.updatedAt instanceof Date
+        ? session.updatedAt
+        : session?.createdAt instanceof Date
+          ? session.createdAt
+          : new Date()
+    return [
+      { id: currentId, companyName, updatedAt, isDraft: !report },
+      ...rawRecentValuations,
+    ]
+  }, [
+    rawRecentValuations,
+    reportId,
+    session?.reportId,
+    session?.name,
+    session?.updatedAt,
+    session?.createdAt,
+    collectedData.companyName,
+    isAccountantFlow,
+    identity.clientContext?.clientCompanyName,
+    report,
+    t,
+  ])
 
   const handleNewValuation = useCallback(() => {
     const prefilled =
@@ -1758,6 +1878,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       router.push(`/${currentLocale}/reports/${id}`)
     },
     [router, currentLocale]
+  )
+
+  const handleDeleteValuation = useCallback(
+    async (id: string) => {
+      try {
+        await reportService.deleteReport(id)
+        if (id === reportId) {
+          useSessionStore.getState().clearSession()
+          router.push(`/${currentLocale}/reports/new`)
+        } else {
+          setRawRecentValuations((prev) => prev.filter((v) => v.id !== id))
+        }
+      } catch (err) {
+        toast.error(tReport('deleteReportFailed'), {
+          description: err instanceof Error ? err.message : undefined,
+        })
+      }
+    },
+    [reportId, router, currentLocale, tReport]
   )
 
   const handleLogout = useCallback(async () => {
@@ -2259,7 +2398,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Shared ManualInputPanel Props ───
   const manualInputProps = {
-    onSubmit: handleManualSubmit,
+    onSubmit: wrappedOnSubmit,
     onCSVImportComplete: handleCSVImportComplete,
     isCalculating: isGenerating || isCalculating,
     onFieldHelpRequest: handleFieldHelpRequest,
@@ -2355,6 +2494,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onNewValuation={handleNewValuation}
           isCalculating={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
           onSelectValuation={handleSelectValuation}
+          onDeleteValuation={handleDeleteValuation}
           onLogout={handleLogout}
           onAccountSettings={handleAccountSettings}
           onSwitchWorkspace={handleSwitchWorkspace}
@@ -2404,6 +2544,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenChange={setShowFullscreenModal}
           report={report}
           onDownload={handleExport}
+        />
+
+        <RecalculateConfirmationPopup
+          isOpen={showRecalculateConfirmation}
+          currentVersion={currentVersionNumber}
+          onConfirm={handleConfirmRecalculate}
+          onCancel={() => {
+            setShowRecalculateConfirmation(false)
+            pendingSubmitDataRef.current = null
+          }}
+          isCreating={isGenerating || isCalculating}
+          hasFormChanges={pendingPopupFlagsRef.current.hasFormChanges}
+          hasNormalizations={pendingPopupFlagsRef.current.hasNormalizations}
         />
 
         <NormalisationSuggestionModal
@@ -2506,6 +2659,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onNewValuation={handleNewValuation}
         isCalculating={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
         onSelectValuation={handleSelectValuation}
+        onDeleteValuation={handleDeleteValuation}
         onLogout={handleLogout}
         onAccountSettings={handleAccountSettings}
         onSwitchWorkspace={handleSwitchWorkspace}
@@ -2669,6 +2823,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onOpenChange={setShowFullscreenModal}
         report={report}
         onDownload={handleExport}
+      />
+
+      {/* Recalculation Confirmation (when user changes EBITDA/form and clicks recalculate) */}
+      <RecalculateConfirmationPopup
+        isOpen={showRecalculateConfirmation}
+        currentVersion={currentVersionNumber}
+        onConfirm={handleConfirmRecalculate}
+        onCancel={() => {
+          setShowRecalculateConfirmation(false)
+          pendingSubmitDataRef.current = null
+        }}
+        isCreating={calculating}
+        hasFormChanges={pendingPopupFlagsRef.current.hasFormChanges}
+        hasNormalizations={pendingPopupFlagsRef.current.hasNormalizations}
       />
 
       {/* Normalisation Suggestion Modal */}

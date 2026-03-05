@@ -177,6 +177,16 @@ export function detectVersionChanges(
     )
   }
 
+  // Historical years / yearly financials (revenue, ebitda per year)
+  const oldYearly =
+    (oldData as any).yearlyFinancials ?? oldData.historical_years_data ?? []
+  const newYearly =
+    (newData as any).yearlyFinancials ?? newData.historical_years_data ?? []
+  if (JSON.stringify(oldYearly) !== JSON.stringify(newYearly)) {
+    changes.totalChanges++
+    changes.significantChanges.push('yearlyFinancials')
+  }
+
   // Industry and business model
   if (oldData.industry !== newData.industry) {
     changes.industry = createChange('industry', oldData.industry || '', newData.industry || '')

@@ -643,6 +643,15 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       changedFields.push('employees')
     if (formData.number_of_owners !== versionFormData.number_of_owners) changedFields.push('owners')
 
+    // Include yearly financials (revenue, ebitda per year) - critical for EBITDA change detection
+    const formYearly =
+      (formData as any).yearlyFinancials ?? formData.historical_years_data ?? []
+    const versionYearly =
+      versionFormData.yearlyFinancials ?? versionFormData.historical_years_data ?? []
+    if (JSON.stringify(formYearly) !== JSON.stringify(versionYearly)) {
+      changedFields.push('yearlyFinancials')
+    }
+
     return changedFields.length > 0
   }, [currentVersion?.formData, formData])
 

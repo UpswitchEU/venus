@@ -30,7 +30,9 @@ import {
   LogOut,
   Maximize2,
   MessageCircle,
+  MoreVertical,
   Settings,
+  Trash2,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
@@ -95,6 +97,7 @@ export interface CalculatorNavProps {
   // Recent valuations support
   recentValuations?: RecentValuation[]
   onSelectValuation?: (id: string) => void
+  onDeleteValuation?: (id: string) => void
   onNewValuation?: () => void
   /** Hide "New Valuation" when calculation is in progress */
   isCalculating?: boolean
@@ -234,6 +237,7 @@ export function CalculatorNav({
   onNavigateToHelp,
   recentValuations = [],
   onSelectValuation,
+  onDeleteValuation,
   onNewValuation,
   isCalculating = false,
   onOpenAssistant,
@@ -318,29 +322,57 @@ export function CalculatorNav({
               </div>
               {recentValuations.length > 0 ? (
                 recentValuations.slice(0, 5).map((val) => (
-                  <button
+                  <div
                     key={val.id}
-                    onClick={() => onSelectValuation?.(val.id)}
-                    className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
+                    className="flex items-center gap-2 group rounded-lg hover:bg-foreground/[0.04] transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
-                      <FileText className="w-4 h-4 text-foreground/50" />
-                    </div>
-                    <div className="flex-1 min-w-0 text-left">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {val.companyName}
-                      </p>
-                      <div className="flex items-center gap-1.5 text-xs text-foreground/40">
-                        <Clock className="w-3 h-3" />
-                        <span>{formatTimeAgo(val.updatedAt, t)}</span>
-                        {val.isDraft && (
-                          <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[10px] font-medium">
-                            {t('valuation.draft')}
-                          </span>
-                        )}
+                    <button
+                      onClick={() => onSelectValuation?.(val.id)}
+                      className="flex-1 flex items-center gap-3 px-2 py-2 min-w-0 text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4 text-foreground/50" />
                       </div>
-                    </div>
-                  </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {val.companyName}
+                        </p>
+                        <div className="flex items-center gap-1.5 text-xs text-foreground/40">
+                          <Clock className="w-3 h-3" />
+                          <span>{formatTimeAgo(val.updatedAt, t)}</span>
+                          {val.isDraft && (
+                            <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[10px] font-medium">
+                              {t('valuation.draft')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                    {onDeleteValuation && (
+                      <Dropdown
+                        trigger={
+                          <button
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-foreground/[0.08] text-foreground/50 hover:text-foreground transition-all"
+                            aria-label={t('common.actions.delete')}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        }
+                        align="end"
+                      >
+                        <div className="p-1">
+                          <button
+                            onClick={() => onDeleteValuation(val.id)}
+                            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-sm"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            {t('common.actions.delete')}
+                          </button>
+                        </div>
+                      </Dropdown>
+                    )}
+                  </div>
                 ))
               ) : (
                 <div className="px-3 py-4 text-center">
