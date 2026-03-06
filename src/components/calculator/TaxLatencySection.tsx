@@ -110,7 +110,7 @@ function TaxLatencyRow({ item, currencyLocale, onEdit, onRemove, t }: TaxLatency
       </span>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 flex-shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 flex-shrink-0 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
         <TooltipProvider>
           <TooltipRoot>
             <TooltipTrigger asChild>
@@ -270,8 +270,8 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
         </div>
       )}
 
-      {/* Input row */}
-      <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_130px_80px_auto] gap-3 items-end">
+      {/* Row 1: What is it — Type + Description */}
+      <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-3">
         {/* Type */}
         <div>
           <div className="flex items-center gap-1 mb-1">
@@ -332,7 +332,10 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
             )}
           />
         </div>
+      </div>
 
+      {/* Row 2: Values — Amount + Rate + Action */}
+      <div className="grid grid-cols-[1fr_80px_auto] sm:grid-cols-[160px_100px_auto] gap-3 items-end mt-3">
         {/* Temporary Difference */}
         <div>
           <label className="block text-[11px] font-medium text-foreground/50 mb-1 uppercase tracking-wide">
@@ -387,7 +390,7 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
             onClick={handleSubmit}
             disabled={!canSubmit}
             className={cn(
-              'h-9 px-4 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all',
+              'h-9 px-4 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all whitespace-nowrap',
               canSubmit
                 ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
                 : 'bg-foreground/[0.06] text-foreground/30 cursor-not-allowed'

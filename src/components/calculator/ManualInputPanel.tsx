@@ -62,6 +62,7 @@ import { trackValuationMethodComingSoon } from '../../lib/analytics'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
+import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { CurrencyInput } from './CurrencyInput'
 
 // Types
@@ -223,9 +224,11 @@ export function ManualInputPanel({
 }: ManualInputPanelProps) {
   const t = useTranslations()
   const mi = useTranslations('manualInput')
+  const tTax = useTranslations('taxLatency')
   const tKbo = useTranslations('forms.kboLookup')
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const formatCurrency = useCallback(
     (amount: number) =>
       new Intl.NumberFormat(currencyLocale, {
@@ -1285,22 +1288,33 @@ export function ManualInputPanel({
                                 )}
                               </div>
                             </div>
-                            <motion.button
-                              type="button"
-                              onClick={() => onViewAllNormalizations?.()}
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              className={cn(
-                                'shrink-0 px-4 py-2 rounded-lg text-xs font-semibold transition-all',
-                                normalizedData.years.some((y) => y.totalAdjustment !== 0)
-                                  ? 'bg-foreground/[0.04] text-foreground/70 hover:bg-foreground/[0.08] border border-foreground/[0.08]'
-                                  : 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-sm hover:shadow-md hover:shadow-primary/20'
+                            <div className="flex items-center gap-2 shrink-0">
+                              {taxLatencyCount > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => onViewAllNormalizations?.()}
+                                  className="text-[10px] font-medium text-foreground/60 bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.06] px-2 py-1 rounded-md transition-colors cursor-pointer"
+                                >
+                                  {taxLatencyCount} {tTax('summary', { count: taxLatencyCount })}
+                                </button>
                               )}
-                            >
-                              {normalizedData.years.some((y) => y.totalAdjustment !== 0)
-                                ? mi('adjust')
-                                : mi('normalize')}
-                            </motion.button>
+                              <motion.button
+                                type="button"
+                                onClick={() => onViewAllNormalizations?.()}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className={cn(
+                                  'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+                                  normalizedData.years.some((y) => y.totalAdjustment !== 0)
+                                    ? 'bg-foreground/[0.04] text-foreground/70 hover:bg-foreground/[0.08] border border-foreground/[0.08]'
+                                    : 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-sm hover:shadow-md hover:shadow-primary/20'
+                                )}
+                              >
+                                {normalizedData.years.some((y) => y.totalAdjustment !== 0)
+                                  ? mi('adjust')
+                                  : mi('normalize')}
+                              </motion.button>
+                            </div>
                           </div>
                         ) : (
                           <p className="text-xs text-foreground/50 leading-relaxed">
@@ -1341,9 +1355,13 @@ export function ManualInputPanel({
                             {yearData.year}
                           </span>
                           {normCount > 0 && (
-                            <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                              {normCount} {mi('normalizations')}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => onViewAllNormalizations?.()}
+                              className="text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                            >
+                              {normCount} {mi('normalizations', { count: normCount })}
+                            </button>
                           )}
                         </div>
 
