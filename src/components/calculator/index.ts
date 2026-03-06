@@ -101,6 +101,7 @@ export type { NormalizationHubProps } from './NormalizationHub'
 // ─────────────────────────────────────────
 export { NormalizationHub } from './NormalizationHub'
 export { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
+export { TaxLatencySection } from './TaxLatencySection'
 export type {
   QuickAction,
   QuickActionsPanelProps,

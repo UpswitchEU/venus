@@ -39,6 +39,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { Checkbox } from '@/design-system/components/Checkbox'
 import { AuroraInput as Input } from '@/design-system/components/Input'
+import {
+  TooltipContent,
+  TooltipProvider,
+  TooltipRoot,
+  TooltipTrigger,
+} from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
 
@@ -112,12 +118,17 @@ const sourceLabels: Record<NormalizationSource, { labelKey: string; color: strin
   ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
 }
 
-const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus }[] = [
-  { value: 'add', label: '+€', icon: Plus },
-  { value: 'subtract', label: '-€', icon: Minus },
-  { value: 'add_percent', label: '+%', icon: Percent },
-  { value: 'subtract_percent', label: '-%', icon: Percent },
-  { value: 'absolute', label: 'ABS', icon: Hash },
+const typeOptions: {
+  value: NormalizationType
+  label: string
+  icon: typeof Plus
+  tooltipKey: string
+}[] = [
+  { value: 'add', label: '+€', icon: Plus, tooltipKey: 'typeAddAmount' },
+  { value: 'subtract', label: '-€', icon: Minus, tooltipKey: 'typeSubtractAmount' },
+  { value: 'add_percent', label: '+%', icon: Percent, tooltipKey: 'typeAddPercent' },
+  { value: 'subtract_percent', label: '-%', icon: Percent, tooltipKey: 'typeSubtractPercent' },
+  { value: 'absolute', label: 'ABS', icon: Hash, tooltipKey: 'typeSetTarget' },
 ]
 
 const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS
@@ -595,18 +606,26 @@ export function NormalisationReviewStep({
                       <div className="flex gap-2">
                         <div className="flex gap-0.5">
                           {typeOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => setEditType(option.value)}
-                              className={cn(
-                                'px-2.5 py-2 rounded-lg text-xs font-medium transition-all',
-                                editType === option.value
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
-                              )}
-                            >
-                              {option.label}
-                            </button>
+                            <TooltipProvider key={option.value}>
+                              <TooltipRoot>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => setEditType(option.value)}
+                                    className={cn(
+                                      'px-2.5 py-2 rounded-lg text-xs font-medium transition-all',
+                                      editType === option.value
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
+                                    )}
+                                  >
+                                    {option.label}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-[200px] text-xs">
+                                  {nh(option.tooltipKey)}
+                                </TooltipContent>
+                              </TooltipRoot>
+                            </TooltipProvider>
                           ))}
                         </div>
                         <div className="relative flex-1">
@@ -937,22 +956,47 @@ export function NormalisationReviewStep({
                           </button>
                         ))}
                         {searchQuery.trim() && (
-                          <button
-                            type="button"
+                          <div
+                            role="button"
+                            tabIndex={0}
                             onClick={() => {
                               const { code, name } = parseCustomLedgerFromQuery(searchQuery)
                               setSelectedLedger({ code, name })
                               setSearchQuery(`${code} · ${name}`)
                               setShowLedgerDropdown(false)
                             }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                const { code, name } = parseCustomLedgerFromQuery(searchQuery)
+                                setSelectedLedger({ code, name })
+                                setSearchQuery(`${code} · ${name}`)
+                                setShowLedgerDropdown(false)
+                              }
+                            }}
                             className={cn(
-                              'w-full px-3 py-2 text-left hover:bg-primary/5 flex items-center gap-3 transition-colors',
+                              'w-full px-3 py-2 text-left hover:bg-primary/5 flex items-center justify-between gap-3 transition-colors cursor-pointer',
                               filteredLedgers.length > 0 && 'border-t border-foreground/[0.06]'
                             )}
                           >
-                            <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">+</span>
-                            <span className="text-sm text-foreground/80">{nh('useCustomCode', { query: searchQuery.trim() })}</span>
-                          </button>
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary flex-shrink-0">+</span>
+                              <span className="text-sm text-foreground/80 truncate">{nh('useCustomCode', { query: searchQuery.trim() })}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const { code, name } = parseCustomLedgerFromQuery(searchQuery)
+                                setSelectedLedger({ code, name })
+                                setSearchQuery(`${code} · ${name}`)
+                                setShowLedgerDropdown(false)
+                              }}
+                              className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                            >
+                              {nh('actions.add')}
+                            </button>
+                          </div>
                         )}
                       </motion.div>
                     )}
@@ -989,18 +1033,26 @@ export function NormalisationReviewStep({
                     <div className="flex gap-2">
                       <div className="flex gap-0.5">
                         {typeOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            onClick={() => setNewType(option.value)}
-                            className={cn(
-                              'px-2.5 py-2 rounded-lg text-xs font-medium transition-all',
-                              newType === option.value
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
-                            )}
-                          >
-                            {option.label}
-                          </button>
+                          <TooltipProvider key={option.value}>
+                            <TooltipRoot>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => setNewType(option.value)}
+                                  className={cn(
+                                    'px-2.5 py-2 rounded-lg text-xs font-medium transition-all',
+                                    newType === option.value
+                                      ? 'bg-primary text-primary-foreground'
+                                      : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
+                                  )}
+                                >
+                                  {option.label}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[200px] text-xs">
+                                {nh(option.tooltipKey)}
+                              </TooltipContent>
+                            </TooltipRoot>
+                          </TooltipProvider>
                         ))}
                       </div>
                       <div className="relative flex-1">

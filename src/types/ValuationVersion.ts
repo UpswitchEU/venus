@@ -7,6 +7,7 @@
  * @module types/ValuationVersion
  */
 
+import type { TaxLatencyItem } from '../store/useTaxLatencyStore'
 import type { ValuationRequest, ValuationResponse } from './valuation'
 
 /**
@@ -74,6 +75,9 @@ export interface ValuationVersion {
       adjustment_percentage?: number // Adjustment as % of reported EBITDA
     }
   } // Immutable snapshot of normalization data at time of version creation
+
+  // Tax latency data snapshot
+  tax_latency_data?: TaxLatencyItem[] // Immutable snapshot of tax latencies at time of version creation
 }
 
 /**
@@ -189,6 +193,9 @@ export interface CreateVersionRequest {
 
   // Normalization data snapshot (captured from store at version creation)
   normalization_data?: ValuationVersion['normalization_data']
+
+  // Tax latency data snapshot (captured from store at version creation)
+  tax_latency_data?: TaxLatencyItem[]
 }
 
 /**

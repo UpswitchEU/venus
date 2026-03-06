@@ -1410,9 +1410,10 @@ export function ManualInputPanel({
                               </span>
                               <span className="font-mono font-semibold text-success">
                                 {formatCurrency(normalizedYear.normalizedEbitda)}
-                                <span className="text-foreground/40 ml-1">
-                                  ({normalizedYear.totalAdjustment > 0 ? '+' : ''}
-                                  {formatCurrency(normalizedYear.totalAdjustment)})
+                                <span className="text-foreground/40 ml-1.5">
+                                  {' '}({normalizedYear.totalAdjustment > 0 ? '+' : ''}
+                                  {formatCurrency(normalizedYear.totalAdjustment)}{' '}
+                                  {mi('fields.adjustmentSuffix')})
                                 </span>
                               </span>
                             </div>

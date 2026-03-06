@@ -552,6 +552,34 @@ class SessionRestorationServiceImpl {
       restoredEbitdaNormalizations = false
     }
 
+    // 5. Tax Latencies — hydrate store from session JSONB or localStorage
+    try {
+      const { useTaxLatencyStore, recoverPendingTaxLatencies } = await import(
+        '../../store/useTaxLatencyStore'
+      )
+      const taxLatStore = useTaxLatencyStore.getState()
+
+      const recoveredTL = recoverPendingTaxLatencies(data.reportId)
+      if (recoveredTL && recoveredTL.length > 0) {
+        taxLatStore.setItems(recoveredTL)
+        generalLogger.info('[SessionRestoration] Tax latencies recovered from localStorage', {
+          count: recoveredTL.length,
+        })
+      } else {
+        const rawTL = (data.formData as any)?._taxLatencies
+        if (rawTL && Array.isArray(rawTL) && rawTL.length > 0) {
+          taxLatStore.setItems(rawTL)
+          generalLogger.info('[SessionRestoration] Tax latencies hydrated from session metadata', {
+            count: rawTL.length,
+          })
+        }
+      }
+    } catch (error) {
+      generalLogger.warn('[SessionRestoration] Tax latency hydration failed (non-blocking)', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+
     return {
       reportId: data.reportId,
       restoredFormFields,

@@ -8,6 +8,7 @@
  */
 
 import { useNormalizationStore } from '../store/useNormalizationStore'
+import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import type { DataResponse } from '../types/data-collection'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
@@ -262,6 +263,17 @@ export function buildValuationRequest(
     shares_for_sale: formData.shares_for_sale || 100,
     business_context: businessContext,
     ...(locale && { locale }),
+  }
+
+  // Tax latencies (belastinglatenties) — equity bridge adjustments
+  const taxLatencyItems = useTaxLatencyStore.getState().items
+  if (taxLatencyItems.length > 0) {
+    request.tax_latencies = taxLatencyItems.map((item) => ({
+      type: item.type,
+      description: item.description,
+      temporary_difference: Math.abs(item.temporaryDifference),
+      tax_rate: item.taxRate,
+    }))
   }
 
   // BANK-GRADE: Log request structure for diagnostics (only in development)

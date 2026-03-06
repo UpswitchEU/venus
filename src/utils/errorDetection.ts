@@ -69,6 +69,31 @@ export function is401Unauthorized(error: unknown): boolean {
 }
 
 /**
+ * Detects if an error is a 403 Forbidden
+ *
+ * @param error - Error object from any source
+ * @returns true if error is a 403 Forbidden
+ */
+export function is403Forbidden(error: unknown): boolean {
+  const axiosError = error as any
+  return (
+    axiosError?.response?.status === 403 ||
+    axiosError?.status === 403 ||
+    axiosError?.statusCode === 403
+  )
+}
+
+/**
+ * Detects if an error is an auth error (401 or 403)
+ *
+ * @param error - Error object from any source
+ * @returns true if error is 401 or 403
+ */
+export function isAuthError(error: unknown): boolean {
+  return is401Unauthorized(error) || is403Forbidden(error)
+}
+
+/**
  * Detects if an error is a 429 Rate Limit
  *
  * @param error - Error object from any source

@@ -363,22 +363,47 @@ export function NormalizationEditor({
                         </button>
                       ))}
                       {searchQuery.trim() && (
-                        <button
-                          type="button"
+                        <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             const { code, name } = parseCustomLedgerFromQuery(searchQuery)
                             setSelectedLedger({ code, name })
                             setSearchQuery(`${code} · ${name}`)
                             setShowLedgerDropdown(false)
                           }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              const { code, name } = parseCustomLedgerFromQuery(searchQuery)
+                              setSelectedLedger({ code, name })
+                              setSearchQuery(`${code} · ${name}`)
+                              setShowLedgerDropdown(false)
+                            }
+                          }}
                           className={cn(
-                            'w-full px-4 py-2.5 text-left hover:bg-primary/5 flex items-center gap-3 transition-colors',
+                            'w-full px-4 py-2.5 text-left hover:bg-primary/5 flex items-center justify-between gap-3 transition-colors cursor-pointer',
                             filteredLedgers.length > 0 && 'border-t border-foreground/[0.06]'
                           )}
                         >
-                          <span className="font-mono text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">+</span>
-                          <span className="text-sm text-foreground/80">{nh('useCustomCode', { query: searchQuery.trim() })}</span>
-                        </button>
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <span className="font-mono text-xs px-2 py-0.5 rounded bg-primary/10 text-primary flex-shrink-0">+</span>
+                            <span className="text-sm text-foreground/80 truncate">{nh('useCustomCode', { query: searchQuery.trim() })}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const { code, name } = parseCustomLedgerFromQuery(searchQuery)
+                              setSelectedLedger({ code, name })
+                              setSearchQuery(`${code} · ${name}`)
+                              setShowLedgerDropdown(false)
+                            }}
+                            className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                          >
+                            {nh('actions.add')}
+                          </button>
+                        </div>
                       )}
                       </>
                     )}

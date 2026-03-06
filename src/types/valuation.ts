@@ -137,6 +137,16 @@ export interface ValuationRequest {
     ev_revenue_multiple?: number
     pe_ratio?: number
   }>
+
+  // Tax latencies (belastinglatenties) — equity bridge adjustments
+  tax_latencies?: TaxLatencyInput[]
+}
+
+export interface TaxLatencyInput {
+  type: 'active' | 'passive'
+  description: string
+  temporary_difference: number
+  tax_rate: number
 }
 
 // Extended request type for frontend form state

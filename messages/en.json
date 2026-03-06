@@ -1120,7 +1120,8 @@
       "revenue": "Revenue",
       "ebitda": "EBITDA",
       "normalizedEbitda": "Normalized EBITDA",
-      "normalizedEbitdaLabel": "Normalized EBITDA:"
+      "normalizedEbitdaLabel": "Normalized EBITDA:",
+      "adjustmentSuffix": "adjustment"
     },
     "uploadHint": {
       "title": "Faster with ledger upload?",
@@ -1801,6 +1802,26 @@
     "defaultSuggestion2Reason": "Rent €700/month below market for comparable property",
     "potentialNormalisation": "Potential normalisation",
     "privateUseDetected": "Private use component detected based on industry comparison"
+  },
+  "taxLatency": {
+    "sectionTitle": "Tax Latencies",
+    "sectionTitleOptional": "Tax Latencies (Optional)",
+    "sectionDescription": "Add deferred tax assets or liabilities that affect the equity value.",
+    "addItem": "Add latency",
+    "removeItem": "Remove",
+    "type": "Type",
+    "typeActive": "Active latency (asset)",
+    "typePassive": "Passive latency (liability)",
+    "description": "Description",
+    "descriptionPlaceholder": "e.g. Reinvestment reserve",
+    "temporaryDifference": "Temporary difference",
+    "taxRate": "Tax rate",
+    "latencyAmount": "Latency amount",
+    "netImpact": "Net impact on equity value",
+    "activeTooltip": "Future tax benefit — added to equity value",
+    "passiveTooltip": "Future tax liability — subtracted from equity value",
+    "noItems": "No tax latencies added",
+    "summary": "{count, plural, one {# latency} other {# latencies}}"
   },
   "csvUpload": {
     "title": "Upload Yuki Export",

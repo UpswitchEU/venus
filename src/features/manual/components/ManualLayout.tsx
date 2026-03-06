@@ -72,6 +72,7 @@ import {
   getSafeMercuryReturnUrl,
   isLegacyReturnUrl,
 } from '../../../lib/return-url'
+import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { reportService, valuationService } from '../../../services'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
@@ -82,17 +83,24 @@ import {
   setNormalizationToastMessages,
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
+import {
+  enableTaxLatencyAutoPersist,
+  useTaxLatencyStore,
+} from '../../../store/useTaxLatencyStore'
 import { useClientContext } from '../../../stores/clientContext'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
+import { AuthenticationError } from '../../../types/errors'
 import type {
   ValuationResponse,
   ValuationFormData as VenusFormData,
 } from '../../../types/valuation'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
+import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
+import { isAuthError } from '../../../utils/errorDetection'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import {
@@ -915,6 +923,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return unsub
   }, [reportId])
 
+  // Enable auto-persist for tax latency store
+  useEffect(() => {
+    const unsub = enableTaxLatencyAutoPersist(() => reportId || undefined)
+    return unsub
+  }, [reportId])
+
   // ─── Keyboard Shortcuts ───
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1155,11 +1169,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         // Step 4: Call real ValuationService
+        const calcStartTime = Date.now()
         generalLogger.info('[ManualLayout] Calling valuationService.calculateValuation', {
           companyName: request.company_name,
           industry: request.industry,
         })
         const calcResult = await valuationService.calculateValuation(request)
+        const calculationDuration = Date.now() - calcStartTime
 
         if (!calcResult) {
           setCalculating(false)
@@ -1203,20 +1219,52 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // Titan creates V1 automatically during the calculate call.
         // Venus only creates a NEW version when there was already a previous version
         // BEFORE this calculation started AND the user made significant changes.
+        let versionCreationFailed = false
         if (idForApi) {
+          let latestAfterFetch: { versionNumber: number } | null = null
           try {
             await useVersionHistoryStore.getState().fetchVersions(idForApi)
+            latestAfterFetch = useVersionHistoryStore.getState().getLatestVersion(idForApi)
+          } catch (fetchErr) {
+            const fetchMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+            generalLogger.warn('[ManualLayout] fetchVersions failed', { reportId: idForApi, error: fetchMsg })
+            toast.warning(tHistory('loadError'), { description: fetchMsg })
+            // Continue - calculation succeeded; versions may be stale
+          }
+
+          if (latestAfterFetch !== null) {
+            try {
+            // Log regeneration when Titan created version (first calculation)
+            if (!previousVersion && latestAfterFetch) {
+              valuationAuditService.logRegeneration(
+                idForApi,
+                latestAfterFetch.versionNumber,
+                { totalChanges: 0, significantChanges: [] },
+                calculationDuration,
+                user?.id
+              )
+            }
 
             if (previousVersion) {
               // Re-calculation: a version existed BEFORE we called calculate.
               // Titan created a new version server-side. Check if Venus should
               // also snapshot (only if the changes are significant vs the pre-calc state).
-              const latestAfterSync = useVersionHistoryStore.getState().getLatestVersion(idForApi)
-              const effectivePrevious = latestAfterSync ?? previousVersion
+              const effectivePrevious = latestAfterFetch ?? previousVersion
+              const effectiveChanges = detectVersionChanges(previousVersion.formData, request)
+
+              // Log when Titan created new version (effectivePrevious > previousVersion)
+              if (effectivePrevious.versionNumber > previousVersion.versionNumber) {
+                valuationAuditService.logRegeneration(
+                  idForApi,
+                  effectivePrevious.versionNumber,
+                  effectiveChanges,
+                  calculationDuration,
+                  user?.id
+                )
+              }
 
               // Only create a Venus-side version when there are significant form-data changes
               // relative to the version that existed BEFORE the calculation.
-              const effectiveChanges = detectVersionChanges(previousVersion.formData, request)
               if (
                 areChangesSignificant(effectiveChanges) &&
                 effectivePrevious.versionNumber === previousVersion.versionNumber
@@ -1233,29 +1281,52 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   ),
                 })
                 await snapshotNormalizationsToVersion(idForApi, newVersion.id)
+
+                // Log regeneration to audit trail (accountant compliance)
+                valuationAuditService.logRegeneration(
+                  idForApi,
+                  newVersion.versionNumber,
+                  effectiveChanges,
+                  calculationDuration,
+                  user?.id
+                )
               }
             }
             // else: first calculation — Titan already created V1, nothing to do
-          } catch (versionError) {
-            const errMsg =
-              versionError instanceof Error ? versionError.message : String(versionError)
-            generalLogger.error('Failed to create version', { reportId: idForApi, error: errMsg })
-            toast.error(t('versionCreateFailed'), {
-              description: errMsg,
-            })
-          } finally {
-            // Always re-sync version history from backend after calculation so panels show latest
-            setTimeout(() => {
-              useVersionHistoryStore
-                .getState()
-                .fetchVersions(idForApi)
-                .catch((err) => {
-                  generalLogger.warn('[ManualLayout] Version history sync failed', {
-                    error: err instanceof Error ? err.message : String(err),
-                  })
-                })
-            }, 1500)
+            } catch (versionError) {
+              versionCreationFailed = true
+              const errMsg =
+                versionError instanceof Error ? versionError.message : String(versionError)
+              generalLogger.error('Failed to create version', { reportId: idForApi, error: errMsg })
+              toast.error(t('versionCreateFailed'), {
+                description: errMsg,
+                action: {
+                  label: t('retry'),
+                  onClick: () => {
+                    if (lastSubmittedDataRef.current) {
+                      handleManualSubmit(lastSubmittedDataRef.current)
+                    }
+                  },
+                },
+              })
+              // Continue to save report - calculation succeeded, persist it
+            }
           }
+
+          // Always re-sync version history from backend after calculation so panels show latest
+          setTimeout(() => {
+            useVersionHistoryStore
+              .getState()
+              .fetchVersions(idForApi)
+              .catch((err) => {
+                generalLogger.warn('[ManualLayout] Version history sync failed', {
+                  error: err instanceof Error ? err.message : String(err),
+                })
+                toast.warning(tHistory('loadError'), {
+                  description: err instanceof Error ? err.message : undefined,
+                })
+              })
+          }, 1500)
         }
 
         // Step 7: Save complete report package to backend
@@ -1281,23 +1352,37 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
         }
 
-        toast.success(t('calculationComplete'))
+        if (!versionCreationFailed) {
+          toast.success(t('calculationComplete'))
+        }
       } catch (error) {
         setCalculating(false)
         setIsGenerating(false)
-        const message = error instanceof Error ? error.message : t('unknownError')
-        toast.error(t('calculationFailed'), {
-          description: message,
-          action: {
-            label: t('retry'),
-            onClick: () => {
-              if (lastSubmittedDataRef.current) {
-                handleManualSubmit(lastSubmittedDataRef.current)
-              }
-            },
-          },
+        const isSessionExpired =
+          error instanceof AuthenticationError || isAuthError(error)
+        const title = isSessionExpired ? tErrors('session.expired') : t('calculationFailed')
+        const description = isSessionExpired
+          ? tErrors('authentication.expired')
+          : error instanceof Error
+            ? error.message
+            : t('unknownError')
+        toast.error(title, {
+          description,
+          action: isSessionExpired
+            ? { label: tErrors('session.reloadPage'), onClick: () => window.location.reload() }
+            : {
+                label: t('retry'),
+                onClick: () => {
+                  if (lastSubmittedDataRef.current) {
+                    handleManualSubmit(lastSubmittedDataRef.current)
+                  }
+                },
+              },
         })
-        generalLogger.error('[ManualLayout] Form submission failed', { error: message })
+        generalLogger.error('[ManualLayout] Form submission failed', {
+          error: description,
+          isSessionExpired,
+        })
       }
     },
     [
@@ -1311,6 +1396,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       getLatestVersion,
       createVersion,
       sessionName,
+      user?.id,
+      t,
+      tErrors,
     ]
   )
 
@@ -1339,7 +1427,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       // Use resolved UUID for version API - Titan expects UUID, session key causes 404
       const idForVersions = resolvedReportId || reportId
       // Sync versions before submit so currentVersion is fresh (avoids stale hasFormChanges)
-      await useVersionHistoryStore.getState().fetchVersions(idForVersions).catch(() => {
+      await useVersionHistoryStore.getState().fetchVersions(idForVersions).catch((err) => {
+        generalLogger.warn('[ManualLayout] Pre-submit fetchVersions failed', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+        toast.warning(tHistory('loadError'), {
+          description: err instanceof Error ? err.message : undefined,
+        })
         // Non-blocking: proceed with submit even if fetch fails
       })
       const latestVersion = getLatestVersion(idForVersions)
@@ -1386,6 +1480,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       getLatestVersion,
       handleManualSubmit,
       hasAnyNormalization,
+      tHistory,
     ]
   )
 
@@ -1892,7 +1987,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       // Try to close embedded mode (sends postMessage to parent)
       try {
-        window.parent?.postMessage({ type: 'venus:close' }, '*')
+        window.parent?.postMessage({ type: 'venus-close', source: 'venus' }, '*')
       } catch {}
 
       const validLocale =
@@ -2074,6 +2169,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       useManualResultsStore.getState().clearResults()
       useManualResultsStore.getState().setCalculating(false)
       useNormalizationStore.getState().clear()
+      useTaxLatencyStore.getState().clear()
       if (reportId) useVersionHistoryStore.getState().clearVersions(reportId)
       setShowNewValuationModal(false)
       // Use full page navigation to ensure clean slate and UI unlock (avoids skeleton trap)
@@ -2136,9 +2232,37 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             router.push(`/${currentLocale}/reports/${remaining[0].id}`)
           } else {
             // No valuations left: accountant → Mercury dashboard, client → new valuation
-            window.location.href = isAccountantMode
-              ? `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
-              : `/${currentLocale}/reports/new`
+            if (isAccountantMode) {
+              const isEmbedded =
+                typeof window !== 'undefined' &&
+                sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true'
+              if (isEmbedded && typeof window !== 'undefined') {
+                // Venus is in iframe: notify parent to close modal, invalidate cache, and navigate
+                const redirectTo = `/${currentLocale}/accountant/dashboard`
+                const mercuryUrl = `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
+                window.parent.postMessage(
+                  {
+                    type: 'venus-report-deleted',
+                    redirectTo,
+                    clientId: clientContextId ?? undefined,
+                    source: 'venus',
+                  },
+                  '*'
+                )
+                // Fallback: if parent never receives (e.g. origin check fails in dev), navigate after 2.5s
+                setTimeout(() => {
+                  try {
+                    window.location.href = mercuryUrl
+                  } catch {
+                    // Ignore if window already gone
+                  }
+                }, 2500)
+              } else {
+                window.location.href = `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
+              }
+            } else {
+              window.location.href = `/${currentLocale}/reports/new`
+            }
           }
         } else {
           setRawRecentValuations((prev) => prev.filter((v) => v.id !== id))
@@ -2158,6 +2282,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       session?.reportId,
       rawRecentValuations,
       isAccountantMode,
+      clientContextId,
       router,
       currentLocale,
       tReport,
@@ -2522,7 +2647,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
         }
 
-        // 5. Update version history active version and re-fetch from backend
+        // 5. Restore tax latencies from version snapshot
+        if (version.tax_latency_data && Array.isArray(version.tax_latency_data) && version.tax_latency_data.length > 0) {
+          useTaxLatencyStore.getState().setItems(version.tax_latency_data)
+        } else {
+          useTaxLatencyStore.getState().clear()
+        }
+
+        // 6. Update version history active version and re-fetch from backend
         //    (restore creates a new version copy on the backend)
         if (idForApi && versionNumber) {
           useVersionHistoryStore.getState().setActiveVersion(idForApi, versionNumber)

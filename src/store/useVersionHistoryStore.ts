@@ -19,6 +19,7 @@ import type {
 } from '../types/ValuationVersion'
 import { createContextLogger } from '../utils/logger'
 import { useNormalizationStore } from './useNormalizationStore'
+import { useTaxLatencyStore } from './useTaxLatencyStore'
 
 const versionLogger = createContextLogger('VersionHistoryStore')
 const versionAPI = new VersionAPI()
@@ -362,6 +363,18 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             }
           }
 
+          // Capture tax latency data from store if not provided
+          if (!enrichedRequest.tax_latency_data) {
+            const taxLatencyItems = useTaxLatencyStore.getState().items
+            if (taxLatencyItems.length > 0) {
+              enrichedRequest.tax_latency_data = taxLatencyItems
+              versionLogger.info('Captured tax latency data for version', {
+                reportId: request.reportId,
+                count: taxLatencyItems.length,
+              })
+            }
+          }
+
           // Try backend first
           try {
             const version = await versionAPI.createVersion(enrichedRequest)
@@ -465,6 +478,8 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 isPinned: false,
                 tags: request.tags || [],
                 notes: request.notes,
+                normalization_data: request.normalization_data,
+                tax_latency_data: request.tax_latency_data,
               }
 
               // Mark previous versions as inactive

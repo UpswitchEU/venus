@@ -64,6 +64,7 @@ import {
   trackNormalizationEdit,
 } from '@/lib/analytics'
 import { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
+import { TaxLatencySection } from './TaxLatencySection'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -137,12 +138,17 @@ const sourceConfig: Record<NormalizationSource, { labelKey: string; color: strin
   ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
 }
 
-const typeOptions: { value: NormalizationType; label: string; icon: typeof Plus }[] = [
-  { value: 'add', label: '+€', icon: Plus },
-  { value: 'subtract', label: '-€', icon: Minus },
-  { value: 'add_percent', label: '+%', icon: Percent },
-  { value: 'subtract_percent', label: '-%', icon: Percent },
-  { value: 'absolute', label: 'ABS', icon: Hash },
+const typeOptions: {
+  value: NormalizationType
+  label: string
+  icon: typeof Plus
+  tooltipKey: string
+}[] = [
+  { value: 'add', label: '+€', icon: Plus, tooltipKey: 'typeAddAmount' },
+  { value: 'subtract', label: '-€', icon: Minus, tooltipKey: 'typeSubtractAmount' },
+  { value: 'add_percent', label: '+%', icon: Percent, tooltipKey: 'typeAddPercent' },
+  { value: 'subtract_percent', label: '-%', icon: Percent, tooltipKey: 'typeSubtractPercent' },
+  { value: 'absolute', label: 'ABS', icon: Hash, tooltipKey: 'typeSetTarget' },
 ]
 
 const defaultLedgerAccounts = DEFAULT_LEDGER_ACCOUNTS
@@ -420,6 +426,7 @@ export function UnifiedNormalizationModal({
 
   // Ref for input container to position dropdown via portal
   const inputContainerRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [inputRect, setInputRect] = useState<DOMRect | null>(null)
 
   // Update input rect when dropdown should show
@@ -1106,6 +1113,7 @@ export function UnifiedNormalizationModal({
             <div className="flex items-center gap-3 px-4 py-3">
               <Search className="w-4 h-4 text-foreground/40 flex-shrink-0" />
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder={
                   showAddForm
@@ -1408,8 +1416,9 @@ export function UnifiedNormalizationModal({
                       })}
                       {/* Always show custom option when user has typed - allows custom codes not in the list */}
                       {searchQuery.trim() && (
-                        <button
-                          type="button"
+                        <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             const { code, name } = parseCustomLedgerFromQuery(searchQuery)
                             setSelectedLedger({ code, name })
@@ -1417,23 +1426,49 @@ export function UnifiedNormalizationModal({
                             setShowLedgerDropdown(false)
                             setShowAddForm(true)
                           }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              const { code, name } = parseCustomLedgerFromQuery(searchQuery)
+                              setSelectedLedger({ code, name })
+                              setSearchQuery(`${code} · ${name}`)
+                              setShowLedgerDropdown(false)
+                              setShowAddForm(true)
+                            }
+                          }}
                           className={cn(
-                            'w-full px-3 py-3 text-left hover:bg-primary/5 flex items-center gap-2.5 transition-colors min-h-[52px]',
+                            'w-full px-3 py-3 text-left hover:bg-primary/5 flex items-center justify-between gap-2.5 transition-colors min-h-[52px] cursor-pointer',
                             filteredLedgers.length > 0 && 'border-t border-foreground/[0.06]'
                           )}
                         >
-                        <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold min-w-[3rem] text-center flex-shrink-0">
-                          +
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-foreground/90 font-medium">
-                            {nh('useCustomCode', { query: searchQuery.trim() })}
-                          </p>
-                          <p className="text-[10px] text-foreground/40 mt-0.5">
-                            {nh('customLedgerCode')}
-                          </p>
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold min-w-[3rem] text-center flex-shrink-0">
+                              +
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-foreground/90 font-medium">
+                                {nh('useCustomCode', { query: searchQuery.trim() })}
+                              </p>
+                              <p className="text-[10px] text-foreground/40 mt-0.5">
+                                {nh('customLedgerCode')}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const { code, name } = parseCustomLedgerFromQuery(searchQuery)
+                              setSelectedLedger({ code, name })
+                              setSearchQuery(`${code} · ${name}`)
+                              setShowLedgerDropdown(false)
+                              setShowAddForm(true)
+                            }}
+                            className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                          >
+                            {nh('actions.add')}
+                          </button>
                         </div>
-                      </button>
                     )}
                     </div>
                   </motion.div>
@@ -1733,9 +1768,16 @@ export function UnifiedNormalizationModal({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          const code = selectedLedger.code
                           setSelectedLedger(null)
-                          setSearchQuery('')
+                          setSearchQuery(code)
+                          setShowLedgerDropdown(true)
+                          requestAnimationFrame(() => {
+                            searchInputRef.current?.focus()
+                          })
                         }}
                         className="flex-1 flex items-center gap-3 p-2.5 rounded-lg bg-background/80 border border-foreground/[0.08] hover:border-primary/30 hover:bg-primary/[0.02] transition-all group text-left"
                         aria-label={nh('clickToChooseLedger')}
@@ -1765,18 +1807,26 @@ export function UnifiedNormalizationModal({
                     <label className="text-xs font-medium text-foreground/60">{nh('type')}</label>
                     <div className="flex gap-1">
                       {typeOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          onClick={() => setNewType(option.value)}
-                          className={cn(
-                            'px-3 py-2 rounded-lg text-xs font-medium transition-all',
-                            newType === option.value
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
-                          )}
-                        >
-                          {option.label}
-                        </button>
+                        <TooltipProvider key={option.value}>
+                          <TooltipRoot>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => setNewType(option.value)}
+                                className={cn(
+                                  'px-3 py-2 rounded-lg text-xs font-medium transition-all',
+                                  newType === option.value
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
+                                )}
+                              >
+                                {option.label}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[200px] text-xs">
+                              {nh(option.tooltipKey)}
+                            </TooltipContent>
+                          </TooltipRoot>
+                        </TooltipProvider>
                       ))}
                     </div>
                   </div>
@@ -2182,6 +2232,11 @@ export function UnifiedNormalizationModal({
                 </p>
               </motion.div>
             )}
+
+          {/* Tax Latencies (Belastinglatenties) */}
+          <div className="mt-6 pt-5 border-t border-foreground/[0.06]">
+            <TaxLatencySection />
+          </div>
         </div>
 
         {/* Footer */}

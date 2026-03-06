@@ -1120,7 +1120,8 @@
       "revenue": "Omzet",
       "ebitda": "EBITDA",
       "normalizedEbitda": "Genormaliseerde EBITDA",
-      "normalizedEbitdaLabel": "Genormaliseerde EBITDA:"
+      "normalizedEbitdaLabel": "Genormaliseerde EBITDA:",
+      "adjustmentSuffix": "aanpassing"
     },
     "uploadHint": {
       "title": "Sneller met grootboek upload?",
@@ -1239,7 +1240,8 @@
     "retry": "Opnieuw proberen",
     "normalizationNotSaved": "Normalisatie niet opgeslagen op server",
     "normalizationNotSavedDesc": "Uw wijzigingen zijn lokaal bewaard. Server-opslag wordt opnieuw geprobeerd.",
-    "reminderSent": "Herinnering verstuurd naar klant"
+    "reminderSent": "Herinnering verstuurd naar klant",
+    "versionCreateFailed": "Versie aanmaken mislukt"
   },
   "versionCompare": {
     "typeInitial": "Initieel",
@@ -1800,6 +1802,26 @@
     "defaultSuggestion2Reason": "Huur € 700/maand onder marktwaarde voor vergelijkbaar pand",
     "potentialNormalisation": "Potentiële normalisatie",
     "privateUseDetected": "Privégebruik component gedetecteerd op basis van branchevergelijking"
+  },
+  "taxLatency": {
+    "sectionTitle": "Belastinglatenties",
+    "sectionTitleOptional": "Belastinglatenties (Optioneel)",
+    "sectionDescription": "Voeg latente belastingvorderingen of -verplichtingen toe die de vermogenspositie beïnvloeden.",
+    "addItem": "Latentie toevoegen",
+    "removeItem": "Verwijderen",
+    "type": "Type",
+    "typeActive": "Actieve latentie (vordering)",
+    "typePassive": "Passieve latentie (verplichting)",
+    "description": "Omschrijving",
+    "descriptionPlaceholder": "bijv. Herinvesteringsreserve",
+    "temporaryDifference": "Tijdelijk verschil",
+    "taxRate": "Belastingtarief",
+    "latencyAmount": "Latentiebedrag",
+    "netImpact": "Netto impact op vermogenswaarde",
+    "activeTooltip": "Toekomstig belastingvoordeel — wordt opgeteld bij de vermogenswaarde",
+    "passiveTooltip": "Toekomstige belastingverplichting — wordt afgetrokken van de vermogenswaarde",
+    "noItems": "Geen belastinglatenties toegevoegd",
+    "summary": "{count, plural, one {# latentie} other {# latenties}}"
   },
   "csvUpload": {
     "title": "Yuki Export Uploaden",

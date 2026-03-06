@@ -272,6 +272,8 @@ export class VersionAPI {
         changes_summary: request.changesSummary,
         notes: request.notes,
         tags: request.tags,
+        normalization_data: request.normalization_data,
+        tax_latency_data: request.tax_latency_data,
       }
 
       const response = await this.executeRequest<{
@@ -575,6 +577,14 @@ export class VersionAPI {
         backendVersion.calculationDuration_ms || backendVersion.calculation_duration_ms,
       tags: backendVersion.tags || [],
       notes: backendVersion.notes,
+      normalization_data:
+        backendVersion.normalization_data ||
+        versionData.normalization_data ||
+        undefined,
+      tax_latency_data:
+        backendVersion.tax_latency_data ||
+        versionData.tax_latency_data ||
+        undefined,
     }
   }
 
