@@ -186,7 +186,7 @@ function DefaultErrorState({
           </AuroraButton>
           <AuroraButton
             onClick={onRetry}
-            variant="ghost"
+            variant="secondary"
             size="lg"
             className="flex items-center justify-center gap-2"
           >
@@ -197,7 +197,7 @@ function DefaultErrorState({
               onClick={() => {
                 window.location.href = returnUrl
               }}
-              variant="ghost"
+              variant="secondary"
               size="lg"
               className="flex items-center justify-center gap-2"
             >
