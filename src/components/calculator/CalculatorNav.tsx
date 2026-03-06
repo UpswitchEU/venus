@@ -311,24 +311,6 @@ export function CalculatorNav({
             </button>
           </Tooltip>
 
-          {/* Explicit "Nieuwe Schatting" button — always visible so user can escape when stuck */}
-          {onNewValuation && (
-            <Tooltip content={t('valuation.new')}>
-              <button
-                type="button"
-                onClick={onNewValuation}
-                className={cn(
-                  'flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium',
-                  'text-primary hover:bg-primary/10 transition-colors',
-                  'min-h-[44px] shrink-0'
-                )}
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">{t('valuation.new')}</span>
-              </button>
-            </Tooltip>
-          )}
-
           {/* Title with Recent Valuations Dropdown */}
           <Dropdown
             trigger={
