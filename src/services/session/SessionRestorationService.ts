@@ -20,6 +20,14 @@ import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
+import {
+  recoverPendingNormalizations,
+  useNormalizationStore,
+} from '../../store/useNormalizationStore'
+import {
+  recoverPendingTaxLatencies,
+  useTaxLatencyStore,
+} from '../../store/useTaxLatencyStore'
 import { generalLogger } from '../../utils/logger'
 import {
   type NormalizedSessionData,
@@ -781,11 +789,7 @@ class SessionRestorationServiceImpl {
 
           // Hydrate tax latencies and normalizations from package (instant restoration on refresh)
           // Priority: localStorage recovery (beforeunload buffer) > package formData
-          const raw = pkg.formData as Record<string, unknown>
           try {
-            const { useTaxLatencyStore, recoverPendingTaxLatencies } = await import(
-              '../../store/useTaxLatencyStore'
-            )
             const recoveredTL = recoverPendingTaxLatencies(reportId)
             if (recoveredTL && recoveredTL.length > 0) {
               useTaxLatencyStore.getState().setItems(recoveredTL)
@@ -800,9 +804,6 @@ class SessionRestorationServiceImpl {
             // Non-critical
           }
           try {
-            const { useNormalizationStore, recoverPendingNormalizations } = await import(
-              '../../store/useNormalizationStore'
-            )
             const recoveredNorm = recoverPendingNormalizations(reportId)
             if (recoveredNorm && recoveredNorm.length > 0) {
               useNormalizationStore.getState().setItems(recoveredNorm)
