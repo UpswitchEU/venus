@@ -343,7 +343,7 @@ export function NormalizationTableView({
 
                   {/* Actions */}
                   <td className="px-4 py-4 whitespace-nowrap border-l border-foreground/[0.08]">
-                    <div className="flex items-center justify-center gap-1.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="flex items-center justify-center gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
                       {item.status === 'pending' && (
                         <>
                           <ActionButton
@@ -629,7 +629,7 @@ export function NormalizationBentoView({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       {item.status === 'pending' && (
                         <>
                           <ActionButton

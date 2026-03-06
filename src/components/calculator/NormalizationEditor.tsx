@@ -191,6 +191,20 @@ export function NormalizationEditor({
       .slice(0, 10)
   }, [searchQuery, availableLedgers])
 
+  /** Parse search query into custom ledger code and name */
+  const parseCustomLedgerFromQuery = useCallback((q: string) => {
+    const trimmed = q.trim()
+    const sep = trimmed.indexOf(' · ')
+    if (sep >= 0) {
+      const code = trimmed.slice(0, sep).trim()
+      const name = trimmed.slice(sep + 3).trim()
+      return { code: code || trimmed, name: name || code || trimmed }
+    }
+    const digitMatch = trimmed.match(/^(\d[\d.]*)/)
+    const code = digitMatch ? digitMatch[1] : trimmed
+    return { code, name: trimmed }
+  }, [])
+
   // Calculate adjustment based on type and value
   const calculateAdjustment = useCallback(
     (type: NormalizationType, value: number, currentBalance?: number): number => {
@@ -319,12 +333,13 @@ export function NormalizationEditor({
                     exit={{ opacity: 0, y: -8 }}
                     className="absolute z-50 w-full mt-1 py-1 bg-background border border-foreground/10 rounded-lg shadow-lg max-h-64 overflow-y-auto"
                   >
-                    {filteredLedgers.length === 0 ? (
+                    {filteredLedgers.length === 0 && !searchQuery.trim() ? (
                       <div className="px-4 py-3 text-sm text-foreground/50 text-center">
                         {hasUploadedData ? nh('noAccountsFound') : nh('uploadToSearchLedger')}
                       </div>
                     ) : (
-                      filteredLedgers.map((account) => (
+                      <>
+                      {filteredLedgers.map((account) => (
                         <button
                           key={account.code}
                           onClick={() => {
@@ -346,7 +361,26 @@ export function NormalizationEditor({
                             </span>
                           )}
                         </button>
-                      ))
+                      ))}
+                      {searchQuery.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const { code, name } = parseCustomLedgerFromQuery(searchQuery)
+                            setSelectedLedger({ code, name })
+                            setSearchQuery(`${code} · ${name}`)
+                            setShowLedgerDropdown(false)
+                          }}
+                          className={cn(
+                            'w-full px-4 py-2.5 text-left hover:bg-primary/5 flex items-center gap-3 transition-colors',
+                            filteredLedgers.length > 0 && 'border-t border-foreground/[0.06]'
+                          )}
+                        >
+                          <span className="font-mono text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">+</span>
+                          <span className="text-sm text-foreground/80">{nh('useCustomCode', { query: searchQuery.trim() })}</span>
+                        </button>
+                      )}
+                      </>
                     )}
                   </motion.div>
                 )}

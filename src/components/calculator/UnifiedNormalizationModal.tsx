@@ -188,6 +188,22 @@ const fuzzyMatch = (
   return { matches: false, score: -1, indices: [] }
 }
 
+/** Parse search query into custom ledger code and name. Supports "760 · Name" or plain "760" / "760123" */
+function parseCustomLedgerFromQuery(query: string): { code: string; name: string } {
+  const trimmed = query.trim()
+  const sep = trimmed.indexOf(' · ')
+  if (sep >= 0) {
+    const code = trimmed.slice(0, sep).trim()
+    const name = trimmed.slice(sep + 3).trim()
+    return { code: code || trimmed, name: name || code || trimmed }
+  }
+  // Extract leading digits as code if present
+  const digitMatch = trimmed.match(/^(\d[\d.]*)/)
+  const code = digitMatch ? digitMatch[1] : trimmed
+  const name = trimmed
+  return { code, name }
+}
+
 // Preset definitions with translation keys (resolved in component)
 const PRESET_CONFIGS: Array<{
   id: string
@@ -708,6 +724,12 @@ export function UnifiedNormalizationModal({
   )
 
   const bulkDelete = useCallback(() => {
+    const count = selectedIds.size
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(nh('confirmBulkRemoveNormalizations', { count }))
+    )
+      return
     onNormalizationsChange(normalizations.filter((n) => !selectedIds.has(n.id)))
     setSelectedIds(new Set())
   }, [normalizations, onNormalizationsChange, selectedIds])
@@ -767,6 +789,14 @@ export function UnifiedNormalizationModal({
       onNormalizationsChange(normalizations.filter((n) => n.id !== id))
     },
     [normalizations, onNormalizationsChange]
+  )
+
+  const removeWithConfirmation = useCallback(
+    (id: string) => {
+      if (typeof window !== 'undefined' && !window.confirm(nh('confirmRemoveNormalization'))) return
+      removeNormalization(id)
+    },
+    [removeNormalization]
   )
 
   const addNormalization = useCallback(() => {
@@ -1268,11 +1298,10 @@ export function UnifiedNormalizationModal({
               )}
             </AnimatePresence>
 
-            {/* Ledger dropdown - rendered via portal for proper z-index */}
+            {/* Ledger dropdown - rendered via portal for proper z-index. Show when typing; include custom option when no matches */}
             {showLedgerDropdown &&
               !selectedLedger &&
               searchQuery.trim().length > 0 &&
-              filteredLedgers.length > 0 &&
               inputRect &&
               createPortal(
                 // NOTE: pointer-events are carefully managed to avoid the backdrop intercepting item clicks.
@@ -1303,7 +1332,9 @@ export function UnifiedNormalizationModal({
                         {nh('ledgerAccounts')}
                       </span>
                       <span className="text-[10px] text-foreground/30 tabular-nums">
-                        {nh('foundCount', { count: filteredLedgers.length })}
+                        {filteredLedgers.length > 0
+                          ? nh('foundCount', { count: filteredLedgers.length })
+                          : nh('customLedgerCode')}
                       </span>
                     </div>
                     <div className="py-0.5">
@@ -1375,17 +1406,36 @@ export function UnifiedNormalizationModal({
                           </motion.button>
                         )
                       })}
-                    </div>
-                    {searchQuery && filteredLedgers.length === 0 && (
-                      <div className="px-4 py-5 text-center">
-                        <p className="text-sm text-foreground/50">
-                          {nh('noResultsForQuery', { query: searchQuery })}
-                        </p>
-                        <p className="text-[11px] text-foreground/30 mt-0.5">
-                          {nh('tryDifferentSearch')}
-                        </p>
-                      </div>
+                      {/* Always show custom option when user has typed - allows custom codes not in the list */}
+                      {searchQuery.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const { code, name } = parseCustomLedgerFromQuery(searchQuery)
+                            setSelectedLedger({ code, name })
+                            setSearchQuery(`${code} · ${name}`)
+                            setShowLedgerDropdown(false)
+                            setShowAddForm(true)
+                          }}
+                          className={cn(
+                            'w-full px-3 py-3 text-left hover:bg-primary/5 flex items-center gap-2.5 transition-colors min-h-[52px]',
+                            filteredLedgers.length > 0 && 'border-t border-foreground/[0.06]'
+                          )}
+                        >
+                        <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold min-w-[3rem] text-center flex-shrink-0">
+                          +
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-foreground/90 font-medium">
+                            {nh('useCustomCode', { query: searchQuery.trim() })}
+                          </p>
+                          <p className="text-[10px] text-foreground/40 mt-0.5">
+                            {nh('customLedgerCode')}
+                          </p>
+                        </div>
+                      </button>
                     )}
+                    </div>
                   </motion.div>
                 </div>,
                 document.body
@@ -1666,14 +1716,9 @@ export function UnifiedNormalizationModal({
                     {nh('addNormalization')}
                   </span>
                   <button
-                    onClick={() => {
-                      setShowAddForm(false)
-                      setSelectedLedger(null)
-                      setSearchQuery('')
-                      setNewValue('')
-                      setNewReason('')
-                    }}
+                    onClick={cancelEditing}
                     className="p-1.5 rounded-lg hover:bg-foreground/10 text-foreground/40 hover:text-foreground/60 transition-colors"
+                    aria-label={nh('actions.cancel')}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1689,11 +1734,11 @@ export function UnifiedNormalizationModal({
                       <button
                         type="button"
                         onClick={() => {
-                          // Clear selection to show search input and allow re-selection
                           setSelectedLedger(null)
                           setSearchQuery('')
                         }}
                         className="flex-1 flex items-center gap-3 p-2.5 rounded-lg bg-background/80 border border-foreground/[0.08] hover:border-primary/30 hover:bg-primary/[0.02] transition-all group text-left"
+                        aria-label={nh('clickToChooseLedger')}
                       >
                         <span className="font-mono text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-bold group-hover:bg-primary/15 transition-colors">
                           {selectedLedger.code}
@@ -1899,7 +1944,7 @@ export function UnifiedNormalizationModal({
               originalEBITDAByYear={originalEBITDAByYear}
               onAccept={(id) => updateStatus(id, 'accepted')}
               onReject={(id) => updateStatus(id, 'rejected')}
-              onRemove={removeNormalization}
+              onRemove={removeWithConfirmation}
               onRestore={(id) => updateStatus(id, 'pending')}
               onEdit={(item) => startEditing(item)}
             />
@@ -1912,7 +1957,7 @@ export function UnifiedNormalizationModal({
               originalEBITDAByYear={originalEBITDAByYear}
               onAccept={(id) => updateStatus(id, 'accepted')}
               onReject={(id) => updateStatus(id, 'rejected')}
-              onRemove={removeNormalization}
+              onRemove={removeWithConfirmation}
               onRestore={(id) => updateStatus(id, 'pending')}
               onEdit={(item) => startEditing(item)}
             />
@@ -2040,7 +2085,7 @@ export function UnifiedNormalizationModal({
                                       onToggleSelect={() => toggleSelect(item.id)}
                                       onAccept={() => updateStatus(item.id, 'accepted')}
                                       onReject={() => updateStatus(item.id, 'rejected')}
-                                      onRemove={() => removeNormalization(item.id)}
+                                      onRemove={() => removeWithConfirmation(item.id)}
                                       onRestore={() => updateStatus(item.id, 'pending')}
                                       onEdit={() => startEditing(item)}
                                       hideYear
@@ -2321,8 +2366,8 @@ function CompactTableRow({
         </span>
       </div>
 
-      {/* Actions */}
-      <div className="w-24 flex-shrink-0 flex items-center justify-end gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+      {/* Actions - gap-2 for clearer separation between Edit and Delete (accountant UX) */}
+      <div className="w-28 flex-shrink-0 flex items-center justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
         {item.status === 'pending' && (
           <>
             <TooltipProvider>
