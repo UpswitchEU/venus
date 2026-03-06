@@ -59,6 +59,8 @@ export { DataCompletenessRing } from './DataCompletenessRing'
 export { FieldHelpTrigger } from './FieldHelpTrigger'
 export type { FullscreenReportModalProps } from './FullscreenReportModal'
 export { FullscreenReportModal } from './FullscreenReportModal'
+export type { InviteClientModalProps } from './InviteClientModal'
+export { InviteClientModal } from './InviteClientModal'
 export type {
   HistoryPanelProps,
   HistoryVersion,

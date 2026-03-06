@@ -42,6 +42,7 @@ import {
   ContextBar,
   type FieldContext,
   FullscreenReportModal,
+  InviteClientModal,
   HistoryPanel,
   ManualInputPanel,
   type NormalisationSuggestion,
@@ -642,6 +643,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
+  const [showInviteClientModal, setShowInviteClientModal] = useState(false)
   const [showNormalisationModal, setShowNormalisationModal] = useState(false)
   const [showUnifiedNormalizationModal, setShowUnifiedNormalizationModal] = useState(false)
   const [currentNormalisationSuggestion, setCurrentNormalisationSuggestion] =
@@ -2914,6 +2916,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onNavigateToHelp={handleNavigateToHelp}
           isAccountantMode={isAccountantMode}
           onExitClientView={handleExitClientView}
+          onInviteClient={isAccountantMode ? () => setShowInviteClientModal(true) : undefined}
         />
 
         {/* Context Bar - Accountant Mode (mobile, Clarity parity) */}
@@ -2955,6 +2958,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenChange={setShowFullscreenModal}
           report={report}
           onDownload={handleExport}
+          onShare={isAccountantMode ? () => { setShowFullscreenModal(false); setShowInviteClientModal(true) } : undefined}
+        />
+
+        <InviteClientModal
+          open={showInviteClientModal}
+          onOpenChange={setShowInviteClientModal}
+          clientId={clientContextId}
+          clientEmail={useClientContext.getState()?.client?.email}
+          clientName={clientContextName}
+          companyName={collectedData.companyName}
+          reportId={resolvedReportId || reportId}
         />
 
         <RecalculateConfirmationPopup
@@ -3084,6 +3098,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onSwitchWorkspace={handleSwitchWorkspace}
         isAccountantMode={isAccountantMode}
         onExitClientView={handleExitClientView}
+        onInviteClient={isAccountantMode ? () => setShowInviteClientModal(true) : undefined}
       />
 
       {/* Context Bar - Accountant Mode (Clarity parity) */}
@@ -3242,6 +3257,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onOpenChange={setShowFullscreenModal}
         report={report}
         onDownload={handleExport}
+        onShare={isAccountantMode ? () => { setShowFullscreenModal(false); setShowInviteClientModal(true) } : undefined}
+      />
+
+      {/* Invite Client Modal */}
+      <InviteClientModal
+        open={showInviteClientModal}
+        onOpenChange={setShowInviteClientModal}
+        clientId={clientContextId}
+        clientEmail={useClientContext.getState()?.client?.email}
+        clientName={clientContextName}
+        companyName={collectedData.companyName}
+        reportId={resolvedReportId || reportId}
       />
 
       {/* Recalculation Confirmation (when user changes EBITDA/form and clicks recalculate) */}

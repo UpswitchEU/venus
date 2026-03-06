@@ -73,9 +73,23 @@ function TaxLatencyRow({ item, currencyLocale, onUpdate, onRemove, t }: TaxLaten
       <div className="p-3 grid grid-cols-1 sm:grid-cols-[140px_1fr_140px_100px_auto] gap-2 items-end">
         {/* Type */}
         <div>
-          <label className="block text-[11px] font-medium text-foreground/50 mb-1 uppercase tracking-wide">
-            {t('type')}
-          </label>
+          <div className="flex items-center gap-1 mb-1">
+            <label className="text-[11px] font-medium text-foreground/50 uppercase tracking-wide">
+              {t('type')}
+            </label>
+            <TooltipProvider delayDuration={200}>
+              <TooltipRoot>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex text-foreground/30 hover:text-foreground/50 transition-colors cursor-help">
+                    <HelpCircle className="w-3 h-3" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[240px] text-xs">
+                  {item.type === 'active' ? t('activeTooltip') : t('passiveTooltip')}
+                </TooltipContent>
+              </TooltipRoot>
+            </TooltipProvider>
+          </div>
           <div className="relative">
             <select
               value={item.type}
@@ -127,7 +141,7 @@ function TaxLatencyRow({ item, currencyLocale, onUpdate, onRemove, t }: TaxLaten
             <input
               type="text"
               inputMode="decimal"
-              value={item.temporaryDifference || ''}
+              value={item.temporaryDifference === 0 ? '0' : item.temporaryDifference || ''}
               onChange={(e) => {
                 const raw = e.target.value.replace(/[^\d.,]/g, '')
                 const val = raw === '' ? 0 : Number(raw.replace(',', '.'))
@@ -152,7 +166,7 @@ function TaxLatencyRow({ item, currencyLocale, onUpdate, onRemove, t }: TaxLaten
             <input
               type="text"
               inputMode="decimal"
-              value={item.taxRate || ''}
+              value={item.taxRate === 0 ? '0' : item.taxRate || ''}
               onChange={(e) => {
                 const raw = e.target.value.replace(/[^\d.,]/g, '')
                 const val = raw === '' ? 0 : Number(raw.replace(',', '.'))
@@ -184,7 +198,7 @@ function TaxLatencyRow({ item, currencyLocale, onUpdate, onRemove, t }: TaxLaten
           <button
             type="button"
             onClick={() => onRemove(item.id)}
-            className="h-8 w-8 flex items-center justify-center rounded-md text-foreground/30 hover:text-rust-600 hover:bg-rust-50 dark:hover:bg-rust-900/20 transition-colors flex-shrink-0"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-foreground/30 hover:text-rust-600 hover:bg-rust-50 dark:hover:bg-rust-900/20 transition-colors flex-shrink-0"
             aria-label={t('removeItem')}
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -201,14 +215,16 @@ function TaxLatencyRow({ item, currencyLocale, onUpdate, onRemove, t }: TaxLaten
 
 interface TaxLatencySectionProps {
   defaultTaxRate?: number
+  /** When true, section is always expanded (e.g. when shown as main tab content) */
+  alwaysExpanded?: boolean
 }
 
-export function TaxLatencySection({ defaultTaxRate = 25 }: TaxLatencySectionProps) {
+export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false }: TaxLatencySectionProps) {
   const t = useTranslations('taxLatency')
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
 
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(alwaysExpanded)
 
   const items = useTaxLatencyStore((s) => s.items)
   const addItem = useTaxLatencyStore((s) => s.addItem)
@@ -234,6 +250,56 @@ export function TaxLatencySection({ defaultTaxRate = 25 }: TaxLatencySectionProp
     })
     if (!isExpanded) setIsExpanded(true)
   }, [addItem, defaultTaxRate, isExpanded])
+
+  const contentPanel = (
+    <div id="tax-latency-panel" className={cn('space-y-2', !alwaysExpanded && 'pt-2 pb-1')}>
+      <AnimatePresence mode="popLayout">
+        {items.map((item) => (
+          <TaxLatencyRow
+            key={item.id}
+            item={item}
+            currencyLocale={currencyLocale}
+            onUpdate={updateItem}
+            onRemove={removeItem}
+            t={t}
+          />
+        ))}
+      </AnimatePresence>
+      <button
+        type="button"
+        onClick={handleAddItem}
+        aria-label={t('addItem')}
+        className={cn(
+          'w-full flex items-center justify-center gap-1.5 py-2 rounded-md',
+          'border border-dashed border-foreground/[0.1] hover:border-primary/30',
+          'text-[11px] font-medium text-foreground/40 hover:text-primary',
+          'transition-all duration-200 hover:bg-primary/[0.03]'
+        )}
+      >
+        <Plus className="w-3 h-3" />
+        {t('addItem')}
+      </button>
+      {hasItems && (
+        <div className="flex items-center justify-between pt-2 mt-1 border-t border-foreground/[0.06]">
+          <span className="text-[11px] font-medium text-foreground/50 uppercase tracking-wide">
+            {t('netImpact')}
+          </span>
+          <span
+            className={cn(
+              'text-sm font-bold tabular-nums',
+              netImpact > 0 ? 'text-moss-600 dark:text-moss-400' : netImpact < 0 ? 'text-rust-600 dark:text-rust-400' : 'text-foreground/50'
+            )}
+          >
+            {netImpact > 0 ? '+' : ''}{formatCurrency(netImpact, currencyLocale)}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+
+  if (alwaysExpanded) {
+    return <div className="pt-2">{contentPanel}</div>
+  }
 
   return (
     <div>
@@ -304,53 +370,7 @@ export function TaxLatencySection({ defaultTaxRate = 25 }: TaxLatencySectionProp
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div id="tax-latency-panel" className="pt-2 pb-1 space-y-2">
-              {/* Items */}
-              <AnimatePresence mode="popLayout">
-                {items.map((item) => (
-                  <TaxLatencyRow
-                    key={item.id}
-                    item={item}
-                    currencyLocale={currencyLocale}
-                    onUpdate={updateItem}
-                    onRemove={removeItem}
-                    t={t}
-                  />
-                ))}
-              </AnimatePresence>
-
-              {/* Add button */}
-              <button
-                type="button"
-                onClick={handleAddItem}
-                className={cn(
-                  'w-full flex items-center justify-center gap-1.5 py-2 rounded-md',
-                  'border border-dashed border-foreground/[0.1] hover:border-primary/30',
-                  'text-[11px] font-medium text-foreground/40 hover:text-primary',
-                  'transition-all duration-200 hover:bg-primary/[0.03]'
-                )}
-              >
-                <Plus className="w-3 h-3" />
-                {t('addItem')}
-              </button>
-
-              {/* Net impact summary */}
-              {hasItems && (
-                <div className="flex items-center justify-between pt-2 mt-1 border-t border-foreground/[0.06]">
-                  <span className="text-[11px] font-medium text-foreground/50 uppercase tracking-wide">
-                    {t('netImpact')}
-                  </span>
-                  <span
-                    className={cn(
-                      'text-sm font-bold tabular-nums',
-                      netImpact > 0 ? 'text-moss-600 dark:text-moss-400' : netImpact < 0 ? 'text-rust-600 dark:text-rust-400' : 'text-foreground/50'
-                    )}
-                  >
-                    {netImpact > 0 ? '+' : ''}{formatCurrency(netImpact, currencyLocale)}
-                  </span>
-                </div>
-              )}
-            </div>
+            {contentPanel}
           </motion.div>
         )}
       </AnimatePresence>

@@ -35,7 +35,6 @@ import {
   Percent,
   Plus,
   Search,
-  Sparkles,
   Square,
   Table2,
   Trash2,
@@ -50,7 +49,7 @@ import { AuroraButton as Button } from '@/design-system/components/Button'
 import { Checkbox } from '@/design-system/components/Checkbox'
 import { AuroraInput as Input } from '@/design-system/components/Input'
 import { Modal, ModalContent, ModalFooter, ModalTitle } from '@/design-system/components/Modal'
-// Tabs removed - using plain buttons for status filters to avoid indicator bug
+// Status filter tabs removed - feature not yet active; Year filter + View mode only
 import {
   TooltipContent,
   TooltipProvider,
@@ -59,10 +58,10 @@ import {
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import {
-  trackNormalizationAcceptAll,
   trackNormalizationAdd,
   trackNormalizationEdit,
 } from '@/lib/analytics'
+import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
 import { TaxLatencySection } from './TaxLatencySection'
 
@@ -377,7 +376,7 @@ export function UnifiedNormalizationModal({
       }).format(amount),
     [currencyLocale]
   )
-  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all')
+  const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
 
   // View mode: bento (cards), compact (table rows), or financial (multi-year table)
   const [viewMode, setViewMode] = useState<'bento' | 'compact' | 'financial'>('compact')
@@ -393,8 +392,6 @@ export function UnifiedNormalizationModal({
   // Full state reset when modal opens/closes to prevent stale UI between sessions
   useEffect(() => {
     if (open) {
-      const pendingCount = normalizations.filter((n) => n.status === 'pending').length
-      setActiveTab(pendingCount > 0 ? 'pending' : 'all')
       setSelectedIds(new Set())
       setShowLedgerDropdown(false)
     } else {
@@ -402,7 +399,7 @@ export function UnifiedNormalizationModal({
       setSearchQuery(initialSearchQuery)
       setSelectedLedger(null)
       setShowLedgerDropdown(false)
-      setInputRect(null)
+      setDropdownAnchorRect(null)
       setEditingId(null)
       setYearFilter(null)
       setCollapsedYears(new Set())
@@ -414,6 +411,8 @@ export function UnifiedNormalizationModal({
   const [showAddForm, setShowAddForm] = useState(false)
   const [selectedLedger, setSelectedLedger] = useState<LedgerAccount | null>(null)
   const [showLedgerDropdown, setShowLedgerDropdown] = useState(false)
+  /** 'search' = dropdown anchored to search input; 'ledger' = anchored to ledger pill (Wijzig) */
+  const [dropdownSource, setDropdownSource] = useState<'search' | 'ledger'>('search')
 
   // New normalization form state
   const [newType, setNewType] = useState<NormalizationType>('add')
@@ -427,14 +426,35 @@ export function UnifiedNormalizationModal({
   // Ref for input container to position dropdown via portal
   const inputContainerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const [inputRect, setInputRect] = useState<DOMRect | null>(null)
+  const ledgerButtonRef = useRef<HTMLButtonElement>(null)
+  const [dropdownAnchorRect, setDropdownAnchorRect] = useState<DOMRect | null>(null)
 
-  // Update input rect when dropdown should show
+  // Update dropdown anchor rect when dropdown should show
   useEffect(() => {
-    if (showLedgerDropdown && inputContainerRef.current) {
-      setInputRect(inputContainerRef.current.getBoundingClientRect())
+    if (!showLedgerDropdown) {
+      setDropdownAnchorRect(null)
+      return
     }
-  }, [showLedgerDropdown, searchQuery])
+    if (dropdownSource === 'ledger' && ledgerButtonRef.current) {
+      setDropdownAnchorRect(ledgerButtonRef.current.getBoundingClientRect())
+    } else if (inputContainerRef.current) {
+      setDropdownAnchorRect(inputContainerRef.current.getBoundingClientRect())
+    }
+  }, [showLedgerDropdown, dropdownSource, searchQuery])
+
+  // Escape key closes dropdown without clearing selection
+  useEffect(() => {
+    if (!showLedgerDropdown) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowLedgerDropdown(false)
+        setDropdownSource('search')
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showLedgerDropdown])
 
   // Year grouping: collapsed state for each year
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set())
@@ -571,22 +591,9 @@ export function UnifiedNormalizationModal({
   // Calculate totals — defensive Number() to prevent string concatenation
   const safeOriginalEBITDA = Number(originalEBITDA) || 0
 
-  // Filter normalizations by tab, year, and search
+  // Filter normalizations by year and search
   const filteredNormalizations = useMemo(() => {
     let result = normalizations
-
-    // Filter by status
-    switch (activeTab) {
-      case 'pending':
-        result = result.filter((n) => n.status === 'pending')
-        break
-      case 'accepted':
-        result = result.filter((n) => n.status === 'accepted')
-        break
-      case 'rejected':
-        result = result.filter((n) => n.status === 'rejected')
-        break
-    }
 
     // Filter by year
     if (yearFilter !== null) {
@@ -611,7 +618,7 @@ export function UnifiedNormalizationModal({
     }
 
     return result
-  }, [normalizations, activeTab, yearFilter, searchQuery, showAddForm])
+  }, [normalizations, yearFilter, searchQuery, showAddForm])
 
   // Header totals — derived from filtered items and year-specific EBITDA
   const totals = useMemo(() => {
@@ -669,17 +676,6 @@ export function UnifiedNormalizationModal({
       return next
     })
   }, [])
-
-  // Counts per status
-  const counts = useMemo(
-    () => ({
-      pending: normalizations.filter((n) => n.status === 'pending').length,
-      accepted: normalizations.filter((n) => n.status === 'accepted').length,
-      rejected: normalizations.filter((n) => n.status === 'rejected').length,
-      all: normalizations.length,
-    }),
-    [normalizations]
-  )
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -776,20 +772,6 @@ export function UnifiedNormalizationModal({
     setNewReason('')
     setNewSelectedYears([currentYear])
   }, [currentYear])
-
-  const acceptAll = useCallback(() => {
-    const pendingCount = normalizations.filter((n) => n.status === 'pending').length
-    trackNormalizationAcceptAll(pendingCount)
-    onNormalizationsChange(
-      normalizations.map((n) => (n.status === 'pending' ? { ...n, status: 'accepted' } : n))
-    )
-  }, [normalizations, onNormalizationsChange])
-
-  const rejectAll = useCallback(() => {
-    onNormalizationsChange(
-      normalizations.map((n) => (n.status === 'pending' ? { ...n, status: 'rejected' } : n))
-    )
-  }, [normalizations, onNormalizationsChange])
 
   const removeNormalization = useCallback(
     (id: string) => {
@@ -1027,7 +1009,7 @@ export function UnifiedNormalizationModal({
             </div>
             <div>
               <ModalTitle className="text-sm font-semibold">
-                {nh('ebitdaNormalizations')}
+                {nh('modalTitle')}
               </ModalTitle>
               <p className="text-xs text-foreground/50">{companyName}</p>
             </div>
@@ -1082,6 +1064,17 @@ export function UnifiedNormalizationModal({
           </div>
         </div>
 
+        {/* Section 1: Operationele Normalisaties (EBITDA) */}
+        <section
+          className="px-6 pt-4 pb-2"
+          role="region"
+          aria-labelledby="section1-header"
+        >
+          <h3 id="section1-header" className="text-sm font-semibold text-foreground">
+            {nh('section1Header')}
+          </h3>
+          <p className="text-xs text-foreground/50 mt-0.5">{nh('section1Subheader')}</p>
+        </section>
         {/* Prompt Input Area - Compact */}
         <div
           ref={inputContainerRef}
@@ -1126,6 +1119,7 @@ export function UnifiedNormalizationModal({
                 onChange={(e) => {
                   const newQuery = e.target.value
                   setSearchQuery(newQuery)
+                  setDropdownSource('search')
                   // Only show dropdown when user types something
                   if (newQuery.trim()) {
                     setShowLedgerDropdown(true)
@@ -1306,11 +1300,10 @@ export function UnifiedNormalizationModal({
               )}
             </AnimatePresence>
 
-            {/* Ledger dropdown - rendered via portal for proper z-index. Show when typing; include custom option when no matches */}
+            {/* Ledger dropdown - rendered via portal for proper z-index. Anchored to search input or ledger pill (Wijzig) */}
             {showLedgerDropdown &&
-              !selectedLedger &&
               searchQuery.trim().length > 0 &&
-              inputRect &&
+              dropdownAnchorRect &&
               createPortal(
                 // NOTE: pointer-events are carefully managed to avoid the backdrop intercepting item clicks.
                 <div className="fixed inset-0 z-[11000] pointer-events-none">
@@ -1319,7 +1312,10 @@ export function UnifiedNormalizationModal({
                     type="button"
                     aria-label={nh('closeLedgerDropdown')}
                     className="absolute inset-0 pointer-events-auto bg-transparent"
-                    onClick={() => setShowLedgerDropdown(false)}
+                    onClick={() => {
+                      setShowLedgerDropdown(false)
+                      setDropdownSource('search')
+                    }}
                   />
                   {/* Dropdown content - clickable, dense two-line layout */}
                   <motion.div
@@ -1329,9 +1325,9 @@ export function UnifiedNormalizationModal({
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                     className="absolute z-[11001] pointer-events-auto py-1 bg-background border border-foreground/10 rounded-xl shadow-2xl max-h-[320px] overflow-y-auto"
                     style={{
-                      top: inputRect.bottom + 4,
-                      left: inputRect.left,
-                      width: Math.max(inputRect.width, 320),
+                      top: dropdownAnchorRect.bottom + 4,
+                      left: dropdownAnchorRect.left,
+                      width: Math.max(dropdownAnchorRect.width, 320),
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -1478,72 +1474,9 @@ export function UnifiedNormalizationModal({
           </motion.div>
         </div>
 
-        {/* Summary bar removed - now inline in header */}
-
-        {/* Toolbar: Unified row with Tabs left, Filters right */}
+        {/* Toolbar: Year Filter + View Mode Toggle */}
         <div className="px-6 py-3 border-t border-foreground/[0.06] bg-muted/30">
-          <div className="flex items-center justify-between gap-4">
-            {/* Left: Status Tabs - Using plain buttons with proper spacing */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background/80 border border-foreground/[0.06]">
-              {[
-                { value: 'all', label: nh('all'), count: counts.all, icon: null, color: null },
-                {
-                  value: 'pending',
-                  label: nh('toReviewShort'),
-                  count: counts.pending,
-                  icon: Clock,
-                  color: 'warning',
-                },
-                {
-                  value: 'accepted',
-                  label: ca('accepted'),
-                  count: counts.accepted,
-                  icon: CheckCircle2,
-                  color: 'success',
-                },
-                {
-                  value: 'rejected',
-                  label: ca('rejected'),
-                  count: counts.rejected,
-                  icon: XCircle,
-                  color: 'secondary',
-                },
-              ].map(({ value, label, count, icon: Icon, color }) => (
-                <button
-                  key={value}
-                  onClick={() => setActiveTab(value as typeof activeTab)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                    activeTab === value
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.05]'
-                  )}
-                >
-                  {Icon && <Icon className="w-3 h-3" />}
-                  <span>{label}</span>
-                  {count > 0 && (
-                    <span
-                      className={cn(
-                        'ml-0.5 min-w-[1.25rem] h-5 px-1.5 inline-flex items-center justify-center rounded-md text-[10px] font-bold tabular-nums',
-                        activeTab === value
-                          ? 'bg-primary-foreground/20 text-primary-foreground'
-                          : color === 'warning'
-                            ? 'bg-warning/10 text-warning'
-                            : color === 'success'
-                              ? 'bg-success/15 text-success'
-                              : color === 'secondary'
-                                ? 'bg-secondary/15 text-secondary'
-                                : 'bg-foreground/[0.08] text-foreground/60'
-                      )}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Right: Year Filter + View Mode Toggle (with visual separator) */}
+          <div className="flex items-center justify-end gap-4">
             <div className="flex items-center gap-3">
               {/* Year Filter Pills - show all available financial years */}
               {availableYears.length > 1 && (
@@ -1700,41 +1633,12 @@ export function UnifiedNormalizationModal({
         </AnimatePresence>
 
         {/* Content */}
-        <div ref={listContainerRef} className="flex-1 overflow-y-auto px-6 pb-6">
-          {/* Bulk Actions for Pending - only show if no selection */}
-          {activeTab === 'pending' && counts.pending > 0 && selectedIds.size === 0 && (
-            <div className="flex items-center justify-between p-2 rounded-lg bg-warning/5 border border-warning/10 mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-warning" />
-                <span className="text-xs font-medium text-foreground/70">
-                  {counts.pending === 1
-                    ? nh('pendingSuggestions', { count: 1 })
-                    : nh('pendingSuggestionsPlural', { count: counts.pending })}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={rejectAll}
-                  className="text-xs h-7 px-2 text-secondary hover:text-secondary hover:bg-secondary/10"
-                >
-                  <X className="w-3 h-3 mr-1" />
-                  {nh('rejectAll')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={acceptAll}
-                  className="text-xs h-7 px-2 text-success hover:text-success hover:bg-success/10"
-                >
-                  <Check className="w-3 h-3 mr-1" />
-                  {nh('acceptAll')}
-                </Button>
-              </div>
-            </div>
-          )}
-
+        <div
+          ref={listContainerRef}
+          id="normalisation-content"
+          className="flex-1 overflow-y-auto px-6 pb-6"
+        >
+          <>
           {/* Inline Add Form - Appears FIRST when adding for immediate visibility */}
           <AnimatePresence>
             {showAddForm && (
@@ -1767,13 +1671,13 @@ export function UnifiedNormalizationModal({
                     </label>
                     <div className="flex items-center gap-2">
                       <button
+                        ref={ledgerButtonRef}
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
                           e.preventDefault()
-                          const code = selectedLedger.code
-                          setSelectedLedger(null)
-                          setSearchQuery(code)
+                          setSearchQuery(`${selectedLedger.code} · ${selectedLedger.name}`)
+                          setDropdownSource('ledger')
                           setShowLedgerDropdown(true)
                           requestAnimationFrame(() => {
                             searchInputRef.current?.focus()
@@ -1790,7 +1694,7 @@ export function UnifiedNormalizationModal({
                         </span>
                         <span className="text-[10px] text-foreground/40 group-hover:text-primary transition-colors flex items-center gap-1">
                           <Edit3 className="w-3 h-3" />
-                          {nh('editButton')}
+                          {nh('changeLedgerButton')}
                         </span>
                       </button>
                     </div>
@@ -2173,32 +2077,18 @@ export function UnifiedNormalizationModal({
                     <div className="absolute inset-1 rounded-full bg-gradient-to-br from-primary/8 to-primary/4" />
                     {/* Inner icon container */}
                     <div className="absolute inset-3 rounded-full bg-background/90 backdrop-blur-sm border border-foreground/[0.08] shadow-sm flex items-center justify-center">
-                      {activeTab === 'pending' ? (
-                        <CheckCircle2 className="w-8 h-8 text-primary/70" />
-                      ) : activeTab === 'rejected' ? (
-                        <XCircle className="w-8 h-8 text-foreground/30" />
-                      ) : activeTab === 'accepted' ? (
-                        <CheckCircle2 className="w-8 h-8 text-foreground/30" />
-                      ) : (
-                        <PenLine className="w-8 h-8 text-foreground/30" />
-                      )}
+                      <PenLine className="w-8 h-8 text-foreground/30" />
                     </div>
                   </motion.div>
 
                   {/* Title */}
                   <p className="text-lg font-medium text-foreground/80 mb-2">
-                    {activeTab === 'pending' && nh('allSuggestionsReviewed')}
-                    {activeTab === 'accepted' && nh('noAcceptedYet')}
-                    {activeTab === 'rejected' && nh('noRejectedYet')}
-                    {activeTab === 'all' && nh('noNormalizationsYet')}
+                    {nh('noNormalizationsYet')}
                   </p>
 
                   {/* Helpful subtext */}
                   <p className="text-sm text-foreground/45 max-w-sm mx-auto leading-relaxed">
-                    {activeTab === 'pending' && nh('allSuggestionsProcessed')}
-                    {activeTab === 'accepted' && nh('acceptOrAddManually')}
-                    {activeTab === 'rejected' && nh('rejectedEmptyState')}
-                    {activeTab === 'all' && nh('useSearchOrQuickAdd')}
+                    {nh('useSearchOrQuickAdd')}
                   </p>
                 </motion.div>
               )}
@@ -2232,11 +2122,23 @@ export function UnifiedNormalizationModal({
                 </p>
               </motion.div>
             )}
+            </>
 
-          {/* Tax Latencies (Belastinglatenties) */}
-          <div className="mt-6 pt-5 border-t border-foreground/[0.06]">
-            <TaxLatencySection />
-          </div>
+            {/* Divider between EBITDA and Balance Sheet sections */}
+            <hr className="my-6 border-foreground/[0.08]" aria-hidden="true" />
+
+            {/* Section 2: Balanscorrecties & Latenties */}
+            <section
+              className="mb-4"
+              role="region"
+              aria-labelledby="section2-header"
+            >
+              <h3 id="section2-header" className="text-sm font-semibold text-foreground">
+                {nh('section2Header')}
+              </h3>
+              <p className="text-xs text-foreground/50 mt-0.5">{nh('section2Subheader')}</p>
+              <TaxLatencySection alwaysExpanded />
+            </section>
         </div>
 
         {/* Footer */}
@@ -2247,8 +2149,8 @@ export function UnifiedNormalizationModal({
                 filtered: filteredNormalizations.length,
                 total: normalizations.length,
               })}
-              {yearFilter &&
-                ` · ${tCommon('filter')}: ${yearFilter}`}
+              {yearFilter ? ` · ${tCommon('filter')}: ${yearFilter}` : ''}
+              {taxLatencyCount > 0 && ` · ${nh('primaryTabTaxLatencies')} (${taxLatencyCount})`}
             </p>
             <Button onClick={() => onOpenChange(false)}>{tCommon('close')}</Button>
           </div>

@@ -31,6 +31,7 @@ import {
   Maximize2,
   MessageCircle,
   MoreVertical,
+  Send,
   Settings,
   Trash2,
 } from 'lucide-react'
@@ -130,6 +131,8 @@ export interface CalculatorNavProps {
   // Accountant mode — back button exits client view
   isAccountantMode?: boolean
   onExitClientView?: () => void
+  // Invite client (accountant mode)
+  onInviteClient?: () => void
 }
 
 // ─────────────────────────────────────────
@@ -261,6 +264,7 @@ export function CalculatorNav({
   onRedownload,
   isAccountantMode = false,
   onExitClientView,
+  onInviteClient,
 }: CalculatorNavProps) {
   const t = useTranslations()
   const router = useTransitionRouter()
@@ -651,6 +655,22 @@ export function CalculatorNav({
               </button>
             </Tooltip>
 
+            {/* Invite Client — Accountant mode only */}
+            {isAccountantMode && onInviteClient && (
+              <Tooltip content={hasReport ? t('invite.buttonTooltip') : t('invite.buttonDisabled')}>
+                <AuroraButton
+                  variant="primary"
+                  size="sm"
+                  onClick={onInviteClient}
+                  disabled={!hasReport}
+                  className="gap-1.5"
+                >
+                  <Send className="w-4 h-4" />
+                  <span className="hidden lg:inline">{t('invite.buttonLabel')}</span>
+                </AuroraButton>
+              </Tooltip>
+            )}
+
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
 
             {/* PDF Download with Loading State + History Dropdown */}
@@ -771,6 +791,22 @@ export function CalculatorNav({
               )}
             </AnimatePresence>
 
+            {isAccountantMode && onInviteClient && (
+              <Tooltip content={t('invite.buttonTooltip')}>
+                <button
+                  onClick={onInviteClient}
+                  disabled={!hasReport}
+                  className={cn(
+                    'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
+                    hasReport
+                      ? 'text-primary bg-primary/10'
+                      : 'text-foreground/20 cursor-not-allowed'
+                  )}
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </Tooltip>
+            )}
             <Tooltip content={t('assistant.title')}>
               <button
                 onClick={onOpenAssistant}
