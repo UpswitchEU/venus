@@ -61,7 +61,7 @@ import {
   trackNormalizationAdd,
   trackNormalizationEdit,
 } from '@/lib/analytics'
-import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import { getNetTaxLatencyImpact, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
 import { TaxLatencySection } from './TaxLatencySection'
 
@@ -378,14 +378,7 @@ export function UnifiedNormalizationModal({
     [currencyLocale]
   )
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
-  const taxLatencyNetImpact = useTaxLatencyStore((s) => {
-    let sum = 0
-    for (const item of s.items) {
-      const amt = Math.abs(item.temporaryDifference) * (item.taxRate / 100)
-      sum += item.type === 'active' ? amt : -amt
-    }
-    return sum
-  })
+  const taxLatencyNetImpact = useTaxLatencyStore((s) => getNetTaxLatencyImpact(s.items))
 
   const [primaryTab, setPrimaryTab] = useState<'ebitda' | 'balans'>('ebitda')
 
@@ -1027,9 +1020,9 @@ export function UnifiedNormalizationModal({
             </div>
           </div>
 
-          {/* Inline Summary - adapts per tab */}
+          {/* Inline Summary - adapts per tab, hidden on small screens */}
           {primaryTab === 'ebitda' ? (
-            <div className="flex items-center gap-4 lg:gap-6">
+            <div className="hidden md:flex items-center gap-4 lg:gap-6">
               <div className="text-right">
                 <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
                   {nh('original')}
@@ -1076,7 +1069,7 @@ export function UnifiedNormalizationModal({
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-4 lg:gap-6">
+            <div className="hidden md:flex items-center gap-4 lg:gap-6">
               <div className="text-right">
                 <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
                   {nh('primaryTabTaxLatencies')}
@@ -2255,7 +2248,7 @@ export function UnifiedNormalizationModal({
                     total: normalizations.length,
                   }) + (yearFilter ? ` · ${tCommon('filter')}: ${yearFilter}` : '')
                 : taxLatencyCount > 0
-                  ? nh('primaryTabTaxLatencies') + ` (${taxLatencyCount})`
+                  ? `${nh('primaryTabTaxLatencies')} · ${tTax('itemCount', { count: taxLatencyCount })}`
                   : nh('primaryTabTaxLatencies')}
             </p>
             <Button onClick={() => onOpenChange(false)}>{tCommon('close')}</Button>

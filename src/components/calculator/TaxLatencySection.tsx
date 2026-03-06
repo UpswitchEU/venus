@@ -75,7 +75,7 @@ function TaxLatencyRow({ item, currencyLocale, onEdit, onRemove, t }: TaxLatency
       {/* Type badge */}
       <span
         className={cn(
-          'inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide flex-shrink-0',
+          'inline-flex items-center justify-center min-w-[120px] px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide flex-shrink-0',
           item.type === 'active'
             ? 'bg-moss-100 text-moss-700 dark:bg-moss-900/30 dark:text-moss-400'
             : 'bg-rust-100 text-rust-700 dark:bg-rust-900/30 dark:text-rust-400'
@@ -238,11 +238,21 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
     resetDraft()
   }, [resetDraft])
 
+  const handleRemove = useCallback((id: string) => {
+    if (editingId === id) resetDraft()
+    removeItem(id)
+  }, [editingId, resetDraft, removeItem])
+
   // Collapsible state (only used when not alwaysExpanded)
   const [isExpanded, setIsExpanded] = useState(alwaysExpanded || hasItems)
 
   const inputForm = (
-    <div className="rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] p-4">
+    <div className={cn(
+      'rounded-xl border p-4 transition-colors',
+      editingId
+        ? 'border-primary/30 bg-primary/[0.02]'
+        : 'border-foreground/[0.08] bg-foreground/[0.02]'
+    )}>
       {/* Form heading when editing */}
       {editingId && (
         <div className="flex items-center justify-between mb-3">
@@ -261,7 +271,7 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
       )}
 
       {/* Input row */}
-      <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr_140px_100px_auto] gap-3 items-end">
+      <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_130px_80px_auto] gap-3 items-end">
         {/* Type */}
         <div>
           <div className="flex items-center gap-1 mb-1">
@@ -399,32 +409,36 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
       </div>
 
       {/* Live preview of the calculation */}
-      {canSubmit && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="mt-3 flex items-center gap-2 text-xs text-foreground/50"
-        >
-          <span>€ {parsedAmount.toLocaleString(currencyLocale)} × {parsedRate}% =</span>
-          <span
-            className={cn(
-              'font-bold tabular-nums',
-              draftPreview > 0 ? 'text-moss-600 dark:text-moss-400' : 'text-rust-600 dark:text-rust-400'
-            )}
+      <AnimatePresence>
+        {canSubmit && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="mt-3 flex items-center gap-2 text-xs text-foreground/50"
           >
-            {draftPreview > 0 ? '+' : ''}{formatCurrency(draftPreview, currencyLocale)}
-          </span>
-        </motion.div>
-      )}
+            <span>€ {parsedAmount.toLocaleString(currencyLocale)} × {parsedRate}% =</span>
+            <span
+              className={cn(
+                'font-bold tabular-nums',
+                draftPreview > 0 ? 'text-moss-600 dark:text-moss-400' : 'text-rust-600 dark:text-rust-400'
+              )}
+            >
+              {draftPreview > 0 ? '+' : ''}{formatCurrency(draftPreview, currencyLocale)}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 
   const itemsList = (
     <div className="space-y-1.5 mt-4">
-      {/* Column headers */}
+      {/* Column headers — hidden on mobile where badges are self-documenting */}
       {hasItems && (
-        <div className="flex items-center gap-3 px-3 h-8 text-[10px] font-semibold text-foreground/40 uppercase tracking-wider">
-          <span className="w-[84px] flex-shrink-0">{t('type')}</span>
+        <div className="hidden sm:flex items-center gap-3 px-3 h-8 text-[10px] font-semibold text-foreground/40 uppercase tracking-wider">
+          <span className="min-w-[120px] flex-shrink-0">{t('type')}</span>
           <span className="flex-1 min-w-0">{t('description')}</span>
           <span className="flex-shrink-0">{t('temporaryDifference')}</span>
           <span className="w-12 text-right flex-shrink-0">{t('taxRate')}</span>
@@ -440,7 +454,7 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
             item={item}
             currencyLocale={currencyLocale}
             onEdit={handleEdit}
-            onRemove={removeItem}
+            onRemove={handleRemove}
             t={t}
           />
         ))}
