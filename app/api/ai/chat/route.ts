@@ -5,12 +5,38 @@
  * Supports both streaming (SSE) and non-streaming (JSON) modes.
  * Conversation history is managed server-side by Titan.
  *
+ * For accountant-in-client-view: forwards X-Client-User-Id, X-Accountant-User-Id,
+ * X-Relationship-Id so Titan can resolve session/report for the client.
+ *
  * Titan endpoints:
  * - POST /api/v2/ai/stream (SSE streaming with tool events)
  * - POST /api/v2/ai/chat (JSON fallback)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  CLIENT_CONTEXT_HEADERS,
+  LEGACY_CLIENT_CONTEXT_HEADERS,
+} from '@/constants/headers'
+
+function getClientContextHeadersForTitan(request: NextRequest): Record<string, string> {
+  const headers: Record<string, string> = {}
+  const clientUserId =
+    request.headers.get(CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID) ||
+    request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID)
+  const accountantUserId =
+    request.headers.get(CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID) ||
+    request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID)
+  const relationshipId =
+    request.headers.get(CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID) ||
+    request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID)
+  if (clientUserId) headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientUserId
+  if (accountantUserId)
+    headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = accountantUserId
+  if (relationshipId)
+    headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = relationshipId
+  return headers
+}
 
 const TITAN_API_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -77,6 +103,8 @@ export async function POST(request: NextRequest) {
       titanPayload.normalizations = body.normalizations
     }
 
+    const clientContextHeaders = getClientContextHeadersForTitan(request)
+
     const titanResponse = await fetch(titanEndpoint, {
       method: 'POST',
       headers: {
@@ -84,6 +112,7 @@ export async function POST(request: NextRequest) {
         Accept: useStream ? 'text/event-stream' : 'application/json',
         ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         ...(cookieHeader && { Cookie: cookieHeader }),
+        ...clientContextHeaders,
       },
       body: JSON.stringify(titanPayload),
       signal: controller.signal,

@@ -7,11 +7,25 @@
  *
  * Architecture:
  * Venus Client → Next.js Proxy (/api/ai/chat) → Titan (/api/v2/ai/stream) → Claude + Tools
+ *
+ * When accountant is in client view, adds X-Client-User-Id, X-Accountant-User-Id,
+ * X-Relationship-Id so Titan resolves session/report for the client.
  */
 
 import { createContextLogger } from '../../utils/logger'
+import { useClientContext } from '../../stores/clientContext'
 
 const logger = createContextLogger('AIChatService')
+
+function getRequestHeaders(includeContentType = true): Record<string, string> {
+  const headers: Record<string, string> = {}
+  if (includeContentType) headers['Content-Type'] = 'application/json'
+  const contextHeaders = useClientContext.getState().getContextHeaders()
+  if (Object.keys(contextHeaders).length > 0) {
+    Object.assign(headers, contextHeaders)
+  }
+  return headers
+}
 
 // ─────────────────────────────────────────
 // TYPES
@@ -96,7 +110,7 @@ class AIChatServiceImpl {
 
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getRequestHeaders(),
         credentials: 'include',
         body: JSON.stringify({
           message: request.message,
@@ -180,7 +194,7 @@ class AIChatServiceImpl {
       try {
         const response = await fetch('/api/ai/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getRequestHeaders(),
           credentials: 'include',
           body: JSON.stringify({
             message: request.message,
@@ -277,6 +291,7 @@ class AIChatServiceImpl {
   }> {
     try {
       const response = await fetch(`/api/ai/history?reportId=${encodeURIComponent(reportId)}`, {
+        headers: getRequestHeaders(false),
         credentials: 'include',
       })
 

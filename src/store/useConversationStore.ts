@@ -31,6 +31,8 @@ export interface ConversationStore {
   conversationId: string | null
   toolInProgress: string | null // Name of tool currently executing (e.g., "get_valuation_session")
   historyLoaded: boolean
+  /** Report/session we last loaded history for — reset when switching valuations (accountant: client A → client B) */
+  lastLoadedReportId: string | null
 
   // Simple actions
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => string
@@ -104,6 +106,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
     conversationId: null,
     toolInProgress: null,
     historyLoaded: false,
+    lastLoadedReportId: null,
 
     addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => {
       const id = generateMessageId()
@@ -235,6 +238,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
         conversationId: null,
         toolInProgress: null,
         historyLoaded: false,
+        lastLoadedReportId: null,
       })
     },
 
@@ -257,9 +261,16 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
 
     /**
      * Load conversation history from the server for a given report.
+     * When reportId changes (e.g. accountant switches clients), reload for the new report.
      */
     loadHistory: async (reportId: string) => {
-      if (get().historyLoaded) return
+      const state = get()
+      if (state.historyLoaded && state.lastLoadedReportId === reportId) return
+
+      // Clear messages when switching reports (accountant: client A → B) to avoid showing stale history
+      if (state.lastLoadedReportId && state.lastLoadedReportId !== reportId) {
+        set({ messages: [], conversationId: null })
+      }
 
       try {
         const { conversationId, messages } = await aiChatService.loadHistory(reportId)
@@ -279,6 +290,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
             conversationId,
             messages: convertedMessages,
             historyLoaded: true,
+            lastLoadedReportId: reportId,
           })
 
           storeLogger.debug('Loaded conversation history from server', {
@@ -286,13 +298,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
             messageCount: convertedMessages.length,
           })
         } else {
-          set({ historyLoaded: true })
+          set({ historyLoaded: true, lastLoadedReportId: reportId })
         }
       } catch (error) {
         storeLogger.warn('Failed to load conversation history', {
           error: error instanceof Error ? error.message : String(error),
         })
-        set({ historyLoaded: true })
+        set({ historyLoaded: true, lastLoadedReportId: reportId })
       }
     },
 

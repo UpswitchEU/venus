@@ -508,31 +508,35 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const conversationStore = useConversationStore()
   const streamCleanupRef = useRef<(() => void) | null>(null)
 
-  // Load conversation history from server and sync to local chat state
+  // Load conversation history from server and sync to local chat state.
+  // When reportId changes (e.g. accountant switches clients), reload for the new report.
   useEffect(() => {
-    if (reportId && chatDrawerOpen && !conversationStore.historyLoaded && !isLoadingHistory) {
+    const needsLoad =
+      reportId &&
+      chatDrawerOpen &&
+      !isLoadingHistory &&
+      conversationStore.lastLoadedReportId !== reportId
+    if (needsLoad) {
       setIsLoadingHistory(true)
       conversationStore
         .loadHistory(reportId)
         .then(() => {
           const storeMessages = useConversationStore.getState().messages
-          if (storeMessages.length > 0) {
-            setChatMessages(
-              storeMessages.map((m) => ({
-                id: m.id,
-                role: (m.role || (m.type === 'ai' ? 'assistant' : m.type)) as
-                  | 'user'
-                  | 'assistant'
-                  | 'system',
-                content: m.content,
-                timestamp: m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp),
-              }))
-            )
-          }
+          setChatMessages(
+            storeMessages.map((m) => ({
+              id: m.id,
+              role: (m.role || (m.type === 'ai' ? 'assistant' : m.type)) as
+                | 'user'
+                | 'assistant'
+                | 'system',
+              content: m.content,
+              timestamp: m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp),
+            }))
+          )
         })
         .finally(() => setIsLoadingHistory(false))
     }
-  }, [reportId, chatDrawerOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [reportId, chatDrawerOpen, conversationStore.lastLoadedReportId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup streaming on unmount
   useEffect(() => {
@@ -2656,6 +2660,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }
 
   // ─── Shared Chat Drawer Props ───
+  const cyd = formStoreData?.current_year_data as { ebitda?: number } | undefined
+  const hy = (formStoreData?.historical_years_data || []) as Array<{ ebitda?: number }>
+  const hasEbitda =
+    (cyd && (cyd.ebitda ?? 0) !== 0) || hy.some((h) => (h.ebitda ?? 0) !== 0)
   const chatDrawerProps = {
     open: chatDrawerOpen,
     onOpenChange: setChatDrawerOpen,
@@ -2664,6 +2672,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     isGenerating: isChatGenerating || isLoadingHistory,
     companyName: collectedData.companyName,
     fieldContext,
+    hasReport: !!report,
+    hasEbitda,
+    pendingNormalizationsCount: normalizationItems.filter((n) => n.status === 'pending').length,
     onApplyFieldUpdate: handleApplyFieldUpdate,
     pendingUpdates,
     onAcceptUpdate: handleAcceptUpdate,

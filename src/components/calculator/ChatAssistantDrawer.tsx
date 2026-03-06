@@ -324,6 +324,14 @@ export interface FieldContext {
   hint?: string
 }
 
+export interface SuggestionContext {
+  fieldContext?: FieldContext
+  hasReport?: boolean
+  hasEbitda?: boolean
+  hasFinancials?: boolean
+  pendingNormalizationsCount?: number
+}
+
 interface ChatAssistantDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -338,6 +346,9 @@ interface ChatAssistantDrawerProps {
   // Context from the form
   companyName?: string
   fieldContext?: FieldContext
+  hasReport?: boolean
+  hasEbitda?: boolean
+  pendingNormalizationsCount?: number
   // Bi-directional sync: when AI suggests field updates
   onApplyFieldUpdate?: (field: string, value: any) => void
   pendingUpdates?: { field: string; value: any; label: string }[]
@@ -361,57 +372,59 @@ interface ChatAssistantDrawerProps {
   onNewConversation?: () => void
 }
 
-// Contextual suggestions based on field (returns translation keys for flexibility)
-const getContextualSuggestionKeys = (fieldContext?: FieldContext): string[] => {
-  if (!fieldContext) {
-    return [
-      'suggestions.whatWorth',
-      'suggestions.whichNorms',
-      'suggestions.generateReport',
-      'suggestions.explainEbitda',
-    ]
+// Contextual suggestions based on report state, financial data, and field
+const MIN_SUGGESTIONS = 3
+const PAD_KEY = 'suggestions.askQuestion'
+
+type SuggestionItem = { key: string; params?: Record<string, string> }
+
+const getContextualSuggestionKeys = (ctx: SuggestionContext): SuggestionItem[] => {
+  const {
+    fieldContext,
+    hasReport = false,
+    hasEbitda = false,
+    pendingNormalizationsCount = 0,
+  } = ctx
+
+  const items: SuggestionItem[] = []
+
+  // Value / worth: whatWorth when no report, explainValue when report exists
+  if (!hasReport) {
+    items.push({ key: 'suggestions.whatWorth' })
+  } else {
+    items.push({ key: 'suggestions.explainValue' })
   }
-  const { field } = fieldContext
-  switch (field) {
-    case 'ownerSalary':
-    case 'salary':
-      return [
-        'suggestions.whatWorth',
-        'suggestions.whichNorms',
-        'suggestions.generateReport',
-        'suggestions.explainEbitda',
-      ]
-    case 'rent':
-    case 'huurkosten':
-      return [
-        'suggestions.whatWorth',
-        'suggestions.whichNorms',
-        'suggestions.generateReport',
-        'suggestions.explainEbitda',
-      ]
-    case 'ebitda':
-      return [
-        'suggestions.explainEbitda',
-        'suggestions.whichNormsApply',
-        'suggestions.whichNorms',
-        'suggestions.generateReport',
-      ]
-    case 'revenue':
-    case 'omzet':
-      return [
-        'suggestions.whatWorth',
-        'suggestions.whichNorms',
-        'suggestions.generateReport',
-        'suggestions.explainEbitda',
-      ]
-    default:
-      return [
-        'suggestions.whatWorth',
-        'suggestions.whichNorms',
-        'suggestions.generateReport',
-        'suggestions.explainEbitda',
-      ]
+
+  // Generate report: only when no report yet
+  if (!hasReport) {
+    items.push({ key: 'suggestions.generateReport' })
   }
+
+  // Normalizations
+  items.push({ key: 'suggestions.whichNorms' })
+  if (pendingNormalizationsCount > 0) {
+    items.push({ key: 'suggestions.whichNormsApply' })
+  }
+
+  // EBITDA explanation: only when EBITDA has a value
+  if (hasEbitda) {
+    const yearMatch = fieldContext?.field === 'ebitda' && fieldContext?.label
+      ? fieldContext.label.match(/\b(20\d{2})\b/)
+      : null
+    const year = yearMatch?.[1]
+    if (year) {
+      items.push({ key: 'suggestions.explainEbitdaFor', params: { year } })
+    } else {
+      items.push({ key: 'suggestions.explainEbitda' })
+    }
+  }
+
+  // Pad to minimum
+  while (items.length < MIN_SUGGESTIONS) {
+    items.push({ key: PAD_KEY })
+  }
+
+  return items
 }
 
 export function ChatAssistantDrawer({
@@ -422,6 +435,9 @@ export function ChatAssistantDrawer({
   isGenerating = false,
   companyName,
   fieldContext,
+  hasReport = false,
+  hasEbitda = false,
+  pendingNormalizationsCount = 0,
   onApplyFieldUpdate,
   pendingUpdates = [],
   onAcceptUpdate,
@@ -464,8 +480,15 @@ export function ChatAssistantDrawer({
   const [detectedValues, setDetectedValues] = useState<ParsedValue[]>([])
   const [detectedCommands, setDetectedCommands] = useState<ParsedCommand[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const suggestionKeys = getContextualSuggestionKeys(fieldContext)
-  const suggestions = suggestionKeys.map((k) => ca(k))
+  const suggestionItems = getContextualSuggestionKeys({
+    fieldContext,
+    hasReport,
+    hasEbitda,
+    pendingNormalizationsCount,
+  })
+  const suggestions = suggestionItems.map((item) =>
+    item.params ? ca(item.key as any, item.params) : ca(item.key as any)
+  )
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Robust scroll lock when drawer is open (iOS Safari + Android)
