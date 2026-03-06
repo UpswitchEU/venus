@@ -115,7 +115,7 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
         <p className="mt-6 text-sm text-muted-foreground">
           {t('contactSupportPrefix')}{' '}
           <a
-            href="mailto:support@upswitch.app"
+            href="mailto:hello@upswitch.app"
             className="text-primary hover:text-primary/80 underline"
           >
             {t('contactSupport')}
