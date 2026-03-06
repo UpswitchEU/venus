@@ -1831,7 +1831,10 @@
     "noItems": "No tax latencies added",
     "noItemsDesc": "Add deferred tax assets or liabilities using the form above.",
     "addCta": "Add",
+    "saveCta": "Save",
     "editItem": "Edit",
+    "cancelEdit": "Cancel",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
     "summary": "{count, plural, one {# latency} other {# latencies}}"
   },
   "csvUpload": {

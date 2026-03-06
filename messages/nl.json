@@ -1831,7 +1831,10 @@
     "noItems": "Geen belastinglatenties toegevoegd",
     "noItemsDesc": "Voeg latente belastingvorderingen of -verplichtingen toe via het formulier hierboven.",
     "addCta": "Toevoegen",
+    "saveCta": "Opslaan",
     "editItem": "Bewerken",
+    "cancelEdit": "Annuleren",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
     "summary": "{count, plural, one {# latentie} other {# latenties}}"
   },
   "csvUpload": {

@@ -364,6 +364,7 @@ export function UnifiedNormalizationModal({
   const nh = useTranslations('normalizationHub')
   const ca = useTranslations('chatAssistant')
   const tCommon = useTranslations('common.actions')
+  const tTax = useTranslations('taxLatency')
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = useCallback(
@@ -377,6 +378,16 @@ export function UnifiedNormalizationModal({
     [currencyLocale]
   )
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
+  const taxLatencyNetImpact = useTaxLatencyStore((s) => {
+    let sum = 0
+    for (const item of s.items) {
+      const amt = Math.abs(item.temporaryDifference) * (item.taxRate / 100)
+      sum += item.type === 'active' ? amt : -amt
+    }
+    return sum
+  })
+
+  const [primaryTab, setPrimaryTab] = useState<'ebitda' | 'balans'>('ebitda')
 
   // View mode: bento (cards), compact (table rows), or financial (multi-year table)
   const [viewMode, setViewMode] = useState<'bento' | 'compact' | 'financial'>('compact')
@@ -392,6 +403,7 @@ export function UnifiedNormalizationModal({
   // Full state reset when modal opens/closes to prevent stale UI between sessions
   useEffect(() => {
     if (open) {
+      setPrimaryTab('ebitda')
       setSelectedIds(new Set())
       setShowLedgerDropdown(false)
     } else {
@@ -1015,66 +1027,150 @@ export function UnifiedNormalizationModal({
             </div>
           </div>
 
-          {/* Inline EBITDA Summary - Compact */}
-          <div className="flex items-center gap-4 lg:gap-6">
-            <div className="text-right">
-              <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
-                {nh('original')}
-              </p>
-              <p className="text-sm font-mono font-medium text-foreground/50">
-                {formatCurrency(totals.original)}
-              </p>
+          {/* Inline Summary - adapts per tab */}
+          {primaryTab === 'ebitda' ? (
+            <div className="flex items-center gap-4 lg:gap-6">
+              <div className="text-right">
+                <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
+                  {nh('original')}
+                </p>
+                <p className="text-sm font-mono font-medium text-foreground/50">
+                  {formatCurrency(totals.original)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
+                  {nh('adjustment')}
+                </p>
+                <motion.p
+                  key={totals.adjustment}
+                  initial={{ opacity: 0.5 }}
+                  animate={{ opacity: 1 }}
+                  className={cn(
+                    'text-sm font-mono font-semibold',
+                    totals.adjustment > 0
+                      ? 'text-success'
+                      : totals.adjustment < 0
+                        ? 'text-secondary'
+                        : 'text-foreground/50'
+                  )}
+                >
+                  {totals.adjustment > 0 ? '+' : ''}
+                  {formatCurrency(totals.adjustment)}
+                </motion.p>
+              </div>
+              <div className="w-px h-8 bg-foreground/10" />
+              <div className="text-right">
+                <p className="text-[9px] font-medium text-primary uppercase tracking-wider">
+                  {nh('normalized')}
+                </p>
+                <motion.p
+                  key={totals.normalized}
+                  initial={{ opacity: 0.5, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  className="text-lg font-mono font-bold text-foreground tracking-tight"
+                >
+                  {formatCurrency(totals.normalized)}
+                </motion.p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
-                {nh('adjustment')}
-              </p>
-              <motion.p
-                key={totals.adjustment}
-                initial={{ opacity: 0.5 }}
-                animate={{ opacity: 1 }}
-                className={cn(
-                  'text-sm font-mono font-semibold',
-                  totals.adjustment > 0
-                    ? 'text-success'
-                    : totals.adjustment < 0
-                      ? 'text-secondary'
-                      : 'text-foreground/50'
-                )}
-              >
-                {totals.adjustment > 0 ? '+' : ''}
-                {formatCurrency(totals.adjustment)}
-              </motion.p>
+          ) : (
+            <div className="flex items-center gap-4 lg:gap-6">
+              <div className="text-right">
+                <p className="text-[9px] font-medium text-foreground/40 uppercase tracking-wider">
+                  {nh('primaryTabTaxLatencies')}
+                </p>
+                <p className="text-sm font-mono font-medium text-foreground/50 tabular-nums">
+                  {tTax('itemCount', { count: taxLatencyCount })}
+                </p>
+              </div>
+              <div className="w-px h-8 bg-foreground/10" />
+              <div className="text-right">
+                <p className="text-[9px] font-medium text-primary uppercase tracking-wider">
+                  {tTax('netImpact')}
+                </p>
+                <motion.p
+                  key={taxLatencyNetImpact}
+                  initial={{ opacity: 0.5, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  className={cn(
+                    'text-lg font-mono font-bold tracking-tight',
+                    taxLatencyNetImpact > 0
+                      ? 'text-success'
+                      : taxLatencyNetImpact < 0
+                        ? 'text-secondary'
+                        : 'text-foreground/50'
+                  )}
+                >
+                  {taxLatencyNetImpact > 0 ? '+' : ''}
+                  {formatCurrency(taxLatencyNetImpact)}
+                </motion.p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-foreground/10" />
-            <div className="text-right">
-              <p className="text-[9px] font-medium text-primary uppercase tracking-wider">
-                {nh('normalized')}
-              </p>
-              <motion.p
-                key={totals.normalized}
-                initial={{ opacity: 0.5, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                className="text-lg font-mono font-bold text-foreground tracking-tight"
-              >
-                {formatCurrency(totals.normalized)}
-              </motion.p>
-            </div>
+          )}
+        </div>
+
+        {/* Tab Bar */}
+        <div className="px-6 py-2 border-b border-foreground/[0.06]" role="tablist" aria-label={`${nh('primaryTabEbitda')} / ${nh('primaryTabTaxLatencies')}`}>
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background/80 border border-foreground/[0.06] w-fit">
+            <button
+              onClick={() => setPrimaryTab('ebitda')}
+              role="tab"
+              aria-selected={primaryTab === 'ebitda'}
+              aria-controls="ebitda-tab-content"
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                primaryTab === 'ebitda'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.05]'
+              )}
+            >
+              {nh('primaryTabEbitda')}
+            </button>
+            <button
+              onClick={() => setPrimaryTab('balans')}
+              role="tab"
+              aria-selected={primaryTab === 'balans'}
+              aria-controls="balans-tab-content"
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                primaryTab === 'balans'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.05]'
+              )}
+            >
+              {nh('primaryTabTaxLatencies')}
+              {taxLatencyCount > 0 && (
+                <span
+                  className={cn(
+                    'ml-0.5 min-w-[1.25rem] h-5 px-1.5 inline-flex items-center justify-center rounded-md text-[10px] font-bold tabular-nums',
+                    primaryTab === 'balans'
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-foreground/[0.08] text-foreground/60'
+                  )}
+                >
+                  {taxLatencyCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Section 1: Operationele Normalisaties (EBITDA) */}
-        <section
-          className="px-6 pt-4 pb-2"
-          role="region"
-          aria-labelledby="section1-header"
-        >
-          <h3 id="section1-header" className="text-sm font-semibold text-foreground">
-            {nh('section1Header')}
-          </h3>
-          <p className="text-xs text-foreground/50 mt-0.5">{nh('section1Subheader')}</p>
-        </section>
+        {/* Tab 1: EBITDA Normalisaties */}
+        {primaryTab === 'ebitda' && (
+          <>
+          <section
+            className="px-6 pt-4 pb-2"
+            role="region"
+            aria-labelledby="section1-header"
+          >
+            <h3 id="section1-header" className="text-sm font-semibold text-foreground">
+              {nh('section1Header')}
+            </h3>
+            <p className="text-xs text-foreground/50 mt-0.5">{nh('section1Subheader')}</p>
+          </section>
         {/* Prompt Input Area - Compact */}
         <div
           ref={inputContainerRef}
@@ -1635,7 +1731,8 @@ export function UnifiedNormalizationModal({
         {/* Content */}
         <div
           ref={listContainerRef}
-          id="normalisation-content"
+          id="ebitda-tab-content"
+          role="tabpanel"
           className="flex-1 overflow-y-auto px-6 pb-6"
         >
           <>
@@ -2123,13 +2220,19 @@ export function UnifiedNormalizationModal({
               </motion.div>
             )}
             </>
+        </div>
+          </>
+        )}
 
-            {/* Divider between EBITDA and Balance Sheet sections */}
-            <hr className="my-6 border-foreground/[0.08]" aria-hidden="true" />
-
-            {/* Section 2: Balanscorrecties & Latenties */}
+        {/* Tab 2: Balans & Latenties */}
+        {primaryTab === 'balans' && (
+          <div
+            id="balans-tab-content"
+            role="tabpanel"
+            className="flex-1 overflow-y-auto px-6 pb-6"
+          >
             <section
-              className="mb-4"
+              className="pt-4"
               role="region"
               aria-labelledby="section2-header"
             >
@@ -2139,18 +2242,21 @@ export function UnifiedNormalizationModal({
               <p className="text-xs text-foreground/50 mt-0.5">{nh('section2Subheader')}</p>
               <TaxLatencySection alwaysExpanded />
             </section>
-        </div>
+          </div>
+        )}
 
         {/* Footer */}
         <ModalFooter className="border-t border-foreground/[0.06] px-6 py-4">
           <div className="flex items-center justify-between w-full">
             <p className="text-xs text-foreground/50">
-              {nh('normalizationsCountOf', {
-                filtered: filteredNormalizations.length,
-                total: normalizations.length,
-              })}
-              {yearFilter ? ` · ${tCommon('filter')}: ${yearFilter}` : ''}
-              {taxLatencyCount > 0 && ` · ${nh('primaryTabTaxLatencies')} (${taxLatencyCount})`}
+              {primaryTab === 'ebitda'
+                ? nh('normalizationsCountOf', {
+                    filtered: filteredNormalizations.length,
+                    total: normalizations.length,
+                  }) + (yearFilter ? ` · ${tCommon('filter')}: ${yearFilter}` : '')
+                : taxLatencyCount > 0
+                  ? nh('primaryTabTaxLatencies') + ` (${taxLatencyCount})`
+                  : nh('primaryTabTaxLatencies')}
             </p>
             <Button onClick={() => onOpenChange(false)}>{tCommon('close')}</Button>
           </div>
