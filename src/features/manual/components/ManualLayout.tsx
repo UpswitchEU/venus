@@ -2046,6 +2046,28 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       collectedData.companyName?.trim() ||
       (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim())
     try {
+      // Store current form data for prefill on new valuation (business + financials)
+      try {
+        const formData = useManualFormStore.getState().formData
+        const normItems = useNormalizationStore.getState().items.filter((n) => n.status === 'accepted')
+        const prefillPayload: Record<string, unknown> = {
+          ...formData,
+          _fromNewValuation: true,
+          _normCount: normItems.length,
+        }
+        // Exclude large/blob and non-serializable fields
+        delete (prefillPayload as any).html_report
+        delete (prefillPayload as any).valuation_result
+        // Safe stringify: skip functions, undefined, symbols
+        const json = JSON.stringify(prefillPayload, (_, v) =>
+          typeof v === 'function' || typeof v === 'symbol' ? undefined : v
+        )
+        if (json && json.length < 500_000) {
+          sessionStorage.setItem('venus_new_valuation_prefill', json)
+        }
+      } catch {
+        /* sessionStorage unavailable or serialization failed */
+      }
       // Reset all local state so user can start fresh without being stuck
       useSessionStore.getState().clearSession()
       useManualFormStore.getState().resetForm()
@@ -2055,10 +2077,24 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (reportId) useVersionHistoryStore.getState().clearVersions(reportId)
       setShowNewValuationModal(false)
       // Use full page navigation to ensure clean slate and UI unlock (avoids skeleton trap)
-      const url = `/${currentLocale}/reports/new`
-      const fullUrl = prefilled
-        ? `${url}?prefilledQuery=${encodeURIComponent(prefilled)}`
-        : url
+      const baseUrl = `/${currentLocale}/reports/new`
+      const params = new URLSearchParams()
+      if (prefilled) params.set('prefilledQuery', prefilled)
+      // Preserve accountant client context so new valuation stays linked to same client
+      const ctx = useClientContext.getState()
+      const relId = clientContextId ?? ctx?.relationshipId
+      if ((isAccountantMode || ctx?.isActingAsClient) && relId) {
+        params.set('clientId', relId)
+      }
+      // Preserve other context from current URL (clientToken, return_url, source)
+      if (typeof window !== 'undefined') {
+        const current = new URLSearchParams(window.location.search)
+        for (const key of ['clientToken', 'return_url', 'source', 'flow', 'mode']) {
+          const v = current.get(key)
+          if (v && !params.has(key)) params.set(key, v)
+        }
+      }
+      const fullUrl = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl
       window.location.href = fullUrl
     } finally {
       setIsConfirmingNewValuation(false)
@@ -2069,6 +2105,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     collectedData.companyName,
     isAccountantFlow,
     identity.clientContext?.clientCompanyName,
+    isAccountantMode,
+    clientContextId,
   ])
 
   const handleSelectValuation = useCallback(

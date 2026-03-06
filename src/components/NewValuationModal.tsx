@@ -101,12 +101,12 @@ export const NewValuationModal: React.FC<NewValuationModalProps> = ({
           </label>
 
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap sm:flex-nowrap">
             <button
               type="button"
               onClick={onCancel}
               disabled={isConfirming}
-              className="flex-1 px-4 py-2 text-muted-foreground bg-background border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 text-muted-foreground bg-background border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-0"
             >
               {t('cancel')}
             </button>
@@ -114,7 +114,7 @@ export const NewValuationModal: React.FC<NewValuationModalProps> = ({
               type="button"
               onClick={onConfirm}
               disabled={isConfirming || !checkboxChecked}
-              className="flex-1 px-4 py-2 text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:bg-primary/50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:bg-primary/50 disabled:cursor-not-allowed whitespace-nowrap min-w-0"
             >
               {isConfirming ? (
                 <span className="flex items-center justify-center">

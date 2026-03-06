@@ -642,7 +642,7 @@
       "version2Note": "To create Version 2 of your existing report with your changes, use the recalculate button instead.",
       "checkboxLabel": "I understand that my current draft will be overwritten and I will start fresh.",
       "cancel": "Cancel",
-      "confirm": "Start new estimate",
+      "confirm": "Start new",
       "confirming": "Starting..."
     }
   },

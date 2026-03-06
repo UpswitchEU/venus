@@ -525,27 +525,29 @@ export function HistoryPanel({ report, reportId: reportIdProp, onVersionRestore 
             </p>
           </div>
 
-          {/* Compare Toggle */}
-          <div className="flex items-center gap-2">
-            {compareMode && selectedForCompare.size === 2 && (
-              <Button size="sm" onClick={handleStartCompare} className="gap-1.5">
-                <ArrowLeftRight className="w-4 h-4" />
-                {hp('compare')} ({selectedForCompare.size})
+          {/* Compare Toggle - only show when 2+ versions exist */}
+          {historyVersions.length >= 2 && (
+            <div className="flex items-center gap-2">
+              {compareMode && selectedForCompare.size === 2 && (
+                <Button size="sm" onClick={handleStartCompare} className="gap-1.5">
+                  <ArrowLeftRight className="w-4 h-4" />
+                  {hp('compare')} ({selectedForCompare.size})
+                </Button>
+              )}
+              <Button
+                variant={compareMode ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setCompareMode(!compareMode)
+                  setSelectedForCompare(new Set())
+                }}
+                className="gap-1.5"
+              >
+                <GitCompare className="w-4 h-4" />
+                {compareMode ? hp('stopCompare') : hp('compare')}
               </Button>
-            )}
-            <Button
-              variant={compareMode ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setCompareMode(!compareMode)
-                setSelectedForCompare(new Set())
-              }}
-              className="gap-1.5"
-            >
-              <GitCompare className="w-4 h-4" />
-              {compareMode ? hp('stopCompare') : hp('compare')}
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Compare Mode Instructions */}

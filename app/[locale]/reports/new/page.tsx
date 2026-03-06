@@ -41,6 +41,7 @@ export default async function NewReportPage({ params, searchParams }: NewReportP
     const paramsToPreserve = [
       'prefilledQuery',
       'clientToken',
+      'clientId', // Accountant flow: relationship ID for client context
       'flow',
       'mode',
       'source',
