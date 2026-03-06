@@ -296,7 +296,7 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
               value={draftType}
               onChange={(e) => setDraftType(e.target.value as TaxLatencyType)}
               className={cn(
-                'w-full h-9 pl-2.5 pr-7 rounded-md text-xs font-medium appearance-none cursor-pointer',
+                'w-full min-w-[180px] h-9 pl-2.5 pr-7 rounded-md text-xs font-medium appearance-none cursor-pointer',
                 'bg-background border border-foreground/[0.08]',
                 'hover:border-foreground/[0.15] focus:border-primary focus:ring-1 focus:ring-primary/20',
                 'transition-all outline-none',

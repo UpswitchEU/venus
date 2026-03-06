@@ -163,7 +163,11 @@ function DefaultErrorState({
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div
+      className="min-h-screen bg-background flex items-center justify-center p-4"
+      role="alert"
+      aria-live="assertive"
+    >
       <GlassCard
         variant="default"
         glow="none"

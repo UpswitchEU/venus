@@ -1336,7 +1336,7 @@ export function ManualInputPanel({
                     const normalizedYear = normalizedData.years.find(
                       (y) => y.year === yearData.year
                     )
-                    const normCount = normalizedYear?.normalizationCount || 0
+                    const normCount = Number(normalizedYear?.normalizationCount ?? 0)
 
                     return (
                       <div
@@ -1360,7 +1360,7 @@ export function ManualInputPanel({
                               onClick={() => onViewAllNormalizations?.()}
                               className="text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
                             >
-                              {normCount} {mi('normalizations', { count: normCount })}
+                              {normCount} {mi('normalizations', { count: normCount as number })}
                             </button>
                           )}
                         </div>

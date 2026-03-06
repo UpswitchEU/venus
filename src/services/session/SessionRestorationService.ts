@@ -778,6 +778,45 @@ class SessionRestorationServiceImpl {
           }
 
           updateFormData(mapped as any)
+
+          // Hydrate tax latencies and normalizations from package (instant restoration on refresh)
+          // Priority: localStorage recovery (beforeunload buffer) > package formData
+          const raw = pkg.formData as Record<string, unknown>
+          try {
+            const { useTaxLatencyStore, recoverPendingTaxLatencies } = await import(
+              '../../store/useTaxLatencyStore'
+            )
+            const recoveredTL = recoverPendingTaxLatencies(reportId)
+            if (recoveredTL && recoveredTL.length > 0) {
+              useTaxLatencyStore.getState().setItems(recoveredTL)
+            } else if (
+              raw._taxLatencies &&
+              Array.isArray(raw._taxLatencies) &&
+              (raw._taxLatencies as any[]).length > 0
+            ) {
+              useTaxLatencyStore.getState().setItems(raw._taxLatencies as any)
+            }
+          } catch {
+            // Non-critical
+          }
+          try {
+            const { useNormalizationStore, recoverPendingNormalizations } = await import(
+              '../../store/useNormalizationStore'
+            )
+            const recoveredNorm = recoverPendingNormalizations(reportId)
+            if (recoveredNorm && recoveredNorm.length > 0) {
+              useNormalizationStore.getState().setItems(recoveredNorm)
+            } else if (
+              raw._normalizations &&
+              Array.isArray(raw._normalizations) &&
+              (raw._normalizations as any[]).length > 0
+            ) {
+              useNormalizationStore.getState().setItems(raw._normalizations as any)
+            }
+          } catch {
+            // Non-critical
+          }
+
           generalLogger.info('[SessionRestoration] Form data hydrated from package', {
             reportId: reportId.substring(0, 30),
             fieldCount: Object.keys(mapped).length,
