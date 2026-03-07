@@ -924,8 +924,8 @@ async function initializeAuth(): Promise<void> {
                   if (response.ok) {
                     const context = await response.json()
 
-                    // Validate context structure
-                    if (!context.accountantUser || !context.clientUser || !context.relationship) {
+                    // Validate context structure (clientUser null when invitation not accepted)
+                    if (!context.accountantUser || !context.relationship) {
                       throw new Error('Invalid client context structure received')
                     }
 

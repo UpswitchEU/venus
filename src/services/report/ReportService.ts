@@ -134,14 +134,13 @@ export class ReportService {
 
         if (
           clientContext.isActingAsClient &&
-          clientContext.client &&
           clientContext.accountant &&
           clientContext.relationshipId
         ) {
           sessionDataWithContext = {
             ...sessionDataWithContext,
             _client_context: {
-              client_user_id: clientContext.client.id,
+              client_user_id: clientContext.client?.id ?? null,
               accountant_user_id: clientContext.accountant.id,
               relationship_id: clientContext.relationshipId,
             },
@@ -149,7 +148,9 @@ export class ReportService {
 
           logger.debug('[ReportService] Including client context in save payload', {
             reportId,
-            clientUserId: clientContext.client.id.substring(0, 8) + '...',
+            clientUserId: clientContext.client?.id
+              ? clientContext.client.id.substring(0, 8) + '...'
+              : 'null',
             accountantUserId: clientContext.accountant.id.substring(0, 8) + '...',
             relationshipId: clientContext.relationshipId.substring(0, 8) + '...',
           })

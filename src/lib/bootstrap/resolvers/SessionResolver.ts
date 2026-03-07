@@ -250,9 +250,11 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
         Accept: 'application/json',
       }
 
-      // Add client context headers if accountant flow
+      // Add client context headers if accountant flow (omit X-Client-User-Id when null)
       if (identity?.type === 'accountant_for_client' && identity.clientContext) {
-        headers['X-Client-User-Id'] = identity.clientContext.clientUserId
+        if (identity.clientContext.clientUserId) {
+          headers['X-Client-User-Id'] = identity.clientContext.clientUserId
+        }
         headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
       }
 
@@ -437,9 +439,11 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
         Accept: 'application/json',
       }
 
-      // Add client context headers if accountant flow
+      // Add client context headers if accountant flow (omit X-Client-User-Id when null)
       if (identity?.type === 'accountant_for_client' && identity.clientContext) {
-        headers['X-Client-User-Id'] = identity.clientContext.clientUserId
+        if (identity.clientContext.clientUserId) {
+          headers['X-Client-User-Id'] = identity.clientContext.clientUserId
+        }
         headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
       }
 

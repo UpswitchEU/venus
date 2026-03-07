@@ -172,8 +172,8 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
 
       const contextData = await response.json()
 
-      // Validate response structure
-      if (!contextData.accountantUser || !contextData.clientUser || !contextData.relationship) {
+      // Validate response structure (clientUser null when invitation not accepted)
+      if (!contextData.accountantUser || !contextData.relationship) {
         return {
           success: false,
           data: this.fallback(),
@@ -183,9 +183,9 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       }
 
       const clientContext: ClientContext = {
-        clientUserId: contextData.clientUser.id,
-        clientEmail: contextData.clientUser.email,
-        clientCompanyName: contextData.clientUser.company_name,
+        clientUserId: contextData.clientUser?.id ?? null,
+        clientEmail: contextData.clientUser?.email ?? null,
+        clientCompanyName: contextData.clientUser?.company_name ?? contextData.relationship.customer_name,
         accountantUserId: contextData.accountantUser.id,
         accountantEmail: contextData.accountantUser.email,
         relationshipId: contextData.relationship.id,
@@ -196,9 +196,12 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
         },
       }
 
+      // When clientUser null (pending invitation), session owned by accountant
+      const effectiveUserId = contextData.clientUser?.id ?? contextData.accountantUser.id
+
       const identity: IdentityState = {
         type: 'accountant_for_client',
-        userId: contextData.clientUser.id, // Session owned by client
+        userId: effectiveUserId,
         clientContext,
         email: contextData.accountantUser.email,
         firstName: contextData.accountantUser.first_name,
@@ -206,7 +209,7 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       }
 
       this.logger.info('[AuthResolver] Client context resolved', {
-        clientUserId: truncateForLog(clientContext.clientUserId),
+        clientUserId: truncateForLog(clientContext.clientUserId ?? undefined),
         accountantUserId: truncateForLog(clientContext.accountantUserId),
       })
 
@@ -329,21 +332,24 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
       const { useClientContext } = await import('../../../stores/clientContext')
       const contextState = useClientContext.getState()
 
-      // Check if we have a valid client context set
-      if (contextState.isActingAsClient && contextState.client && contextState.accountant) {
+      // Check if we have valid client context (client null when invitation not accepted)
+      if (
+        contextState.isActingAsClient &&
+        contextState.accountant &&
+        contextState.relationshipId
+      ) {
         this.logger.info('[AuthResolver] Found existing client context in store', {
-          clientId: truncateForLog(contextState.client.id),
+          clientId: truncateForLog(contextState.client?.id ?? 'null'),
           accountantId: truncateForLog(contextState.accountant.id),
         })
 
-        // Build ClientContext from store state
         const clientContext: ClientContext = {
-          clientUserId: contextState.client.id,
-          clientEmail: contextState.client.email || '',
-          clientCompanyName: contextState.client.fullName,
+          clientUserId: contextState.client?.id ?? null,
+          clientEmail: contextState.client?.email ?? null,
+          clientCompanyName: contextState.client?.fullName ?? undefined,
           accountantUserId: contextState.accountant.id,
           accountantEmail: contextState.accountant.email || '',
-          relationshipId: contextState.relationshipId || '',
+          relationshipId: contextState.relationshipId,
           permissions: {
             canCreateValuations: true,
             canViewReports: true,
@@ -351,10 +357,10 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
           },
         }
 
-        // Build identity state
+        const effectiveUserId = contextState.client?.id ?? contextState.accountant.id
         const identity: IdentityState = {
           type: 'accountant_for_client',
-          userId: contextState.client.id, // Session owned by client
+          userId: effectiveUserId,
           clientContext,
           email: contextState.accountant.email,
         }

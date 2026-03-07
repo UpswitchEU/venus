@@ -451,7 +451,7 @@ function syncClientContext(state: SessionBootstrapState): void {
 
     // Check if context is already set correctly
     if (
-      currentClient?.id === identity.clientContext.clientUserId &&
+      (currentClient?.id ?? null) === (identity.clientContext.clientUserId ?? null) &&
       clientContextStore.accountant?.id === identity.clientContext.accountantUserId
     ) {
       logger.debug('Client context already synced')
@@ -459,9 +459,9 @@ function syncClientContext(state: SessionBootstrapState): void {
       return
     }
 
-    // Set client context with required fields for ClientContextResponseDto
-    // Note: Bootstrap may not have all fields, so we use defaults where needed
+    // Set client context (clientUser null when invitation not accepted)
     const clientCompanyName = identity.clientContext.clientCompanyName || 'Client'
+    const clientUserId = identity.clientContext.clientUserId
 
     clientContextStore.setClientContext({
       accountantUser: {
@@ -469,12 +469,14 @@ function syncClientContext(state: SessionBootstrapState): void {
         email: identity.clientContext.accountantEmail || '',
         full_name: '', // Bootstrap doesn't have this, but field is required
       },
-      clientUser: {
-        id: identity.clientContext.clientUserId,
-        email: identity.clientContext.clientEmail || '',
-        full_name: clientCompanyName, // Use company name as fallback
-        avatar_url: null,
-      },
+      clientUser: clientUserId
+        ? {
+            id: clientUserId,
+            email: identity.clientContext.clientEmail || '',
+            full_name: clientCompanyName,
+            avatar_url: null,
+          }
+        : null,
       relationship: {
         id: identity.clientContext.relationshipId,
         customer_name: clientCompanyName,
@@ -482,7 +484,7 @@ function syncClientContext(state: SessionBootstrapState): void {
     })
 
     logger.info('Client context synced from bootstrap', {
-      clientUserId: identity.clientContext.clientUserId.substring(0, 8),
+      clientUserId: clientUserId?.substring(0, 8) ?? 'null',
       accountantUserId: identity.clientContext.accountantUserId.substring(0, 8),
     })
 

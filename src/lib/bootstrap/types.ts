@@ -12,9 +12,10 @@
 // ============================================================================
 
 export interface ClientContext {
-  clientUserId: string
-  clientEmail?: string
-  clientCompanyName?: string
+  /** Null when invitation not accepted - accountant is effective session owner */
+  clientUserId: string | null
+  clientEmail?: string | null
+  clientCompanyName?: string | null
   accountantUserId: string
   accountantEmail?: string
   relationshipId: string

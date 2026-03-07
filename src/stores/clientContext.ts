@@ -10,12 +10,13 @@ interface ClientContextResponseDto {
     email: string
     full_name: string
   }
+  /** Null when invitation not accepted - accountant is effective session owner */
   clientUser: {
     id: string
     email: string
     full_name: string
     avatar_url: string | null
-  }
+  } | null
   relationship: {
     id: string
     customer_name: string
@@ -36,6 +37,8 @@ interface ClientContextState {
     avatarUrl: string | null
   } | null
   relationshipId: string | null
+  /** Client/company name (from relationship when client null) */
+  relationshipCustomerName: string | null
   lastValidatedAt: number | null // Timestamp of last validation
 
   setClientContext: (context: ClientContextResponseDto) => void
@@ -53,11 +56,12 @@ export const useClientContext = create<ClientContextState>()(
       accountant: null,
       client: null,
       relationshipId: null,
+      relationshipCustomerName: null,
       lastValidatedAt: null,
 
       setClientContext: (context) => {
-        // Validate context structure before setting
-        if (!context.accountantUser?.id || !context.clientUser?.id || !context.relationship?.id) {
+        // Validate context structure (clientUser null when invitation not accepted)
+        if (!context.accountantUser?.id || !context.relationship?.id) {
           generalLogger.warn('[ClientContext] Invalid context structure, clearing')
           get().clearClientContext()
           return
@@ -70,13 +74,16 @@ export const useClientContext = create<ClientContextState>()(
             email: context.accountantUser.email,
             fullName: context.accountantUser.full_name,
           },
-          client: {
-            id: context.clientUser.id,
-            email: context.clientUser.email,
-            fullName: context.clientUser.full_name,
-            avatarUrl: context.clientUser.avatar_url,
-          },
+          client: context.clientUser
+            ? {
+                id: context.clientUser.id,
+                email: context.clientUser.email,
+                fullName: context.clientUser.full_name,
+                avatarUrl: context.clientUser.avatar_url,
+              }
+            : null,
           relationshipId: context.relationship.id,
+          relationshipCustomerName: context.relationship.customer_name || null,
           lastValidatedAt: Date.now(),
         })
       },
@@ -87,6 +94,7 @@ export const useClientContext = create<ClientContextState>()(
           accountant: null,
           client: null,
           relationshipId: null,
+          relationshipCustomerName: null,
           lastValidatedAt: null,
         })
       },
@@ -106,8 +114,8 @@ export const useClientContext = create<ClientContextState>()(
           return false
         }
 
-        // Validate context structure
-        if (!state.accountant?.id || !state.client?.id || !state.relationshipId) {
+        // Validate context structure (client null when invitation not accepted)
+        if (!state.accountant?.id || !state.relationshipId) {
           generalLogger.warn('[ClientContext] Invalid context structure, clearing', {
             hasAccountant: !!state.accountant?.id,
             hasClient: !!state.client?.id,
@@ -141,20 +149,23 @@ export const useClientContext = create<ClientContextState>()(
         const state = get()
         if (!state.isActingAsClient) return {} as Record<string, string>
 
-        // Validate before returning headers
-        if (!state.client?.id || !state.accountant?.id || !state.relationshipId) {
+        // Validate before returning headers (client null = pending invitation, accountant-owned)
+        if (!state.accountant?.id || !state.relationshipId) {
           generalLogger.warn('[ClientContext] Invalid context for headers, clearing')
           get().clearClientContext()
           return {} as Record<string, string>
         }
 
         // BANK GRADE: Using centralized header constants for consistency
-        // FlowRouter accepts both naming conventions, but we use the canonical names
-        return {
-          [CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID]: state.client.id,
+        // When client is null (pending invitation), omit CLIENT_USER_ID → DIRECT flow
+        const headers: Record<string, string> = {
           [CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID]: state.accountant.id,
           [CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID]: state.relationshipId,
         }
+        if (state.client?.id) {
+          headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = state.client.id
+        }
+        return headers
       },
     }),
     {

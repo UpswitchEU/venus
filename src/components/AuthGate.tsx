@@ -274,9 +274,9 @@ export function AuthGate({
 
   const needsClientContext = hasClientToken
 
-  // Subscribe to client context when needsClientContext - ensures effect re-runs when context becomes available
+  // Subscribe to client context when needsClientContext (client null when invitation not accepted)
   const clientContextReady = useClientContext((s) =>
-    !needsClientContext || (s.isActingAsClient && !!s.client && !!s.accountant)
+    !needsClientContext || (s.isActingAsClient && !!s.accountant && !!s.relationshipId)
   )
 
   const handleRetry = useCallback(() => {
@@ -368,14 +368,15 @@ export function AuthGate({
         return
       }
 
-      // Verify client context when accountant flow
+      // Verify client context when accountant flow (client null when invitation not accepted)
       if (needsClientContext) {
         const ctx = useClientContext.getState()
-        if (!ctx.isActingAsClient || !ctx.client || !ctx.accountant) {
+        if (!ctx.isActingAsClient || !ctx.accountant || !ctx.relationshipId) {
           generalLogger.warn('[AuthGate] Client context check failed', {
             isActingAsClient: ctx.isActingAsClient,
             hasClient: !!ctx.client,
             hasAccountant: !!ctx.accountant,
+            hasRelationshipId: !!ctx.relationshipId,
           })
           const storeError = useAuthStore.getState().error
           settle('error', storeError || 'Failed to establish client context. Please try again.')

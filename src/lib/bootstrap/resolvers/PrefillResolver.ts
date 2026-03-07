@@ -308,9 +308,11 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         Accept: 'application/json',
       }
 
-      // Add client context headers if needed
+      // Add client context headers if needed (omit X-Client-User-Id when null - pending invitation)
       if (identity.type === 'accountant_for_client' && identity.clientContext) {
-        headers['X-Client-User-Id'] = identity.clientContext.clientUserId
+        if (identity.clientContext.clientUserId) {
+          headers['X-Client-User-Id'] = identity.clientContext.clientUserId
+        }
         headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
       }
 

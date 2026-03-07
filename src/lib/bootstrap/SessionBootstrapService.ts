@@ -110,29 +110,31 @@ export class SessionBootstrapService {
         const storedRelationshipId = contextStore.relationshipId
 
         if (
-          storedClientId !== bootstrapContext.clientUserId ||
+          (storedClientId ?? null) !== (bootstrapContext.clientUserId ?? null) ||
           storedRelationshipId !== bootstrapContext.relationshipId
         ) {
           this.logger.info('[Bootstrap] Syncing client context from bootstrap response', {
             oldClientId: storedClientId?.substring(0, 8) || 'none',
-            newClientId: bootstrapContext.clientUserId.substring(0, 8),
+            newClientId: bootstrapContext.clientUserId?.substring(0, 8) ?? 'null',
             oldRelationshipId: storedRelationshipId?.substring(0, 8) || 'none',
             newRelationshipId: bootstrapContext.relationshipId.substring(0, 8),
           })
 
-          // Set the context using the store's method
+          const clientUserId = bootstrapContext.clientUserId
           contextStore.setClientContext({
             accountantUser: {
               id: bootstrapContext.accountantUserId,
               email: bootstrapContext.accountantEmail || '',
-              full_name: '', // Not available from bootstrap, but not critical
+              full_name: '',
             },
-            clientUser: {
-              id: bootstrapContext.clientUserId,
-              email: bootstrapContext.clientEmail || '',
-              full_name: bootstrapContext.clientCompanyName || '',
-              avatar_url: null,
-            },
+            clientUser: clientUserId
+              ? {
+                  id: clientUserId,
+                  email: bootstrapContext.clientEmail || '',
+                  full_name: bootstrapContext.clientCompanyName || '',
+                  avatar_url: null,
+                }
+              : null,
             relationship: {
               id: bootstrapContext.relationshipId,
               customer_name: bootstrapContext.clientCompanyName || '',
