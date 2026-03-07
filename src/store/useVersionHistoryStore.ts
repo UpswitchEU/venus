@@ -8,7 +8,7 @@
  */
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, type StateStorage } from 'zustand/middleware'
 import { VersionAPI } from '../services/api/version/VersionAPI'
 import type {
   CreateVersionRequest,
@@ -23,6 +23,52 @@ import { useTaxLatencyStore } from './useTaxLatencyStore'
 
 const versionLogger = createContextLogger('VersionHistoryStore')
 const versionAPI = new VersionAPI()
+
+/**
+ * Storage adapter that catches QuotaExceededError and gracefully degrades.
+ * Prevents "Failed to execute 'setItem' on 'Storage'" from breaking the app.
+ */
+function createQuotaSafeStorage(): StateStorage {
+  return {
+    getItem: (name: string): string | null => {
+      try {
+        return localStorage.getItem(name)
+      } catch {
+        return null
+      }
+    },
+    setItem: (name: string, value: string): void => {
+      try {
+        localStorage.setItem(name, value)
+      } catch (e) {
+        const isQuotaError =
+          e instanceof DOMException &&
+          (e.code === 22 ||
+            e.code === 1014 ||
+            e.name === 'QuotaExceededError' ||
+            e.name === 'NS_ERROR_DOM_QUOTA_REACHED')
+        if (isQuotaError) {
+          versionLogger.warn('Version history storage quota exceeded, clearing to free space', {
+            key: name,
+          })
+          try {
+            localStorage.removeItem(name)
+          } catch {
+            // Ignore
+          }
+          // Don't retry - avoid loop. Next persist will use fresh partialize.
+        }
+      }
+    },
+    removeItem: (name: string): void => {
+      try {
+        localStorage.removeItem(name)
+      } catch {
+        // Ignore
+      }
+    },
+  }
+}
 
 // ✅ FIX: Track pending version creations to prevent duplicates
 const pendingVersionCreations = new Set<string>()
@@ -772,25 +818,63 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
     }),
     {
       name: 'version-history-storage',
+      storage: createQuotaSafeStorage(),
       partialize: (state) => {
-        // ✅ BANK-GRADE: Exclude HTML reports from localStorage to prevent quota exceeded errors
-        // HTML reports are stored in backend and fetched on demand
-        // ✅ FIX: Preserve metadata flags to indicate HTML reports exist in backend for fallback recovery
-        const versionsWithoutHtml: Record<string, ValuationVersion[]> = {}
+        // ✅ QUOTA FIX: Persist only lightweight metadata - full formData, valuationResult,
+        // htmlReport are fetched from backend on demand. Prevents "exceeded the quota" errors.
+        const MAX_VERSIONS_PER_REPORT = 15
+        const MAX_REPORTS = 10
+        const lightweight: Record<string, ValuationVersion[]> = {}
 
-        for (const [reportId, versions] of Object.entries(state.versions)) {
-          versionsWithoutHtml[reportId] = versions.map((version) => ({
-            ...version,
-            htmlReport: null, // Don't store large HTML reports in localStorage
-            // ✅ BANK-GRADE: Keep metadata flags to indicate HTML reports exist in backend
-            // These flags enable the restoration service to know it should fetch from backend
-            _hasHtmlReport: !!(version as any)._hasHtmlReport || !!version.htmlReport,
+        const reportIds = Object.entries(state.versions)
+          .map(([id, vs]) => ({
+            id,
+            latest: Math.max(...vs.map((v) => new Date(v.createdAt).getTime()), 0),
           }))
+          .sort((a, b) => b.latest - a.latest)
+          .slice(0, MAX_REPORTS)
+          .map((r) => r.id)
+
+        for (const reportId of reportIds) {
+          const versions = state.versions[reportId] || []
+          const trimmed = versions.slice(-MAX_VERSIONS_PER_REPORT).map((version) => {
+            const fd = version.formData as any
+            return {
+              ...version,
+              formData: {
+                country_code: fd?.country_code || 'BE',
+                company_name: fd?.company_name,
+                current_year_data: fd?.current_year_data
+                  ? {
+                      revenue: fd.current_year_data.revenue,
+                      ebitda: fd.current_year_data.ebitda,
+                    }
+                  : undefined,
+                number_of_employees: fd?.number_of_employees,
+                number_of_owners: fd?.number_of_owners,
+                industry: fd?.industry,
+                business_type: fd?.business_type,
+              } as any,
+              valuationResult: null,
+              htmlReport: null,
+              normalization_data: undefined,
+              tax_latency_data: undefined,
+              _hasHtmlReport: !!(version as any)._hasHtmlReport || !!version.htmlReport,
+            }
+          })
+          lightweight[reportId] = trimmed
+        }
+
+        const activeVersionsFiltered: Record<string, number> = {}
+        for (const reportId of reportIds) {
+          if (state.activeVersions[reportId] != null) {
+            activeVersionsFiltered[reportId] = state.activeVersions[reportId]
+          }
         }
 
         return {
-          versions: versionsWithoutHtml,
-          activeVersions: state.activeVersions,
+          versions: lightweight,
+          activeVersions: activeVersionsFiltered,
         }
       },
     }

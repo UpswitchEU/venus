@@ -41,7 +41,7 @@ export function InviteClientModal({
 
     try {
       const API_URL = getApiUrl()
-      const res = await fetch(`${API_URL}/api/accountants/clients/${clientId}/invite`, {
+      const res = await fetch(`${API_URL}/api/v2/accountants/clients/${clientId}/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
