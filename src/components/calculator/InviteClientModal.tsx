@@ -57,7 +57,7 @@ export function InviteClientModal({
       }
 
       const data = await res.json()
-      setInvitationUrl(data.invitation_url || null)
+      setInvitationUrl(data.data?.invitation_url ?? data.invitation_url ?? null)
       setIsSent(true)
       toast.success(t('invite.sentSuccess'))
     } catch (error: any) {

@@ -2958,7 +2958,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenChange={setShowFullscreenModal}
           report={report}
           onDownload={handleExport}
-          onShare={isAccountantMode ? () => { setShowFullscreenModal(false); setShowInviteClientModal(true) } : undefined}
+          onShare={isAccountantMode && clientContextId ? () => { setShowFullscreenModal(false); setShowInviteClientModal(true) } : undefined}
         />
 
         <InviteClientModal
@@ -3257,7 +3257,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onOpenChange={setShowFullscreenModal}
         report={report}
         onDownload={handleExport}
-        onShare={isAccountantMode ? () => { setShowFullscreenModal(false); setShowInviteClientModal(true) } : undefined}
+        onShare={isAccountantMode && clientContextId ? () => { setShowFullscreenModal(false); setShowInviteClientModal(true) } : undefined}
       />
 
       {/* Invite Client Modal */}
