@@ -10,7 +10,7 @@ interface ClientContextResponseDto {
     email: string
     full_name: string
   }
-  /** Null when invitation not accepted - accountant is effective session owner */
+  /** Null when invitation not accepted - accountant is effective session owner. Venus works in both cases. */
   clientUser: {
     id: string
     email: string
