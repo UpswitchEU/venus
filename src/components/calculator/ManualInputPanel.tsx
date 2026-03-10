@@ -1041,6 +1041,7 @@ export function ManualInputPanel({
                 minQueryLength={2}
                 debounceMs={400}
                 size="sm"
+                disabled={isCalculating}
               />
 
               <AnimatePresence>
@@ -1067,6 +1068,7 @@ export function ManualInputPanel({
                           : undefined
                       }
                       size="sm"
+                      disabled={isCalculating}
                     />
                     {nacePrefillError && (
                       <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-destructive/5 border border-destructive/20 -mt-1">
