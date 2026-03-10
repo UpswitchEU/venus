@@ -104,6 +104,7 @@ import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping
 import { isAuthError } from '../../../utils/errorDetection'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
+import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../../utils/versionConfirmation'
 import {
   areChangesSignificant,
   detectVersionChanges,
@@ -1103,6 +1104,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     hasFormChanges: false,
     hasNormalizations: false,
   })
+  const recalculateConfirmationOpenRef = useRef(false)
+  const submitInProgressRef = useRef(false)
 
   // ─── Manual Form Submit Handler (REAL - wired to Venus services) ───
   const handleManualSubmit = useCallback(
@@ -1407,82 +1410,98 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const hasAnyNormalization = normalizationItems.some((n) => n.status === 'accepted')
   const currentVersion = resolvedReportId ? getLatestVersion(resolvedReportId) : null
   const currentVersionNumber = currentVersion?.versionNumber ?? 0
-  const hasExistingValuation = currentVersionNumber >= 1
+  const hasExistingValuation = hasExistingValuationVersion(currentVersion)
 
   const wrappedOnSubmit = useCallback(
     async (data: any) => {
-      if (!reportId) {
-        handleManualSubmit(data)
+      if (recalculateConfirmationOpenRef.current || submitInProgressRef.current) {
         return
       }
-      // Dirty-state interceptor: only show "Create V2" when we already have a valuation.
-      // For first-ever calculation, we're creating V1 — never show the version popup.
-      if (report && isDirty && hasExistingValuation) {
-        generalLogger.info('[ManualLayout] Dirty state detected, showing recalculation confirmation', {
-          isDirty,
-          currentVersionNumber,
+      submitInProgressRef.current = true
+      try {
+        if (!reportId) {
+          handleManualSubmit(data)
+          return
+        }
+        // Dirty-state interceptor: only show "Create V2" when we already have a valuation.
+        // For first-ever calculation, we're creating V1 — never show the version popup.
+        if (report && isDirty && hasExistingValuation) {
+          generalLogger.info('[ManualLayout] Dirty state detected, showing recalculation confirmation', {
+            isDirty,
+            currentVersionNumber,
+          })
+          pendingSubmitDataRef.current = data
+          pendingPopupFlagsRef.current = { hasFormChanges: true, hasNormalizations: hasAnyNormalization }
+          recalculateConfirmationOpenRef.current = true
+          setShowRecalculateConfirmation(true)
+          return
+        }
+        // Use resolved UUID for version API - Titan expects UUID, session key causes 404
+        const idForVersions = resolvedReportId || reportId
+        // If no valid report id (e.g. 'new' before first calc), skip version check → first valuation
+        if (!idForVersions || typeof idForVersions !== 'string' || idForVersions.trim() === '') {
+          handleManualSubmit(data)
+          return
+        }
+        // Sync versions before submit so currentVersion is fresh (avoids stale hasFormChanges)
+        await useVersionHistoryStore.getState().fetchVersions(idForVersions).catch((err) => {
+          generalLogger.warn('[ManualLayout] Pre-submit fetchVersions failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+          toast.warning(tHistory('loadError'), {
+            description: err instanceof Error ? err.message : undefined,
+          })
+          // Non-blocking: proceed with submit even if fetch fails
         })
-        pendingSubmitDataRef.current = data
-        pendingPopupFlagsRef.current = { hasFormChanges: true, hasNormalizations: hasAnyNormalization }
-        setShowRecalculateConfirmation(true)
-        return
-      }
-      // Use resolved UUID for version API - Titan expects UUID, session key causes 404
-      const idForVersions = resolvedReportId || reportId
-      // If no valid report id (e.g. 'new' before first calc), skip version check → first valuation
-      if (!idForVersions || typeof idForVersions !== 'string' || idForVersions.trim() === '') {
-        handleManualSubmit(data)
-        return
-      }
-      // Sync versions before submit so currentVersion is fresh (avoids stale hasFormChanges)
-      await useVersionHistoryStore.getState().fetchVersions(idForVersions).catch((err) => {
-        generalLogger.warn('[ManualLayout] Pre-submit fetchVersions failed', {
-          error: err instanceof Error ? err.message : String(err),
-        })
-        toast.warning(tHistory('loadError'), {
-          description: err instanceof Error ? err.message : undefined,
-        })
-        // Non-blocking: proceed with submit even if fetch fails
-      })
-      const latestVersion = getLatestVersion(idForVersions)
-      const hasExistingValuationNow = (latestVersion?.versionNumber ?? 0) >= 1
-      if (!hasExistingValuationNow) {
-        handleManualSubmit(data)
-        return
-      }
-      const venusFormData = mapClarityFormToVenusStore(data)
-      const storeSnapshot = { ...formStoreData, ...venusFormData }
-      const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-      const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
-      ;(request as any).dataSource = 'manual'
-      ;(request as any).reportId = idForVersions
+        const latestVersion = getLatestVersion(idForVersions)
+        const hasExistingValuationNow = hasExistingValuationVersion(latestVersion)
+        if (!hasExistingValuationNow) {
+          handleManualSubmit(data)
+          return
+        }
+        const venusFormData = mapClarityFormToVenusStore(data)
+        const storeSnapshot = { ...formStoreData, ...venusFormData }
+        const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
+        const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
+        ;(request as any).dataSource = 'manual'
+        ;(request as any).reportId = idForVersions
 
-      const previousVersion = getLatestVersion(idForVersions)
-      if (!previousVersion) {
-        handleManualSubmit(data)
-        return
-      }
-      const changes = detectVersionChanges(previousVersion.formData, request)
-      const hasFormChanges = areChangesSignificant(changes)
+        const previousVersion = getLatestVersion(idForVersions)
+        if (!previousVersion) {
+          handleManualSubmit(data)
+          return
+        }
+        const changes = detectVersionChanges(previousVersion.formData, request)
+        const hasFormChanges = areChangesSignificant(changes)
 
-      if (hasFormChanges || hasAnyNormalization) {
-        generalLogger.info('[ManualLayout] Changes detected, showing recalculation confirmation', {
+        if (shouldOpenVersionConfirmation({
+          currentVersion: previousVersion,
           hasFormChanges,
           hasAnyNormalization,
-          currentVersionNumber: previousVersion.versionNumber,
-        })
-        pendingSubmitDataRef.current = data
-        pendingPopupFlagsRef.current = { hasFormChanges, hasNormalizations: hasAnyNormalization }
-        setShowRecalculateConfirmation(true)
-        return
+          isConfirmationOpen: recalculateConfirmationOpenRef.current,
+        })) {
+          generalLogger.info('[ManualLayout] Changes detected, showing recalculation confirmation', {
+            hasFormChanges,
+            hasAnyNormalization,
+            currentVersionNumber: previousVersion.versionNumber,
+          })
+          pendingSubmitDataRef.current = data
+          pendingPopupFlagsRef.current = { hasFormChanges, hasNormalizations: hasAnyNormalization }
+          recalculateConfirmationOpenRef.current = true
+          setShowRecalculateConfirmation(true)
+          return
+        }
+        handleManualSubmit(data)
+      } finally {
+        submitInProgressRef.current = false
       }
-      handleManualSubmit(data)
     },
     [
       reportId,
       resolvedReportId,
       report,
       isDirty,
+      showRecalculateConfirmation,
       hasExistingValuation,
       currentVersionNumber,
       formStoreData,
@@ -1496,6 +1515,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handleConfirmRecalculate = useCallback(() => {
     const pending = pendingSubmitDataRef.current
+    recalculateConfirmationOpenRef.current = false
     setShowRecalculateConfirmation(false)
     pendingSubmitDataRef.current = null
     if (pending) handleManualSubmit(pending)
@@ -2987,6 +3007,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           currentVersion={currentVersionNumber}
           onConfirm={handleConfirmRecalculate}
           onCancel={() => {
+            recalculateConfirmationOpenRef.current = false
             setShowRecalculateConfirmation(false)
             pendingSubmitDataRef.current = null
           }}
@@ -3290,6 +3311,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         currentVersion={currentVersionNumber}
         onConfirm={handleConfirmRecalculate}
         onCancel={() => {
+          recalculateConfirmationOpenRef.current = false
           setShowRecalculateConfirmation(false)
           pendingSubmitDataRef.current = null
         }}

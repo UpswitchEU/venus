@@ -26,6 +26,7 @@ import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationS
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import { generalLogger } from '../../utils/logger'
+import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../utils/versionConfirmation'
 import { RecalculateConfirmationPopup } from '../normalization/RecalculateConfirmationPopup'
 import { useValuationFormSubmission } from './hooks/useValuationFormSubmission'
 import { BasicInformationSection } from './sections/BasicInformationSection'
@@ -609,6 +610,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const { hasNormalization } = useEbitdaNormalizationStore()
   const [showNormalizationConfirmation, setShowNormalizationConfirmation] = useState(false)
   const [hasPendingSubmit, setHasPendingSubmit] = useState(false)
+  const versionConfirmationOpenRef = useRef(false)
   const { getLatestVersion } = useVersionHistoryStore()
 
   // Check if any normalizations exist
@@ -623,7 +625,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
   // Check if user has an existing completed valuation (version >= 1)
   // This is used to determine if we should show the "Create New Version" popup
-  const hasExistingValuation = currentVersion != null && currentVersionNumber >= 1
+  const hasExistingValuation = hasExistingValuationVersion(currentVersion)
 
   // Check if form data has changed from the last version
   // This compares the current form data with the version's form data
@@ -655,11 +657,14 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     return changedFields.length > 0
   }, [currentVersion?.formData, formData])
 
-  // Should show confirmation popup when:
-  // 1. User has an existing valuation (version >= 1) AND (form changed OR normalizations added)
-  // 2. OR just normalizations exist (backward compatibility)
-  const shouldShowVersionConfirmation =
-    hasExistingValuation && (hasFormChanges || hasAnyNormalization)
+  // Only show the version confirmation for an existing valuation when the form changed
+  // or accepted normalizations would materially change the next calculation.
+  const shouldShowVersionConfirmation = shouldOpenVersionConfirmation({
+    currentVersion,
+    hasFormChanges,
+    hasAnyNormalization,
+    isConfirmationOpen: versionConfirmationOpenRef.current,
+  })
 
   // Memoize prefilledQuery to prevent render loops
   // ROOT CAUSE FIX: Read session state via getState(), not as subscription
@@ -692,10 +697,15 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     async (e: React.FormEvent) => {
       e.preventDefault()
 
+      // Ignore background/duplicate submits while the confirmation modal is open.
+      if (versionConfirmationOpenRef.current) {
+        return
+      }
+
       // Check if we should show the "Create New Version" confirmation popup
       // This triggers when:
       // 1. User has an existing valuation AND (form changed OR normalizations added)
-      if (shouldShowVersionConfirmation && !showNormalizationConfirmation) {
+      if (shouldShowVersionConfirmation) {
         generalLogger.info(
           'Changes detected on existing valuation, showing version confirmation popup',
           {
@@ -705,6 +715,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
             currentVersionNumber,
           }
         )
+        versionConfirmationOpenRef.current = true
         setHasPendingSubmit(true)
         setShowNormalizationConfirmation(true)
         return
@@ -745,6 +756,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const handleConfirmNormalization = useCallback(async () => {
     if (!hasPendingSubmit) return
 
+    versionConfirmationOpenRef.current = false
     setShowNormalizationConfirmation(false)
     setHasPendingSubmit(false)
 
@@ -800,6 +812,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         currentVersion={currentVersionNumber}
         onConfirm={handleConfirmNormalization}
         onCancel={() => {
+          versionConfirmationOpenRef.current = false
           setShowNormalizationConfirmation(false)
           setHasPendingSubmit(false)
         }}
