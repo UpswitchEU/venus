@@ -27,7 +27,7 @@ import {
 } from '../../../utils/versionDiffDetection'
 
 interface UseValuationFormSubmissionReturn {
-  handleSubmit: (e: React.FormEvent) => Promise<void>
+  handleSubmit: (e?: React.FormEvent) => Promise<void>
   isSubmitting: boolean
   validationError: string | null
 }
@@ -57,8 +57,8 @@ export const useValuationFormSubmission = (
   const { canSave, reason: canSaveReason } = useCanSave()
 
   const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault()
+    async (e?: React.FormEvent) => {
+      e?.preventDefault()
 
       // Defense-in-depth: block submission if auth/bootstrap not ready
       if (!canSave) {

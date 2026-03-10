@@ -715,10 +715,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const revenue = current?.revenue ?? (data.revenue as number)
       const ebitda = current?.ebitda ?? (data.ebitda as number)
       const snapshot = lastSubmittedFinancialSnapshotRef.current
-      if (!snapshot) {
-        setIsDirty(true)
-        return
-      }
+      // No baseline yet (e.g. right after first calculation) — don't assume dirty.
+      // The useEffect will set the snapshot; we'll detect real edits on subsequent changes.
+      if (!snapshot) return
       const revNum = revenue != null ? Number(revenue) : undefined
       const ebitdaNum = ebitda != null ? Number(ebitda) : undefined
       const snapRev = snapshot.revenue != null ? Number(snapshot.revenue) : undefined
@@ -1416,10 +1415,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         handleManualSubmit(data)
         return
       }
-      // Dirty-state interceptor: if user edited after report was generated, always show confirmation
-      if (report && isDirty) {
+      // Dirty-state interceptor: only show "Create V2" when we already have a valuation.
+      // For first-ever calculation, we're creating V1 — never show the version popup.
+      if (report && isDirty && hasExistingValuation) {
         generalLogger.info('[ManualLayout] Dirty state detected, showing recalculation confirmation', {
           isDirty,
+          currentVersionNumber,
         })
         pendingSubmitDataRef.current = data
         pendingPopupFlagsRef.current = { hasFormChanges: true, hasNormalizations: hasAnyNormalization }
@@ -1482,6 +1483,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       resolvedReportId,
       report,
       isDirty,
+      hasExistingValuation,
+      currentVersionNumber,
       formStoreData,
       currentLocale,
       getLatestVersion,

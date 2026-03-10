@@ -608,7 +608,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const currentYear = Math.min(new Date().getFullYear(), 2100)
   const { hasNormalization } = useEbitdaNormalizationStore()
   const [showNormalizationConfirmation, setShowNormalizationConfirmation] = useState(false)
-  const [pendingSubmitEvent, setPendingSubmitEvent] = useState<React.FormEvent | null>(null)
+  const [hasPendingSubmit, setHasPendingSubmit] = useState(false)
   const { getLatestVersion } = useVersionHistoryStore()
 
   // Check if any normalizations exist
@@ -619,11 +619,11 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
   // Get current version number
   const currentVersion = reportId ? getLatestVersion(reportId) : null
-  const currentVersionNumber = currentVersion?.versionNumber || 1
+  const currentVersionNumber = currentVersion?.versionNumber ?? 0
 
   // Check if user has an existing completed valuation (version >= 1)
   // This is used to determine if we should show the "Create New Version" popup
-  const hasExistingValuation = currentVersionNumber >= 1
+  const hasExistingValuation = currentVersion != null && currentVersionNumber >= 1
 
   // Check if form data has changed from the last version
   // This compares the current form data with the version's form data
@@ -705,7 +705,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
             currentVersionNumber,
           }
         )
-        setPendingSubmitEvent(e)
+        setHasPendingSubmit(true)
         setShowNormalizationConfirmation(true)
         return
       }
@@ -743,12 +743,20 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
   // Handle confirmation of normalization
   const handleConfirmNormalization = useCallback(async () => {
-    if (pendingSubmitEvent) {
-      setShowNormalizationConfirmation(false)
-      await handleFormSubmit(pendingSubmitEvent)
-      setPendingSubmitEvent(null)
+    if (!hasPendingSubmit) return
+
+    setShowNormalizationConfirmation(false)
+    setHasPendingSubmit(false)
+
+    try {
+      clearAllErrors()
+      await handleSubmit()
+    } catch (error) {
+      generalLogger.error('[Manual] Confirmed version submission error', { error })
+      const { setCalculating } = useManualResultsStore.getState()
+      setCalculating(false)
     }
-  }, [pendingSubmitEvent, handleFormSubmit])
+  }, [hasPendingSubmit, clearAllErrors, handleSubmit])
 
   return (
     <>
@@ -793,7 +801,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         onConfirm={handleConfirmNormalization}
         onCancel={() => {
           setShowNormalizationConfirmation(false)
-          setPendingSubmitEvent(null)
+          setHasPendingSubmit(false)
         }}
         isCreating={isSubmitting}
         hasFormChanges={hasFormChanges}
