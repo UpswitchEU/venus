@@ -1076,7 +1076,7 @@ export function ManualInputPanel({
                           onClick={() => setNaceRetryTrigger((p) => p + 1)}
                           className="text-[11px] font-medium text-primary hover:text-primary/80 shrink-0"
                         >
-                          Opnieuw proberen
+                          {tKbo('retry')}
                         </button>
                       </div>
                     )}

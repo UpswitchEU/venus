@@ -128,6 +128,8 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   // ✅ FIX: Also set selectedCompany immediately if KBO data exists in top-level formData
   // This ensures the preview card shows immediately when data is prefilled from Mercury
   useEffect(() => {
+    const controller = new AbortController()
+
     const verifyRestoredCompany = async () => {
       if (initialSelectedCompany && !selectedCompany) {
         // ✅ FIX: Show company immediately (smooth UX) - no dropdown flash
@@ -145,8 +147,11 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           const response = await registryService.searchCompanies(
             initialSelectedCompany.company_name,
             formData.country_code || 'BE',
-            1
+            1,
+            controller.signal
           )
+
+          if (controller.signal.aborted) return
 
           if (response.success && response.results?.[0]) {
             const freshData = response.results[0]
@@ -170,22 +175,30 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
                 },
               })
 
-              // Update with fresh data
               setSelectedCompany(freshData)
             }
           }
         } catch (error) {
+          if (controller.signal.aborted) return
           generalLogger.warn('[BasicInfo] Background verification failed, using cached data', {
             error: error instanceof Error ? error.message : 'Unknown error',
           })
           // Keep showing cached data on error
         } finally {
-          setIsVerifyingCompany(false)
+          if (!controller.signal.aborted) {
+            setIsVerifyingCompany(false)
+          }
         }
+      } else {
+        setIsVerifyingCompany(false)
       }
     }
 
     verifyRestoredCompany()
+    return () => {
+      controller.abort()
+      setIsVerifyingCompany(false)
+    }
   }, [initialSelectedCompany, selectedCompany, formData.country_code])
 
   // Save company data when selectedCompany changes

@@ -309,6 +309,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       if (trimmedValueLength < minQueryLength) {
         setResults([])
         setSearchError(null)
+        setIsSearching(false)
         return
       }
 
@@ -584,21 +585,43 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                     type="button"
                     onClick={() => {
                       setSearchError(null)
+                      setIsSearching(true)
                       setRetryTrigger((prev) => prev + 1)
                     }}
                     className="text-xs font-medium text-primary hover:text-primary/80"
                   >
                     {t('tryAgain')}
                   </button>
+                  <div className="mt-3 pt-3 border-t border-foreground/[0.08]">
+                    <a
+                      href={`https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value.trim())}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-primary hover:text-primary/80"
+                    >
+                      {t('searchOnKboDirectly')}
+                    </a>
+                  </div>
                 </div>
               ) : results.length === 0 ? (
                 <div className="px-4 py-4 text-sm text-foreground/50">
-                  <p>{t('noCompaniesFound')}</p>
+                  <p>{t('noResultsHint')}</p>
+                  <a
+                    href={`https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value.trim())}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {t('searchOnKboDirectly')}
+                  </a>
                   {value.length >= 3 && (
                     <button
                       type="button"
-                      onClick={() => setRetryTrigger((prev) => prev + 1)}
-                      className="mt-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                      onClick={() => {
+                        setIsSearching(true)
+                        setRetryTrigger((prev) => prev + 1)
+                      }}
+                      className="mt-2 block text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                     >
                       {t('unexpectedResultRetry')}
                     </button>

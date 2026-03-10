@@ -1794,6 +1794,8 @@
     "searchUnavailable": "Search temporarily unavailable. Please try again later.",
     "searchFailed": "Search failed",
     "noCompaniesFound": "No companies found.",
+    "noResultsHint": "No companies found. Search directly on the Belgian company registry.",
+    "searchOnKboDirectly": "Search on KBO directly",
     "companyNameOrKbo": "Company name or KBO number",
     "searchPlaceholder": "Search...",
     "minCharsHint": "Type at least {count} characters to search.",

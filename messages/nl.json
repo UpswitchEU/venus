@@ -1794,6 +1794,8 @@
     "searchUnavailable": "Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.",
     "searchFailed": "Zoeken mislukt",
     "noCompaniesFound": "Geen bedrijven gevonden.",
+    "noResultsHint": "Geen bedrijven gevonden. Zoek direct in het Belgische bedrijfsregister.",
+    "searchOnKboDirectly": "Zoek direct op KBO",
     "companyNameOrKbo": "Bedrijfsnaam of KBO-nummer",
     "searchPlaceholder": "Zoek...",
     "minCharsHint": "Typ minstens {count} karakters om te zoeken.",
