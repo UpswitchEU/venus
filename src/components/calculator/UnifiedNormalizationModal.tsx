@@ -61,7 +61,11 @@ import {
   trackNormalizationAdd,
   trackNormalizationEdit,
 } from '@/lib/analytics'
-import { getNetTaxLatencyImpact, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import {
+  formatCurrencyTaxLatency,
+  getNetTaxLatencyImpact,
+  useTaxLatencyStore,
+} from '../../store/useTaxLatencyStore'
 import { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
 import { TaxLatencySection } from './TaxLatencySection'
 
@@ -1098,7 +1102,7 @@ export function UnifiedNormalizationModal({
                   )}
                 >
                   {taxLatencyNetImpact > 0 ? '+' : ''}
-                  {formatCurrency(taxLatencyNetImpact)}
+                  {formatCurrencyTaxLatency(taxLatencyNetImpact, currencyLocale)}
                 </motion.p>
               </div>
             </div>

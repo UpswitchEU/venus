@@ -38,6 +38,20 @@ export function getNetTaxLatencyImpact(items: TaxLatencyItem[]): number {
   return items.reduce((sum, item) => sum + calculateLatencyAmount(item), 0)
 }
 
+/**
+ * Format tax latency amounts with 2 decimal places for accounting precision.
+ * Guards against NaN/Infinity; returns fallback for invalid values.
+ */
+export function formatCurrencyTaxLatency(value: number, currencyLocale: string): string {
+  if (!Number.isFinite(value)) return '—'
+  return new Intl.NumberFormat(currencyLocale, {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
 // ─────────────────────────────────────────
 // STORE INTERFACE
 // ─────────────────────────────────────────

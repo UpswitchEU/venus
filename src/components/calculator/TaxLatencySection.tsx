@@ -27,6 +27,7 @@ import {
   type TaxLatencyItem,
   type TaxLatencyType,
   calculateLatencyAmount,
+  formatCurrencyTaxLatency,
   getNetTaxLatencyImpact,
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
@@ -37,15 +38,6 @@ import {
 
 function generateId(): string {
   return `tl-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
-}
-
-function formatCurrency(value: number, currencyLocale: string): string {
-  return new Intl.NumberFormat(currencyLocale, {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
 }
 
 // ─────────────────────────────────────────
@@ -91,7 +83,7 @@ function TaxLatencyRow({ item, currencyLocale, onEdit, onRemove, t }: TaxLatency
 
       {/* Temporary Difference */}
       <span className="text-xs font-mono tabular-nums text-foreground/60 flex-shrink-0">
-        {formatCurrency(item.temporaryDifference, currencyLocale)}
+        {formatCurrencyTaxLatency(item.temporaryDifference, currencyLocale)}
       </span>
 
       {/* Tax Rate */}
@@ -106,7 +98,7 @@ function TaxLatencyRow({ item, currencyLocale, onEdit, onRemove, t }: TaxLatency
           amount > 0 ? 'text-moss-600 dark:text-moss-400' : amount < 0 ? 'text-rust-600 dark:text-rust-400' : 'text-foreground/50'
         )}
       >
-        {amount > 0 ? '+' : ''}{formatCurrency(amount, currencyLocale)}
+        {amount > 0 ? '+' : ''}{formatCurrencyTaxLatency(amount, currencyLocale)}
       </span>
 
       {/* Actions */}
@@ -421,14 +413,16 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
             transition={{ duration: 0.15 }}
             className="mt-3 flex items-center gap-2 text-xs text-foreground/50"
           >
-            <span>€ {parsedAmount.toLocaleString(currencyLocale)} × {parsedRate}% =</span>
+            <span>
+              {formatCurrencyTaxLatency(parsedAmount, currencyLocale)} × {parsedRate}% =
+            </span>
             <span
               className={cn(
                 'font-bold tabular-nums',
                 draftPreview > 0 ? 'text-moss-600 dark:text-moss-400' : 'text-rust-600 dark:text-rust-400'
               )}
             >
-              {draftPreview > 0 ? '+' : ''}{formatCurrency(draftPreview, currencyLocale)}
+              {draftPreview > 0 ? '+' : ''}{formatCurrencyTaxLatency(draftPreview, currencyLocale)}
             </span>
           </motion.div>
         )}
@@ -483,7 +477,7 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
               netImpact > 0 ? 'text-moss-600 dark:text-moss-400' : netImpact < 0 ? 'text-rust-600 dark:text-rust-400' : 'text-foreground/50'
             )}
           >
-            {netImpact > 0 ? '+' : ''}{formatCurrency(netImpact, currencyLocale)}
+            {netImpact > 0 ? '+' : ''}{formatCurrencyTaxLatency(netImpact, currencyLocale)}
           </span>
         </div>
       )}
@@ -553,7 +547,7 @@ export function TaxLatencySection({ defaultTaxRate = 25, alwaysExpanded = false 
               netImpact > 0 ? 'text-moss-600 dark:text-moss-400' : netImpact < 0 ? 'text-rust-600 dark:text-rust-400' : 'text-foreground/50'
             )}
           >
-            {netImpact > 0 ? '+' : ''}{formatCurrency(netImpact, currencyLocale)}
+            {netImpact > 0 ? '+' : ''}{formatCurrencyTaxLatency(netImpact, currencyLocale)}
           </span>
         )}
       </button>
