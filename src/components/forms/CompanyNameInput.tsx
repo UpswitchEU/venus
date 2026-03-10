@@ -44,6 +44,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
   const [retryTrigger, setRetryTrigger] = useState(0)
   const [exactMatch, setExactMatch] = useState<CompanySearchResult | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const lastSearchEmptyRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -56,6 +57,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
     if (!performSearchRef.current) {
       performSearchRef.current = debounce(async (query: string, country: string) => {
         if (!query || query.trim().length < 2) {
+          lastSearchEmptyRef.current = false
           setSearchResults([])
           setExactMatch(null)
           setSearchError(null)
@@ -66,6 +68,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
 
         // Only search for Belgium (KBO is Belgium-specific)
         if (country !== 'BE') {
+          lastSearchEmptyRef.current = false
           setSearchResults([])
           setExactMatch(null)
           setSearchError(null)
@@ -88,8 +91,12 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
             controller.signal
           )
 
+          // Guard: ignore stale response if request was aborted (rapid typing)
+          if (controller.signal.aborted) return
+
           if (response.success && response.results) {
             const results = response.results
+            lastSearchEmptyRef.current = results.length === 0
             setSearchResults(results)
             setSearchError(null)
 
@@ -99,9 +106,9 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
             )
             setExactMatch(match || null)
 
-            // Show dropdown with results (including exact match)
+            // Show dropdown for results or empty (so we can show "Search on KBO" link)
+            setShowSuggestions(true)
             if (results.length > 0) {
-              setShowSuggestions(true)
               generalLogger.debug('KBO suggestions ready - showing dropdown', {
                 count: results.length,
                 query,
@@ -109,11 +116,15 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
               })
             }
           } else {
+            lastSearchEmptyRef.current = false
             setSearchResults([])
             setExactMatch(null)
+            setSearchError(response.error || 'Search temporarily unavailable')
+            setShowSuggestions(true)
           }
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') return
+          lastSearchEmptyRef.current = false
           generalLogger.warn('KBO search failed', {
             error: error instanceof Error ? error.message : 'Unknown error',
             query,
@@ -155,6 +166,8 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
       }
       performSearch(value, countryCode)
     } else {
+      abortControllerRef.current?.abort()
+      lastSearchEmptyRef.current = false
       setSearchResults([])
       setExactMatch(null)
       setSearchError(null)
@@ -349,13 +362,15 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
 
   // Render suggestions dropdown
   const renderSuggestions = () => {
+    if (!showSuggestions || isLoading || selectedCompany) return null
     if (
-      !showSuggestions ||
-      (searchResults.length === 0 && !searchError) ||
-      isLoading ||
-      selectedCompany
+      searchResults.length === 0 &&
+      !searchError &&
+      (!value || value.trim().length < 2)
     )
       return null
+
+    const kboSearchUrl = `https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value?.trim() || '')}`
 
     return (
       <div
@@ -369,13 +384,27 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
             <p className="text-foreground/40 text-xs mb-3">{searchError}</p>
             <button
               type="button"
-              onClick={() => setRetryTrigger((p) => p + 1)}
+              onClick={() => {
+                setSearchError(null)
+                setIsLoading(true)
+                setRetryTrigger((p) => p + 1)
+              }}
               className="text-xs font-medium text-primary hover:text-primary/80"
             >
               {t('forms.kboLookup.retry')}
             </button>
+            <div className="mt-3 pt-3 border-t border-foreground/[0.08]">
+              <a
+                href={kboSearchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-medium text-primary hover:text-primary/80"
+              >
+                {t('forms.kboLookup.searchOnKboDirectly')}
+              </a>
+            </div>
           </div>
-        ) : (
+        ) : searchResults.length > 0 ? (
           <>
             <div className="px-4 py-2.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider bg-background/95 border-b border-foreground/[0.05] sticky top-0 backdrop-blur-md z-10">
               {t('forms.kboLookup.didYouMean')}
@@ -437,6 +466,20 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
               })}
             </div>
           </>
+        ) : (
+          <div className="px-4 py-4 text-sm">
+            <p className="text-foreground/60 text-xs mb-3">
+              {t('forms.kboLookup.noResultsHint')}
+            </p>
+            <a
+              href={kboSearchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-primary hover:text-primary/80"
+            >
+              {t('forms.kboLookup.searchOnKboDirectly')}
+            </a>
+          </div>
         )}
       </div>
     )
@@ -464,7 +507,15 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           inputProps.onKeyDown?.(e)
         }}
         onFocus={() => {
-          if (searchResults.length > 0 && !selectedCompany) {
+          // Restore dropdown when we have results, error, or completed empty search
+          const hasSearchState =
+            searchResults.length > 0 ||
+            searchError ||
+            (lastSearchEmptyRef.current &&
+              value?.trim().length >= 2 &&
+              !isLoading &&
+              !selectedCompany)
+          if (hasSearchState) {
             setShowSuggestions(true)
           }
           inputProps.onFocus?.({} as React.FocusEvent<HTMLInputElement>)

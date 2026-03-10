@@ -464,6 +464,8 @@
       "manualEntry": "Enter manually instead",
       "searchFailed": "Search failed",
       "retry": "Try again",
+      "noResultsHint": "No companies found. Search directly on the Belgian company registry.",
+      "searchOnKboDirectly": "Search on KBO directly",
       "selectCompanyFromList": "Select a company from the list below:",
       "noneOfTheseMatch": "None of these match"
     }
@@ -568,7 +570,11 @@
       "verifyCompany": "Verify company details",
       "changeCompany": "Change company",
       "useThisCompany": "Use this company",
-      "manualEntry": "Enter manually instead"
+      "manualEntry": "Enter manually instead",
+      "searchFailed": "Search failed",
+      "retry": "Try again",
+      "noResultsHint": "No companies found. Search directly on the Belgian company registry.",
+      "searchOnKboDirectly": "Search on KBO directly"
     },
     "suggestions": {
       "title": "Suggestions",

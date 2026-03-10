@@ -1474,12 +1474,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const changes = detectVersionChanges(previousVersion.formData, request)
         const hasFormChanges = areChangesSignificant(changes)
 
-        if (shouldOpenVersionConfirmation({
-          currentVersion: previousVersion,
-          hasFormChanges,
-          hasAnyNormalization,
-          isConfirmationOpen: recalculateConfirmationOpenRef.current,
-        })) {
+        // Defense-in-depth: only show popup when we have a report (first valuation has no report yet)
+        if (
+          report &&
+          shouldOpenVersionConfirmation({
+            currentVersion: previousVersion,
+            hasFormChanges,
+            hasAnyNormalization,
+            isConfirmationOpen: recalculateConfirmationOpenRef.current,
+          })
+        ) {
           generalLogger.info('[ManualLayout] Changes detected, showing recalculation confirmation', {
             hasFormChanges,
             hasAnyNormalization,

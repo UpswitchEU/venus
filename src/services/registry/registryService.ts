@@ -195,6 +195,11 @@ export class RegistryService {
         registry_name: data.registry_name || 'Unknown Registry',
       }
     } catch (error) {
+      // Re-throw AbortError so upstream can ignore (user cancelled via rapid typing)
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw error
+      }
+
       serviceLogger.error('Search error', {
         requestId,
         error: error instanceof Error ? error.message : 'Unknown error',

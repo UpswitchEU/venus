@@ -464,6 +464,8 @@
       "manualEntry": "In plaats daarvan handmatig invoeren",
       "searchFailed": "Zoeken mislukt",
       "retry": "Opnieuw proberen",
+      "noResultsHint": "Geen bedrijven gevonden. Zoek direct in het Belgische bedrijfsregister.",
+      "searchOnKboDirectly": "Zoek direct op KBO",
       "selectCompanyFromList": "Selecteer een bedrijf uit de lijst hieronder:",
       "noneOfTheseMatch": "Geen van deze komt overeen"
     }
@@ -568,7 +570,11 @@
       "kboBelgium": "KBO/BCE België",
       "active": "actief",
       "useThisCompany": "Dit bedrijf gebruiken",
-      "manualEntry": "Handmatig invoeren"
+      "manualEntry": "Handmatig invoeren",
+      "searchFailed": "Zoeken mislukt",
+      "retry": "Opnieuw proberen",
+      "noResultsHint": "Geen bedrijven gevonden. Zoek direct in het Belgische bedrijfsregister.",
+      "searchOnKboDirectly": "Zoek direct op KBO"
     },
     "suggestions": {
       "title": "Suggesties",
