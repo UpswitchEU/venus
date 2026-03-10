@@ -1038,6 +1038,8 @@ export function ManualInputPanel({
                 selectedCompany={selectedCompany}
                 onClear={handleClearCompany}
                 searchFn={kboSearchFn}
+                minQueryLength={2}
+                debounceMs={400}
                 size="sm"
               />
 

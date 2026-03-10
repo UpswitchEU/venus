@@ -52,7 +52,7 @@ import {
 import { useTranslations } from 'next-intl'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
-import { looksLikeNaceCode } from '@/services/naceBusinessTypeService'
+import { looksLikeNaceCode, naceBusinessTypeService } from '@/services/naceBusinessTypeService'
 import { cn, safeString } from '../utils'
 
 // ─────────────────────────────────────────
@@ -236,7 +236,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       onClear,
       searchFn = defaultKBOSearch,
       minQueryLength = 2,
-      debounceMs = 300,
+      debounceMs = 400,
       size = 'md',
       className,
       disabled,
@@ -259,6 +259,8 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       left: number
       width: number
     } | null>(null)
+    const [naceSearchResult, setNaceSearchResult] = React.useState<BusinessType | null>(null)
+    const [isLoadingNaceSearch, setIsLoadingNaceSearch] = React.useState(false)
     const inputRef = React.useRef<HTMLInputElement>(null)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const dropdownRef = React.useRef<HTMLDivElement>(null)
@@ -267,9 +269,11 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
 
     React.useImperativeHandle(ref, () => inputRef.current!)
 
-    const canSearch = !selectedCompany && value.length >= minQueryLength
+    const trimmedValue = value.trim()
+    const trimmedValueLength = trimmedValue.length
+    const canSearch = !selectedCompany && trimmedValueLength >= minQueryLength
     const shouldShowDropdown =
-      !disabled && !selectedCompany && isFocused && value.length >= minQueryLength
+      !disabled && !selectedCompany && isFocused && trimmedValueLength >= minQueryLength
 
     // Update dropdown position when open (for Portal)
     React.useLayoutEffect(() => {
@@ -302,7 +306,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
         return
       }
 
-      if (value.length < minQueryLength) {
+      if (trimmedValueLength < minQueryLength) {
         setResults([])
         setSearchError(null)
         return
@@ -326,7 +330,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
         }, REQUEST_TIMEOUT_MS)
 
         try {
-          const found = await searchFn(value, controller.signal)
+          const found = await searchFn(trimmedValue, controller.signal)
           clearTimeout(timeoutId)
           if (!controller.signal.aborted) {
             setResults(found)
@@ -360,7 +364,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           abortControllerRef.current = null
         }
       }
-    }, [value, selectedCompany, searchFn, minQueryLength, debounceMs, retryTrigger])
+    }, [value, trimmedValue, trimmedValueLength, selectedCompany, searchFn, minQueryLength, debounceMs, retryTrigger])
 
     // Close on outside click (Portal: check both container and dropdown)
     React.useEffect(() => {
@@ -426,8 +430,8 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
 
     const showDidYouMean =
       results.length > 0 &&
-      value.length >= 3 &&
-      !results.some((r) => r.name.toLowerCase().startsWith(value.toLowerCase()))
+      trimmedValueLength >= 3 &&
+      !results.some((r) => r.name.toLowerCase().startsWith(trimmedValue.toLowerCase()))
 
     return (
       <div ref={containerRef} className={cn(searchContainerVariants({ size }), className)}>
@@ -522,7 +526,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
         </div>
 
         {/* Helper text to avoid "nothing happens" dead-end */}
-        {!selectedCompany && !disabled && value.length > 0 && value.length < minQueryLength && (
+        {!selectedCompany && !disabled && trimmedValueLength > 0 && trimmedValueLength < minQueryLength && (
           <p className="mt-2 text-xs text-foreground/50">
             {t('minCharsHint', { count: minQueryLength })}
           </p>
@@ -533,7 +537,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           !disabled &&
           !selectedCompany &&
           isFocused &&
-          value.length >= minQueryLength &&
+          trimmedValueLength >= minQueryLength &&
           dropdownRect &&
           createPortal(
             <motion.div
@@ -1110,7 +1114,10 @@ export interface BusinessTypeSearchInputProps extends VariantProps<typeof search
 }
 
 function normalizeForSearch(s: string): string {
-  return s.toLowerCase().replace(/[-_.\s]/g, '')
+  return s
+    .normalize('NFKC')
+    .toLocaleLowerCase('en')
+    .replace(/[^\p{L}\p{N}]+/gu, '')
 }
 
 function fuzzySearchBusinessTypes(
@@ -1118,7 +1125,8 @@ function fuzzySearchBusinessTypes(
   types: BusinessType[],
   prioritizedId?: string
 ): { types: BusinessType[]; isDidYouMean: boolean } {
-  if (!query) {
+  const trimmedQuery = query.trim()
+  if (!trimmedQuery) {
     const sorted = [...types].sort((a, b) => {
       if (prioritizedId) {
         if (a.id === prioritizedId) return -1
@@ -1129,8 +1137,8 @@ function fuzzySearchBusinessTypes(
     return { types: sorted.slice(0, 15), isDidYouMean: false }
   }
 
-  const lower = query.toLowerCase()
-  const norm = normalizeForSearch(query)
+  const lower = trimmedQuery.toLowerCase()
+  const norm = normalizeForSearch(trimmedQuery)
   const words = lower.split(/\s+/).filter((w) => w.length > 1)
 
   const scored = types.map((t) => {
@@ -1236,6 +1244,10 @@ export const BusinessTypeSearchInput = React.forwardRef<
       () => fuzzySearchBusinessTypes(search, types, naceMatchedTypeId),
       [search, types, naceMatchedTypeId]
     )
+    const combinedFilteredTypes = React.useMemo(() => {
+      if (!naceSearchResult) return filteredTypes
+      return [naceSearchResult, ...filteredTypes.filter((type) => type.id !== naceSearchResult.id)]
+    }, [filteredTypes, naceSearchResult])
 
     // Update dropdown position when open (for Portal)
     React.useLayoutEffect(() => {
@@ -1279,6 +1291,38 @@ export const BusinessTypeSearchInput = React.forwardRef<
         inputRef.current.focus()
       }
     }, [isOpen])
+
+    React.useEffect(() => {
+      const trimmedSearch = search.trim()
+      if (!isOpen || !looksLikeNaceCode(trimmedSearch)) {
+        setNaceSearchResult(null)
+        setIsLoadingNaceSearch(false)
+        return
+      }
+
+      const controller = new AbortController()
+      setIsLoadingNaceSearch(true)
+
+      naceBusinessTypeService
+        .getBusinessTypeForNaceCode(trimmedSearch, controller.signal)
+        .then((result) => {
+          if (!controller.signal.aborted) {
+            setNaceSearchResult(result)
+          }
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) {
+            setNaceSearchResult(null)
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setIsLoadingNaceSearch(false)
+          }
+        })
+
+      return () => controller.abort()
+    }, [isOpen, search])
 
     const handleSelect = (type: BusinessType) => {
       onChange(type.id, type)
@@ -1440,8 +1484,8 @@ export const BusinessTypeSearchInput = React.forwardRef<
               role="listbox"
               aria-label={label}
               aria-activedescendant={
-                focusedIndex >= 0 && filteredTypes[focusedIndex]
-                  ? `biztype-option-${filteredTypes[focusedIndex].id}`
+                focusedIndex >= 0 && combinedFilteredTypes[focusedIndex]
+                  ? `biztype-option-${combinedFilteredTypes[focusedIndex].id}`
                   : undefined
               }
               className={cn(
@@ -1463,7 +1507,7 @@ export const BusinessTypeSearchInput = React.forwardRef<
                 </div>
               )}
 
-              {loadError && filteredTypes.length === 0 ? (
+              {loadError && combinedFilteredTypes.length === 0 ? (
                 <div className="px-4 py-4 text-sm">
                   <p className="text-destructive/80 mb-1">{tCommon('loadFailed')}</p>
                   <p className="text-foreground/40 text-xs mb-3">{loadError}</p>
@@ -1480,12 +1524,12 @@ export const BusinessTypeSearchInput = React.forwardRef<
                     </button>
                   )}
                 </div>
-              ) : filteredTypes.length === 0 ? (
+              ) : combinedFilteredTypes.length === 0 && !isLoadingNaceSearch ? (
                 <div className="px-4 py-8 text-center text-sm text-foreground/50">
                   {tInt('noBusinessTypesFound')}
                 </div>
               ) : (
-                filteredTypes.slice(0, 10).map((type, index) => {
+                combinedFilteredTypes.slice(0, 10).map((type, index) => {
                   const TypeIcon = type.icon
                   return (
                     <button
@@ -1502,7 +1546,7 @@ export const BusinessTypeSearchInput = React.forwardRef<
                         'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors',
                         'hover:bg-foreground/[0.04]',
                         focusedIndex === index && 'bg-foreground/[0.06]',
-                        index !== Math.min(filteredTypes.length, 10) - 1 &&
+                        index !== Math.min(combinedFilteredTypes.length, 10) - 1 &&
                           'border-b border-foreground/[0.04]'
                       )}
                       role="option"
@@ -1532,6 +1576,12 @@ export const BusinessTypeSearchInput = React.forwardRef<
                     </button>
                   )
                 })
+              )}
+              {isLoadingNaceSearch && combinedFilteredTypes.length === 0 && (
+                <div className="px-4 py-3 text-xs text-foreground/50 flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>{tCommon('loading')}</span>
+                </div>
               )}
             </motion.div>,
             document.body

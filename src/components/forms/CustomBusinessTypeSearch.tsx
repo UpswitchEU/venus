@@ -76,9 +76,14 @@ export const CustomBusinessTypeSearch: React.FC<CustomBusinessTypeSearchProps> =
       return [...popular, ...others]
     }
 
-    const normalize = (s: string) => s.toLowerCase().replace(/[-_.\s]/g, '')
-    const searchTerm = query.toLowerCase()
-    const searchNorm = normalize(query)
+    const normalize = (s: string) =>
+      s
+        .normalize('NFKC')
+        .toLocaleLowerCase('en')
+        .replace(/[^\p{L}\p{N}]+/gu, '')
+    const trimmedQuery = query.trim()
+    const searchTerm = trimmedQuery.toLowerCase()
+    const searchNorm = normalize(trimmedQuery)
     return businessTypes
       .filter(
         (bt) =>

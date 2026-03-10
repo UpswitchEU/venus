@@ -61,11 +61,8 @@ export class RegistryService {
       throw new ValidationError('Limit must be between 1 and 200', { limit })
     }
 
-    // Normalize: trim, collapse spaces, cap at 30 chars, lowercase for case-insensitive search
-    const trimmed = query.trim().replace(/\s+/g, ' ')
-    const normalizedQuery = (
-      trimmed.length > 30 ? trimmed.slice(0, 30) : trimmed
-    ).toLowerCase()
+    const displayQuery = this.normalizeDisplayQuery(query)
+    const normalizedQuery = this.normalizeSearchKey(displayQuery)
 
     const cacheKey = `search:${country}:${normalizedQuery}:${limit}`
 
@@ -83,7 +80,7 @@ export class RegistryService {
     }
 
     // Create new request
-    const requestPromise = this._searchCompanies(normalizedQuery, country, limit, signal)
+    const requestPromise = this._searchCompanies(displayQuery, country, limit, signal)
     this.pendingRequests.set(cacheKey, requestPromise)
 
     try {
@@ -222,6 +219,18 @@ export class RegistryService {
         requestId,
       }
     }
+  }
+
+  private normalizeDisplayQuery(query: string): string {
+    const trimmed = query.trim().replace(/\s+/g, ' ')
+    return trimmed.length > 30 ? trimmed.slice(0, 30) : trimmed
+  }
+
+  private normalizeSearchKey(query: string): string {
+    return query
+      .normalize('NFKC')
+      .toLocaleLowerCase('en')
+      .replace(/[^\p{L}\p{N}]+/gu, '')
   }
 
   /**
