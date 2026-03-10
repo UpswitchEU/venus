@@ -8,7 +8,7 @@
  */
 
 import { create } from 'zustand'
-import { persist, type StateStorage } from 'zustand/middleware'
+import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import { VersionAPI } from '../services/api/version/VersionAPI'
 import type {
   CreateVersionRequest,
@@ -818,7 +818,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
     }),
     {
       name: 'version-history-storage',
-      storage: createQuotaSafeStorage(),
+      storage: createJSONStorage(() => createQuotaSafeStorage()),
       partialize: (state) => {
         // ✅ QUOTA FIX: Persist only lightweight metadata - full formData, valuationResult,
         // htmlReport are fetched from backend on demand. Prevents "exceeded the quota" errors.

@@ -1226,6 +1226,8 @@ export const BusinessTypeSearchInput = React.forwardRef<
       left: number
       width: number
     } | null>(null)
+    const [naceSearchResult, setNaceSearchResult] = React.useState<BusinessType | null>(null)
+    const [isLoadingNaceSearch, setIsLoadingNaceSearch] = React.useState(false)
     const inputRef = React.useRef<HTMLInputElement>(null)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const dropdownRef = React.useRef<HTMLDivElement>(null)
@@ -1337,13 +1339,13 @@ export const BusinessTypeSearchInput = React.forwardRef<
         setSearch('')
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setFocusedIndex((prev) => Math.min(prev + 1, filteredTypes.length - 1))
+        setFocusedIndex((prev) => Math.min(prev + 1, combinedFilteredTypes.length - 1))
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
         setFocusedIndex((prev) => Math.max(prev - 1, 0))
-      } else if (e.key === 'Enter' && focusedIndex >= 0 && filteredTypes[focusedIndex]) {
+      } else if (e.key === 'Enter' && focusedIndex >= 0 && combinedFilteredTypes[focusedIndex]) {
         e.preventDefault()
-        handleSelect(filteredTypes[focusedIndex])
+        handleSelect(combinedFilteredTypes[focusedIndex])
       }
     }
 
