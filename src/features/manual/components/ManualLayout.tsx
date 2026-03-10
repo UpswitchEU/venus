@@ -1407,7 +1407,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Wrapped Submit: Intercept to show RecalculateConfirmationPopup when changes detected ───
   const hasAnyNormalization = normalizationItems.some((n) => n.status === 'accepted')
   const currentVersion = resolvedReportId ? getLatestVersion(resolvedReportId) : null
-  const currentVersionNumber = currentVersion?.versionNumber ?? 1
+  const currentVersionNumber = currentVersion?.versionNumber ?? 0
   const hasExistingValuation = currentVersionNumber >= 1
 
   const wrappedOnSubmit = useCallback(
@@ -1428,6 +1428,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
       // Use resolved UUID for version API - Titan expects UUID, session key causes 404
       const idForVersions = resolvedReportId || reportId
+      // If no valid report id (e.g. 'new' before first calc), skip version check → first valuation
+      if (!idForVersions || typeof idForVersions !== 'string' || idForVersions.trim() === '') {
+        handleManualSubmit(data)
+        return
+      }
       // Sync versions before submit so currentVersion is fresh (avoids stale hasFormChanges)
       await useVersionHistoryStore.getState().fetchVersions(idForVersions).catch((err) => {
         generalLogger.warn('[ManualLayout] Pre-submit fetchVersions failed', {
@@ -1439,7 +1444,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // Non-blocking: proceed with submit even if fetch fails
       })
       const latestVersion = getLatestVersion(idForVersions)
-      const hasExistingValuationNow = (latestVersion?.versionNumber ?? 1) >= 1
+      const hasExistingValuationNow = (latestVersion?.versionNumber ?? 0) >= 1
       if (!hasExistingValuationNow) {
         handleManualSubmit(data)
         return
@@ -2864,6 +2869,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onNewConversation: handleNewConversation,
   }
 
+  // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
+  const lastFullYear = new Date().getFullYear() - 1
+
   // ═══════════════════════════════════════
   // MOBILE LAYOUT
   // ═══════════════════════════════════════
@@ -3004,10 +3012,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           open={showUnifiedNormalizationModal}
           onOpenChange={setShowUnifiedNormalizationModal}
           companyName={collectedData.companyName || t('company')}
-          currentYear={new Date().getFullYear() - 1}
+          currentYear={lastFullYear}
           originalEBITDA={
             Number(report?.ebitda) ||
+            Number((result as any)?.current_year_data?.ebitda) ||
             Number(formStoreData?.current_year_data?.ebitda) ||
+            Number(originalEBITDAByYear?.[lastFullYear]) ||
             0
           }
           originalEBITDAByYear={originalEBITDAByYear}
@@ -3307,10 +3317,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         open={showUnifiedNormalizationModal}
         onOpenChange={setShowUnifiedNormalizationModal}
         companyName={collectedData.companyName || t('company')}
-        currentYear={new Date().getFullYear() - 1}
+        currentYear={lastFullYear}
         originalEBITDA={
           Number(report?.ebitda) ||
+          Number((result as any)?.current_year_data?.ebitda) ||
           Number(formStoreData?.current_year_data?.ebitda) ||
+          Number(originalEBITDAByYear?.[lastFullYear]) ||
           0
         }
         originalEBITDAByYear={originalEBITDAByYear}
