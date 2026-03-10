@@ -117,6 +117,8 @@ export interface UnifiedNormalizationModalProps {
   initialSearchQuery?: string
   /** Financial years entered by the user (e.g. [2022, 2023, 2024, 2025]) */
   financialYears?: number[]
+  /** Fallback form data ref (from ManualInputPanel) — read when originalEBITDA is 0. Modal renders after panel, so ref has latest. */
+  fallbackFormDataRef?: React.MutableRefObject<Record<string, unknown> | null>
 }
 
 // ─────────────────────────────────────────
@@ -364,6 +366,7 @@ export function UnifiedNormalizationModal({
   onUploadClick,
   initialSearchQuery = '',
   financialYears,
+  fallbackFormDataRef,
 }: UnifiedNormalizationModalProps) {
   const nh = useTranslations('normalizationHub')
   const ca = useTranslations('chatAssistant')
@@ -597,8 +600,14 @@ export function UnifiedNormalizationModal({
     }))
   }, [searchQuery, availableLedgers])
 
-  // Calculate totals — defensive Number() to prevent string concatenation
-  const safeOriginalEBITDA = Number(originalEBITDA) || 0
+  // Calculate totals — defensive Number() to prevent string concatenation.
+  // When originalEBITDA is 0, use fallbackFormDataRef (modal renders after ManualInputPanel, so ref is current)
+  const safeOriginalEBITDA =
+    Number(originalEBITDA) ||
+    Number((fallbackFormDataRef?.current as any)?.yearlyFinancials?.[0]?.ebitda) ||
+    Number((fallbackFormDataRef?.current as any)?.current_year_data?.ebitda) ||
+    Number((fallbackFormDataRef?.current as any)?.ebitda) ||
+    0
 
   // Filter normalizations by year and search
   const filteredNormalizations = useMemo(() => {

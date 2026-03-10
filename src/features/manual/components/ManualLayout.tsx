@@ -2843,6 +2843,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onQuickActionReject: handleRejectNormalisation,
     onViewAllNormalizations: handleShowNormalisationReview,
     onFormDataChange: handleFormDataChange,
+    formDataRef: latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>,
     initialData: {
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,
@@ -3046,6 +3047,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             Number((result as any)?.current_year_data?.ebitda) ||
             Number(formStoreData?.current_year_data?.ebitda) ||
             Number(originalEBITDAByYear?.[lastFullYear]) ||
+            Number(latestFormDataRef.current?.yearlyFinancials?.[0]?.ebitda) ||
+            Number(latestFormDataRef.current?.current_year_data?.ebitda) ||
+            Number((latestFormDataRef.current as any)?.ebitda) ||
             0
           }
           originalEBITDAByYear={originalEBITDAByYear}
@@ -3053,6 +3057,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onNormalizationsChange={handleNormalizationsChange}
           onUploadClick={() => {}}
           financialYears={financialYears}
+          fallbackFormDataRef={latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>}
         />
       </div>
     )
@@ -3352,6 +3357,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           Number((result as any)?.current_year_data?.ebitda) ||
           Number(formStoreData?.current_year_data?.ebitda) ||
           Number(originalEBITDAByYear?.[lastFullYear]) ||
+          Number(latestFormDataRef.current?.yearlyFinancials?.[0]?.ebitda) ||
+          Number(latestFormDataRef.current?.current_year_data?.ebitda) ||
+          Number((latestFormDataRef.current as any)?.ebitda) ||
           0
         }
         originalEBITDAByYear={originalEBITDAByYear}
@@ -3359,6 +3367,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onNormalizationsChange={handleNormalizationsChange}
         onUploadClick={() => {}}
         financialYears={financialYears}
+        fallbackFormDataRef={latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>}
       />
     </div>
   )

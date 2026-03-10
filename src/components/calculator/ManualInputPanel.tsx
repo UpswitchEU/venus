@@ -136,6 +136,8 @@ interface ManualInputPanelProps {
   onViewAllNormalizations?: () => void
   /** Called when form data changes (debounced 300ms). Enables AI assistant to access financials before submit. */
   onFormDataChange?: (data: Record<string, unknown>) => void
+  /** Optional ref to sync form financials synchronously during render. Used by sibling modals that need latest data without effect delay. */
+  formDataRef?: React.MutableRefObject<Record<string, unknown> | null>
 }
 
 // Options
@@ -221,6 +223,7 @@ export function ManualInputPanel({
   onQuickActionReject,
   onViewAllNormalizations,
   onFormDataChange,
+  formDataRef,
 }: ManualInputPanelProps) {
   const t = useTranslations()
   const mi = useTranslations('manualInput')
@@ -257,6 +260,19 @@ export function ManualInputPanel({
     fteEmployees: initialData.fteEmployees || 5,
     yearlyFinancials: initialData.yearlyFinancials || generateDefaultYearlyFinancials(),
   })
+
+  // Sync form financials to ref during render for sibling components (e.g. normalization modal)
+  // that need latest data without effect delay — eliminates race when opening modal immediately
+  if (formDataRef && formDataRef.current != null) {
+    const current = formData.yearlyFinancials?.[0]
+    Object.assign(formDataRef.current, {
+      yearlyFinancials: formData.yearlyFinancials,
+      current_year_data: current
+        ? { year: parseInt(current.year, 10), revenue: current.revenue, ebitda: current.ebitda }
+        : undefined,
+      ebitda: current?.ebitda,
+    })
+  }
 
   // KBO verification state
   const [selectedCompany, setSelectedCompany] = useState<KBOCompany | null>(null)
@@ -391,40 +407,35 @@ export function ManualInputPanel({
     updateFormData,
   ])
 
-  // Sync form data to parent for AI context (debounced 300ms)
+  // Sync form data to parent for AI context and normalization modal originalEBITDA
+  // Immediate sync on mount/deps change (avoids 300ms race when opening modal quickly)
+  // Debounced 300ms prevents spamming on rapid edits
   const onFormDataChangeRef = useRef(onFormDataChange)
   onFormDataChangeRef.current = onFormDataChange
-  useEffect(() => {
+  const syncFormData = useCallback(() => {
     if (!onFormDataChangeRef.current) return
-    const t = setTimeout(() => {
-      const current = formData.yearlyFinancials?.[0]
-      onFormDataChangeRef.current?.({
-        companyName: formData.companyName,
-        industry: formData.industry,
-        country: formData.country,
-        yearFounded: formData.yearFounded,
-        ownerManagers: formData.ownerManagers,
-        equityStake: formData.equityStake,
-        businessType: formData.businessType,
-        revenue: current?.revenue,
-        ebitda: current?.ebitda,
-        yearlyFinancials: formData.yearlyFinancials,
-        current_year_data: current
-          ? { year: parseInt(current.year, 10), revenue: current.revenue, ebitda: current.ebitda }
-          : undefined,
-      })
-    }, 300)
+    const current = formData.yearlyFinancials?.[0]
+    onFormDataChangeRef.current({
+      companyName: formData.companyName,
+      industry: formData.industry,
+      country: formData.country,
+      yearFounded: formData.yearFounded,
+      ownerManagers: formData.ownerManagers,
+      equityStake: formData.equityStake,
+      businessType: formData.businessType,
+      revenue: current?.revenue,
+      ebitda: current?.ebitda,
+      yearlyFinancials: formData.yearlyFinancials,
+      current_year_data: current
+        ? { year: parseInt(current.year, 10), revenue: current.revenue, ebitda: current.ebitda }
+        : undefined,
+    })
+  }, [formData.companyName, formData.industry, formData.country, formData.yearFounded, formData.ownerManagers, formData.equityStake, formData.businessType, formData.yearlyFinancials])
+  useEffect(() => {
+    syncFormData()
+    const t = setTimeout(syncFormData, 300)
     return () => clearTimeout(t)
-  }, [
-    formData.companyName,
-    formData.industry,
-    formData.country,
-    formData.yearFounded,
-    formData.ownerManagers,
-    formData.equityStake,
-    formData.businessType,
-    formData.yearlyFinancials,
-  ])
+  }, [syncFormData])
 
   // Ensure companySearchValue is synced when initialData.companyName arrives late (e.g. after async store hydration)
   // Only updates when companySearchValue is empty to avoid overwriting user input
