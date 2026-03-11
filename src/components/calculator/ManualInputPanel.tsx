@@ -232,6 +232,8 @@ export function ManualInputPanel({
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
+  const normalizationItems = useNormalizationStore((s) => s.items)
+  const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
   const formatCurrency = useCallback(
     (amount: number) =>
       new Intl.NumberFormat(currencyLocale, {
@@ -488,9 +490,6 @@ export function ManualInputPanel({
   const [connectedIntegration, setConnectedIntegration] = useState<string | null>(null)
   const [hideUploadHint, setHideUploadHint] = useState(false)
 
-  // Read normalizations from the global store (single source of truth)
-  const normalizationItems = useNormalizationStore((s) => s.items)
-
   // Calculate normalized EBITDA per year and average using global normalization store
   const normalizedData = useMemo(() => {
     const acceptedItems = normalizationItems.filter((n) => n.status === 'accepted')
@@ -506,6 +505,13 @@ export function ManualInputPanel({
       const totalAdjustment = yearNorms.reduce((sum, n) => {
         const val = Number(n.value) || 0
         const adj = Number(n.adjustment) || 0
+        // When yearEbitda is 0 or non-finite, percentage/absolute recalculation yields 0; use stored adjustment
+        if (
+          (!Number.isFinite(yearEbitda) || yearEbitda === 0) &&
+          (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
+        ) {
+          return sum + adj
+        }
         if (n.type === 'add_percent') return sum + (yearEbitda * val) / 100
         if (n.type === 'subtract_percent') return sum - (yearEbitda * val) / 100
         if (n.type === 'absolute') return sum + (val - yearEbitda)
@@ -1294,23 +1300,30 @@ export function ManualInputPanel({
                                   >
                                     +
                                     {formatCurrency(
-                                      normalizedData.years.reduce(
-                                        (sum, y) => sum + y.totalAdjustment,
-                                        0
-                                      ) / Math.max(1, normalizedData.totalYearsWithData)
+                                      Number(
+                                        normalizedData.years.reduce(
+                                          (sum, y) =>
+                                            sum + (Number.isFinite(y.totalAdjustment) ? y.totalAdjustment : 0),
+                                          0
+                                        ) / Math.max(1, normalizedData.totalYearsWithData)
+                                      ) || 0
                                     )}
                                   </motion.span>
                                 )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              {taxLatencyCount > 0 && (
+                              {(acceptedNormCount > 0 || taxLatencyCount > 0) && (
                                 <button
                                   type="button"
                                   onClick={() => onViewAllNormalizations?.()}
                                   className="text-[10px] font-medium text-foreground/60 bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.06] px-2 py-1 rounded-md transition-colors cursor-pointer"
                                 >
-                                  {taxLatencyCount} {tTax('summary', { count: taxLatencyCount })}
+                                  {acceptedNormCount > 0 && taxLatencyCount > 0
+                                    ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })} · ${tTax('summary', { count: taxLatencyCount })}`
+                                    : acceptedNormCount > 0
+                                      ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })}`
+                                      : tTax('summary', { count: taxLatencyCount })}
                                 </button>
                               )}
                               <motion.button

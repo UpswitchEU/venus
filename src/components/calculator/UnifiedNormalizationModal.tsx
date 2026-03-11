@@ -574,13 +574,13 @@ export function UnifiedNormalizationModal({
       return availableLedgers.slice(0, 12)
     }
 
-    // Apply fuzzy search to both code and name
+    // Apply fuzzy search to both code and name (defensive String() for malformed API data)
     const results = availableLedgers
       .map((account) => {
-        const codeMatch = fuzzyMatch(account.code, query)
-        const nameMatch = fuzzyMatch(account.name, query)
+        const codeMatch = fuzzyMatch(String(account.code ?? ''), query)
+        const nameMatch = fuzzyMatch(String(account.name ?? ''), query)
         const categoryMatch = account.category
-          ? fuzzyMatch(account.category, query)
+          ? fuzzyMatch(String(account.category ?? ''), query)
           : { matches: false, score: -1, indices: [] }
 
         // Take the best match

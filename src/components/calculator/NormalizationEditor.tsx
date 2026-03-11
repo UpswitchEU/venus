@@ -192,7 +192,8 @@ export function NormalizationEditor({
     return availableLedgers
       .filter(
         (account) =>
-          account.code.toLowerCase().includes(query) || account.name.toLowerCase().includes(query)
+          (account.code && String(account.code).toLowerCase().includes(query)) ||
+          (account.name && String(account.name).toLowerCase().includes(query))
       )
       .slice(0, 10)
   }, [searchQuery, availableLedgers])
