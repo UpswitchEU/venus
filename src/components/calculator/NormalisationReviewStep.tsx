@@ -173,7 +173,7 @@ const normalizationPresets: NormalizationPreset[] = [
     id: 'rent',
     labelKey: 'presets.rent',
     icon: '🏢',
-    code: '613',
+    code: '610',
     descriptionKey: 'presets.rentDesc',
     category: 'rent',
     defaultAmount: 24000,
@@ -184,7 +184,7 @@ const normalizationPresets: NormalizationPreset[] = [
     id: 'vehicle',
     labelKey: 'presets.vehicle',
     icon: '🚗',
-    code: '615',
+    code: '614',
     descriptionKey: 'presets.vehicleDesc',
     category: 'vehicle',
     defaultAmount: 18000,
@@ -195,7 +195,7 @@ const normalizationPresets: NormalizationPreset[] = [
     id: 'legal',
     labelKey: 'presets.legal',
     icon: '⚖️',
-    code: '640',
+    code: '647',
     descriptionKey: 'presets.legalDesc',
     category: 'one-time',
     defaultAmount: 25000,
@@ -205,7 +205,7 @@ const normalizationPresets: NormalizationPreset[] = [
     id: 'advisory',
     labelKey: 'presets.advisory',
     icon: '📊',
-    code: '617',
+    code: '613',
     descriptionKey: 'presets.advisoryDesc',
     category: 'one-time',
     defaultAmount: 15000,
@@ -271,22 +271,28 @@ export function NormalisationReviewStep({
   // Fetch grootboek codes from Titan API (DB-backed), fall back to hardcoded
   const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
   useEffect(() => {
+    const ac = new AbortController()
     let cancelled = false
-    fetch('/api/reference/grootboek')
+    fetch('/api/reference/grootboek', { signal: ac.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !data?.codes) return
+        if (cancelled || !data) return
+        const codes = data.codes ?? data.data?.codes
+        if (!Array.isArray(codes)) return
         setFetchedLedgers(
-          data.codes.map((c: { code: string; name: string; category?: string }) => ({
-            code: c.code,
-            name: c.name,
-            category: c.category,
+          codes.map((c: { code: string; name: string; category?: string }) => ({
+            code: String(c.code ?? ''),
+            name: String(c.name ?? ''),
+            category: c.category ?? '',
           }))
         )
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
+      })
     return () => {
       cancelled = true
+      ac.abort()
     }
   }, [])
 

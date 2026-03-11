@@ -483,10 +483,12 @@ export function UnifiedNormalizationModal({
 
   // Derive available years from user-entered financial data, falling back to 4-year range
   const availableYears = useMemo(() => {
+    const base = Number.isFinite(currentYear) ? currentYear : new Date().getFullYear() - 1
     if (financialYears && financialYears.length > 0) {
-      return [...financialYears].sort((a, b) => b - a)
+      const valid = financialYears.filter((y) => Number.isFinite(y)) as number[]
+      return valid.length > 0 ? [...valid].sort((a, b) => b - a) : [base, base - 1, base - 2, base - 3]
     }
-    return [currentYear, currentYear - 1, currentYear - 2, currentYear - 3]
+    return [base, base - 1, base - 2, base - 3]
   }, [currentYear, financialYears])
 
   // Get unique years from normalizations for filter
@@ -505,27 +507,32 @@ export function UnifiedNormalizationModal({
   // Fetch grootboek codes from Titan API, fall back to hardcoded defaults
   const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
   useEffect(() => {
+    const ac = new AbortController()
     let cancelled = false
-    fetch('/api/reference/grootboek')
+    fetch('/api/reference/grootboek', { signal: ac.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !data?.codes) return
+        if (cancelled || !data) return
+        // Support both { codes } and { data: { codes } } response formats
+        const codes = data.codes ?? data.data?.codes
+        if (!Array.isArray(codes)) return
         setFetchedLedgers(
-          data.codes.map((c: { code: string; name: string; category: string }) => ({
-            code: c.code,
-            name: c.name,
-            category: c.category,
+          codes.map((c: { code: string; name: string; category: string }) => ({
+            code: String(c.code ?? ''),
+            name: String(c.name ?? ''),
+            category: c.category ?? '',
           }))
         )
       })
       .catch((err) => {
-        // Non-critical: falls back to default ledger accounts
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
         generalLogger.debug('[UnifiedNormalizationModal] Grootboek fetch failed, using defaults', {
           error: err instanceof Error ? err.message : String(err),
         })
       })
     return () => {
       cancelled = true
+      ac.abort()
     }
   }, [])
 
@@ -629,8 +636,8 @@ export function UnifiedNormalizationModal({
       const query = searchQuery.toLowerCase()
       result = result.filter(
         (n) =>
-          n.ledgerCode.toLowerCase().includes(query) ||
-          n.ledgerName.toLowerCase().includes(query) ||
+          (n.ledgerCode && n.ledgerCode.toLowerCase().includes(query)) ||
+          (n.ledgerName && n.ledgerName.toLowerCase().includes(query)) ||
           (n.reason && n.reason.toLowerCase().includes(query))
       )
     }
@@ -646,15 +653,25 @@ export function UnifiedNormalizationModal({
         ? (originalEBITDAByYear?.[yearFilter] ?? safeOriginalEBITDA)
         : safeOriginalEBITDA
     const totalAdjustment = accepted.reduce((sum, n) => {
-      if (n.type === 'add_percent') return sum + (ebitdaForCalc * n.value) / 100
-      if (n.type === 'subtract_percent') return sum - (ebitdaForCalc * n.value) / 100
-      if (n.type === 'absolute') return sum + (n.value - ebitdaForCalc)
-      return sum + Number(n.adjustment)
+      const safeAdj = Number.isFinite(n.adjustment) ? n.adjustment : 0
+      const safeVal = Number.isFinite(n.value) ? n.value : 0
+      if (
+        (!Number.isFinite(ebitdaForCalc) || ebitdaForCalc === 0) &&
+        (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
+      ) {
+        return sum + safeAdj
+      }
+      if (n.type === 'add_percent') return sum + (ebitdaForCalc * safeVal) / 100
+      if (n.type === 'subtract_percent') return sum - (ebitdaForCalc * safeVal) / 100
+      if (n.type === 'absolute') return sum + (safeVal - ebitdaForCalc)
+      return sum + safeAdj
     }, 0)
+    const orig = Number.isFinite(ebitdaForCalc) ? ebitdaForCalc : 0
+    const adj = Number.isFinite(totalAdjustment) ? totalAdjustment : 0
     return {
-      original: ebitdaForCalc,
-      adjustment: totalAdjustment,
-      normalized: ebitdaForCalc + totalAdjustment,
+      original: orig,
+      adjustment: adj,
+      normalized: orig + adj,
     }
   }, [filteredNormalizations, yearFilter, originalEBITDAByYear, safeOriginalEBITDA])
 
@@ -668,9 +685,10 @@ export function UnifiedNormalizationModal({
           ? availableYears
           : n.applyYears && n.applyYears.length > 0
             ? n.applyYears
-            : [n.year]
+            : Number.isFinite(n.year) ? [n.year] : []
 
       for (const y of years) {
+        if (!Number.isFinite(y)) continue
         if (!groups.has(y)) groups.set(y, [])
         groups.get(y)!.push(n)
       }
@@ -808,6 +826,9 @@ export function UnifiedNormalizationModal({
 
   const addNormalization = useCallback(() => {
     if (!selectedLedger || !newValue) return
+    const code = String(selectedLedger.code ?? '').trim()
+    const name = String(selectedLedger.name ?? '').trim()
+    if (!code) return
 
     const numericValue = parseFloat(newValue.replace(/[^0-9.-]/g, ''))
     if (isNaN(numericValue)) return
@@ -856,9 +877,9 @@ export function UnifiedNormalizationModal({
           n.id === editingId
             ? {
                 ...n,
-                ledgerCode: selectedLedger.code,
-                ledgerName: selectedLedger.name,
-                category: inferCategoryFromCode(selectedLedger.code),
+                ledgerCode: code,
+                ledgerName: name || code,
+                category: inferCategoryFromCode(code),
                 type: newType,
                 value: numericValue,
                 adjustment,
@@ -874,9 +895,9 @@ export function UnifiedNormalizationModal({
       // Create new normalization
       const newItem: NormalizationItem = {
         id: generateId(),
-        ledgerCode: selectedLedger.code,
-        ledgerName: selectedLedger.name,
-        category: inferCategoryFromCode(selectedLedger.code),
+        ledgerCode: code,
+        ledgerName: name || code,
+        category: inferCategoryFromCode(code),
         type: newType,
         value: numericValue,
         adjustment,
@@ -2058,10 +2079,18 @@ export function UnifiedNormalizationModal({
                     const yearTotal = items
                       .filter((n) => n.status === 'accepted')
                       .reduce((sum, n) => {
-                        if (n.type === 'add_percent') return sum + (yearEbitda * n.value) / 100
-                        if (n.type === 'subtract_percent') return sum - (yearEbitda * n.value) / 100
-                        if (n.type === 'absolute') return sum + (n.value - yearEbitda)
-                        return sum + Number(n.adjustment)
+                        const safeAdj = Number.isFinite(n.adjustment) ? n.adjustment : 0
+                        const safeVal = Number.isFinite(n.value) ? n.value : 0
+                        if (
+                          (!Number.isFinite(yearEbitda) || yearEbitda === 0) &&
+                          (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
+                        ) {
+                          return sum + safeAdj
+                        }
+                        if (n.type === 'add_percent') return sum + (yearEbitda * safeVal) / 100
+                        if (n.type === 'subtract_percent') return sum - (yearEbitda * safeVal) / 100
+                        if (n.type === 'absolute') return sum + (safeVal - yearEbitda)
+                        return sum + safeAdj
                       }, 0)
 
                     return (
@@ -2322,11 +2351,20 @@ function CompactTableRow({
 
   // Recalculate adjustment for percentage/absolute types when year-specific EBITDA is available
   const displayAdjustment = useMemo(() => {
-    if (yearEbitda == null) return item.adjustment
-    if (item.type === 'add_percent') return (yearEbitda * item.value) / 100
-    if (item.type === 'subtract_percent') return -((yearEbitda * item.value) / 100)
-    if (item.type === 'absolute') return item.value - yearEbitda
-    return item.adjustment
+    const stored = Number.isFinite(item.adjustment) ? item.adjustment : 0
+    const safeVal = Number.isFinite(item.value) ? item.value : 0
+    if (yearEbitda == null) return stored
+    // When yearEbitda is 0 or non-finite, recalculation would yield 0/NaN; use stored adjustment
+    if (
+      (!Number.isFinite(yearEbitda) || yearEbitda === 0) &&
+      (item.type === 'add_percent' || item.type === 'subtract_percent' || item.type === 'absolute')
+    ) {
+      return stored
+    }
+    if (item.type === 'add_percent') return (yearEbitda * safeVal) / 100
+    if (item.type === 'subtract_percent') return -((yearEbitda * safeVal) / 100)
+    if (item.type === 'absolute') return safeVal - yearEbitda
+    return stored
   }, [item.adjustment, item.type, item.value, yearEbitda])
 
   // Year display

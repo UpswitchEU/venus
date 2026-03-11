@@ -187,7 +187,7 @@ function parseFinancialValues(text: string): ParsedValue[] {
     /\b(\d{4,})\b/g,
   ]
 
-  // Enhanced field detection patterns with grootboek codes
+  // Enhanced field detection patterns with Belgian MAR grootboek codes
   const fieldPatterns: { pattern: RegExp; field: string; label: string; code?: string }[] = [
     { pattern: /ebitda|winst/i, field: 'ebitda', label: 'EBITDA' },
     { pattern: /omzet|revenue/i, field: 'revenue', label: 'Omzet' },
@@ -197,15 +197,12 @@ function parseFinancialValues(text: string): ParsedValue[] {
       label: 'Eigenaarssalaris',
       code: '620',
     },
-    { pattern: /huur|rent|kantoor|pand/i, field: 'rent', label: 'Huurkosten', code: '613' },
-    { pattern: /auto|voertuig|car|wagen/i, field: 'vehicle', label: 'Autokosten', code: '615' },
-    {
-      pattern: /eenmalig|juridisch|advies/i,
-      field: 'oneTime',
-      label: 'Eenmalige kosten',
-      code: '640',
-    },
-    { pattern: /privé|familie|persoon/i, field: 'personal', label: 'Privékosten', code: '650' },
+    { pattern: /huur|rent|kantoor|pand/i, field: 'rent', label: 'Huurkosten', code: '610' },
+    { pattern: /auto|voertuig|car|wagen/i, field: 'vehicle', label: 'Autokosten', code: '614' },
+    { pattern: /juridisch|legal/i, field: 'oneTime', label: 'Juridische kosten', code: '647' },
+    { pattern: /advies|advieskosten|vergoeding/i, field: 'oneTime', label: 'Advieskosten', code: '613' },
+    { pattern: /eenmalig/i, field: 'oneTime', label: 'Eenmalige kosten', code: '644' },
+    { pattern: /privé|familie|persoon/i, field: 'personal', label: 'Privékosten', code: '649' },
   ]
 
   // Find numbers and their contexts

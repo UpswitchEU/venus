@@ -428,7 +428,7 @@ class AIChatServiceImpl {
             field: 'rent',
             value: 48000,
             label: F.rent,
-            grootboekCode: '613',
+            grootboekCode: '610',
             source: 'ai',
             confidence: 'medium',
             impact: calcImpact(24000),

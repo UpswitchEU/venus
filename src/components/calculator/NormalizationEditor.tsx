@@ -153,22 +153,28 @@ export function NormalizationEditor({
   // Fetch grootboek codes from Titan API (same as UnifiedNormalizationModal)
   const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
   useEffect(() => {
+    const ac = new AbortController()
     let cancelled = false
-    fetch('/api/reference/grootboek')
+    fetch('/api/reference/grootboek', { signal: ac.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !data?.codes) return
+        if (cancelled || !data) return
+        const codes = data.codes ?? data.data?.codes
+        if (!Array.isArray(codes)) return
         setFetchedLedgers(
-          data.codes.map((c: { code: string; name: string; category?: string }) => ({
-            code: c.code,
-            name: c.name,
-            category: c.category,
+          codes.map((c: { code: string; name: string; category?: string }) => ({
+            code: String(c.code ?? ''),
+            name: String(c.name ?? ''),
+            category: c.category ?? '',
           }))
         )
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
+      })
     return () => {
       cancelled = true
+      ac.abort()
     }
   }, [])
 
