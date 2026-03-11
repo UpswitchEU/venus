@@ -340,6 +340,68 @@
   background: hsl(var(--report-slate-900));
 }
 
+/* Value Bridge & Calibration Ledger - Clarity/Aurora parity with ValuationIQ */
+.valuation-report .value-bridge {
+  background: hsl(var(--report-surface));
+  border-radius: 8pt;
+  padding: 16pt;
+  margin: 24pt 0;
+  border: 1pt solid hsl(var(--report-slate-200));
+}
+
+.valuation-report .value-bridge-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 16pt;
+}
+
+.valuation-report .value-bridge-item {
+  text-align: center;
+}
+
+.valuation-report .value-bridge-label {
+  font-size: 7pt;
+  color: hsl(var(--report-slate-500));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.valuation-report .value-bridge-value {
+  font-size: 18pt;
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+  color: hsl(var(--report-slate-900));
+}
+
+.valuation-report .value-bridge-value.negative {
+  color: hsl(var(--report-danger));
+}
+
+.valuation-report .value-bridge-value.highlight {
+  color: hsl(var(--report-teal));
+}
+
+.valuation-report .value-bridge-operator {
+  font-size: 14pt;
+  color: hsl(var(--report-slate-500));
+}
+
+.valuation-report .value-bridge-bottom {
+  margin-top: 16pt;
+  padding-top: 16pt;
+  border-top: 1pt solid hsl(var(--report-slate-200));
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.valuation-report .calibration-conclusion {
+  background: hsl(var(--report-slate-950));
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
 .valuation-report tr.row-result td {
   color: hsl(40 12% 94%);
   font-weight: 600;
