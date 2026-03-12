@@ -128,6 +128,7 @@ interface CollectedData {
   country?: string
   yearFounded?: string
   ownerManagers?: number
+  fteEmployees?: number
   equityStake?: number
   /** Financial data from ManualInputPanel (for AI context before submit) */
   revenue?: number
@@ -671,6 +672,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const companyName = formCompanyName || resultCompanyName
 
   const formAddress = [formPostalCode, formCity].filter(Boolean).join(' ')
+  const formNumber_of_employees = useManualFormStore((s) => s.formData.number_of_employees)
   const [collectedData, setCollectedData] = useState<CollectedData>({
     companyName: companyName || '',
     kboNumber: formKboNumber || '',
@@ -684,6 +686,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     country: formCountry || 'BE',
     yearFounded: formYearFounded ? String(formYearFounded) : '',
     ownerManagers: 1,
+    fteEmployees: formNumber_of_employees,
     equityStake: 100,
   })
 
@@ -1133,7 +1136,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       setIsGenerating(true)
 
-      // Sync collected data for UI
+      // Sync collected data for UI (incl. fteEmployees for restore/0 FTE owner-only)
       setCollectedData({
         companyName: data.companyName,
         businessType: data.businessType,
@@ -1141,6 +1144,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         country: data.country,
         yearFounded: data.yearFounded,
         ownerManagers: data.ownerManagers,
+        fteEmployees: data.fteEmployees,
         equityStake: data.equityStake,
       })
 
@@ -1420,7 +1424,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       submitInProgressRef.current = true
       try {
         if (!reportId) {
-          handleManualSubmit(data)
+          await handleManualSubmit(data)
           return
         }
         // Dirty-state interceptor: only show "Create V2" when we already have a valuation.
@@ -1440,7 +1444,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const idForVersions = resolvedReportId || reportId
         // If no valid report id (e.g. 'new' before first calc), skip version check → first valuation
         if (!idForVersions || typeof idForVersions !== 'string' || idForVersions.trim() === '') {
-          handleManualSubmit(data)
+          await handleManualSubmit(data)
           return
         }
         // Sync versions before submit so currentVersion is fresh (avoids stale hasFormChanges)
@@ -1456,7 +1460,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const latestVersion = getLatestVersion(idForVersions)
         const hasExistingValuationNow = hasExistingValuationVersion(latestVersion)
         if (!hasExistingValuationNow) {
-          handleManualSubmit(data)
+          await handleManualSubmit(data)
           return
         }
         const venusFormData = mapClarityFormToVenusStore(data)
@@ -1468,7 +1472,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         const previousVersion = getLatestVersion(idForVersions)
         if (!previousVersion) {
-          handleManualSubmit(data)
+          await handleManualSubmit(data)
           return
         }
         const changes = detectVersionChanges(previousVersion.formData, request)
@@ -1495,7 +1499,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setShowRecalculateConfirmation(true)
           return
         }
-        handleManualSubmit(data)
+        await handleManualSubmit(data)
       } finally {
         submitInProgressRef.current = false
       }
@@ -1539,6 +1543,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         founding_year: 'yearFounded',
         address: 'address',
         ownerManagers: 'ownerManagers',
+        number_of_employees: 'fteEmployees',
+        fteEmployees: 'fteEmployees',
         equityStake: 'equityStake',
       }
       const dataKey = fieldToDataKey[field] ?? field
@@ -1589,6 +1595,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       } else if (field === 'ownerManagers' || field === 'owner_managers') {
         const n = typeof value === 'number' ? value : parseInt(String(value), 10)
         if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_owners: n })
+      } else if (field === 'fteEmployees' || field === 'number_of_employees') {
+        const n = typeof value === 'number' ? value : parseInt(String(value), 10)
+        if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_employees: n })
       } else if (field === 'equityStake' || field === 'equity_stake') {
         const n = typeof value === 'number' ? value : parseInt(String(value), 10)
         if (!Number.isNaN(n) && n >= 0 && n <= 100) updateFormData({ shares_for_sale: n })
@@ -2896,6 +2905,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       yearFounded: collectedData.yearFounded,
       equityStake: collectedData.equityStake,
       ownerManagers: collectedData.ownerManagers,
+      fteEmployees: formStoreData.number_of_employees ?? collectedData.fteEmployees,
       yearlyFinancials: restoredYearlyFinancials,
     },
   }

@@ -88,7 +88,7 @@ export interface ValuationFormData {
   businessStructure: string
   equityStake: number
   ownerManagers: number
-  fteEmployees: number
+  fteEmployees: number | undefined
   // Multi-year financials with normalizations per year
   yearlyFinancials: YearlyFinancials[]
   // Calculated values
@@ -259,7 +259,7 @@ export function ManualInputPanel({
     businessStructure: initialData.businessStructure || '',
     equityStake: initialData.equityStake || 100,
     ownerManagers: initialData.ownerManagers || 1,
-    fteEmployees: initialData.fteEmployees || 5,
+    fteEmployees: initialData.fteEmployees ?? 5,
     yearlyFinancials: initialData.yearlyFinancials || generateDefaultYearlyFinancials(),
   })
 
@@ -306,7 +306,11 @@ export function ManualInputPanel({
         current === null ||
         (typeof current === 'string' && current === '') ||
         (typeof current === 'number' && key === 'ownerManagers' && current === 1) ||
-        (typeof current === 'number' && key === 'equityStake' && current === 100)
+        (typeof current === 'number' && key === 'equityStake' && current === 100) ||
+        // fteEmployees: apply when empty, or when default 5 and prefill has different value (e.g. 0 from restore)
+        (key === 'fteEmployees' &&
+          (current === undefined ||
+            (typeof current === 'number' && current === 5 && value !== 5)))
       if (isEmpty) (updates as Record<string, unknown>)[key] = value
     }
 
@@ -354,6 +358,7 @@ export function ManualInputPanel({
         applyPrefill(prev, updates, 'country', prefill.country)
         applyPrefill(prev, updates, 'yearFounded', prefill.yearFounded)
         applyPrefill(prev, updates, 'ownerManagers', prefill.ownerManagers)
+        applyPrefill(prev, updates, 'fteEmployees', prefill.fteEmployees)
         applyPrefill(prev, updates, 'equityStake', prefill.equityStake)
         if (
           prefill.yearlyFinancials?.length &&
@@ -404,6 +409,7 @@ export function ManualInputPanel({
     initialData?.country,
     initialData?.yearFounded,
     initialData?.ownerManagers,
+    initialData?.fteEmployees,
     initialData?.equityStake,
     initialData?.yearlyFinancials,
     updateFormData,
@@ -423,6 +429,7 @@ export function ManualInputPanel({
       country: formData.country,
       yearFounded: formData.yearFounded,
       ownerManagers: formData.ownerManagers,
+      fteEmployees: formData.fteEmployees,
       equityStake: formData.equityStake,
       businessType: formData.businessType,
       revenue: current?.revenue,
@@ -432,7 +439,7 @@ export function ManualInputPanel({
         ? { year: parseInt(current.year, 10), revenue: current.revenue, ebitda: current.ebitda }
         : undefined,
     })
-  }, [formData.companyName, formData.industry, formData.country, formData.yearFounded, formData.ownerManagers, formData.equityStake, formData.businessType, formData.yearlyFinancials])
+  }, [formData.companyName, formData.industry, formData.country, formData.yearFounded, formData.ownerManagers, formData.fteEmployees, formData.equityStake, formData.businessType, formData.yearlyFinancials])
   useEffect(() => {
     syncFormData()
     const t = setTimeout(syncFormData, 300)
@@ -736,9 +743,13 @@ export function ManualInputPanel({
 
     // Owner managers
     if (formData.ownerManagers < 0) errors.ownerManagers = mi('validation.minZero')
-    // FTE Employees
-    if (formData.fteEmployees < 0) errors.fteEmployees = mi('validation.minZero')
-    else if (formData.fteEmployees > 10000) warnings.fteEmployees = mi('validation.fteOver10k')
+    // FTE Employees (0 is valid for owner-only; required when owner count > 0)
+    if (formData.ownerManagers > 0 && formData.fteEmployees === undefined) {
+      errors.fteEmployees = mi('validation.fteRequired')
+    } else if (formData.fteEmployees !== undefined) {
+      if (formData.fteEmployees < 0) errors.fteEmployees = mi('validation.minZero')
+      else if (formData.fteEmployees > 10000) warnings.fteEmployees = mi('validation.fteOver10k')
+    }
     // Equity stake
     if (formData.equityStake < 0 || formData.equityStake > 100)
       errors.equityStake = mi('validation.equityRange')
@@ -912,7 +923,9 @@ export function ManualInputPanel({
   const totalSteps = 4
   const completedSteps = [
     hasCompanyInfo && hasBusinessType, // Step 1: Company
-    formData.ownerManagers > 0 && formData.fteEmployees > 0, // Step 2: Ownership
+    formData.ownerManagers > 0 &&
+      formData.fteEmployees !== undefined &&
+      formData.fteEmployees >= 0, // Step 2: Ownership (0 FTE valid for owner-only)
     hasFinancials, // Step 3: Financials
     normalizedData.years.some((y) => y.normalizationCount > 0), // Step 4: Normalizations
   ].filter(Boolean).length
@@ -1128,12 +1141,16 @@ export function ManualInputPanel({
                   <div
                     className={cn(
                       'w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold',
-                      formData.ownerManagers > 0 && formData.fteEmployees > 0
+                      formData.ownerManagers > 0 &&
+                      formData.fteEmployees !== undefined &&
+                      formData.fteEmployees >= 0
                         ? 'bg-success/10 text-success'
                         : 'bg-primary/10 text-primary'
                     )}
                   >
-                    {formData.ownerManagers > 0 && formData.fteEmployees > 0 ? (
+                    {formData.ownerManagers > 0 &&
+                    formData.fteEmployees !== undefined &&
+                    formData.fteEmployees >= 0 ? (
                       <Check className="w-3.5 h-3.5" />
                     ) : (
                       '2'
@@ -1173,10 +1190,24 @@ export function ManualInputPanel({
                       label={mi('fields.totalFte')}
                       type="number"
                       min={0}
-                      value={formData.fteEmployees || ''}
-                      onChange={(e) => updateField('fteEmployees', Number(e.target.value))}
+                      value={
+                        formData.fteEmployees !== undefined && formData.fteEmployees !== null
+                          ? String(formData.fteEmployees)
+                          : ''
+                      }
+                      onChange={(e) => {
+                        const raw = e.target.value
+                        const value =
+                          raw === ''
+                            ? undefined
+                            : (() => {
+                                const n = Number(raw)
+                                return !isNaN(n) && n >= 0 ? n : undefined
+                              })()
+                        updateField('fteEmployees', value)
+                      }}
                       size="sm"
-                      placeholder="10"
+                      placeholder="0"
                     />
                     {(fieldValidation.errors.fteEmployees ||
                       fieldValidation.warnings.fteEmployees) && (

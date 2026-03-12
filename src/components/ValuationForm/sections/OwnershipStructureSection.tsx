@@ -122,18 +122,15 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
                 : ''
             }
             onChange={(e) => {
-              const inputValue = e.target.value
-              // Allow empty string, 0, or positive numbers
-              const value =
-                inputValue === ''
-                  ? undefined
-                  : inputValue === '0'
-                    ? 0
-                    : parseInt(inputValue) > 0
-                      ? parseInt(inputValue)
-                      : undefined
+              const inputValue = e.target.value.trim()
+              let value: number | undefined
+              if (inputValue === '') {
+                value = undefined
+              } else {
+                const num = parseInt(inputValue, 10)
+                value = !isNaN(num) && num >= 0 ? num : undefined
+              }
               updateFormData({ number_of_employees: value })
-              // Clear error when user provides a valid value (including 0)
               if (employeeCountError && value !== undefined) {
                 setEmployeeCountError(null)
               }
@@ -142,6 +139,7 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
             name="number_of_employees"
             min={0}
             step={1}
+            showArrows={true}
             error={employeeCountError || undefined}
             touched={!!employeeCountError}
             required={

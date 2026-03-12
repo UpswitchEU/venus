@@ -1179,6 +1179,7 @@
       "marginLow": "EBITDA margin {margin}% — unusually low",
       "marginHigh": "EBITDA margin {margin}% — unusually high",
       "minZero": "Minimum 0",
+      "fteRequired": "Enter employee count (0 if owner-only)",
       "fteOver10k": "Over 10,000 FTE — verify",
       "equityRange": "Must be between 0% and 100%",
       "yearRange": "Must be between 1800 and {year}"

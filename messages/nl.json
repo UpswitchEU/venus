@@ -1179,6 +1179,7 @@
       "marginLow": "EBITDA-marge {margin}% — ongebruikelijk laag",
       "marginHigh": "EBITDA-marge {margin}% — ongebruikelijk hoog",
       "minZero": "Minimaal 0",
+      "fteRequired": "Vul aantal werknemers in (0 indien alleen eigenaar)",
       "fteOver10k": "Meer dan 10.000 FTE — controleer",
       "equityRange": "Moet tussen 0% en 100% liggen",
       "yearRange": "Moet tussen 1800 en {year} liggen"
