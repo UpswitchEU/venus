@@ -56,6 +56,7 @@ export class ReportAPI extends HttpClient {
 
   /**
    * Delete valuation report
+   * Idempotent: 404 (already deleted) is treated as success to handle race conditions and retries
    */
   async deleteReport(reportId: string, options?: APIRequestConfig): Promise<{ success: boolean }> {
     try {
@@ -68,6 +69,14 @@ export class ReportAPI extends HttpClient {
         options
       )
     } catch (error) {
+      const axiosError = error as { response?: { status?: number } }
+      // Idempotent: 404 = report already deleted (race: double-click, retry, or another tab)
+      if (axiosError?.response?.status === 404) {
+        apiLogger.warn('Report not found on delete (already deleted?) - treating as success', {
+          reportId,
+        })
+        return { success: true }
+      }
       this.handleReportError(error, 'delete report')
     }
   }

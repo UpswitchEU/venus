@@ -77,6 +77,23 @@ export class HttpClient {
         'Content-Type': 'application/json',
       },
       withCredentials: true, // Send authentication cookies
+      // Axios bug: 204 No Content has empty body - JSON.parse('') throws "Unexpected end of JSON input"
+      // See https://github.com/axios/axios/issues/6639 - handle empty body before parse
+      transformResponse: [
+        (data: unknown, headers?: Record<string, string>) => {
+          if (data === '' || data === null || data === undefined) {
+            return { success: true }
+          }
+          if (typeof data === 'string') {
+            try {
+              return JSON.parse(data)
+            } catch {
+              return data
+            }
+          }
+          return data
+        },
+      ],
     })
 
     this.setupInterceptors()
@@ -437,6 +454,11 @@ export class HttpClient {
         ...config,
         signal,
       })
+
+      // 204 No Content: Return success without parsing (belt-and-suspenders for Axios empty-body bug)
+      if (response.status === 204) {
+        return { success: true } as T
+      }
 
       // Extract data from nested response structure
       // Backend returns { success: true, data: result }, so extract nested data first

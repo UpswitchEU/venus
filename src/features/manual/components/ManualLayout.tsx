@@ -2247,12 +2247,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   )
 
   const [deletingValuationId, setDeletingValuationId] = useState<string | null>(null)
+  const deleteInProgressRef = useRef<string | null>(null)
 
   const handleDeleteValuation = useCallback(
     async (id: string) => {
+      // Guard: prevent concurrent delete (ref is synchronous; state is async and can race)
+      if (deleteInProgressRef.current === id) return
+      deleteInProgressRef.current = id
       setDeletingValuationId(id)
       try {
         await reportService.deleteReport(id)
+        // Clear session cache so deleted report doesn't reappear from localStorage
+        try {
+          const { globalSessionCache } = await import('../../../utils/sessionCacheManager')
+          globalSessionCache.remove(id)
+        } catch {
+          // Non-fatal
+        }
         const isCurrentReport =
           id === reportId ||
           id === resolvedReportId ||
@@ -2261,29 +2272,36 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (isCurrentReport) {
           useSessionStore.getState().clearSession()
           const remaining = rawRecentValuations.filter((v) => v.id !== id)
+          const isEmbedded =
+            isAccountantMode &&
+            typeof window !== 'undefined' &&
+            sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true'
+
+          // Always notify Mercury when embedded so it invalidates cache (avoids stale "1 bedrijfsschatting")
+          if (isEmbedded && typeof window !== 'undefined') {
+            const redirectTo = `/${currentLocale}/accountant/dashboard`
+            window.parent.postMessage(
+              {
+                type: 'venus-report-deleted',
+                redirectTo,
+                clientId: clientContextId ?? undefined,
+                reportId: id,
+                keepOpen: remaining.length > 0, // Don't close if more valuations remain
+                source: 'venus',
+              },
+              '*'
+            )
+          }
+
           if (remaining.length > 0) {
             // Navigate to most recent remaining valuation (both accountant and client)
             router.push(`/${currentLocale}/reports/${remaining[0].id}`)
           } else {
             // No valuations left: accountant → Mercury dashboard, client → new valuation
             if (isAccountantMode) {
-              const isEmbedded =
-                typeof window !== 'undefined' &&
-                sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true'
-              if (isEmbedded && typeof window !== 'undefined') {
-                // Venus is in iframe: notify parent to close modal, invalidate cache, and navigate
-                const redirectTo = `/${currentLocale}/accountant/dashboard`
-                const mercuryUrl = `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
-                window.parent.postMessage(
-                  {
-                    type: 'venus-report-deleted',
-                    redirectTo,
-                    clientId: clientContextId ?? undefined,
-                    source: 'venus',
-                  },
-                  '*'
-                )
+              if (isEmbedded) {
                 // Fallback: if parent never receives (e.g. origin check fails in dev), navigate after 2.5s
+                const mercuryUrl = `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
                 setTimeout(() => {
                   try {
                     window.location.href = mercuryUrl
@@ -2301,12 +2319,30 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         } else {
           setRawRecentValuations((prev) => prev.filter((v) => v.id !== id))
           fetchRecentValuations() // Refetch to sync with backend
+          // Notify Mercury when embedded (delete from sidebar) so it invalidates valuations list
+          const isEmbedded =
+            isAccountantMode &&
+            typeof window !== 'undefined' &&
+            sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true'
+          if (isEmbedded) {
+            window.parent.postMessage(
+              {
+                type: 'venus-report-deleted',
+                reportId: id,
+                clientId: clientContextId ?? undefined,
+                keepOpen: true, // Stay open - we're viewing a different report
+                source: 'venus',
+              },
+              '*'
+            )
+          }
         }
       } catch (err) {
         toast.error(tReport('deleteReportFailed'), {
           description: err instanceof Error ? err.message : undefined,
         })
       } finally {
+        deleteInProgressRef.current = null
         setDeletingValuationId(null)
       }
     },
