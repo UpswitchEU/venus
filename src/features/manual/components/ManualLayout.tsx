@@ -2889,6 +2889,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onViewAllNormalizations: handleShowNormalisationReview,
     onFormDataChange: handleFormDataChange,
     formDataRef: latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>,
+    hasReport: !!report,
     initialData: {
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,

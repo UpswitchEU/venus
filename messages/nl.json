@@ -1361,7 +1361,14 @@
       "industry": "Sector",
       "businessModel": "Bedrijfsmodel",
       "country": "Land"
-    }
+    },
+    "valuationCardHeroLabel": "Indicatief Eigen Vermogen",
+    "valuationRangeLabel": "Bandbreedte",
+    "suggestedListingPrice": "Voorgestelde Vraagprijs",
+    "strategicBuffer": "Strategische buffer voor onderhandeling",
+    "premiumLabel": "+{percent}% Premie",
+    "opinionOfValue": "Indicatieve waarde",
+    "rangeTo": "tot"
   },
   "chatAssistant": {
     "title": "Assistent",

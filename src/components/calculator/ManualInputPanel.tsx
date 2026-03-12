@@ -138,6 +138,8 @@ interface ManualInputPanelProps {
   onFormDataChange?: (data: Record<string, unknown>) => void
   /** Optional ref to sync form financials synchronously during render. Used by sibling modals that need latest data without effect delay. */
   formDataRef?: React.MutableRefObject<Record<string, unknown> | null>
+  /** When true, valuation is complete (report exists) — progress header is hidden. */
+  hasReport?: boolean
 }
 
 // Options
@@ -224,6 +226,7 @@ export function ManualInputPanel({
   onViewAllNormalizations,
   onFormDataChange,
   formDataRef,
+  hasReport = false,
 }: ManualInputPanelProps) {
   const t = useTranslations()
   const mi = useTranslations('manualInput')
@@ -974,28 +977,30 @@ export function ManualInputPanel({
   return (
     <>
       <div className="h-full flex flex-col bg-background overflow-hidden">
-        {/* Progress Header */}
-        <div className="shrink-0 px-6 pt-5 pb-4 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-foreground">
-              {t('calculator.businessValuation')}
-            </h2>
-            <span className="text-xs font-medium text-foreground/50">
-              {t('calculator.stepOf', { current: Math.max(1, completedSteps), total: totalSteps })}
-            </span>
+        {/* Progress Header — hide when valuation complete */}
+        {!hasReport && (
+          <div className="shrink-0 px-6 pt-5 pb-4 border-b border-border">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-foreground">
+                {t('calculator.businessValuation')}
+              </h2>
+              <span className="text-xs font-medium text-foreground/50">
+                {t('calculator.stepOf', { current: Math.max(1, completedSteps), total: totalSteps })}
+              </span>
+            </div>
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 4].map((step) => (
+                <div
+                  key={step}
+                  className={cn(
+                    'h-1 flex-1 rounded-full transition-colors',
+                    step <= completedSteps ? 'bg-primary' : 'bg-foreground/10'
+                  )}
+                />
+              ))}
+            </div>
           </div>
-          <div className="flex gap-1.5">
-            {[1, 2, 3, 4].map((step) => (
-              <div
-                key={step}
-                className={cn(
-                  'h-1 flex-1 rounded-full transition-colors',
-                  step <= completedSteps ? 'bg-primary' : 'bg-foreground/10'
-                )}
-              />
-            ))}
-          </div>
-        </div>
+        )}
 
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1">

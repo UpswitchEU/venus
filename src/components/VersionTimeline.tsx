@@ -359,7 +359,7 @@ function VersionTimelineItem({
                         className="text-xs font-semibold uppercase tracking-wider mb-3"
                         style={{ color: '#94A3B8', opacity: 0.9 }}
                       >
-                        Synthesized Intrinsic Value (Equity)
+                        {t('valuationCardHeroLabel')}
                       </p>
 
                       {/* Main Valuation Amount */}
@@ -382,7 +382,7 @@ function VersionTimelineItem({
                                 className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
                                 style={{ color: '#94A3B8', opacity: 0.6 }}
                               >
-                                Valuation Range
+                                {t('valuationRangeLabel')}
                               </p>
                               <div className="inline-block">
                                 <p
@@ -395,7 +395,7 @@ function VersionTimelineItem({
                                   className="text-xs mb-1"
                                   style={{ color: 'rgba(255,255,255,0.4)' }}
                                 >
-                                  to
+                                  {t('rangeTo')}
                                 </p>
                                 <p className="text-base font-semibold" style={{ color: '#FFFFFF' }}>
                                   {formatCurrency(equityValueHigh, countryCode)}
@@ -410,7 +410,7 @@ function VersionTimelineItem({
                                   className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
                                   style={{ color: '#94A3B8', opacity: 0.6 }}
                                 >
-                                  Suggested Listing Price
+                                  {t('suggestedListingPrice')}
                                 </p>
                                 <div className="mb-1">
                                   <span
@@ -428,12 +428,12 @@ function VersionTimelineItem({
                                         borderColor: 'rgba(52, 211, 153, 0.3)',
                                       }}
                                     >
-                                      +{premiumPercent}% Premium
+                                      {t('premiumLabel', { percent: premiumPercent })}
                                     </span>
                                   )}
                                 </div>
                                 <p className="text-xs" style={{ color: '#94A3B8' }}>
-                                  Strategic buffer for negotiation
+                                  {t('strategicBuffer')}
                                 </p>
                               </td>
                             )}
@@ -451,7 +451,7 @@ function VersionTimelineItem({
                           }}
                         >
                           <p className="text-sm m-0" style={{ color: '#E2E8F0' }}>
-                            Opinion of Value:{' '}
+                            {t('opinionOfValue')}:{' '}
                             <strong>{formatCurrency(equityValueLow, countryCode)}</strong> —{' '}
                             <strong>{formatCurrency(equityValueHigh, countryCode)}</strong>
                           </p>
