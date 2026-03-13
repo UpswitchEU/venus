@@ -298,7 +298,8 @@
     "draft": "Draft",
     "noRecent": "No recent indicative business estimates",
     "versions": "Indicative Estimate Versions",
-    "currentVersion": "Current version"
+    "currentVersion": "Current version",
+    "listingPriceTooltip": "Suggested listing price – used when you publish on the marketplace"
   },
   "forms": {
     "sections": {

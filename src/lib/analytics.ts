@@ -62,9 +62,15 @@ export function trackValuationMethodComingSoon(method: string, action: 'click' |
 }
 
 /** Valuation calculation completes successfully */
-export function trackValuationResult(durationMs: number): void {
+export function trackValuationResult(
+  durationMs: number,
+  reportId: string,
+  isRecalculation: boolean
+): void {
   trackEvent('venus_valuation_result', {
     duration_ms: Math.round(durationMs),
+    report_id: reportId,
+    is_recalculation: isRecalculation,
   })
 }
 

@@ -3158,10 +3158,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           report
             ? {
                 priceRange: {
-                  min: Math.round(report.valuation * 0.85),
-                  max: Math.round(report.valuation * 1.15),
+                  min: report.valuationLow ?? Math.round(report.valuation * 0.85),
+                  max: report.valuationHigh ?? Math.round(report.valuation * 1.15),
                 },
-                askPrice: report.valuation,
+                // Voorgestelde Vraagprijs flows to Mercury listing; use when available (world-class: seller sees the number they will publish)
+                askPrice: report.recommendedAskingPrice ?? report.valuation,
                 confidence: 'high' as const,
               }
             : undefined

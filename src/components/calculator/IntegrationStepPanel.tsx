@@ -22,6 +22,7 @@ import {
   type ParsedCSVData,
   type SuggestedNormalisation,
 } from '@/components/integrations'
+import { trackNormalizationAcceptAll } from '@/lib/analytics'
 import { Badge } from '@/design-system/components/Badge'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
@@ -131,6 +132,10 @@ export function IntegrationStepPanel({ onComplete, onSkip, className }: Integrat
   }
 
   const handleAcceptAll = () => {
+    const pendingCount = suggestions.filter((s) => s.status === 'pending').length
+    if (pendingCount > 0) {
+      trackNormalizationAcceptAll(pendingCount)
+    }
     setSuggestions((prev) =>
       prev.map((s) => (s.status === 'pending' ? { ...s, status: 'accepted' } : s))
     )

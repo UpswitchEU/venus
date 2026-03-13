@@ -461,6 +461,7 @@ export function CalculatorNav({
                   <Dropdown
                     trigger={
                       <button
+                        title={t('valuation.listingPriceTooltip')}
                         className={cn(
                           'flex items-center gap-2.5 pl-3 pr-2.5 py-1.5 rounded-full',
                           'hover:bg-foreground/[0.04] transition-colors',
@@ -771,6 +772,7 @@ export function CalculatorNav({
             <AnimatePresence>
               {displaySummary && hasReport && (
                 <motion.button
+                  title={t('valuation.listingPriceTooltip')}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}

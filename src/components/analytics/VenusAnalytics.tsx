@@ -1,5 +1,6 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 
 const COOKIE_CONSENT_KEY = 'upswitch_cookie_consent'
@@ -22,6 +23,18 @@ function getConsentFromCookie(): { analytics?: boolean; functional?: boolean } |
  * and updates gtag consent mode accordingly.
  */
 export function VenusAnalytics() {
+  const pathname = usePathname()
+
+  // SPA page_view: GA4 only sends page_view on initial load; track client-side navigation
+  useEffect(() => {
+    if (pathname && typeof window !== 'undefined' && typeof window.gtag === 'function') {
+      window.gtag('event', 'page_view', {
+        page_path: pathname,
+        page_title: document.title,
+      })
+    }
+  }, [pathname])
+
   useEffect(() => {
     const updateConsent = () => {
       const prefs = getConsentFromCookie()

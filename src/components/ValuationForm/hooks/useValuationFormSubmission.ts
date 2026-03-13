@@ -298,7 +298,8 @@ export const useValuationFormSubmission = (
           throw calcError
         }
         const calculationDuration = performance.now() - calculationStart
-        if (result) trackValuationResult(calculationDuration)
+        if (result && reportId)
+          trackValuationResult(calculationDuration, reportId, !!previousVersion)
 
         if (result) {
           // CRITICAL: Log html_report presence before storing

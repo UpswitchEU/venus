@@ -298,7 +298,8 @@
     "draft": "Concept",
     "noRecent": "Geen recente schattingen",
     "versions": "Schattingsversies",
-    "currentVersion": "Huidige versie"
+    "currentVersion": "Huidige versie",
+    "listingPriceTooltip": "Voorgestelde listing price – wordt gebruikt bij publiceren op de marketplace"
   },
   "forms": {
     "sections": {

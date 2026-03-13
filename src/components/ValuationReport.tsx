@@ -2,6 +2,7 @@
 
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { Suspense, useEffect, useRef } from 'react'
+import { trackReportOpen, trackSessionStart } from '../lib/analytics'
 import { useBootstrapSync } from '../hooks/useBootstrapSync'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { useUrlState } from '../hooks/useUrlState'
@@ -82,10 +83,12 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
 
     // LOOP FIX: Ref to prevent duplicate URL sync when effect re-runs (e.g. after remount)
     const urlSyncAttemptedRef = useRef(false)
+    const sessionReportTrackedRef = useRef(false)
 
     // Reset when reportId changes (client-side nav to different report)
     useEffect(() => {
       urlSyncAttemptedRef.current = false
+      sessionReportTrackedRef.current = false
     }, [reportId])
 
     // Sync initial mode and version to URL on mount
@@ -112,6 +115,27 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       // reportId in deps: re-sync when navigating to a different report
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reportId])
+
+    // GA4: Track session start and report open when loading report directly (not from HomePage)
+    // Covers: Mercury redirect, embedded iframe, client report view, direct links
+    useEffect(() => {
+      if (!isBootstrapSynced || sessionReportTrackedRef.current) return
+      sessionReportTrackedRef.current = true
+
+      const source =
+        urlParams.source ||
+        (urlParams.embedded === 'true' ? 'embedded' : 'direct')
+      trackSessionStart(source)
+
+      if (reportId && reportId !== 'new' && isValidReportId(reportId)) {
+        trackReportOpen(reportId)
+      }
+    }, [
+      isBootstrapSynced,
+      reportId,
+      urlParams.source,
+      urlParams.embedded,
+    ])
 
     // Handle valuation completion
     // NOTE: saveCompleteSession is already called in useValuationFormSubmission
