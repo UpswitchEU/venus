@@ -48,7 +48,14 @@ export interface NormalizationHubProps {
   /** Per-year reported EBITDA for multi-year accuracy */
   originalEBITDAByYear?: Record<number, number>
   currentYear?: number
-  sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'csv' | 'manual'
+  sourceIntegration?:
+    | 'yuki'
+    | 'exact'
+    | 'odoo'
+    | 'octopus'
+    | 'accountable'
+    | 'csv'
+    | 'manual'
   normalizations: NormalizationItem[]
   onNormalizationsChange: (normalizations: NormalizationItem[]) => void
   onContinue: () => void
@@ -68,6 +75,8 @@ const sourceIcons: Record<string, string> = {
   yuki: '🟣',
   exact: '🔵',
   odoo: '🟠',
+  octopus: '🐙',
+  accountable: '📊',
   csv: '📄',
   manual: '✏️',
 }
@@ -136,9 +145,13 @@ export function NormalizationHub({
     }
   }, [normalizations, originalEbitda, originalEBITDAByYear, currentYear])
 
-  const sourceKey = ['yuki', 'exact', 'odoo', 'csv', 'manual'].includes(sourceIntegration)
-    ? sourceIntegration
-    : 'manual'
+  const sourceKey =
+    sourceIntegration &&
+    ['yuki', 'exact', 'odoo', 'octopus', 'accountable', 'csv', 'manual'].includes(
+      sourceIntegration
+    )
+      ? sourceIntegration
+      : 'manual'
   const source = {
     label: nh(`sources.${sourceKey}`),
     icon: sourceIcons[sourceKey] ?? '✏️',

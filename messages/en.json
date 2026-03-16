@@ -1132,7 +1132,7 @@
     },
     "uploadHint": {
       "title": "Faster with ledger upload?",
-      "description": "Upload a ledger export (CSV) from Yuki, Exact or Odoo to automatically categorize accounts.",
+      "description": "Upload a ledger export (CSV) from Yuki, Exact, Octopus, Accountable or Odoo to automatically categorize accounts.",
       "action": "Upload CSV",
       "comingSoon": "Coming soon"
     },
@@ -1187,18 +1187,22 @@
     },
     "importModal": {
       "title": "Import Ledger",
-      "description": "Upload a ledger export (CSV) from your accounting software. We automatically recognize Yuki, Exact and Odoo formats.",
+      "description": "Upload a ledger export (CSV) from your accounting software. We automatically recognize Yuki, Exact, Octopus, Accountable and Odoo formats.",
       "yukiExport": "Yuki Export",
       "yukiPath": "Ledger → Export → CSV",
       "exactExport": "Exact Export",
       "exactPath": "Reporting → Ledger → Excel",
+      "octopusExport": "Octopus Export",
+      "octopusPath": "Ledger → Export → CSV",
+      "accountableExport": "Accountable Export",
+      "accountablePath": "Export → CSV",
       "odooExport": "Odoo Export",
       "odooPath": "Accounting → Reports → Export",
       "apiComingSoon": "Direct API integrations coming soon",
       "cancel": "Cancel"
     },
     "csvComingSoon": "CSV import in next version",
-    "csvComingSoonDesc": "Direct import from CSV and accounting packages (Yuki, Exact Online, Odoo) will be supported in the next release."
+    "csvComingSoonDesc": "Direct import from CSV and accounting packages (Yuki, Exact Online, Octopus, Accountable, Odoo) will be supported in the next release."
   },
   "toast": {
     "versionLoaded": "Version \"{label}\" loaded",
@@ -1529,6 +1533,8 @@
       "yuki": "Yuki Export",
       "exact": "Exact Online",
       "odoo": "Odoo",
+      "octopus": "Octopus",
+      "accountable": "Accountable",
       "csv": "CSV Upload",
       "ai": "AI"
     },
@@ -1795,9 +1801,9 @@
     "subtitle": "Upload your ledger export for automatic analysis and normalization suggestions.",
     "ledgerUpload": "Ledger Upload",
     "recommended": "Recommended",
-    "ledgerUploadCaption": "Upload Yuki, Exact or CSV export",
+    "ledgerUploadCaption": "Upload Yuki, Exact, Octopus, Accountable or CSV export",
     "directIntegration": "Direct Integration",
-    "directIntegrationCaption": "Direct integrations with Yuki, Exact Online and Odoo coming soon.",
+    "directIntegrationCaption": "Direct integrations with Yuki, Exact Online, Octopus, Accountable and Odoo coming soon.",
     "manualInput": "Manual Entry",
     "manualInputCaption": "Enter financial data step by step",
     "searchUnavailable": "Search temporarily unavailable. Please try again later.",
@@ -1855,8 +1861,8 @@
     "summary": "{count, plural, one {# latency} other {# latencies}}"
   },
   "csvUpload": {
-    "title": "Upload Yuki Export",
-    "subtitle": "Upload your ledger export from Yuki or another accounting package",
+    "title": "Upload Ledger Export",
+    "subtitle": "Upload your ledger export from Yuki, Exact, Octopus, Accountable or another accounting package",
     "useTemplate": "Use our template for optimal import",
     "downloadTemplate": "Download Template",
     "processing": "Processing file...",
@@ -1867,6 +1873,8 @@
     "formats": {
       "yuki": "Yuki",
       "exact": "Exact",
+      "octopus": "Octopus",
+      "accountable": "Accountable",
       "odoo": "Odoo",
       "generic": "Generic CSV"
     },

@@ -35,7 +35,7 @@ export interface ParsedCSVData {
   headers: string[]
   rows: string[][]
   totalRows: number
-  detectedType: 'yuki' | 'exact' | 'odoo' | 'generic'
+  detectedType: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable' | 'generic'
   fiscalYears: string[]
 }
 
@@ -93,6 +93,10 @@ const parseCSV = (content: string): ParsedCSVData => {
     detectedType = 'yuki'
   } else if (headerStr.includes('exact')) {
     detectedType = 'exact'
+  } else if (headerStr.includes('octopus')) {
+    detectedType = 'octopus'
+  } else if (headerStr.includes('accountable')) {
+    detectedType = 'accountable'
   } else if (headerStr.includes('odoo')) {
     detectedType = 'odoo'
   }
@@ -294,7 +298,14 @@ export function CSVUploadCard({ onFileSelected, onSkip, className }: CSVUploadCa
             {/* Supported formats */}
             <div className="flex items-center justify-center gap-4 mt-6">
               <Caption className="text-foreground/30">{t('supported')}</Caption>
-              {[t('formats.yuki'), t('formats.exact'), t('formats.odoo'), t('formats.generic')].map(
+              {[
+                t('formats.yuki'),
+                t('formats.exact'),
+                t('formats.octopus'),
+                t('formats.accountable'),
+                t('formats.odoo'),
+                t('formats.generic'),
+              ].map(
                 (format) => (
                   <Badge key={format} variant="neutral" size="sm">
                     {format}
@@ -342,9 +353,13 @@ export function CSVUploadCard({ onFileSelected, onSkip, className }: CSVUploadCa
                         ? t('formats.yuki')
                         : parsedData.detectedType === 'exact'
                           ? t('formats.exact')
-                          : parsedData.detectedType === 'odoo'
-                            ? t('formats.odoo')
-                            : t('formats.generic')}
+                          : parsedData.detectedType === 'octopus'
+                            ? t('formats.octopus')
+                            : parsedData.detectedType === 'accountable'
+                              ? t('formats.accountable')
+                              : parsedData.detectedType === 'odoo'
+                                ? t('formats.odoo')
+                                : t('formats.generic')}
                     </Badge>
                   </div>
                 </div>

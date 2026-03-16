@@ -53,7 +53,15 @@ import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/gro
 // ─────────────────────────────────────────
 
 export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute'
-export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv' | 'ai'
+export type NormalizationSource =
+  | 'manual'
+  | 'yuki'
+  | 'exact'
+  | 'odoo'
+  | 'octopus'
+  | 'accountable'
+  | 'csv'
+  | 'ai'
 
 export interface SuggestedNormalisation {
   id: string
@@ -74,7 +82,13 @@ export interface NormalisationReviewStepProps {
   suggestions: SuggestedNormalisation[]
   originalEbitda: number
   companyName: string
-  sourceIntegration?: 'yuki' | 'exact' | 'odoo' | 'manual'
+  sourceIntegration?:
+    | 'yuki'
+    | 'exact'
+    | 'odoo'
+    | 'octopus'
+    | 'accountable'
+    | 'manual'
   onAccept: (id: string) => void
   onReject: (id: string) => void
   onAcceptAll: () => void
@@ -114,6 +128,9 @@ const sourceLabels: Record<NormalizationSource, { labelKey: string; color: strin
   manual: { labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
   yuki: { labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
   exact: { labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
+  odoo: { labelKey: 'sources.odoo', color: 'bg-purple-500/10 text-purple-600' },
+  octopus: { labelKey: 'sources.octopus', color: 'bg-blue-500/10 text-blue-600' },
+  accountable: { labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },
   csv: { labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
   ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
 }
@@ -316,6 +333,8 @@ export function NormalisationReviewStep({
     yuki: nh('sources.yuki'),
     exact: nh('sources.exact'),
     odoo: nh('sources.odoo'),
+    octopus: nh('sources.octopus'),
+    accountable: nh('sources.accountable'),
     manual: nh('sources.manual'),
   }
 

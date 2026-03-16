@@ -1132,7 +1132,7 @@
     },
     "uploadHint": {
       "title": "Sneller met grootboek upload?",
-      "description": "Upload een grootboekexport (CSV) van Yuki, Exact of Odoo om rekeningen automatisch te categoriseren.",
+      "description": "Upload een grootboekexport (CSV) van Yuki, Exact, Octopus, Accountable of Odoo om rekeningen automatisch te categoriseren.",
       "action": "Upload CSV",
       "comingSoon": "Binnenkort"
     },
@@ -1187,18 +1187,22 @@
     },
     "importModal": {
       "title": "Grootboek Importeren",
-      "description": "Upload een grootboekexport (CSV) van uw boekhoudsoftware. We herkennen automatisch Yuki, Exact en Odoo formaten.",
+      "description": "Upload een grootboekexport (CSV) van uw boekhoudsoftware. We herkennen automatisch Yuki, Exact, Octopus, Accountable en Odoo formaten.",
       "yukiExport": "Yuki Export",
       "yukiPath": "Grootboek → Exporteren → CSV",
       "exactExport": "Exact Export",
       "exactPath": "Rapportage → Grootboek → Excel",
+      "octopusExport": "Octopus Export",
+      "octopusPath": "Grootboek → Export → CSV",
+      "accountableExport": "Accountable Export",
+      "accountablePath": "Export → CSV",
       "odooExport": "Odoo Export",
       "odooPath": "Boekhouding → Rapporten → Export",
       "apiComingSoon": "Directe API-koppelingen komen binnenkort",
       "cancel": "Annuleren"
     },
     "csvComingSoon": "CSV import in volgende versie",
-    "csvComingSoonDesc": "Directe import vanuit CSV en boekhoudpakketten (Yuki, Exact Online, Odoo) wordt in de volgende release ondersteund."
+    "csvComingSoonDesc": "Directe import vanuit CSV en boekhoudpakketten (Yuki, Exact Online, Octopus, Accountable, Odoo) wordt in de volgende release ondersteund."
   },
   "toast": {
     "versionLoaded": "Versie \"{label}\" geladen",
@@ -1529,6 +1533,8 @@
       "yuki": "Yuki Export",
       "exact": "Exact Online",
       "odoo": "Odoo",
+      "octopus": "Octopus",
+      "accountable": "Accountable",
       "csv": "CSV Upload",
       "ai": "AI"
     },
@@ -1795,9 +1801,9 @@
     "subtitle": "Upload uw grootboekexport voor automatische analyse en normalisatie-suggesties.",
     "ledgerUpload": "Grootboek Upload",
     "recommended": "Aanbevolen",
-    "ledgerUploadCaption": "Upload Yuki, Exact of CSV export",
+    "ledgerUploadCaption": "Upload Yuki, Exact, Octopus, Accountable of CSV export",
     "directIntegration": "Directe Koppeling",
-    "directIntegrationCaption": "Directe koppelingen met Yuki, Exact Online en Odoo worden binnenkort beschikbaar.",
+    "directIntegrationCaption": "Directe koppelingen met Yuki, Exact Online, Octopus, Accountable en Odoo worden binnenkort beschikbaar.",
     "manualInput": "Handmatig Invoeren",
     "manualInputCaption": "Voer financiële gegevens stap voor stap in",
     "searchUnavailable": "Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.",
@@ -1855,8 +1861,8 @@
     "summary": "{count, plural, one {# latentie} other {# latenties}}"
   },
   "csvUpload": {
-    "title": "Yuki Export Uploaden",
-    "subtitle": "Upload uw grootboekexport uit Yuki of een ander boekhoudpakket",
+    "title": "Grootboekexport Uploaden",
+    "subtitle": "Upload uw grootboekexport uit Yuki, Exact, Octopus, Accountable of een ander boekhoudpakket",
     "useTemplate": "Gebruik onze sjabloon voor optimale import",
     "downloadTemplate": "Download Sjabloon",
     "processing": "Bestand verwerken...",
@@ -1867,6 +1873,8 @@
     "formats": {
       "yuki": "Yuki",
       "exact": "Exact",
+      "octopus": "Octopus",
+      "accountable": "Accountable",
       "odoo": "Odoo",
       "generic": "Generic CSV"
     },

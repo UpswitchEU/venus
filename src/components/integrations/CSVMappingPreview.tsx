@@ -257,12 +257,16 @@ export function CSVMappingPreview({
           </div>
           <Badge variant="primary" size="sm">
             {parsedData.detectedType === 'yuki'
-              ? 'Yuki'
+              ? t('formats.yuki')
               : parsedData.detectedType === 'exact'
-                ? 'Exact'
-                : parsedData.detectedType === 'odoo'
-                  ? 'Odoo'
-                  : 'CSV'}{' '}
+                ? t('formats.exact')
+                : parsedData.detectedType === 'octopus'
+                  ? t('formats.octopus')
+                  : parsedData.detectedType === 'accountable'
+                    ? t('formats.accountable')
+                    : parsedData.detectedType === 'odoo'
+                      ? t('formats.odoo')
+                      : t('formats.generic')}{' '}
             {t('export')}
           </Badge>
         </div>

@@ -70,6 +70,9 @@ const sourceColors: Record<NormalizationSource, string> = {
   manual: 'bg-foreground/10 text-foreground/70',
   yuki: 'bg-accent/10 text-accent',
   exact: 'bg-info/10 text-info',
+  odoo: 'bg-purple-500/10 text-purple-600',
+  octopus: 'bg-blue-500/10 text-blue-600',
+  accountable: 'bg-emerald-500/10 text-emerald-600',
   csv: 'bg-warning/10 text-warning',
   ai: 'bg-primary/10 text-primary',
 }

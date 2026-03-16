@@ -186,10 +186,16 @@ function useIsMobile() {
 // ─────────────────────────────────────────
 
 function generateDefaultNormalizationSuggestions(
-  source: 'yuki' | 'exact' | 'odoo',
+  source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable',
   nh: (key: string) => string
 ) {
-  const labels = { yuki: 'Yuki', exact: 'Exact Online', odoo: 'Odoo' }
+  const labels = {
+    yuki: 'Yuki',
+    exact: 'Exact Online',
+    odoo: 'Odoo',
+    octopus: 'Octopus',
+    accountable: 'Accountable',
+  }
   return [
     {
       id: `${source}-1`,
@@ -2754,8 +2760,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── CSV Import → Normalization Hub ───
   const handleCSVImportComplete = useCallback(
-    async (source: 'yuki' | 'exact' | 'odoo', _fileName?: string) => {
-      const labels = { yuki: 'Yuki', exact: 'Exact Online', odoo: 'Odoo' }
+    async (
+      source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable',
+      _fileName?: string
+    ) => {
+      const labels = {
+        yuki: 'Yuki',
+        exact: 'Exact Online',
+        odoo: 'Odoo',
+        octopus: 'Octopus',
+        accountable: 'Accountable',
+      }
       toast.success(t('importStarted', { source: labels[source] }), {
         description: t('importStartedDesc'),
       })

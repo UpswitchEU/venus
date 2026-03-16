@@ -53,7 +53,7 @@ export interface CSVImportCardProps {
   onDownloadTemplate: () => void
   onClearImport?: () => void
   className?: string
-  softwareName?: 'Yuki' | 'Exact' | 'Odoo' | 'Generiek'
+  softwareName?: 'Yuki' | 'Exact' | 'Odoo' | 'Octopus' | 'Accountable' | 'Generiek'
 }
 
 export interface NormalisationReviewProps {
@@ -125,6 +125,8 @@ export function CSVImportCard({
     Yuki: '#00A4E4',
     Exact: '#E94E1B',
     Odoo: '#714B67',
+    Octopus: '#2D7DD2',
+    Accountable: '#10B981',
     Generiek: 'hsl(var(--primary))',
   }
 

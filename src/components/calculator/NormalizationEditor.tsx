@@ -53,7 +53,14 @@ import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/gro
 
 // Types for normalization data
 export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute'
-export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv'
+export type NormalizationSource =
+  | 'manual'
+  | 'yuki'
+  | 'exact'
+  | 'odoo'
+  | 'octopus'
+  | 'accountable'
+  | 'csv'
 
 export type { LedgerAccount } from '../../constants/grootboek'
 
@@ -101,6 +108,9 @@ const sourceOptions: { value: NormalizationSource; labelKey: string; color: stri
   { value: 'manual', labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
   { value: 'yuki', labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
   { value: 'exact', labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
+  { value: 'odoo', labelKey: 'sources.odoo', color: 'bg-purple-500/10 text-purple-600' },
+  { value: 'octopus', labelKey: 'sources.octopus', color: 'bg-blue-500/10 text-blue-600' },
+  { value: 'accountable', labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },
   { value: 'csv', labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
 ]
 

@@ -74,7 +74,15 @@ import { TaxLatencySection } from './TaxLatencySection'
 // ─────────────────────────────────────────
 
 export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute'
-export type NormalizationSource = 'manual' | 'yuki' | 'exact' | 'csv' | 'ai'
+export type NormalizationSource =
+  | 'manual'
+  | 'yuki'
+  | 'exact'
+  | 'odoo'
+  | 'octopus'
+  | 'accountable'
+  | 'csv'
+  | 'ai'
 export type NormalizationStatus = 'pending' | 'accepted' | 'rejected'
 
 import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
@@ -139,6 +147,9 @@ const sourceConfig: Record<NormalizationSource, { labelKey: string; color: strin
   manual: { labelKey: 'sources.manual', color: 'bg-foreground/10 text-foreground/70' },
   yuki: { labelKey: 'sources.yuki', color: 'bg-accent/10 text-accent' },
   exact: { labelKey: 'sources.exact', color: 'bg-info/10 text-info' },
+  odoo: { labelKey: 'sources.odoo', color: 'bg-purple-500/10 text-purple-600' },
+  octopus: { labelKey: 'sources.octopus', color: 'bg-blue-500/10 text-blue-600' },
+  accountable: { labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },
   csv: { labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
   ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
 }

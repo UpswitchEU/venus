@@ -124,7 +124,10 @@ export interface QuickNormalizationAction {
 
 interface ManualInputPanelProps {
   onSubmit: (data: ValuationFormData) => void
-  onCSVImportComplete?: (source: 'yuki' | 'exact' | 'odoo', fileName?: string) => void
+  onCSVImportComplete?: (
+    source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable',
+    fileName?: string
+  ) => void
   isCalculating?: boolean
   initialData?: Partial<ValuationFormData>
   // Contextual AI assistant integration
@@ -1663,6 +1666,54 @@ export function ManualInputPanel({
                     {mi('importModal.exactExport')}
                   </p>
                   <p className="text-xs text-foreground/50">{mi('importModal.exactPath')}</p>
+                </div>
+                <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleConnect('octopus')
+                  setShowConnectModal(false)
+                }}
+                className={cn(
+                  'w-full flex items-center gap-3 p-4 rounded-xl text-left',
+                  'border border-foreground/[0.08] hover:border-primary/30',
+                  'bg-foreground/[0.02] hover:bg-primary/5 transition-colors'
+                )}
+              >
+                <div className="w-10 h-10 rounded-lg bg-[#2D7DD2]/10 flex items-center justify-center shrink-0">
+                  <span className="text-lg font-bold text-[#2D7DD2]">O</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {mi('importModal.octopusExport')}
+                  </p>
+                  <p className="text-xs text-foreground/50">{mi('importModal.octopusPath')}</p>
+                </div>
+                <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleConnect('accountable')
+                  setShowConnectModal(false)
+                }}
+                className={cn(
+                  'w-full flex items-center gap-3 p-4 rounded-xl text-left',
+                  'border border-foreground/[0.08] hover:border-primary/30',
+                  'bg-foreground/[0.02] hover:bg-primary/5 transition-colors'
+                )}
+              >
+                <div className="w-10 h-10 rounded-lg bg-[#10B981]/10 flex items-center justify-center shrink-0">
+                  <span className="text-lg font-bold text-[#10B981]">A</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {mi('importModal.accountableExport')}
+                  </p>
+                  <p className="text-xs text-foreground/50">{mi('importModal.accountablePath')}</p>
                 </div>
                 <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
               </button>
