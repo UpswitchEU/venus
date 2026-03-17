@@ -18,6 +18,8 @@ import type {
   PrefillData,
 } from '../lib/bootstrap/types'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
+import { buildBusinessTypeFormData } from '../components/ValuationForm/utils/businessTypeFormData'
+import { getLastFullFiscalYear } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
 
 const logger = createContextLogger('BootstrapPrefill')
@@ -329,25 +331,20 @@ function applyPrefillToForm(
           })
         }
       })
-      // When we have only one year from yearData, add previous year (user expects 2024+2025)
-      if (historicalYears.length === 1) {
-        const single = historicalYears[0]
-        historicalYears.push({
-          year: single.year - 1,
-          revenue: single.revenue,
-          ebitda: single.ebitda,
-        })
-      }
+      // Only one real year is available — do NOT fabricate a second year by copying
+      // identical values. Doing so creates synthetic data that tells the valuation engine
+      // the company had zero growth, which depresses growth-driven methods. Instead, leave
+      // just the one year; the engine handles single-year inputs correctly.
     } else if (
       (financials.revenue !== undefined && financials.revenue > 0) ||
       (financials.ebitda !== undefined && financials.ebitda > 0)
     ) {
-      // Single year from revenue/ebitda: prefill current year and previous year (user expects 2024+2025)
-      const currentYear = new Date().getFullYear()
+      // Scalar revenue/ebitda (no per-year breakdown available) — prefill current year only.
+      // Again, do NOT duplicate to a prior year with identical figures.
+      const currentYear = getLastFullFiscalYear()
       const rev = financials.revenue ?? 0
       const ebit = financials.ebitda ?? 0
       historicalYears.push({ year: currentYear, revenue: rev, ebitda: ebit })
-      historicalYears.push({ year: currentYear - 1, revenue: rev, ebitda: ebit })
     }
     if (historicalYears.length > 0) {
       historicalYears.sort((a, b) => b.year - a.year) // Most recent first
@@ -360,11 +357,28 @@ function applyPrefillToForm(
     }
   }
 
-  // 4. Apply business type
-  if (businessType) {
-    if (businessType.id) allData.business_type_id = businessType.id
-    if (businessType.industry) allData.industry = businessType.industry
-    if (businessType.category) allData.subIndustry = businessType.category
+  // 4. Apply business type — use buildBusinessTypeFormData so all downstream fields
+  // (business_model, _internal_dcf_preference, etc.) are set consistently.
+  if (businessType?.id) {
+    const btFormData = buildBusinessTypeFormData(
+      {
+        id: businessType.id,
+        // industryMapping is required by BusinessType interface; fall back to industry or category
+        industryMapping: businessType.industry || businessType.category || 'services',
+        industry: businessType.industry,
+        category: businessType.category,
+        // Preference fields are not available in bootstrap data — they remain undefined here
+        // and will be populated if the user later makes a manual selection.
+      } as any,
+      businessType.industry || businessType.category || 'services',
+    )
+    Object.assign(allData, btFormData)
+
+    logger.debug('Applied buildBusinessTypeFormData in bootstrap prefill', {
+      business_type_id: businessType.id,
+      industry: allData.industry,
+      business_model: allData.business_model,
+    })
   }
 
   // CRITICAL: Ensure company_name is set from either companyInfo or kboData

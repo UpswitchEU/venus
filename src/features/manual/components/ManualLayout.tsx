@@ -98,6 +98,7 @@ import type {
 } from '../../../types/valuation'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
+import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
@@ -278,7 +279,12 @@ function mapFrontendCategoryToBackend(category: string): string {
 
 function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
   const allYears = (data.yearlyFinancials || [])
-    .filter((yf: any) => yf.year && (yf.revenue > 0 || yf.ebitda !== 0))
+    .filter(
+      (yf: any) =>
+        yf.year &&
+        ((Number(yf.revenue) || 0) > 0 ||
+          (yf.ebitda !== '' && yf.ebitda !== null && yf.ebitda !== undefined))
+    )
     .sort((a: any, b: any) => parseInt(b.year) - parseInt(a.year))
 
   const current = allYears[0]
@@ -588,20 +594,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const normalizationItems = useNormalizationStore((s) => s.items)
   const normalizationActions = useNormalizationStore()
   const [suggestedNormalisations, setSuggestedNormalisations] = useState<any[]>([])
+  /** Latest financial data from ManualInputPanel (for AI context before submit) */
+  const latestFormDataRef = useRef<Partial<CollectedData>>({})
 
-  // Derive financial years from form store for the normalization modal
-  const financialYears = useMemo(() => {
-    const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
-    const years = new Set<number>([lastFullYear])
-    formStoreData.historical_years_data
-      ?.filter((y: any) => y.year >= 2000 && y.year <= 2100)
-      .forEach((y: any) => years.add(y.year))
-    return Array.from(years).sort((a, b) => b - a)
-  }, [formStoreData.historical_years_data])
+  const getLiveYearlyFinancials = useCallback(() => {
+    const latestYearlyFinancials = Array.isArray(latestFormDataRef.current?.yearlyFinancials)
+      ? (latestFormDataRef.current?.yearlyFinancials as Array<{
+          year: string
+          revenue: number
+          ebitda: number
+        }>)
+      : []
+    if (latestYearlyFinancials.length > 0) {
+      return [...latestYearlyFinancials].sort((a, b) => Number(b.year) - Number(a.year))
+    }
 
-  // Restored yearly financials from form store for ManualInputPanel initialData.
-  // Memoized to stabilize the reference and prevent unnecessary prefill effect runs.
-  const restoredYearlyFinancials = useMemo(() => {
     const allYears: Array<{ year: string; revenue: number; ebitda: number }> = []
     const cyd = formStoreData.current_year_data as
       | { year?: number; revenue?: number; ebitda?: number }
@@ -618,7 +625,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (
           y.year >= 2000 &&
           y.year <= 2100 &&
-          !allYears.some((a) => a.year === String(y.year))
+          !allYears.some((existing) => existing.year === String(y.year))
         ) {
           allYears.push({
             year: String(y.year),
@@ -628,26 +635,68 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
       }
     }
-    return allYears.length > 0
-      ? allYears.sort((a, b) => Number(b.year) - Number(a.year))
-      : undefined
+
+    return allYears.sort((a, b) => Number(b.year) - Number(a.year))
   }, [formStoreData.current_year_data, formStoreData.historical_years_data])
 
+  // Derive financial years from the latest live form snapshot for the normalization modal.
+  const financialYears = (() => {
+    const years = new Set<number>([getLastFullFiscalYear()])
+    getLiveYearlyFinancials().forEach((yearData) => {
+      const year = Number(yearData.year)
+      if (Number.isFinite(year) && year >= 2000 && year <= 2100) {
+        years.add(year)
+      }
+    })
+    return Array.from(years).sort((a, b) => b - a)
+  })()
+
+  // Restored yearly financials from form store for ManualInputPanel initialData.
+  // Memoized to stabilize the reference and prevent unnecessary prefill effect runs.
+  const restoredYearlyFinancials = useMemo(() => {
+    const allYears = getLiveYearlyFinancials()
+    return allYears.length > 0 ? allYears : undefined
+  }, [getLiveYearlyFinancials])
+
   // Per-year reported EBITDA for accurate multi-year normalization display
-  const originalEBITDAByYear = useMemo(() => {
+  const originalEBITDAByYear = (() => {
     const byYear: Record<number, number> = {}
-    const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
-    const currentEbitda =
-      Number(formStoreData?.current_year_data?.ebitda) || Number(formStoreData?.ebitda) || 0
-    if (Number.isFinite(currentEbitda)) byYear[lastFullYear] = currentEbitda
-    formStoreData.historical_years_data
-      ?.filter((y: any) => y.year >= 2000 && y.year <= 2100 && y.ebitda != null)
-      .forEach((y: any) => {
-        const val = Number(y.ebitda)
-        byYear[y.year] = Number.isFinite(val) ? val : 0
-      })
+    getLiveYearlyFinancials().forEach((yearData) => {
+      const year = Number(yearData.year)
+      const ebitda = Number(yearData.ebitda)
+      if (Number.isFinite(year) && year >= 2000 && year <= 2100 && Number.isFinite(ebitda)) {
+        byYear[year] = ebitda
+      }
+    })
+    if (!(getLastFullFiscalYear() in byYear)) {
+      const fallbackCurrentEbitda =
+        latestFormDataRef.current?.ebitda ??
+        latestFormDataRef.current?.current_year_data?.ebitda ??
+        formStoreData?.current_year_data?.ebitda ??
+        formStoreData?.ebitda
+      const parsedFallbackCurrentEbitda = Number(fallbackCurrentEbitda)
+      if (Number.isFinite(parsedFallbackCurrentEbitda)) {
+        byYear[getLastFullFiscalYear()] = parsedFallbackCurrentEbitda
+      }
+    }
     return byYear
-  }, [formStoreData])
+  })()
+
+  const getOriginalEbitdaForDisplay = useCallback(() => {
+    const candidates = [
+      report?.ebitda,
+      (result as any)?.current_year_data?.ebitda,
+      formStoreData?.current_year_data?.ebitda,
+      originalEBITDAByYear?.[getLastFullFiscalYear()],
+      latestFormDataRef.current?.current_year_data?.ebitda,
+      latestFormDataRef.current?.ebitda,
+    ]
+    for (const candidate of candidates) {
+      const parsed = Number(candidate)
+      if (Number.isFinite(parsed)) return parsed
+    }
+    return 0
+  }, [formStoreData?.current_year_data?.ebitda, formStoreData?.ebitda, originalEBITDAByYear, report?.ebitda, result])
 
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
@@ -695,9 +744,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     fteEmployees: formNumber_of_employees,
     equityStake: 100,
   })
-
-  /** Latest financial data from ManualInputPanel (for AI context before submit) */
-  const latestFormDataRef = useRef<Partial<CollectedData>>({})
 
   /** Dirty state: user edited financial inputs after a report was generated. Reset on successful submit. */
   const [isDirty, setIsDirty] = useState(false)
@@ -1128,7 +1174,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         toast.error(t('businessTypeMissing'), { description: t('businessTypeMissingDesc') })
         return
       }
-      if (!data.yearlyFinancials?.some((yf: any) => yf.revenue > 0 && yf.ebitda > 0)) {
+      if (
+        !data.yearlyFinancials?.some(
+          (yf: any) =>
+            Number(yf.revenue) > 0 &&
+            yf.ebitda !== '' &&
+            yf.ebitda !== null &&
+            yf.ebitda !== undefined &&
+            Number.isFinite(Number(yf.ebitda))
+        )
+      ) {
         toast.error(t('financialDataIncomplete'), { description: t('financialDataIncompleteDesc') })
         return
       }
@@ -2526,19 +2581,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const getYearsToPersist = useCallback(
     (item: NormalizationItem): number[] => {
-      const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
-      const historicalYears =
-        formStoreData.historical_years_data
-          ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
-          .map((y: any) => y.year) ?? []
-      const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+      const allDataYears = financialYears
       return item.applyAllYears
         ? allDataYears
         : item.applyYears?.length
           ? item.applyYears
           : [item.year]
     },
-    [formStoreData.historical_years_data]
+    [financialYears]
   )
 
   const handleAcceptNormalisation = useCallback(
@@ -2618,12 +2668,28 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (!report || !idForApi) return
 
       const acceptedNorms = normalizations.filter((n) => n.status === 'accepted')
-      if (acceptedNorms.length === 0) return
 
       try {
         // Pass normalizations directly to avoid a redundant store read
         const recalcLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-        const request = buildValuationRequest(formStoreData, normalizations, recalcLocale as 'nl' | 'en')
+        const latestFinancialOverrides = mapClarityFormToVenusStore({
+          ...collectedData,
+          ...latestFormDataRef.current,
+        })
+        const requestSource = {
+          ...formStoreData,
+          ...latestFinancialOverrides,
+          current_year_data: latestFinancialOverrides.current_year_data ?? formStoreData.current_year_data,
+          historical_years_data:
+            latestFinancialOverrides.historical_years_data ?? formStoreData.historical_years_data,
+          revenue: latestFinancialOverrides.revenue ?? formStoreData.revenue,
+          ebitda: latestFinancialOverrides.ebitda ?? formStoreData.ebitda,
+        } as VenusFormData
+        const request = buildValuationRequest(
+          requestSource,
+          normalizations,
+          recalcLocale as 'nl' | 'en'
+        )
         ;(request as any).dataSource = 'manual'
         ;(request as any).reportId = idForApi
 
@@ -2960,7 +3026,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }
 
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
-  const lastFullYear = new Date().getFullYear() - 1
+  const lastFullYear = getLastFullFiscalYear()
 
   // ═══════════════════════════════════════
   // MOBILE LAYOUT
@@ -3104,16 +3170,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenChange={setShowUnifiedNormalizationModal}
           companyName={collectedData.companyName || t('company')}
           currentYear={lastFullYear}
-          originalEBITDA={
-            Number(report?.ebitda) ||
-            Number((result as any)?.current_year_data?.ebitda) ||
-            Number(formStoreData?.current_year_data?.ebitda) ||
-            Number(originalEBITDAByYear?.[lastFullYear]) ||
-            Number(latestFormDataRef.current?.yearlyFinancials?.[0]?.ebitda) ||
-            Number(latestFormDataRef.current?.current_year_data?.ebitda) ||
-            Number((latestFormDataRef.current as any)?.ebitda) ||
-            0
-          }
+          originalEBITDA={getOriginalEbitdaForDisplay()}
           originalEBITDAByYear={originalEBITDAByYear}
           normalizations={normalizationItems}
           onNormalizationsChange={handleNormalizationsChange}
@@ -3415,16 +3472,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onOpenChange={setShowUnifiedNormalizationModal}
         companyName={collectedData.companyName || t('company')}
         currentYear={lastFullYear}
-        originalEBITDA={
-          Number(report?.ebitda) ||
-          Number((result as any)?.current_year_data?.ebitda) ||
-          Number(formStoreData?.current_year_data?.ebitda) ||
-          Number(originalEBITDAByYear?.[lastFullYear]) ||
-          Number(latestFormDataRef.current?.yearlyFinancials?.[0]?.ebitda) ||
-          Number(latestFormDataRef.current?.current_year_data?.ebitda) ||
-          Number((latestFormDataRef.current as any)?.ebitda) ||
-          0
-        }
+        originalEBITDA={getOriginalEbitdaForDisplay()}
         originalEBITDAByYear={originalEBITDAByYear}
         normalizations={normalizationItems}
         onNormalizationsChange={handleNormalizationsChange}

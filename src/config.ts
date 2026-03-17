@@ -9,7 +9,8 @@ export const API_CONFIG = {
     'https://api.valuations.upswitch.app',
   timeout: 30000,
   streaming: {
-    enabled: process.env.NEXT_PUBLIC_ENABLE_STREAMING === 'true' || true,
+    // Default: enabled. Set NEXT_PUBLIC_ENABLE_STREAMING=false to disable.
+    enabled: process.env.NEXT_PUBLIC_ENABLE_STREAMING !== 'false',
     timeout: parseInt(process.env.NEXT_PUBLIC_STREAMING_TIMEOUT || '30000', 10),
     maxRetries: parseInt(process.env.NEXT_PUBLIC_MAX_RETRY_ATTEMPTS || '3', 10),
   },
@@ -26,15 +27,16 @@ export const APP_CONFIG = {
 // NOTE: AI is powered by Claude (Anthropic) via Titan API backend.
 // Venus does not call AI directly - all AI interactions go through Titan.
 export const AI_CONFIG = {
-  enabled: process.env.NEXT_PUBLIC_AI_ENHANCED_MODE === 'true' || true,
+  // Default: enabled. Set each var to 'false' to individually disable.
+  enabled: process.env.NEXT_PUBLIC_AI_ENHANCED_MODE !== 'false',
   // Model is configured in Titan (claude-3-5-sonnet-20241022)
   model: 'claude-3-5-sonnet',
-  showReasoning: process.env.NEXT_PUBLIC_SHOW_AI_REASONING === 'true' || true,
-  showHelpText: process.env.NEXT_PUBLIC_SHOW_AI_HELP_TEXT === 'true' || true,
-  showNarratives: process.env.NEXT_PUBLIC_SHOW_VALUATION_NARRATIVES === 'true' || true,
+  showReasoning: process.env.NEXT_PUBLIC_SHOW_AI_REASONING !== 'false',
+  showHelpText: process.env.NEXT_PUBLIC_SHOW_AI_HELP_TEXT !== 'false',
+  showNarratives: process.env.NEXT_PUBLIC_SHOW_VALUATION_NARRATIVES !== 'false',
   branding: {
     expertTitle: 'AI Valuation Expert',
     levelIndicator: 'Big 4 Level',
-    showLevelBadge: process.env.NEXT_PUBLIC_SHOW_LEVEL_BADGE === 'true' || true,
+    showLevelBadge: process.env.NEXT_PUBLIC_SHOW_LEVEL_BADGE !== 'false',
   },
 }

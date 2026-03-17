@@ -166,9 +166,11 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
                   : formData.number_of_owners / formData.number_of_employees
 
               if (ownerRatio >= 0.5) {
-                const riskLevel = ownerRatio >= 0.5 ? 'CRITICAL' : 'HIGH'
-                const discount = ownerRatio >= 0.5 ? '-20%' : '-12%'
-                const isCritical = formData.number_of_employees === 0
+                // ≥ 80% owner ratio (or 100% owner-operated) = CRITICAL at -20%
+                // 50%–79% = HIGH at -12%
+                const isCritical = ownerRatio >= 0.8 || formData.number_of_employees === 0
+                const riskLevel = isCritical ? 'CRITICAL' : 'HIGH'
+                const discount = isCritical ? '-20%' : '-12%'
 
                 return (
                   <div className="@4xl:col-span-2">

@@ -18,6 +18,7 @@ import { useManualFormStore, useManualResultsStore } from '../../../store/manual
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
+import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import {
@@ -66,6 +67,14 @@ export const useValuationFormSubmission = (
           canSave,
           reason: canSaveReason,
         })
+        // Show user-visible feedback so they know why the button did nothing
+        const blockedMessage =
+          canSaveReason === 'unauthenticated'
+            ? t('loginRequired') || 'Please log in before calculating.'
+            : canSaveReason === 'bootstrapping'
+              ? t('preparingSession') || 'Preparing your session, please wait a moment…'
+              : t('notReady') || 'Not ready yet — please wait a moment and try again.'
+        toast.warning(blockedMessage)
         return
       }
 
@@ -132,17 +141,20 @@ export const useValuationFormSubmission = (
         // Clear validation error
         setEmployeeCountError(null)
 
-        // Validate required fields
+        // Validate required fields.
+        // Use explicit null/undefined checks for numeric fields (revenue, ebitda) so that
+        // legitimate zero values (pre-revenue startups, break-even businesses) are not
+        // incorrectly rejected by a falsy check.
         if (
-          !formData.revenue ||
-          !formData.ebitda ||
+          formData.revenue == null ||
+          formData.ebitda == null ||
           !formData.industry ||
           !formData.country_code ||
           !formData.business_type_id
         ) {
           const missingFields = []
-          if (!formData.revenue) missingFields.push('revenue')
-          if (!formData.ebitda) missingFields.push('ebitda')
+          if (formData.revenue == null) missingFields.push('revenue')
+          if (formData.ebitda == null) missingFields.push('ebitda')
           if (!formData.industry) missingFields.push('industry')
           if (!formData.country_code) missingFields.push('country_code')
           if (!formData.business_type_id) missingFields.push('business_type_id')
@@ -168,6 +180,7 @@ export const useValuationFormSubmission = (
         // NOTE: We use fire-and-forget to avoid blocking calculation if backend is slow
         if (reportId) {
           try {
+            const lastFullYear = getLastFullFiscalYear()
             // Convert formData to session format
             const sessionUpdate: Partial<any> = {
               company_name: formData.company_name,
@@ -176,16 +189,18 @@ export const useValuationFormSubmission = (
               business_model: formData.business_model,
               founding_year: formData.founding_year,
               current_year_data: {
-                year: formData.current_year_data?.year || new Date().getFullYear() - 1,
-                revenue: formData.revenue || formData.current_year_data?.revenue || 0,
-                ebitda: formData.ebitda || formData.current_year_data?.ebitda || 0,
-                ...(formData.current_year_data?.total_assets && {
+                year: formData.current_year_data?.year || lastFullYear,
+                revenue: formData.revenue ?? formData.current_year_data?.revenue ?? 0,
+                ebitda: formData.ebitda ?? formData.current_year_data?.ebitda ?? 0,
+                ...(formData.current_year_data?.total_assets != null && {
                   total_assets: formData.current_year_data.total_assets,
                 }),
-                ...(formData.current_year_data?.total_debt && {
+                ...(formData.current_year_data?.total_debt != null && {
                   total_debt: formData.current_year_data.total_debt,
                 }),
-                ...(formData.current_year_data?.cash && { cash: formData.current_year_data.cash }),
+                ...(formData.current_year_data?.cash != null && {
+                  cash: formData.current_year_data.cash,
+                }),
               },
               historical_years_data: formData.historical_years_data,
               number_of_employees: formData.number_of_employees,
@@ -273,10 +288,10 @@ export const useValuationFormSubmission = (
           result = await valuationService.calculateValuation(request)
 
           if (!result) {
-            // Service returned null - shouldn't happen with proper error handling
             generalLogger.warn('[Manual] Valuation service returned null unexpectedly')
-            setCalculating(false) // Ensure state is reset
-            return // Exit early - don't proceed with saving or versioning
+            setCalculating(false)
+            toast.error(t('calculationFailed') || 'Calculation failed — please try again.')
+            return
           }
 
           generalLogger.info('[Manual] Valuation calculation completed', {
@@ -485,13 +500,22 @@ export const useValuationFormSubmission = (
         }
       } catch (error) {
         generalLogger.error('Form submission failed', { error })
-        setEmployeeCountError(
-          error instanceof Error
-            ? `Calculation failed: ${error.message}`
-            : 'Calculation failed. Please check the console for details.'
-        )
+
+        // Determine a user-friendly message — never expose raw stack traces or
+        // "check the console" instructions to clients during demos or onboarding.
+        const rawMsg = error instanceof Error ? error.message : String(error)
+        const isNetworkError =
+          rawMsg.toLowerCase().includes('network') ||
+          rawMsg.toLowerCase().includes('unavailable') ||
+          rawMsg.toLowerCase().includes('timeout')
+        const userMessage = isNetworkError
+          ? 'The valuation service is temporarily unavailable. Please try again in a moment.'
+          : 'The valuation could not be completed. Please review your inputs and try again.'
+
+        toast.error(userMessage, { duration: 6000 })
+        // Also clear any stale inline validation message so the wrong field isn't highlighted
+        setEmployeeCountError(null)
         // CRITICAL: Reset isCalculating on error
-        // calculateValuation should have reset it, but ensure it's reset here too
         setCalculating(false)
       }
       // NOTE: calculateValuation handles resetting isCalculating on success,
@@ -502,6 +526,7 @@ export const useValuationFormSubmission = (
       setResult,
       setEmployeeCountError,
       reportId,
+      sessionName,
       getLatestVersion,
       createVersion,
       fetchVersions,

@@ -60,6 +60,7 @@ import type { CompanySearchResult } from '../../services/registry/types'
 import { shouldShowLedgerUploadHint } from '../../config/features'
 import { trackValuationMethodComingSoon } from '../../lib/analytics'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
+import { getLastFullFiscalYear } from '../../utils/fiscalYear'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
@@ -206,7 +207,7 @@ function FieldHelpTrigger({
   )
 }
 
-const currentYear = new Date().getFullYear()
+const currentYear = getLastFullFiscalYear() + 1
 
 // Generate default yearly financials for last 3 years
 const generateDefaultYearlyFinancials = (): YearlyFinancials[] => {
@@ -239,15 +240,22 @@ export function ManualInputPanel({
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const normalizationItems = useNormalizationStore((s) => s.items)
+  const hasExplicitNumericValue = useCallback(
+    (value: unknown) =>
+      value !== '' && value !== null && value !== undefined && Number.isFinite(Number(value)),
+    []
+  )
   const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
   const formatCurrency = useCallback(
-    (amount: number) =>
-      new Intl.NumberFormat(currencyLocale, {
+    (amount: number) => {
+      const safe = Number.isFinite(amount) ? amount : 0
+      return new Intl.NumberFormat(currencyLocale, {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(amount),
+      }).format(safe)
+    },
     [currencyLocale]
   )
   const [formData, setFormData] = useState<ValuationFormData>({
@@ -514,13 +522,15 @@ export function ManualInputPanel({
         if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(yearNum)
         return n.year === yearNum
       })
-      const yearEbitda = Number(yf.ebitda) || 0
+      const rawEbitda = Number(yf.ebitda)
+      const yearEbitda = Number.isFinite(rawEbitda) ? rawEbitda : 0
       const totalAdjustment = yearNorms.reduce((sum, n) => {
-        const val = Number(n.value) || 0
-        const adj = Number(n.adjustment) || 0
-        // When yearEbitda is 0 or non-finite, percentage/absolute recalculation yields 0; use stored adjustment
+        const rawVal = Number(n.value)
+        const val = Number.isFinite(rawVal) ? rawVal : 0
+        const rawAdj = Number(n.adjustment)
+        const adj = Number.isFinite(rawAdj) ? rawAdj : 0
         if (
-          (!Number.isFinite(yearEbitda) || yearEbitda === 0) &&
+          yearEbitda === 0 &&
           (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
         ) {
           return sum + adj
@@ -530,21 +540,24 @@ export function ManualInputPanel({
         if (n.type === 'absolute') return sum + (val - yearEbitda)
         return sum + adj
       }, 0)
-      const normalizedEbitda = yearEbitda + totalAdjustment
+      const safeTotalAdj = Number.isFinite(totalAdjustment) ? totalAdjustment : 0
+      const normalizedEbitda = yearEbitda + safeTotalAdj
       return {
         ...yf,
         normalizedEbitda,
-        totalAdjustment,
+        totalAdjustment: safeTotalAdj,
         normalizationCount: yearNorms.length,
       }
     })
 
-    // Weighted average: most recent years weighted higher (McKinsey method)
-    // Only include years with EBITDA > 0 — prevents premature "Normalize EBITDA" when adding empty year
+    // Weighted average: most recent years weighted higher (McKinsey method).
+    // Include break-even and loss-making years, but ignore incomplete empty rows.
     const validYears = years
       .filter((y) => y.year != null && Number(y.year) >= 2000 && Number(y.year) <= 2100)
       .sort((a, b) => Number(a.year) - Number(b.year))
-    const yearsWithEbitda = validYears.filter((y) => (Number(y.ebitda) || 0) > 0)
+    const yearsWithEbitda = validYears.filter(
+      (y) => (Number(y.revenue) || 0) > 0 && hasExplicitNumericValue(y.ebitda)
+    )
     let weightedSum = 0
     let totalWeight = 0
     yearsWithEbitda.forEach((y, index) => {
@@ -561,7 +574,7 @@ export function ManualInputPanel({
       averageNormalizedEbitda,
       totalYearsWithData: yearsWithEbitda.length,
     }
-  }, [formData.yearlyFinancials, normalizationItems])
+  }, [formData.yearlyFinancials, hasExplicitNumericValue, normalizationItems])
 
   // KBO search: real registry API (Titan) with AbortSignal, throws on failure for retry UI
   const kboSearchFn = useCallback(
@@ -909,20 +922,23 @@ export function ManualInputPanel({
   // Check if core fields are filled
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0
   const hasBusinessType = !!selectedBusinessType || formData.businessType.length > 0
-  // Use (Number(x) || 0) > 0 for consistency - prevents premature show when "Add year" adds empty rows
   const hasFinancials = formData.yearlyFinancials.some(
-    (yf) => (Number(yf.revenue) || 0) > 0 && (Number(yf.ebitda) || 0) > 0
+    (yf) => (Number(yf.revenue) || 0) > 0 && hasExplicitNumericValue(yf.ebitda)
   )
-  const hasEbitdaValue = formData.yearlyFinancials.some((yf) => (Number(yf.ebitda) || 0) > 0)
+  const hasEbitdaValue = formData.yearlyFinancials.some((yf) => hasExplicitNumericValue(yf.ebitda))
   const totalYearsWithEbitda = formData.yearlyFinancials.filter(
-    (yf) => (Number(yf.ebitda) || 0) > 0
+    (yf) => hasExplicitNumericValue(yf.ebitda)
   ).length
   const { canSave, reason: canSaveReason } = useCanSave()
   const canSubmit = hasCompanyInfo && hasBusinessType && hasFinancials && canSave
 
   // Field-level: detect partially filled years (has one of revenue/ebitda but not both)
   const partialYears = formData.yearlyFinancials
-    .filter((yf) => (yf.revenue > 0 && yf.ebitda === 0) || (yf.ebitda !== 0 && yf.revenue <= 0))
+    .filter(
+      (yf) =>
+        ((Number(yf.revenue) || 0) > 0 && !hasExplicitNumericValue(yf.ebitda)) ||
+        (hasExplicitNumericValue(yf.ebitda) && (Number(yf.revenue) || 0) <= 0)
+    )
     .map((yf) => yf.year)
 
   // Calculate progress
@@ -1331,24 +1347,32 @@ export function ManualInputPanel({
                                   {normalizedData.totalYearsWithData === 1 ? mi('year') : mi('years')}
                                   )
                                 </span>
-                                {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (
-                                  <motion.span
-                                    className="text-xs font-semibold text-success"
-                                    initial={{ x: -4, opacity: 0 }}
-                                    animate={{ x: 0, opacity: 1 }}
-                                  >
-                                    +
-                                    {formatCurrency(
-                                      Number(
-                                        normalizedData.years.reduce(
-                                          (sum, y) =>
-                                            sum + (Number.isFinite(y.totalAdjustment) ? y.totalAdjustment : 0),
-                                          0
-                                        ) / Math.max(1, normalizedData.totalYearsWithData)
-                                      ) || 0
-                                    )}
-                                  </motion.span>
-                                )}
+                                {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (() => {
+                                  const yearsWithData = normalizedData.years.filter(
+                                    (y) => (Number(y.ebitda) || 0) > 0
+                                  )
+                                  const adjSum = yearsWithData.reduce(
+                                    (sum, y) =>
+                                      sum + (Number.isFinite(y.totalAdjustment) ? y.totalAdjustment : 0),
+                                    0
+                                  )
+                                  const avgAdj = yearsWithData.length > 0
+                                    ? adjSum / yearsWithData.length
+                                    : 0
+                                  const safeAvg = Number.isFinite(avgAdj) ? avgAdj : 0
+                                  return (
+                                    <motion.span
+                                      className={cn(
+                                        'text-xs font-semibold',
+                                        safeAvg > 0 ? 'text-success' : safeAvg < 0 ? 'text-secondary' : 'text-foreground/40'
+                                      )}
+                                      initial={{ x: -4, opacity: 0 }}
+                                      animate={{ x: 0, opacity: 1 }}
+                                    >
+                                      {safeAvg > 0 ? '+' : ''}{formatCurrency(safeAvg)}
+                                    </motion.span>
+                                  )
+                                })()}
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
@@ -1488,13 +1512,18 @@ export function ManualInputPanel({
                         {/* Show normalized EBITDA if different */}
                         {yearData.ebitda > 0 &&
                           normalizedYear &&
-                          normalizedYear.normalizedEbitda !== yearData.ebitda && (
+                          normalizedYear.totalAdjustment !== 0 && (
                             <div className="mt-2 flex items-center justify-between text-xs">
                               <span className="text-foreground/50">
                                 {mi('fields.normalizedEbitdaLabel')}
                               </span>
-                              <span className="font-mono font-semibold text-success">
-                                {formatCurrency(normalizedYear.normalizedEbitda)}
+                              <span className={cn(
+                                'font-mono font-semibold',
+                                normalizedYear.totalAdjustment > 0 ? 'text-success' : 'text-secondary'
+                              )}>
+                                {formatCurrency(
+                                  Number.isFinite(normalizedYear.normalizedEbitda) ? normalizedYear.normalizedEbitda : 0
+                                )}
                                 <span className="text-foreground/40 ml-1.5">
                                   {' '}({normalizedYear.totalAdjustment > 0 ? '+' : ''}
                                   {formatCurrency(normalizedYear.totalAdjustment)}{' '}

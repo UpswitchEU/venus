@@ -16,9 +16,16 @@ import pino from 'pino'
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined'
 
-// Full logging in staging and prod for validation - will tighten later
+// Use 'warn' in production so only warnings and errors reach the browser console.
+// Debug/info noise during demos is eliminated without losing actionable signals.
+// Override with NEXT_PUBLIC_LOG_LEVEL env var for temporary debugging.
+const defaultLevel =
+  typeof process !== 'undefined' && process.env.NODE_ENV === 'production' ? 'warn' : 'debug'
+const level =
+  (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_LOG_LEVEL as any)) || defaultLevel
+
 const logger = pino({
-  level: 'debug' as 'info' | 'debug',
+  level,
   // In browser, use custom write function to format logs properly
   // This prevents "Object" spam in console
   browser: isBrowser

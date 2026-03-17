@@ -22,6 +22,7 @@ import { useCallback, useEffect } from 'react'
 import { backendAPI } from '../services/backendApi'
 import { useSessionStore } from '../store/useSessionStore'
 import { debounceWithFlush } from '../utils/debounce'
+import { getLastFullFiscalYear } from '../utils/fiscalYear'
 import { generalLogger } from '../utils/logger'
 import { NameGenerator } from '../utils/nameGenerator'
 
@@ -118,6 +119,13 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       try {
         // Convert ValuationFormData to Partial<ValuationRequest> for session
         // ✅ FIX: Include ALL form fields for complete persistence
+        const lastFullYear = getLastFullFiscalYear()
+        const explicitCurrentYear = Number(data.current_year_data?.year ?? data.year)
+        const normalizedCurrentYear =
+          Number.isFinite(explicitCurrentYear) && explicitCurrentYear >= 2000
+            ? Math.min(explicitCurrentYear, lastFullYear)
+            : lastFullYear
+
         const sessionUpdate: Partial<any> = {
           company_name: data.company_name,
           country_code: data.country_code,
@@ -132,7 +140,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           revenue: data.revenue,
           ebitda: data.ebitda,
           current_year_data: {
-            year: new Date().getFullYear() - 1,
+            // Session payloads should always use the last closed fiscal year.
+            year: normalizedCurrentYear,
             revenue: data.revenue ?? data.current_year_data?.revenue ?? 0,
             ebitda: data.ebitda ?? data.current_year_data?.ebitda ?? 0,
             ...(data.current_year_data?.total_assets && {

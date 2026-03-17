@@ -22,9 +22,11 @@ import { useSessionDataPrefill } from '../../hooks/useSessionDataPrefill'
 import { useBootstrapSafe } from '../../lib/bootstrap'
 import { type BusinessType, businessTypesApiService } from '../../services/businessTypesApi'
 import { useManualFormStore, useManualResultsStore } from '../../store/manual'
+import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
+import { getLastFullFiscalYear } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
 import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../utils/versionConfirmation'
 import { RecalculateConfirmationPopup } from '../normalization/RecalculateConfirmationPopup'
@@ -34,6 +36,7 @@ import { FinancialDataSection } from './sections/FinancialDataSection'
 import { FormSubmitSection } from './sections/FormSubmitSection'
 import { HistoricalDataSection } from './sections/HistoricalDataSection'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
+import { buildBusinessTypeFormData } from './utils/businessTypeFormData'
 
 export interface ValuationFormProps {
   /** Initial version to load (for M&A workflow - edit previous versions) */
@@ -419,12 +422,9 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         (bt) => bt.id === (businessCard as any).business_type_id
       )
       if (matchingType) {
-        updateFormData({
-          business_type_id: matchingType.id,
-          business_model: matchingType.id,
-          industry: matchingType.industry || matchingType.industryMapping || businessCard.industry,
-          subIndustry: matchingType.category,
-        })
+          updateFormData(
+            buildBusinessTypeFormData(matchingType, businessCard.industry || 'services') as any
+          )
       }
     } else if (businessCard.industry) {
       const matchingType = businessTypes.find(
@@ -432,10 +432,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
           bt.industry === businessCard.industry || bt.industryMapping === businessCard.industry
       )
       if (matchingType) {
-        updateFormData({
-          business_type_id: matchingType.id,
-          business_model: matchingType.id,
-        })
+          updateFormData(buildBusinessTypeFormData(matchingType) as any)
       }
     }
 
@@ -475,35 +472,41 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         const bt = await businessTypesApiService.getBusinessTypeForNaceCode(naceCode)
         if (cancelled || !bt) return
 
+        // Always prefer the full BusinessType from the loaded list (has preference fields).
+        // The NACE API returns a sparse object without dcfPreference / multiplesPreference.
         const matchedType = businessTypes.find((t) => t.id === bt.id)
         if (matchedType) {
-          generalLogger.info('[ValuationForm] Prefilled business type from NACE', {
+          generalLogger.info('[ValuationForm] Prefilled business type from NACE (full type)', {
+            nace_code: naceCode,
+            business_type_id: matchedType.id,
+            title: matchedType.title,
+          })
+          updateFormData(buildBusinessTypeFormData(matchedType) as any)
+        } else {
+          // Sparse fallback: bt lacks preference fields, but still better than nothing.
+          generalLogger.warn('[ValuationForm] NACE type not in loaded list, using sparse NACE object', {
             nace_code: naceCode,
             business_type_id: bt.id,
-            title: bt.title,
           })
-          updateFormData({
-            business_type_id: bt.id,
-            business_model: bt.id,
-            industry: bt.category_id || bt.industry || 'services',
-            subIndustry: bt.category,
-            _internal_dcf_preference: matchedType.dcfPreference,
-            _internal_multiples_preference: matchedType.multiplesPreference,
-            _internal_owner_dependency_impact: matchedType.ownerDependencyImpact,
-            _internal_key_metrics: matchedType.keyMetrics,
-            _internal_typical_employee_range: matchedType.typicalEmployeeRange,
-            _internal_typical_revenue_range: matchedType.typicalRevenueRange,
-          } as any)
-        } else {
-          updateFormData({
-            business_type_id: bt.id,
-            business_model: bt.id,
-            industry: bt.category_id || bt.industry || 'services',
-            subIndustry: bt.category,
-          } as any)
+          updateFormData(buildBusinessTypeFormData(bt) as any)
         }
-      } catch {
-        // No mapping for this NACE code – leave business type empty
+      } catch (err: unknown) {
+        // Only silently ignore 404 / "not found" — those mean no mapping exists for this NACE code.
+        // Log all other errors so they surface during development and monitoring.
+        const status = (err as any)?.response?.status ?? (err as any)?.status
+        const message = err instanceof Error ? err.message : String(err)
+        const isNotFound =
+          status === 404 ||
+          message.toLowerCase().includes('not found') ||
+          message.toLowerCase().includes('no mapping')
+        if (!isNotFound) {
+          generalLogger.warn('[ValuationForm] NACE lookup failed unexpectedly', {
+            nace_code: naceCode,
+            status,
+            error: message,
+          })
+        }
+        // In all cases: leave business type empty — user can select manually
       } finally {
         if (cancelled) lastProcessedNaceRef.current = null
       }
@@ -550,19 +553,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
             id: matchedType.id,
           })
 
-          updateFormData({
-            business_type_id: matchedType.id,
-            business_model: matchedType.id,
-            industry: matchedType.industry || matchedType.industryMapping || 'services',
-            subIndustry: matchedType.category,
-            // Store internal metadata for backend
-            _internal_dcf_preference: matchedType.dcfPreference,
-            _internal_multiples_preference: matchedType.multiplesPreference,
-            _internal_owner_dependency_impact: matchedType.ownerDependencyImpact,
-            _internal_key_metrics: matchedType.keyMetrics,
-            _internal_typical_employee_range: matchedType.typicalEmployeeRange,
-            _internal_typical_revenue_range: matchedType.typicalRevenueRange,
-          } as any)
+          updateFormData(buildBusinessTypeFormData(matchedType) as any)
 
           setHasProcessedPrefilledQuery(true)
 
@@ -606,18 +597,28 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const { handleSubmit, isSubmitting } = useValuationFormSubmission(setEmployeeCountError)
 
   // EBITDA Normalization integration
-  const currentYear = Math.min(new Date().getFullYear(), 2100)
-  const { hasNormalization } = useEbitdaNormalizationStore()
+  const normalizationItems = useNormalizationStore((state) => state.items)
+  const hasLegacyNormalization = useEbitdaNormalizationStore((state) => state.hasNormalization)
+  const lastFullYear = getLastFullFiscalYear()
   const [showNormalizationConfirmation, setShowNormalizationConfirmation] = useState(false)
   const [hasPendingSubmit, setHasPendingSubmit] = useState(false)
   const versionConfirmationOpenRef = useRef(false)
   const { getLatestVersion } = useVersionHistoryStore()
 
   // Check if any normalizations exist
-  const hasAnyNormalization =
-    hasNormalization(currentYear) ||
-    hasNormalization(currentYear - 1) ||
-    hasNormalization(currentYear - 2)
+  const hasAnyNormalization = useMemo(
+    () =>
+      normalizationItems.some((item) => {
+        if (item.status !== 'accepted') return false
+        const years = item.applyAllYears
+          ? [lastFullYear, lastFullYear - 1, lastFullYear - 2]
+          : item.applyYears && item.applyYears.length > 0
+            ? item.applyYears
+            : [item.year]
+        return years.some((year) => year >= lastFullYear - 2 && year <= lastFullYear)
+      }) || [lastFullYear, lastFullYear - 1, lastFullYear - 2].some((year) => hasLegacyNormalization(year)),
+    [normalizationItems, lastFullYear, hasLegacyNormalization]
+  )
 
   // Get current version number
   const currentVersion = reportId ? getLatestVersion(reportId) : null

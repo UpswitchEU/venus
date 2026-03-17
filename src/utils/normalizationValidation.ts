@@ -27,6 +27,11 @@ export interface NormalizationValidation {
   overallScore: 'poor' | 'acceptable' | 'good' | 'excellent'
 }
 
+/** Guard against NaN/Infinity; return 0 for invalid numbers */
+function safeAmount(amount: number): number {
+  return Number.isFinite(amount) ? amount : 0
+}
+
 /**
  * Validate a single adjustment against category rules
  */
@@ -50,9 +55,10 @@ export function validateAdjustment(
   }
 
   const { validationRules, label } = definition
+  const safe = safeAmount(amount)
 
   // Check min/max bounds
-  if (amount < validationRules.min || amount > validationRules.max) {
+  if (safe < validationRules.min || safe > validationRules.max) {
     results.push({
       isValid: false,
       severity: 'error',
@@ -63,7 +69,7 @@ export function validateAdjustment(
   }
 
   // Check warning threshold
-  if (validationRules.warningThreshold && Math.abs(amount) > validationRules.warningThreshold) {
+  if (validationRules.warningThreshold && Math.abs(safe) > validationRules.warningThreshold) {
     results.push({
       isValid: true,
       severity: 'warning',
@@ -74,11 +80,11 @@ export function validateAdjustment(
   }
 
   // Check if note is provided for significant adjustments
-  if (Math.abs(amount) > 10000 && (!note || note.trim().length < 10)) {
+  if (Math.abs(safe) > 10000 && (!note || note.trim().length < 10)) {
     results.push({
       isValid: true,
       severity: 'warning',
-      message: `${label}: Adjustment of €${Math.abs(amount).toLocaleString()} requires detailed documentation`,
+      message: `${label}: Adjustment of €${Math.abs(safe).toLocaleString()} requires detailed documentation`,
       category,
       suggestedAction: 'Add a comprehensive note explaining the rationale and supporting evidence',
     })
@@ -97,9 +103,12 @@ export function validateNormalization(
 ): NormalizationValidation {
   const results: ValidationResult[] = []
 
+  const safeReportedEbitda = safeAmount(reportedEbitda)
+
   // Validate each standard adjustment
   adjustments.forEach((adj) => {
-    if (adj.amount !== 0) {
+    const adjSafe = safeAmount(adj.amount)
+    if (adjSafe !== 0) {
       const adjResults = validateAdjustment(adj.category, adj.amount, adj.note)
       results.push(...adjResults)
     }
@@ -116,7 +125,8 @@ export function validateNormalization(
       })
     }
 
-    if (Math.abs(custom.amount) > 30000 && (!custom.note || custom.note.trim().length < 20)) {
+    const customSafe = safeAmount(custom.amount)
+    if (Math.abs(customSafe) > 30000 && (!custom.note || custom.note.trim().length < 20)) {
       results.push({
         isValid: true,
         severity: 'warning',
@@ -127,13 +137,13 @@ export function validateNormalization(
   })
 
   // Calculate total adjustments
-  const totalStandard = adjustments.reduce((sum, adj) => sum + adj.amount, 0)
-  const totalCustom = customAdjustments.reduce((sum, adj) => sum + adj.amount, 0)
+  const totalStandard = adjustments.reduce((sum, adj) => sum + safeAmount(adj.amount), 0)
+  const totalCustom = customAdjustments.reduce((sum, adj) => sum + safeAmount(adj.amount), 0)
   const totalAdjustments = totalStandard + totalCustom
 
   // Check overall adjustment magnitude
-  if (reportedEbitda !== 0) {
-    const adjustmentPercentage = Math.abs((totalAdjustments / reportedEbitda) * 100)
+  if (safeReportedEbitda !== 0) {
+    const adjustmentPercentage = Math.abs((totalAdjustments / safeReportedEbitda) * 100)
 
     if (adjustmentPercentage > 50) {
       results.push({
@@ -155,12 +165,12 @@ export function validateNormalization(
 
   // Check for conflicting adjustments
   const positiveCount = [
-    ...adjustments,
-    ...customAdjustments.map((c) => ({ amount: c.amount })),
+    ...adjustments.map((a) => ({ amount: safeAmount(a.amount) })),
+    ...customAdjustments.map((c) => ({ amount: safeAmount(c.amount) })),
   ].filter((a) => a.amount > 0).length
   const negativeCount = [
-    ...adjustments,
-    ...customAdjustments.map((c) => ({ amount: c.amount })),
+    ...adjustments.map((a) => ({ amount: safeAmount(a.amount) })),
+    ...customAdjustments.map((c) => ({ amount: safeAmount(c.amount) })),
   ].filter((a) => a.amount < 0).length
 
   if (positiveCount > 0 && negativeCount > 0 && totalAdjustments === 0) {
@@ -217,7 +227,9 @@ export function getAdjustmentGuidance(
   const definition = getCategoryDefinition(category)
   if (!definition) return null
 
-  const percentage = reportedEbitda !== 0 ? Math.abs((amount / reportedEbitda) * 100) : 0
+  const safeAmt = safeAmount(amount)
+  const safeReported = safeAmount(reportedEbitda)
+  const percentage = safeReported !== 0 ? Math.abs((safeAmt / safeReported) * 100) : 0
 
   if (percentage < 2) {
     return 'This adjustment is relatively small and unlikely to raise concerns.'
@@ -240,31 +252,35 @@ export function isReadyForBuyerReview(
 ): { ready: boolean; issues: string[] } {
   const issues: string[] = []
 
+  const safeReportedEbitda = safeAmount(reportedEbitda)
+
   // Check for any adjustments without notes above threshold
   adjustments.forEach((adj) => {
-    if (Math.abs(adj.amount) > 20000 && (!adj.note || adj.note.trim().length < 20)) {
+    const adjSafe = safeAmount(adj.amount)
+    if (Math.abs(adjSafe) > 20000 && (!adj.note || adj.note.trim().length < 20)) {
       const definition = getCategoryDefinition(adj.category)
       issues.push(
-        `${definition?.label || adj.category}: Missing detailed documentation for ${Math.abs(adj.amount).toLocaleString()}€ adjustment`
+        `${definition?.label || adj.category}: Missing detailed documentation for ${Math.abs(adjSafe).toLocaleString()}€ adjustment`
       )
     }
   })
 
   customAdjustments.forEach((custom) => {
-    if (Math.abs(custom.amount) > 15000 && (!custom.note || custom.note.trim().length < 20)) {
+    const customSafe = safeAmount(custom.amount)
+    if (Math.abs(customSafe) > 15000 && (!custom.note || custom.note.trim().length < 20)) {
       issues.push(
-        `Custom: "${custom.description}" needs detailed justification for ${Math.abs(custom.amount).toLocaleString()}€`
+        `Custom: "${custom.description}" needs detailed justification for ${Math.abs(customSafe).toLocaleString()}€`
       )
     }
   })
 
   // Check total magnitude
   const total =
-    adjustments.reduce((sum, adj) => sum + adj.amount, 0) +
-    customAdjustments.reduce((sum, adj) => sum + adj.amount, 0)
+    adjustments.reduce((sum, adj) => sum + safeAmount(adj.amount), 0) +
+    customAdjustments.reduce((sum, adj) => sum + safeAmount(adj.amount), 0)
 
-  if (reportedEbitda !== 0) {
-    const percentage = Math.abs((total / reportedEbitda) * 100)
+  if (safeReportedEbitda !== 0) {
+    const percentage = Math.abs((total / safeReportedEbitda) * 100)
     if (percentage > 40 && adjustments.filter((a) => a.note && a.note.length > 30).length < 3) {
       issues.push(
         'Large overall adjustment (>40%) requires extensive documentation across multiple categories'
@@ -285,7 +301,9 @@ export function getAdjustmentSeverityColor(
   amount: number,
   reportedEbitda: number
 ): 'green' | 'yellow' | 'orange' | 'red' {
-  const percentage = reportedEbitda !== 0 ? Math.abs((amount / reportedEbitda) * 100) : 0
+  const safeAmt = safeAmount(amount)
+  const safeReported = safeAmount(reportedEbitda)
+  const percentage = safeReported !== 0 ? Math.abs((safeAmt / safeReported) * 100) : 0
 
   if (percentage < 5) return 'green'
   if (percentage < 15) return 'yellow'

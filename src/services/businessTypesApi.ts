@@ -228,9 +228,31 @@ class BusinessTypesApiService {
         createdAt: bt.created_at ?? new Date().toISOString(),
         updatedAt: bt.updated_at ?? new Date().toISOString(),
       }
-    } catch (err) {
-      generalLogger.debug('[BusinessTypesAPI] No business type for NACE', { naceCode, error: err })
-      return null
+    } catch (err: unknown) {
+      // Only treat 404 as an expected "no mapping" response.
+      // Any other status code (5xx, network timeout, parse error) is a real failure
+      // that should be surfaced so monitoring can detect API degradation.
+      const status =
+        (err as any)?.response?.status ??
+        (err as any)?.status ??
+        (err as any)?.code
+
+      const isNotFound =
+        status === 404 ||
+        (err instanceof Error && err.message.toLowerCase().includes('not found'))
+
+      if (isNotFound) {
+        generalLogger.debug('[BusinessTypesAPI] No business type mapping for NACE code', { naceCode })
+        return null
+      }
+
+      // Unexpected error — log at warn level and re-throw so caller can handle / surface it
+      generalLogger.warn('[BusinessTypesAPI] NACE lookup failed unexpectedly', {
+        naceCode,
+        status,
+        error: err instanceof Error ? err.message : String(err),
+      })
+      throw err
     }
   }
 

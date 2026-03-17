@@ -23,6 +23,13 @@ import {
 } from '../types/ebitdaNormalization'
 import { generalLogger } from '../utils/logger'
 
+function safeNum(n: number | undefined | null): number {
+  return Number.isFinite(n) ? (n as number) : 0
+}
+
+// Serialize load operations per session to prevent last-write-wins
+const loadQueue = new Map<string, Promise<void>>()
+
 interface EbitdaNormalizationStore {
   // State
   normalizations: Record<number, EbitdaNormalization> // Keyed by year
@@ -89,19 +96,21 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
       // Open modal and initialize normalization for year
       // OPTIMISTIC UI: Opens modal immediately with template, then loads data asynchronously
+      // RACE FIX: loadNormalization only overwrites if template is still virgin (no user edits)
       openNormalizationModal: async (year, reportedEbitda, sessionId) => {
         const { normalizations, loadNormalization } = get()
+        const safeReported = safeNum(reportedEbitda)
 
         // OPTIMISTIC: Create template immediately if doesn't exist
         if (!normalizations[year]) {
           const template: EbitdaNormalization = {
             session_id: sessionId,
             year,
-            reported_ebitda: reportedEbitda,
+            reported_ebitda: safeReported,
             adjustments: [],
             custom_adjustments: [],
             total_adjustments: 0,
-            normalized_ebitda: reportedEbitda,
+            normalized_ebitda: safeReported,
             confidence_score: 'medium',
           }
 
@@ -113,17 +122,15 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             activeYear: year, // Open modal immediately
           })
 
-          // Async: Try to load actual data from backend
+          // Async: Try to load actual data from backend (serialized, won't overwrite user edits)
           loadNormalization(sessionId, year)
             .then(() => {
-              // Data loaded successfully - store already updated by loadNormalization
+              // Data loaded - loadNormalization only applies if template still virgin
             })
-            .catch((error) => {
-              // No data found - template is already shown, no action needed
+            .catch(() => {
               generalLogger.debug(`No existing normalization for ${year}, using template`)
             })
         } else {
-          // Already exists in store, just open modal
           set({ activeYear: year })
         }
       },
@@ -150,30 +157,30 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
         let updatedAdjustments: NormalizationAdjustment[]
 
+        const safeAmount = safeNum(amount)
         if (existingAdjustmentIndex >= 0) {
-          // Update existing
           updatedAdjustments = [...normalization.adjustments]
           updatedAdjustments[existingAdjustmentIndex] = {
             category,
-            amount,
+            amount: safeAmount,
             note,
           }
         } else {
-          // Add new
-          updatedAdjustments = [...normalization.adjustments, { category, amount, note }]
+          updatedAdjustments = [...normalization.adjustments, { category, amount: safeAmount, note }]
         }
-
-        // Remove adjustments with amount = 0 and no note
         updatedAdjustments = updatedAdjustments.filter((adj) => adj.amount !== 0 || adj.note)
 
-        // Calculate totals (include custom adjustments)
-        const standardAdjustmentsSum = updatedAdjustments.reduce((sum, adj) => sum + adj.amount, 0)
+        const standardAdjustmentsSum = updatedAdjustments.reduce(
+          (sum, adj) => sum + safeNum(adj.amount),
+          0
+        )
         const customAdjustmentsSum = (normalization.custom_adjustments || []).reduce(
-          (sum, adj) => sum + adj.amount,
+          (sum, adj) => sum + safeNum(adj.amount),
           0
         )
         const totalAdjustments = standardAdjustmentsSum + customAdjustmentsSum
-        const normalizedEbitda = normalization.reported_ebitda + totalAdjustments
+        const reported = safeNum(normalization.reported_ebitda)
+        const normalizedEbitda = reported + totalAdjustments
 
         // Update state
         set({
@@ -199,18 +206,21 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           return
         }
 
+        const safeAmt = safeNum(amount)
         const newCustom: CustomAdjustment = {
           id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           description,
-          amount,
+          amount: safeAmt,
           note,
         }
 
         const updatedCustom = [...(normalization.custom_adjustments || []), newCustom]
 
-        // Recalculate totals
-        const standardSum = normalization.adjustments.reduce((sum, adj) => sum + adj.amount, 0)
-        const customSum = updatedCustom.reduce((sum, adj) => sum + adj.amount, 0)
+        const standardSum = normalization.adjustments.reduce(
+          (sum, adj) => sum + safeNum(adj.amount),
+          0
+        )
+        const customSum = updatedCustom.reduce((sum, adj) => sum + safeNum(adj.amount), 0)
         const totalAdjustments = standardSum + customSum
 
         set({
@@ -236,13 +246,16 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           return
         }
 
+        const safeAmt = safeNum(amount)
         const updatedCustom = (normalization.custom_adjustments || []).map((custom) =>
-          custom.id === customId ? { ...custom, description, amount, note } : custom
+          custom.id === customId ? { ...custom, description, amount: safeAmt, note } : custom
         )
 
-        // Recalculate totals
-        const standardSum = normalization.adjustments.reduce((sum, adj) => sum + adj.amount, 0)
-        const customSum = updatedCustom.reduce((sum, adj) => sum + adj.amount, 0)
+        const standardSum = normalization.adjustments.reduce(
+          (sum, adj) => sum + safeNum(adj.amount),
+          0
+        )
+        const customSum = updatedCustom.reduce((sum, adj) => sum + safeNum(adj.amount), 0)
         const totalAdjustments = standardSum + customSum
 
         set({
@@ -272,9 +285,11 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           (custom) => custom.id !== customId
         )
 
-        // Recalculate totals
-        const standardSum = normalization.adjustments.reduce((sum, adj) => sum + adj.amount, 0)
-        const customSum = updatedCustom.reduce((sum, adj) => sum + adj.amount, 0)
+        const standardSum = normalization.adjustments.reduce(
+          (sum, adj) => sum + safeNum(adj.amount),
+          0
+        )
+        const customSum = updatedCustom.reduce((sum, adj) => sum + safeNum(adj.amount), 0)
         const totalAdjustments = standardSum + customSum
 
         set({
@@ -290,18 +305,23 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         })
       },
 
-      // Save normalization to backend
+      // Save normalization to backend (reads latest state right before API call to avoid stale snapshot)
       saveNormalization: async (sessionId, year, userId, versionId) => {
-        const { normalizations } = get()
-        const normalization = normalizations[year]
-
-        if (!normalization) {
+        const norm = get().normalizations[year]
+        if (!norm) {
           throw new Error(`No normalization found for year ${year}`)
         }
 
         set({ isSaving: true })
 
         try {
+          const { normalizations } = get()
+          const normalization = normalizations[year]
+          if (!normalization) {
+            set({ isSaving: false })
+            throw new Error(`No normalization found for year ${year}`)
+          }
+
           const response = await normalizationService.saveNormalization({
             session_id: sessionId,
             user_id: userId,
@@ -382,119 +402,140 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         }
       },
 
-      // Load normalization from backend
+      // Load normalization from backend (serialized per session+year to prevent race)
       loadNormalization: async (sessionId, year) => {
-        set({ isLoading: true })
+        const key = `load:${sessionId}:${year}`
+        const prev = loadQueue.get(key) ?? Promise.resolve()
+        const run = async () => {
+          set({ isLoading: true })
+          try {
+            const response = await normalizationService.getNormalization(sessionId, year)
 
-        try {
-          const response = await normalizationService.getNormalization(sessionId, year)
-
-          const normalization: EbitdaNormalization = {
-            id: response.id,
-            session_id: sessionId,
-            version_id: response.version_id,
-            year: response.year,
-            reported_ebitda: response.reported_ebitda,
-            adjustments: response.adjustments,
-            custom_adjustments: response.custom_adjustments || [],
-            total_adjustments: response.total_adjustments,
-            normalized_ebitda: response.normalized_ebitda,
-            confidence_score: response.confidence_score,
-            market_rate_source: response.market_rate_source || undefined,
-            created_at: response.created_at,
-            updated_at: response.updated_at,
-          }
-
-          set({
-            normalizations: {
-              ...get().normalizations,
-              [year]: normalization,
-            },
-            isLoading: false,
-          })
-
-          generalLogger.debug('Normalization loaded successfully', { year })
-        } catch (error) {
-          set({ isLoading: false })
-
-          // For 404 or 500 errors, throw so openNormalizationModal can create a template
-          // This allows the UI to work even when backend has issues
-          if (error instanceof NormalizationAPIError) {
-            if (error.status === 404) {
-              // Not found - no normalization exists yet, this is expected
-              generalLogger.debug('No normalization found for year, will create template', { year })
-            } else {
-              // 500 or other server errors - log but allow UI to continue with template
-              generalLogger.warn('Error loading normalization from backend, will create template', {
-                year,
-                status: error.status,
-                message: error.message,
-              })
-            }
-            // Throw to allow openNormalizationModal to catch and create template
-            throw error
-          } else {
-            // Unknown error - log and throw
-            generalLogger.error('Unexpected error loading normalization', { error })
-            set({
-              errors: {
-                ...get().errors,
-                [`load-${year}`]: 'Failed to load normalization',
-              },
-            })
-            throw error
-          }
-        }
-      },
-
-      // Load all normalizations for session
-      loadAllNormalizations: async (sessionId) => {
-        set({ isLoading: true })
-
-        try {
-          const responses = await normalizationService.getAllNormalizations(sessionId)
-
-          const normalizationsMap: Record<number, EbitdaNormalization> = {}
-
-          for (const response of responses) {
-            normalizationsMap[response.year] = {
+            const normalization: EbitdaNormalization = {
               id: response.id,
               session_id: sessionId,
               version_id: response.version_id,
               year: response.year,
-              reported_ebitda: response.reported_ebitda,
-              adjustments: response.adjustments,
+              reported_ebitda: safeNum(response.reported_ebitda),
+              adjustments: response.adjustments || [],
               custom_adjustments: response.custom_adjustments || [],
-              total_adjustments: response.total_adjustments,
-              normalized_ebitda: response.normalized_ebitda,
+              total_adjustments: safeNum(response.total_adjustments),
+              normalized_ebitda: safeNum(response.normalized_ebitda),
               confidence_score: response.confidence_score,
               market_rate_source: response.market_rate_source || undefined,
               created_at: response.created_at,
               updated_at: response.updated_at,
             }
+
+            set((s) => {
+              const current = s.normalizations[year]
+              const isVirginTemplate =
+                current &&
+                !current.id &&
+                (current.adjustments?.length ?? 0) === 0 &&
+                (current.custom_adjustments?.length ?? 0) === 0
+              if (!current || isVirginTemplate) {
+                return {
+                  normalizations: { ...s.normalizations, [year]: normalization },
+                  isLoading: false,
+                }
+              }
+              return { isLoading: false }
+            })
+
+            generalLogger.debug('Normalization loaded successfully', { year })
+          } catch (error) {
+            set({ isLoading: false })
+            if (error instanceof NormalizationAPIError) {
+              if (error.status === 404) {
+                generalLogger.debug('No normalization found for year, will create template', { year })
+              } else {
+                generalLogger.warn('Error loading normalization from backend, will create template', {
+                  year,
+                  status: error.status,
+                  message: error.message,
+                })
+              }
+              throw error
+            } else {
+              generalLogger.error('Unexpected error loading normalization', { error })
+              set({
+                errors: {
+                  ...get().errors,
+                  [`load-${year}`]: 'Failed to load normalization',
+                },
+              })
+              throw error
+            }
           }
+        }
+        const next = prev.then(run, run)
+        loadQueue.set(key, next)
+        try {
+          await next
+        } finally {
+          if (loadQueue.get(key) === next) loadQueue.delete(key)
+        }
+      },
 
-          set({
-            normalizations: {
-              ...get().normalizations,
-              ...normalizationsMap,
-            },
-            isLoading: false,
-          })
+      // Load all normalizations for session (serialized per session to prevent race with loadNormalization)
+      loadAllNormalizations: async (sessionId) => {
+        const key = `loadAll:${sessionId}`
+        const prev = loadQueue.get(key) ?? Promise.resolve()
+        const run = async () => {
+          set({ isLoading: true })
+          try {
+            const responses = await normalizationService.getAllNormalizations(sessionId)
 
-          generalLogger.debug('All normalizations loaded', { count: responses.length })
-        } catch (error) {
-          generalLogger.error('Error loading all normalizations', { error })
-          set({
-            isLoading: false,
-            errors: {
-              ...get().errors,
-              'load-all':
-                error instanceof NormalizationAPIError
-                  ? error.message
-                  : 'Failed to load normalizations',
-            },
-          })
+            const normalizationsMap: Record<number, EbitdaNormalization> = {}
+
+            for (const response of responses) {
+              normalizationsMap[response.year] = {
+                id: response.id,
+                session_id: sessionId,
+                version_id: response.version_id,
+                year: response.year,
+                reported_ebitda: safeNum(response.reported_ebitda),
+                adjustments: response.adjustments || [],
+                custom_adjustments: response.custom_adjustments || [],
+                total_adjustments: safeNum(response.total_adjustments),
+                normalized_ebitda: safeNum(response.normalized_ebitda),
+                confidence_score: response.confidence_score,
+                market_rate_source: response.market_rate_source || undefined,
+                created_at: response.created_at,
+                updated_at: response.updated_at,
+              }
+            }
+
+            set({
+              normalizations: {
+                ...get().normalizations,
+                ...normalizationsMap,
+              },
+              isLoading: false,
+            })
+
+            generalLogger.debug('All normalizations loaded', { count: responses.length })
+          } catch (error) {
+            generalLogger.error('Error loading all normalizations', { error })
+            set({
+              isLoading: false,
+              errors: {
+                ...get().errors,
+                'load-all':
+                  error instanceof NormalizationAPIError
+                    ? error.message
+                    : 'Failed to load normalizations',
+              },
+            })
+          }
+        }
+        const next = prev.then(run, run)
+        loadQueue.set(key, next)
+        try {
+          await next
+        } finally {
+          if (loadQueue.get(key) === next) loadQueue.delete(key)
         }
       },
 
@@ -512,19 +553,20 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         } catch (error) {
           generalLogger.error('Error removing normalization', { error })
 
-          // Rollback on error
-          set({
-            normalizations: {
-              ...get().normalizations,
-              [year]: removed,
-            },
-            errors: {
-              ...get().errors,
-              [`remove-${year}`]:
-                error instanceof NormalizationAPIError
-                  ? error.message
-                  : 'Failed to remove normalization',
-            },
+          // Rollback only if year is still missing (don't overwrite newer data)
+          set((s) => {
+            const current = s.normalizations
+            const merged = current[year] ? current : { ...current, [year]: removed }
+            return {
+              normalizations: merged,
+              errors: {
+                ...s.errors,
+                [`remove-${year}`]:
+                  error instanceof NormalizationAPIError
+                    ? error.message
+                    : 'Failed to remove normalization',
+              },
+            }
           })
           throw error
         }
@@ -532,10 +574,11 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
       // Fetch market rate suggestions
       fetchMarketRates: async (industry, revenue, year, location = 'Belgium') => {
+        const safeRevenue = safeNum(revenue)
         try {
           const response = await normalizationService.getMarketRates(
             industry,
-            revenue,
+            safeRevenue,
             location,
             year
           )
@@ -551,35 +594,41 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
               suggested_amount: response.owner_compensation_market_rate,
               market_rate_50th_percentile: response.owner_compensation_percentile_50,
               market_rate_75th_percentile: response.owner_compensation_percentile_75,
-              rationale: `Market rate for CEO/owner in ${industry} with €${(revenue / 1000).toFixed(0)}k revenue`,
+              rationale: `Market rate for CEO/owner in ${industry} with €${(safeRevenue / 1000).toFixed(0)}k revenue`,
               confidence: response.confidence,
               source: response.source,
             })
           }
 
           // Personal expenses suggestion (as % of revenue)
-          if (response.personal_expenses_suggested_percentage && revenue) {
-            const suggestedAmount =
-              (revenue * response.personal_expenses_suggested_percentage) / 100
+          if (
+            safeRevenue > 0 &&
+            Number.isFinite(response.personal_expenses_suggested_percentage)
+          ) {
+            const pct = safeNum(response.personal_expenses_suggested_percentage)
+            const suggestedAmount = (safeRevenue * pct) / 100
             suggestions.push({
               category: NormalizationCategory.PERSONAL_EXPENSES,
               suggested_amount: Math.round(suggestedAmount),
-              suggested_percentage: response.personal_expenses_suggested_percentage,
-              rationale: `Typical personal expenses: ${response.personal_expenses_suggested_percentage}% of revenue`,
+              suggested_percentage: pct,
+              rationale: `Typical personal expenses: ${pct}% of revenue`,
               confidence: response.confidence,
               source: response.source,
             })
           }
 
           // Discretionary expenses suggestion (as % of revenue)
-          if (response.discretionary_expenses_suggested_percentage && revenue) {
-            const suggestedAmount =
-              (revenue * response.discretionary_expenses_suggested_percentage) / 100
+          if (
+            safeRevenue > 0 &&
+            Number.isFinite(response.discretionary_expenses_suggested_percentage)
+          ) {
+            const pct = safeNum(response.discretionary_expenses_suggested_percentage)
+            const suggestedAmount = (safeRevenue * pct) / 100
             suggestions.push({
               category: NormalizationCategory.DISCRETIONARY_EXPENSES,
               suggested_amount: Math.round(suggestedAmount),
-              suggested_percentage: response.discretionary_expenses_suggested_percentage,
-              rationale: `Typical discretionary expenses: ${response.discretionary_expenses_suggested_percentage}% of revenue`,
+              suggested_percentage: pct,
+              rationale: `Typical discretionary expenses: ${pct}% of revenue`,
               confidence: response.confidence,
               source: response.source,
             })
@@ -618,13 +667,13 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
       // Computed: Get total adjustments for year
       getTotalAdjustments: (year) => {
         const normalization = get().normalizations[year]
-        return normalization?.total_adjustments || 0
+        return safeNum(normalization?.total_adjustments)
       },
 
       // Computed: Get normalized EBITDA for year
       getNormalizedEbitda: (year) => {
         const normalization = get().normalizations[year]
-        return normalization?.normalized_ebitda || 0
+        return safeNum(normalization?.normalized_ebitda)
       },
 
       // Computed: Check if normalization exists for year
@@ -636,17 +685,19 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
       // Computed: Get adjustment percentage
       getAdjustmentPercentage: (year) => {
         const normalization = get().normalizations[year]
-        if (!normalization || normalization.reported_ebitda === 0) {
-          return 0
-        }
-        return (normalization.total_adjustments / normalization.reported_ebitda) * 100
+        const reported = safeNum(normalization?.reported_ebitda)
+        const total = safeNum(normalization?.total_adjustments)
+        if (!normalization || reported === 0) return 0
+        return (total / reported) * 100
       },
 
       // Computed: Get count of active adjustments
       getAdjustmentCount: (year) => {
         const normalization = get().normalizations[year]
         if (!normalization) return 0
-        const standardCount = normalization.adjustments.filter((a) => a.amount !== 0).length
+        const standardCount = normalization.adjustments.filter(
+          (a) => safeNum(a.amount) !== 0
+        ).length
         const customCount = normalization.custom_adjustments?.length || 0
         return standardCount + customCount
       },
@@ -655,7 +706,9 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
       getLastUpdated: (year) => {
         const normalization = get().normalizations[year]
         const timestamp = normalization?.updated_at || normalization?.created_at
-        return timestamp ? new Date(timestamp) : new Date()
+        if (!timestamp) return new Date()
+        const d = new Date(timestamp)
+        return Number.isFinite(d.getTime()) ? d : new Date()
       },
     }),
     {

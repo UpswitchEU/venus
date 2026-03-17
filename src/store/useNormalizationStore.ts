@@ -271,12 +271,16 @@ export const useNormalizationStore = create<NormalizationStore>()(
               if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(year)
               return n.year === year
             })
-            const yearEbitda = reportedEbitda ?? 0
+            const rawEbitda = Number(reportedEbitda)
+            const yearEbitda = Number.isFinite(rawEbitda) ? rawEbitda : 0
             const adjustments = yearItems.map((n) => {
-              let amount = Number(n.adjustment)
-              if (n.type === 'add_percent') amount = (yearEbitda * n.value) / 100
-              else if (n.type === 'subtract_percent') amount = -((yearEbitda * n.value) / 100)
-              else if (n.type === 'absolute') amount = n.value - yearEbitda
+              const rawAdj = Number(n.adjustment)
+              let amount = Number.isFinite(rawAdj) ? rawAdj : 0
+              const safeVal = Number.isFinite(n.value) ? n.value : 0
+              if (n.type === 'add_percent') amount = (yearEbitda * safeVal) / 100
+              else if (n.type === 'subtract_percent') amount = -((yearEbitda * safeVal) / 100)
+              else if (n.type === 'absolute') amount = safeVal - yearEbitda
+              if (!Number.isFinite(amount)) amount = 0
               return {
                 category: mapFrontendCategoryToBackend(n.category),
                 amount,
@@ -431,16 +435,29 @@ export const useNormalizationStore = create<NormalizationStore>()(
         get().items.filter(
           (n) => n.applyAllYears || (n.applyYears && n.applyYears.length > 0 ? n.applyYears.includes(year) : n.year === year)
         ),
-      getTotalAdjustment: () => get().items.reduce((sum, n) => sum + Number(n.adjustment), 0),
+      getTotalAdjustment: () =>
+        get().items.reduce((sum, n) => {
+          const adj = Number(n.adjustment)
+          return sum + (Number.isFinite(adj) ? adj : 0)
+        }, 0),
       getAcceptedTotalAdjustment: () =>
         get()
           .items.filter((n) => n.status === 'accepted')
-          .reduce((sum, n) => sum + Number(n.adjustment), 0),
-      getNormalizedEbitda: (originalEbitda) =>
-        Number(originalEbitda) +
-        get()
+          .reduce((sum, n) => {
+            const adj = Number(n.adjustment)
+            return sum + (Number.isFinite(adj) ? adj : 0)
+          }, 0),
+      getNormalizedEbitda: (originalEbitda) => {
+        const base = Number(originalEbitda)
+        const safeBase = Number.isFinite(base) ? base : 0
+        const totalAdj = get()
           .items.filter((n) => n.status === 'accepted')
-          .reduce((sum, n) => sum + Number(n.adjustment), 0),
+          .reduce((sum, n) => {
+            const adj = Number(n.adjustment)
+            return sum + (Number.isFinite(adj) ? adj : 0)
+          }, 0)
+        return safeBase + totalAdj
+      },
     }),
     { name: 'normalization-store' }
   )

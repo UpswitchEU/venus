@@ -122,13 +122,15 @@ export function NormalizationTableView({
   const t = useTranslations('normalizationHub')
   const locale = useLocale()
   const formatCurrency = React.useCallback(
-    (value: number) =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+    (value: number) => {
+      const safe = Number.isFinite(value) ? value : 0
+      return new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(value),
+      }).format(safe)
+    },
     [locale]
   )
   const categoryLabels = React.useMemo(
@@ -194,11 +196,13 @@ export function NormalizationTableView({
           item.status === 'accepted' &&
           (item.applyAllYears || (item.applyYears || [item.year]).includes(year))
       )
-      const adjustment = yearItems.reduce(
+      const rawAdj = yearItems.reduce(
         (sum, item) => sum + adjustmentForYear(item, year, originalEBITDA, originalEBITDAByYear),
         0
       )
-      const reported = originalEBITDAByYear?.[year] ?? originalEBITDA
+      const adjustment = Number.isFinite(rawAdj) ? rawAdj : 0
+      const rawReported = originalEBITDAByYear?.[year] ?? originalEBITDA
+      const reported = Number.isFinite(rawReported) ? rawReported : 0
       totals[year] = {
         reported,
         adjustment,
@@ -496,13 +500,15 @@ export function NormalizationBentoView({
   const t = useTranslations('normalizationHub')
   const locale = useLocale()
   const formatCurrency = React.useCallback(
-    (value: number) =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+    (value: number) => {
+      const safe = Number.isFinite(value) ? value : 0
+      return new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(value),
+      }).format(safe)
+    },
     [locale]
   )
   const categoryLabels = React.useMemo(

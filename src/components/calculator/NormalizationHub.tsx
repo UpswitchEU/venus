@@ -104,14 +104,15 @@ export function NormalizationHub({
   const locale = useLocale() as 'nl' | 'en'
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = (amount: number) => {
-    if (Math.abs(amount) >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
-    if (Math.abs(amount) >= 1000) return `€${Math.round(amount / 1000)}K`
+    const safe = Number.isFinite(amount) ? amount : 0
+    if (Math.abs(safe) >= 1000000) return `€${(safe / 1000000).toFixed(2)}M`
+    if (Math.abs(safe) >= 1000) return `€${Math.round(safe / 1000)}K`
     return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount)
+    }).format(safe)
   }
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -128,19 +129,29 @@ export function NormalizationHub({
     const totalAdjustment = normalizations
       .filter((n) => n.status === 'accepted')
       .reduce((sum, n) => {
-        if (n.type === 'add_percent') return sum + (safeEbitda * n.value) / 100
-        if (n.type === 'subtract_percent') return sum - (safeEbitda * n.value) / 100
-        if (n.type === 'absolute') return sum + (n.value - safeEbitda)
-        return sum + Number(n.adjustment)
+        const safeVal = Number.isFinite(n.value) ? n.value : 0
+        const rawAdj = Number(n.adjustment)
+        const safeAdj = Number.isFinite(rawAdj) ? rawAdj : 0
+        if (
+          (!Number.isFinite(safeEbitda) || safeEbitda === 0) &&
+          (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
+        ) {
+          return sum + safeAdj
+        }
+        if (n.type === 'add_percent') return sum + (safeEbitda * safeVal) / 100
+        if (n.type === 'subtract_percent') return sum - (safeEbitda * safeVal) / 100
+        if (n.type === 'absolute') return sum + (safeVal - safeEbitda)
+        return sum + safeAdj
       }, 0)
-    const normalizedEbitda = safeEbitda + totalAdjustment
+    const safeTotalAdj = Number.isFinite(totalAdjustment) ? totalAdjustment : 0
+    const normalizedEbitda = safeEbitda + safeTotalAdj
 
     return {
       pending,
       accepted,
       rejected,
       total: normalizations.length,
-      totalAdjustment,
+      totalAdjustment: safeTotalAdj,
       normalizedEbitda,
     }
   }, [normalizations, originalEbitda, originalEBITDAByYear, currentYear])

@@ -8,11 +8,13 @@
  */
 
 import { useNormalizationStore } from '../store/useNormalizationStore'
+import { useEbitdaNormalizationStore } from '../store/useEbitdaNormalizationStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import type { DataResponse } from '../types/data-collection'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
+import { getLastFullFiscalYear } from './fiscalYear'
 import { generalLogger } from './logger'
 
 /**
@@ -54,7 +56,7 @@ export function buildValuationRequest(
   // Normalize last full year (2000-2100)
   // Valuations use the most recent completed fiscal year, not the current calendar year
   // ALWAYS calculate from current date, never trust formData to fix year 2026 bug
-  const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+  const lastFullYear = getLastFullFiscalYear()
 
   // Normalize founding year (1900-2100)
   const foundingYear = Math.min(Math.max(formData.founding_year || lastFullYear - 5, 1900), 2100)
@@ -87,22 +89,43 @@ export function buildValuationRequest(
   industry = industry || 'services'
   businessModel = businessModel || 'services'
 
-  // Normalize financial data
-  const revenue = Math.max(
-    Number(formData.revenue) || formData.current_year_data?.revenue || 100000,
-    1
-  )
-  const ebitda =
+  // Normalize financial data.
+  // Revenue: treat 0 as a valid value (pre-revenue startup). Only fall back to
+  // current_year_data when the form field is truly absent (null/undefined).
+  const rawRevenue =
+    formData.revenue != null
+      ? Number(formData.revenue)
+      : formData.current_year_data?.revenue != null
+        ? Number(formData.current_year_data.revenue)
+        : null
+  if (rawRevenue === null) {
+    generalLogger.warn(
+      '[buildValuationRequest] Revenue is missing — using 0. Ensure the form validates revenue before submission.',
+      { business_name: companyName, industry }
+    )
+  }
+  const revenue = Math.max(rawRevenue ?? 0, 0)
+
+  // EBITDA: accept 0 as a legitimate break-even value; only warn if truly absent.
+  const rawEbitda =
     formData.ebitda !== undefined && formData.ebitda !== null
       ? Number(formData.ebitda)
       : formData.current_year_data?.ebitda !== undefined &&
           formData.current_year_data?.ebitda !== null
         ? Number(formData.current_year_data.ebitda)
-        : 20000
+        : null
+  if (rawEbitda === null) {
+    generalLogger.warn(
+      '[buildValuationRequest] EBITDA is missing — using 0. Ensure the form validates EBITDA before submission.',
+      { business_name: companyName, industry }
+    )
+  }
+  const ebitda = rawEbitda ?? 0
 
   // Use provided items or read from store — avoids redundant getState() in recalculation paths
   const allItems = overrideItems ?? useNormalizationStore.getState().items
   const acceptedNorms = allItems.filter((n) => n.status === 'accepted')
+  const legacyNormalizations = useEbitdaNormalizationStore.getState().normalizations
 
   // Collect all years that have financial data (current + historical)
   const historicalYears =
@@ -145,6 +168,26 @@ export function buildValuationRequest(
     }
   }
 
+  // Backward-compatibility: ValuationForm still persists normalization input via the
+  // legacy store/modal. If no unified normalization exists for a year, use the legacy
+  // year total so accountant-entered form adjustments reach the calculation request.
+  for (const [yearKey, legacy] of Object.entries(legacyNormalizations)) {
+    const year = Number(yearKey)
+    if (!Number.isFinite(year) || normByYear[year]) continue
+
+    const adjustmentCount =
+      (legacy.adjustments?.length || 0) + (legacy.custom_adjustments?.length || 0)
+    const totalAdjustment = Number(legacy.total_adjustments)
+
+    if (adjustmentCount === 0 && !Number.isFinite(totalAdjustment)) continue
+
+    normByYear[year] = {
+      totalAdjustment: Number.isFinite(totalAdjustment) ? totalAdjustment : 0,
+      count: adjustmentCount,
+      confidence: legacy.confidence_score || 'medium',
+    }
+  }
+
   // Check if last full year EBITDA is normalized
   const lastFullYearNormalization = normByYear[lastFullYear]
 
@@ -163,16 +206,16 @@ export function buildValuationRequest(
         has_custom_adjustments: false,
       },
     }),
-    ...(formData.current_year_data?.total_assets &&
-      formData.current_year_data.total_assets >= 0 && {
+    ...(formData.current_year_data?.total_assets != null &&
+      Number(formData.current_year_data.total_assets) >= 0 && {
         total_assets: Number(formData.current_year_data.total_assets),
       }),
-    ...(formData.current_year_data?.total_debt &&
-      formData.current_year_data.total_debt >= 0 && {
+    ...(formData.current_year_data?.total_debt != null &&
+      Number(formData.current_year_data.total_debt) >= 0 && {
         total_debt: Number(formData.current_year_data.total_debt),
       }),
-    ...(formData.current_year_data?.cash &&
-      formData.current_year_data.cash >= 0 && {
+    ...(formData.current_year_data?.cash != null &&
+      Number(formData.current_year_data.cash) >= 0 && {
         cash: Number(formData.current_year_data.cash),
       }),
   }
@@ -195,7 +238,7 @@ export function buildValuationRequest(
           const reportedEbitda = Number(year.ebitda)
           return {
             year: Math.min(Math.max(year.year, 2000), 2100),
-            revenue: Math.max(year.revenue || 0, 1),
+            revenue: Math.max(year.revenue ?? 0, 0), // 0 is valid for pre-revenue years
             ebitda: reportedEbitda + normalization.totalAdjustment,
             ebitda_normalized: true,
             ebitda_normalization_metadata: {
@@ -211,7 +254,7 @@ export function buildValuationRequest(
         // No normalization, use reported EBITDA
         return {
           year: Math.min(Math.max(year.year, 2000), 2100),
-          revenue: Math.max(year.revenue || 0, 1),
+          revenue: Math.max(year.revenue ?? 0, 0), // 0 is valid for pre-revenue years
           ebitda: Number(year.ebitda),
           ebitda_normalized: false,
         }

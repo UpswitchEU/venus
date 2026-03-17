@@ -12,7 +12,9 @@ import React, { useEffect } from 'react'
 import { AuroraButton, AuroraFormAlert } from '../../../design-system/components'
 import { useCanSave } from '../../../hooks/useCanSave'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
+import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import type { ValuationFormData } from '../../../types/valuation'
+import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 
 interface FormSubmitSectionProps {
@@ -37,26 +39,36 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   isRegenerationMode = false,
 }) => {
   const t = useTranslations()
-  const lastFullYear = Math.min(new Date().getFullYear() - 1, 2100)
-  const { hasNormalization } = useEbitdaNormalizationStore()
+  const lastFullYear = getLastFullFiscalYear()
+  const normalizationItems = useNormalizationStore((state) => state.items)
+  const hasLegacyNormalization = useEbitdaNormalizationStore((state) => state.hasNormalization)
   const { canSave, reason: canSaveReason } = useCanSave()
 
-  // Check if any normalizations exist
   const hasAnyNormalization =
-    hasNormalization(lastFullYear) ||
-    hasNormalization(lastFullYear - 1) ||
-    hasNormalization(lastFullYear - 2)
+    normalizationItems.some((item) => {
+      if (item.status !== 'accepted') return false
+      const years = item.applyAllYears
+        ? [lastFullYear, lastFullYear - 1, lastFullYear - 2]
+        : item.applyYears && item.applyYears.length > 0
+          ? item.applyYears
+          : [item.year]
+      return years.some((year) => year >= lastFullYear - 2 && year <= lastFullYear)
+    }) || [lastFullYear, lastFullYear - 1, lastFullYear - 2].some((year) => hasLegacyNormalization(year))
 
+  // Use explicit null/undefined checks for numeric fields so that zero values
+  // (pre-revenue startups, break-even businesses) do not disable the button.
   const isFormValid =
-    formData.revenue &&
-    formData.ebitda &&
+    formData.revenue != null &&
+    formData.ebitda != null &&
     formData.industry &&
     formData.country_code &&
     formData.business_type_id
 
+  // Use consistent null/undefined checks so zero-revenue/zero-EBITDA startups are
+  // not listed as missing. These must match the isFormValid checks above.
   const missingFields: string[] = []
-  if (!formData.revenue) missingFields.push(t('forms.fields.revenue'))
-  if (!formData.ebitda) missingFields.push(t('forms.fields.ebitda'))
+  if (formData.revenue == null) missingFields.push(t('forms.fields.revenue'))
+  if (formData.ebitda == null) missingFields.push(t('forms.fields.ebitda'))
   if (!formData.business_type_id) missingFields.push(t('forms.fields.businessType'))
   if (!formData.industry) missingFields.push(t('forms.fields.businessType'))
   if (!formData.country_code) missingFields.push(t('forms.fields.country'))
@@ -107,7 +119,13 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
           loading={isSubmitting}
           fullWidth
           size="lg"
-          title={!canSave ? canSaveReason : undefined}
+          title={
+            !canSave
+              ? canSaveReason
+              : !isFormValid && missingFields.length > 0
+                ? `Please fill in: ${missingFields.join(', ')}`
+                : undefined
+          }
           onClick={() => {
             generalLogger.debug('[FormSubmitSection] Button clicked', {
               isSubmitting,

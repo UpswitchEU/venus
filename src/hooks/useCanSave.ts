@@ -31,11 +31,11 @@ export function useCanSave(): CanSaveResult {
   const isBootstrapping = bootstrap?.isBootstrapping ?? false
 
   if (authLoading || isInitializing) {
-    return { canSave: false, reason: 'Authenticating...' }
+    return { canSave: false, reason: 'unauthenticated' }
   }
 
   if (isBootstrapping) {
-    return { canSave: false, reason: 'Setting up session...' }
+    return { canSave: false, reason: 'bootstrapping' }
   }
 
   return { canSave: true }

@@ -66,6 +66,7 @@ import {
   getNetTaxLatencyImpact,
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
+import { getLastFullFiscalYear } from '../../utils/fiscalYear'
 import { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
 import { TaxLatencySection } from './TaxLatencySection'
 
@@ -368,7 +369,7 @@ export function UnifiedNormalizationModal({
   open,
   onOpenChange,
   companyName,
-  currentYear = new Date().getFullYear() - 1,
+  currentYear = getLastFullFiscalYear(),
   originalEBITDA,
   originalEBITDAByYear,
   normalizations,
@@ -386,13 +387,15 @@ export function UnifiedNormalizationModal({
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = useCallback(
-    (amount: number) =>
-      new Intl.NumberFormat(currencyLocale, {
+    (amount: number) => {
+      const safe = Number.isFinite(amount) ? amount : 0
+      return new Intl.NumberFormat(currencyLocale, {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(amount),
+      }).format(safe)
+    },
     [currencyLocale]
   )
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
@@ -494,7 +497,7 @@ export function UnifiedNormalizationModal({
 
   // Derive available years from user-entered financial data, falling back to 4-year range
   const availableYears = useMemo(() => {
-    const base = Number.isFinite(currentYear) ? currentYear : new Date().getFullYear() - 1
+    const base = Number.isFinite(currentYear) ? currentYear : getLastFullFiscalYear()
     if (financialYears && financialYears.length > 0) {
       const valid = financialYears.filter((y) => Number.isFinite(y)) as number[]
       return valid.length > 0 ? [...valid].sort((a, b) => b - a) : [base, base - 1, base - 2, base - 3]
@@ -618,14 +621,20 @@ export function UnifiedNormalizationModal({
     }))
   }, [searchQuery, availableLedgers])
 
-  // Calculate totals — defensive Number() to prevent string concatenation.
-  // When originalEBITDA is 0, use fallbackFormDataRef (modal renders after ManualInputPanel, so ref is current)
-  const safeOriginalEBITDA =
-    Number(originalEBITDA) ||
-    Number((fallbackFormDataRef?.current as any)?.yearlyFinancials?.[0]?.ebitda) ||
-    Number((fallbackFormDataRef?.current as any)?.current_year_data?.ebitda) ||
-    Number((fallbackFormDataRef?.current as any)?.ebitda) ||
-    0
+  // Keep explicit 0 EBITDA values instead of falling through to unrelated fallback sources.
+  const safeOriginalEBITDA = (() => {
+    const candidates = [
+      originalEBITDA,
+      (fallbackFormDataRef?.current as any)?.yearlyFinancials?.[0]?.ebitda,
+      (fallbackFormDataRef?.current as any)?.current_year_data?.ebitda,
+      (fallbackFormDataRef?.current as any)?.ebitda,
+    ]
+    for (const candidate of candidates) {
+      const parsed = Number(candidate)
+      if (Number.isFinite(parsed)) return parsed
+    }
+    return 0
+  })()
 
   // Filter normalizations by year and search
   const filteredNormalizations = useMemo(() => {
@@ -842,12 +851,14 @@ export function UnifiedNormalizationModal({
     if (!code) return
 
     const numericValue = parseFloat(newValue.replace(/[^0-9.-]/g, ''))
-    if (isNaN(numericValue)) return
+    if (!Number.isFinite(numericValue)) return
+
+    const safeEbitda = Number.isFinite(safeOriginalEBITDA) ? safeOriginalEBITDA : 0
 
     // ── Validation: warn/block extreme adjustments ──
     const absValue = Math.abs(numericValue)
-    if (safeOriginalEBITDA > 0) {
-      const pctOfEbitda = (absValue / safeOriginalEBITDA) * 100
+    if (safeEbitda > 0) {
+      const pctOfEbitda = (absValue / safeEbitda) * 100
 
       // Block if adjustment exceeds 200% of EBITDA (likely a data entry error)
       if (pctOfEbitda > 200) {
@@ -872,14 +883,15 @@ export function UnifiedNormalizationModal({
     // Calculate adjustment based on type
     let adjustment = numericValue
     if (newType === 'add_percent') {
-      adjustment = (safeOriginalEBITDA * numericValue) / 100
+      adjustment = (safeEbitda * numericValue) / 100
     } else if (newType === 'subtract_percent') {
-      adjustment = -((safeOriginalEBITDA * numericValue) / 100)
+      adjustment = -((safeEbitda * numericValue) / 100)
     } else if (newType === 'subtract') {
       adjustment = -numericValue
     } else if (newType === 'absolute') {
-      adjustment = numericValue - safeOriginalEBITDA
+      adjustment = numericValue - safeEbitda
     }
+    if (!Number.isFinite(adjustment)) adjustment = 0
 
     // If editing an existing item, update it instead of creating new
     if (editingId) {
@@ -2345,13 +2357,15 @@ function CompactTableRow({
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const formatCurrency = useCallback(
-    (amount: number) =>
-      new Intl.NumberFormat(currencyLocale, {
+    (amount: number) => {
+      const safe = Number.isFinite(amount) ? amount : 0
+      return new Intl.NumberFormat(currencyLocale, {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-      }).format(amount),
+      }).format(safe)
+    },
     [currencyLocale]
   )
   const ca = useTranslations('chatAssistant')

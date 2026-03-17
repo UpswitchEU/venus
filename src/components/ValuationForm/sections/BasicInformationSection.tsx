@@ -25,6 +25,7 @@ import type { ValuationFormData } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { CustomBusinessTypeSearch } from '../../forms'
 import CompanyNameInput from '../../forms/CompanyNameInput'
+import { buildBusinessTypeFormData } from '../utils/businessTypeFormData'
 
 interface BasicInformationSectionProps {
   formData: ValuationFormData
@@ -331,19 +332,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
                 )
               }
 
-              updateFormData({
-                business_type_id: businessType.id,
-                business_model: businessType.id,
-                industry: businessType.industry || businessType.industryMapping || 'services',
-                subIndustry: businessType.category,
-                // Store internal metadata for backend
-                _internal_dcf_preference: businessType.dcfPreference,
-                _internal_multiples_preference: businessType.multiplesPreference,
-                _internal_owner_dependency_impact: businessType.ownerDependencyImpact,
-                _internal_key_metrics: businessType.keyMetrics,
-                _internal_typical_employee_range: businessType.typicalEmployeeRange,
-                _internal_typical_revenue_range: businessType.typicalRevenueRange,
-              } as any)
+              updateFormData(buildBusinessTypeFormData(businessType) as any)
             }}
             onSuggest={async (suggestion) => {
               try {

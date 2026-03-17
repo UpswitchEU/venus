@@ -138,13 +138,15 @@ export function NormalizationEditor({
   const nh = useTranslations('normalizationHub')
   const locale = useLocale() as 'nl' | 'en'
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat(currencyLocale, {
+  const formatCurrency = (amount: number) => {
+    const safe = Number.isFinite(amount) ? amount : 0
+    return new Intl.NumberFormat(currencyLocale, {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount)
+    }).format(safe)
+  }
   const tCommon = useTranslations('common.actions')
   const tLabels = useTranslations('common.labels')
   const [searchQuery, setSearchQuery] = useState('')
@@ -286,7 +288,11 @@ export function NormalizationEditor({
 
   // Calculate totals
   const totalAdjustment = useMemo(() => {
-    return normalizations.reduce((sum, n) => sum + (n.calculatedAdjustment || n.value), 0)
+    return normalizations.reduce((sum, n) => {
+      const adj = n.calculatedAdjustment != null ? n.calculatedAdjustment : n.value
+      const safe = Number.isFinite(adj) ? adj : 0
+      return sum + safe
+    }, 0)
   }, [normalizations])
 
   return (
@@ -580,8 +586,11 @@ export function NormalizationEditor({
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   {nh('addedNormalizations', { count: normalizations.length })}
                 </div>
-                <div className="text-sm font-mono font-semibold text-primary">
-                  {totalAdjustment >= 0 ? '+' : ''}
+                <div className={cn(
+                  'text-sm font-mono font-semibold',
+                  totalAdjustment > 0 ? 'text-success' : totalAdjustment < 0 ? 'text-secondary' : 'text-foreground/40'
+                )}>
+                  {totalAdjustment > 0 ? '+' : ''}
                   {formatCurrency(totalAdjustment)}
                 </div>
               </div>
@@ -648,21 +657,27 @@ export function NormalizationEditor({
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'text-sm font-mono font-semibold',
-                              (normalization.calculatedAdjustment || normalization.value) >= 0
-                                ? 'text-success'
-                                : 'text-secondary'
-                            )}
-                          >
-                            {(normalization.calculatedAdjustment || normalization.value) >= 0
-                              ? '+'
-                              : ''}
-                            {formatCurrency(
-                              normalization.calculatedAdjustment || normalization.value
-                            )}
-                          </span>
+                          {(() => {
+                            const itemAdj = normalization.calculatedAdjustment != null
+                              ? normalization.calculatedAdjustment
+                              : normalization.value
+                            const safeItemAdj = Number.isFinite(itemAdj) ? itemAdj : 0
+                            return (
+                              <span
+                                className={cn(
+                                  'text-sm font-mono font-semibold',
+                                  safeItemAdj > 0
+                                    ? 'text-success'
+                                    : safeItemAdj < 0
+                                      ? 'text-secondary'
+                                      : 'text-foreground/40'
+                                )}
+                              >
+                                {safeItemAdj > 0 ? '+' : ''}
+                                {formatCurrency(safeItemAdj)}
+                              </span>
+                            )
+                          })()}
                           <button
                             onClick={() => handleRemoveNormalization(normalization.id)}
                             className="p-1.5 rounded-lg text-foreground/30 hover:text-secondary hover:bg-secondary/10 transition-colors"
@@ -701,10 +716,10 @@ export function NormalizationEditor({
                   <span
                     className={cn(
                       'font-mono font-semibold',
-                      totalAdjustment >= 0 ? 'text-success' : 'text-secondary'
+                      totalAdjustment > 0 ? 'text-success' : totalAdjustment < 0 ? 'text-secondary' : 'text-foreground/40'
                     )}
                   >
-                    {totalAdjustment >= 0 ? '+' : ''}
+                    {totalAdjustment > 0 ? '+' : ''}
                     {formatCurrency(totalAdjustment)}
                   </span>
                 </span>

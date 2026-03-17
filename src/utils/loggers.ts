@@ -9,7 +9,9 @@ export const logger = {
     }
   },
   info: (...args: any[]) => {
-    console.log('[INFO]', ...args)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[INFO]', ...args)
+    }
   },
   warn: (...args: any[]) => {
     console.warn('[WARN]', ...args)
