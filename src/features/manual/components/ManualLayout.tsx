@@ -2701,7 +2701,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   )
 
   const handleRejectNormalisation = useCallback(
-    (id: string) => {
+    async (id: string) => {
       normalizationActions.rejectItem(id)
       setSuggestedNormalisations((prev: any[]) =>
         prev.map((n: any) => (n.id === id ? { ...n, status: 'rejected' } : n))
@@ -2711,26 +2711,33 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
           const years = getYearsToPersist(item)
-          Promise.all(
-            years.map((y) =>
-              normalizationActions.persistToTitan(
-                idForApi,
-                y,
-                Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
+          try {
+            await Promise.all(
+              years.map((y) =>
+                normalizationActions.persistToTitan(
+                  idForApi,
+                  y,
+                  Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
+                )
               )
             )
-          ).catch((error) => {
-            generalLogger.warn('[ManualLayout] Titan persist failed after reject', {
-                id,
-                error: error instanceof Error ? error.message : String(error),
-              })
-            }
-          )
+          } catch (error) {
+            generalLogger.warn('[ManualLayout] Titan persist failed after reject — rolling back', {
+              id,
+              error: error instanceof Error ? error.message : String(error),
+            })
+            normalizationActions.updateItem(id, { status: 'pending' })
+            setSuggestedNormalisations((prev: any[]) =>
+              prev.map((n: any) => (n.id === id ? { ...n, status: 'pending' } : n))
+            )
+            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+            return
+          }
         }
       }
-      recalculateWithNormalizations(useNormalizationStore.getState().items)
+      await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear]
+    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t]
   )
 
   // ─── Auto-recalculate valuation with normalized EBITDA ───

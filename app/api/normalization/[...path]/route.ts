@@ -3,6 +3,10 @@
  *
  * Proxies all normalization requests to Titan's VenusNormalizationController.
  *
+ * CRITICAL: Forwards client context headers (X-Client-User-Id, X-Accountant-User-Id,
+ * X-Relationship-Id) for accountant-client workflows. Without these, Titan cannot
+ * resolve sessions when an accountant is acting on behalf of a client.
+ *
  * Titan endpoints:
  * - GET  /api/normalization/market-rates/:industry
  * - POST /api/normalization
@@ -14,6 +18,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  CLIENT_CONTEXT_HEADERS,
+  extractClientContextFromHeaders,
+} from '@/constants/headers'
 
 const TITAN_API_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -32,6 +40,35 @@ function buildTitanUrl(path: string[], searchParams: URLSearchParams): string {
 }
 
 /**
+ * Build headers to forward to Titan, including client context for accountant-client flow
+ */
+function buildTitanHeaders(request: NextRequest): Record<string, string> {
+  const cookieHeader = request.headers.get('cookie') || ''
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(cookieHeader && { Cookie: cookieHeader }),
+  }
+
+  const clientContext = extractClientContextFromHeaders((name: string) =>
+    request.headers.get(name)
+  )
+  if (clientContext) {
+    headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientContext.clientUserId
+    headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = clientContext.accountantUserId
+    if (clientContext.relationshipId) {
+      headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = clientContext.relationshipId
+    }
+  }
+
+  const correlationId = request.headers.get('x-correlation-id') || request.headers.get('x-request-id')
+  if (correlationId) {
+    headers['X-Correlation-ID'] = correlationId
+  }
+
+  return headers
+}
+
+/**
  * Common proxy handler with timeout
  */
 async function proxyToTitan(
@@ -43,15 +80,11 @@ async function proxyToTitan(
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const cookieHeader = request.headers.get('cookie') || ''
     const url = buildTitanUrl(params.path, request.nextUrl.searchParams)
 
     const fetchOptions: RequestInit = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(cookieHeader && { Cookie: cookieHeader }),
-      },
+      headers: buildTitanHeaders(request),
       signal: controller.signal,
     }
 

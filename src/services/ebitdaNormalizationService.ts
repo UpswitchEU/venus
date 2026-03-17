@@ -3,6 +3,10 @@
  *
  * Handles all API interactions for EBITDA normalization feature
  * Supports the first primitive: the normalization bridge (economic truth)
+ *
+ * CRITICAL: Adds client context headers (X-Client-User-Id, X-Accountant-User-Id,
+ * X-Relationship-Id) when in accountant-client flow. Without these, Titan cannot
+ * resolve sessions and normalization save fails with "Normalisatie niet opgeslagen".
  */
 
 import {
@@ -10,10 +14,27 @@ import {
   GetNormalizationResponse,
   MarketRatesResponse,
 } from '../types/ebitdaNormalization'
+import { useClientContext } from '../stores/clientContext'
 
 // Use Next.js API proxy routes (same-origin) to avoid CORS issues.
 // These proxy to Titan's /api/normalization/* endpoints.
 const API_BASE_URL = ''
+
+/** Get headers for normalization requests, including client context when in accountant flow */
+function getNormalizationHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  try {
+    const contextHeaders = useClientContext.getState().getContextHeaders()
+    if (contextHeaders && Object.keys(contextHeaders).length > 0) {
+      Object.assign(headers, contextHeaders)
+    }
+  } catch {
+    // Non-fatal: client context may not be available (e.g. direct user flow)
+  }
+  return headers
+}
 
 /**
  * API Error with structured response
@@ -80,9 +101,7 @@ export class EbitdaNormalizationService {
       const response = await fetch(`${this.baseURL}/api/normalization/${sessionId}/${year}`, {
         method: 'GET',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getNormalizationHeaders(),
       })
 
       return handleResponse<GetNormalizationResponse>(response)
@@ -104,9 +123,7 @@ export class EbitdaNormalizationService {
       const response = await fetch(`${this.baseURL}/api/normalization/${sessionId}`, {
         method: 'GET',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getNormalizationHeaders(),
       })
 
       return handleResponse<GetNormalizationResponse[]>(response)
@@ -126,9 +143,7 @@ export class EbitdaNormalizationService {
     const response = await fetch(`${this.baseURL}/api/normalization`, {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getNormalizationHeaders(),
       body: JSON.stringify(request),
     })
 
@@ -170,9 +185,7 @@ export class EbitdaNormalizationService {
     const response = await fetch(url, {
       method: 'GET',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getNormalizationHeaders(),
     })
 
     return handleResponse<MarketRatesResponse>(response)
