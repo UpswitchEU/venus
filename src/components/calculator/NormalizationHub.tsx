@@ -32,7 +32,10 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { cn } from '@/design-system/utils'
-import { getReportedEbitdaBaseline, summarizeAcceptedNormalizations } from '../../utils/normalizationMath'
+import {
+  getReportedEbitdaBaseline,
+  summarizeAcceptedNormalizationsAcrossYears,
+} from '../../utils/normalizationMath'
 import {
   type NormalizationItem,
   type NormalizationSource,
@@ -125,12 +128,21 @@ export function NormalizationHub({
     const pending = normalizations.filter((n) => n.status === 'pending').length
     const accepted = normalizations.filter((n) => n.status === 'accepted').length
     const rejected = normalizations.filter((n) => n.status === 'rejected').length
-    const reportedEbitda = getReportedEbitdaBaseline({
-      year: currentYear,
-      originalEBITDAByYear,
-      fallbackCandidates: [originalEbitda],
+    const availableYears =
+      financialYears && financialYears.length > 0
+        ? financialYears
+        : [currentYear]
+    const summary = summarizeAcceptedNormalizationsAcrossYears({
+      items: normalizations,
+      availableYears,
+      reportedEbitdaByYear: originalEBITDAByYear,
+      fallbackYear: currentYear,
+      fallbackReportedEbitda: getReportedEbitdaBaseline({
+        year: currentYear,
+        originalEBITDAByYear,
+        fallbackCandidates: [originalEbitda],
+      }),
     })
-    const summary = summarizeAcceptedNormalizations(normalizations, reportedEbitda)
 
     return {
       pending,
@@ -141,7 +153,7 @@ export function NormalizationHub({
       totalAdjustment: summary.adjustment,
       normalizedEbitda: summary.normalized,
     }
-  }, [normalizations, originalEbitda, originalEBITDAByYear, currentYear])
+  }, [normalizations, originalEbitda, originalEBITDAByYear, currentYear, financialYears])
 
   const sourceKey =
     sourceIntegration &&

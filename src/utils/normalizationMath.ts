@@ -64,3 +64,80 @@ export function summarizeAcceptedNormalizations(
     normalized: original + adjustment,
   }
 }
+
+export function summarizeAcceptedNormalizationsAcrossYears(options: {
+  items: Array<
+    Pick<
+      NormalizationItem,
+      'status' | 'type' | 'value' | 'adjustment' | 'applyAllYears' | 'applyYears' | 'year'
+    >
+  >
+  availableYears: number[]
+  reportedEbitdaByYear?: Record<number, number>
+  fallbackYear: number
+  fallbackReportedEbitda?: number
+}): { original: number; adjustment: number; normalized: number } {
+  const {
+    items,
+    availableYears,
+    reportedEbitdaByYear,
+    fallbackYear,
+    fallbackReportedEbitda = 0,
+  } = options
+
+  const acceptedItems = items.filter((item) => item.status === 'accepted')
+  if (acceptedItems.length === 0) {
+    const original =
+      getFirstFiniteNumber(reportedEbitdaByYear?.[fallbackYear], fallbackReportedEbitda) ?? 0
+    return {
+      original,
+      adjustment: 0,
+      normalized: original,
+    }
+  }
+
+  const yearSummaries = new Map<number, { original: number; adjustment: number }>()
+
+  for (const item of acceptedItems) {
+    const years = item.applyAllYears
+      ? availableYears
+      : item.applyYears && item.applyYears.length > 0
+        ? item.applyYears
+        : [item.year]
+
+    for (const year of years) {
+      if (!Number.isFinite(year)) continue
+      const original =
+        getFirstFiniteNumber(reportedEbitdaByYear?.[year], fallbackReportedEbitda) ?? 0
+      const current = yearSummaries.get(year) ?? { original, adjustment: 0 }
+      current.original = original
+      current.adjustment += getNormalizationAmountForBase(item, original)
+      yearSummaries.set(year, current)
+    }
+  }
+
+  const summary = Array.from(yearSummaries.values()).reduce<{
+    original: number
+    adjustment: number
+    normalized: number
+  }>(
+    (acc, year) => ({
+      original: acc.original + year.original,
+      adjustment: acc.adjustment + year.adjustment,
+      normalized: acc.normalized + year.original + year.adjustment,
+    }),
+    { original: 0, adjustment: 0, normalized: 0 }
+  )
+
+  if (summary.original === 0 && summary.adjustment === 0 && summary.normalized === 0) {
+    const original =
+      getFirstFiniteNumber(reportedEbitdaByYear?.[fallbackYear], fallbackReportedEbitda) ?? 0
+    return {
+      original,
+      adjustment: 0,
+      normalized: original,
+    }
+  }
+
+  return summary
+}

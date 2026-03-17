@@ -1294,19 +1294,24 @@ export function ManualInputPanel({
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
                 {hasEbitdaValue && hasFinancials && totalYearsWithEbitda > 0 && (
                   <motion.div
-                    className="relative rounded-xl overflow-hidden"
+                    className={cn(
+                      "relative rounded-xl overflow-hidden transition-all duration-300",
+                      normalizedData.years.some((y) => y.totalAdjustment !== 0)
+                        ? "shadow-sm"
+                        : ""
+                    )}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
                   >
-                    {/* Animated Aurora gradient border */}
+                    {/* Animated Aurora gradient border - Kept but made more subtle */}
                     <div
-                      className="absolute inset-0 rounded-xl opacity-60"
+                      className="absolute inset-0 rounded-xl opacity-40"
                       style={{
                         background:
                           'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(175 60% 50%) 25%, hsl(264 80% 60%) 50%, hsl(var(--primary)) 75%, hsl(175 60% 50%) 100%)',
                         backgroundSize: '300% 300%',
-                        animation: 'aurora-shift 8s ease-in-out infinite',
+                        animation: 'aurora-shift 12s ease-in-out infinite',
                         padding: '1px',
                       }}
                     />
@@ -1314,7 +1319,7 @@ export function ManualInputPanel({
                     {/* Inner content with solid background */}
                     <div className="relative m-[1px] rounded-[11px] bg-background p-4">
                       {/* Subtle inner glow */}
-                      <div className="absolute inset-0 rounded-[11px] bg-gradient-to-br from-primary/[0.04] via-transparent to-violet-500/[0.04] pointer-events-none" />
+                      <div className="absolute inset-0 rounded-[11px] bg-gradient-to-br from-primary/[0.02] via-transparent to-violet-500/[0.02] pointer-events-none" />
 
                       <div className="relative">
                         {/* Normalization Trigger - always visible when financials entered */}
@@ -1322,19 +1327,19 @@ export function ManualInputPanel({
                           <div className="flex items-center justify-between gap-4">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
+                                <span className="text-xs font-medium text-foreground/60">
                                   {mi('fields.normalizedEbitda')}
                                 </span>
                                 {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-success/10 text-success text-[9px] font-semibold uppercase tracking-wider">
-                                    <Check className="w-2.5 h-2.5" />
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-success/10 text-success text-[10px] font-medium">
+                                    <Check className="w-3 h-3" />
                                     {mi('normalized')}
                                   </span>
                                 )}
                               </div>
                               <div className="flex items-baseline gap-2">
                                 <motion.span
-                                  className="text-xl font-bold text-foreground font-mono tabular-nums"
+                                  className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight"
                                   key={normalizedData.averageNormalizedEbitda}
                                   initial={{ scale: 1.05, opacity: 0.7 }}
                                   animate={{ scale: 1, opacity: 1 }}
@@ -1342,14 +1347,14 @@ export function ManualInputPanel({
                                 >
                                   {formatCurrency(normalizedData.averageNormalizedEbitda)}
                                 </motion.span>
-                                <span className="text-[10px] text-foreground/40">
+                                <span className="text-xs text-foreground/50">
                                   ({normalizedData.totalYearsWithData}{' '}
                                   {normalizedData.totalYearsWithData === 1 ? mi('year') : mi('years')}
                                   )
                                 </span>
                                 {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (() => {
                                   const yearsWithData = normalizedData.years.filter(
-                                    (y) => (Number(y.ebitda) || 0) > 0
+                                    (y) => hasExplicitNumericValue(y.ebitda)
                                   )
                                   const adjSum = yearsWithData.reduce(
                                     (sum, y) =>
@@ -1363,7 +1368,7 @@ export function ManualInputPanel({
                                   return (
                                     <motion.span
                                       className={cn(
-                                        'text-xs font-semibold',
+                                        'text-sm font-medium ml-1',
                                         safeAvg > 0 ? 'text-success' : safeAvg < 0 ? 'text-secondary' : 'text-foreground/40'
                                       )}
                                       initial={{ x: -4, opacity: 0 }}
@@ -1375,12 +1380,12 @@ export function ManualInputPanel({
                                 })()}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-3 shrink-0">
                               {(acceptedNormCount > 0 || taxLatencyCount > 0) && (
                                 <button
                                   type="button"
                                   onClick={() => onViewAllNormalizations?.()}
-                                  className="text-[10px] font-medium text-foreground/60 bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.06] px-2 py-1 rounded-md transition-colors cursor-pointer"
+                                  className="text-xs font-medium text-foreground/60 hover:text-foreground transition-colors cursor-pointer underline underline-offset-2 decoration-foreground/20 hover:decoration-foreground/40"
                                 >
                                   {acceptedNormCount > 0 && taxLatencyCount > 0
                                     ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })} · ${tTax('summary', { count: taxLatencyCount })}`
@@ -1389,31 +1394,29 @@ export function ManualInputPanel({
                                       : tTax('summary', { count: taxLatencyCount })}
                                 </button>
                               )}
-                              <motion.button
+                              <button
                                 type="button"
                                 onClick={() => onViewAllNormalizations?.()}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
                                 className={cn(
-                                  'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+                                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
                                   normalizedData.years.some((y) => y.totalAdjustment !== 0)
-                                    ? 'bg-foreground/[0.04] text-foreground/70 hover:bg-foreground/[0.08] border border-foreground/[0.08]'
-                                    : 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-sm hover:shadow-md hover:shadow-primary/20'
+                                    ? 'bg-background border border-foreground/10 text-foreground hover:bg-foreground/[0.02]'
+                                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
                                 )}
                               >
                                 {normalizedData.years.some((y) => y.totalAdjustment !== 0)
                                   ? mi('adjust')
                                   : mi('normalize')}
-                              </motion.button>
+                              </button>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-xs text-foreground/50 leading-relaxed">
-                            <span className="text-foreground/70 font-medium">
+                          <p className="text-sm text-foreground/60 leading-relaxed">
+                            <span className="text-foreground font-medium">
                               {mi('whyNormalize')}
                             </span>{' '}
                             {mi('whyNormalizeExplanation')}{' '}
-                            <span className="text-foreground/70">{mi('marketConformLevels')}</span>.
+                            <span className="text-foreground">{mi('marketConformLevels')}</span>.
                           </p>
                         )}
                       </div>
@@ -1510,7 +1513,7 @@ export function ManualInputPanel({
                         </div>
 
                         {/* Show normalized EBITDA if different */}
-                        {yearData.ebitda > 0 &&
+                        {hasExplicitNumericValue(yearData.ebitda) &&
                           normalizedYear &&
                           normalizedYear.totalAdjustment !== 0 && (
                             <div className="mt-2 flex items-center justify-between text-xs">

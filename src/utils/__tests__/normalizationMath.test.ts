@@ -4,6 +4,7 @@ import {
   getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
   summarizeAcceptedNormalizations,
+  summarizeAcceptedNormalizationsAcrossYears,
 } from '../normalizationMath'
 
 describe('normalizationMath', () => {
@@ -64,5 +65,38 @@ describe('normalizationMath', () => {
         100_000
       )
     ).toBe(-1_000)
+  })
+
+  it('summarizes accepted multi-year percentage items using each year baseline', () => {
+    const items: NormalizationItem[] = [
+      {
+        id: 'cross-year-owner-pay',
+        ledgerCode: '620',
+        ledgerName: 'Owner compensation',
+        category: 'salary',
+        type: 'subtract_percent',
+        value: 10,
+        adjustment: -999,
+        reason: 'Market normalization',
+        source: 'manual',
+        status: 'accepted',
+        applyAllYears: false,
+        applyYears: [2024, 2025],
+        year: 2025,
+      },
+    ]
+
+    expect(
+      summarizeAcceptedNormalizationsAcrossYears({
+        items,
+        availableYears: [2024, 2025],
+        reportedEbitdaByYear: { 2024: 50_000, 2025: 100_000 },
+        fallbackYear: 2025,
+      })
+    ).toEqual({
+      original: 150_000,
+      adjustment: -15_000,
+      normalized: 135_000,
+    })
   })
 })

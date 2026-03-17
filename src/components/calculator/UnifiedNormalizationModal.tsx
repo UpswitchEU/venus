@@ -71,6 +71,7 @@ import {
   getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
   summarizeAcceptedNormalizations,
+  summarizeAcceptedNormalizationsAcrossYears,
 } from '../../utils/normalizationMath'
 import { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
 import { TaxLatencySection } from './TaxLatencySection'
@@ -694,13 +695,22 @@ export function UnifiedNormalizationModal({
 
   // Header totals — derived from filtered items and year-specific EBITDA
   const totals = useMemo(() => {
+    if (yearFilter == null) {
+      return summarizeAcceptedNormalizationsAcrossYears({
+        items: filteredNormalizations,
+        availableYears,
+        reportedEbitdaByYear: originalEBITDAByYear,
+        fallbackYear: currentYear,
+        fallbackReportedEbitda: safeOriginalEBITDA,
+      })
+    }
     const reportedEbitda = getReportedEbitdaBaseline({
       year: yearFilter ?? currentYear,
       originalEBITDAByYear,
       fallbackCandidates: [safeOriginalEBITDA],
     })
     return summarizeAcceptedNormalizations(filteredNormalizations, reportedEbitda)
-  }, [filteredNormalizations, yearFilter, originalEBITDAByYear, safeOriginalEBITDA])
+  }, [filteredNormalizations, yearFilter, originalEBITDAByYear, safeOriginalEBITDA, availableYears, currentYear])
 
   // Group normalizations by year for collapsible sections
   const groupedByYear = useMemo(() => {
