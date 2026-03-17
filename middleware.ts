@@ -89,7 +89,7 @@ export async function middleware(request: NextRequest) {
 		pathname === '/manifest.json' ||
 		pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot)$/)
 	) {
-		return;
+		return NextResponse.next();
 	}
 
 	// Priority 0a: /calculate and /calculator without locale (Clarity Aurora parity)

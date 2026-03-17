@@ -17,7 +17,9 @@ import type {
   VersionChanges,
   VersionComparison,
 } from '../types/ValuationVersion'
+import { getLastFullFiscalYear } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
+import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { useNormalizationStore } from './useNormalizationStore'
 import { useTaxLatencyStore } from './useTaxLatencyStore'
 
@@ -361,12 +363,24 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             // Build year-keyed normalization data from unified store
             // CRITICAL: Respect applyAllYears and applyYears — put each item under every year it applies to
             const accepted = normStore.items.filter((n) => n.status === 'accepted')
-            const lastFullYear = Math.min(Math.max(new Date().getFullYear() - 1, 2000), 2100)
+            const lastFullYear = getLastFullFiscalYear()
             const historicalYears =
               enrichedRequest.formData?.historical_years_data
                 ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
                 .map((y: any) => y.year) ?? []
             const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+            const yearEbitdaMap: Record<number, number> = {
+              [lastFullYear]:
+                Number(
+                  enrichedRequest.formData?.current_year_data?.ebitda ??
+                    0
+                ) || 0,
+            }
+            enrichedRequest.formData?.historical_years_data?.forEach((y: any) => {
+              if (y?.ebitda != null && y?.year != null) {
+                yearEbitdaMap[Number(y.year)] = Number(y.ebitda) || 0
+              }
+            })
 
             const yearGroups: Record<number, typeof accepted> = {}
             for (const n of accepted) {
@@ -382,19 +396,23 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             }
 
             Object.entries(yearGroups).forEach(([year, items]) => {
-              const totalAdj = items.reduce((sum, n) => sum + n.adjustment, 0)
+              const reportedEbitda = Number(yearEbitdaMap[Number(year)] ?? 0) || 0
+              const totalAdj = items.reduce(
+                (sum, n) => sum + getNormalizationAmountForBase(n, reportedEbitda),
+                0
+              )
               normalizationData[year] = {
-                reported_ebitda: 0, // Not tracked in unified store
-                normalized_ebitda: totalAdj,
+                reported_ebitda: reportedEbitda,
+                normalized_ebitda: reportedEbitda + totalAdj,
                 total_adjustments: totalAdj,
                 adjustments: items.map((n) => ({
                   category: n.category,
-                  amount: n.adjustment,
+                  amount: getNormalizationAmountForBase(n, reportedEbitda),
                   note: n.reason,
                 })),
                 custom_adjustments: [],
                 confidence_score: items[0]?.confidence || 'medium',
-                adjustment_percentage: 0,
+                adjustment_percentage: reportedEbitda !== 0 ? (totalAdj / reportedEbitda) * 100 : 0,
               }
             })
 

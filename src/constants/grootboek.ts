@@ -13,6 +13,8 @@
  * To update grootboek codes, update the database table via migration.
  */
 
+import { GROOTBOEK_NL_OVERRIDES } from '../utils/locale/financial-terms'
+
 export interface LedgerAccount {
   code: string
   name: string
@@ -205,3 +207,19 @@ export const DEFAULT_LEDGER_ACCOUNTS: LedgerAccount[] = [
     category: 'Uitzonderlijke opbrengsten',
   },
 ]
+
+/**
+ * Apply NL-specific name overrides (zaakvoerder -> directeur) for Dutch market.
+ * Use when country_code is NL to show Netherlands-appropriate terminology.
+ */
+export function applyGrootboekCountryOverrides<T extends LedgerAccount>(
+  accounts: T[],
+  countryCode?: string | null
+): T[] {
+  if (countryCode?.toUpperCase() !== 'NL') return accounts
+  return accounts.map((acc) => {
+    const override = GROOTBOEK_NL_OVERRIDES[acc.code]
+    if (!override) return acc
+    return { ...acc, name: override }
+  })
+}

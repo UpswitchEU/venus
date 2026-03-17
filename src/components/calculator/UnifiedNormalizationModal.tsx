@@ -67,6 +67,11 @@ import {
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
 import { getLastFullFiscalYear } from '../../utils/fiscalYear'
+import {
+  getNormalizationAmountForBase,
+  getReportedEbitdaBaseline,
+  summarizeAcceptedNormalizations,
+} from '../../utils/normalizationMath'
 import { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
 import { TaxLatencySection } from './TaxLatencySection'
 
@@ -86,7 +91,11 @@ export type NormalizationSource =
   | 'ai'
 export type NormalizationStatus = 'pending' | 'accepted' | 'rejected'
 
-import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
+import {
+  DEFAULT_LEDGER_ACCOUNTS,
+  applyGrootboekCountryOverrides,
+  type LedgerAccount,
+} from '../../constants/grootboek'
 import { generalLogger } from '../../utils/logger'
 
 export type { LedgerAccount } from '../../constants/grootboek'
@@ -121,6 +130,7 @@ export interface UnifiedNormalizationModalProps {
   normalizations: NormalizationItem[]
   onNormalizationsChange: (normalizations: NormalizationItem[]) => void
   ledgerAccounts?: LedgerAccount[]
+  countryCode?: string | null
   hasUploadedData?: boolean
   onUploadClick?: () => void
   initialSearchQuery?: string
@@ -375,6 +385,7 @@ export function UnifiedNormalizationModal({
   normalizations,
   onNormalizationsChange,
   ledgerAccounts = [],
+  countryCode,
   onUploadClick,
   initialSearchQuery = '',
   financialYears,
@@ -430,6 +441,9 @@ export function UnifiedNormalizationModal({
       setYearFilter(null)
       setCollapsedYears(new Set())
       setNewSelectedYears([currentYear])
+      setNewValue('')
+      setNewType('add')
+      setNewReason('')
     }
   }, [open, currentYear, initialSearchQuery])
 
@@ -550,12 +564,14 @@ export function UnifiedNormalizationModal({
     }
   }, [])
 
-  // Available ledger accounts: prop > API fetch > hardcoded defaults
+  // Available ledger accounts: prop > API fetch > hardcoded defaults; apply NL overrides when country is NL
   const availableLedgers = useMemo(() => {
-    if (ledgerAccounts.length > 0) return ledgerAccounts
-    if (fetchedLedgers.length > 0) return fetchedLedgers
-    return defaultLedgerAccounts
-  }, [ledgerAccounts, fetchedLedgers])
+    let base: LedgerAccount[]
+    if (ledgerAccounts.length > 0) base = ledgerAccounts
+    else if (fetchedLedgers.length > 0) base = fetchedLedgers
+    else base = defaultLedgerAccounts
+    return applyGrootboekCountryOverrides(base, countryCode)
+  }, [ledgerAccounts, fetchedLedgers, countryCode])
 
   // Resolve presets against the canonical reference data so ledgerName
   // always matches the official Belgian MAR name for the code.
@@ -623,17 +639,16 @@ export function UnifiedNormalizationModal({
 
   // Keep explicit 0 EBITDA values instead of falling through to unrelated fallback sources.
   const safeOriginalEBITDA = (() => {
-    const candidates = [
-      originalEBITDA,
-      (fallbackFormDataRef?.current as any)?.yearlyFinancials?.[0]?.ebitda,
-      (fallbackFormDataRef?.current as any)?.current_year_data?.ebitda,
-      (fallbackFormDataRef?.current as any)?.ebitda,
-    ]
-    for (const candidate of candidates) {
-      const parsed = Number(candidate)
-      if (Number.isFinite(parsed)) return parsed
-    }
-    return 0
+    return getReportedEbitdaBaseline({
+      year: currentYear,
+      originalEBITDAByYear,
+      fallbackCandidates: [
+        originalEBITDA,
+        (fallbackFormDataRef?.current as any)?.yearlyFinancials?.[0]?.ebitda,
+        (fallbackFormDataRef?.current as any)?.current_year_data?.ebitda,
+        (fallbackFormDataRef?.current as any)?.ebitda,
+      ],
+    })
   })()
 
   // Filter normalizations by year and search
@@ -667,32 +682,12 @@ export function UnifiedNormalizationModal({
 
   // Header totals — derived from filtered items and year-specific EBITDA
   const totals = useMemo(() => {
-    const accepted = filteredNormalizations.filter((n) => n.status === 'accepted')
-    const ebitdaForCalc =
-      yearFilter !== null
-        ? (originalEBITDAByYear?.[yearFilter] ?? safeOriginalEBITDA)
-        : safeOriginalEBITDA
-    const totalAdjustment = accepted.reduce((sum, n) => {
-      const safeAdj = Number.isFinite(n.adjustment) ? n.adjustment : 0
-      const safeVal = Number.isFinite(n.value) ? n.value : 0
-      if (
-        (!Number.isFinite(ebitdaForCalc) || ebitdaForCalc === 0) &&
-        (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
-      ) {
-        return sum + safeAdj
-      }
-      if (n.type === 'add_percent') return sum + (ebitdaForCalc * safeVal) / 100
-      if (n.type === 'subtract_percent') return sum - (ebitdaForCalc * safeVal) / 100
-      if (n.type === 'absolute') return sum + (safeVal - ebitdaForCalc)
-      return sum + safeAdj
-    }, 0)
-    const orig = Number.isFinite(ebitdaForCalc) ? ebitdaForCalc : 0
-    const adj = Number.isFinite(totalAdjustment) ? totalAdjustment : 0
-    return {
-      original: orig,
-      adjustment: adj,
-      normalized: orig + adj,
-    }
+    const reportedEbitda = getReportedEbitdaBaseline({
+      year: yearFilter ?? currentYear,
+      originalEBITDAByYear,
+      fallbackCandidates: [safeOriginalEBITDA],
+    })
+    return summarizeAcceptedNormalizations(filteredNormalizations, reportedEbitda)
   }, [filteredNormalizations, yearFilter, originalEBITDAByYear, safeOriginalEBITDA])
 
   // Group normalizations by year for collapsible sections
@@ -825,6 +820,7 @@ export function UnifiedNormalizationModal({
     setSelectedLedger(null)
     setSearchQuery('')
     setNewValue('')
+    setNewType('add')
     setNewReason('')
     setNewSelectedYears([currentYear])
   }, [currentYear])
@@ -1530,6 +1526,7 @@ export function UnifiedNormalizationModal({
                             onClick={() => {
                               setSelectedLedger(account)
                               setSearchQuery(`${account.code} · ${account.name}`)
+                              setNewValue('')
                               setShowLedgerDropdown(false)
                               setShowAddForm(true)
                             }}
@@ -1565,6 +1562,7 @@ export function UnifiedNormalizationModal({
                             const { code, name } = parseCustomLedgerFromQuery(searchQuery)
                             setSelectedLedger({ code, name })
                             setSearchQuery(`${code} · ${name}`)
+                            setNewValue('')
                             setShowLedgerDropdown(false)
                             setShowAddForm(true)
                           }}
@@ -1574,6 +1572,7 @@ export function UnifiedNormalizationModal({
                               const { code, name } = parseCustomLedgerFromQuery(searchQuery)
                               setSelectedLedger({ code, name })
                               setSearchQuery(`${code} · ${name}`)
+                              setNewValue('')
                               setShowLedgerDropdown(false)
                               setShowAddForm(true)
                             }
@@ -1603,6 +1602,7 @@ export function UnifiedNormalizationModal({
                               const { code, name } = parseCustomLedgerFromQuery(searchQuery)
                               setSelectedLedger({ code, name })
                               setSearchQuery(`${code} · ${name}`)
+                              setNewValue('')
                               setShowLedgerDropdown(false)
                               setShowAddForm(true)
                             }}
@@ -1887,7 +1887,7 @@ export function UnifiedNormalizationModal({
                     <Input
                       label={newType.includes('percent') ? nh('percentage') : nh('amount')}
                       type="text"
-                      placeholder={newType.includes('percent') ? '10' : '60.000'}
+                      placeholder={newType.includes('percent') ? '10' : '0'}
                       value={newValue}
                       onChange={(e) => setNewValue(e.target.value)}
                       leftIcon={
@@ -1995,9 +1995,14 @@ export function UnifiedNormalizationModal({
                           {newType === 'add_percent' ? '+' : '-'}
                           {formatCurrency(
                             Math.abs(
-                              (safeOriginalEBITDA *
-                                (parseFloat(newValue.replace(/[^0-9.-]/g, '')) || 0)) /
-                                100
+                              getNormalizationAmountForBase(
+                                {
+                                  type: newType,
+                                  value: parseFloat(newValue.replace(/[^0-9.-]/g, '')) || 0,
+                                  adjustment: 0,
+                                },
+                                safeOriginalEBITDA
+                              )
                             )
                           )}
                         </p>
@@ -2010,10 +2015,14 @@ export function UnifiedNormalizationModal({
                         <p className="text-sm font-mono font-bold text-foreground">
                           {formatCurrency(
                             safeOriginalEBITDA +
-                              ((newType === 'add_percent' ? 1 : -1) *
-                                safeOriginalEBITDA *
-                                (parseFloat(newValue.replace(/[^0-9.-]/g, '')) || 0)) /
-                                100
+                              getNormalizationAmountForBase(
+                                {
+                                  type: newType,
+                                  value: parseFloat(newValue.replace(/[^0-9.-]/g, '')) || 0,
+                                  adjustment: 0,
+                                },
+                                safeOriginalEBITDA
+                              )
                           )}
                         </p>
                       </div>
@@ -2098,23 +2107,16 @@ export function UnifiedNormalizationModal({
                 <div className="space-y-3">
                   {groupedByYear.map(({ year, items }) => {
                     const isCollapsed = collapsedYears.has(year)
-                    const yearEbitda = originalEBITDAByYear?.[year] ?? safeOriginalEBITDA
-                    const yearTotal = items
-                      .filter((n) => n.status === 'accepted')
-                      .reduce((sum, n) => {
-                        const safeAdj = Number.isFinite(n.adjustment) ? n.adjustment : 0
-                        const safeVal = Number.isFinite(n.value) ? n.value : 0
-                        if (
-                          (!Number.isFinite(yearEbitda) || yearEbitda === 0) &&
-                          (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
-                        ) {
-                          return sum + safeAdj
-                        }
-                        if (n.type === 'add_percent') return sum + (yearEbitda * safeVal) / 100
-                        if (n.type === 'subtract_percent') return sum - (yearEbitda * safeVal) / 100
-                        if (n.type === 'absolute') return sum + (safeVal - yearEbitda)
-                        return sum + safeAdj
-                      }, 0)
+                    const yearSummary = summarizeAcceptedNormalizations(
+                      items,
+                      getReportedEbitdaBaseline({
+                        year,
+                        originalEBITDAByYear,
+                        fallbackCandidates: [safeOriginalEBITDA],
+                      })
+                    )
+                    const yearEbitda = yearSummary.original
+                    const yearTotal = yearSummary.adjustment
 
                     return (
                       <div

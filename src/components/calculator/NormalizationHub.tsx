@@ -32,6 +32,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { cn } from '@/design-system/utils'
+import { getReportedEbitdaBaseline, summarizeAcceptedNormalizations } from '../../utils/normalizationMath'
 import {
   type NormalizationItem,
   type NormalizationSource,
@@ -65,6 +66,8 @@ export interface NormalizationHubProps {
   ledgerAccounts?: { code: string; name: string; category?: string; balance?: number }[]
   /** Financial years the user has entered data for */
   financialYears?: number[]
+  /** Country code for BE/NL terminology (e.g. zaakvoerder vs directeur) */
+  countryCode?: string | null
 }
 
 // ─────────────────────────────────────────
@@ -99,6 +102,7 @@ export function NormalizationHub({
   hasUploadedData = false,
   ledgerAccounts = [],
   financialYears,
+  countryCode,
 }: NormalizationHubProps) {
   const nh = useTranslations('normalizationHub')
   const locale = useLocale() as 'nl' | 'en'
@@ -121,38 +125,21 @@ export function NormalizationHub({
     const pending = normalizations.filter((n) => n.status === 'pending').length
     const accepted = normalizations.filter((n) => n.status === 'accepted').length
     const rejected = normalizations.filter((n) => n.status === 'rejected').length
-    const ebitdaForSummary =
-      originalEBITDAByYear && Number.isFinite(originalEBITDAByYear[currentYear])
-        ? originalEBITDAByYear[currentYear]!
-        : Number(originalEbitda) || 0
-    const safeEbitda = Number.isFinite(ebitdaForSummary) ? ebitdaForSummary : 0
-    const totalAdjustment = normalizations
-      .filter((n) => n.status === 'accepted')
-      .reduce((sum, n) => {
-        const safeVal = Number.isFinite(n.value) ? n.value : 0
-        const rawAdj = Number(n.adjustment)
-        const safeAdj = Number.isFinite(rawAdj) ? rawAdj : 0
-        if (
-          (!Number.isFinite(safeEbitda) || safeEbitda === 0) &&
-          (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
-        ) {
-          return sum + safeAdj
-        }
-        if (n.type === 'add_percent') return sum + (safeEbitda * safeVal) / 100
-        if (n.type === 'subtract_percent') return sum - (safeEbitda * safeVal) / 100
-        if (n.type === 'absolute') return sum + (safeVal - safeEbitda)
-        return sum + safeAdj
-      }, 0)
-    const safeTotalAdj = Number.isFinite(totalAdjustment) ? totalAdjustment : 0
-    const normalizedEbitda = safeEbitda + safeTotalAdj
+    const reportedEbitda = getReportedEbitdaBaseline({
+      year: currentYear,
+      originalEBITDAByYear,
+      fallbackCandidates: [originalEbitda],
+    })
+    const summary = summarizeAcceptedNormalizations(normalizations, reportedEbitda)
 
     return {
       pending,
       accepted,
       rejected,
       total: normalizations.length,
-      totalAdjustment: safeTotalAdj,
-      normalizedEbitda,
+      originalEbitda: summary.original,
+      totalAdjustment: summary.adjustment,
+      normalizedEbitda: summary.normalized,
     }
   }, [normalizations, originalEbitda, originalEBITDAByYear, currentYear])
 
@@ -217,7 +204,7 @@ export function NormalizationHub({
                 {nh('original')}
               </p>
               <p className="text-sm md:text-base font-mono font-semibold text-foreground/60 line-through">
-                {formatCurrency(originalEbitda)}
+                {formatCurrency(stats.originalEbitda)}
               </p>
             </div>
 
@@ -335,6 +322,7 @@ export function NormalizationHub({
         normalizations={normalizations}
         onNormalizationsChange={onNormalizationsChange}
         ledgerAccounts={ledgerAccounts}
+        countryCode={countryCode}
         hasUploadedData={hasUploadedData}
         onUploadClick={onUploadClick}
         financialYears={financialYears}

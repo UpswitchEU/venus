@@ -70,7 +70,7 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   if (formData.revenue == null) missingFields.push(t('forms.fields.revenue'))
   if (formData.ebitda == null) missingFields.push(t('forms.fields.ebitda'))
   if (!formData.business_type_id) missingFields.push(t('forms.fields.businessType'))
-  if (!formData.industry) missingFields.push(t('forms.fields.businessType'))
+  if (!formData.industry) missingFields.push(t('forms.fields.industry'))
   if (!formData.country_code) missingFields.push(t('forms.fields.country'))
 
   // Determine button text based on context

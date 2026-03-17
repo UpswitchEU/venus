@@ -8,7 +8,7 @@
  */
 
 import { useTranslations } from 'next-intl'
-import React, { useMemo } from 'react'
+import React from 'react'
 import {
   getIndustryGuidance,
   validateEbitdaMargin,
@@ -20,7 +20,6 @@ import {
   AuroraNumberInput,
 } from '../../../design-system/components'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
-import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationFormData } from '../../../types/valuation'
 import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
@@ -48,10 +47,6 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   const lastFullYear = getLastFullFiscalYear()
   const reportId = useSessionStore((state) => state.session?.reportId)
   const sessionId = reportId // Use reportId as sessionId
-  const unifiedItems = useNormalizationStore((state) => state.items)
-  const setUnifiedItems = useNormalizationStore((state) => state.setItems)
-  const persistUnifiedToSession = useNormalizationStore((state) => state.persistToSession)
-  const persistUnifiedToTitan = useNormalizationStore((state) => state.persistToTitan)
 
   const {
     hasNormalization: hasLegacyNormalization,
@@ -64,34 +59,11 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
     activeYear,
     closeNormalizationModal,
   } = useEbitdaNormalizationStore()
-
-  const unifiedAcceptedForYear = useMemo(
-    () =>
-      unifiedItems.filter((item) => {
-        if (item.status !== 'accepted') return false
-        if (item.applyAllYears) return true
-        if (item.applyYears && item.applyYears.length > 0) return item.applyYears.includes(lastFullYear)
-        return item.year === lastFullYear
-      }),
-    [unifiedItems, lastFullYear]
-  )
-
-  const hasUnifiedNormalization = unifiedAcceptedForYear.length > 0
-  const unifiedTotalAdjustments = unifiedAcceptedForYear.reduce(
-    (sum, item) => sum + (Number.isFinite(item.adjustment) ? item.adjustment : 0),
-    0
-  )
   const legacyHasNormalization = hasLegacyNormalization(lastFullYear)
-  const hasDisplayedNormalization = hasUnifiedNormalization || legacyHasNormalization
-  const displayedTotalAdjustments = hasUnifiedNormalization
-    ? unifiedTotalAdjustments
-    : getLegacyTotalAdjustments(lastFullYear)
-  const displayedNormalizedEbitda = hasUnifiedNormalization
-    ? (formData.ebitda ?? 0) + unifiedTotalAdjustments
-    : getLegacyNormalizedEbitda(lastFullYear)
-  const displayedAdjustmentCount = hasUnifiedNormalization
-    ? unifiedAcceptedForYear.length
-    : getLegacyAdjustmentCount(lastFullYear)
+  const hasDisplayedNormalization = legacyHasNormalization
+  const displayedTotalAdjustments = getLegacyTotalAdjustments(lastFullYear)
+  const displayedNormalizedEbitda = getLegacyNormalizedEbitda(lastFullYear)
+  const displayedAdjustmentCount = getLegacyAdjustmentCount(lastFullYear)
 
   const handleOpenNormalization = async (year: number) => {
     if (!sessionId) return
@@ -103,17 +75,6 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   const handleRemoveNormalization = async (year: number) => {
     if (!sessionId) return
     try {
-      if (hasUnifiedNormalization) {
-        setUnifiedItems(
-          unifiedItems.map((item) => {
-            const appliesToYear = item.applyAllYears || item.applyYears?.includes(year) || item.year === year
-            return appliesToYear ? { ...item, status: 'rejected' as const } : item
-          })
-        )
-        await persistUnifiedToSession(sessionId)
-        await persistUnifiedToTitan(sessionId, year, formData.ebitda ?? 0)
-        return
-      }
       await removeNormalization(sessionId, year)
     } catch {
       // Removal error handled by the store

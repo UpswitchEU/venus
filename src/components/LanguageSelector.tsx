@@ -17,16 +17,8 @@ interface LanguageSelectorProps {
 }
 
 const languages = [
-  {
-    code: 'en' as const,
-    name: 'English',
-    flag: '🇬🇧',
-  },
-  {
-    code: 'nl' as const,
-    name: 'Nederlands',
-    flag: '🇧🇪', // Belgian flag (Flemish/Dutch)
-  },
+  { code: 'en' as const, name: 'English', flag: '🇬🇧' },
+  { code: 'nl' as const, name: 'Nederlands', flag: '🇳🇱' }, // Dutch (BE + NL)
 ]
 
 export function LanguageSelector({ variant = 'desktop', className = '' }: LanguageSelectorProps) {

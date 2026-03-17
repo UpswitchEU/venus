@@ -104,6 +104,7 @@ import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { isAuthError } from '../../../utils/errorDetection'
 import { generalLogger } from '../../../utils/logger'
+import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../../utils/versionConfirmation'
 import {
@@ -682,21 +683,24 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return byYear
   })()
 
+  // For normalization modal: use REPORTED EBITDA (before adjustments), not normalized.
+  // report.ebitda is the normalized value used in valuation — using it would show wrong
+  // Origineel (e.g. €99K instead of €100K) and double-apply adjustments.
   const getOriginalEbitdaForDisplay = useCallback(() => {
-    const candidates = [
-      report?.ebitda,
-      (result as any)?.current_year_data?.ebitda,
-      formStoreData?.current_year_data?.ebitda,
-      originalEBITDAByYear?.[getLastFullFiscalYear()],
-      latestFormDataRef.current?.current_year_data?.ebitda,
-      latestFormDataRef.current?.ebitda,
-    ]
-    for (const candidate of candidates) {
-      const parsed = Number(candidate)
-      if (Number.isFinite(parsed)) return parsed
-    }
-    return 0
-  }, [formStoreData?.current_year_data?.ebitda, formStoreData?.ebitda, originalEBITDAByYear, report?.ebitda, result])
+    const year = getLastFullFiscalYear()
+    return getReportedEbitdaBaseline({
+      year,
+      originalEBITDAByYear,
+      fallbackCandidates: [
+        formStoreData?.current_year_data?.ebitda,
+        latestFormDataRef.current?.current_year_data?.ebitda,
+        latestFormDataRef.current?.ebitda,
+        (result as any)?.current_year_data?.ebitda_normalization_metadata?.reported_ebitda,
+        (result as any)?.reported_ebitda,
+        (report as any)?.reportedEbitda ?? (report as any)?.reported_ebitda,
+      ],
+    })
+  }, [formStoreData?.current_year_data?.ebitda, formStoreData?.ebitda, originalEBITDAByYear, report, result])
 
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
@@ -3174,6 +3178,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           originalEBITDAByYear={originalEBITDAByYear}
           normalizations={normalizationItems}
           onNormalizationsChange={handleNormalizationsChange}
+          countryCode={formCountry || 'BE'}
           onUploadClick={() => {}}
           financialYears={financialYears}
           fallbackFormDataRef={latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>}
@@ -3476,6 +3481,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         originalEBITDAByYear={originalEBITDAByYear}
         normalizations={normalizationItems}
         onNormalizationsChange={handleNormalizationsChange}
+        countryCode={formCountry || 'BE'}
         onUploadClick={() => {}}
         financialYears={financialYears}
         fallbackFormDataRef={latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>}

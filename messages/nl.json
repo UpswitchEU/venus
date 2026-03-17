@@ -327,6 +327,7 @@
     },
     "fields": {
       "businessType": "Bedrijfstype",
+      "industry": "Industrie",
       "businessTypeSearch": "Zoek naar uw bedrijfstype...",
       "businessTypeSelect": "Selecteer bedrijfstype",
       "businessTypeRequired": "Selecteer een bedrijfstype",

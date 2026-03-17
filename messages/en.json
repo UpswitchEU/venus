@@ -327,6 +327,7 @@
     },
     "fields": {
       "businessType": "Business Type",
+      "industry": "Industry",
       "businessTypeSearch": "Search for your business type...",
       "businessTypeSelect": "Select business type",
       "businessTypeRequired": "Please select a business type",

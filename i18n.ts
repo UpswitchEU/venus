@@ -11,8 +11,8 @@ import { getRequestConfig } from 'next-intl/server';
 export const locales = ['en', 'nl'] as const;
 export type Locale = (typeof locales)[number];
 
-// Default locale
-export const defaultLocale: Locale = 'en';
+// Default locale — nl for Belgian/Dutch market (align with Mercury)
+export const defaultLocale: Locale = 'nl';
 
 /**
  * Load messages for the given locale
