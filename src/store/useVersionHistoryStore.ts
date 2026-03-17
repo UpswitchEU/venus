@@ -369,16 +369,22 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
                 .map((y: any) => y.year) ?? []
             const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+            const currentYearData = enrichedRequest.formData?.current_year_data as
+              | { ebitda?: number; ebitda_normalization_metadata?: { reported_ebitda?: number } }
+              | undefined
             const yearEbitdaMap: Record<number, number> = {
               [lastFullYear]:
                 Number(
-                  enrichedRequest.formData?.current_year_data?.ebitda ??
+                  currentYearData?.ebitda_normalization_metadata?.reported_ebitda ??
+                    currentYearData?.ebitda ??
                     0
                 ) || 0,
             }
             enrichedRequest.formData?.historical_years_data?.forEach((y: any) => {
+              const yearMeta = y?.ebitda_normalization_metadata
               if (y?.ebitda != null && y?.year != null) {
-                yearEbitdaMap[Number(y.year)] = Number(y.ebitda) || 0
+                yearEbitdaMap[Number(y.year)] =
+                  Number(yearMeta?.reported_ebitda ?? y.ebitda ?? 0) || 0
               }
             })
 
@@ -528,22 +534,22 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 id: generateVersionId(),
                 reportId: request.reportId,
                 versionNumber: nextVersionNumber,
-                versionLabel: request.versionLabel || autoLabel,
+                versionLabel: enrichedRequest.versionLabel || autoLabel,
                 createdAt: new Date(),
                 createdBy: null,
-                formData: request.formData,
-                valuationResult: request.valuationResult || null,
-                htmlReport: request.htmlReport || null,
-                changesSummary: request.changesSummary || {
+                formData: enrichedRequest.formData,
+                valuationResult: enrichedRequest.valuationResult || null,
+                htmlReport: enrichedRequest.htmlReport || null,
+                changesSummary: enrichedRequest.changesSummary || {
                   totalChanges: 0,
                   significantChanges: [],
                 },
                 isActive: true,
                 isPinned: false,
-                tags: request.tags || [],
-                notes: request.notes,
-                normalization_data: request.normalization_data,
-                tax_latency_data: request.tax_latency_data,
+                tags: enrichedRequest.tags || [],
+                notes: enrichedRequest.notes,
+                normalization_data: enrichedRequest.normalization_data,
+                tax_latency_data: enrichedRequest.tax_latency_data,
               }
 
               // Mark previous versions as inactive

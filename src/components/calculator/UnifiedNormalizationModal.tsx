@@ -573,6 +573,18 @@ export function UnifiedNormalizationModal({
     return applyGrootboekCountryOverrides(base, countryCode)
   }, [ledgerAccounts, fetchedLedgers, countryCode])
 
+  const getLedgerDisplayName = useCallback(
+    (ledgerCode?: string, ledgerName?: string) => {
+      const fallbackName = ledgerName || ledgerCode || ''
+      const [resolved] = applyGrootboekCountryOverrides(
+        [{ code: ledgerCode || '', name: fallbackName }],
+        countryCode
+      )
+      return resolved?.name || fallbackName
+    },
+    [countryCode]
+  )
+
   // Resolve presets against the canonical reference data so ledgerName
   // always matches the official Belgian MAR name for the code.
   const normalizationPresets = useMemo(
@@ -672,13 +684,13 @@ export function UnifiedNormalizationModal({
       result = result.filter(
         (n) =>
           (n.ledgerCode && n.ledgerCode.toLowerCase().includes(query)) ||
-          (n.ledgerName && n.ledgerName.toLowerCase().includes(query)) ||
+          getLedgerDisplayName(n.ledgerCode, n.ledgerName).toLowerCase().includes(query) ||
           (n.reason && n.reason.toLowerCase().includes(query))
       )
     }
 
     return result
-  }, [normalizations, yearFilter, searchQuery, showAddForm])
+  }, [normalizations, yearFilter, searchQuery, showAddForm, getLedgerDisplayName])
 
   // Header totals — derived from filtered items and year-specific EBITDA
   const totals = useMemo(() => {
@@ -796,9 +808,9 @@ export function UnifiedNormalizationModal({
       // Populate the top form with the item's data
       setSelectedLedger({
         code: item.ledgerCode,
-        name: item.ledgerName,
+        name: getLedgerDisplayName(item.ledgerCode, item.ledgerName),
       })
-      setSearchQuery(`${item.ledgerCode} · ${item.ledgerName}`)
+      setSearchQuery(`${item.ledgerCode} · ${getLedgerDisplayName(item.ledgerCode, item.ledgerName)}`)
       setNewType(item.type)
       setNewValue(Math.abs(item.value).toString())
       setNewReason(item.reason || '')
@@ -810,7 +822,7 @@ export function UnifiedNormalizationModal({
       setShowAddForm(true)
       setShowLedgerDropdown(false)
     },
-    [availableYears]
+    [availableYears, getLedgerDisplayName]
   )
 
   const cancelEditing = useCallback(() => {
@@ -1004,7 +1016,7 @@ export function UnifiedNormalizationModal({
           name: matchingPreset.ledgerName,
         })
         setNewType(matchingPreset.defaultType)
-        setNewValue(matchingPreset.defaultValue.toString())
+        setNewValue('')
         setNewReason(matchingPreset.description)
         setShowAddForm(true)
         return
@@ -1419,7 +1431,7 @@ export function UnifiedNormalizationModal({
                           })
                           setSearchQuery(`${preset.ledgerCode} · ${preset.ledgerName}`)
                           setNewType(preset.defaultType)
-                          setNewValue(preset.defaultValue.toString())
+                          setNewValue('')
                           setNewReason(preset.description)
                           setShowAddForm(true)
                         }}
@@ -2193,6 +2205,7 @@ export function UnifiedNormalizationModal({
                                       key={item.id}
                                       item={item}
                                       isSelected={isSelected}
+                                      getLedgerDisplayName={getLedgerDisplayName}
                                       onToggleSelect={() => toggleSelect(item.id)}
                                       onAccept={() => updateStatus(item.id, 'accepted')}
                                       onReject={() => updateStatus(item.id, 'rejected')}
@@ -2333,6 +2346,7 @@ export function UnifiedNormalizationModal({
 interface CompactTableRowProps {
   item: NormalizationItem
   isSelected: boolean
+  getLedgerDisplayName: (ledgerCode?: string, ledgerName?: string) => string
   onToggleSelect: () => void
   onAccept: () => void
   onReject: () => void
@@ -2347,6 +2361,7 @@ interface CompactTableRowProps {
 function CompactTableRow({
   item,
   isSelected,
+  getLedgerDisplayName,
   onToggleSelect,
   onAccept,
   onReject,
@@ -2436,7 +2451,9 @@ function CompactTableRow({
 
       {/* Name + Reason */}
       <div className="flex-1 min-w-0 flex items-center gap-2">
-        <span className="text-sm text-foreground/80 truncate">{item.ledgerName}</span>
+        <span className="text-sm text-foreground/80 truncate">
+          {getLedgerDisplayName(item.ledgerCode, item.ledgerName)}
+        </span>
         {item.reason && (
           <span className="text-xs text-foreground/40 truncate hidden lg:inline">
             · {item.reason}

@@ -8,7 +8,7 @@
  */
 
 import { useTranslations } from 'next-intl'
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   getIndustryGuidance,
   validateEbitdaMargin,
@@ -20,9 +20,11 @@ import {
   AuroraNumberInput,
 } from '../../../design-system/components'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
+import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationFormData } from '../../../types/valuation'
 import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
+import { getNormalizationAmountForBase } from '../../../utils/normalizationMath'
 import { NormalizationModal } from '../../normalization/NormalizationModal'
 import { NormalizedEBITDAField } from '../../normalization/NormalizedEBITDAField'
 
@@ -47,6 +49,10 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   const lastFullYear = getLastFullFiscalYear()
   const reportId = useSessionStore((state) => state.session?.reportId)
   const sessionId = reportId // Use reportId as sessionId
+  const unifiedItems = useNormalizationStore((state) => state.items)
+  const setUnifiedItems = useNormalizationStore((state) => state.setItems)
+  const persistUnifiedToSession = useNormalizationStore((state) => state.persistToSession)
+  const persistUnifiedToTitan = useNormalizationStore((state) => state.persistToTitan)
 
   const {
     hasNormalization: hasLegacyNormalization,
@@ -59,11 +65,66 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
     activeYear,
     closeNormalizationModal,
   } = useEbitdaNormalizationStore()
+
+  const unifiedAcceptedForYear = useMemo(
+    () =>
+      unifiedItems.filter((item) => {
+        if (item.status !== 'accepted') return false
+        if (item.applyAllYears) return true
+        if (item.applyYears && item.applyYears.length > 0) return item.applyYears.includes(lastFullYear)
+        return item.year === lastFullYear
+      }),
+    [unifiedItems, lastFullYear]
+  )
+
+  const availableYears = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          lastFullYear,
+          ...(formData.historical_years_data
+            ?.map((year) => Number(year.year))
+            .filter((year) => Number.isFinite(year)) ?? []),
+        ])
+      ).sort((a, b) => a - b),
+    [formData.historical_years_data, lastFullYear]
+  )
+
+  const reportedEbitdaByYear = useMemo(() => {
+    const byYear: Record<number, number> = {
+      [lastFullYear]:
+        Number(
+          (formData.current_year_data as any)?.ebitda_normalization_metadata?.reported_ebitda ??
+            formData.ebitda ??
+            0
+        ) || 0,
+    }
+    formData.historical_years_data?.forEach((year) => {
+      if (year?.year != null && year?.ebitda != null) {
+        byYear[Number(year.year)] =
+          Number((year as any)?.ebitda_normalization_metadata?.reported_ebitda ?? year.ebitda ?? 0) || 0
+      }
+    })
+    return byYear
+  }, [formData.current_year_data, formData.ebitda, formData.historical_years_data, lastFullYear])
+
+  const hasUnifiedNormalization = unifiedAcceptedForYear.length > 0
+  const unifiedTotalAdjustments = unifiedAcceptedForYear.reduce(
+    (sum, item) =>
+      sum + getNormalizationAmountForBase(item, Number(formData.ebitda ?? 0) || 0),
+    0
+  )
   const legacyHasNormalization = hasLegacyNormalization(lastFullYear)
-  const hasDisplayedNormalization = legacyHasNormalization
-  const displayedTotalAdjustments = getLegacyTotalAdjustments(lastFullYear)
-  const displayedNormalizedEbitda = getLegacyNormalizedEbitda(lastFullYear)
-  const displayedAdjustmentCount = getLegacyAdjustmentCount(lastFullYear)
+  const hasDisplayedNormalization = hasUnifiedNormalization || legacyHasNormalization
+  const displayedTotalAdjustments = hasUnifiedNormalization
+    ? unifiedTotalAdjustments
+    : getLegacyTotalAdjustments(lastFullYear)
+  const displayedNormalizedEbitda = hasUnifiedNormalization
+    ? (formData.ebitda ?? 0) + unifiedTotalAdjustments
+    : getLegacyNormalizedEbitda(lastFullYear)
+  const displayedAdjustmentCount = hasUnifiedNormalization
+    ? unifiedAcceptedForYear.length
+    : getLegacyAdjustmentCount(lastFullYear)
 
   const handleOpenNormalization = async (year: number) => {
     if (!sessionId) return
@@ -75,6 +136,61 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   const handleRemoveNormalization = async (year: number) => {
     if (!sessionId) return
     try {
+      if (hasUnifiedNormalization) {
+        const touchedYears = new Set<number>([year])
+        const nextItems = unifiedItems.map((item) => {
+          const appliesToYear =
+            item.status === 'accepted' &&
+            (item.applyAllYears || item.applyYears?.includes(year) || item.year === year)
+
+          if (!appliesToYear) return item
+
+          if (item.applyAllYears) {
+            const remainingYears = availableYears.filter((candidateYear) => candidateYear !== year)
+            if (remainingYears.length === 0) {
+              return { ...item, status: 'rejected' as const, applyAllYears: false, applyYears: [] }
+            }
+            availableYears.forEach((candidateYear) => touchedYears.add(candidateYear))
+            return {
+              ...item,
+              applyAllYears: false,
+              applyYears: remainingYears,
+              year: remainingYears.includes(item.year) ? item.year : remainingYears[0],
+            }
+          }
+
+          if (item.applyYears && item.applyYears.length > 0) {
+            const remainingYears = item.applyYears.filter((candidateYear) => candidateYear !== year)
+            item.applyYears.forEach((candidateYear) => touchedYears.add(candidateYear))
+            if (remainingYears.length === 0) {
+              return { ...item, status: 'rejected' as const, applyYears: [] }
+            }
+            return {
+              ...item,
+              applyYears: remainingYears,
+              year: remainingYears.includes(item.year) ? item.year : remainingYears[0],
+            }
+          }
+
+          return item.year === year ? { ...item, status: 'rejected' as const } : item
+        })
+
+        setUnifiedItems(nextItems)
+        useEbitdaNormalizationStore.setState((state) => {
+          const remainingLegacy = { ...state.normalizations }
+          touchedYears.forEach((touchedYear) => {
+            delete remainingLegacy[touchedYear]
+          })
+          return { normalizations: remainingLegacy }
+        })
+        await persistUnifiedToSession(sessionId)
+        await Promise.all(
+          availableYears.map((persistYear) =>
+            persistUnifiedToTitan(sessionId, persistYear, reportedEbitdaByYear[persistYear] ?? 0)
+          )
+        )
+        return
+      }
       await removeNormalization(sessionId, year)
     } catch {
       // Removal error handled by the store
