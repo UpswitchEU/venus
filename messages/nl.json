@@ -609,6 +609,13 @@
     "finalReport": "Definitief rapport",
     "draftReport": "Concept rapport",
     "valuation": "Bedrijfsschatting",
+    "metrics": {
+      "avgRevenue": "Gem. Omzet",
+      "ebitdaMargin": "EBITDA Marge",
+      "sector": "Sector"
+    },
+    "defaultCompanyName": "Bedrijfsschatting",
+    "defaultSector": "Services",
     "exportPDF": "Exporteer PDF",
     "estimatedValue": "Geschatte ondernemingswaarde",
     "normalizedEbitda": "Genormaliseerde EBITDA",
@@ -1221,6 +1228,8 @@
     "fieldApplied": "✓ {field} is toegepast in het formulier",
     "normApplied": "✓ Normalisatie(s) toegepast!",
     "aiUnavailable": "AI-assistent tijdelijk niet beschikbaar",
+    "persistFailed": "Opslaan mislukt",
+    "persistFailedDesc": "De normalisatie kon niet worden opgeslagen. Probeer het opnieuw.",
     "aiUnavailableDesc": "Lokale suggesties worden gebruikt.",
     "chatError": "Er is een fout opgetreden. Probeer het opnieuw.",
     "suggestionRejected": "Suggestie afgewezen",

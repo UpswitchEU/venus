@@ -769,8 +769,12 @@ export function ManualInputPanel({
       if (formData.fteEmployees < 0) errors.fteEmployees = mi('validation.minZero')
       else if (formData.fteEmployees > 10000) warnings.fteEmployees = mi('validation.fteOver10k')
     }
-    // Equity stake
-    if (formData.equityStake < 0 || formData.equityStake > 100)
+    // Equity stake (reject NaN/Infinity)
+    if (
+      !Number.isFinite(formData.equityStake) ||
+      formData.equityStake < 0 ||
+      formData.equityStake > 100
+    )
       errors.equityStake = mi('validation.equityRange')
     // Year founded
     if (
@@ -1249,8 +1253,11 @@ export function ManualInputPanel({
                       type="number"
                       min={1}
                       max={100}
-                      value={formData.equityStake || ''}
-                      onChange={(e) => updateField('equityStake', Number(e.target.value))}
+                      value={formData.equityStake ?? ''}
+                      onChange={(e) => {
+                        const n = Number(e.target.value)
+                        updateField('equityStake', Number.isFinite(n) ? n : 0)
+                      }}
                       size="sm"
                       placeholder="100"
                     />

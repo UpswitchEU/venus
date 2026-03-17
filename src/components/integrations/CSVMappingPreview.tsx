@@ -103,7 +103,7 @@ const mapCSVToAccounts = (data: ParsedCSVData): MappedAccount[] => {
     const values: Record<string, number> = {}
     yearIndices.forEach(({ header, index }) => {
       const value = parseFloat(row[index]?.replace(/[^\d.-]/g, '') || '0')
-      values[header] = isNaN(value) ? 0 : value
+      values[header] = Number.isFinite(value) ? value : 0
     })
 
     return {

@@ -1115,7 +1115,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       setReport({
         id: reportId || r.valuation_id || r.id || 'draft',
-        companyName: r.company_name ?? r.business_name ?? 'Bedrijfsschatting',
+        companyName: r.company_name ?? r.business_name ?? tReport('defaultCompanyName'),
         valuation: equityMid,
         valuationLow: equityLow || undefined,
         valuationHigh: equityHigh || undefined,
@@ -1128,9 +1128,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         htmlReport: htmlReport || undefined,
         recommendedAskingPrice: askingPrice || undefined,
         metrics: [
-          { label: 'Gem. Omzet', value: `€${(revenue / 1_000_000).toFixed(2)}M` },
-          { label: 'EBITDA Marge', value: `${((ebitda / (revenue || 1)) * 100).toFixed(1)}%` },
-          { label: 'Sector', value: r.business_type ?? r.details?.business_type ?? 'Services' },
+          { label: tReport('metrics.avgRevenue'), value: `€${(revenue / 1_000_000).toFixed(2)}M` },
+          {
+            label: tReport('metrics.ebitdaMargin'),
+            value: revenue ? `${((ebitda / revenue) * 100).toFixed(1)}%` : '—',
+          },
+          {
+            label: tReport('metrics.sector'),
+            value: r.business_type ?? r.details?.business_type ?? tReport('defaultSector'),
+          },
         ],
       })
       setDraftStatus('saved')
@@ -1151,7 +1157,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       }
     }
-  }, [result, onComplete, reportId, generatePdf, isMobile])
+  }, [result, onComplete, reportId, generatePdf, isMobile, tReport])
 
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
@@ -2654,7 +2660,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   )
 
   const handleAcceptNormalisation = useCallback(
-    (id: string) => {
+    async (id: string) => {
       trackAINormalizationAccept()
       normalizationActions.acceptItem(id)
       setSuggestedNormalisations((prev: any[]) =>
@@ -2665,26 +2671,33 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
           const years = getYearsToPersist(item)
-          Promise.all(
-            years.map((y) =>
-              normalizationActions.persistToTitan(
-                idForApi,
-                y,
-                Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
+          try {
+            await Promise.all(
+              years.map((y) =>
+                normalizationActions.persistToTitan(
+                  idForApi,
+                  y,
+                  Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
+                )
               )
             )
-          ).catch((error) => {
-            generalLogger.warn('[ManualLayout] Titan persist failed after accept', {
-                id,
-                error: error instanceof Error ? error.message : String(error),
-              })
-            }
-          )
+          } catch (error) {
+            generalLogger.warn('[ManualLayout] Titan persist failed after accept — rolling back', {
+              id,
+              error: error instanceof Error ? error.message : String(error),
+            })
+            normalizationActions.updateItem(id, { status: 'pending' })
+            setSuggestedNormalisations((prev: any[]) =>
+              prev.map((n: any) => (n.id === id ? { ...n, status: 'pending' } : n))
+            )
+            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+            return
+          }
         }
       }
-      recalculateWithNormalizations(useNormalizationStore.getState().items)
+      await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear]
+    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t]
   )
 
   const handleRejectNormalisation = useCallback(

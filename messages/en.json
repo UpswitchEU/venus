@@ -609,6 +609,13 @@
     "finalReport": "Final report",
     "draftReport": "Draft report",
     "valuation": "Indicative business estimate",
+    "metrics": {
+      "avgRevenue": "Avg. Revenue",
+      "ebitdaMargin": "EBITDA Margin",
+      "sector": "Sector"
+    },
+    "defaultCompanyName": "Indicative business estimate",
+    "defaultSector": "Services",
     "exportPDF": "Export PDF",
     "estimatedValue": "Estimated enterprise value",
     "normalizedEbitda": "Normalized EBITDA",
@@ -1221,6 +1228,8 @@
     "fieldApplied": "✓ {field} has been applied to the form",
     "normApplied": "✓ Normalization(s) applied!",
     "aiUnavailable": "AI assistant temporarily unavailable",
+    "persistFailed": "Save failed",
+    "persistFailedDesc": "The normalization could not be saved. Please try again.",
     "aiUnavailableDesc": "Local suggestions are being used.",
     "chatError": "An error occurred. Please try again.",
     "suggestionRejected": "Suggestion rejected",

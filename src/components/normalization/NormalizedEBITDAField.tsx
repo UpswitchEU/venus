@@ -78,7 +78,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
               border-none rounded-xl 
               focus:outline-none focus:ring-0
               transition-all duration-200 ease-in-out
-              pr-10
+              pr-4
               bg-transparent cursor-not-allowed text-muted-foreground
             "
             type="text"
@@ -86,59 +86,6 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
             disabled
             readOnly
           />
-
-          {/* Checkmark Icon with Tooltip */}
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground z-10">
-            <div className="relative group">
-              <svg
-                className="w-5 h-5 text-moss-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                  d="M5 13l4 4L19 7"
-                ></path>
-              </svg>
-
-              {/* Tooltip */}
-              <div className="absolute right-0 bottom-full mb-2 w-72 p-4 bg-popover border border-foreground/10 text-foreground text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-moss-400 text-xs uppercase tracking-wider">
-                    {t('ebitdaNormalized')}
-                  </span>
-                </div>
-                <div className="space-y-2 text-muted-foreground border-t border-foreground/10 pt-2">
-                  <div className="flex justify-between">
-                    <span>{t('original')}</span>
-                    <span className="font-mono text-foreground">
-                      {formatCurrency(originalValue)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{t('adjustedBy')}</span>
-                    <span className={`font-mono ${adjustmentColor}`}>
-                      {adjustmentSign}
-                      {formatCurrency(totalAdjustments)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between font-semibold">
-                    <span>{t('usedInValuation')}</span>
-                    <span className="font-mono text-white">{formatCurrency(normalizedValue)}</span>
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-foreground/10 text-xs text-muted-foreground">
-                    {t('editToModify')}
-                    <br />
-                    {t('removeToUseOriginal')}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
           <label
             className="
