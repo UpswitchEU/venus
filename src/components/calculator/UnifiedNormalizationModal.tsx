@@ -361,7 +361,7 @@ const generateId = () => Math.random().toString(36).substring(2, 11)
 /** Infer normalization category from Belgian MAR grootboek code range */
 export function inferCategoryFromCode(code: string): NormalizationItem['category'] {
   const num = parseInt(code, 10)
-  if (isNaN(num)) return 'other'
+  if (!Number.isFinite(num)) return 'other'
   if (num >= 620 && num <= 629) return 'salary'
   if (num === 610) return 'rent'
   if (num === 614) return 'vehicle'
