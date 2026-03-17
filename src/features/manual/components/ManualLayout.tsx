@@ -2577,10 +2577,68 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [])
 
   const handleNormalizationsChange = useCallback(
-    (norms: NormalizationItem[]) => {
+    async (norms: NormalizationItem[]) => {
+      const previousItems = useNormalizationStore.getState().items
       useNormalizationStore.getState().setItems(norms)
+
+      const acceptedSignature = (items: NormalizationItem[]) =>
+        JSON.stringify(
+          items
+            .filter((item) => item.status === 'accepted')
+            .map((item) => ({
+              id: item.id,
+              type: item.type,
+              value: item.value,
+              adjustment: item.adjustment,
+              year: item.year,
+              applyAllYears: item.applyAllYears,
+              applyYears: item.applyYears ?? [],
+            }))
+            .sort((a, b) => a.id.localeCompare(b.id))
+        )
+
+      if (acceptedSignature(previousItems) === acceptedSignature(norms)) return
+
+      const idForApi = resolvedReportId || reportId
+      if (!idForApi) return
+
+      const appliesToYear = (item: NormalizationItem, year: number) =>
+        item.status === 'accepted' &&
+        (item.applyAllYears || item.applyYears?.includes(year) || item.year === year)
+
+      const allYears = Array.from(
+        new Set([
+          ...financialYears,
+          ...previousItems.flatMap((item) => getYearsToPersist(item)),
+          ...norms.flatMap((item) => getYearsToPersist(item)),
+        ])
+      ).filter((year) => Number.isFinite(year))
+
+      try {
+        const { normalizationService } = await import('../../../services/ebitdaNormalizationService')
+
+        await Promise.all(
+          allYears.map((year) => {
+            const hasAcceptedForYear = norms.some((item) => appliesToYear(item, year))
+            if (hasAcceptedForYear) {
+              return normalizationActions.persistToTitan(
+                idForApi,
+                year,
+                Number.isFinite(originalEBITDAByYear[year]) ? originalEBITDAByYear[year]! : 0
+              )
+            }
+            return normalizationService.deleteNormalization(idForApi, year).catch(() => undefined)
+          })
+        )
+      } catch (error) {
+        generalLogger.warn('[ManualLayout] Sync after normalization edit failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+
+      await recalculateWithNormalizations(norms)
     },
-    []
+    [financialYears, normalizationActions, originalEBITDAByYear, reportId, resolvedReportId]
   )
 
   const getYearsToPersist = useCallback(
@@ -2702,6 +2760,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setResult(calcResult)
           setDraftStatus('saved')
           setLastSaved(new Date())
+          try {
+            await reportService.saveReportAssets(idForApi, {
+              sessionData: requestSource,
+              valuationResult: calcResult,
+              htmlReport: calcResult.html_report || undefined,
+              name: sessionName,
+            })
+          } catch (saveError) {
+            generalLogger.warn('[ManualLayout] Failed to sync recalculated normalization report assets', {
+              reportId: idForApi,
+              error: saveError instanceof Error ? saveError.message : String(saveError),
+            })
+          }
           toast.success(t('recalculatedWithNorms'), {
             description: t('recalculatedWithNormsDesc', { count: acceptedNorms.length }),
           })
@@ -2712,7 +2783,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       }
     },
-    [report, reportId, resolvedReportId, formStoreData, buildValuationRequest, valuationService, setResult]
+    [report, reportId, resolvedReportId, formStoreData, buildValuationRequest, valuationService, setResult, sessionName]
   )
 
   // ─── Version Restore ───
