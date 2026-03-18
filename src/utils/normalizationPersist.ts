@@ -11,12 +11,7 @@
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import { useNormalizationStore } from '../store/useNormalizationStore'
 import { getLastFullFiscalYear } from './fiscalYear'
-
-/** Titan requires session_id 8–128 chars; reject 'new' and invalid lengths. Exported for store reuse. */
-export function isValidSessionId(id: string): boolean {
-  const t = String(id || '').trim()
-  return t.length >= 8 && t.length <= 128 && t !== 'new'
-}
+import { isValidSessionId } from './sessionIdValidation'
 
 /** Accepted item applies to year */
 const appliesToYear = (item: NormalizationItem, year: number) =>

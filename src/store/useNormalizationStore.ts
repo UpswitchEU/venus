@@ -22,8 +22,8 @@ import type {
   NormalizationStatus,
 } from '../components/calculator/UnifiedNormalizationModal'
 import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
-import { isValidSessionId } from '../utils/normalizationPersist'
 import { generalLogger } from '../utils/logger'
+import { isValidSessionId } from '../utils/sessionIdValidation'
 
 // ─────────────────────────────────────────
 // CATEGORY MAPPING
