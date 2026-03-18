@@ -81,6 +81,7 @@ import { useConversationStore } from '../../../store/useConversationStore'
 import {
   enableNormalizationAutoPersist,
   mapBackendCategoryToFrontend,
+  mapFrontendCategoryToBackend,
   setNormalizationToastMessages,
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
@@ -253,26 +254,6 @@ function generateDefaultNormalizationSuggestions(
 }
 
 // ─────────────────────────────────────────
-// CATEGORY MAPPING
-// Maps frontend 7 simplified categories → backend 12 canonical categories.
-// Used when persisting normalizations to Titan's normalization API.
-// ─────────────────────────────────────────
-
-const CATEGORY_MAP: Record<string, string> = {
-  salary: 'owner_compensation_adjustment',
-  rent: 'related_party_transactions',
-  vehicle: 'personal_expenses',
-  'one-time': 'one_time_expenses',
-  personal: 'personal_expenses',
-  depreciation: 'depreciation_adjustment',
-  other: 'other_adjustments',
-}
-
-function mapFrontendCategoryToBackend(category: string): string {
-  return CATEGORY_MAP[category] || category
-}
-
-// ─────────────────────────────────────────
 // FORM DATA BRIDGE
 // Maps ManualInputPanel's ValuationFormData (camelCase, multi-year)
 // to Venus store's ValuationFormData (snake_case, API format)
@@ -378,7 +359,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } catch {}
   }, [])
 
-  // Provide i18n for normalization store toasts (store cannot use hooks)
+  // Provide i18n for normalization store toasts (store cannot use hooks).
+  // Contract: getter receives keys like 'normalizationNotSaved'; t is useTranslations('toast')
+  // so t(key) resolves to toast.normalizationNotSaved etc.
   useEffect(() => {
     setNormalizationToastMessages((key) => t(key))
     return () => setNormalizationToastMessages(null)
@@ -2712,15 +2695,24 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
           const years = getYearsToPersist(item)
+          const appliesToYear = (n: NormalizationItem, year: number) =>
+            n.status === 'accepted' &&
+            (n.applyAllYears || n.applyYears?.includes(year) || n.year === year)
+          const norms = useNormalizationStore.getState().items
           try {
+            const { normalizationService } = await import('../../../services/ebitdaNormalizationService')
             await Promise.all(
-              years.map((y) =>
-                normalizationActions.persistToTitan(
-                  idForApi,
-                  y,
-                  Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
-                )
-              )
+              years.map((y) => {
+                const hasAcceptedForYear = norms.some((n) => appliesToYear(n, y))
+                if (hasAcceptedForYear) {
+                  return normalizationActions.persistToTitan(
+                    idForApi,
+                    y,
+                    Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
+                  )
+                }
+                return normalizationService.deleteNormalization(idForApi, y).catch(() => undefined)
+              })
             )
           } catch (error) {
             generalLogger.warn('[ManualLayout] Titan persist failed after reject — rolling back', {

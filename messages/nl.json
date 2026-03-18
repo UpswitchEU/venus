@@ -1,5 +1,7 @@
 {
   "common": {
+    "cancel": "Annuleren",
+    "optional": "Optioneel",
     "actions": {
       "save": "Opslaan",
       "cancel": "Annuleren",
@@ -1262,6 +1264,8 @@
     "retry": "Opnieuw proberen",
     "normalizationNotSaved": "Normalisatie niet opgeslagen op server",
     "normalizationNotSavedDesc": "Uw wijzigingen zijn lokaal bewaard. Server-opslag wordt opnieuw geprobeerd.",
+    "normalizationNotSavedRetry": "Opnieuw proberen",
+    "normalizationNotSavedSession": "Sessie niet gevonden. Vernieuw de pagina.",
     "reminderSent": "Herinnering verstuurd naar klant",
     "versionCreateFailed": "Versie aanmaken mislukt"
   },

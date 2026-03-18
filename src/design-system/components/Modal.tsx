@@ -61,6 +61,8 @@ export interface ModalContentProps
   showClose?: boolean
   children?: React.ReactNode
   className?: string
+  /** Accessible description; when omitted, a generic sr-only description is used to satisfy aria-describedby */
+  description?: string
 }
 
 // ─────────────────────────────────────────
@@ -103,12 +105,15 @@ ModalOverlay.displayName = 'ModalOverlay'
 const ModalContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   ModalContentProps
->(({ className, children, variant, size, showClose = true, ...props }, ref) => {
+>(({ className, children, variant, size, showClose = true, description, 'aria-describedby': ariaDescById, ...props }, ref) => {
+  const descId = React.useId()
+  const hasOwnDescription = ariaDescById != null
   return (
     <DialogPrimitive.Portal>
       <ModalOverlay />
       <DialogPrimitive.Content
         ref={ref}
+        aria-describedby={ariaDescById ?? descId}
         className={cn(
           'fixed left-1/2 top-1/2 z-[9999]',
           '-translate-x-1/2 -translate-y-1/2',
@@ -122,6 +127,11 @@ const ModalContent = React.forwardRef<
         {...props}
       >
         {children}
+        {!hasOwnDescription && (
+          <DialogPrimitive.Description id={descId} className="sr-only">
+            {description ?? 'Dialog content'}
+          </DialogPrimitive.Description>
+        )}
         {showClose && (
           <DialogPrimitive.Close
             className={cn(

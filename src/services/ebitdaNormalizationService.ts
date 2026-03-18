@@ -157,9 +157,7 @@ export class EbitdaNormalizationService {
     const response = await fetch(`${this.baseURL}/api/normalization/${sessionId}/${year}`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getNormalizationHeaders(),
     })
 
     return handleResponse<void>(response)

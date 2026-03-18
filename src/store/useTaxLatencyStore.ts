@@ -77,6 +77,8 @@ interface TaxLatencyStore {
 
 let sessionPersistTimer: ReturnType<typeof setTimeout> | null = null
 let isSessionPersistInFlight = false
+let pendingReportId: string | null = null
+let pendingVisibilityFlushReportId: string | null = null
 let lastItemsJson = ''
 
 const LS_PENDING_PREFIX = '_taxlat_pending_'
@@ -182,11 +184,36 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
 
 // ─────────────────────────────────────────
 // AUTO-PERSIST SUBSCRIPTION
+// Mirrors normalization store: visibilitychange flush, deferred retry when in-flight
 // ─────────────────────────────────────────
+
+async function runTaxLatencySessionPersist(reportId: string): Promise<void> {
+  if (isSessionPersistInFlight) {
+    pendingVisibilityFlushReportId = reportId
+    return
+  }
+  isSessionPersistInFlight = true
+  try {
+    await useTaxLatencyStore.getState().persistToSession(reportId)
+    clearLocalStorage(reportId)
+    pendingReportId = null
+  } catch (error) {
+    generalLogger.warn('[TaxLatencyStore] Session persist failed — keeping safety buffer', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  } finally {
+    isSessionPersistInFlight = false
+    if (pendingVisibilityFlushReportId) {
+      const next = pendingVisibilityFlushReportId
+      pendingVisibilityFlushReportId = null
+      void runTaxLatencySessionPersist(next)
+    }
+  }
+}
 
 export function enableTaxLatencyAutoPersist(getReportId: () => string | undefined) {
   lastItemsJson = JSON.stringify(useTaxLatencyStore.getState().items)
-  let pendingReportId: string | null = null
+  pendingReportId = null
 
   const handleBeforeUnload = () => {
     if (sessionPersistTimer) {
@@ -201,8 +228,25 @@ export function enableTaxLatencyAutoPersist(getReportId: () => string | undefine
     saveToLocalStorage(reportId, items)
   }
 
+  const handleVisibilityChange = () => {
+    if (document.visibilityState !== 'hidden') return
+    const reportId = getReportId()
+    if (!reportId) return
+    if (sessionPersistTimer) {
+      clearTimeout(sessionPersistTimer)
+      sessionPersistTimer = null
+    }
+    const { items } = useTaxLatencyStore.getState()
+    const json = JSON.stringify(items)
+    if (json === lastItemsJson && !pendingReportId) return
+    lastItemsJson = json
+    pendingReportId = reportId
+    runTaxLatencySessionPersist(reportId)
+  }
+
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
   }
 
   const unsubStore = useTaxLatencyStore.subscribe((state) => {
@@ -221,18 +265,7 @@ export function enableTaxLatencyAutoPersist(getReportId: () => string | undefine
         sessionPersistTimer = setTimeout(attemptPersist, 200)
         return
       }
-      isSessionPersistInFlight = true
-      try {
-        await useTaxLatencyStore.getState().persistToSession(reportId)
-        clearLocalStorage(reportId)
-        pendingReportId = null
-      } catch (error) {
-        generalLogger.warn('[TaxLatencyStore] Session persist failed — keeping safety buffer', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-      } finally {
-        isSessionPersistInFlight = false
-      }
+      await runTaxLatencySessionPersist(reportId)
     }, 300)
   })
 
@@ -240,6 +273,7 @@ export function enableTaxLatencyAutoPersist(getReportId: () => string | undefine
     unsubStore()
     if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
     if (sessionPersistTimer) {
       clearTimeout(sessionPersistTimer)

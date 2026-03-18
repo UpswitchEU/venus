@@ -9,7 +9,7 @@
  * - Auto-syncs to session JSONB (debounced 300ms)
  * - Persists to Titan API on accept/reject (serialized per year)
  * - Loads from Titan API on session restoration
- * - Flushes pending saves on beforeunload
+ * - Flushes on beforeunload (localStorage fallback) and visibilitychange (tab hidden)
  *
  * @module store/useNormalizationStore
  */
@@ -22,6 +22,7 @@ import type {
   NormalizationStatus,
 } from '../components/calculator/UnifiedNormalizationModal'
 import { generalLogger } from '../utils/logger'
+import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
 
 // ─────────────────────────────────────────
 // CATEGORY MAPPING
@@ -66,11 +67,15 @@ export function mapFrontendCategoryToBackend(category: string): string {
 // STORE INTERFACE
 // ─────────────────────────────────────────
 
+/** Last failed persist params for retry */
+export type LastFailedPersist = { reportId: string; year: number; reportedEbitda?: number } | null
+
 interface NormalizationStore {
   // State
   items: NormalizationItem[]
   isLoading: boolean
   isSaving: boolean
+  lastFailedPersist: LastFailedPersist
 
   // Actions — mutate items
   setItems: (items: NormalizationItem[]) => void
@@ -86,6 +91,7 @@ interface NormalizationStore {
   // Persistence actions
   persistToSession: (reportId: string) => Promise<void>
   persistToTitan: (reportId: string, year: number, reportedEbitda?: number) => Promise<void>
+  retryPersist: () => Promise<void>
   loadFromTitan: (sessionId: string) => Promise<void>
   loadFromSession: (sessionData: any) => void
 
@@ -103,7 +109,13 @@ interface NormalizationStore {
 // TOAST I18N — set by ManualLayout or provider so store can show translated toasts
 // ─────────────────────────────────────────
 
-type ToastMessageGetter = (key: 'normalizationNotSaved' | 'normalizationNotSavedDesc') => string
+type ToastMessageKey =
+  | 'normalizationNotSaved'
+  | 'normalizationNotSavedDesc'
+  | 'normalizationNotSavedRetry'
+  | 'normalizationNotSavedSession'
+
+type ToastMessageGetter = (key: ToastMessageKey) => string
 
 let toastMessageGetter: ToastMessageGetter | null = null
 
@@ -111,13 +123,18 @@ export function setNormalizationToastMessages(getter: ToastMessageGetter | null)
   toastMessageGetter = getter
 }
 
-function getToastMessage(key: 'normalizationNotSaved' | 'normalizationNotSavedDesc'): string {
-  return (
-    toastMessageGetter?.(key) ??
-    (key === 'normalizationNotSaved'
-      ? 'Normalization not saved to server'
-      : 'Your changes are saved locally. Server sync will be retried.')
-  )
+const TOAST_FALLBACKS: Record<ToastMessageKey, string> = {
+  normalizationNotSaved: 'Normalization not saved to server',
+  normalizationNotSavedDesc: 'Your changes are saved locally. Server sync will be retried.',
+  normalizationNotSavedRetry: 'Retry',
+  normalizationNotSavedSession: 'Session not found. Please refresh the page.',
+}
+
+function getToastMessage(key: ToastMessageKey, error?: unknown): string {
+  if (key === 'normalizationNotSavedDesc' && error instanceof NormalizationAPIError && error.status === 404) {
+    return toastMessageGetter?.('normalizationNotSavedSession') ?? TOAST_FALLBACKS.normalizationNotSavedSession
+  }
+  return toastMessageGetter?.(key) ?? TOAST_FALLBACKS[key]
 }
 
 // ─────────────────────────────────────────
@@ -128,6 +145,8 @@ function getToastMessage(key: 'normalizationNotSaved' | 'normalizationNotSavedDe
 let sessionPersistTimer: ReturnType<typeof setTimeout> | null = null
 let isSessionPersistInFlight = false
 let pendingSessionReportId: string | null = null
+/** When visibilitychange flush hits an in-flight persist, we defer to run again after it completes */
+let pendingVisibilityFlushReportId: string | null = null
 
 const titanPersistQueue = new Map<string, Promise<void>>()
 
@@ -139,6 +158,9 @@ function getTitanQueueKey(reportId: string, year: number) {
  * Serialize Titan persist calls per reportId+year.
  * If a persist is already in-flight for this key, the new call waits for it to finish
  * then runs with the latest state (preventing stale-state overwrites).
+ *
+ * NOTE: Session persist (debounced) and Titan persist (on accept/reject) are independent
+ * and can run concurrently — both write to different backends.
  */
 async function serializedPersistToTitan(
   reportId: string,
@@ -169,6 +191,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
       items: [],
       isLoading: false,
       isSaving: false,
+      lastFailedPersist: null,
 
       // ─── Mutate ───
 
@@ -260,10 +283,10 @@ export const useNormalizationStore = create<NormalizationStore>()(
       persistToTitan: async (reportId, year, reportedEbitda) => {
         if (!reportId) return
         await serializedPersistToTitan(reportId, year, async () => {
-          // Read latest state INSIDE the serialized executor to avoid stale snapshots
-          const { items } = get()
-          set({ isSaving: true })
           try {
+          const { items } = get()
+          set({ isSaving: true, lastFailedPersist: null })
+          const doPersist = async (): Promise<void> => {
             const { normalizationService } = await import('../services/ebitdaNormalizationService')
             const yearItems = items.filter((n) => {
               if (n.status !== 'accepted') return false
@@ -301,31 +324,66 @@ export const useNormalizationStore = create<NormalizationStore>()(
               reported_ebitda: reportedEbitda ?? 0,
               adjustments,
             } as any)
-            generalLogger.debug('[NormalizationStore] Persisted to Titan API', {
-              reportId: reportId.substring(0, 12),
-              year,
-              count: yearItems.length,
-            })
-          } catch (error) {
-            generalLogger.warn('[NormalizationStore] Titan persist failed (non-blocking)', {
-              error: error instanceof Error ? error.message : String(error),
-            })
-            import('sonner')
-              .then(({ toast }) => {
-                toast.warning(getToastMessage('normalizationNotSaved'), {
-                  description: getToastMessage('normalizationNotSavedDesc'),
-                  duration: 5000,
-                })
+          }
+          const isRetryable = (err: unknown): boolean => {
+            if (err instanceof NormalizationAPIError) return err.status >= 500
+            if (err instanceof TypeError) return true
+            return false
+          }
+          const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+          let lastError: unknown
+          for (let attempt = 0; attempt <= 2; attempt++) {
+            try {
+              await doPersist()
+              generalLogger.debug('[NormalizationStore] Persisted to Titan API', {
+                reportId: reportId.substring(0, 12),
+                year,
+                count: get().items.filter((n) => n.status === 'accepted').length,
               })
-              .catch((err) => {
-                generalLogger.debug('[NormalizationStore] Toast display failed (non-critical)', {
-                  error: err instanceof Error ? err.message : String(err),
-                })
+              return
+            } catch (error) {
+              lastError = error
+              if (attempt < 2 && isRetryable(error)) {
+                generalLogger.debug('[NormalizationStore] Retrying persist', { attempt: attempt + 1 })
+                await sleep(1000)
+              } else {
+                break
+              }
+            }
+          }
+          set({ lastFailedPersist: { reportId, year, reportedEbitda } })
+          generalLogger.warn('[NormalizationStore] Titan persist failed (non-blocking)', {
+            error: lastError instanceof Error ? lastError.message : String(lastError),
+          })
+          import('sonner')
+            .then(({ toast }) => {
+              const retryPersist = useNormalizationStore.getState().retryPersist
+              toast.warning(getToastMessage('normalizationNotSaved'), {
+                description: getToastMessage('normalizationNotSavedDesc', lastError),
+                duration: 8000,
+                action: {
+                  label: getToastMessage('normalizationNotSavedRetry'),
+                  onClick: () => retryPersist(),
+                },
               })
+            })
+            .catch((err) => {
+              generalLogger.debug('[NormalizationStore] Toast display failed (non-critical)', {
+                error: err instanceof Error ? err.message : String(err),
+              })
+            })
           } finally {
             set({ isSaving: false })
           }
         })
+      },
+
+      retryPersist: async () => {
+        const { lastFailedPersist } = get()
+        if (!lastFailedPersist) return
+        const { reportId, year, reportedEbitda } = lastFailedPersist
+        set({ lastFailedPersist: null })
+        await get().persistToTitan(reportId, year, reportedEbitda)
       },
 
       loadFromTitan: async (sessionId) => {
@@ -517,9 +575,34 @@ export function recoverPendingNormalizations(reportId: string): NormalizationIte
 
 let lastItemsJson = ''
 
+/** Run session persist immediately; used by debounce callback and visibilitychange flush */
+async function runSessionPersist(reportId: string): Promise<void> {
+  if (isSessionPersistInFlight) {
+    pendingVisibilityFlushReportId = reportId
+    return
+  }
+  isSessionPersistInFlight = true
+  try {
+    await useNormalizationStore.getState().persistToSession(reportId)
+    clearLocalStorage(reportId)
+    pendingSessionReportId = null
+  } catch (error) {
+    generalLogger.warn('[NormalizationStore] Session persist failed — keeping safety buffer', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  } finally {
+    isSessionPersistInFlight = false
+    if (pendingVisibilityFlushReportId) {
+      const next = pendingVisibilityFlushReportId
+      pendingVisibilityFlushReportId = null
+      void runSessionPersist(next)
+    }
+  }
+}
+
 /**
  * Call this once with the current reportId to enable auto-persist.
- * Returns an unsubscribe function that also removes the beforeunload handler.
+ * Returns an unsubscribe function that also removes the beforeunload/visibilitychange handlers.
  */
 export function enableNormalizationAutoPersist(getReportId: () => string | undefined) {
   // Snapshot current items so we don't re-persist data that was just loaded from the backend.
@@ -542,8 +625,25 @@ export function enableNormalizationAutoPersist(getReportId: () => string | undef
     saveToLocalStorage(reportId, items)
   }
 
+  const handleVisibilityChange = () => {
+    if (document.visibilityState !== 'hidden') return
+    const reportId = getReportId()
+    if (!reportId) return
+    if (sessionPersistTimer) {
+      clearTimeout(sessionPersistTimer)
+      sessionPersistTimer = null
+    }
+    const { items } = useNormalizationStore.getState()
+    const json = JSON.stringify(items)
+    if (json === lastItemsJson && !pendingSessionReportId) return
+    lastItemsJson = json
+    pendingSessionReportId = reportId
+    runSessionPersist(reportId)
+  }
+
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
   }
 
   const unsubStore = useNormalizationStore.subscribe((state) => {
@@ -562,20 +662,7 @@ export function enableNormalizationAutoPersist(getReportId: () => string | undef
         sessionPersistTimer = setTimeout(attemptPersist, 200)
         return
       }
-      isSessionPersistInFlight = true
-      try {
-        await useNormalizationStore.getState().persistToSession(reportId)
-        // Only clear safety buffers on confirmed success
-        clearLocalStorage(reportId)
-        pendingSessionReportId = null
-      } catch (error) {
-        generalLogger.warn('[NormalizationStore] Session persist failed — keeping safety buffer', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-        // pendingSessionReportId stays set → beforeunload will write to localStorage
-      } finally {
-        isSessionPersistInFlight = false
-      }
+      await runSessionPersist(reportId)
     }, 300)
   })
 
@@ -583,6 +670,7 @@ export function enableNormalizationAutoPersist(getReportId: () => string | undef
     unsubStore()
     if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
     if (sessionPersistTimer) {
       clearTimeout(sessionPersistTimer)

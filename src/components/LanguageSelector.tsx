@@ -1,12 +1,13 @@
 /**
  * Language Selector Component
  *
- * Allows users to switch between English and Dutch
- * Displays flags and language names
+ * Allows users to switch between English and Dutch.
+ * Text-only labels (no flags) to avoid country association.
  */
 
 'use client'
 
+import { LANGUAGES } from '@/lib/locale-constants'
 import { Globe } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../hooks/useI18n'
@@ -16,17 +17,12 @@ interface LanguageSelectorProps {
   className?: string
 }
 
-const languages = [
-  { code: 'en' as const, name: 'English', flag: '🇬🇧' },
-  { code: 'nl' as const, name: 'Nederlands', flag: '🇳🇱' }, // Dutch (BE + NL)
-]
-
 export function LanguageSelector({ variant = 'desktop', className = '' }: LanguageSelectorProps) {
   const { locale, changeLanguage, t } = useI18n()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  const currentLanguage = languages.find((lang) => lang.code === locale)
+  const currentLanguage = LANGUAGES.find((lang) => lang.code === locale)
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -55,7 +51,7 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
         <div className="text-sm font-medium text-muted-foreground">
           {t('language.selectLanguage')}
         </div>
-        {languages.map((lang) => (
+        {LANGUAGES.map((lang) => (
           <button
             key={lang.code}
             onClick={() => handleLanguageChange(lang.code)}
@@ -67,7 +63,6 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
             aria-label={`Switch to ${lang.name}`}
             aria-current={locale === lang.code ? 'true' : 'false'}
           >
-            <span className="text-2xl">{lang.flag}</span>
             <span className="font-medium">{lang.name}</span>
             {locale === lang.code && <span className="ml-auto text-foreground">✓</span>}
           </button>
@@ -86,10 +81,9 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
         aria-haspopup="true"
       >
         <Globe className="w-4 h-4 text-muted-foreground" />
-        <span className="hidden md:inline text-sm font-medium text-muted-foreground">
-          {currentLanguage?.flag} {currentLanguage?.name}
+        <span className="text-sm font-medium text-muted-foreground">
+          {currentLanguage?.name}
         </span>
-        <span className="md:hidden text-sm">{currentLanguage?.flag}</span>
       </button>
 
       {isOpen && (
@@ -98,7 +92,7 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
           style={{ zIndex: 10000 }}
         >
           <div className="py-1">
-            {languages.map((lang) => (
+            {LANGUAGES.map((lang) => (
               <button
                 key={lang.code}
                 onClick={() => handleLanguageChange(lang.code)}
@@ -111,7 +105,6 @@ export function LanguageSelector({ variant = 'desktop', className = '' }: Langua
                 aria-label={`Switch to ${lang.name}`}
                 aria-current={locale === lang.code ? 'true' : 'false'}
               >
-                <span className="text-xl">{lang.flag}</span>
                 <span className="flex-1 text-left font-medium">{lang.name}</span>
                 {locale === lang.code && <span className="text-foreground">✓</span>}
               </button>

@@ -279,17 +279,21 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
     }
   }, [formData, debouncedSyncToSession, reportId])
 
-  // Flush pending debounced sync on page unload to prevent data loss
+  // Flush pending debounced sync on page unload and tab hide to prevent data loss.
+  // NOTE: We do NOT flush in cleanup — that can race with unmount and cause async work after
+  // unmount (React Strict Mode, fast navigation). beforeunload/pagehide/visibilitychange suffice.
   useEffect(() => {
-    const handleUnload = () => {
-      debouncedSyncToSession.flush?.()
+    const flush = () => debouncedSyncToSession.flush?.()
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush()
     }
-    window.addEventListener('beforeunload', handleUnload)
-    window.addEventListener('pagehide', handleUnload)
+    window.addEventListener('beforeunload', flush)
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
-      window.removeEventListener('beforeunload', handleUnload)
-      window.removeEventListener('pagehide', handleUnload)
-      debouncedSyncToSession.flush?.()
+      window.removeEventListener('beforeunload', flush)
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [debouncedSyncToSession])
 }

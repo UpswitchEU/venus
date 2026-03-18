@@ -1,5 +1,7 @@
 {
   "common": {
+    "cancel": "Cancel",
+    "optional": "Optional",
     "actions": {
       "save": "Save",
       "cancel": "Cancel",
@@ -1242,6 +1244,8 @@
     "pdfRegeneratingDesc": "This may take a moment.",
     "normalizationNotSaved": "Normalization not saved to server",
     "normalizationNotSavedDesc": "Your changes are saved locally. Server sync will be retried.",
+    "normalizationNotSavedRetry": "Retry",
+    "normalizationNotSavedSession": "Session not found. Please refresh the page.",
     "recalculatedWithNorms": "Estimate recalculated with normalizations",
     "recalculatedWithNormsDesc": "{count, plural, one {# normalization} other {# normalizations}} applied",
     "normalizationsSaved": "Normalizations saved",

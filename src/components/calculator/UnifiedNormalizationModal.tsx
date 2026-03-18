@@ -1080,6 +1080,7 @@ export function UnifiedNormalizationModal({
       <ModalContent
         className="sm:max-w-5xl lg:max-w-6xl xl:max-w-7xl max-h-[92vh] flex flex-col p-0"
         size="full"
+        description={nh('modalTitle')}
       >
         {/* Header - Compact with EBITDA summary inline */}
         <div className="px-6 py-3 border-b border-foreground/[0.06] flex items-center justify-between pr-14">
