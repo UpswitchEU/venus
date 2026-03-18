@@ -1,7 +1,8 @@
 /**
- * Normalization API Route (Catch-all)
+ * Normalization API Route (Optional Catch-all)
  *
  * Proxies all normalization requests to Titan's VenusNormalizationController.
+ * Uses [[...path]] so POST /api/normalization (zero segments) matches.
  *
  * CRITICAL: Forwards client context headers (X-Client-User-Id, X-Accountant-User-Id,
  * X-Relationship-Id) for accountant-client workflows. Without these, Titan cannot
@@ -76,14 +77,15 @@ function buildTitanHeaders(request: NextRequest): Record<string, string> {
  */
 async function proxyToTitan(
   request: NextRequest,
-  params: { path: string[] },
+  params: { path?: string[] },
   method: string
 ): Promise<NextResponse> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const url = buildTitanUrl(params.path, request.nextUrl.searchParams)
+    const path = params.path ?? []
+    const url = buildTitanUrl(path, request.nextUrl.searchParams)
 
     const fetchOptions: RequestInit = {
       method,
@@ -128,21 +130,21 @@ async function proxyToTitan(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path?: string[] }> }
 ) {
   return proxyToTitan(request, await params, 'GET')
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path?: string[] }> }
 ) {
   return proxyToTitan(request, await params, 'POST')
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path?: string[] }> }
 ) {
   return proxyToTitan(request, await params, 'DELETE')
 }

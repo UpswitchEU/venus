@@ -9,6 +9,7 @@
 
 import { normalizationService } from '../services/ebitdaNormalizationService'
 import { generalLogger } from './logger'
+import { isValidSessionId } from './sessionIdValidation'
 
 /**
  * Snapshot draft normalizations to a specific version
@@ -27,6 +28,7 @@ export async function snapshotNormalizationsToVersion(
   sessionId: string,
   versionId: string
 ): Promise<void> {
+  if (!isValidSessionId(sessionId)) return
   try {
     // Get all draft normalizations (version_id = null) for this session
     const drafts = await normalizationService.getAllNormalizations(sessionId)
