@@ -428,15 +428,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [])
 
   // Resolve session key (val_xxx) to UUID for Titan API calls - session.reportId is set after first calculation
-  // When reportId is 'new' but we have session.reportId (e.g. after first calc), use UUID so version/recalc flows work
+  // Titan requires session_id 8–128 chars; prefer UUID when available, else session_key (val_xxx)
   const resolvedReportId = useMemo(() => {
     if (!reportId) return reportId
     if (reportId === 'new' && session?.reportId) return session.reportId
+    // When reportId is 'new' but session.reportId undefined, use session_key (Titan may not have created report yet)
+    if (reportId === 'new' && session) {
+      const sk = (session as any)?.key ?? (session as any)?.session_key
+      if (sk && sk.length >= 8) return sk
+    }
     if (typeof reportId === 'string' && reportId.startsWith('val_') && session?.reportId) {
       return session.reportId
     }
     return reportId
-  }, [reportId, session?.reportId])
+  }, [reportId, session?.reportId, session])
 
   // Session matches when reportId equals session.reportId (UUID) or session.key (session key)
   const sessionMatchesReport =

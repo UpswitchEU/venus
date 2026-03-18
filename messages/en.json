@@ -1245,7 +1245,7 @@
     "normalizationNotSaved": "Adjustments not saved",
     "normalizationNotSavedDesc": "Your adjustments are saved locally. Sync will be retried automatically.",
     "normalizationNotSavedRetry": "Retry now",
-    "normalizationNotSavedSession": "Session expired. Please refresh the page to continue.",
+    "normalizationNotSavedSession": "Session not found. Calculate your valuation first or refresh the page.",
     "recalculatedWithNorms": "Estimate recalculated with normalizations",
     "recalculatedWithNormsDesc": "{count, plural, one {# normalization} other {# normalizations}} applied",
     "normalizationsSaved": "Normalizations saved",

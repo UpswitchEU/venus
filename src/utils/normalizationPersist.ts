@@ -12,6 +12,12 @@ import type { NormalizationItem } from '../components/calculator/UnifiedNormaliz
 import { useNormalizationStore } from '../store/useNormalizationStore'
 import { getLastFullFiscalYear } from './fiscalYear'
 
+/** Titan requires session_id 8–128 chars; reject 'new' and invalid lengths. Exported for store reuse. */
+export function isValidSessionId(id: string): boolean {
+  const t = String(id || '').trim()
+  return t.length >= 8 && t.length <= 128 && t !== 'new'
+}
+
 /** Accepted item applies to year */
 const appliesToYear = (item: NormalizationItem, year: number) =>
   item.status === 'accepted' &&
@@ -35,6 +41,7 @@ export async function persistNormalizationsBeforeCalculate(
   reportId: string,
   request: RequestWithYears
 ): Promise<boolean> {
+  if (!isValidSessionId(reportId)) return true
   const hasAnyNorm = useNormalizationStore.getState().items.some((n) => n.status === 'accepted')
   if (!hasAnyNorm) return true
 
@@ -88,6 +95,7 @@ export async function persistOrDeleteNormalizationsForYears(
   originalEBITDAByYear: Record<number, number>,
   norms: NormalizationItem[]
 ): Promise<void> {
+  if (!isValidSessionId(reportId)) return
   const { normalizationService } = await import('../services/ebitdaNormalizationService')
   const { persistToTitan } = useNormalizationStore.getState()
 

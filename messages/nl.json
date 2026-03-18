@@ -1265,7 +1265,7 @@
     "normalizationNotSaved": "Correcties niet opgeslagen",
     "normalizationNotSavedDesc": "Uw correcties zijn lokaal bewaard. Synchronisatie wordt automatisch opnieuw geprobeerd.",
     "normalizationNotSavedRetry": "Nu opnieuw proberen",
-    "normalizationNotSavedSession": "Sessie verlopen. Vernieuw de pagina om verder te gaan.",
+    "normalizationNotSavedSession": "Sessie niet gevonden. Bereken eerst uw bedrijfsschatting of vernieuw de pagina.",
     "reminderSent": "Herinnering verstuurd naar klant",
     "versionCreateFailed": "Versie aanmaken mislukt"
   },

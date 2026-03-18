@@ -21,8 +21,9 @@ import type {
   NormalizationSource,
   NormalizationStatus,
 } from '../components/calculator/UnifiedNormalizationModal'
-import { generalLogger } from '../utils/logger'
 import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
+import { isValidSessionId } from '../utils/normalizationPersist'
+import { generalLogger } from '../utils/logger'
 
 // ─────────────────────────────────────────
 // CATEGORY MAPPING
@@ -133,7 +134,7 @@ const TOAST_FALLBACKS: Record<ToastMessageKey, string> = {
   normalizationNotSaved: 'Adjustments not saved',
   normalizationNotSavedDesc: 'Your adjustments are saved locally. Sync will be retried automatically.',
   normalizationNotSavedRetry: 'Retry now',
-  normalizationNotSavedSession: 'Session expired. Please refresh the page to continue.',
+  normalizationNotSavedSession: 'Session not found. Calculate your valuation first or refresh the page.',
 }
 
 function getToastMessage(key: ToastMessageKey, error?: unknown): string {
@@ -287,7 +288,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
       },
 
       persistToTitan: async (reportId, year, reportedEbitda) => {
-        if (!reportId) return
+        if (!reportId || !isValidSessionId(reportId)) return
         await serializedPersistToTitan(reportId, year, async () => {
           try {
           const { items } = get()
@@ -398,6 +399,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
       },
 
       persistAllToTitan: async (reportId, originalEBITDAByYear, years) => {
+        if (!reportId || !isValidSessionId(reportId)) return
         const { items, persistToTitan: persistYear } = get()
         const accepted = items.filter((n) => n.status === 'accepted')
         if (accepted.length === 0) return
