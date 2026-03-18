@@ -98,6 +98,10 @@ import type {
   ValuationFormData as VenusFormData,
 } from '../../../types/valuation'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
+import {
+  persistNormalizationsBeforeCalculate,
+  persistOrDeleteNormalizationsForYears,
+} from '../../../utils/normalizationPersist'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
@@ -961,11 +965,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim()) ||
     t('newEstimation')
 
-  // Enable auto-persist for normalization store
+  // Enable auto-persist for normalization store (use resolvedReportId for session key consistency)
   useEffect(() => {
-    const unsub = enableNormalizationAutoPersist(() => reportId || undefined)
+    const unsub = enableNormalizationAutoPersist(() => resolvedReportId || reportId || undefined)
     return unsub
-  }, [reportId])
+  }, [reportId, resolvedReportId])
 
   // Enable auto-persist for tax latency store
   useEffect(() => {
@@ -1227,6 +1231,28 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               previousVersion: previousVersion.versionNumber,
               totalChanges: changes.totalChanges,
             })
+          }
+        }
+
+        // Step 3.5: Persist all normalizations to Titan BEFORE calculation (UX-critical)
+        if (idForApi) {
+          const persistOk = await persistNormalizationsBeforeCalculate(idForApi, request as any)
+          if (!persistOk) {
+            setCalculating(false)
+            setIsGenerating(false)
+            generalLogger.warn('[ManualLayout] Pre-calculate normalization persist failed')
+            toast.error(t('persistFailed'), {
+              description: t('persistFailedDesc'),
+              action: {
+                label: t('retry'),
+                onClick: () => {
+                  if (lastSubmittedDataRef.current) {
+                    handleManualSubmit(lastSubmittedDataRef.current)
+                  }
+                },
+              },
+            })
+            return
           }
         }
 
@@ -2592,10 +2618,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const idForApi = resolvedReportId || reportId
       if (!idForApi) return
 
-      const appliesToYear = (item: NormalizationItem, year: number) =>
-        item.status === 'accepted' &&
-        (item.applyAllYears || item.applyYears?.includes(year) || item.year === year)
-
       const allYears = Array.from(
         new Set([
           ...financialYears,
@@ -2605,20 +2627,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       ).filter((year) => Number.isFinite(year))
 
       try {
-        const { normalizationService } = await import('../../../services/ebitdaNormalizationService')
-
-        await Promise.all(
-          allYears.map((year) => {
-            const hasAcceptedForYear = norms.some((item) => appliesToYear(item, year))
-            if (hasAcceptedForYear) {
-              return normalizationActions.persistToTitan(
-                idForApi,
-                year,
-                Number.isFinite(originalEBITDAByYear[year]) ? originalEBITDAByYear[year]! : 0
-              )
-            }
-            return normalizationService.deleteNormalization(idForApi, year).catch(() => undefined)
-          })
+        await persistOrDeleteNormalizationsForYears(
+          idForApi,
+          allYears,
+          originalEBITDAByYear,
+          norms
         )
       } catch (error) {
         generalLogger.warn('[ManualLayout] Sync after normalization edit failed', {
@@ -2656,14 +2669,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (item) {
           const years = getYearsToPersist(item)
           try {
-            await Promise.all(
-              years.map((y) =>
-                normalizationActions.persistToTitan(
-                  idForApi,
-                  y,
-                  Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
-                )
-              )
+            await persistOrDeleteNormalizationsForYears(
+              idForApi,
+              years,
+              originalEBITDAByYear,
+              useNormalizationStore.getState().items
             )
           } catch (error) {
             generalLogger.warn('[ManualLayout] Titan persist failed after accept — rolling back', {
@@ -2695,24 +2705,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const item = useNormalizationStore.getState().items.find((n) => n.id === id)
         if (item) {
           const years = getYearsToPersist(item)
-          const appliesToYear = (n: NormalizationItem, year: number) =>
-            n.status === 'accepted' &&
-            (n.applyAllYears || n.applyYears?.includes(year) || n.year === year)
           const norms = useNormalizationStore.getState().items
           try {
-            const { normalizationService } = await import('../../../services/ebitdaNormalizationService')
-            await Promise.all(
-              years.map((y) => {
-                const hasAcceptedForYear = norms.some((n) => appliesToYear(n, y))
-                if (hasAcceptedForYear) {
-                  return normalizationActions.persistToTitan(
-                    idForApi,
-                    y,
-                    Number.isFinite(originalEBITDAByYear[y]) ? originalEBITDAByYear[y]! : 0
-                  )
-                }
-                return normalizationService.deleteNormalization(idForApi, y).catch(() => undefined)
-              })
+            await persistOrDeleteNormalizationsForYears(
+              idForApi,
+              years,
+              originalEBITDAByYear,
+              norms
             )
           } catch (error) {
             generalLogger.warn('[ManualLayout] Titan persist failed after reject — rolling back', {

@@ -18,6 +18,7 @@ import { useManualFormStore, useManualResultsStore } from '../../../store/manual
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
+import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
@@ -271,6 +272,23 @@ export const useValuationFormSubmission = (
               totalChanges: changes.totalChanges,
               significantChanges: changes.significantChanges,
             })
+          }
+        }
+
+        // Persist all normalizations to Titan BEFORE calculation (UX-critical)
+        if (reportId) {
+          const persistOk = await persistNormalizationsBeforeCalculate(reportId, request as any)
+          if (!persistOk) {
+            setCalculating(false)
+            generalLogger.warn('[ValuationForm] Pre-calculate normalization persist failed')
+            toast.error(t('persistFailed'), {
+              description: t('persistFailedDesc'),
+              action: {
+                label: t('retry'),
+                onClick: () => handleSubmit(),
+              },
+            })
+            return
           }
         }
 

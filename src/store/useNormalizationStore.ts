@@ -91,6 +91,12 @@ interface NormalizationStore {
   // Persistence actions
   persistToSession: (reportId: string) => Promise<void>
   persistToTitan: (reportId: string, year: number, reportedEbitda?: number) => Promise<void>
+  /** Persist all accepted items for given years to Titan. Call before calculate. */
+  persistAllToTitan: (
+    reportId: string,
+    originalEBITDAByYear: Record<number, number>,
+    years: number[]
+  ) => Promise<void>
   retryPersist: () => Promise<void>
   loadFromTitan: (sessionId: string) => Promise<void>
   loadFromSession: (sessionData: any) => void
@@ -124,10 +130,10 @@ export function setNormalizationToastMessages(getter: ToastMessageGetter | null)
 }
 
 const TOAST_FALLBACKS: Record<ToastMessageKey, string> = {
-  normalizationNotSaved: 'Normalization not saved to server',
-  normalizationNotSavedDesc: 'Your changes are saved locally. Server sync will be retried.',
-  normalizationNotSavedRetry: 'Retry',
-  normalizationNotSavedSession: 'Session not found. Please refresh the page.',
+  normalizationNotSaved: 'Adjustments not saved',
+  normalizationNotSavedDesc: 'Your adjustments are saved locally. Sync will be retried automatically.',
+  normalizationNotSavedRetry: 'Retry now',
+  normalizationNotSavedSession: 'Session expired. Please refresh the page to continue.',
 }
 
 function getToastMessage(key: ToastMessageKey, error?: unknown): string {
@@ -374,6 +380,11 @@ export const useNormalizationStore = create<NormalizationStore>()(
             })
           } finally {
             set({ isSaving: false })
+            if (pendingVisibilityFlushReportId) {
+              const next = pendingVisibilityFlushReportId
+              pendingVisibilityFlushReportId = null
+              void runSessionPersist(next)
+            }
           }
         })
       },
@@ -384,6 +395,26 @@ export const useNormalizationStore = create<NormalizationStore>()(
         const { reportId, year, reportedEbitda } = lastFailedPersist
         set({ lastFailedPersist: null })
         await get().persistToTitan(reportId, year, reportedEbitda)
+      },
+
+      persistAllToTitan: async (reportId, originalEBITDAByYear, years) => {
+        const { items, persistToTitan: persistYear } = get()
+        const accepted = items.filter((n) => n.status === 'accepted')
+        if (accepted.length === 0) return
+
+        const appliesToYear = (item: NormalizationItem, year: number) =>
+          item.applyAllYears || (item.applyYears?.length ? item.applyYears.includes(year) : item.year === year)
+
+        const yearsToPersist = years.filter((year) =>
+          accepted.some((n) => appliesToYear(n, year))
+        )
+        if (yearsToPersist.length === 0) return
+
+        await Promise.all(
+          yearsToPersist.map((year) =>
+            persistYear(reportId, year, originalEBITDAByYear[year] ?? 0)
+          )
+        )
       },
 
       loadFromTitan: async (sessionId) => {
@@ -633,11 +664,16 @@ export function enableNormalizationAutoPersist(getReportId: () => string | undef
       clearTimeout(sessionPersistTimer)
       sessionPersistTimer = null
     }
-    const { items } = useNormalizationStore.getState()
+    const { items, isSaving } = useNormalizationStore.getState()
     const json = JSON.stringify(items)
     if (json === lastItemsJson && !pendingSessionReportId) return
     lastItemsJson = json
     pendingSessionReportId = reportId
+    // Defer session persist when Titan persist is in flight to avoid overlapping network ops
+    if (isSessionPersistInFlight || isSaving) {
+      pendingVisibilityFlushReportId = reportId
+      return
+    }
     runSessionPersist(reportId)
   }
 

@@ -1331,33 +1331,18 @@ export function ManualInputPanel({
                       <div className="relative">
                         {/* Normalization Trigger - always visible when financials entered */}
                         {hasFinancials ? (
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-medium text-foreground/60">
-                                  {mi('fields.normalizedEbitda')}
-                                </span>
-                                {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-success/10 text-success text-[10px] font-medium">
-                                    <Check className="w-3 h-3" />
-                                    {mi('normalized')}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-baseline gap-2">
-                                <motion.span
-                                  className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight"
-                                  key={normalizedData.averageNormalizedEbitda}
-                                  initial={{ scale: 1.05, opacity: 0.7 }}
-                                  animate={{ scale: 1, opacity: 1 }}
-                                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                                >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-foreground/60 mb-1">
+                                {mi('fields.normalizedEbitda')}
+                              </p>
+                              <div className="flex items-baseline gap-2 flex-wrap">
+                                <span className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">
                                   {formatCurrency(normalizedData.averageNormalizedEbitda)}
-                                </motion.span>
+                                </span>
                                 <span className="text-xs text-foreground/50">
                                   ({normalizedData.totalYearsWithData}{' '}
-                                  {normalizedData.totalYearsWithData === 1 ? mi('year') : mi('years')}
-                                  )
+                                  {normalizedData.totalYearsWithData === 1 ? mi('year') : mi('years')})
                                 </span>
                                 {normalizedData.years.some((y) => y.totalAdjustment !== 0) && (() => {
                                   const yearsWithData = normalizedData.years.filter(
@@ -1368,31 +1353,27 @@ export function ManualInputPanel({
                                       sum + (Number.isFinite(y.totalAdjustment) ? y.totalAdjustment : 0),
                                     0
                                   )
-                                  const avgAdj = yearsWithData.length > 0
-                                    ? adjSum / yearsWithData.length
-                                    : 0
+                                  const avgAdj = yearsWithData.length > 0 ? adjSum / yearsWithData.length : 0
                                   const safeAvg = Number.isFinite(avgAdj) ? avgAdj : 0
                                   return (
-                                    <motion.span
+                                    <span
                                       className={cn(
-                                        'text-sm font-medium ml-1',
+                                        'text-sm font-medium',
                                         safeAvg > 0 ? 'text-success' : safeAvg < 0 ? 'text-secondary' : 'text-foreground/40'
                                       )}
-                                      initial={{ x: -4, opacity: 0 }}
-                                      animate={{ x: 0, opacity: 1 }}
                                     >
                                       {safeAvg > 0 ? '+' : ''}{formatCurrency(safeAvg)}
-                                    </motion.span>
+                                    </span>
                                   )
                                 })()}
                               </div>
                             </div>
-                            <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-2 sm:shrink-0">
                               {(acceptedNormCount > 0 || taxLatencyCount > 0) && (
                                 <button
                                   type="button"
                                   onClick={() => onViewAllNormalizations?.()}
-                                  className="text-xs font-medium text-foreground/60 hover:text-foreground transition-colors cursor-pointer underline underline-offset-2 decoration-foreground/20 hover:decoration-foreground/40"
+                                  className="text-xs font-medium text-foreground/60 hover:text-foreground transition-colors underline underline-offset-2 decoration-foreground/20 hover:decoration-foreground/40 whitespace-nowrap"
                                 >
                                   {acceptedNormCount > 0 && taxLatencyCount > 0
                                     ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })} · ${tTax('summary', { count: taxLatencyCount })}`
@@ -1405,7 +1386,7 @@ export function ManualInputPanel({
                                 type="button"
                                 onClick={() => onViewAllNormalizations?.()}
                                 className={cn(
-                                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                                   normalizedData.years.some((y) => y.totalAdjustment !== 0)
                                     ? 'bg-background border border-foreground/10 text-foreground hover:bg-foreground/[0.02]'
                                     : 'bg-primary text-primary-foreground hover:bg-primary/90'
