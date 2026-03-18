@@ -113,6 +113,13 @@ docs/
   - Error handling
   - Business logic
 
+### Versioning
+
+- **[V2 Version and Assets Behavior](./V2_VERSION_AND_ASSETS_BEHAVIOR.md)**
+  - What happens when creating V2
+  - Version history vs. current session
+  - Cache and asset replacement flow
+
 ### Analysis
 
 - **[Robustness Audit](./analysis/SESSION_RESTORATION_ROBUSTNESS_AUDIT.md)**
@@ -299,6 +306,13 @@ docs/
   - Request/response formats
   - Error handling
   - Business logic
+
+### Versioning
+
+- **[V2 Version and Assets Behavior](./V2_VERSION_AND_ASSETS_BEHAVIOR.md)**
+  - What happens when creating V2
+  - Version history vs. current session
+  - Cache and asset replacement flow
 
 ### Analysis
 

@@ -1962,7 +1962,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         year: new Date().getFullYear() - 1,
       }))
       normalizationActions.addItems(newItems)
-      if (reportId) normalizationActions.persistToSession(reportId)
+      const idForApi = resolvedReportId || reportId
+      if (idForApi) normalizationActions.persistToSession(idForApi)
       setSuggestedNormalisations((prev: any[]) => [
         ...prev,
         ...newItems.map((n) => ({
@@ -1977,7 +1978,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })),
       ])
     },
-    [normalizationActions, reportId]
+    [normalizationActions, reportId, resolvedReportId]
   ) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAcceptUpdate = useCallback((field: string) => {
@@ -2989,31 +2990,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setShowUnifiedNormalizationModal(true)
         setChatDrawerOpen(true)
 
-        // Save normalizations to backend (auto-persist handles session)
-        if (reportId) normalizationActions.persistToSession(reportId)
-
-        // Also persist via normalization API for structured storage
-        if (reportId) {
-          const { normalizationService } = await import(
-            '../../../services/ebitdaNormalizationService'
-          )
-          await normalizationService
-            .saveNormalization({
-              sessionId: reportId,
-              year: new Date().getFullYear() - 1,
-              adjustments: unifiedItems.map((n) => ({
-                category: mapFrontendCategoryToBackend(n.category),
-                amount: n.adjustment,
-                description: n.reason,
-                ledgerCode: n.ledgerCode,
-              })),
-              source,
-            } as any)
-            .catch(() => {
-              // Non-blocking: normalization save is best-effort
-              generalLogger.info('[ManualLayout] Normalization save to API skipped (non-blocking)')
-            })
-        }
+        // Save normalizations to session (draft state). Titan persist happens on accept/reject
+        // via handleAcceptNormalisation or sync effect — avoids persisting pending items to Titan.
+        const idForApi = resolvedReportId || reportId
+        if (idForApi) normalizationActions.persistToSession(idForApi)
 
         setChatMessages((prev) => [
           ...prev,
@@ -3032,7 +3012,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         toast.error(t('importAnalysisFailed'), { description: t('importAnalysisFailedDesc') })
       }
     },
-    [reportId, collectedData, normalizationActions, nh, t]
+    [reportId, resolvedReportId, collectedData, normalizationActions, nh, t]
   )
 
   // ─── Normalisation Suggestion Modal ───

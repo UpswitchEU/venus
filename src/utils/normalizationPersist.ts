@@ -12,16 +12,20 @@ import type { NormalizationItem } from '../components/calculator/UnifiedNormaliz
 import { useNormalizationStore } from '../store/useNormalizationStore'
 import { getLastFullFiscalYear } from './fiscalYear'
 import { isValidSessionId } from './sessionIdValidation'
-
-/** Accepted item applies to year */
-const appliesToYear = (item: NormalizationItem, year: number) =>
-  item.status === 'accepted' &&
-  (item.applyAllYears || (item.applyYears?.length ? item.applyYears.includes(year) : item.year === year))
+import { appliesToYear } from './normalizationMath'
 
 /** Request shape with financial years (from buildValuationRequest output) */
 interface RequestWithYears {
-  current_year_data?: { year?: number; ebitda?: number }
-  historical_years_data?: Array<{ year?: number; ebitda?: number }>
+  current_year_data?: {
+    year?: number
+    ebitda?: number
+    ebitda_normalization_metadata?: { reported_ebitda?: number }
+  }
+  historical_years_data?: Array<{
+    year?: number
+    ebitda?: number
+    ebitda_normalization_metadata?: { reported_ebitda?: number }
+  }>
 }
 
 /**
@@ -49,11 +53,16 @@ export async function persistNormalizationsBeforeCalculate(
     ]),
   ].filter(Number.isFinite) as number[]
 
+  // CRITICAL: Use reported_ebitda (raw) from metadata when present.
+  // buildValuationRequest puts normalized ebitda in cyd.ebitda when normalizations exist;
+  // using that would double-apply adjustments when persisting to Titan.
   const originalEBITDAByYear: Record<number, number> = {}
   const safeEbitda = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
-  if (cyd?.year != null) originalEBITDAByYear[cyd.year] = safeEbitda(cyd.ebitda)
+  const getReportedEbitda = (yd: { ebitda?: number; ebitda_normalization_metadata?: { reported_ebitda?: number } }) =>
+    safeEbitda(yd?.ebitda_normalization_metadata?.reported_ebitda ?? yd?.ebitda)
+  if (cyd?.year != null) originalEBITDAByYear[cyd.year] = getReportedEbitda(cyd)
   for (const h of hy) {
-    if (h?.year != null) originalEBITDAByYear[h.year] = safeEbitda(h.ebitda)
+    if (h?.year != null) originalEBITDAByYear[h.year] = getReportedEbitda(h)
   }
 
   const yearsToUse = years.length > 0 ? years : [getLastFullFiscalYear()]

@@ -1,5 +1,13 @@
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 
+/** Whether an accepted normalization item applies to a given year. Single source of truth. */
+export function appliesToYear(item: NormalizationItem, year: number): boolean {
+  if (item.status !== 'accepted') return false
+  if (item.applyAllYears) return true
+  if (item.applyYears && item.applyYears.length > 0) return item.applyYears.includes(year)
+  return item.year === year
+}
+
 export function getFirstFiniteNumber(...candidates: unknown[]): number | undefined {
   for (const candidate of candidates) {
     const parsed = Number(candidate)

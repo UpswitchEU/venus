@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { NormalizationItem } from '../../components/calculator/UnifiedNormalizationModal'
 import {
+  appliesToYear,
   getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
   summarizeAcceptedNormalizations,
@@ -65,6 +66,29 @@ describe('normalizationMath', () => {
         100_000
       )
     ).toBe(-1_000)
+  })
+
+  it('appliesToYear: single source of truth for year applicability', () => {
+    const accepted = {
+      id: 'x',
+      ledgerCode: '',
+      ledgerName: '',
+      category: 'salary' as const,
+      type: 'add' as const,
+      value: 1000,
+      adjustment: 1000,
+      reason: '',
+      source: 'manual' as const,
+      status: 'accepted' as const,
+      year: 2025,
+    }
+    const pending = { ...accepted, status: 'pending' as const }
+    expect(appliesToYear(accepted, 2025)).toBe(true)
+    expect(appliesToYear(accepted, 2024)).toBe(false)
+    expect(appliesToYear(pending, 2025)).toBe(false)
+    expect(appliesToYear({ ...accepted, applyAllYears: true }, 2024)).toBe(true)
+    expect(appliesToYear({ ...accepted, applyYears: [2023, 2024] }, 2024)).toBe(true)
+    expect(appliesToYear({ ...accepted, applyYears: [2023, 2024] }, 2025)).toBe(false)
   })
 
   it('summarizes accepted multi-year percentage items using each year baseline', () => {

@@ -23,6 +23,7 @@ import type {
 } from '../components/calculator/UnifiedNormalizationModal'
 import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
 import { generalLogger } from '../utils/logger'
+import { appliesToYear } from '../utils/normalizationMath'
 import { isValidSessionId } from '../utils/sessionIdValidation'
 
 // ─────────────────────────────────────────
@@ -403,9 +404,6 @@ export const useNormalizationStore = create<NormalizationStore>()(
         const { items, persistToTitan: persistYear } = get()
         const accepted = items.filter((n) => n.status === 'accepted')
         if (accepted.length === 0) return
-
-        const appliesToYear = (item: NormalizationItem, year: number) =>
-          item.applyAllYears || (item.applyYears?.length ? item.applyYears.includes(year) : item.year === year)
 
         const yearsToPersist = years.filter((year) =>
           accepted.some((n) => appliesToYear(n, year))
