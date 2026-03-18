@@ -2377,24 +2377,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             // Navigate to most recent remaining valuation (both accountant and client)
             router.push(`/${currentLocale}/reports/${remaining[0].id}`)
           } else {
-            // No valuations left: accountant → Mercury dashboard, client → new valuation
+            // No valuations left: accountant → return_url or Mercury dashboard, client → new valuation
+            // CRITICAL: Redirect immediately to avoid "stuck" state (e.g. concept-only delete, embedded parent not responding)
+            let redirectUrl: string
             if (isAccountantMode) {
-              if (isEmbedded) {
-                // Fallback: if parent never receives (e.g. origin check fails in dev), navigate after 2.5s
-                const mercuryUrl = `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
-                setTimeout(() => {
-                  try {
-                    window.location.href = mercuryUrl
-                  } catch {
-                    // Ignore if window already gone
-                  }
-                }, 2500)
-              } else {
-                window.location.href = `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
+              try {
+                const returnUrl = typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_return_url') : null
+                const sourceApp = typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_source') : null
+                redirectUrl = getSafeMercuryReturnUrl(returnUrl, {
+                  clientContextId: clientContextId ?? undefined,
+                  locale: currentLocale,
+                  sourceApp: sourceApp ?? undefined,
+                })
+              } catch {
+                redirectUrl = `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
               }
             } else {
-              window.location.href = `/${currentLocale}/reports/new`
+              redirectUrl = `/${currentLocale}/reports/new`
             }
+            window.location.href = redirectUrl
           }
         } else {
           setRawRecentValuations((prev) => prev.filter((v) => v.id !== id))

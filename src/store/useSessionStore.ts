@@ -16,6 +16,7 @@
 import { create } from 'zustand'
 import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import type { IdentityState } from '../lib/bootstrap/types'
+import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../lib/return-url'
 import type { ISessionEngine } from '../services/session/SessionEngine'
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
@@ -330,13 +331,28 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           restorationComplete: true,
         })
 
-        // Handle 404 - redirect if on report page
+        // Handle 404 - redirect if on report page (e.g. deleted session/concept)
         const statusCode = (error as any).response?.status || (error as any).status
         if (statusCode === 404 && typeof window !== 'undefined') {
           const currentPath = window.location.pathname
           if (currentPath.includes('/reports/')) {
-            const localeMatch = currentPath.match(/^\/(en|nl)/)
+            const localeMatch = currentPath.match(/^\/(en|nl|fr|de)/)
             const locale = localeMatch ? localeMatch[1] : 'en'
+            // Accountant flow: redirect to return_url or Mercury dashboard (avoids stuck on deleted report)
+            try {
+              const returnUrl = sessionStorage.getItem('upswitch_return_url')
+              const sourceApp = sessionStorage.getItem('upswitch_source')
+              if (returnUrl && !isLegacyReturnUrl(returnUrl) && sourceApp?.includes('mercury')) {
+                const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
+                  locale,
+                  sourceApp,
+                })
+                window.location.href = targetUrl
+                return
+              }
+            } catch {
+              // Fall through to Venus home
+            }
             window.location.href = `/${locale}`
             return
           }
