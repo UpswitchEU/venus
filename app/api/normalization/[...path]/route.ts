@@ -31,12 +31,15 @@ const TITAN_API_URL =
 const TIMEOUT_MS = 10_000 // 10s
 
 /**
- * Build Titan URL from the catch-all path segments
+ * Build Titan URL from the catch-all path segments.
+ * Avoids trailing slash when path is empty (POST /api/normalization).
  */
 function buildTitanUrl(path: string[], searchParams: URLSearchParams): string {
   const pathStr = path.join('/')
   const qs = searchParams.toString()
-  return `${TITAN_API_URL}/api/normalization/${pathStr}${qs ? `?${qs}` : ''}`
+  const base = `${TITAN_API_URL}/api/normalization`
+  const pathPart = pathStr ? `/${pathStr}` : ''
+  return `${base}${pathPart}${qs ? `?${qs}` : ''}`
 }
 
 /**
