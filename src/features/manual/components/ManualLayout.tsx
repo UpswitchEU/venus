@@ -67,6 +67,7 @@ import {
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
+import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
 import {
@@ -756,6 +757,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ...latestFormDataRef.current,
         ...(data as Partial<CollectedData>),
       }
+      // Keep form store in sync for session autosave (demo resilience, automation-ready)
+      updateFormData(mapClarityFormToVenusStore(data as any))
       // Mark dirty when report exists and user changed financial inputs
       if (!result) return
       const yf = (data.yearlyFinancials || []) as Array<{
@@ -792,8 +795,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setIsDirty(true)
       }
     },
-    [result]
+    [result, updateFormData]
   )
+
+  // Debounced form → session autosave (demo resilience, automation-ready)
+  useFormSessionSync({
+    reportId: resolvedReportId || reportId || undefined,
+    formData: formStoreData,
+  })
 
   // When report is restored (e.g. from URL) without our submit, set baseline from form store so we can detect edits
   useEffect(() => {

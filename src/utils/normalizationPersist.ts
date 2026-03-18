@@ -50,9 +50,10 @@ export async function persistNormalizationsBeforeCalculate(
   ].filter(Number.isFinite) as number[]
 
   const originalEBITDAByYear: Record<number, number> = {}
-  if (cyd?.year != null) originalEBITDAByYear[cyd.year] = Number(cyd.ebitda) ?? 0
+  const safeEbitda = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
+  if (cyd?.year != null) originalEBITDAByYear[cyd.year] = safeEbitda(cyd.ebitda)
   for (const h of hy) {
-    if (h?.year != null) originalEBITDAByYear[h.year] = Number(h.ebitda) ?? 0
+    if (h?.year != null) originalEBITDAByYear[h.year] = safeEbitda(h.ebitda)
   }
 
   const yearsToUse = years.length > 0 ? years : [getLastFullFiscalYear()]

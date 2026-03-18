@@ -15,7 +15,7 @@ const cacheLogger = createContextLogger('SessionCache')
 
 const CACHE_PREFIX = 'upswitch_session_cache_'
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
-const MAX_CACHE_SIZE = 50 // Limit number of cached sessions
+const MAX_CACHE_SIZE = 20 // Limit number of cached sessions (reduced to avoid quota pressure)
 
 interface CachedSession {
   session: ValuationSession
@@ -32,7 +32,7 @@ interface CachedSession {
  * Features:
  * - 24-hour TTL
  * - Automatic expiry cleanup
- * - Size limits (max 50 sessions)
+ * - Size limits (max 20 sessions)
  * - Validation before storage/retrieval
  *
  * Use Cases:
@@ -137,18 +137,16 @@ export class SessionCacheManager {
               error: retryError.message,
             })
             try {
-              // Create minimal cache with essential metadata and sessionData (for form restoration)
-              // Exclude large fields: htmlReport, valuationResult
+              // Create minimal cache: metadata only, no sessionData (can exceed quota).
+              // Session will be loaded from backend on next visit.
               const minimalSession: Partial<ValuationSession> = {
                 reportId: session.reportId,
                 currentView: session.currentView,
                 dataSource: session.dataSource,
                 name: session.name,
-                sessionData: session.sessionData, // ✅ Include sessionData for form field restoration
                 createdAt: session.createdAt,
                 updatedAt: session.updatedAt,
                 calculatedAt: session.calculatedAt,
-                // Exclude large fields: htmlReport, valuationResult
               }
               const minimalCached: CachedSession = {
                 session: minimalSession as ValuationSession,

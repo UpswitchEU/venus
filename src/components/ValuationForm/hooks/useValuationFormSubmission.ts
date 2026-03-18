@@ -53,7 +53,14 @@ export const useValuationFormSubmission = (
   const { formData } = useManualFormStore()
   const { trySetCalculating, setCalculating, isCalculating, setResult } = useManualResultsStore()
   // ROOT CAUSE FIX: Only subscribe to reportId, not entire session object
-  const reportId = useSessionStore((state) => state.session?.reportId)
+  // Use resolvedReportId: prefer reportId (UUID), fallback to session_key for pre-first-calc sessions
+  const reportId = useSessionStore((state) => {
+    const s = state.session
+    if (!s) return undefined
+    if (s.reportId && s.reportId.length >= 8) return s.reportId
+    const sk = (s as any)?.key ?? (s as any)?.session_key
+    return sk && typeof sk === 'string' && sk.length >= 8 ? sk : s.reportId
+  })
   const sessionName = useSessionStore((state) => state.session?.name) // Get name from session
   const { createVersion, getLatestVersion, fetchVersions } = useVersionHistoryStore()
   const { canSave, reason: canSaveReason } = useCanSave()
