@@ -1167,9 +1167,9 @@ export function ManualInputPanel({
               {readOnlyKbo && selectedCompany ? (
                 <div className="rounded-lg border border-foreground/[0.08] bg-muted/30 px-3 py-2.5">
                   <p className="text-xs text-foreground/50 mb-0.5">{mi('fields.companyNameOrKbo')}</p>
-                  <p className="text-sm font-medium text-foreground">{selectedCompany.company_name}</p>
-                  {selectedCompany.kbo_number && (
-                    <p className="text-xs text-foreground/40 font-mono mt-0.5">KBO {selectedCompany.kbo_number}</p>
+                  <p className="text-sm font-medium text-foreground">{selectedCompany.name}</p>
+                  {selectedCompany.kboNumber && (
+                    <p className="text-xs text-foreground/40 font-mono mt-0.5">KBO {selectedCompany.kboNumber}</p>
                   )}
                 </div>
               ) : (
