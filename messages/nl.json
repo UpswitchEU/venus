@@ -1172,7 +1172,7 @@
     "ledger": "Grootboek",
     "valuationMethod": {
       "label": "Waarderingsmethode",
-      "upswitchRecommended": "UpSwitch Adaptive Valuation (aanbevolen)",
+      "upswitchRecommended": "UpSwitch Marktbenadering (Aanbevolen)",
       "ebitdaMultiple": "EBITDA-multiple",
       "sdeMultiple": "SDE-multiple",
       "revenueMultiple": "Omzetmultiple",

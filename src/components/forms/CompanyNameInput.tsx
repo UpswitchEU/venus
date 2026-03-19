@@ -1,7 +1,8 @@
 /**
- * Company Name Input Component with KBO Search
+ * Company Name Input Component with Registry Search
  *
- * Enhanced input field that performs fuzzy KBO company name search
+ * Enhanced input field that performs fuzzy company name search
+ * against KBO (Belgium) or KVK (Netherlands) registries.
  * Shows suggestions and company preview card (LinkedIn pattern)
  */
 
@@ -14,6 +15,18 @@ import { generalLogger } from '../../utils/logger'
 import CompanyPreviewCard from './CompanyPreviewCard'
 import type { CustomInputFieldProps } from './CustomInputField'
 import CustomInputField from './CustomInputField'
+
+type CountryCode = 'BE' | 'NL'
+
+const FINANCIAL_TERMS: Record<CountryCode, { registrationNumberShort: string }> = {
+  BE: { registrationNumberShort: 'KBO' },
+  NL: { registrationNumberShort: 'KVK' },
+}
+
+function getRegistryLabel(countryCode: string): string {
+  const code = countryCode?.toUpperCase() === 'NL' ? 'NL' : 'BE'
+  return FINANCIAL_TERMS[code].registrationNumberShort
+}
 
 export interface CompanyNameInputProps
   extends Omit<CustomInputFieldProps, 'onChange' | 'rightIcon'> {
@@ -63,16 +76,6 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
           setSearchError(null)
           setIsLoading(false)
           setShowSuggestions(false)
-          return
-        }
-
-        // Only search for Belgium (KBO is Belgium-specific)
-        if (country !== 'BE') {
-          lastSearchEmptyRef.current = false
-          setSearchResults([])
-          setExactMatch(null)
-          setSearchError(null)
-          setIsLoading(false)
           return
         }
 
@@ -370,7 +373,10 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
     )
       return null
 
-    const kboSearchUrl = `https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value?.trim() || '')}`
+    const registrySearchUrl = countryCode === 'NL'
+      ? `https://www.kvk.nl/zoeken/?source=all&q=${encodeURIComponent(value?.trim() || '')}`
+      : `https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value?.trim() || '')}`
+    const registryLabel = getRegistryLabel(countryCode)
 
     return (
       <div
@@ -395,12 +401,12 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
             </button>
             <div className="mt-3 pt-3 border-t border-foreground/[0.08]">
               <a
-                href={kboSearchUrl}
+                href={registrySearchUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs font-medium text-primary hover:text-primary/80"
               >
-                {t('forms.kboLookup.searchOnKboDirectly')}
+                {t('forms.kboLookup.searchOnRegistryDirectly')}
               </a>
             </div>
           </div>
@@ -472,12 +478,12 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
               {t('forms.kboLookup.noResultsHint')}
             </p>
             <a
-              href={kboSearchUrl}
+              href={registrySearchUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs font-medium text-primary hover:text-primary/80"
             >
-              {t('forms.kboLookup.searchOnKboDirectly')}
+              {t('forms.kboLookup.searchOnRegistryDirectly')}
             </a>
           </div>
         )}

@@ -1172,7 +1172,7 @@
     "ledger": "Ledger",
     "valuationMethod": {
       "label": "Valuation method",
-      "upswitchRecommended": "UpSwitch Adaptive Valuation (recommended)",
+      "upswitchRecommended": "UpSwitch Market Approach (Recommended)",
       "ebitdaMultiple": "EBITDA Multiple",
       "sdeMultiple": "SDE Multiple",
       "revenueMultiple": "Revenue Multiple",
