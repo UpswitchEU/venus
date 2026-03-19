@@ -97,6 +97,9 @@ export function OmniCalcPanel({
                     )}>
                       {formatCurrency(value)}
                     </span>
+                    <span className="block text-[10px] text-foreground/30 tabular-nums">
+                      {formatCurrency(Math.round(value * 0.8))} – {formatCurrency(Math.round(value * 1.2))}
+                    </span>
                     {method.multiple_used != null && (
                       <span className="block text-[10px] text-foreground/40 tabular-nums">
                         {Number(method.multiple_used).toFixed(1)}x
