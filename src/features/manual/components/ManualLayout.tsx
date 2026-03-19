@@ -2295,7 +2295,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           companyName,
           updatedAt,
           isDraft: !report,
-          deleteMode: !report ? 'session' : 'report',
+          deleteMode: (!report ? 'session' : 'report') as 'session' | 'report',
         },
         ...rawRecentValuations,
       ]
