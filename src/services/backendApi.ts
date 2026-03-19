@@ -158,6 +158,12 @@ class BackendAPI {
     return this.sessionAPI.switchValuationView(reportId, view)
   }
 
+  async deleteValuationSession(
+    reportId: string
+  ): Promise<{ success: boolean; message?: string }> {
+    return this.sessionAPI.deleteValuationSession(reportId)
+  }
+
   // ===== CREDIT OPERATIONS =====
 
   async getCreditStatus(): Promise<{ creditsRemaining: number; isPremium: boolean }> {

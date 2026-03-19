@@ -53,6 +53,7 @@ export interface RecentValuation {
   companyName: string
   updatedAt: Date
   isDraft?: boolean
+  deleteMode?: 'session' | 'report'
 }
 
 export interface ValuationVersion {
@@ -100,7 +101,7 @@ export interface CalculatorNavProps {
   /** Current report ID for highlighting active valuation in dropdown */
   activeReportId?: string
   onSelectValuation?: (id: string) => void
-  onDeleteValuation?: (id: string) => void
+  onDeleteValuation?: (valuation: RecentValuation) => void
   /** ID of valuation currently being deleted (shows loading state) */
   deletingValuationId?: string | null
   onNewValuation?: () => void
@@ -400,7 +401,7 @@ export function CalculatorNav({
                                       })
                                     )
                                   ) {
-                                    onDeleteValuation(val.id)
+                                    onDeleteValuation(val)
                                   }
                                 }}
                                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-sm"

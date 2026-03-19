@@ -29,6 +29,49 @@ function makeFormData(overrides: Partial<ValuationFormData> = {}): ValuationForm
 }
 
 describe('buildValuationRequest', () => {
+  it('preserves zero historical years when none were entered', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [],
+      }),
+      []
+    )
+
+    expect(result.historical_years_data).toEqual([])
+  })
+
+  it('preserves a single historical year exactly as entered', () => {
+    const lastFullYear = getLastFullFiscalYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [{ year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000 }],
+      }),
+      []
+    )
+
+    expect(result.historical_years_data).toEqual([
+      { year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000, ebitda_normalized: false },
+    ])
+  })
+
+  it('sorts multiple historical years oldest-to-newest', () => {
+    const lastFullYear = getLastFullFiscalYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [
+          { year: lastFullYear - 1, revenue: 950_000, ebitda: 95_000 },
+          { year: lastFullYear - 2, revenue: 850_000, ebitda: 85_000 },
+        ],
+      }),
+      []
+    )
+
+    expect(result.historical_years_data.map((year) => year.year)).toEqual([
+      lastFullYear - 2,
+      lastFullYear - 1,
+    ])
+  })
+
   it('preserves explicit zero balance-sheet values in current year data', () => {
     const result = buildValuationRequest(
       makeFormData({

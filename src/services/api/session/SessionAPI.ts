@@ -26,6 +26,33 @@ import { normalizeSessionData } from '../../session/SessionNormalizer'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 export class SessionAPI extends HttpClient {
+  private static deletedSessionTombstones = new Map<string, number>()
+  private static readonly DELETION_TOMBSTONE_TTL_MS = 120000
+
+  private static markSessionDeleted(reportId: string): void {
+    SessionAPI.deletedSessionTombstones.set(reportId, Date.now())
+  }
+
+  private static clearDeletedSessionMarker(reportId?: string): void {
+    if (!reportId) return
+    SessionAPI.deletedSessionTombstones.delete(reportId)
+  }
+
+  private static hasRecentDeletedSession(reportId: string): boolean {
+    const deletedAt = SessionAPI.deletedSessionTombstones.get(reportId)
+    if (!deletedAt) {
+      return false
+    }
+
+    const age = Date.now() - deletedAt
+    if (age >= SessionAPI.DELETION_TOMBSTONE_TTL_MS) {
+      SessionAPI.deletedSessionTombstones.delete(reportId)
+      return false
+    }
+
+    return true
+  }
+
   /**
    * Get valuation session data
    *
@@ -286,6 +313,7 @@ export class SessionAPI extends HttpClient {
       // Use reportId as session_key if session_key is not provided
       // This ensures idempotency - if a reportId exists, use it as the session_key
       const sessionKey = sessionAny.session_key || sessionAny.reportId
+      SessionAPI.clearDeletedSessionMarker(sessionKey)
 
       const backendSession = {
         session_data: sessionDataPayload,
@@ -527,6 +555,21 @@ export class SessionAPI extends HttpClient {
         // GuestSessionEngine never calls this method, so all callers are authenticated
         // Check if we have session data in the store (indicating this is a real session, not deleted)
         try {
+          if (SessionAPI.hasRecentDeletedSession(reportId)) {
+            apiLogger.warn(
+              'Skipping session auto-create because this session was just deleted',
+              {
+                reportId,
+                tombstoneTtlMs: SessionAPI.DELETION_TOMBSTONE_TTL_MS,
+              }
+            )
+            return {
+              success: true,
+              session: null as any,
+              updated: false,
+            }
+          }
+
           const { useSessionStore } = await import('../../../store/useSessionStore')
           const sessionStore = useSessionStore.getState()
           const currentSession = sessionStore.session
@@ -878,6 +921,44 @@ export class SessionAPI extends HttpClient {
       }
 
       this.handleSessionError(error, 'switch view')
+    }
+  }
+
+  async deleteValuationSession(
+    reportId: string,
+    options?: APIRequestConfig
+  ): Promise<{ success: boolean; message?: string }> {
+    SessionAPI.markSessionDeleted(reportId)
+    SessionAPI.sessionCreationPromises.delete(reportId)
+    SessionAPI.sessionCreationErrors.delete(reportId)
+
+    try {
+      const response = await this.executeRequest<{ success?: boolean; message?: string }>(
+        {
+          method: 'DELETE',
+          url: `/api/v2/valuations/sessions/${reportId}`,
+          headers: {},
+        } as any,
+        {
+          ...options,
+          retry: options?.retry ?? { maxRetries: 0 },
+        }
+      )
+
+      return {
+        success: response?.success ?? true,
+        message: response?.message,
+      }
+    } catch (error) {
+      const axiosError = error as any
+      if (axiosError?.response?.status === 404) {
+        return {
+          success: true,
+          message: 'Session already deleted',
+        }
+      }
+      SessionAPI.clearDeletedSessionMarker(reportId)
+      this.handleSessionError(error, 'delete session')
     }
   }
 

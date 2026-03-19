@@ -48,6 +48,7 @@ import {
   type NormalisationSuggestion,
   NormalisationSuggestionModal,
   type NormalizationItem,
+  type RecentValuation,
   type RightPanelView,
   UnifiedNormalizationModal,
   type ValuationReportData,
@@ -74,6 +75,7 @@ import {
   getSafeMercuryReturnUrl,
   isLegacyReturnUrl,
 } from '../../../lib/return-url'
+import { backendAPI } from '../../../services/backendApi'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { reportService, valuationService } from '../../../services'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
@@ -108,6 +110,7 @@ import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
+import { deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isAuthError } from '../../../utils/errorDetection'
 import { generalLogger } from '../../../utils/logger'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
@@ -2165,9 +2168,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleOpenAssistant = useCallback(() => setChatDrawerOpen((prev) => !prev), [])
 
   // ─── Session Navigation (New, Select, Recent) ───
-  const [rawRecentValuations, setRawRecentValuations] = useState<
-    Array<{ id: string; companyName: string; updatedAt: Date; isDraft?: boolean }>
-  >([])
+  const [rawRecentValuations, setRawRecentValuations] = useState<RecentValuation[]>([])
 
   const fetchRecentValuations = useCallback(() => {
     const headers: HeadersInit = {}
@@ -2194,6 +2195,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               r.company_name || r.companyName || r.name || t('unnamed'),
             updatedAt: new Date(r.updated_at || r.updatedAt || r.created_at || Date.now()),
             isDraft: r.status === 'draft' || r.status === 'in_progress',
+            deleteMode: 'report' as const,
           }))
         )
       })
@@ -2248,7 +2250,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               : new Date()
       const prependedId = session?.reportId || resolvedReportId || currentId || reportId
       return [
-        { id: prependedId, companyName, updatedAt, isDraft: !report },
+        {
+          id: prependedId,
+          companyName,
+          updatedAt,
+          isDraft: !report,
+          deleteMode: !report ? 'session' : 'report',
+        },
         ...rawRecentValuations,
       ]
     }
@@ -2354,13 +2362,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const deleteInProgressRef = useRef<string | null>(null)
 
   const handleDeleteValuation = useCallback(
-    async (id: string) => {
+    async (valuation: RecentValuation) => {
+      const { id, isDraft } = valuation
       // Guard: prevent concurrent delete (ref is synchronous; state is async and can race)
       if (deleteInProgressRef.current === id) return
       deleteInProgressRef.current = id
       setDeletingValuationId(id)
       try {
-        await reportService.deleteReport(id)
+        await deleteValuationEntry({
+          valuation,
+          deleteDraftSession: (sessionId) => backendAPI.deleteValuationSession(sessionId),
+          deleteReport: (reportId) => reportService.deleteReport(reportId),
+        })
         // Clear session cache so deleted report doesn't reappear from localStorage
         try {
           const { globalSessionCache } = await import('../../../utils/sessionCacheManager')
