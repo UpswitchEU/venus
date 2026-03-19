@@ -468,8 +468,9 @@
       "manualEntry": "Enter manually instead",
       "searchFailed": "Search failed",
       "retry": "Try again",
-      "noResultsHint": "No companies found. Search directly on the Belgian company registry.",
+      "noResultsHint": "No companies found. Search directly on the company registry.",
       "searchOnKboDirectly": "Search on KBO directly",
+      "searchOnRegistryDirectly": "Search directly on company registry",
       "selectCompanyFromList": "Select a company from the list below:",
       "noneOfTheseMatch": "None of these match"
     }
@@ -577,8 +578,9 @@
       "manualEntry": "Enter manually instead",
       "searchFailed": "Search failed",
       "retry": "Try again",
-      "noResultsHint": "No companies found. Search directly on the Belgian company registry.",
-      "searchOnKboDirectly": "Search on KBO directly"
+      "noResultsHint": "No companies found. Search directly on the company registry.",
+      "searchOnKboDirectly": "Search on KBO directly",
+      "searchOnRegistryDirectly": "Search directly on company registry"
     },
     "suggestions": {
       "title": "Suggestions",
@@ -1826,8 +1828,9 @@
     "searchUnavailable": "Search temporarily unavailable. Please try again later.",
     "searchFailed": "Search failed",
     "noCompaniesFound": "No companies found.",
-    "noResultsHint": "No companies found. Search directly on the Belgian company registry.",
+    "noResultsHint": "No companies found. Search directly on the company registry.",
     "searchOnKboDirectly": "Search on KBO directly",
+    "searchOnRegistryDirectly": "Search directly on company registry",
     "companyNameOrKbo": "Company name or KBO number",
     "searchPlaceholder": "Search...",
     "minCharsHint": "Type at least {count} characters to search.",

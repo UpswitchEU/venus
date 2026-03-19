@@ -39,6 +39,8 @@ let globalPrefillReportId: string | null = null
 export function useBootstrapPrefill(): {
   hasPrefilled: boolean
   prefillConfidence: number
+  readOnlyKbo: boolean
+  autoAdvancePastPrefilledSteps: boolean
 } {
   const bootstrap = useBootstrapSafe()
   const hasPrefilledRef = useRef(false)
@@ -181,6 +183,8 @@ export function useBootstrapPrefill(): {
   return {
     hasPrefilled: hasPrefilled || hasPrefilledRef.current,
     prefillConfidence: bootstrap?.prefillData.confidence || 0,
+    readOnlyKbo: bootstrap?.prefillData.readOnlyKbo ?? false,
+    autoAdvancePastPrefilledSteps: bootstrap?.prefillData.autoAdvancePastPrefilledSteps ?? false,
   }
 }
 

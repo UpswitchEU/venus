@@ -239,7 +239,8 @@ export const intelligentTriageService = {
       delegation_capability: number
       succession_plan: boolean
       succession_details?: string
-    }
+    },
+    countryCode: string = 'BE'
   ): Promise<any> {
     try {
       // Convert to OwnerProfile format
@@ -260,7 +261,7 @@ export const intelligentTriageService = {
         profile: ownerProfile,
         business_context: {
           company_name: businessId,
-          country_code: 'BE',
+          country_code: countryCode,
         },
       }
 

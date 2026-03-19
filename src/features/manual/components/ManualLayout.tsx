@@ -380,7 +380,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const { user } = useAuth()
   const { identity, isAccountantFlow } = useBootstrap()
   useBootstrapSync()
-  useBootstrapPrefill() // Ensures form store gets Mercury/bootstrap data (Manual flow doesn't render ValuationForm)
+  const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
 
   const { isCalculating, error, result, selectedMethod, setSelectedMethod, trySetCalculating, setCalculating, setResult } =
     useManualResultsStore()
@@ -3105,6 +3105,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onFormDataChange: handleFormDataChange,
     formDataRef: latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>,
     hasReport: !!report,
+    readOnlyKbo,
+    autoAdvancePastPrefilledSteps,
     initialData: {
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,

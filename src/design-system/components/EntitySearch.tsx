@@ -599,7 +599,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                       rel="noopener noreferrer"
                       className="text-xs font-medium text-primary hover:text-primary/80"
                     >
-                      {t('searchOnKboDirectly')}
+                      {t('searchOnRegistryDirectly')}
                     </a>
                   </div>
                 </div>
@@ -612,7 +612,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                     rel="noopener noreferrer"
                     className="mt-2 inline-block text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                   >
-                    {t('searchOnKboDirectly')}
+                    {t('searchOnRegistryDirectly')}
                   </a>
                   {value.length >= 3 && (
                     <button

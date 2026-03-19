@@ -134,9 +134,7 @@ interface ManualInputPanelProps {
   ) => void
   isCalculating?: boolean
   initialData?: Partial<ValuationFormData>
-  // Contextual AI assistant integration
   onFieldHelpRequest?: (context: FieldHelpContext) => void
-  // Quick actions for high-impact normalizations
   quickActions?: QuickNormalizationAction[]
   onQuickActionAccept?: (id: string) => void
   onQuickActionReject?: (id: string) => void
@@ -147,6 +145,10 @@ interface ManualInputPanelProps {
   formDataRef?: React.MutableRefObject<Record<string, unknown> | null>
   /** When true, valuation is complete (report exists) — progress header is hidden. */
   hasReport?: boolean
+  /** STP: When true, KBO fields are pre-filled from backend enrichment and shown as read-only */
+  readOnlyKbo?: boolean
+  /** STP: When true, auto-advance past steps that are fully pre-filled */
+  autoAdvancePastPrefilledSteps?: boolean
 }
 
 // Options
@@ -234,6 +236,8 @@ export function ManualInputPanel({
   onFormDataChange,
   formDataRef,
   hasReport = false,
+  readOnlyKbo = false,
+  autoAdvancePastPrefilledSteps = false,
 }: ManualInputPanelProps) {
   const t = useTranslations()
   const mi = useTranslations('manualInput')
@@ -432,6 +436,27 @@ export function ManualInputPanel({
     updateFormData,
   ])
 
+  // STP: Auto-advance past pre-filled steps by scrolling to first incomplete section
+  const financialsStepRef = useRef<HTMLElement>(null)
+  const normalizationsStepRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!autoAdvancePastPrefilledSteps) return
+    const hasPrefilledCompany = !!formData.companyName && !!formData.businessType
+    const hasPrefilledFinancials = formData.yearlyFinancials.some(
+      (yf) => yf.revenue > 0 || yf.ebitda !== 0
+    )
+
+    const timer = setTimeout(() => {
+      if (hasPrefilledCompany && hasPrefilledFinancials && normalizationsStepRef.current) {
+        normalizationsStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else if (hasPrefilledCompany && financialsStepRef.current) {
+        financialsStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [autoAdvancePastPrefilledSteps, formData.companyName, formData.businessType, formData.yearlyFinancials])
+
   // Sync form data to parent for AI context and normalization modal originalEBITDA
   // Immediate sync on mount/deps change (avoids 300ms race when opening modal quickly)
   // Debounced 300ms prevents spamming on rapid edits
@@ -579,11 +604,13 @@ export function ManualInputPanel({
     }
   }, [formData.yearlyFinancials, hasExplicitNumericValue, normalizationItems])
 
-  // KBO search: real registry API (Titan) with AbortSignal, throws on failure for retry UI
+  const searchCountry = formData.country || 'BE'
+
+  // Registry search: routes to KBO (BE) or KVK (NL) based on form country
   const kboSearchFn = useCallback(
     async (query: string, signal?: AbortSignal): Promise<KBOCompany[]> => {
       if (!query || query.trim().length < 2) return []
-      const response = await registryService.searchCompanies(query.trim(), 'BE', 15, signal)
+      const response = await registryService.searchCompanies(query.trim(), searchCountry, 15, signal)
       if (!response.success) {
         throw new Error(response.error || tKbo('searchUnavailable'))
       }
@@ -602,7 +629,7 @@ export function ManualInputPanel({
         naceDescription: r.nace_description || '',
       }))
     },
-    [tKbo]
+    [tKbo, searchCountry]
   )
 
   // Business types from Titan API (instead of hardcoded)
@@ -1137,19 +1164,29 @@ export function ManualInputPanel({
                 </h3>
               </div>
 
-              <KBOSearchInput
-                label={mi('fields.companyNameOrKbo')}
-                value={companySearchValue}
-                onChange={setCompanySearchValue}
-                onCompanySelect={handleCompanySelect}
-                selectedCompany={selectedCompany}
-                onClear={handleClearCompany}
-                searchFn={kboSearchFn}
-                minQueryLength={2}
-                debounceMs={400}
-                size="sm"
-                disabled={isCalculating}
-              />
+              {readOnlyKbo && selectedCompany ? (
+                <div className="rounded-lg border border-foreground/[0.08] bg-muted/30 px-3 py-2.5">
+                  <p className="text-xs text-foreground/50 mb-0.5">{mi('fields.companyNameOrKbo')}</p>
+                  <p className="text-sm font-medium text-foreground">{selectedCompany.company_name}</p>
+                  {selectedCompany.kbo_number && (
+                    <p className="text-xs text-foreground/40 font-mono mt-0.5">KBO {selectedCompany.kbo_number}</p>
+                  )}
+                </div>
+              ) : (
+                <KBOSearchInput
+                  label={mi('fields.companyNameOrKbo')}
+                  value={companySearchValue}
+                  onChange={setCompanySearchValue}
+                  onCompanySelect={handleCompanySelect}
+                  selectedCompany={selectedCompany}
+                  onClear={handleClearCompany}
+                  searchFn={kboSearchFn}
+                  minQueryLength={2}
+                  debounceMs={400}
+                  size="sm"
+                  disabled={isCalculating}
+                />
+              )}
 
               <AnimatePresence>
                 {selectedCompany && (
@@ -1325,6 +1362,7 @@ export function ManualInputPanel({
             {/* Step 3: Multi-Year Financials */}
             {selectedCompany && hasBusinessType && (
               <motion.section
+                ref={financialsStepRef}
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-4 pt-2"

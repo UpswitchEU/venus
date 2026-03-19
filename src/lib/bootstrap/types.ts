@@ -161,6 +161,10 @@ export interface PrefillData {
   confidence: number // 0-1 how complete the prefill is
   fieldsPopulated: string[]
   fieldsRemaining: string[]
+  /** STP: When true, KBO data was enriched by Titan backend — show as read-only */
+  readOnlyKbo?: boolean
+  /** STP: When true, all key fields are pre-filled — auto-advance past completed steps */
+  autoAdvancePastPrefilledSteps?: boolean
 }
 
 // ============================================================================

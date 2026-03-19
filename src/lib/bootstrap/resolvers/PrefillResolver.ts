@@ -105,10 +105,12 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     const sources: PrefillSource[] = []
 
     try {
+      const resolvedCountryCode = (sessionData as any)?.country_code || 'BE'
+
       // Parallel fetch from all sources
       const [kboResult, profileResult, sessionResult] = await Promise.all([
         hints.hasPrefilledQuery && context.prefilledQuery
-          ? this.fetchKBO(context.prefilledQuery)
+          ? this.fetchKBO(context.prefilledQuery, resolvedCountryCode)
           : Promise.resolve(null),
         identity?.type === 'authenticated' || identity?.type === 'accountant_for_client'
           ? this.fetchUserProfile(identity)
@@ -162,6 +164,12 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         confidence: confidence.toFixed(2),
       })
 
+      // STP: Detect if this is a synced client with KBO data enriched by backend
+      const isAccountantFlow = identity?.type === 'accountant_for_client'
+      const hasKboFromBackend = !!(companyInfo?.kboNumber && (kboData || profileResult?.companyInfo?.kboNumber))
+      const readOnlyKbo = isAccountantFlow && hasKboFromBackend
+      const autoAdvancePastPrefilledSteps = readOnlyKbo && confidence > 0.5
+
       return {
         success: true,
         data: {
@@ -173,6 +181,8 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
           confidence,
           fieldsPopulated: populatedFields,
           fieldsRemaining: remainingFields,
+          readOnlyKbo,
+          autoAdvancePastPrefilledSteps,
         },
         source: sources.join('+') || 'none',
         durationMs: performance.now() - startTime,
@@ -206,7 +216,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
   /**
    * Fetch KBO registry data by company name search
    */
-  private async fetchKBO(query: string): Promise<{
+  private async fetchKBO(query: string, countryCode: string = 'BE'): Promise<{
     companyInfo?: CompanyInfo
     kboData?: KBOCompanyEntity
   } | null> {
@@ -219,7 +229,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         credentials: 'include',
         body: JSON.stringify({
           company_name: query,
-          country_code: 'BE',
+          country_code: countryCode,
           limit: 1,
         }),
         signal: controller.signal,

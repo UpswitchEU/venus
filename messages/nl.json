@@ -468,8 +468,9 @@
       "manualEntry": "In plaats daarvan handmatig invoeren",
       "searchFailed": "Zoeken mislukt",
       "retry": "Opnieuw proberen",
-      "noResultsHint": "Geen bedrijven gevonden. Zoek direct in het Belgische bedrijfsregister.",
+      "noResultsHint": "Geen bedrijven gevonden. Zoek direct in het bedrijfsregister.",
       "searchOnKboDirectly": "Zoek direct op KBO",
+      "searchOnRegistryDirectly": "Zoek direct in het bedrijfsregister",
       "selectCompanyFromList": "Selecteer een bedrijf uit de lijst hieronder:",
       "noneOfTheseMatch": "Geen van deze komt overeen"
     }
@@ -577,8 +578,9 @@
       "manualEntry": "Handmatig invoeren",
       "searchFailed": "Zoeken mislukt",
       "retry": "Opnieuw proberen",
-      "noResultsHint": "Geen bedrijven gevonden. Zoek direct in het Belgische bedrijfsregister.",
-      "searchOnKboDirectly": "Zoek direct op KBO"
+      "noResultsHint": "Geen bedrijven gevonden. Zoek direct in het bedrijfsregister.",
+      "searchOnKboDirectly": "Zoek direct op KBO",
+      "searchOnRegistryDirectly": "Zoek direct in het bedrijfsregister"
     },
     "suggestions": {
       "title": "Suggesties",
@@ -1826,8 +1828,9 @@
     "searchUnavailable": "Zoekfunctie tijdelijk niet beschikbaar. Probeer het later opnieuw.",
     "searchFailed": "Zoeken mislukt",
     "noCompaniesFound": "Geen bedrijven gevonden.",
-    "noResultsHint": "Geen bedrijven gevonden. Zoek direct in het Belgische bedrijfsregister.",
+    "noResultsHint": "Geen bedrijven gevonden. Zoek direct in het bedrijfsregister.",
     "searchOnKboDirectly": "Zoek direct op KBO",
+    "searchOnRegistryDirectly": "Zoek direct in het bedrijfsregister",
     "companyNameOrKbo": "Bedrijfsnaam of KBO-nummer",
     "searchPlaceholder": "Zoek...",
     "minCharsHint": "Typ minstens {count} karakters om te zoeken.",
