@@ -22,6 +22,7 @@ import {
   FileSpreadsheet,
   HelpCircle,
   Link2,
+  Loader2,
   Plus,
   X,
 } from 'lucide-react'
@@ -57,6 +58,7 @@ import { useCanSave } from '../../hooks/useCanSave'
 import { looksLikeNaceCode, naceBusinessTypeService } from '../../services/naceBusinessTypeService'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
+import { accountingAPI } from '../../services/api/accounting'
 import { shouldShowLedgerUploadHint } from '../../config/features'
 import { trackValuationMethodComingSoon } from '../../lib/analytics'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
@@ -731,6 +733,45 @@ export function ManualInputPanel({
     updateField('yearlyFinancials', updated)
   }
 
+  // Import from Yuki - fetch financials and prefill current year
+  const [importingFromYuki, setImportingFromYuki] = useState(false)
+  const [importYukiError, setImportYukiError] = useState<string | null>(null)
+  const handleImportFromYuki = useCallback(async () => {
+    setImportYukiError(null)
+    setImportingFromYuki(true)
+    try {
+      const res = await accountingAPI.getYukiFinancialData()
+      const d = res.data
+      const year = String(d.fiscal_year ?? new Date().getFullYear())
+      const revenue = Number(d.revenue) || 0
+      const ebitda = d.ebitda != null ? Number(d.ebitda) : 0
+
+      setFormData((prev) => {
+        const existing = prev.yearlyFinancials.find((yf) => yf.year === year)
+        let updated: typeof prev.yearlyFinancials
+        if (existing) {
+          updated = prev.yearlyFinancials.map((yf) =>
+            yf.year === year ? { ...yf, revenue, ebitda } : yf
+          )
+        } else {
+          updated = [{ year, revenue, ebitda }, ...prev.yearlyFinancials]
+        }
+        return { ...prev, yearlyFinancials: updated }
+      })
+      import('sonner').then(({ toast }) =>
+        toast.success(mi('importFromYukiSuccess') || 'Financial data imported from Yuki')
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to import'
+      setImportYukiError(msg)
+      import('sonner').then(({ toast }) =>
+        toast.error(mi('importFromYukiError') || 'Import failed', { description: msg })
+      )
+    } finally {
+      setImportingFromYuki(false)
+    }
+  }, [mi])
+
 
   // ─── Field-level Validation ───
   const fieldValidation = useMemo(() => {
@@ -1303,9 +1344,31 @@ export function ManualInputPanel({
                 </div>
 
                 {/* Step indicator */}
-                <div className="text-xs text-foreground/40 -mt-1 ml-8">
-                  {mi('financialInstruction')}
+                <div className="flex items-center justify-between gap-2 -mt-1 ml-8">
+                  <div className="text-xs text-foreground/40">
+                    {mi('financialInstruction')}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleImportFromYuki}
+                    disabled={importingFromYuki}
+                    className={cn(
+                      'text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg',
+                      'text-primary hover:bg-primary/10 transition-colors',
+                      importingFromYuki && 'opacity-60 cursor-not-allowed'
+                    )}
+                  >
+                    {importingFromYuki ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Link2 className="w-3 h-3" />
+                    )}
+                    {mi('importFromYuki') || 'Import from Yuki'}
+                  </button>
                 </div>
+                {importYukiError && (
+                  <p className="text-xs text-destructive ml-8">{importYukiError}</p>
+                )}
 
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
                 {hasEbitdaValue && hasFinancials && totalYearsWithEbitda > 0 && (
