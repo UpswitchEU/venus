@@ -1555,7 +1555,8 @@
       "octopus": "Octopus",
       "accountable": "Accountable",
       "csv": "CSV Upload",
-      "ai": "AI"
+      "ai": "AI",
+      "auto": "Auto (STP)"
     },
     "table": {
       "soort": "Type",
@@ -2094,5 +2095,11 @@
     "sentDescription": "An email with the interactive report has been sent to {email}",
     "linkCopied": "Link copied to clipboard",
     "copyFailed": "Could not copy link"
+  },
+  "omniCalc": {
+    "title": "Method Comparison",
+    "available": "available",
+    "selected": "Selected",
+    "fiscalAnchor": "Fiscal reference (4× EBITDA)"
   }
 }

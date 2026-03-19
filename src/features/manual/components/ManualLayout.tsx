@@ -55,6 +55,7 @@ import {
 } from '../../../components/calculator'
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
+import { OmniCalcPanel } from '../../../components/calculator/OmniCalcPanel'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { springDefault } from '../../../design-system/components/motion'
@@ -3463,30 +3464,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       {report?.htmlReport ? (
                         <>
                           {result?.valuation_results && (
-                            <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-2 bg-background/95 backdrop-blur-sm border-b border-border">
-                              <label
-                                htmlFor="omni-calc-method-select"
-                                className="text-xs font-medium text-foreground/60 whitespace-nowrap"
-                              >
-                                Waarderingsmethode
-                              </label>
-                              <select
-                                id="omni-calc-method-select"
-                                value={selectedMethod}
-                                onChange={(e) => setSelectedMethod(e.target.value)}
-                                className="text-sm bg-foreground/[0.03] border border-border rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                              >
-                                {Object.entries(result.valuation_results).map(([key, method]) => (
-                                  <option key={key} value={key} disabled={!method.available}>
-                                    {method.label}{!method.available ? ' (niet beschikbaar)' : ''}
-                                  </option>
-                                ))}
-                              </select>
-                              {result.fiscal_4x_anchor != null && (
-                                <span className="ml-auto text-xs text-foreground/40" title="Fiscale referentiewaarde (4x EBITDA)">
-                                  Fiscaal: €{Number(result.fiscal_4x_anchor).toLocaleString('nl-NL', { maximumFractionDigits: 0 })}
-                                </span>
-                              )}
+                            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+                              <OmniCalcPanel
+                                valuationResults={result.valuation_results}
+                                selectedMethod={selectedMethod}
+                                onSelectMethod={setSelectedMethod}
+                                fiscalAnchor={result.fiscal_4x_anchor}
+                                compact
+                              />
                             </div>
                           )}
                           <div className="valuation-report">

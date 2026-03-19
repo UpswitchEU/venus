@@ -1555,7 +1555,8 @@
       "octopus": "Octopus",
       "accountable": "Accountable",
       "csv": "CSV Upload",
-      "ai": "AI"
+      "ai": "AI",
+      "auto": "Auto (STP)"
     },
     "table": {
       "soort": "Soort",
@@ -2094,5 +2095,11 @@
     "sentDescription": "Een e-mail met het interactief rapport is verstuurd naar {email}",
     "linkCopied": "Link gekopieerd naar klembord",
     "copyFailed": "Kon link niet kopiëren"
+  },
+  "omniCalc": {
+    "title": "Methodevergelijking",
+    "available": "beschikbaar",
+    "selected": "Geselecteerd",
+    "fiscalAnchor": "Fiscale referentie (4× EBITDA)"
   }
 }

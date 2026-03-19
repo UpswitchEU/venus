@@ -90,6 +90,7 @@ export type NormalizationSource =
   | 'accountable'
   | 'csv'
   | 'ai'
+  | 'auto'
 export type NormalizationStatus = 'pending' | 'accepted' | 'rejected'
 
 import {
@@ -164,6 +165,7 @@ const sourceConfig: Record<NormalizationSource, { labelKey: string; color: strin
   accountable: { labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },
   csv: { labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
   ai: { labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
+  auto: { labelKey: 'sources.auto', color: 'bg-success/10 text-success' },
 }
 
 const typeOptions: {

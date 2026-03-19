@@ -75,6 +75,7 @@ const sourceColors: Record<NormalizationSource, string> = {
   accountable: 'bg-emerald-500/10 text-emerald-600',
   csv: 'bg-warning/10 text-warning',
   ai: 'bg-primary/10 text-primary',
+  auto: 'bg-success/10 text-success',
 }
 
 /**
@@ -176,8 +177,12 @@ export function NormalizationTableView({
         manual: { label: t('sources.manual'), color: sourceColors.manual },
         yuki: { label: t('sources.yuki'), color: sourceColors.yuki },
         exact: { label: t('sources.exact'), color: sourceColors.exact },
+        odoo: { label: t('sources.odoo'), color: sourceColors.odoo },
+        octopus: { label: t('sources.octopus'), color: sourceColors.octopus },
+        accountable: { label: t('sources.accountable'), color: sourceColors.accountable },
         csv: { label: t('sources.csv'), color: sourceColors.csv },
         ai: { label: t('sources.ai'), color: sourceColors.ai },
+        auto: { label: t('sources.auto'), color: sourceColors.auto },
       }) as Record<NormalizationSource, { label: string; color: string }>,
     [t]
   )
@@ -554,8 +559,12 @@ export function NormalizationBentoView({
         manual: { label: t('sources.manual'), color: sourceColors.manual },
         yuki: { label: t('sources.yuki'), color: sourceColors.yuki },
         exact: { label: t('sources.exact'), color: sourceColors.exact },
+        odoo: { label: t('sources.odoo'), color: sourceColors.odoo },
+        octopus: { label: t('sources.octopus'), color: sourceColors.octopus },
+        accountable: { label: t('sources.accountable'), color: sourceColors.accountable },
         csv: { label: t('sources.csv'), color: sourceColors.csv },
         ai: { label: t('sources.ai'), color: sourceColors.ai },
+        auto: { label: t('sources.auto'), color: sourceColors.auto },
       }) as Record<NormalizationSource, { label: string; color: string }>,
     [t]
   )

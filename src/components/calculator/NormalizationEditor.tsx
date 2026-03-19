@@ -61,6 +61,8 @@ export type NormalizationSource =
   | 'octopus'
   | 'accountable'
   | 'csv'
+  | 'ai'
+  | 'auto'
 
 export type { LedgerAccount } from '../../constants/grootboek'
 
@@ -112,6 +114,8 @@ const sourceOptions: { value: NormalizationSource; labelKey: string; color: stri
   { value: 'octopus', labelKey: 'sources.octopus', color: 'bg-blue-500/10 text-blue-600' },
   { value: 'accountable', labelKey: 'sources.accountable', color: 'bg-emerald-500/10 text-emerald-600' },
   { value: 'csv', labelKey: 'sources.csv', color: 'bg-warning/10 text-warning' },
+  { value: 'ai', labelKey: 'aiSuggestion', color: 'bg-primary/10 text-primary' },
+  { value: 'auto', labelKey: 'sources.auto', color: 'bg-success/10 text-success' },
 ]
 
 const formatCurrency = (amount: number) => {
