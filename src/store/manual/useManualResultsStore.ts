@@ -14,13 +14,16 @@
  */
 
 import { create } from 'zustand'
-import type { ValuationResponse } from '../../types/valuation'
+import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
 import { storeLogger } from '../../utils/logger'
 
 interface ManualResultsStore {
   // Results state
   result: ValuationResponse | null
   htmlReport: string | null
+
+  // Omni-Calc: selected valuation method
+  selectedMethod: string
 
   // Calculation state
   isCalculating: boolean
@@ -29,9 +32,13 @@ interface ManualResultsStore {
   // Progress tracking (for long calculations)
   calculationProgress: number
 
+  // Omni-Calc: derived active valuation from selected method
+  getActiveValuation: () => ValuationMethodResult | null
+
   // Actions (all atomic with functional updates)
   setResult: (result: ValuationResponse | null) => void
   setHtmlReport: (html: string) => void
+  setSelectedMethod: (method: string) => void
   setError: (error: string | null) => void
   clearError: () => void
   clearResults: () => void
@@ -51,9 +58,23 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   // Initial state
   result: null,
   htmlReport: null,
+  selectedMethod: 'upswitch_adaptive',
   isCalculating: false,
   error: null,
   calculationProgress: 0,
+
+  getActiveValuation: () => {
+    const { result, selectedMethod } = get()
+    if (!result?.valuation_results) return null
+    return result.valuation_results[selectedMethod] ?? null
+  },
+
+  setSelectedMethod: (method: string) => {
+    set((state) => {
+      storeLogger.info('[Manual] Valuation method switched', { method })
+      return { ...state, selectedMethod: method }
+    })
+  },
 
   // Set result (atomic)
   setResult: (result: ValuationResponse | null) => {
@@ -175,6 +196,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
       ...state,
       result: null,
       htmlReport: null,
+      selectedMethod: 'upswitch_adaptive',
       error: null,
       calculationProgress: 0,
     }))

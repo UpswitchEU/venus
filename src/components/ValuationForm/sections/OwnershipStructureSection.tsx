@@ -66,13 +66,18 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
           <AuroraNumberInput
             label={t('equityStakeForSale')}
             placeholder={t('equityStakePlaceholder')}
-            value={formData.shares_for_sale || 100}
-            onChange={(e) => updateFormData({ shares_for_sale: parseFloat(e.target.value) || 100 })}
+            value={formData.shares_for_sale ?? 100}
+            onChange={(e) =>
+              updateFormData({
+                shares_for_sale:
+                  e.target.value === '' ? undefined : Number.parseFloat(e.target.value),
+              })
+            }
             onBlur={() => {}}
             name="shares_for_sale"
             min={0}
             max={100}
-            step={0.1}
+            step={0.01}
             suffix="%"
             helpText={t('equityStakeHelp')}
           />

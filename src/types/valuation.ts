@@ -696,6 +696,17 @@ export interface MultiplePipeline {
   discount_waterfall?: WaterfallStep[]
 }
 
+/** Omni-Calc: a single valuation method's result. */
+export interface ValuationMethodResult {
+  value: number | null
+  label: string
+  multiple_used?: number | null
+  wacc?: number | null
+  available: boolean
+  unavailable_reason?: string | null
+  details?: Record<string, unknown> | null
+}
+
 export interface ValuationResponse {
   valuation_id: string
   company_name: string
@@ -954,6 +965,10 @@ export interface ValuationResponse {
   // Additional data
   current_year_data?: YearDataInput // For accessing revenue, ebitda, etc.
   historical_years_data?: YearDataInput[] // Historical financial data for trend analysis
+
+  // Omni-Calc: all methods calculated simultaneously
+  valuation_results?: Record<string, ValuationMethodResult>
+  fiscal_4x_anchor?: number | null
 
   // HTML Reports (REQUIRED for display)
   /** Complete Accountant View HTML report (20-30 pages) */

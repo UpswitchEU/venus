@@ -37,7 +37,7 @@ function getLocaleCookieOptions(request: NextRequest): { path: string; maxAge: n
  * Detect locale from query param, return_url (Mercury flow), cookie, or Accept-Language header
  */
 function detectLocale(request: NextRequest): string {
-	const localeParam = request.nextUrl.searchParams.get('locale');
+	const localeParam = request.nextUrl.searchParams.get('locale')?.trim();
 	if (localeParam && locales.includes(localeParam as typeof locales[number])) {
 		return localeParam;
 	}
@@ -56,9 +56,15 @@ function detectLocale(request: NextRequest): string {
 			}
 		}
 	}
-	const cookieLocale = request.cookies.get('NEXT_LOCALE')?.value;
+	const cookieLocale = request.cookies.get('NEXT_LOCALE')?.value?.trim();
 	if (cookieLocale && locales.includes(cookieLocale as typeof locales[number])) {
 		return cookieLocale;
+	}
+	// Geo: Belgian/Dutch IP → nl (overrides Accept-Language for first visit)
+	// x-vercel-ip-country is set by Vercel Edge; null locally
+	const country = request.headers.get('x-vercel-ip-country')?.trim()?.toUpperCase();
+	if (country === 'BE' || country === 'NL') {
+		return 'nl';
 	}
 	const acceptLang = request.headers.get('accept-language');
 	if (acceptLang) {

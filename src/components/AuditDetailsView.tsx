@@ -13,7 +13,7 @@ import { ArrowDownRight, ArrowUpRight, Calendar, Clock, Tag, User } from 'lucide
 import { useTranslations } from 'next-intl'
 import { useAuth } from '../hooks/useAuth'
 import type { ValuationVersion } from '../types/ValuationVersion'
-import { formatCurrency, formatVersionAuthor } from '../utils/formatters'
+import { formatCurrency, formatShareholdingPercentage, formatVersionAuthor } from '../utils/formatters'
 
 export interface AuditDetailsViewProps {
   version: ValuationVersion | null
@@ -244,7 +244,7 @@ function formatValue(value: any, field: string, countryCode: string): string {
 
   // Percentage fields (0-100)
   if (field === 'sharesForSale') {
-    return `${value}%`
+    return formatShareholdingPercentage(value)
   }
 
   // Default string representation

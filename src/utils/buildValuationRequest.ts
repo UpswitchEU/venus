@@ -347,7 +347,7 @@ export function buildValuationRequest(
     comparables: formData.comparables || [],
     business_type_id: formData.business_type_id,
     business_type: formData.business_type,
-    shares_for_sale: formData.shares_for_sale || 100,
+    shares_for_sale: formData.shares_for_sale ?? 100,
     business_context: businessContext,
     ...(locale && { locale }),
   }

@@ -83,6 +83,13 @@ export function formatPercentage(value: FormattableValue, decimals = 1): string 
 }
 
 /**
+ * Format a shareholding percentage with fixed two-decimal precision.
+ */
+export function formatShareholdingPercentage(value: FormattableValue): string {
+  return formatPercentage(value, 2)
+}
+
+/**
  * Format a value with thousand separators
  * Supports both string (new API format) and number (legacy format) inputs.
  *

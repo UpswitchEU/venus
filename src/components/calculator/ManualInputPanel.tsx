@@ -60,6 +60,7 @@ import type { CompanySearchResult } from '../../services/registry/types'
 import { shouldShowLedgerUploadHint } from '../../config/features'
 import { trackValuationMethodComingSoon } from '../../lib/analytics'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
+import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { getLastFullFiscalYear } from '../../utils/fiscalYear'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
@@ -271,7 +272,7 @@ export function ManualInputPanel({
     country: initialData.country || 'BE',
     yearFounded: initialData.yearFounded || '',
     businessStructure: initialData.businessStructure || '',
-    equityStake: initialData.equityStake || 100,
+    equityStake: initialData.equityStake ?? 100,
     ownerManagers: initialData.ownerManagers || 1,
     fteEmployees: initialData.fteEmployees ?? 5,
     yearlyFinancials: initialData.yearlyFinancials || generateDefaultYearlyFinancials(),
@@ -956,46 +957,53 @@ export function ManualInputPanel({
     normalizedData.years.some((y) => y.normalizationCount > 0), // Step 4: Normalizations
   ].filter(Boolean).length
 
-  const valuationMethodOptions = useMemo(
-    () => [
+  const { result, selectedMethod, setSelectedMethod } = useManualResultsStore()
+  const valuationResults = result?.valuation_results
+
+  const valuationMethodOptions = useMemo(() => {
+    const methodAvailable = (key: string) =>
+      valuationResults?.[key]?.available === true
+
+    return [
       {
-        value: 'auto',
+        value: 'upswitch_adaptive',
         label: mi('valuationMethod.upswitchRecommended'),
         disabled: false,
       },
       {
-        value: 'ebitda_multiples',
+        value: 'ebitda_multiple',
         label: mi('valuationMethod.ebitdaMultiple'),
-        description: mi('valuationMethod.comingSoon'),
-        disabled: true,
+        description: methodAvailable('ebitda_multiple')
+          ? undefined
+          : valuationResults?.ebitda_multiple?.unavailable_reason ?? mi('valuationMethod.comingSoon'),
+        disabled: !methodAvailable('ebitda_multiple'),
       },
       {
-        value: 'sde_multiples',
+        value: 'sde_multiple',
         label: mi('valuationMethod.sdeMultiple'),
-        description: mi('valuationMethod.comingSoon'),
-        disabled: true,
+        description: methodAvailable('sde_multiple')
+          ? undefined
+          : valuationResults?.sde_multiple?.unavailable_reason ?? mi('valuationMethod.comingSoon'),
+        disabled: !methodAvailable('sde_multiple'),
       },
       {
-        value: 'ev_revenue',
+        value: 'omzet_multiple',
         label: mi('valuationMethod.revenueMultiple'),
-        description: mi('valuationMethod.comingSoon'),
-        disabled: true,
+        description: methodAvailable('omzet_multiple')
+          ? undefined
+          : valuationResults?.omzet_multiple?.unavailable_reason ?? mi('valuationMethod.comingSoon'),
+        disabled: !methodAvailable('omzet_multiple'),
       },
       {
         value: 'dcf',
         label: mi('valuationMethod.dcf'),
-        description: mi('valuationMethod.comingSoon'),
-        disabled: true,
+        description: methodAvailable('dcf')
+          ? undefined
+          : valuationResults?.dcf?.unavailable_reason ?? mi('valuationMethod.comingSoon'),
+        disabled: !methodAvailable('dcf'),
       },
-        {
-          value: 'asset_based',
-          label: mi('valuationMethod.assetBased'),
-          description: mi('valuationMethod.comingSoon'),
-          disabled: true,
-        },
-    ],
-    [mi]
-  )
+    ]
+  }, [mi, valuationResults])
 
   return (
     <>
@@ -1251,8 +1259,9 @@ export function ManualInputPanel({
                     <AuroraInput
                       label={mi('fields.equityStakePercent')}
                       type="number"
-                      min={1}
+                      min={0}
                       max={100}
+                      step={0.01}
                       value={formData.equityStake ?? ''}
                       onChange={(e) => {
                         const n = Number(e.target.value)
@@ -1593,7 +1602,8 @@ export function ManualInputPanel({
                       )}
                     >
                       <span className="text-sm font-medium text-foreground">
-                        {mi('valuationMethod.upswitchRecommended')}
+                        {valuationMethodOptions.find((o) => o.value === selectedMethod)?.label ??
+                          mi('valuationMethod.upswitchRecommended')}
                       </span>
                       <ChevronDown className="w-4 h-4 text-foreground/50 shrink-0" />
                     </button>
@@ -1788,7 +1798,7 @@ export function ManualInputPanel({
 
           <div className="py-4 space-y-2">
             {valuationMethodOptions.map((opt) => {
-              const selected = opt.value === 'auto'
+              const isSelected = opt.value === selectedMethod
               const disabled = opt.disabled ?? false
               return (
                 <button
@@ -1799,6 +1809,7 @@ export function ManualInputPanel({
                     if (disabled) {
                       trackValuationMethodComingSoon(opt.value, 'click')
                     } else {
+                      setSelectedMethod(opt.value)
                       setShowValuationMethodModal(false)
                     }
                   }}
@@ -1811,7 +1822,7 @@ export function ManualInputPanel({
                     disabled
                       ? 'opacity-60 cursor-not-allowed'
                       : 'hover:border-primary/30 hover:bg-primary/5',
-                    selected && 'border-primary/50 bg-primary/5'
+                    isSelected && 'border-primary/50 bg-primary/5'
                   )}
                 >
                   <div className="flex-1 min-w-0">
@@ -1820,7 +1831,7 @@ export function ManualInputPanel({
                       <p className="text-xs text-foreground/50 mt-0.5">{opt.description}</p>
                     )}
                   </div>
-                  {selected && (
+                  {isSelected && (
                     <Check className="w-5 h-5 text-primary shrink-0" aria-hidden />
                   )}
                 </button>

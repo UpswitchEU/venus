@@ -172,8 +172,8 @@ export function detectVersionChanges(
   if (oldData.shares_for_sale !== newData.shares_for_sale) {
     changes.sharesForSale = createChange(
       'sharesForSale',
-      oldData.shares_for_sale || 100,
-      newData.shares_for_sale || 100
+      oldData.shares_for_sale ?? 100,
+      newData.shares_for_sale ?? 100
     )
   }
 

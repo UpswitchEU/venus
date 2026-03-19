@@ -333,7 +333,7 @@ export abstract class DataCollectorBase {
         return this.formatCurrency(value as number)
 
       case 'percentage':
-        return this.formatPercentage(value as number)
+        return this.formatPercentage(field, value as number)
 
       case 'number':
         return this.formatNumber(value as number)
@@ -361,10 +361,16 @@ export abstract class DataCollectorBase {
   /**
    * Format percentage for display
    */
-  private formatPercentage(value: number): string {
+  private formatPercentage(field: DataField, value: number): string {
     // Convert 0-1 to 0-100 for display
     const percentage = value < 1 ? value * 100 : value
-    return `${percentage.toFixed(1)}%`
+    const decimals = this.isShareholdingField(field) ? 2 : 1
+    return `${percentage.toFixed(decimals)}%`
+  }
+
+  private isShareholdingField(field: DataField): boolean {
+    const fieldId = field.id.toLowerCase()
+    return ['shares_for_sale', 'sharesforsale', 'equitystake', 'equity_stake'].includes(fieldId)
   }
 
   /**

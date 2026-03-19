@@ -122,6 +122,24 @@ describe('versionDiffDetection', () => {
       expect(changes.companyName?.from).toBe('Test Company')
       expect(changes.companyName?.to).toBe('Updated Company Name')
     })
+
+    it('should preserve decimal and zero shareholding changes exactly', () => {
+      const withDecimalStake = {
+        ...baseData,
+        shares_for_sale: 33.33,
+      }
+      const withZeroStake = {
+        ...baseData,
+        shares_for_sale: 0,
+      }
+
+      const decimalChange = detectVersionChanges(baseData, withDecimalStake)
+      const zeroChange = detectVersionChanges(withDecimalStake, withZeroStake)
+
+      expect(decimalChange.sharesForSale?.to).toBe(33.33)
+      expect(zeroChange.sharesForSale?.from).toBe(33.33)
+      expect(zeroChange.sharesForSale?.to).toBe(0)
+    })
   })
 
   describe('formatChangesSummary', () => {

@@ -98,6 +98,24 @@ describe('buildValuationRequest', () => {
     expect(result.current_year_data.year).toBe(getLastFullFiscalYear())
   })
 
+  it('preserves two-decimal shareholding values, including explicit zero', () => {
+    const decimalResult = buildValuationRequest(
+      makeFormData({
+        shares_for_sale: 33.33,
+      }),
+      []
+    )
+    const zeroResult = buildValuationRequest(
+      makeFormData({
+        shares_for_sale: 0,
+      }),
+      []
+    )
+
+    expect(decimalResult.shares_for_sale).toBe(33.33)
+    expect(zeroResult.shares_for_sale).toBe(0)
+  })
+
   it('keeps zero EBITDA as the reported baseline for normalization math', () => {
     const lastFullYear = getLastFullFiscalYear()
     const result = buildValuationRequest(

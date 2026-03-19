@@ -105,6 +105,13 @@ class BackendAPI {
     return this.valuationAPI.generatePreviewHtml(data)
   }
 
+  async updateSelectedMethod(
+    reportId: string,
+    selectedMethod: string
+  ): Promise<{ selected_method: string }> {
+    return this.valuationAPI.updateSelectedMethod(reportId, selectedMethod)
+  }
+
   // ===== REPORT OPERATIONS =====
 
   async getReport(reportId: string): Promise<ValuationResponse> {

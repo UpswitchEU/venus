@@ -288,7 +288,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     founding_year: parseInt(data.yearFounded) || new Date().getFullYear() - 5,
     number_of_owners: data.ownerManagers || 1,
     number_of_employees: data.fteEmployees,
-    shares_for_sale: data.equityStake || 100,
+    shares_for_sale: data.equityStake ?? 100,
     business_type: data.businessStructure || 'company',
     revenue: current?.revenue,
     ebitda: current?.ebitda,
@@ -382,7 +382,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useBootstrapSync()
   useBootstrapPrefill() // Ensures form store gets Mercury/bootstrap data (Manual flow doesn't render ValuationForm)
 
-  const { isCalculating, error, result, trySetCalculating, setCalculating, setResult } =
+  const { isCalculating, error, result, selectedMethod, setSelectedMethod, trySetCalculating, setCalculating, setResult } =
     useManualResultsStore()
   const { updateFormData } = useManualFormStore()
   const formStoreData = useManualFormStore((s) => s.formData)
@@ -1163,6 +1163,46 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
   }, [result, onComplete, reportId, generatePdf, isMobile, tReport])
 
+  // ─── Omni-Calc: Update displayed valuation when selected method changes ───
+  const prevSelectedMethodRef = useRef(selectedMethod)
+  useEffect(() => {
+    if (!result?.valuation_results || !report) return
+    if (selectedMethod === prevSelectedMethodRef.current) return
+    prevSelectedMethodRef.current = selectedMethod
+
+    const methodData = result.valuation_results[selectedMethod]
+    if (!methodData?.available || methodData.value == null) return
+
+    const val = Number(methodData.value)
+
+    setReport((prev) =>
+      prev
+        ? {
+            ...prev,
+            valuation: val,
+            valuationLow: Math.round(val * 0.8),
+            valuationHigh: Math.round(val * 1.2),
+            multiple: methodData.multiple_used ? Number(methodData.multiple_used) : prev.multiple,
+            recommendedAskingPrice: val,
+          }
+        : prev
+    )
+  }, [selectedMethod, result?.valuation_results])
+
+  // ─── Omni-Calc: Persist method selection to Titan (fire-and-forget) ───
+  const isFirstMethodRender = useRef(true)
+  useEffect(() => {
+    if (isFirstMethodRender.current) {
+      isFirstMethodRender.current = false
+      return
+    }
+    if (!reportId) return
+    const timer = setTimeout(() => {
+      backendAPI.updateSelectedMethod(reportId, selectedMethod).catch(() => {})
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [selectedMethod, reportId])
+
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
 
@@ -1696,7 +1736,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const n = typeof value === 'number' ? value : parseInt(String(value), 10)
         if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_employees: n })
       } else if (field === 'equityStake' || field === 'equity_stake') {
-        const n = typeof value === 'number' ? value : parseInt(String(value), 10)
+        const n = typeof value === 'number' ? value : Number.parseFloat(String(value))
         if (!Number.isNaN(n) && n >= 0 && n <= 100) updateFormData({ shares_for_sale: n })
       }
       const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
@@ -3419,13 +3459,42 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       className="valuation-report-container h-full overflow-y-auto bg-background"
                     >
                       {report?.htmlReport ? (
-                        <div className="valuation-report">
-                          <div
-                            dangerouslySetInnerHTML={{
-                              __html: HTMLProcessor.sanitize(report.htmlReport),
-                            }}
-                          />
-                        </div>
+                        <>
+                          {result?.valuation_results && (
+                            <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-2 bg-background/95 backdrop-blur-sm border-b border-border">
+                              <label
+                                htmlFor="omni-calc-method-select"
+                                className="text-xs font-medium text-foreground/60 whitespace-nowrap"
+                              >
+                                Waarderingsmethode
+                              </label>
+                              <select
+                                id="omni-calc-method-select"
+                                value={selectedMethod}
+                                onChange={(e) => setSelectedMethod(e.target.value)}
+                                className="text-sm bg-foreground/[0.03] border border-border rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                              >
+                                {Object.entries(result.valuation_results).map(([key, method]) => (
+                                  <option key={key} value={key} disabled={!method.available}>
+                                    {method.label}{!method.available ? ' (niet beschikbaar)' : ''}
+                                  </option>
+                                ))}
+                              </select>
+                              {result.fiscal_4x_anchor != null && (
+                                <span className="ml-auto text-xs text-foreground/40" title="Fiscale referentiewaarde (4x EBITDA)">
+                                  Fiscaal: €{Number(result.fiscal_4x_anchor).toLocaleString('nl-NL', { maximumFractionDigits: 0 })}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <div className="valuation-report">
+                            <div
+                              dangerouslySetInnerHTML={{
+                                __html: HTMLProcessor.sanitize(report.htmlReport),
+                              }}
+                            />
+                          </div>
+                        </>
                       ) : (isGenerating || isCalculating) ? (
                         <div className="h-full flex flex-col bg-background">
                           <div className="flex items-center justify-center gap-2 py-4">
