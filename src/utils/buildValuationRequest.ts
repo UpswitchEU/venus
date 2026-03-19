@@ -12,10 +12,30 @@ import { useEbitdaNormalizationStore } from '../store/useEbitdaNormalizationStor
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import type { DataResponse } from '../types/data-collection'
+import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import { getLastFullFiscalYear } from './fiscalYear'
 import { generalLogger } from './logger'
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function requirePositiveRevenue(value: unknown, field: string): number {
+  const revenue = toFiniteNumber(value)
+
+  if (revenue === null || revenue <= 0) {
+    throw new ValidationError('Revenue is required and must be greater than 0.', field, value)
+  }
+
+  return revenue
+}
 
 /**
  * Build ValuationRequest from formData or DataResponse[]
@@ -98,13 +118,7 @@ export function buildValuationRequest(
       : formData.current_year_data?.revenue != null
         ? Number(formData.current_year_data.revenue)
         : null
-  if (rawRevenue === null) {
-    generalLogger.warn(
-      '[buildValuationRequest] Revenue is missing — using 0. Ensure the form validates revenue before submission.',
-      { business_name: companyName, industry }
-    )
-  }
-  const revenue = Math.max(rawRevenue ?? 0, 0)
+  const revenue = requirePositiveRevenue(rawRevenue, 'current_year_data.revenue')
 
   // EBITDA: accept 0 as a legitimate break-even value; only warn if truly absent.
   const rawEbitda =
@@ -236,9 +250,13 @@ export function buildValuationRequest(
         // If normalization exists, use normalized EBITDA
         if (normalization) {
           const reportedEbitda = Number(year.ebitda)
+          const normalizedRevenue = requirePositiveRevenue(
+            year.revenue,
+            `historical_years_data.${year.year}.revenue`
+          )
           return {
             year: Math.min(Math.max(year.year, 2000), 2100),
-            revenue: Math.max(year.revenue ?? 0, 0), // 0 is valid for pre-revenue years
+            revenue: normalizedRevenue,
             ebitda: reportedEbitda + normalization.totalAdjustment,
             ebitda_normalized: true,
             ebitda_normalization_metadata: {
@@ -251,15 +269,41 @@ export function buildValuationRequest(
           }
         }
 
+        const normalizedRevenue = requirePositiveRevenue(
+          year.revenue,
+          `historical_years_data.${year.year}.revenue`
+        )
+
         // No normalization, use reported EBITDA
         return {
           year: Math.min(Math.max(year.year, 2000), 2100),
-          revenue: Math.max(year.revenue ?? 0, 0), // 0 is valid for pre-revenue years
+          revenue: normalizedRevenue,
           ebitda: Number(year.ebitda),
           ebitda_normalized: false,
         }
       })
       .sort((a, b) => a.year - b.year) || []
+
+  const historicalYearSet = new Set<number>()
+  for (const year of historicalYearsData) {
+    if (historicalYearSet.has(year.year)) {
+      throw new ValidationError(
+        `Historical year ${year.year} is duplicated. Each historical year must appear only once.`,
+        'historical_years_data',
+        year.year
+      )
+    }
+
+    if (year.year >= lastFullYear) {
+      throw new ValidationError(
+        `Historical year ${year.year} must be earlier than the current fiscal year ${lastFullYear}.`,
+        'historical_years_data',
+        year.year
+      )
+    }
+
+    historicalYearSet.add(year.year)
+  }
 
   // Normalize recurring revenue percentage (0.0-1.0)
   const recurringRevenuePercentage = Math.min(

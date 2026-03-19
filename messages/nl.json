@@ -329,7 +329,7 @@
     },
     "fields": {
       "businessType": "Bedrijfstype",
-      "industry": "Industrie",
+      "industry": "Sector",
       "businessTypeSearch": "Zoek naar uw bedrijfstype...",
       "businessTypeSelect": "Selecteer bedrijfstype",
       "businessTypeRequired": "Selecteer een bedrijfstype",
@@ -368,7 +368,7 @@
       "ownershipPercentage": "Eigendomspercentage",
       "marketShare": "Marktaandeel",
       "growthRate": "Groeipercentage",
-      "industryCode": "Industriecode",
+      "industryCode": "NACE-code",
       "kboNumber": "KBO Nummer",
       "vatNumber": "BTW Nummer",
       "legalForm": "Rechtsvorm",
@@ -542,7 +542,7 @@
     "fields": {
       "name": "Bedrijfsnaam",
       "type": "Bedrijfstype",
-      "industry": "Industrie",
+      "industry": "Sector",
       "founded": "Opgericht",
       "location": "Locatie",
       "size": "Bedrijfsgrootte",
@@ -626,7 +626,7 @@
     "suggestedListingPrice": "Voorgestelde vraagprijs",
     "negotiationBuffer": "Strategische buffer voor onderhandeling",
     "methodology": "Methodologie",
-    "methodologyText": "De schatting is gebaseerd op een EBITDA-multiplier methode, waarbij de genormaliseerde EBITDA wordt vermenigvuldigd met een branche-specifieke multiple.",
+    "methodologyText": "De schatting is gebaseerd op een EBITDA-multipliermethode, waarbij de genormaliseerde EBITDA wordt vermenigvuldigd met een sector-specifieke multiple.",
     "fullReport": "Volledig rapport",
     "regenerate": "Analyse opnieuw genereren",
     "preview": "Voorbeeld",
@@ -1846,7 +1846,7 @@
     "defaultSuggestion2Description": "Onder-marktwaarde huur",
     "defaultSuggestion2Reason": "Huur € 700/maand onder marktwaarde voor vergelijkbaar pand",
     "potentialNormalisation": "Potentiële normalisatie",
-    "privateUseDetected": "Privégebruik component gedetecteerd op basis van branchevergelijking"
+    "privateUseDetected": "Privégebruik component gedetecteerd op basis van sectorvergelijking"
   },
   "taxLatency": {
     "sectionTitle": "Belastinglatenties",

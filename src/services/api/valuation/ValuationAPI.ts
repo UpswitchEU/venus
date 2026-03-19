@@ -34,6 +34,62 @@ import { APIRequestConfig, HttpClient } from '../HttpClient'
  */
 const VALUATION_TIMEOUT_MS = 120000 // 120 seconds for complex calculations
 
+function extractValidationIssues(errors: unknown): Array<{ field?: string; message: string }> {
+  if (!Array.isArray(errors)) {
+    return []
+  }
+
+  return errors
+    .map((issue) => {
+      if (typeof issue === 'string') {
+        return { message: issue }
+      }
+
+      if (issue && typeof issue === 'object') {
+        const typedIssue = issue as Record<string, unknown>
+        const message =
+          typeof typedIssue.message === 'string'
+            ? typedIssue.message
+            : typeof typedIssue.msg === 'string'
+              ? typedIssue.msg
+              : null
+
+        if (!message) {
+          return null
+        }
+
+        const field =
+          typeof typedIssue.field === 'string'
+            ? typedIssue.field
+            : Array.isArray(typedIssue.loc)
+              ? typedIssue.loc.join('.')
+              : undefined
+
+        return { field, message }
+      }
+
+      return null
+    })
+    .filter((issue): issue is { field?: string; message: string } => issue !== null)
+}
+
+function extractValidationMessage(responseData: any, fallback: string): string {
+  const explicitMessage =
+    typeof responseData?.message === 'string'
+      ? responseData.message
+      : typeof responseData?.error === 'string'
+        ? responseData.error
+        : null
+
+  const issues = extractValidationIssues(responseData?.errors)
+  const issueSummary =
+    issues.length > 0
+      ? issues.map((issue) => (issue.field ? `${issue.field}: ${issue.message}` : issue.message)).join('; ')
+      : null
+
+  return explicitMessage || issueSummary || fallback
+}
+
 export class ValuationAPI extends HttpClient {
   /**
    * Calculate manual valuation (traditional form-based)
@@ -204,6 +260,7 @@ export class ValuationAPI extends HttpClient {
 
     const axiosError = error as any
     const status = axiosError?.response?.status
+    const responseData = axiosError?.response?.data
 
     if (status === 429) {
       throw new RateLimitError('Too many valuation requests. Please wait before trying again.')
@@ -217,9 +274,19 @@ export class ValuationAPI extends HttpClient {
       throw new CreditError('Insufficient credits for valuation calculation.')
     }
 
-    if (status === 400) {
-      const message = axiosError?.response?.data?.message || 'Invalid valuation data provided.'
-      throw new ValidationError(message)
+    if (status === 400 || status === 422) {
+      const message = extractValidationMessage(responseData, 'Invalid valuation data provided.')
+      const field =
+        typeof responseData?.field === 'string'
+          ? responseData.field
+          : extractValidationIssues(responseData?.errors)[0]?.field
+
+      throw new ValidationError(message, field, undefined, {
+        status,
+        code: responseData?.code,
+        hint: responseData?.hint,
+        errors: responseData?.errors,
+      })
     }
 
     if (

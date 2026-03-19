@@ -134,4 +134,46 @@ describe('buildValuationRequest', () => {
     expect(result.current_year_data.ebitda_normalization_metadata?.reported_ebitda).toBe(0)
     expect(result.current_year_data.ebitda_normalization_metadata?.total_adjustments).toBe(10_000)
   })
+
+  it('rejects missing or non-positive current-year revenue', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          revenue: 0,
+          current_year_data: {
+            year: getLastFullFiscalYear(),
+            revenue: 0,
+            ebitda: 100_000,
+          },
+        }),
+        []
+      )
+    ).toThrow('Revenue is required and must be greater than 0.')
+  })
+
+  it('rejects historical revenue that Python would refuse', () => {
+    const lastFullYear = getLastFullFiscalYear()
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          historical_years_data: [{ year: lastFullYear - 1, revenue: 0, ebitda: 90_000 }],
+        }),
+        []
+      )
+    ).toThrow('Revenue is required and must be greater than 0.')
+  })
+
+  it('rejects historical years that duplicate the current fiscal year', () => {
+    const lastFullYear = getLastFullFiscalYear()
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          historical_years_data: [{ year: lastFullYear, revenue: 900_000, ebitda: 90_000 }],
+        }),
+        []
+      )
+    ).toThrow(`Historical year ${lastFullYear} must be earlier than the current fiscal year ${lastFullYear}.`)
+  })
 })

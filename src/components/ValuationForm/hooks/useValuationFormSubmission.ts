@@ -17,6 +17,7 @@ import { valuationAuditService } from '../../../services/audit/ValuationAuditSer
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
+import { ValidationError } from '../../../types/errors'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
@@ -533,13 +534,15 @@ export const useValuationFormSubmission = (
           rawMsg.toLowerCase().includes('network') ||
           rawMsg.toLowerCase().includes('unavailable') ||
           rawMsg.toLowerCase().includes('timeout')
+        const isValidationError = error instanceof ValidationError
         const userMessage = isNetworkError
           ? 'The valuation service is temporarily unavailable. Please try again in a moment.'
+          : isValidationError
+            ? rawMsg
           : 'The valuation could not be completed. Please review your inputs and try again.'
 
         toast.error(userMessage, { duration: 6000 })
-        // Also clear any stale inline validation message so the wrong field isn't highlighted
-        setEmployeeCountError(null)
+        setEmployeeCountError(isValidationError ? rawMsg : null)
         // CRITICAL: Reset isCalculating on error
         setCalculating(false)
       }
