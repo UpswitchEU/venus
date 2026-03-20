@@ -19,6 +19,9 @@ const ValuationFlowSelector = React.lazy(() =>
 const ValuationSessionManager = React.lazy(() =>
   import('./ValuationSessionManager').then((m) => ({ default: m.ValuationSessionManager }))
 )
+const ContributeMultiplePrompt = React.lazy(() =>
+  import('./ContributeMultiplePrompt').then((m) => ({ default: m.ContributeMultiplePrompt }))
+)
 
 /**
  * ValuationReport Component - Next.js Compatible
@@ -137,6 +140,10 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       urlParams.embedded,
     ])
 
+    // Delphi 2.0: Give-to-Get contribution prompt state
+    const [completedResult, setCompletedResult] = React.useState<ValuationResponse | null>(null)
+    const [showContributePrompt, setShowContributePrompt] = React.useState(false)
+
     // Handle valuation completion
     // NOTE: saveCompleteSession is already called in useValuationFormSubmission
     // This callback only handles report API completion for credit tracking
@@ -151,6 +158,10 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
           reportId,
           valuationId: result.valuation_id,
         })
+
+        // Delphi 2.0: Show give-to-get contribution prompt after completion
+        setCompletedResult(result)
+        setTimeout(() => setShowContributePrompt(true), 2000)
       } catch (error) {
         // BANK-GRADE: Specific error handling - report completion failure
         // Don't show error to user as the valuation is already complete locally
@@ -302,6 +313,15 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
             )}
           </ValuationSessionManager>
         </Suspense>
+
+        {showContributePrompt && completedResult && (
+          <Suspense fallback={null}>
+            <ContributeMultiplePrompt
+              result={completedResult}
+              onDismiss={() => setShowContributePrompt(false)}
+            />
+          </Suspense>
+        )}
       </div>
     )
   }

@@ -1309,7 +1309,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const idForApi = resolvedReportId || reportId
         if (idForApi) (request as any).reportId = idForApi
 
-        mergePreparerMultipleIntoRequest(request as Record<string, unknown>)
+        mergePreparerMultipleIntoRequest(request as unknown as Record<string, unknown>)
         const prep = usePreparerMultipleStore.getState()
         if (
           prep.benchmarkMedian != null &&
@@ -1331,7 +1331,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ) {
             setCalculating(false)
             setIsGenerating(false)
-            trySetCalculating(false)
+            trySetCalculating()
             toast.error(tPreparer('extremeWarning'))
             return
           }
@@ -2922,7 +2922,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ;(request as any).dataSource = 'manual'
         ;(request as any).reportId = idForApi
 
-        mergePreparerMultipleIntoRequest(request as Record<string, unknown>)
+        mergePreparerMultipleIntoRequest(request as unknown as Record<string, unknown>)
         const prepN = usePreparerMultipleStore.getState()
         if (
           prepN.benchmarkMedian != null &&

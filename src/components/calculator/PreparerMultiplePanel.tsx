@@ -279,7 +279,7 @@ export function PreparerMultiplePanel({
             {onRecalculate && (
               <AuroraButton
                 type="button"
-                variant="default"
+                variant="primary"
                 size="sm"
                 disabled={disabled}
                 className="w-full text-xs"

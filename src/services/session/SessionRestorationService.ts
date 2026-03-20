@@ -19,6 +19,7 @@ import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
+import { useSpotlightStore } from '../../store/useSpotlightStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import {
   recoverPendingNormalizations,
@@ -592,7 +593,6 @@ class SessionRestorationServiceImpl {
     try {
       const rawIQ = (data.formData as any)?._import_quality
       if (rawIQ && typeof rawIQ === 'object' && Object.keys(rawIQ).length > 0) {
-        const { useSpotlightStore } = await import('../../store/useSpotlightStore')
         useSpotlightStore.getState().setImportQuality(rawIQ)
         generalLogger.info('[SessionRestoration] Import quality hydrated for spotlight mode', {
           years: Object.keys(rawIQ).length,
@@ -835,7 +835,6 @@ class SessionRestorationServiceImpl {
           }
           try {
             if (raw._import_quality && typeof raw._import_quality === 'object') {
-              const { useSpotlightStore } = await import('../../store/useSpotlightStore')
               useSpotlightStore.getState().setImportQuality(raw._import_quality as any)
             }
           } catch {
