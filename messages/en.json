@@ -2126,6 +2126,7 @@
     "reasonPlaceholder": "Select a reason…",
     "reasons": {
       "strategic_buyer_premium": "Strategic buyer premium",
+      "exceptional_management_premium": "Exceptional management premium",
       "key_person_discount": "Key person / dependency discount",
       "real_estate_included": "Real estate included in transaction",
       "customer_concentration": "Customer concentration risk",
@@ -2133,7 +2134,15 @@
       "recurring_revenue_premium": "Recurring revenue premium",
       "other": "Other (see note)"
     },
+    "deltaLabel": "Benchmark delta",
     "noteOptional": "Note (optional)",
+    "previewTitle": "Report footnote preview",
+    "previewLive": "Live draft",
+    "previewSaved": "Saved on report",
+    "adjustmentPremium": "premium",
+    "adjustmentDiscount": "discount",
+    "previewTemplate": "A baseline industry multiple of {benchmark}x was used, derived from the Upswitch SME Index. A {adjustmentLabel} of {delta}x was applied by the preparer ({applied}x total). Justification: {reason}.",
+    "previewNote": "Additional note: {note}.",
     "sliderHint": "Anchor: benchmark median. Drag to adjust; then pick a reason and recalculate.",
     "recalculate": "Recalculate with multiple",
     "recalculateNeedForm": "Complete the calculator form once, then use Recalculate.",

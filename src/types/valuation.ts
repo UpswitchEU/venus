@@ -740,6 +740,24 @@ export interface ValuationResponse {
   overall_confidence: string
   /** Alias for confidence_score - API returns as string for precision */
   confidence?: ApiNumeric // Alias for confidence_score
+  multiple_adjustment_summary?: {
+    metric_key: 'ev_ebitda_median'
+    business_type_id?: string | null
+    benchmark_multiple: number | null
+    selected_multiple: number | null
+    delta_multiple: number | null
+    benchmark_confidence_band?: string | null
+    benchmark_source?: string | null
+    reason_key?: string | null
+    reason_tags?: string[]
+    free_text_reason?: string | null
+    generated_footnote_en?: string | null
+    generated_footnote_nl?: string | null
+    generated_footnote?: string | null
+    acknowledged_extreme?: boolean
+    created_at?: string | null
+    updated_at?: string | null
+  }
 
   // Validation warnings (from backend sanity checks)
   validation_warnings?: ValidationWarning[]

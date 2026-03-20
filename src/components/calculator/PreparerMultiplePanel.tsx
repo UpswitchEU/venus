@@ -18,6 +18,9 @@ interface PreparerMultiplePanelProps {
   className?: string
   /** Re-run valuation with current form + preparer override payload */
   onRecalculate?: () => void
+  industryLabel?: string
+  businessTypeLabel?: string
+  countryCode?: string
 }
 
 export function PreparerMultiplePanel({
@@ -51,6 +54,11 @@ export function PreparerMultiplePanel({
 
   const mv = result?.multiples_valuation
   const appliedNum = appliedMedian != null ? Number(appliedMedian) : null
+  const benchmarkNum = benchmarkMedian ?? (mv?.ebitda_multiple != null ? Number(mv.ebitda_multiple) : null)
+  const deltaNum =
+    appliedNum != null && benchmarkNum != null
+      ? Math.round((appliedNum - benchmarkNum) * 100) / 100
+      : null
   const showExtreme =
     appliedNum != null &&
     clientShouldWarnExtremeMultiple(
@@ -62,7 +70,7 @@ export function PreparerMultiplePanel({
       mv?.p75_ebitda_multiple,
     )
 
-  const bench = benchmarkMedian ?? (mv?.ebitda_multiple != null ? Number(mv.ebitda_multiple) : 5)
+  const bench = benchmarkNum ?? 5
   const sliderMin = Math.max(0.5, Math.round(bench * 0.45 * 20) / 20)
   const sliderMax = Math.min(40, Math.round(bench * 2.2 * 20) / 20)
 
@@ -89,6 +97,26 @@ export function PreparerMultiplePanel({
   else if (qualityRaw.includes('LOW')) confidenceKey = 'confidenceLow'
 
   if (!result?.multiples_valuation?.ebitda_multiple && benchmarkMedian == null) return null
+
+  const savedSummary = result?.multiple_adjustment_summary
+  const livePreview =
+    benchmarkNum != null &&
+    appliedNum != null &&
+    reasonKey &&
+    Math.abs(appliedNum - benchmarkNum) >= 0.005
+      ? t('previewTemplate', {
+          benchmark: benchmarkNum.toFixed(2),
+          applied: appliedNum.toFixed(2),
+          delta: Math.abs(appliedNum - benchmarkNum).toFixed(2),
+          adjustmentLabel: appliedNum >= benchmarkNum ? t('adjustmentPremium') : t('adjustmentDiscount'),
+          reason: t(`reasons.${reasonKey}`),
+        }) + (note.trim() ? ` ${t('previewNote', { note: note.trim() })}` : '')
+      : null
+  const savedPreview =
+    locale === 'nl'
+      ? savedSummary?.generated_footnote_nl ?? savedSummary?.generated_footnote ?? null
+      : savedSummary?.generated_footnote_en ?? savedSummary?.generated_footnote ?? null
+  const previewText = livePreview ?? savedPreview
 
   return (
     <div
@@ -137,6 +165,15 @@ export function PreparerMultiplePanel({
             <label className="text-[10px] font-medium text-foreground/45 uppercase" htmlFor="prep-ev-ebitda">
               {t('applied')}
             </label>
+            {deltaNum != null && Math.abs(deltaNum) >= 0.005 && (
+              <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-2 py-1 text-[10px] text-foreground/55">
+                <span>{t('deltaLabel')}</span>
+                <span className="font-mono tabular-nums text-foreground/75">
+                  {deltaNum > 0 ? '+' : ''}
+                  {deltaNum.toFixed(2)}×
+                </span>
+              </div>
+            )}
             <input
               id="prep-ev-ebitda"
               type="number"
@@ -211,6 +248,19 @@ export function PreparerMultiplePanel({
               className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs resize-none"
             />
           </div>
+          {previewText && (
+            <div className="rounded-md border border-primary/20 bg-primary/[0.05] px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/80">
+                  {t('previewTitle')}
+                </span>
+                <span className="text-[10px] text-primary/65">
+                  {livePreview ? t('previewLive') : t('previewSaved')}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-foreground/75">{previewText}</p>
+            </div>
+          )}
           {showExtreme && (
             <label className="flex items-start gap-2 cursor-pointer">
               <input

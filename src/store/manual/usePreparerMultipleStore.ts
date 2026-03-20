@@ -3,6 +3,7 @@ import { create } from 'zustand'
 /** Mirrors Titan / Mercury preparer_ev_ebitda_override.reason_key */
 export const PREPARER_EBITDA_REASON_KEYS = [
   'strategic_buyer_premium',
+  'exceptional_management_premium',
   'key_person_discount',
   'real_estate_included',
   'customer_concentration',

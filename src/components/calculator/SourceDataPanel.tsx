@@ -87,17 +87,12 @@ export function SourceDataPanel() {
 
   if (!showSourcePanel || !importQuality) return null
 
-  // Gather all provenance from all years (deduplicate by field)
-  const allProvenance: SpotlightFieldProvenance[] = []
-  const seen = new Set<string>()
-  for (const yearQuality of Object.values(importQuality)) {
-    for (const prov of yearQuality.field_provenance ?? []) {
-      if (!seen.has(prov.field)) {
-        seen.add(prov.field)
-        allProvenance.push(prov)
-      }
-    }
-  }
+  const allProvenance: Array<{ yearKey: string; prov: SpotlightFieldProvenance }> =
+    Object.entries(importQuality)
+      .sort(([a], [b]) => Number(b) - Number(a))
+      .flatMap(([yearKey, yearQuality]) =>
+        (yearQuality.field_provenance ?? []).map(prov => ({ yearKey, prov })),
+      )
 
   // Group by category
   const incomeFields = ['revenue', 'cost_of_goods_sold', 'operating_expenses', 'ebitda', 'depreciation', 'interest_expense', 'taxes', 'net_income']
@@ -110,11 +105,11 @@ export function SourceDataPanel() {
     { key: 'balance', label: locale === 'nl' ? 'Balans' : 'Balance Sheet', fields: balanceFields },
   ]
 
-  const toggleField = (field: string) => {
+  const toggleField = (key: string) => {
     setExpandedFields(prev => {
       const next = new Set(prev)
-      if (next.has(field)) next.delete(field)
-      else next.add(field)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
@@ -235,7 +230,7 @@ export function SourceDataPanel() {
         {/* Provenance list */}
         <div className='flex-1 overflow-y-auto'>
           {categories.map(cat => {
-            const catProvenance = allProvenance.filter(p => cat.fields.includes(p.field))
+            const catProvenance = allProvenance.filter(p => cat.fields.includes(p.prov.field))
             if (catProvenance.length === 0) return null
 
             return (
@@ -246,19 +241,20 @@ export function SourceDataPanel() {
                   </span>
                 </div>
 
-                {catProvenance.map(prov => {
+                {catProvenance.map(({ yearKey, prov }) => {
                   const label = FIELD_LABELS[prov.field]
                   const displayLabel = label
                     ? (locale === 'nl' ? label.nl : label.en)
                     : prov.field
                   const methodBadge = METHOD_BADGES[prov.mapping_method] || METHOD_BADGES.manual
-                  const isExpanded = expandedFields.has(prov.field)
+                  const rowKey = `${yearKey}::${prov.field}`
+                  const isExpanded = expandedFields.has(rowKey)
 
                   return (
-                    <div key={prov.field}>
+                    <div key={rowKey}>
                       <button
                         type='button'
-                        onClick={() => toggleField(prov.field)}
+                        onClick={() => toggleField(rowKey)}
                         className='w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-foreground/[0.03] transition-colors'
                       >
                         {isExpanded ? (
@@ -269,6 +265,10 @@ export function SourceDataPanel() {
 
                         <span className='text-xs font-medium text-foreground flex-1 truncate'>
                           {displayLabel}
+                        </span>
+
+                        <span className='text-[10px] text-muted-foreground rounded-full bg-foreground/[0.04] px-1.5 py-0.5'>
+                          {locale === 'nl' ? 'BJ' : 'FY'} {yearKey}
                         </span>
 
                         <span className='text-xs font-mono tabular-nums text-foreground/70'>
@@ -303,7 +303,9 @@ export function SourceDataPanel() {
                                 >
                                   <span className='font-mono text-foreground/50'>MAR {code}</span>
                                   <ArrowRight className='w-2.5 h-2.5 text-foreground/20' />
-                                  <span className='truncate'>{displayLabel}</span>
+                                  <span className='truncate'>
+                                    {displayLabel} · {locale === 'nl' ? 'BJ' : 'FY'} {yearKey}
+                                  </span>
                                 </div>
                               ))}
                             </div>

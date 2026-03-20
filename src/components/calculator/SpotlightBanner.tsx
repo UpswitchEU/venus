@@ -73,6 +73,11 @@ export function SpotlightBanner() {
               {curFlagMsg}
             </p>
           ) : null}
+          <p className='text-[10px] text-muted-foreground/80 mt-1'>
+            {locale === 'nl'
+              ? '“Gereviewd” verbergt alleen deze checklist in Venus. De portefeuille-status wijzigt pas na opslaan/herberekenen.'
+              : '"Reviewed" only clears this Venus checklist. Portfolio status updates after save/recalculation.'}
+          </p>
         </div>
       </div>
 

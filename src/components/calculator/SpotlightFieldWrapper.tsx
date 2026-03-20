@@ -126,7 +126,7 @@ export function SpotlightFieldWrapper({
             )}
           >
             <Check className='w-3 h-3' />
-            {locale === 'nl' ? 'Gereviewd' : 'Reviewed'}
+            {locale === 'nl' ? 'Lokaal gereviewd' : 'Reviewed here'}
           </button>
         </div>
       )}
@@ -134,7 +134,7 @@ export function SpotlightFieldWrapper({
       {isResolved && (
         <div className='flex items-center gap-1.5 mt-1 px-2 text-xs text-emerald-600 dark:text-emerald-400'>
           <Check className='w-3 h-3' />
-          <span>{locale === 'nl' ? 'Bevestigd' : 'Confirmed'}</span>
+          <span>{locale === 'nl' ? 'Lokaal gereviewd' : 'Locally reviewed'}</span>
         </div>
       )}
     </div>

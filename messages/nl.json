@@ -2126,6 +2126,7 @@
     "reasonPlaceholder": "Kies een reden…",
     "reasons": {
       "strategic_buyer_premium": "Premie strategische koper",
+      "exceptional_management_premium": "Premie uitzonderlijk management",
       "key_person_discount": "Korting sleutelpersoon / afhankelijkheid",
       "real_estate_included": "Onroerend goed inbegrepen in transactie",
       "customer_concentration": "Risico klantenconcentratie",
@@ -2133,7 +2134,15 @@
       "recurring_revenue_premium": "Premie terugkerende omzet",
       "other": "Overige (zie notitie)"
     },
+    "deltaLabel": "Afwijking t.o.v. benchmark",
     "noteOptional": "Notitie (optioneel)",
+    "previewTitle": "Preview rapportvoetnoot",
+    "previewLive": "Live concept",
+    "previewSaved": "Bewaard op rapport",
+    "adjustmentPremium": "premie",
+    "adjustmentDiscount": "korting",
+    "previewTemplate": "Er werd een industriemultiple van {benchmark}x gehanteerd, afgeleid van de Upswitch KMO-index. De voorbereider paste een {adjustmentLabel} van {delta}x toe ({applied}x totaal). Rechtvaardiging: {reason}.",
+    "previewNote": "Aanvullende notitie: {note}.",
     "sliderHint": "Anker: benchmarkmediaan. Sleep om aan te passen; kies daarna een reden en herbereken.",
     "recalculate": "Herbereken met multiple",
     "recalculateNeedForm": "Vul het formulier eerst volledig in, daarna Herbereken.",

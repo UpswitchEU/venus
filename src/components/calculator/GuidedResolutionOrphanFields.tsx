@@ -140,7 +140,7 @@ function OrphanFlagCard({
             )}
           >
             <Check className='w-3 h-3' />
-            {locale === 'nl' ? 'Gereviewd' : 'Reviewed'}
+            {locale === 'nl' ? 'Lokaal gereviewd' : 'Reviewed here'}
           </button>
         </div>
       </div>
