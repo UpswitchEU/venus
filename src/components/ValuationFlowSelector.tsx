@@ -58,6 +58,12 @@ interface ValuationFlowSelectorProps {
   urlAction?: string
   /** Open chat drawer on mount when URL has drawer=open (Clarity parity) */
   initialDrawerOpen?: boolean
+  /** Mercury deep link: guided resolution query params */
+  guidedResolution?: {
+    spotlight?: string
+    focusField?: string
+    flagYear?: string
+  }
 }
 
 function LoadingErrorFallback() {
@@ -158,6 +164,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     initialTab = 'preview',
     urlAction,
     initialDrawerOpen = false,
+    guidedResolution,
   }) => {
     const tErrors = useTranslations('errors')
     // ✅ WORLD CLASS: Loading handled upstream by ValuationSessionManager
@@ -223,6 +230,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 initialTab={initialTab}
                 urlAction={urlAction}
                 initialDrawerOpen={initialDrawerOpen}
+                guidedResolution={guidedResolution}
               />
             </Suspense>
           </div>
@@ -263,7 +271,10 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       prevProps.initialMode === nextProps.initialMode &&
       prevProps.initialVersion === nextProps.initialVersion &&
       prevProps.onRetry === nextProps.onRetry &&
-      prevProps.onStartOver === nextProps.onStartOver
+      prevProps.onStartOver === nextProps.onStartOver &&
+      prevProps.guidedResolution?.spotlight === nextProps.guidedResolution?.spotlight &&
+      prevProps.guidedResolution?.focusField === nextProps.guidedResolution?.focusField &&
+      prevProps.guidedResolution?.flagYear === nextProps.guidedResolution?.flagYear
     )
   }
 )

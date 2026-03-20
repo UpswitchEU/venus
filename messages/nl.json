@@ -2097,9 +2097,49 @@
     "copyFailed": "Kon link niet kopiëren"
   },
   "omniCalc": {
-    "title": "Methodevergelijking",
+    "title": "Methodevergelijking (accountantswerkruimte)",
     "available": "beschikbaar",
     "selected": "Geselecteerd",
-    "fiscalAnchor": "Fiscale referentie (4× EBITDA)"
+    "fiscalAnchor": "Fiscale referentie (4× EBITDA)",
+    "rangeModel": "Modelrange",
+    "rangeIllustrative": "Illustratief ±20%",
+    "zeroDraftBlurb": "Technisch pakket — midden en bandbreedte per methode voor uw dossier. Het klantenrapport blijft één duidelijke headline.",
+    "exportZeroDraft": "Download Zero Draft (CSV)",
+    "zeroDraftFilename": "upswitch-zero-draft-{reportId}.csv"
+  },
+  "preparerMultiple": {
+    "title": "EV/EBITDA-multiple (gevorderd)",
+    "description": "De Upswitch KMO-indexbenchmark is uw anker—pas enkel aan waar uw oordeel dat vereist. Gestructureerde redenen helpen Upswitch de marktkalibratie in de tijd te verfijnen, terwijl het klantenrapport één duidelijk hoofdcijfer blijft.",
+    "benchmark": "Upswitch-benchmark (verankerd)",
+    "contextSeparator": " · ",
+    "benchmarkAnchored": "Upswitch KMO-index — {context}: {multiple}×",
+    "benchmarkAnchoredShort": "Upswitch KMO-index benchmark (bedrijfstypekalibratie): {multiple}×",
+    "benchmarkConfidence": "Benchmarksignaal: {level}",
+    "confidenceHigh": "Hoog",
+    "confidenceMedium": "Gemiddeld",
+    "confidenceLow": "Laag",
+    "confidenceDefault": "Zo gekalibreerd",
+    "scoreLabel": "score {score}/100",
+    "benchmarkHint": "Gebaseerd op de Upswitch KMO-index voor dit bedrijfstype.",
+    "applied": "Toegepaste multiple",
+    "reason": "Rechtvaardiging",
+    "reasonPlaceholder": "Kies een reden…",
+    "reasons": {
+      "strategic_buyer_premium": "Premie strategische koper",
+      "key_person_discount": "Korting sleutelpersoon / afhankelijkheid",
+      "real_estate_included": "Onroerend goed inbegrepen in transactie",
+      "customer_concentration": "Risico klantenconcentratie",
+      "distressed_sale": "Gedwongen of moeilijke verkoop",
+      "recurring_revenue_premium": "Premie terugkerende omzet",
+      "other": "Overige (zie notitie)"
+    },
+    "noteOptional": "Notitie (optioneel)",
+    "sliderHint": "Anker: benchmarkmediaan. Sleep om aan te passen; kies daarna een reden en herbereken.",
+    "recalculate": "Herbereken met multiple",
+    "recalculateNeedForm": "Vul het formulier eerst volledig in, daarna Herbereken.",
+    "extremeWarning": "Deze multiple ligt ver buiten het typische bereik voor dit bedrijfstype. Bevestig om verder te gaan.",
+    "resetBenchmark": "Terug naar benchmark",
+    "recalcHint": "Pas het formulier aan en herbereken — uw aanpassing wordt meegestuurd wanneer ze afwijkt van de benchmark en een reden is gekozen.",
+    "extremeServerToast": "Multiple buiten de guardrails: vink de bevestiging aan en probeer opnieuw, of nader tot de benchmark."
   }
 }

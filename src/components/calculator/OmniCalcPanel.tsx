@@ -1,9 +1,12 @@
 'use client'
 
-import { Check } from 'lucide-react'
+import { Check, Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
+import { AuroraButton } from '@/design-system/components/Button'
 import type { ValuationMethodResult } from '../../types/valuation'
+import { getOmniMethodEquityRange } from '../../utils/omniCalcRange'
+import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
 
 interface OmniCalcPanelProps {
   valuationResults: Record<string, ValuationMethodResult>
@@ -11,6 +14,11 @@ interface OmniCalcPanelProps {
   onSelectMethod: (method: string) => void
   fiscalAnchor?: number | null
   compact?: boolean
+  /** Accountant-only: export all methods to CSV (Zero Draft package) */
+  showZeroDraftExport?: boolean
+  zeroDraftReportId?: string
+  zeroDraftBusinessName?: string | null
+  zeroDraftCreatedAt?: string | null
 }
 
 const formatCurrency = (amount: number) =>
@@ -26,6 +34,10 @@ export function OmniCalcPanel({
   onSelectMethod,
   fiscalAnchor,
   compact = false,
+  showZeroDraftExport = false,
+  zeroDraftReportId,
+  zeroDraftBusinessName,
+  zeroDraftCreatedAt,
 }: OmniCalcPanelProps) {
   const t = useTranslations('omniCalc')
 
@@ -49,6 +61,14 @@ export function OmniCalcPanel({
           const isSelected = key === selectedMethod
           const isAvailable = method.available
           const value = method.value != null ? Number(method.value) : null
+          const range =
+            isAvailable && value != null
+              ? getOmniMethodEquityRange({
+                  value: method.value,
+                  available: method.available,
+                  details: method.details ?? undefined,
+                })
+              : null
 
           return (
             <button
@@ -97,9 +117,16 @@ export function OmniCalcPanel({
                     )}>
                       {formatCurrency(value)}
                     </span>
-                    <span className="block text-[10px] text-foreground/30 tabular-nums">
-                      {formatCurrency(Math.round(value * 0.8))} – {formatCurrency(Math.round(value * 1.2))}
-                    </span>
+                    {range && (
+                      <>
+                        <span className="block text-[10px] text-foreground/30 tabular-nums">
+                          {formatCurrency(range.low)} – {formatCurrency(range.high)}
+                        </span>
+                        <span className="block text-[9px] text-foreground/25 uppercase tracking-wide">
+                          {range.source === 'model' ? t('rangeModel') : t('rangeIllustrative')}
+                        </span>
+                      </>
+                    )}
                     {method.multiple_used != null && (
                       <span className="block text-[10px] text-foreground/40 tabular-nums">
                         {Number(method.multiple_used).toFixed(1)}x
@@ -128,6 +155,34 @@ export function OmniCalcPanel({
           <span className="text-xs font-mono font-medium text-foreground/60 tabular-nums">
             {formatCurrency(Number(fiscalAnchor))}
           </span>
+        </div>
+      )}
+
+      {showZeroDraftExport && zeroDraftReportId && entries.length > 0 && (
+        <div className="pt-1 border-t border-border/40 space-y-1">
+          <p className="text-[10px] text-foreground/45 leading-snug px-0.5">{t('zeroDraftBlurb')}</p>
+          <AuroraButton
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full text-xs gap-2"
+            onClick={() => {
+              const csv = buildZeroDraftCsv({
+                reportId: zeroDraftReportId,
+                businessName: zeroDraftBusinessName,
+                createdAt: zeroDraftCreatedAt ?? undefined,
+                fiscalAnchor: fiscalAnchor ?? undefined,
+                selectedMethod,
+                methods: valuationResults,
+              })
+              const rawName = t('zeroDraftFilename', { reportId: zeroDraftReportId })
+              const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_')
+              downloadZeroDraftCsv(safeName, csv)
+            }}
+          >
+            <Download className="w-3.5 h-3.5" />
+            {t('exportZeroDraft')}
+          </AuroraButton>
         </div>
       )}
     </div>

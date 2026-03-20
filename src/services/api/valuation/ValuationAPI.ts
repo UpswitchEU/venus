@@ -308,9 +308,15 @@ export class ValuationAPI extends HttpClient {
           ? responseData.field
           : extractValidationIssues(responseData?.errors)[0]?.field
 
+      const nestedMsg = responseData?.message
+      const codeFromBody =
+        typeof nestedMsg === 'object' && nestedMsg !== null && 'code' in nestedMsg
+          ? (nestedMsg as { code?: string }).code
+          : responseData?.code
+
       throw new ValidationError(message, field, undefined, {
         status,
-        code: responseData?.code,
+        code: codeFromBody,
         hint: responseData?.hint,
         errors: responseData?.errors,
       })

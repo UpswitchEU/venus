@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Clock,
   CreditCard,
+  Database,
   Download,
   Eye,
   FileSpreadsheet,
@@ -35,7 +36,7 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useState } from 'react'
 import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
@@ -134,6 +135,10 @@ export interface CalculatorNavProps {
   onExitClientView?: () => void
   // Invite client (accountant mode)
   onInviteClient?: () => void
+  /** STP: import-quality provenance panel (trust but verify) */
+  showSourceDataToggle?: boolean
+  sourceDataOpen?: boolean
+  onToggleSourceData?: () => void
 }
 
 // ─────────────────────────────────────────
@@ -266,8 +271,12 @@ export function CalculatorNav({
   isAccountantMode = false,
   onExitClientView,
   onInviteClient,
+  showSourceDataToggle = false,
+  sourceDataOpen = false,
+  onToggleSourceData,
 }: CalculatorNavProps) {
   const t = useTranslations()
+  const navLocale = useLocale()
   const router = useTransitionRouter()
   const [avatarError, setAvatarError] = useState(false)
   const showAvatar = avatarUrl && !avatarError
@@ -617,6 +626,32 @@ export function CalculatorNav({
               </Tooltip>
             )}
 
+            {showSourceDataToggle && onToggleSourceData && (
+              <Tooltip
+                content={
+                  navLocale === 'nl'
+                    ? 'Brongegevens — volledige trial balance & AI-uitleg (trust but verify)'
+                    : 'Source data — full trial balance & AI rationale (trust but verify)'
+                }
+              >
+                <AuroraButton
+                  variant={sourceDataOpen ? 'primary' : 'ghost'}
+                  size="sm"
+                  onClick={onToggleSourceData}
+                  className={cn(
+                    'gap-1.5 mr-1 transition-all duration-200',
+                    sourceDataOpen ? '' : 'text-foreground/60 hover:text-foreground'
+                  )}
+                  aria-pressed={sourceDataOpen}
+                >
+                  <Database className="w-4 h-4" />
+                  <span className="hidden lg:inline">
+                    {navLocale === 'nl' ? 'Brondata' : 'Source'}
+                  </span>
+                </AuroraButton>
+              </Tooltip>
+            )}
+
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
 
             <Tooltip content={hasReport ? t('report.preview') : t('report.noReport')}>
@@ -823,6 +858,29 @@ export function CalculatorNav({
                 <MessageCircle className="w-4 h-4" />
               </button>
             </Tooltip>
+            {showSourceDataToggle && onToggleSourceData && (
+              <Tooltip
+                content={
+                  navLocale === 'nl'
+                    ? 'Brongegevens — volledige trial balance & AI-uitleg (trust but verify)'
+                    : 'Source data — full trial balance & AI rationale (trust but verify)'
+                }
+              >
+                <button
+                  type='button'
+                  onClick={onToggleSourceData}
+                  className={cn(
+                    'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
+                    sourceDataOpen
+                      ? 'text-primary bg-primary/10'
+                      : 'text-foreground/50 hover:text-foreground'
+                  )}
+                  aria-pressed={sourceDataOpen}
+                >
+                  <Database className="w-4 h-4" />
+                </button>
+              </Tooltip>
+            )}
             <Tooltip
               content={
                 isExporting

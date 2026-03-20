@@ -2097,9 +2097,49 @@
     "copyFailed": "Could not copy link"
   },
   "omniCalc": {
-    "title": "Method Comparison",
+    "title": "Method comparison (accountant workspace)",
     "available": "available",
     "selected": "Selected",
-    "fiscalAnchor": "Fiscal reference (4× EBITDA)"
+    "fiscalAnchor": "Fiscal reference (4× EBITDA)",
+    "rangeModel": "Model range",
+    "rangeIllustrative": "Illustrative ±20%",
+    "zeroDraftBlurb": "Technical package — every method’s midpoint and range for your files. The client-facing report stays one clear headline.",
+    "exportZeroDraft": "Download Zero Draft (CSV)",
+    "zeroDraftFilename": "upswitch-zero-draft-{reportId}.csv"
+  },
+  "preparerMultiple": {
+    "title": "EV/EBITDA multiple (advanced)",
+    "description": "The Upswitch SME Index benchmark is your anchor—adjust only when your judgment requires it. Standardized reason tags help Upswitch refine market calibration over time while client reports stay on one clear headline.",
+    "benchmark": "Upswitch benchmark (anchored)",
+    "contextSeparator": " · ",
+    "benchmarkAnchored": "Upswitch SME Index — {context}: {multiple}×",
+    "benchmarkAnchoredShort": "Upswitch SME Index benchmark (business-type calibration): {multiple}×",
+    "benchmarkConfidence": "Benchmark signal: {level}",
+    "confidenceHigh": "High",
+    "confidenceMedium": "Medium",
+    "confidenceLow": "Low",
+    "confidenceDefault": "As calibrated",
+    "scoreLabel": "score {score}/100",
+    "benchmarkHint": "Based on the Upswitch SME index for this business type.",
+    "applied": "Applied multiple",
+    "reason": "Justification",
+    "reasonPlaceholder": "Select a reason…",
+    "reasons": {
+      "strategic_buyer_premium": "Strategic buyer premium",
+      "key_person_discount": "Key person / dependency discount",
+      "real_estate_included": "Real estate included in transaction",
+      "customer_concentration": "Customer concentration risk",
+      "distressed_sale": "Distressed or forced sale",
+      "recurring_revenue_premium": "Recurring revenue premium",
+      "other": "Other (see note)"
+    },
+    "noteOptional": "Note (optional)",
+    "sliderHint": "Anchor: benchmark median. Drag to adjust; then pick a reason and recalculate.",
+    "recalculate": "Recalculate with multiple",
+    "recalculateNeedForm": "Complete the calculator form once, then use Recalculate.",
+    "extremeWarning": "This multiple is far outside the typical band for this business type. Confirm to proceed.",
+    "resetBenchmark": "Reset to benchmark",
+    "recalcHint": "Change the main form and recalculate, or use Recalculate — your adjustment is included when it differs from the benchmark and a reason is selected.",
+    "extremeServerToast": "Multiple outside guardrails: confirm the checkbox and try again, or move closer to the benchmark."
   }
 }

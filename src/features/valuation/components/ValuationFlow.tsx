@@ -23,6 +23,11 @@ interface ValuationFlowProps {
   initialTab?: 'preview' | 'history'
   urlAction?: string
   initialDrawerOpen?: boolean
+  guidedResolution?: {
+    spotlight?: string
+    focusField?: string
+    flagYear?: string
+  }
 }
 
 const ManualLayout = lazy(() =>
@@ -39,6 +44,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   initialTab = 'preview',
   urlAction,
   initialDrawerOpen = false,
+  guidedResolution,
 }) => {
   return (
     <ManualLayout
@@ -49,6 +55,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
       initialTab={initialTab}
       urlAction={urlAction}
       initialDrawerOpen={initialDrawerOpen}
+      guidedResolutionUrl={guidedResolution}
     />
   )
 }

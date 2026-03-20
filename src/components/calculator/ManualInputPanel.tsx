@@ -68,6 +68,10 @@ import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { CurrencyInput } from './CurrencyInput'
+import { ProvenanceDot } from './ProvenanceDot'
+import { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
+import { SpotlightBanner } from './SpotlightBanner'
+import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 
 // Types
 export interface YearlyFinancials {
@@ -1103,7 +1107,8 @@ export function ManualInputPanel({
 
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1">
-            {/* Quick Actions moved to right panel for better UX */}
+            <SpotlightBanner />
+            <GuidedResolutionOrphanFields />
 
             {/* Step 0: Integration CTA - Hidden for launch until CSV import ships (SHOW_LEDGER_UPLOAD_HINT) */}
             <AnimatePresence>
@@ -1196,24 +1201,33 @@ export function ManualInputPanel({
                     exit={{ opacity: 0, height: 0 }}
                     className="space-y-3 overflow-hidden"
                   >
-                    <BusinessTypeSearchInput
-                      label={mi('fields.businessType')}
-                      value={formData.businessType}
-                      onChange={handleBusinessTypeSelect}
-                      types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
-                      loading={businessTypesLoading}
-                      loadError={businessTypesError}
-                      onRetryLoad={refetchBusinessTypes}
-                      naceMatchedTypeId={
-                        selectedCompany?.naceCode &&
-                        formData.businessType?.trim() &&
-                        !looksLikeNaceCode(formData.businessType)
-                          ? formData.businessType.trim()
-                          : undefined
-                      }
-                      size="sm"
-                      disabled={isCalculating}
-                    />
+                    <SpotlightFieldWrapper fieldName="industry">
+                      <div className="space-y-1">
+                        <div className="flex items-start gap-1.5">
+                          <ProvenanceDot fieldName="industry" className="mt-2" />
+                          <div className="flex-1 min-w-0">
+                            <BusinessTypeSearchInput
+                              label={mi('fields.businessType')}
+                              value={formData.businessType}
+                              onChange={handleBusinessTypeSelect}
+                              types={businessTypesForSearch.length > 0 ? businessTypesForSearch : undefined}
+                              loading={businessTypesLoading}
+                              loadError={businessTypesError}
+                              onRetryLoad={refetchBusinessTypes}
+                              naceMatchedTypeId={
+                                selectedCompany?.naceCode &&
+                                formData.businessType?.trim() &&
+                                !looksLikeNaceCode(formData.businessType)
+                                  ? formData.businessType.trim()
+                                  : undefined
+                              }
+                              size="sm"
+                              disabled={isCalculating}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </SpotlightFieldWrapper>
                     {nacePrefillError && (
                       <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-destructive/5 border border-destructive/20 -mt-1">
                         <p className="text-[11px] text-destructive/80">{nacePrefillError}</p>
@@ -1558,56 +1572,66 @@ export function ManualInputPanel({
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <CurrencyInput
-                              label={mi('fields.revenue')}
-                              value={yearData.revenue}
-                              onChange={(v) => updateYearlyFinancials(yearData.year, 'revenue', v)}
-                              size="sm"
-                              placeholder="1.500.000"
-                            />
-                            {(fieldValidation.warnings[`revenue-${yearData.year}`] ||
-                              fieldValidation.errors[`revenue-${yearData.year}`]) && (
-                              <p
-                                className={`text-[10px] mt-0.5 ${fieldValidation.errors[`revenue-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
-                              >
-                                {fieldValidation.errors[`revenue-${yearData.year}`] ||
-                                  fieldValidation.warnings[`revenue-${yearData.year}`]}
-                              </p>
-                            )}
-                          </div>
-                          <div className="relative">
-                            <CurrencyInput
-                              label={mi('fields.ebitda')}
-                              value={yearData.ebitda}
-                              onChange={(v) => updateYearlyFinancials(yearData.year, 'ebitda', v)}
-                              size="sm"
-                              placeholder="250.000"
-                            />
-                            {(fieldValidation.warnings[`ebitda-${yearData.year}`] ||
-                              fieldValidation.errors[`ebitda-${yearData.year}`] ||
-                              fieldValidation.warnings[`margin-${yearData.year}`]) && (
-                              <p
-                                className={`text-[10px] mt-0.5 ${fieldValidation.errors[`ebitda-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
-                              >
-                                {fieldValidation.errors[`ebitda-${yearData.year}`] ||
-                                  fieldValidation.warnings[`ebitda-${yearData.year}`] ||
-                                  fieldValidation.warnings[`margin-${yearData.year}`]}
-                              </p>
-                            )}
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
-                              <FieldHelpTrigger
-                                context={{
-                                  field: 'ebitda',
-                                  label: `EBITDA ${yearData.year}`,
-                                  value: yearData.ebitda,
-                                  hint: mi('ebitdaRelevantHint'),
-                                  normalizationType: 'other',
-                                }}
-                                onTrigger={onFieldHelpRequest}
-                              />
+                          <SpotlightFieldWrapper fieldName="revenue" fiscalYear={yearData.year}>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <ProvenanceDot fieldName="revenue" fiscalYear={yearData.year} />
+                                <CurrencyInput
+                                  label={mi('fields.revenue')}
+                                  value={yearData.revenue}
+                                  onChange={(v) => updateYearlyFinancials(yearData.year, 'revenue', v)}
+                                  size="sm"
+                                  placeholder="1.500.000"
+                                />
+                              </div>
+                              {(fieldValidation.warnings[`revenue-${yearData.year}`] ||
+                                fieldValidation.errors[`revenue-${yearData.year}`]) && (
+                                <p
+                                  className={`text-[10px] mt-0.5 ${fieldValidation.errors[`revenue-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
+                                >
+                                  {fieldValidation.errors[`revenue-${yearData.year}`] ||
+                                    fieldValidation.warnings[`revenue-${yearData.year}`]}
+                                </p>
+                              )}
                             </div>
-                          </div>
+                          </SpotlightFieldWrapper>
+                          <SpotlightFieldWrapper fieldName="ebitda" fiscalYear={yearData.year}>
+                            <div className="relative">
+                              <div className="flex items-center gap-1.5">
+                                <ProvenanceDot fieldName="ebitda" fiscalYear={yearData.year} />
+                                <CurrencyInput
+                                  label={mi('fields.ebitda')}
+                                  value={yearData.ebitda}
+                                  onChange={(v) => updateYearlyFinancials(yearData.year, 'ebitda', v)}
+                                  size="sm"
+                                  placeholder="250.000"
+                                />
+                              </div>
+                              {(fieldValidation.warnings[`ebitda-${yearData.year}`] ||
+                                fieldValidation.errors[`ebitda-${yearData.year}`] ||
+                                fieldValidation.warnings[`margin-${yearData.year}`]) && (
+                                <p
+                                  className={`text-[10px] mt-0.5 ${fieldValidation.errors[`ebitda-${yearData.year}`] ? 'text-destructive' : 'text-warning'}`}
+                                >
+                                  {fieldValidation.errors[`ebitda-${yearData.year}`] ||
+                                    fieldValidation.warnings[`ebitda-${yearData.year}`] ||
+                                    fieldValidation.warnings[`margin-${yearData.year}`]}
+                                </p>
+                              )}
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
+                                <FieldHelpTrigger
+                                  context={{
+                                    field: 'ebitda',
+                                    label: `EBITDA ${yearData.year}`,
+                                    value: yearData.ebitda,
+                                    hint: mi('ebitdaRelevantHint'),
+                                    normalizationType: 'other',
+                                  }}
+                                  onTrigger={onFieldHelpRequest}
+                                />
+                              </div>
+                            </div>
+                          </SpotlightFieldWrapper>
                         </div>
 
                         {/* Show normalized EBITDA if different */}

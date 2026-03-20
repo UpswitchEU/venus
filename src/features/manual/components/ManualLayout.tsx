@@ -56,6 +56,8 @@ import {
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import { OmniCalcPanel } from '../../../components/calculator/OmniCalcPanel'
+import { PreparerMultiplePanel } from '../../../components/calculator/PreparerMultiplePanel'
+import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { springDefault } from '../../../design-system/components/motion'
@@ -81,6 +83,11 @@ import { valuationAuditService } from '../../../services/audit/ValuationAuditSer
 import { reportService, valuationService } from '../../../services'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
+import {
+  clientShouldWarnExtremeMultiple,
+  mergePreparerMultipleIntoRequest,
+  usePreparerMultipleStore,
+} from '../../../store/manual/usePreparerMultipleStore'
 import { useConversationStore } from '../../../store/useConversationStore'
 import {
   enableNormalizationAutoPersist,
@@ -95,8 +102,9 @@ import {
 } from '../../../store/useTaxLatencyStore'
 import { useClientContext } from '../../../stores/clientContext'
 import { useSessionStore } from '../../../store/useSessionStore'
+import { spotlightDomId, useSpotlightStore } from '../../../store/useSpotlightStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
-import { AuthenticationError } from '../../../types/errors'
+import { AuthenticationError, ValidationError } from '../../../types/errors'
 import type {
   ValuationResponse,
   ValuationFormData as VenusFormData,
@@ -328,6 +336,12 @@ interface ManualLayoutProps {
   urlAction?: string
   /** Open chat drawer on mount when URL has drawer=open (Clarity parity) */
   initialDrawerOpen?: boolean
+  /** Mercury STP deep link: spotlight / focusField / flagYear */
+  guidedResolutionUrl?: {
+    spotlight?: string
+    focusField?: string
+    flagYear?: string
+  }
 }
 
 // ─────────────────────────────────────────
@@ -342,6 +356,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   initialTab = 'preview',
   urlAction,
   initialDrawerOpen = false,
+  guidedResolutionUrl,
 }) => {
   const router = useTransitionRouter()
   const t = useTranslations('toast')
@@ -349,6 +364,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const tHistory = useTranslations('historyPanel')
   const tErrors = useTranslations('errors')
   const nh = useTranslations('normalizationHub')
+  const tPreparer = useTranslations('preparerMultiple')
   const isMobile = useIsMobile()
 
   // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
@@ -393,6 +409,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const reportIdFromSession = useSessionStore((s) => s.session?.reportId)
   const restorationComplete = useSessionStore((s) => s.restorationComplete)
   const sessionName = useSessionStore((s) => s.session?.name)
+  const importQualityMap = useSpotlightStore((s) => s.importQuality)
+  const toggleSourceDataPanel = useSpotlightStore((s) => s.toggleSourcePanel)
+  const showSourceDataPanel = useSpotlightStore((s) => s.showSourcePanel)
+  const hasImportQuality =
+    !!importQualityMap && typeof importQualityMap === 'object' && Object.keys(importQualityMap).length > 0
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
   const {
     generatePdf,
@@ -431,6 +452,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // Non-critical
       })
   }, [])
+
+  const showPreparerMultiplePanel = useMemo(() => {
+    const role = user?.role ?? ''
+    return (
+      isAccountantMode ||
+      role === 'accountant' ||
+      role === 'expert' ||
+      role === 'enterprise' ||
+      role === 'admin'
+    )
+  }, [isAccountantMode, user?.role])
 
   // Resolve session key (val_xxx) to UUID for Titan API calls - session.reportId is set after first calculation
   // Titan requires session_id 8–128 chars; prefer UUID when available, else session_key (val_xxx)
@@ -1277,6 +1309,34 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const idForApi = resolvedReportId || reportId
         if (idForApi) (request as any).reportId = idForApi
 
+        mergePreparerMultipleIntoRequest(request as Record<string, unknown>)
+        const prep = usePreparerMultipleStore.getState()
+        if (
+          prep.benchmarkMedian != null &&
+          prep.appliedMedian != null &&
+          prep.reasonKey &&
+          Math.abs(prep.appliedMedian - prep.benchmarkMedian) >= 0.005
+        ) {
+          const mv0 = result?.multiples_valuation
+          if (
+            clientShouldWarnExtremeMultiple(
+              prep.appliedMedian,
+              mv0?.p10_ebitda_multiple,
+              mv0?.p90_ebitda_multiple,
+              prep.benchmarkMedian,
+              mv0?.p25_ebitda_multiple,
+              mv0?.p75_ebitda_multiple,
+            ) &&
+            !prep.acknowledgedExtreme
+          ) {
+            setCalculating(false)
+            setIsGenerating(false)
+            trySetCalculating(false)
+            toast.error(tPreparer('extremeWarning'))
+            return
+          }
+        }
+
         // Step 3: Detect version changes for M&A workflow (use resolved UUID for version API)
         let previousVersion: any = null
         let changes: any = null
@@ -1504,6 +1564,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       } catch (error) {
         setCalculating(false)
         setIsGenerating(false)
+        if (error instanceof ValidationError && error.context?.code === 'EXTREME_MULTIPLE') {
+          toast.error(tPreparer('extremeServerToast'), {
+            description: error.message,
+          })
+          generalLogger.warn('[ManualLayout] EXTREME_MULTIPLE rejected by Titan', {
+            message: error.message,
+          })
+          return
+        }
         const isSessionExpired =
           error instanceof AuthenticationError || isAuthError(error)
         const title = isSessionExpired ? tErrors('session.expired') : t('calculationFailed')
@@ -1545,6 +1614,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       user?.id,
       t,
       tErrors,
+      tPreparer,
+      result,
     ]
   )
 
@@ -1666,6 +1737,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     pendingSubmitDataRef.current = null
     if (pending) handleManualSubmit(pending)
   }, [handleManualSubmit])
+
+  const handlePreparerMultipleRecalculate = useCallback(() => {
+    const fromSession =
+      latestFormDataRef.current &&
+      typeof latestFormDataRef.current === 'object' &&
+      Object.keys(latestFormDataRef.current).length > 0
+        ? latestFormDataRef.current
+        : null
+    const raw = lastSubmittedDataRef.current || fromSession
+    if (!raw || typeof raw !== 'object') {
+      toast.error(tPreparer('recalculateNeedForm'))
+      return
+    }
+    void wrappedOnSubmit(raw)
+  }, [wrappedOnSubmit, tPreparer])
 
   // ─── Chat Handlers (bi-directional sync) ───
   const handleApplyFieldUpdate = useCallback(
@@ -2836,6 +2922,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ;(request as any).dataSource = 'manual'
         ;(request as any).reportId = idForApi
 
+        mergePreparerMultipleIntoRequest(request as Record<string, unknown>)
+        const prepN = usePreparerMultipleStore.getState()
+        if (
+          prepN.benchmarkMedian != null &&
+          prepN.appliedMedian != null &&
+          prepN.reasonKey &&
+          Math.abs(prepN.appliedMedian - prepN.benchmarkMedian) >= 0.005
+        ) {
+          const mvN = result?.multiples_valuation
+          if (
+            clientShouldWarnExtremeMultiple(
+              prepN.appliedMedian,
+              mvN?.p10_ebitda_multiple,
+              mvN?.p90_ebitda_multiple,
+              prepN.benchmarkMedian,
+              mvN?.p25_ebitda_multiple,
+              mvN?.p75_ebitda_multiple,
+            ) &&
+            !prepN.acknowledgedExtreme
+          ) {
+            toast.error(tPreparer('extremeWarning'))
+            return
+          }
+        }
+
         const calcResult = await valuationService.calculateValuation(request)
         if (calcResult) {
           setResult(calcResult)
@@ -2864,7 +2975,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       }
     },
-    [report, reportId, resolvedReportId, formStoreData, buildValuationRequest, valuationService, setResult, sessionName]
+    [
+      report,
+      reportId,
+      resolvedReportId,
+      formStoreData,
+      buildValuationRequest,
+      valuationService,
+      setResult,
+      sessionName,
+      tPreparer,
+    ]
   )
 
   // ─── Version Restore ───
@@ -3165,6 +3286,50 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
   const lastFullYear = getLastFullFiscalYear()
 
+  const guidedResolutionAppliedRef = useRef(false)
+
+  useEffect(() => {
+    guidedResolutionAppliedRef.current = false
+  }, [reportId])
+
+  useEffect(() => {
+    if (!restorationComplete || !guidedResolutionUrl) return
+    const hasGuidance =
+      guidedResolutionUrl.spotlight === '1' ||
+      !!guidedResolutionUrl.focusField ||
+      !!guidedResolutionUrl.flagYear
+    if (!hasGuidance) return
+    if (!importQualityMap || Object.keys(importQualityMap).length === 0) return
+    if (guidedResolutionAppliedRef.current) return
+    guidedResolutionAppliedRef.current = true
+
+    useSpotlightStore.getState().applyUrlGuidance({
+      forceSpotlight: guidedResolutionUrl.spotlight === '1',
+      focusField: guidedResolutionUrl.focusField,
+      flagYear: guidedResolutionUrl.flagYear,
+    })
+
+    const ff = guidedResolutionUrl.focusField
+    if (!ff) return
+
+    const domId = spotlightDomId(
+      ff,
+      guidedResolutionUrl.flagYear != null && guidedResolutionUrl.flagYear !== ''
+        ? guidedResolutionUrl.flagYear
+        : undefined
+    )
+    const scrollToFlag = () => {
+      try {
+        const el = document.querySelector(`[data-spotlight-field="${CSS.escape(domId)}"]`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      } catch {
+        const el = document.querySelector(`[data-spotlight-field="${domId}"]`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }
+    requestAnimationFrame(() => requestAnimationFrame(scrollToFlag))
+  }, [restorationComplete, guidedResolutionUrl, importQualityMap])
+
   // ═══════════════════════════════════════
   // MOBILE LAYOUT
   // ═══════════════════════════════════════
@@ -3218,6 +3383,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           isAccountantMode={isAccountantMode}
           onExitClientView={handleExitClientView}
           onInviteClient={isAccountantMode ? () => setShowInviteClientModal(true) : undefined}
+          showSourceDataToggle={hasImportQuality}
+          sourceDataOpen={showSourceDataPanel}
+          onToggleSourceData={toggleSourceDataPanel}
         />
 
         {/* Context Bar - Accountant Mode (mobile, Clarity parity) */}
@@ -3248,8 +3416,39 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           />
         )}
 
-        <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)]">
-          <ManualInputPanel key={reportId} {...manualInputProps} />
+        <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)] min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <ManualInputPanel key={reportId} {...manualInputProps} />
+          </div>
+          {result?.valuation_results && Object.keys(result.valuation_results).length > 0 && (
+            <div className="shrink-0 border-t border-border max-h-[min(40vh,320px)] overflow-y-auto bg-card/50">
+              <OmniCalcPanel
+                valuationResults={result.valuation_results}
+                selectedMethod={selectedMethod}
+                onSelectMethod={setSelectedMethod}
+                fiscalAnchor={result.fiscal_4x_anchor}
+                compact
+                showZeroDraftExport={showPreparerMultiplePanel}
+                zeroDraftReportId={resolvedReportId || reportId}
+                zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
+                zeroDraftCreatedAt={
+                  report?.generatedAt instanceof Date ? report.generatedAt.toISOString() : undefined
+                }
+              />
+            </div>
+          )}
+          {showPreparerMultiplePanel && report && result && (
+            <div className="shrink-0 border-t border-border p-2 bg-card/40">
+              <PreparerMultiplePanel
+                result={result}
+                disabled={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
+                onRecalculate={handlePreparerMultipleRecalculate}
+                industryLabel={collectedData.industry}
+                businessTypeLabel={collectedData.businessType}
+                countryCode={collectedData.country}
+              />
+            </div>
+          )}
         </div>
 
         <ChatAssistantDrawer {...chatDrawerProps} />
@@ -3400,6 +3599,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         isAccountantMode={isAccountantMode}
         onExitClientView={handleExitClientView}
         onInviteClient={isAccountantMode ? () => setShowInviteClientModal(true) : undefined}
+        showSourceDataToggle={hasImportQuality}
+        sourceDataOpen={showSourceDataPanel}
+        onToggleSourceData={toggleSourceDataPanel}
       />
 
       {/* Context Bar - Accountant Mode (Clarity parity) */}
@@ -3435,8 +3637,39 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         <ResizablePanelGroup className="h-full w-full">
           {/* Left Panel: Always ManualInputPanel (Clarity parity - no view switching) */}
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
-            <div className="h-full">
-              <ManualInputPanel key={reportId} {...manualInputProps} />
+            <div className="h-full flex flex-col min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <ManualInputPanel key={reportId} {...manualInputProps} />
+              </div>
+              {result?.valuation_results && Object.keys(result.valuation_results).length > 0 && (
+                <div className="shrink-0 border-t border-border max-h-[min(40vh,360px)] overflow-y-auto bg-card/50">
+                  <OmniCalcPanel
+                    valuationResults={result.valuation_results}
+                    selectedMethod={selectedMethod}
+                    onSelectMethod={setSelectedMethod}
+                    fiscalAnchor={result.fiscal_4x_anchor}
+                    compact
+                    showZeroDraftExport={showPreparerMultiplePanel}
+                    zeroDraftReportId={resolvedReportId || reportId}
+                    zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
+                    zeroDraftCreatedAt={
+                      report?.generatedAt instanceof Date ? report.generatedAt.toISOString() : undefined
+                    }
+                  />
+                </div>
+              )}
+              {showPreparerMultiplePanel && report && result && (
+                <div className="shrink-0 border-t border-border p-2 bg-card/40 max-h-[min(35vh,320px)] overflow-y-auto">
+                  <PreparerMultiplePanel
+                    result={result}
+                    disabled={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
+                    onRecalculate={handlePreparerMultipleRecalculate}
+                    industryLabel={collectedData.industry}
+                    businessTypeLabel={collectedData.businessType}
+                    countryCode={collectedData.country}
+                  />
+                </div>
+              )}
             </div>
           </ResizablePanel>
 
@@ -3471,6 +3704,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                                 onSelectMethod={setSelectedMethod}
                                 fiscalAnchor={result.fiscal_4x_anchor}
                                 compact
+                                showZeroDraftExport={showPreparerMultiplePanel}
+                                zeroDraftReportId={resolvedReportId || reportId}
+                                zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
+                                zeroDraftCreatedAt={
+                                  report?.generatedAt instanceof Date
+                                    ? report.generatedAt.toISOString()
+                                    : undefined
+                                }
                               />
                             </div>
                           )}
@@ -3632,6 +3873,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         financialYears={financialYears}
         fallbackFormDataRef={latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>}
       />
+
+      {/* Source Data Panel — "Trust but Verify" raw ledger data */}
+      <SourceDataPanel />
     </div>
   )
 }

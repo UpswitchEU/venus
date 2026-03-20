@@ -588,6 +588,22 @@ class SessionRestorationServiceImpl {
       })
     }
 
+    // 6. Import Quality — hydrate spotlight store for guided resolution
+    try {
+      const rawIQ = (data.formData as any)?._import_quality
+      if (rawIQ && typeof rawIQ === 'object' && Object.keys(rawIQ).length > 0) {
+        const { useSpotlightStore } = await import('../../store/useSpotlightStore')
+        useSpotlightStore.getState().setImportQuality(rawIQ)
+        generalLogger.info('[SessionRestoration] Import quality hydrated for spotlight mode', {
+          years: Object.keys(rawIQ).length,
+        })
+      }
+    } catch (error) {
+      generalLogger.warn('[SessionRestoration] Import quality hydration failed (non-blocking)', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+
     return {
       reportId: data.reportId,
       restoredFormFields,
@@ -813,6 +829,14 @@ class SessionRestorationServiceImpl {
               (raw._normalizations as any[]).length > 0
             ) {
               useNormalizationStore.getState().setItems(raw._normalizations as any)
+            }
+          } catch {
+            // Non-critical
+          }
+          try {
+            if (raw._import_quality && typeof raw._import_quality === 'object') {
+              const { useSpotlightStore } = await import('../../store/useSpotlightStore')
+              useSpotlightStore.getState().setImportQuality(raw._import_quality as any)
             }
           } catch {
             // Non-critical

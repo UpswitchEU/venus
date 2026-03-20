@@ -140,6 +140,14 @@ export interface ValuationRequest {
 
   // Tax latencies (belastinglatenties) — equity bridge adjustments
   tax_latencies?: TaxLatencyInput[]
+
+  /** Accountant-tier: override EV/EBITDA median vs Upswitch benchmark (see preparer_ev_ebitda_override) */
+  preparer_ev_ebitda_median?: number
+  preparer_ev_ebitda_override?: {
+    reason_key: string
+    note?: string
+    acknowledged_extreme?: boolean
+  }
 }
 
 export interface TaxLatencyInput {
@@ -704,6 +712,7 @@ export interface ValuationMethodResult {
   wacc?: number | null
   available: boolean
   unavailable_reason?: string | null
+  /** Engine may include equity_range_low / equity_range_high (model band); UI falls back to ±20% if absent. */
   details?: Record<string, unknown> | null
 }
 
@@ -813,10 +822,12 @@ export interface ValuationResponse {
     pe_multiple: number | null
     enterprise_value?: number // Optional enterprise value if provided
 
-    // Percentile multiples (P25/P50/P75) from comparable companies
+    // Percentile multiples (P10–P90, P25/P50/P75) from Upswitch SME / business-type benchmarks
+    p10_ebitda_multiple?: number
     p25_ebitda_multiple?: number
     p50_ebitda_multiple?: number
     p75_ebitda_multiple?: number
+    p90_ebitda_multiple?: number
     p25_revenue_multiple?: number
     p50_revenue_multiple?: number
     p75_revenue_multiple?: number

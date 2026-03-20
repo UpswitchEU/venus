@@ -82,6 +82,11 @@ export type {
 // INPUT & FORMS
 // ─────────────────────────────────────────
 export { ManualInputPanel } from './ManualInputPanel'
+export { ProvenanceDot } from './ProvenanceDot'
+export { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
+export { SourceDataPanel } from './SourceDataPanel'
+export { SpotlightBanner } from './SpotlightBanner'
+export { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 export type {
   NormalisationReviewStepProps,
   SuggestedNormalisation,

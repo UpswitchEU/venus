@@ -48,6 +48,10 @@ export default async function NewReportPage({ params, searchParams }: NewReportP
       'return_url',
       'guestSessionId',
       'embedded',
+      // Guided resolution (Mercury → Venus)
+      'spotlight',
+      'focusField',
+      'flagYear',
     ]
 
     for (const param of paramsToPreserve) {

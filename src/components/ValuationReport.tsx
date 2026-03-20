@@ -293,6 +293,11 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                 initialTab={initialTab}
                 urlAction={urlAction}
                 initialDrawerOpen={urlParams.drawer === 'open'}
+                guidedResolution={{
+                  spotlight: urlParams.spotlight,
+                  focusField: urlParams.focusField,
+                  flagYear: urlParams.flagYear,
+                }}
               />
             )}
           </ValuationSessionManager>
