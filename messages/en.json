@@ -1249,6 +1249,7 @@
     "pdfRegeneratingDesc": "This may take a moment.",
     "normalizationNotSaved": "Adjustments not saved",
     "normalizationNotSavedDesc": "Your adjustments are saved locally. Sync will be retried automatically.",
+    "normalizationConflictDesc": "Another update finished first (e.g. valuation or sync). Retrying automatically…",
     "normalizationNotSavedRetry": "Retry now",
     "normalizationNotSavedSession": "Session not found. Calculate your valuation first or refresh the page.",
     "recalculatedWithNorms": "Estimate recalculated with normalizations",

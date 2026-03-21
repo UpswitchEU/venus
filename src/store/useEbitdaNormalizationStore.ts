@@ -322,7 +322,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             throw new Error(`No normalization found for year ${year}`)
           }
 
-          const response = await normalizationService.saveNormalization({
+          const payload = {
             session_id: sessionId,
             user_id: userId,
             version_id: versionId,
@@ -332,7 +332,29 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             custom_adjustments: normalization.custom_adjustments || [],
             confidence_score: normalization.confidence_score,
             market_rate_source: normalization.market_rate_source || undefined,
-          })
+          }
+          const saveWithRetry = async () => {
+            const maxAttempts = 3
+            let lastErr: unknown
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+              try {
+                return await normalizationService.saveNormalization(payload)
+              } catch (err) {
+                lastErr = err
+                if (
+                  err instanceof NormalizationAPIError &&
+                  err.status === 409 &&
+                  attempt < maxAttempts - 1
+                ) {
+                  await new Promise((r) => setTimeout(r, 100 + 130 * attempt))
+                  continue
+                }
+                throw err
+              }
+            }
+            throw lastErr instanceof Error ? lastErr : new Error('Normalization save failed')
+          }
+          const response = await saveWithRetry()
 
           // API call succeeded - log diagnostic info
           generalLogger.debug('[Normalization] Save succeeded', {
@@ -547,8 +569,30 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         const { [year]: removed, ...remaining } = normalizations
         set({ normalizations: remaining })
 
+        const deleteWithRetry = async () => {
+          const maxAttempts = 3
+          let lastErr: unknown
+          for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            try {
+              return await normalizationService.deleteNormalization(sessionId, year)
+            } catch (err) {
+              lastErr = err
+              if (
+                err instanceof NormalizationAPIError &&
+                err.status === 409 &&
+                attempt < maxAttempts - 1
+              ) {
+                await new Promise((r) => setTimeout(r, 100 + 130 * attempt))
+                continue
+              }
+              throw err
+            }
+          }
+          throw lastErr instanceof Error ? lastErr : new Error('Normalization delete failed')
+        }
+
         try {
-          await normalizationService.deleteNormalization(sessionId, year)
+          await deleteWithRetry()
           generalLogger.debug('Normalization removed successfully', { year })
         } catch (error) {
           generalLogger.error('Error removing normalization', { error })

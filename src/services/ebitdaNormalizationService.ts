@@ -50,18 +50,36 @@ export class NormalizationAPIError extends Error {
   }
 }
 
+/** Nest can return `message` as string or string[]; normalize for toasts and logs. */
+function normalizeNestMessage(raw: unknown, depth = 0): string {
+  if (depth > 4) return 'API request failed'
+  if (raw == null) return 'API request failed'
+  if (typeof raw === 'string') return raw
+  if (Array.isArray(raw)) {
+    return raw.map((x) => String(x)).filter(Boolean).join('; ')
+  }
+  if (typeof raw === 'object' && raw !== null && 'message' in raw) {
+    return normalizeNestMessage((raw as { message: unknown }).message, depth + 1)
+  }
+  return String(raw)
+}
+
 /**
  * Handle API response and errors
  */
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let errorMessage = 'API request failed'
-    let errorDetails
+    let errorDetails: Record<string, unknown> | undefined
 
     try {
-      const errorData = await response.json()
-      errorMessage = errorData.error || errorData.message || errorMessage
+      const errorData = (await response.json()) as Record<string, unknown>
       errorDetails = errorData
+      const raw =
+        errorData.message ??
+        (typeof errorData.error === 'string' ? errorData.error : undefined) ??
+        errorData.error
+      errorMessage = normalizeNestMessage(raw)
     } catch {
       // Response not JSON
       errorMessage = `HTTP ${response.status}: ${response.statusText}`

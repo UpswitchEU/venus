@@ -1269,6 +1269,7 @@
     "retry": "Opnieuw proberen",
     "normalizationNotSaved": "Correcties niet opgeslagen",
     "normalizationNotSavedDesc": "Uw correcties zijn lokaal bewaard. Synchronisatie wordt automatisch opnieuw geprobeerd.",
+    "normalizationConflictDesc": "Een andere wijziging werd eerst voltooid (bijv. schatting of sync). Opnieuw proberen…",
     "normalizationNotSavedRetry": "Nu opnieuw proberen",
     "normalizationNotSavedSession": "Sessie niet gevonden. Bereken eerst uw bedrijfsschatting of vernieuw de pagina.",
     "reminderSent": "Herinnering verstuurd naar klant",

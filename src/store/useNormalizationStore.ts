@@ -120,6 +120,7 @@ interface NormalizationStore {
 type ToastMessageKey =
   | 'normalizationNotSaved'
   | 'normalizationNotSavedDesc'
+  | 'normalizationConflictDesc'
   | 'normalizationNotSavedRetry'
   | 'normalizationNotSavedSession'
 
@@ -134,13 +135,20 @@ export function setNormalizationToastMessages(getter: ToastMessageGetter | null)
 const TOAST_FALLBACKS: Record<ToastMessageKey, string> = {
   normalizationNotSaved: 'Adjustments not saved',
   normalizationNotSavedDesc: 'Your adjustments are saved locally. Sync will be retried automatically.',
+  normalizationConflictDesc:
+    'Another update finished first (e.g. valuation or sync). Retrying automatically…',
   normalizationNotSavedRetry: 'Retry now',
   normalizationNotSavedSession: 'Session not found. Calculate your valuation first or refresh the page.',
 }
 
 function getToastMessage(key: ToastMessageKey, error?: unknown): string {
-  if (key === 'normalizationNotSavedDesc' && error instanceof NormalizationAPIError && error.status === 404) {
-    return toastMessageGetter?.('normalizationNotSavedSession') ?? TOAST_FALLBACKS.normalizationNotSavedSession
+  if (key === 'normalizationNotSavedDesc' && error instanceof NormalizationAPIError) {
+    if (error.status === 404) {
+      return toastMessageGetter?.('normalizationNotSavedSession') ?? TOAST_FALLBACKS.normalizationNotSavedSession
+    }
+    if (error.status === 409) {
+      return toastMessageGetter?.('normalizationConflictDesc') ?? TOAST_FALLBACKS.normalizationConflictDesc
+    }
   }
   return toastMessageGetter?.(key) ?? TOAST_FALLBACKS[key]
 }
@@ -334,9 +342,23 @@ export const useNormalizationStore = create<NormalizationStore>()(
             } as any)
           }
           const isRetryable = (err: unknown): boolean => {
-            if (err instanceof NormalizationAPIError) return err.status >= 500
+            if (err instanceof NormalizationAPIError) {
+              if (err.status === 409) return true
+              const code =
+                err.details && typeof err.details === 'object' && 'code' in err.details
+                  ? (err.details as { code?: string }).code
+                  : undefined
+              if (code === 'NORMALIZATION_SNAPSHOT_CONFLICT') return true
+              return err.status >= 500
+            }
             if (err instanceof TypeError) return true
             return false
+          }
+          const backoffMs = (err: unknown, attempt: number): number => {
+            if (err instanceof NormalizationAPIError && err.status === 409) {
+              return Math.min(100 + 120 * attempt, 450)
+            }
+            return 1000
           }
           const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
           let lastError: unknown
@@ -352,8 +374,11 @@ export const useNormalizationStore = create<NormalizationStore>()(
             } catch (error) {
               lastError = error
               if (attempt < 2 && isRetryable(error)) {
-                generalLogger.debug('[NormalizationStore] Retrying persist', { attempt: attempt + 1 })
-                await sleep(1000)
+                generalLogger.debug('[NormalizationStore] Retrying persist', {
+                  attempt: attempt + 1,
+                  status: error instanceof NormalizationAPIError ? error.status : undefined,
+                })
+                await sleep(backoffMs(error, attempt))
               } else {
                 break
               }
