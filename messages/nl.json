@@ -793,7 +793,8 @@
       "title": "Berekeningsfout",
       "description": "Indicatieve bedrijfsschatting berekenen mislukt",
       "invalidData": "Ongeldige gegevens opgegeven",
-      "retry": "Berekening opnieuw proberen"
+      "retry": "Berekening opnieuw proberen",
+      "insufficientCredits": "Onvoldoende credits"
     },
     "session": {
       "title": "Sessiefout",

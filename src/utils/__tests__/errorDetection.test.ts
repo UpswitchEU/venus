@@ -5,13 +5,16 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { ApplicationError, AuthenticationError } from '../../types/errors'
 import {
+  collectErrorChain,
   extractErrorMessage,
   extractStatusCode,
   is401Unauthorized,
   is404NotFound,
   is409Conflict,
   is429RateLimit,
+  isAuthError,
 } from '../errorDetection'
 
 describe('errorDetection', () => {
@@ -65,6 +68,36 @@ describe('errorDetection', () => {
       expect(is401Unauthorized({ response: { status: 401 } })).toBe(true)
       expect(is401Unauthorized({ status: 401 })).toBe(true)
       expect(is401Unauthorized({ statusCode: 401 })).toBe(true)
+    })
+  })
+
+  describe('collectErrorChain', () => {
+    it('should include nested context.originalError', () => {
+      const inner = { response: { status: 401 } }
+      const wrapped = new ApplicationError('wrapped', 'X', { originalError: inner })
+      const chain = collectErrorChain(wrapped)
+      expect(chain).toHaveLength(2)
+      expect(chain[1]).toBe(inner)
+    })
+  })
+
+  describe('isAuthError', () => {
+    it('should detect AuthenticationError without HTTP fields', () => {
+      expect(isAuthError(new AuthenticationError('Session invalid'))).toBe(true)
+    })
+
+    it('should unwrap ApplicationError.context.originalError for 401', () => {
+      const axiosLike = { response: { status: 401 } }
+      const wrapped = new ApplicationError('fail', 'VALUATION_CALCULATION_FAILED', {
+        originalError: axiosLike,
+      })
+      expect(isAuthError(wrapped)).toBe(true)
+    })
+
+    it('should unwrap ApplicationError.context.originalError for AuthenticationError', () => {
+      const inner = new AuthenticationError('auth')
+      const wrapped = new ApplicationError('fail', 'X', { originalError: inner })
+      expect(isAuthError(wrapped)).toBe(true)
     })
   })
 

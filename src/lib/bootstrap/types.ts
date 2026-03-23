@@ -242,6 +242,11 @@ export interface ValuationPackage {
 // Main Bootstrap State
 // ============================================================================
 
+/** Firm defaults from Titan bootstrap (accountant flows) */
+export interface AccountantBrandingBootstrap {
+  defaultValuationMethod: string | null
+}
+
 export interface SessionBootstrapState {
   // Identity Resolution
   identity: IdentityState
@@ -261,6 +266,9 @@ export interface SessionBootstrapState {
   // WORLD-CLASS: Complete valuation package for existing reports
   // Enables instant UI hydration without additional API calls
   valuationPackage?: ValuationPackage
+
+  /** Accountant firm branding snippet (e.g. default Omni-Calc method) */
+  accountantBranding?: AccountantBrandingBootstrap
 
   // Metadata
   bootstrapVersion: string

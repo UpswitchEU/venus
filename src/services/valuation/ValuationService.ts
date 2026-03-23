@@ -15,9 +15,12 @@
 
 import {
   ApplicationError,
+  AuthenticationError,
   CalculationError,
+  CreditError,
   NetworkError,
   NotFoundError,
+  RateLimitError,
   ValidationError,
 } from '../../types/errors'
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
@@ -74,7 +77,8 @@ export class ValuationService {
    * @param request - Valuation request data
    * @param progressCallback - Optional callback for progress updates (0-100)
    * @returns Valuation response with results and HTML reports
-   * @throws ApplicationError on failure
+   * @throws AuthenticationError, CreditError, RateLimitError, ValidationError, etc. when the API fails for those reasons (re-thrown as-is)
+   * @throws ApplicationError on other unexpected failures
    */
   async calculateValuation(
     request: ValuationRequest,
@@ -186,6 +190,15 @@ export class ValuationService {
       throw error
     } else if (error instanceof NotFoundError) {
       logger.error('Not found error', { error: error.message, duration_ms: duration })
+      throw error
+    } else if (error instanceof AuthenticationError) {
+      logger.warn('Authentication error', { error: error.message, duration_ms: duration })
+      throw error
+    } else if (error instanceof CreditError) {
+      logger.warn('Credit error', { error: error.message, duration_ms: duration })
+      throw error
+    } else if (error instanceof RateLimitError) {
+      logger.warn('Rate limit error', { error: error.message, duration_ms: duration })
       throw error
     } else {
       logger.error('Unknown error', { error: getErrorMessage(error), duration_ms: duration })

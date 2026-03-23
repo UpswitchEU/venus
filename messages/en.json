@@ -793,7 +793,8 @@
       "title": "Calculation Error",
       "description": "Failed to calculate indicative business estimate",
       "invalidData": "Invalid data provided",
-      "retry": "Retry calculation"
+      "retry": "Retry calculation",
+      "insufficientCredits": "Insufficient credits"
     },
     "session": {
       "title": "Session Error",

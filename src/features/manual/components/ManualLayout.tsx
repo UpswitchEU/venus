@@ -105,7 +105,12 @@ import { useClientContext } from '../../../stores/clientContext'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { spotlightDomId, useSpotlightStore } from '../../../store/useSpotlightStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
-import { AuthenticationError, ValidationError } from '../../../types/errors'
+import {
+  AuthenticationError,
+  CreditError,
+  RateLimitError,
+  ValidationError,
+} from '../../../types/errors'
 import type {
   ValuationResponse,
   ValuationFormData as VenusFormData,
@@ -1605,6 +1610,24 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             description: error.message,
           })
           generalLogger.warn('[ManualLayout] EXTREME_MULTIPLE rejected by Titan', {
+            message: error.message,
+          })
+          return
+        }
+        if (error instanceof CreditError) {
+          toast.error(tErrors('calculation.insufficientCredits'), {
+            description: error.message,
+          })
+          generalLogger.warn('[ManualLayout] Insufficient credits for calculation', {
+            message: error.message,
+          })
+          return
+        }
+        if (error instanceof RateLimitError) {
+          toast.error(tErrors('rateLimit.title'), {
+            description: error.message || tErrors('rateLimit.description'),
+          })
+          generalLogger.warn('[ManualLayout] Rate limited during calculation', {
             message: error.message,
           })
           return

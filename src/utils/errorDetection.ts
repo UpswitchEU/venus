@@ -7,6 +7,34 @@
  * @module utils/errorDetection
  */
 
+import { AuthenticationError } from '../types/errors'
+
+const MAX_ERROR_CHAIN_DEPTH = 5
+
+/**
+ * Collects this error and nested `context.originalError` values (e.g. ApplicationError wrapping axios).
+ * Used so 401/403 on a wrapped axios error still classify as auth failures.
+ */
+export function collectErrorChain(error: unknown): unknown[] {
+  const chain: unknown[] = []
+  const seen = new Set<unknown>()
+  let current: unknown = error
+  let depth = 0
+
+  while (current != null && depth < MAX_ERROR_CHAIN_DEPTH) {
+    if (seen.has(current)) break
+    seen.add(current)
+    chain.push(current)
+
+    const ctx = (current as { context?: { originalError?: unknown } })?.context
+    if (ctx?.originalError == null) break
+    current = ctx.originalError
+    depth += 1
+  }
+
+  return chain
+}
+
 /**
  * Detects if an error is a 409 Conflict (resource already exists)
  *
@@ -86,11 +114,18 @@ export function is403Forbidden(error: unknown): boolean {
 /**
  * Detects if an error is an auth error (401 or 403)
  *
+ * Also unwraps `context.originalError` (e.g. ValuationService wrapping) and treats
+ * {@link AuthenticationError} as an auth failure even without HTTP status on the object.
+ *
  * @param error - Error object from any source
  * @returns true if error is 401 or 403
  */
 export function isAuthError(error: unknown): boolean {
-  return is401Unauthorized(error) || is403Forbidden(error)
+  for (const e of collectErrorChain(error)) {
+    if (e instanceof AuthenticationError) return true
+    if (is401Unauthorized(e) || is403Forbidden(e)) return true
+  }
+  return false
 }
 
 /**
