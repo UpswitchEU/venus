@@ -78,6 +78,7 @@ import {
   getSafeMercuryReturnUrl,
   isLegacyReturnUrl,
 } from '../../../lib/return-url'
+import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { backendAPI } from '../../../services/backendApi'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { reportService, valuationService } from '../../../services'
@@ -125,6 +126,7 @@ import { generalLogger } from '../../../utils/logger'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { formatShareholdingToast, isShareholdingValueInRange } from '../../../utils/shareholding'
+import { getCompleteYearlyFinancialsDesc, getLatestCompleteYearlyFinancial } from '../../../utils/yearlyFinancials'
 import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../../utils/versionConfirmation'
 import {
   areChangesSignificant,
@@ -278,14 +280,9 @@ function generateDefaultNormalizationSuggestions(
 // ─────────────────────────────────────────
 
 function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
-  const allYears = (data.yearlyFinancials || [])
-    .filter(
-      (yf: any) =>
-        yf.year &&
-        ((Number(yf.revenue) || 0) > 0 ||
-          (yf.ebitda !== '' && yf.ebitda !== null && yf.ebitda !== undefined))
-    )
-    .sort((a: any, b: any) => parseInt(b.year) - parseInt(a.year))
+  const allYears = getCompleteYearlyFinancialsDesc(
+    (data.yearlyFinancials || []) as Array<{ year: string; revenue: number; ebitda: number }>
+  )
 
   const current = allYears[0]
   const historical = allYears.slice(1)
@@ -839,7 +836,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         revenue: number
         ebitda: number
       }>
-      const current = yf[0]
+      const current = getLatestCompleteYearlyFinancial(yf)
       const revenue = current?.revenue ?? (data.revenue as number)
       const ebitda = current?.ebitda ?? (data.ebitda as number)
       const snapshot = lastSubmittedFinancialSnapshotRef.current
@@ -1309,16 +1306,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         toast.error(t('businessTypeMissing'), { description: t('businessTypeMissingDesc') })
         return
       }
-      if (
-        !data.yearlyFinancials?.some(
-          (yf: any) =>
-            Number(yf.revenue) > 0 &&
-            yf.ebitda !== '' &&
-            yf.ebitda !== null &&
-            yf.ebitda !== undefined &&
-            Number.isFinite(Number(yf.ebitda))
-        )
-      ) {
+      if (!getLatestCompleteYearlyFinancial(data.yearlyFinancials || [])) {
         toast.error(t('financialDataIncomplete'), { description: t('financialDataIncompleteDesc') })
         return
       }
@@ -1868,8 +1856,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const n = typeof value === 'number' ? value : parseInt(String(value), 10)
         if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_owners: n })
       } else if (field === 'fteEmployees' || field === 'number_of_employees') {
-        const n = typeof value === 'number' ? value : parseInt(String(value), 10)
-        if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_employees: n })
+        const n = parseEmployeeCount(value)
+        if (n !== undefined) updateFormData({ number_of_employees: n })
       } else if (field === 'equityStake' || field === 'equity_stake') {
         const n = typeof value === 'number' ? value : Number.parseFloat(String(value))
         if (!Number.isNaN(n) && isShareholdingValueInRange(n)) {

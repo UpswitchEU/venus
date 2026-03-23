@@ -34,6 +34,7 @@ export interface CurrencyInputProps {
   size?: 'sm' | 'md' | 'lg'
   className?: string
   disabled?: boolean
+  rightIcon?: React.ReactNode
 }
 
 export function CurrencyInput({
@@ -44,6 +45,7 @@ export function CurrencyInput({
   size = 'sm',
   className,
   disabled,
+  rightIcon,
 }: CurrencyInputProps) {
   const [display, setDisplay] = useState(() => formatValue(value))
   const inputRef = useRef<HTMLInputElement>(null)
@@ -98,6 +100,7 @@ export function CurrencyInput({
         size={size}
         disabled={disabled}
         leftIcon={<span className="text-foreground/40 text-xs font-medium select-none">€</span>}
+        rightIcon={rightIcon}
       />
     </div>
   )

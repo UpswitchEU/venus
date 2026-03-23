@@ -7,6 +7,7 @@
 
 import type { DataResponse } from '../types/data-collection'
 import type { ValuationFormData } from '../types/valuation'
+import { parseEmployeeCount } from './employeeCount'
 
 /**
  * Convert DataResponse array to ValuationFormData format
@@ -27,9 +28,12 @@ export function convertDataResponsesToFormData(
     // Handle type conversions based on field type
     // Map common field IDs to ValuationFormData properties
     switch (fieldId) {
+      case 'number_of_employees':
+        value = parseEmployeeCount(value) ?? value
+        break
+
       case 'revenue':
       case 'ebitda':
-      case 'number_of_employees':
       case 'founding_year':
         // Convert to number if it's a string
         if (typeof value === 'string') {

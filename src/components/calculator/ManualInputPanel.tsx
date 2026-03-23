@@ -15,7 +15,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertCircle,
-  ArrowDown,
   Building2,
   Check,
   CloudDownload,
@@ -67,9 +66,9 @@ import {
   type IntegrationStatus,
 } from '../../services/api/accounting'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
-import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { getLastFullFiscalYear } from '../../utils/fiscalYear'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
+import { getLatestCompleteYearlyFinancial, hasExplicitNumericValue as hasExplicitFinancialValue } from '../../utils/yearlyFinancials'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
@@ -114,7 +113,7 @@ export interface ValuationFormData {
   yearlyFinancials: YearlyFinancials[]
   // Calculated values
   averageNormalizedEbitda?: number
-  // Convenience fields for AI context (derived from yearlyFinancials[0])
+  // Convenience fields for AI context (derived from the latest complete financial year)
   revenue?: number
   ebitda?: number
   current_year_data?: { year: number; revenue: number; ebitda: number }
@@ -264,11 +263,7 @@ export function ManualInputPanel({
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const normalizationItems = useNormalizationStore((s) => s.items)
-  const hasExplicitNumericValue = useCallback(
-    (value: unknown) =>
-      value !== '' && value !== null && value !== undefined && Number.isFinite(Number(value)),
-    []
-  )
+  const hasExplicitNumericValue = useCallback((value: unknown) => hasExplicitFinancialValue(value), [])
   const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
   const formatCurrency = useCallback(
     (amount: number) => {
@@ -323,7 +318,7 @@ export function ManualInputPanel({
   // Sync form financials to ref during render for sibling components (e.g. normalization modal)
   // that need latest data without effect delay — eliminates race when opening modal immediately
   if (formDataRef && formDataRef.current != null) {
-    const current = formData.yearlyFinancials?.[0]
+    const current = getLatestCompleteYearlyFinancial(formData.yearlyFinancials)
     Object.assign(formDataRef.current, {
       yearlyFinancials: formData.yearlyFinancials,
       current_year_data: current
@@ -500,7 +495,7 @@ export function ManualInputPanel({
   onFormDataChangeRef.current = onFormDataChange
   const syncFormData = useCallback(() => {
     if (!onFormDataChangeRef.current) return
-    const current = formData.yearlyFinancials?.[0]
+    const current = getLatestCompleteYearlyFinancial(formData.yearlyFinancials)
     onFormDataChangeRef.current({
       companyName: formData.companyName,
       industry: formData.industry,
@@ -1098,9 +1093,7 @@ export function ManualInputPanel({
   // Check if core fields are filled
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0
   const hasBusinessType = !!selectedBusinessType || formData.businessType.length > 0
-  const hasFinancials = formData.yearlyFinancials.some(
-    (yf) => (Number(yf.revenue) || 0) > 0 && hasExplicitNumericValue(yf.ebitda)
-  )
+  const hasFinancials = !!getLatestCompleteYearlyFinancial(formData.yearlyFinancials)
   const hasEbitdaValue = formData.yearlyFinancials.some((yf) => hasExplicitNumericValue(yf.ebitda))
   const totalYearsWithEbitda = formData.yearlyFinancials.filter(
     (yf) => hasExplicitNumericValue(yf.ebitda)
@@ -1127,15 +1120,6 @@ export function ManualInputPanel({
     hasFinancials, // Step 3: Financials
     normalizedData.years.some((y) => y.normalizationCount > 0), // Step 4: Normalizations
   ].filter(Boolean).length
-
-  const { result, selectedMethod } = useManualResultsStore()
-  const hasOmniCalcResults =
-    !!result?.valuation_results && Object.keys(result.valuation_results).length > 0
-  const showValuationWorkspace = !!result
-  const currentMethodLabel =
-    selectedMethod === 'upswitch_adaptive'
-      ? mi('valuationMethod.upswitchRecommended')
-      : result?.valuation_results?.[selectedMethod]?.label || mi('valuationMethod.upswitchRecommended')
 
   return (
     <>
@@ -1656,6 +1640,18 @@ export function ManualInputPanel({
                                   onChange={(v) => updateYearlyFinancials(yearData.year, 'ebitda', v)}
                                   size="sm"
                                   placeholder="250.000"
+                                  rightIcon={
+                                    <FieldHelpTrigger
+                                      context={{
+                                        field: 'ebitda',
+                                        label: `EBITDA ${yearData.year}`,
+                                        value: yearData.ebitda,
+                                        hint: mi('ebitdaRelevantHint'),
+                                        normalizationType: 'other',
+                                      }}
+                                      onTrigger={onFieldHelpRequest}
+                                    />
+                                  }
                                 />
                               </div>
                               {(fieldValidation.warnings[`ebitda-${yearData.year}`] ||
@@ -1669,18 +1665,6 @@ export function ManualInputPanel({
                                     fieldValidation.warnings[`margin-${yearData.year}`]}
                                 </p>
                               )}
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
-                                <FieldHelpTrigger
-                                  context={{
-                                    field: 'ebitda',
-                                    label: `EBITDA ${yearData.year}`,
-                                    value: yearData.ebitda,
-                                    hint: mi('ebitdaRelevantHint'),
-                                    normalizationType: 'other',
-                                  }}
-                                  onTrigger={onFieldHelpRequest}
-                                />
-                              </div>
                             </div>
                           </SpotlightFieldWrapper>
                         </div>
@@ -1738,72 +1722,6 @@ export function ManualInputPanel({
                       {Math.min(...formData.yearlyFinancials.map((yf) => Number(yf.year))) - 1})
                     </button>
                   )}
-
-                  {/* Valuation method is set in the report panel, not in this form */}
-                  <div className="pt-4 mt-4 border-t border-foreground/[0.06]">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/45 mb-2">
-                      {mi('valuationMethod.sectionEyebrow')}
-                    </p>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <h3 className="text-sm font-medium text-foreground/90">
-                        {mi('valuationMethod.headlineLabel')}
-                      </h3>
-                      <TooltipProvider delayDuration={300}>
-                        <TooltipRoot>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center justify-center rounded-md text-foreground/40 hover:text-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[44px] min-h-[44px]"
-                              aria-label={mi('valuationMethod.tooltipAriaLabel')}
-                            >
-                              <HelpCircle className="w-3.5 h-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            sideOffset={8}
-                            collisionPadding={16}
-                            className="max-w-[280px] text-xs leading-relaxed"
-                          >
-                            {mi('valuationMethod.tooltip')}
-                          </TooltipContent>
-                        </TooltipRoot>
-                      </TooltipProvider>
-                    </div>
-                    <div className="rounded-xl border border-dashed border-foreground/[0.10] bg-foreground/[0.02] p-4">
-                      {hasOmniCalcResults && (
-                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-foreground/45">
-                          {mi('valuationMethod.currentMethodLabel', { method: currentMethodLabel })}
-                        </p>
-                      )}
-                      <p className="text-sm font-medium text-foreground">
-                        {!showValuationWorkspace
-                          ? mi('valuationMethod.workspaceHintPending')
-                          : hasOmniCalcResults
-                            ? mi('valuationMethod.workspaceHintReady')
-                            : mi('valuationMethod.workspaceHintPartial')}
-                      </p>
-                      <p className="mt-1 text-xs leading-relaxed text-foreground/55">
-                        {mi('valuationMethod.workspaceHintBlurb')}
-                      </p>
-                      {showValuationWorkspace && (
-                        <AuroraButton
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mt-3 w-full text-xs gap-2"
-                          onClick={() => {
-                            document
-                              .querySelector('[data-omni-calc-panel="true"]')
-                              ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-                          }}
-                        >
-                          <ArrowDown className="w-3.5 h-3.5 shrink-0 opacity-70" aria-hidden />
-                          {mi('valuationMethod.goToWorkspace')}
-                        </AuroraButton>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </motion.section>
             )}

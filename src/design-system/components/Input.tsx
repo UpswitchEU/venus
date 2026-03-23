@@ -345,10 +345,10 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
             className={cn(
               inputFieldVariants({
                 size,
-                hasIcon: hasLeftIcon || showStateIcon || showClearButton,
+                hasIcon: hasLeftIcon || showStateIcon || showClearButton || Boolean(rightIcon),
                 iconPosition: hasLeftIcon ? 'left' : 'right',
               }),
-              hasLeftIcon && showStateIcon && 'pr-11',
+              hasLeftIcon && (showStateIcon || showClearButton || Boolean(rightIcon)) && 'pr-11',
               className
             )}
             disabled={disabled}
@@ -401,7 +401,7 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
                 <CircleCheck className="w-5 h-5 text-primary" aria-hidden="true" />
               ) : null)}
             {rightIcon && !showStateIcon && !showClearButton && (
-              <span className="text-foreground/40">{rightIcon}</span>
+              <div className="text-foreground/40 inline-flex items-center justify-center">{rightIcon}</div>
             )}
           </div>
         </motion.div>

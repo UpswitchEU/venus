@@ -1041,33 +1041,6 @@ export function UnifiedNormalizationModal({
     [availableLedgers]
   )
 
-  // Import source picker state
-  const [showImportPicker, setShowImportPicker] = useState(false)
-  const [selectedImportSource, setSelectedImportSource] = useState<
-    'yuki' | 'exact' | 'custom' | null
-  >(null)
-  const uploadButtonRef = useRef<HTMLButtonElement>(null)
-  const [uploadButtonRect, setUploadButtonRect] = useState<DOMRect | null>(null)
-
-  const handleUploadClick = () => {
-    if (uploadButtonRef.current) {
-      setUploadButtonRect(uploadButtonRef.current.getBoundingClientRect())
-    }
-    setShowImportPicker(!showImportPicker)
-  }
-
-  const handleImportSourceSelect = (source: 'yuki' | 'exact' | 'custom') => {
-    setSelectedImportSource(source)
-    setShowImportPicker(false)
-    // Coming soon - no backend yet
-    import('sonner').then(({ toast }) =>
-      toast.info(nh('csvImportComingSoon'), {
-        description: nh('csvImportComingSoonDesc', {
-          source: source === 'yuki' ? 'Yuki' : source === 'exact' ? 'Exact Online' : source,
-        }),
-      })
-    )
-  }
 
   // Virtualizer for compact mode
   const rowVirtualizer = useVirtualizer({
@@ -1323,11 +1296,10 @@ export function UnifiedNormalizationModal({
 
               {/* Upload Button - only action needed */}
               <motion.button
-                ref={uploadButtonRef}
                 type="button"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={handleUploadClick}
+                onClick={() => fileInputRef.current?.click()}
                 className={cn(
                   'p-2 rounded-lg flex items-center gap-1.5',
                   'text-foreground/50 hover:text-foreground/70',
@@ -1339,77 +1311,6 @@ export function UnifiedNormalizationModal({
               >
                 <Upload className="w-4 h-4" />
               </motion.button>
-
-              {/* Import Source Picker Popup - Rendered via Portal with standardized z-index */}
-              {showImportPicker &&
-                createPortal(
-                  <div className="fixed inset-0 z-[11000] pointer-events-none">
-                    {/* Backdrop to close popup */}
-                    <button
-                      type="button"
-                      aria-label={nh('closeImportPicker')}
-                      className="absolute inset-0 pointer-events-auto bg-transparent"
-                      onClick={() => setShowImportPicker(false)}
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                      className="absolute z-[11001] pointer-events-auto w-64 p-1.5 bg-background border border-foreground/10 rounded-xl shadow-2xl"
-                      style={{
-                        top: uploadButtonRect ? uploadButtonRect.bottom + 8 : 0,
-                        left: uploadButtonRect ? Math.max(16, uploadButtonRect.right - 256) : 0,
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="px-2.5 py-1.5 mb-0.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
-                          {nh('chooseSource')}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleImportSourceSelect('yuki')}
-                        className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors min-h-[48px]"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-bold text-primary">Y</span>
-                        </div>
-                        <div className="text-left min-w-0">
-                          <p className="text-sm font-medium text-foreground">Yuki</p>
-                          <p className="text-[10px] text-foreground/40">{nh('ledgerExport')}</p>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => handleImportSourceSelect('exact')}
-                        className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors min-h-[48px]"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-bold text-accent-foreground">E</span>
-                        </div>
-                        <div className="text-left min-w-0">
-                          <p className="text-sm font-medium text-foreground">Exact Online</p>
-                          <p className="text-[10px] text-foreground/40">
-                            {nh('trialBalanceExport')}
-                          </p>
-                        </div>
-                      </button>
-                      <div className="h-px bg-foreground/[0.06] my-0.5" />
-                      <button
-                        onClick={() => handleImportSourceSelect('custom')}
-                        className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors min-h-[48px]"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-foreground/[0.06] flex items-center justify-center flex-shrink-0">
-                          <FileSpreadsheet className="w-4 h-4 text-foreground/50" />
-                        </div>
-                        <div className="text-left min-w-0">
-                          <p className="text-sm font-medium text-foreground">{nh('otherFile')}</p>
-                          <p className="text-[10px] text-foreground/40">{nh('csvOrExcel')}</p>
-                        </div>
-                      </button>
-                    </motion.div>
-                  </div>,
-                  document.body
-                )}
             </div>
 
             {/* Suggestion Pills Row - Hidden when add form is visible */}

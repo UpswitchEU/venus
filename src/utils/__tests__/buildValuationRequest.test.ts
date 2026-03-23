@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ValuationFormData } from '../../types/valuation'
 import { buildValuationRequest } from '../buildValuationRequest'
 import { getLastFullFiscalYear } from '../fiscalYear'
+import { getCompleteYearlyFinancialsDesc } from '../yearlyFinancials'
 
 function makeFormData(overrides: Partial<ValuationFormData> = {}): ValuationFormData {
   return {
@@ -167,6 +168,40 @@ describe('buildValuationRequest', () => {
         []
       )
     ).toThrow('Revenue is required and must be greater than 0.')
+  })
+
+  it('accepts the latest complete year when newer placeholder years are empty', () => {
+    const lastFullYear = getLastFullFiscalYear()
+    const yearlyFinancials = [
+      { year: '2025', revenue: 0, ebitda: 0 },
+      { year: '2024', revenue: 1_500_000, ebitda: 250_000 },
+      { year: '2023', revenue: 1_000_000, ebitda: 100_000 },
+    ]
+    const [current, ...historical] = getCompleteYearlyFinancialsDesc(yearlyFinancials)
+
+    const result = buildValuationRequest(
+      makeFormData({
+        revenue: current.revenue,
+        ebitda: current.ebitda,
+        current_year_data: {
+          year: Number(current.year),
+          revenue: current.revenue,
+          ebitda: current.ebitda,
+        },
+        historical_years_data: historical.map((year) => ({
+          year: Number(year.year),
+          revenue: year.revenue,
+          ebitda: year.ebitda,
+        })),
+      }),
+      []
+    )
+
+    expect(result.current_year_data.year).toBe(lastFullYear)
+    expect(result.current_year_data.revenue).toBe(1_500_000)
+    expect(result.historical_years_data).toEqual([
+      { year: 2023, revenue: 1_000_000, ebitda: 100_000, ebitda_normalized: false },
+    ])
   })
 
   it('rejects historical revenue that Python would refuse', () => {
