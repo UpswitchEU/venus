@@ -18,18 +18,15 @@ import {
   ArrowDown,
   Building2,
   Check,
-  ChevronRight,
   CloudDownload,
-  ExternalLink,
   FileSpreadsheet,
   HelpCircle,
-  Link2,
   Loader2,
   Plus,
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   type BusinessType,
   BusinessTypeSearchInput,
@@ -69,8 +66,6 @@ import {
   type AccountingImportProvider,
   type IntegrationStatus,
 } from '../../services/api/accounting'
-import { getMercuryUrl } from '../../utils/getMercuryUrl'
-import { shouldShowLedgerUploadHint } from '../../config/features'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { getLastFullFiscalYear } from '../../utils/fiscalYear'
@@ -575,10 +570,7 @@ export function ManualInputPanel({
   const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessType | null>(null)
 
   // Section collapse states
-  const [showConnectModal, setShowConnectModal] = useState(false)
   const [showCSVUpload, setShowCSVUpload] = useState(false)
-  const [connectedIntegration, setConnectedIntegration] = useState<string | null>(null)
-  const [hideUploadHint, setHideUploadHint] = useState(false)
 
   // Calculate normalized EBITDA per year and average using global normalization store
   const normalizedData = useMemo(() => {
@@ -801,35 +793,19 @@ export function ManualInputPanel({
     updateField('yearlyFinancials', updated)
   }
 
-  // Accounting import — preflight via GET /integrations/accounting/status (Titan)
-  type AccountingStatusPhase = 'loading' | 'ready' | 'error'
-  const [accountingStatusPhase, setAccountingStatusPhase] =
-    useState<AccountingStatusPhase>('loading')
+  // Accounting import — silent preflight; button only appears when a provider is connected
   const [accountingConnectedStatus, setAccountingConnectedStatus] =
     useState<IntegrationStatus | null>(null)
   const [importingFromAccounting, setImportingFromAccounting] = useState(false)
   const [importAccountingError, setImportAccountingError] = useState<string | null>(null)
   const accountingRefetchThrottle = useRef(0)
-  const accountingCompanyDescId = useId()
 
-  const mercuryIntegrationsUrl = `${getMercuryUrl()}/${locale}/accountant/settings?tab=integrations`
-
-  /** `silent` refetch (tab visible): on failure, keep prior UI/error — do not flip to a false "disconnected" state. Use Retry after a failed initial load. */
-  const loadAccountingIntegrationStatus = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) {
-      setAccountingStatusPhase('loading')
-      setImportAccountingError(null)
-    }
+  const loadAccountingIntegrationStatus = useCallback(async () => {
     try {
       const statuses = await accountingAPI.getAllIntegrationStatus()
       setAccountingConnectedStatus(pickConnectedImportStatus(statuses))
-      setAccountingStatusPhase('ready')
     } catch {
-      if (!opts?.silent) {
-        setAccountingConnectedStatus(null)
-        setAccountingStatusPhase('error')
-      }
-      // Silent refresh (e.g. tab focus): keep prior connection state; avoid UI flash.
+      // Fail silently — if we can't reach Titan the import button simply won't appear
     }
   }, [])
 
@@ -837,14 +813,14 @@ export function ManualInputPanel({
     void loadAccountingIntegrationStatus()
   }, [loadAccountingIntegrationStatus])
 
-  /** After connecting in Mercury (new tab), refresh status when user returns — no loading flash. */
+  /** After connecting in Mercury (new tab), refresh status when user returns. */
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return
       const now = Date.now()
       if (now - accountingRefetchThrottle.current < 2500) return
       accountingRefetchThrottle.current = now
-      void loadAccountingIntegrationStatus({ silent: true })
+      void loadAccountingIntegrationStatus()
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
@@ -1109,18 +1085,10 @@ export function ManualInputPanel({
     updateFormData({ business_type_id: undefined, industry: undefined })
   }
 
-  const handleConnect = (integrationId: string) => {
-    setShowConnectModal(false)
-    setShowCSVUpload(true)
-  }
 
   const handleCSVFileSelected = useCallback(
     (_file: File, parsedData: ParsedCSVData) => {
       setShowCSVUpload(false)
-      setShowConnectModal(false)
-      setConnectedIntegration(parsedData.detectedType)
-      setHideUploadHint(true)
-
       const source = parsedData.detectedType === 'generic' ? 'yuki' : parsedData.detectedType
       onCSVImportComplete?.(source, _file.name)
     },
@@ -1201,49 +1169,6 @@ export function ManualInputPanel({
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1">
             <SpotlightBanner />
             <GuidedResolutionOrphanFields />
-
-            {/* Step 0: Integration CTA - Hidden for launch until CSV import ships (SHOW_LEDGER_UPLOAD_HINT) */}
-            <AnimatePresence>
-              {shouldShowLedgerUploadHint() && !connectedIntegration && !hideUploadHint && (
-                <motion.section
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                  className="rounded-xl p-4 bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 relative"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setHideUploadHint(true)}
-                    className="absolute top-2 right-2 p-1.5 rounded-lg text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
-                    aria-label={t('common.actions.close')}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-
-                  <div className="flex items-start gap-3 pr-6">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Link2 className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-foreground mb-1">
-                        {mi('uploadHint.title')}
-                      </h3>
-                      <p className="text-xs text-foreground/60 mb-3">
-                        {mi('uploadHint.description')}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setShowConnectModal(true)}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                      >
-                        {mi('uploadHint.action')}
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </motion.section>
-              )}
-            </AnimatePresence>
 
             {/* Step 1: Company Identification */}
             <section className="space-y-4">
@@ -1505,157 +1430,48 @@ export function ManualInputPanel({
                   </h3>
                 </div>
 
-                {/* Financial step: plain-language intro + “Quick fill” card (accounting import) */}
-                <div className="-mt-1 ml-8 space-y-3">
-                  <div className="space-y-1 max-w-prose">
-                    <p className="text-xs text-foreground/70 leading-relaxed">
-                      {mi('financialInstructionPlain')}
-                    </p>
-                    <p className="text-[11px] text-foreground/40 leading-relaxed">
-                      {mi('financialInstruction')}
-                    </p>
-                  </div>
-
-                  <div
-                    className={cn(
-                      'rounded-xl border p-4 shadow-sm transition-colors',
-                      accountingStatusPhase === 'error'
-                        ? 'border-destructive/25 bg-destructive/[0.04]'
-                        : 'border-border/60 bg-muted/25'
-                    )}
-                  >
-                    <div className="flex flex-col gap-4">
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="min-w-0 space-y-1.5 flex-1">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-foreground/45">
-                            {mi('accountingQuickFillEyebrow')}
-                          </p>
-                          <p className="text-sm font-medium text-foreground leading-snug">
-                            {mi('accountingQuickFillBody')}
-                          </p>
-                          <p className="text-xs text-foreground/50 tabular-nums">
-                            {mi('accountingImportYearLabel', {
-                              year: String(getLastFullFiscalYear()),
-                            })}
-                          </p>
-                          {accountingStatusPhase === 'ready' && accountingConnectedStatus ? (
-                            <p
-                              id={accountingCompanyDescId}
-                              className="text-xs font-medium text-foreground/70 truncate max-w-full"
-                              title={
-                                accountingConnectedStatus.company_name ||
-                                accountingProviderDisplayName(accountingConnectedStatus.provider)
-                              }
-                            >
-                              {accountingProviderDisplayName(accountingConnectedStatus.provider)}
-                              {accountingConnectedStatus.company_name
-                                ? ` · ${accountingConnectedStatus.company_name}`
-                                : null}
-                            </p>
-                          ) : null}
-                        </div>
-
-                        <div className="flex flex-col gap-2 w-full shrink-0 lg:w-auto lg:min-w-[220px]">
-                          {accountingStatusPhase === 'loading' ? (
-                            <div
-                              className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/60 px-3 py-2.5 text-xs text-foreground/60"
-                              role="status"
-                              aria-live="polite"
-                            >
-                              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                              <span>{mi('accountingCheckingIntegrations')}</span>
-                            </div>
-                          ) : accountingStatusPhase === 'error' ? (
-                            <div className="flex flex-col gap-2" role="alert">
-                              <p className="text-xs text-destructive leading-relaxed">
-                                {mi('accountingStatusErrorShort')}
-                              </p>
-                              <AuroraButton
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => void loadAccountingIntegrationStatus()}
-                                aria-label={
-                                  mi('accountingStatusRetryAria') ||
-                                  'Retry loading accounting integration status'
-                                }
-                                className="w-full lg:w-auto"
-                              >
-                                {mi('accountingStatusRetry')}
-                              </AuroraButton>
-                            </div>
-                          ) : accountingConnectedStatus ? (
-                            <AuroraButton
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              loading={importingFromAccounting}
-                              onClick={handleImportFromAccounting}
-                              disabled={importingFromAccounting}
-                              aria-busy={importingFromAccounting}
-                              aria-describedby={accountingCompanyDescId}
-                              aria-label={
-                                mi('importFromAccountingAria', {
-                                  provider: accountingProviderDisplayName(
-                                    accountingConnectedStatus.provider
-                                  ),
-                                }) ||
-                                `Import revenue and EBITDA from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`
-                              }
-                              className="w-full lg:w-auto gap-2"
-                            >
-                              <CloudDownload className="size-4 shrink-0" aria-hidden />
-                              {mi('importFromAccountingCta', {
-                                provider: accountingProviderDisplayName(
-                                  accountingConnectedStatus.provider
-                                ),
-                              }) ||
-                                mi('importFromAccounting', {
-                                  provider: accountingProviderDisplayName(
-                                    accountingConnectedStatus.provider
-                                  ),
-                                })}
-                            </AuroraButton>
-                          ) : (
-                            <div className="flex flex-col gap-2">
-                              <a
-                                href={mercuryIntegrationsUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={mi('connectAccountingOpensNewTab')}
-                                aria-label={mi('connectAccountingAria')}
-                                className={cn(
-                                  'inline-flex h-8 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium',
-                                  'border border-foreground/15 bg-background/80 text-foreground/85',
-                                  'hover:bg-foreground/[0.06] hover:border-foreground/25',
-                                  'focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:ring-offset-2 focus:ring-offset-background',
-                                  'transition-colors lg:w-auto'
-                                )}
-                              >
-                                <ExternalLink className="size-4 shrink-0 opacity-70" aria-hidden />
-                                {mi('accountingConnectPrompt')}
-                              </a>
-                              <p className="text-[11px] text-foreground/45 leading-relaxed lg:text-right">
-                                {mi('accountingConnectDetail')}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {importAccountingError ? (
-                        <div
-                          className="flex gap-2.5 rounded-lg border border-destructive/20 bg-destructive/[0.06] px-3 py-2.5 text-xs text-destructive"
-                          role="alert"
-                          aria-live="assertive"
-                        >
-                          <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden />
-                          <span className="leading-relaxed">{importAccountingError}</span>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
+                {/* Instruction + inline accounting import (only visible when connected) */}
+                <div className="flex items-center justify-between gap-2 -mt-1 ml-8 flex-wrap">
+                  <p className="text-xs text-foreground/40">
+                    {mi('financialInstruction')}
+                  </p>
+                  {accountingConnectedStatus && (
+                    <button
+                      type="button"
+                      onClick={handleImportFromAccounting}
+                      disabled={importingFromAccounting}
+                      aria-busy={importingFromAccounting}
+                      aria-label={
+                        mi('importFromAccountingAria', {
+                          provider: accountingProviderDisplayName(
+                            accountingConnectedStatus.provider
+                          ),
+                        }) ||
+                        `Import revenue and EBITDA from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`
+                      }
+                      className={cn(
+                        'text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg shrink-0',
+                        'text-primary hover:bg-primary/10 transition-colors',
+                        importingFromAccounting && 'opacity-60 cursor-not-allowed'
+                      )}
+                    >
+                      {importingFromAccounting ? (
+                        <Loader2 className="w-3 h-3 animate-spin" aria-hidden />
+                      ) : (
+                        <CloudDownload className="w-3 h-3 shrink-0" aria-hidden />
+                      )}
+                      {mi('importFromAccounting', {
+                        provider: accountingProviderDisplayName(
+                          accountingConnectedStatus.provider
+                        ),
+                      }) ||
+                        `Import from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`}
+                    </button>
+                  )}
                 </div>
+                {importAccountingError && (
+                  <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
+                )}
 
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
                 {hasEbitdaValue && hasFinancials && totalYearsWithEbitda > 0 && (
@@ -2022,10 +1838,7 @@ export function ManualInputPanel({
       </div>
 
       {/* CSV Upload Modal */}
-      <Modal open={showConnectModal || showCSVUpload} onOpenChange={(open) => {
-        setShowConnectModal(open)
-        setShowCSVUpload(open)
-      }}>
+      <Modal open={showCSVUpload} onOpenChange={setShowCSVUpload}>
         <ModalContent className="max-w-2xl">
           <ModalHeader>
             <ModalTitle>{mi('importModal.title')}</ModalTitle>
@@ -2035,10 +1848,7 @@ export function ManualInputPanel({
           <div className="py-4">
             <CSVUploadCard
               onFileSelected={handleCSVFileSelected}
-              onSkip={() => {
-                setShowConnectModal(false)
-                setShowCSVUpload(false)
-              }}
+              onSkip={() => setShowCSVUpload(false)}
             />
           </div>
         </ModalContent>
