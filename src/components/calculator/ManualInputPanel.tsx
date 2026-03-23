@@ -1018,12 +1018,21 @@ export function ManualInputPanel({
 
   const handleConnect = (integrationId: string) => {
     setShowConnectModal(false)
-    import('sonner').then(({ toast }) =>
-      toast.info(mi('csvComingSoon'), {
-        description: mi('csvComingSoonDesc'),
-      })
-    )
+    setShowCSVUpload(true)
   }
+
+  const handleCSVFileSelected = useCallback(
+    (_file: File, parsedData: ParsedCSVData) => {
+      setShowCSVUpload(false)
+      setShowConnectModal(false)
+      setConnectedIntegration(parsedData.detectedType)
+      setHideUploadHint(true)
+
+      const source = parsedData.detectedType === 'generic' ? 'yuki' : parsedData.detectedType
+      onCSVImportComplete?.(source, _file.name)
+    },
+    [onCSVImportComplete]
+  )
 
   // Check if core fields are filled
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0
@@ -1813,148 +1822,26 @@ export function ManualInputPanel({
         </div>
       </div>
 
-      {/* Upload CSV Modal */}
-      <Modal open={showConnectModal} onOpenChange={setShowConnectModal}>
-        <ModalContent className="max-w-md">
+      {/* CSV Upload Modal */}
+      <Modal open={showConnectModal || showCSVUpload} onOpenChange={(open) => {
+        setShowConnectModal(open)
+        setShowCSVUpload(open)
+      }}>
+        <ModalContent className="max-w-2xl">
           <ModalHeader>
             <ModalTitle>{mi('importModal.title')}</ModalTitle>
+            <ModalDescription>{mi('importModal.description')}</ModalDescription>
           </ModalHeader>
 
-          <div className="py-4 space-y-4">
-            <p className="text-sm text-foreground/60">{mi('importModal.description')}</p>
-
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => {
-                  handleConnect('yuki')
-                  setShowConnectModal(false)
-                }}
-                className={cn(
-                  'w-full flex items-center gap-3 p-4 rounded-xl text-left',
-                  'border border-foreground/[0.08] hover:border-primary/30',
-                  'bg-foreground/[0.02] hover:bg-primary/5 transition-colors'
-                )}
-              >
-                <div className="w-10 h-10 rounded-lg bg-[#00A4E4]/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-[#00A4E4]">Y</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {mi('importModal.yukiExport')}
-                  </p>
-                  <p className="text-xs text-foreground/50">{mi('importModal.yukiPath')}</p>
-                </div>
-                <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleConnect('exact')
-                  setShowConnectModal(false)
-                }}
-                className={cn(
-                  'w-full flex items-center gap-3 p-4 rounded-xl text-left',
-                  'border border-foreground/[0.08] hover:border-primary/30',
-                  'bg-foreground/[0.02] hover:bg-primary/5 transition-colors'
-                )}
-              >
-                <div className="w-10 h-10 rounded-lg bg-[#E94E1B]/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-[#E94E1B]">E</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {mi('importModal.exactExport')}
-                  </p>
-                  <p className="text-xs text-foreground/50">{mi('importModal.exactPath')}</p>
-                </div>
-                <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleConnect('octopus')
-                  setShowConnectModal(false)
-                }}
-                className={cn(
-                  'w-full flex items-center gap-3 p-4 rounded-xl text-left',
-                  'border border-foreground/[0.08] hover:border-primary/30',
-                  'bg-foreground/[0.02] hover:bg-primary/5 transition-colors'
-                )}
-              >
-                <div className="w-10 h-10 rounded-lg bg-[#2D7DD2]/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-[#2D7DD2]">O</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {mi('importModal.octopusExport')}
-                  </p>
-                  <p className="text-xs text-foreground/50">{mi('importModal.octopusPath')}</p>
-                </div>
-                <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleConnect('accountable')
-                  setShowConnectModal(false)
-                }}
-                className={cn(
-                  'w-full flex items-center gap-3 p-4 rounded-xl text-left',
-                  'border border-foreground/[0.08] hover:border-primary/30',
-                  'bg-foreground/[0.02] hover:bg-primary/5 transition-colors'
-                )}
-              >
-                <div className="w-10 h-10 rounded-lg bg-[#10B981]/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-[#10B981]">A</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {mi('importModal.accountableExport')}
-                  </p>
-                  <p className="text-xs text-foreground/50">{mi('importModal.accountablePath')}</p>
-                </div>
-                <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleConnect('odoo')
-                  setShowConnectModal(false)
-                }}
-                className={cn(
-                  'w-full flex items-center gap-3 p-4 rounded-xl text-left',
-                  'border border-foreground/[0.08] hover:border-primary/30',
-                  'bg-foreground/[0.02] hover:bg-primary/5 transition-colors'
-                )}
-              >
-                <div className="w-10 h-10 rounded-lg bg-[#714B67]/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-[#714B67]">O</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {mi('importModal.odooExport')}
-                  </p>
-                  <p className="text-xs text-foreground/50">{mi('importModal.odooPath')}</p>
-                </div>
-                <FileSpreadsheet className="w-4 h-4 text-foreground/30" />
-              </button>
-            </div>
-
-            <p className="text-xs text-foreground/40 text-center pt-2">
-              {mi('importModal.apiComingSoon')}
-            </p>
+          <div className="py-4">
+            <CSVUploadCard
+              onFileSelected={handleCSVFileSelected}
+              onSkip={() => {
+                setShowConnectModal(false)
+                setShowCSVUpload(false)
+              }}
+            />
           </div>
-
-          <ModalFooter>
-            <AuroraButton variant="ghost" onClick={() => setShowConnectModal(false)}>
-              {mi('importModal.cancel')}
-            </AuroraButton>
-          </ModalFooter>
         </ModalContent>
       </Modal>
 
