@@ -549,9 +549,32 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   >([])
   const [showNewValuationModal, setShowNewValuationModal] = useState(false)
   const [isConfirmingNewValuation, setIsConfirmingNewValuation] = useState(false)
+  /** Effective fiscal PDF flag from Titan (matches PDF + branding); gates Omni-Calc 4× EBITDA row */
+  const [showFiscalReferenceForOmni, setShowFiscalReferenceForOmni] = useState<boolean | null>(null)
 
   // ─── Panel View State ───
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab ?? 'preview')
+
+  useEffect(() => {
+    const id = resolvedReportId || reportId
+    if (!id || id === 'new') {
+      setShowFiscalReferenceForOmni(false)
+      return
+    }
+    let cancelled = false
+    backendAPI
+      .getReport(id)
+      .then((r: { show_fiscal_reference?: boolean }) => {
+        if (cancelled) return
+        setShowFiscalReferenceForOmni(!!r.show_fiscal_reference)
+      })
+      .catch(() => {
+        if (!cancelled) setShowFiscalReferenceForOmni(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [resolvedReportId, reportId])
 
   // ─── Chat Co-pilot State ───
   const [chatDrawerOpen, setChatDrawerOpen] = useState(initialDrawerOpen)
@@ -3427,6 +3450,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 selectedMethod={selectedMethod}
                 onSelectMethod={setSelectedMethod}
                 fiscalAnchor={result.fiscal_4x_anchor}
+                showFiscalAnchorRow={showFiscalReferenceForOmni === true}
                 compact
                 showZeroDraftExport={showPreparerMultiplePanel}
                 zeroDraftReportId={resolvedReportId || reportId}
@@ -3648,6 +3672,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     selectedMethod={selectedMethod}
                     onSelectMethod={setSelectedMethod}
                     fiscalAnchor={result.fiscal_4x_anchor}
+                    showFiscalAnchorRow={showFiscalReferenceForOmni === true}
                     compact
                     showZeroDraftExport={showPreparerMultiplePanel}
                     zeroDraftReportId={resolvedReportId || reportId}
@@ -3703,6 +3728,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                                 selectedMethod={selectedMethod}
                                 onSelectMethod={setSelectedMethod}
                                 fiscalAnchor={result.fiscal_4x_anchor}
+                                showFiscalAnchorRow={showFiscalReferenceForOmni === true}
                                 compact
                                 showZeroDraftExport={showPreparerMultiplePanel}
                                 zeroDraftReportId={resolvedReportId || reportId}

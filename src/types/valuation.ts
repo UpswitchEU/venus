@@ -998,6 +998,9 @@ export interface ValuationResponse {
   // Omni-Calc: all methods calculated simultaneously
   valuation_results?: Record<string, ValuationMethodResult>
   fiscal_4x_anchor?: number | null
+  /** Effective fiscal PDF flag (Titan: branding + per-report override) */
+  show_fiscal_reference?: boolean
+  fiscal_reference_pdf_mode?: 'inherit' | 'include' | 'exclude'
 
   // HTML Reports (REQUIRED for display)
   /** Complete Accountant View HTML report (20-30 pages) */

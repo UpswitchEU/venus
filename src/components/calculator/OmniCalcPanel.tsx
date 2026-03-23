@@ -13,6 +13,8 @@ interface OmniCalcPanelProps {
   selectedMethod: string
   onSelectMethod: (method: string) => void
   fiscalAnchor?: number | null
+  /** When true, show the Belgian forfait 4× EBITDA component row (requires firm/report fiscal consent) */
+  showFiscalAnchorRow?: boolean
   compact?: boolean
   /** Accountant-only: export all methods to CSV (Zero Draft package) */
   showZeroDraftExport?: boolean
@@ -33,6 +35,7 @@ export function OmniCalcPanel({
   selectedMethod,
   onSelectMethod,
   fiscalAnchor,
+  showFiscalAnchorRow = false,
   compact = false,
   showZeroDraftExport = false,
   zeroDraftReportId,
@@ -147,14 +150,17 @@ export function OmniCalcPanel({
         })}
       </div>
 
-      {fiscalAnchor != null && (
-        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-foreground/[0.02] border border-dashed border-border/50">
-          <span className="text-[10px] font-medium text-foreground/50 uppercase tracking-wider">
-            {t('fiscalAnchor')}
-          </span>
-          <span className="text-xs font-mono font-medium text-foreground/60 tabular-nums">
-            {formatCurrency(Number(fiscalAnchor))}
-          </span>
+      {showFiscalAnchorRow && fiscalAnchor != null && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-foreground/[0.02] border border-dashed border-border/50">
+            <span className="text-[10px] font-medium text-foreground/50 uppercase tracking-wider">
+              {t('fiscalAnchor')}
+            </span>
+            <span className="text-xs font-mono font-medium text-foreground/60 tabular-nums">
+              {formatCurrency(Number(fiscalAnchor))}
+            </span>
+          </div>
+          <p className="text-[9px] text-foreground/40 leading-snug px-1">{t('fiscalAnchorFootnote')}</p>
         </div>
       )}
 
@@ -171,7 +177,8 @@ export function OmniCalcPanel({
                 reportId: zeroDraftReportId,
                 businessName: zeroDraftBusinessName,
                 createdAt: zeroDraftCreatedAt ?? undefined,
-                fiscalAnchor: fiscalAnchor ?? undefined,
+                fiscalAnchor:
+                  showFiscalAnchorRow && fiscalAnchor != null ? fiscalAnchor ?? undefined : undefined,
                 selectedMethod,
                 methods: valuationResults,
               })

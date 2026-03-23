@@ -36,7 +36,7 @@ export function buildZeroDraftCsv(params: {
   if (params.createdAt) rows.push(['Created', params.createdAt])
   if (params.selectedMethod) rows.push(['Selected method key', params.selectedMethod])
   if (params.fiscalAnchor != null && Number.isFinite(Number(params.fiscalAnchor))) {
-    rows.push(['Fiscal 4x EBITDA anchor (EUR)', String(Math.round(Number(params.fiscalAnchor)))])
+    rows.push(['Forfait 4x EBITDA component (EUR)', String(Math.round(Number(params.fiscalAnchor)))])
   }
   rows.push([])
   rows.push([
