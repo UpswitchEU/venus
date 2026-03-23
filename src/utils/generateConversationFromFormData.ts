@@ -7,6 +7,7 @@
 
 import type { Message } from '../types/message'
 import type { ValuationFormData } from '../types/valuation'
+import { formatShareholdingToast } from './shareholding'
 
 /**
  * Generate conversation messages that represent manual form data
@@ -115,7 +116,7 @@ export function generateConversationFromFormData(
   if (formData.shares_for_sale !== undefined && formData.shares_for_sale !== null) {
     addMessagePair(
       "What percentage of the company's equity are we valuing?",
-      `${formData.shares_for_sale}%`,
+      formatShareholdingToast(formData.shares_for_sale),
       'shares_for_sale',
       { shares_for_sale: formData.shares_for_sale }
     )

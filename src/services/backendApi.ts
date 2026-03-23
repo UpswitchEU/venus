@@ -107,9 +107,11 @@ class BackendAPI {
 
   async updateSelectedMethod(
     reportId: string,
-    selectedMethod: string
+    selectedMethod: string,
+    overrideReason?: string,
+    overrideNote?: string,
   ): Promise<{ selected_method: string }> {
-    return this.valuationAPI.updateSelectedMethod(reportId, selectedMethod)
+    return this.valuationAPI.updateSelectedMethod(reportId, selectedMethod, overrideReason, overrideNote)
   }
 
   // ===== REPORT OPERATIONS =====

@@ -1,12 +1,38 @@
 /**
  * Next.js Middleware for Venus
- * Handles i18n routing with locale detection and redirection
+ * Handles i18n routing with locale detection and redirection.
+ * Auth: cookie-exists check for /reports/[id] (the only auth-gated route).
+ * AuthGate remains as defense-in-depth for client context exchange.
  */
 
 import createMiddleware from 'next-intl/middleware';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { locales, defaultLocale } from './i18n';
+
+/**
+ * Derive Mercury URL from request hostname (Edge Runtime compatible).
+ * Mirrors getMercuryUrl() logic but uses request headers instead of window.location.
+ */
+function deriveMercuryUrl(request: NextRequest): string {
+	const envUrl = process.env.NEXT_PUBLIC_MERCURY_URL || process.env.NEXT_PUBLIC_PARENT_DOMAIN;
+	if (envUrl) return envUrl;
+
+	const host = request.headers.get('host') || '';
+	if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
+		return 'http://localhost:3000';
+	}
+	if (host.startsWith('preview.valuation.')) {
+		return `https://preview.${host.replace('preview.valuation.', '')}`;
+	}
+	if (host.startsWith('staging.valuation.')) {
+		return `https://staging.${host.replace('staging.valuation.', '')}`;
+	}
+	if (host.startsWith('valuation.')) {
+		return `https://${host.replace('valuation.', '')}`;
+	}
+	return 'https://upswitch.app';
+}
 
 /**
  * Create i18n middleware with next-intl
@@ -122,6 +148,22 @@ export async function middleware(request: NextRequest) {
 	const pathLocaleMatch = pathname.match(/^\/(nl|en)(\/|$)/);
 	if (pathLocaleMatch) {
 		const pathLocale = pathLocaleMatch[1];
+		const pathWithoutLocale = pathname.replace(/^\/(nl|en)/, '');
+
+		// Auth check: /reports/:id requires upswitch_access_token cookie
+		// Skip /reports/new (redirect route, no auth needed)
+		const reportIdMatch = pathWithoutLocale.match(/^\/reports\/([^/]+)$/);
+		if (reportIdMatch && reportIdMatch[1] !== 'new') {
+			const accessToken = request.cookies.get('upswitch_access_token')?.value;
+			if (!accessToken) {
+				const mercuryBase = deriveMercuryUrl(request);
+				const returnUrl = request.nextUrl.toString();
+				const loginUrl = new URL(`/${pathLocale}/auth/login`, mercuryBase);
+				loginUrl.searchParams.set('returnUrl', returnUrl);
+				return NextResponse.redirect(loginUrl);
+			}
+		}
+
 		const response = intlMiddleware(request);
 		if (response instanceof Response) {
 			response.cookies.set('NEXT_LOCALE', pathLocale, getLocaleCookieOptions(request));

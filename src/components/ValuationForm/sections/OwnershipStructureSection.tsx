@@ -19,6 +19,12 @@ import {
   AuroraSelect,
 } from '../../../design-system/components'
 import type { ValuationFormData } from '../../../types/valuation'
+import {
+  formatShareholdingInput,
+  isValidShareholdingValue,
+  isShareholdingValueInRange,
+  parseShareholdingInput,
+} from '../../../utils/shareholding'
 
 interface OwnershipStructureSectionProps {
   formData: ValuationFormData
@@ -44,6 +50,24 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
   setEmployeeCountError,
 }) => {
   const t = useTranslations('forms.sections')
+  const [isEditingSharesForSale, setIsEditingSharesForSale] = React.useState(false)
+  const [sharesForSaleInput, setSharesForSaleInput] = React.useState(
+    formatShareholdingInput(formData.shares_for_sale ?? 100)
+  )
+  const lastValidSharesForSaleRef = React.useRef(formData.shares_for_sale ?? 100)
+
+  React.useEffect(() => {
+    if (formData.shares_for_sale !== undefined && isValidShareholdingValue(formData.shares_for_sale)) {
+      lastValidSharesForSaleRef.current = formData.shares_for_sale
+    }
+  }, [formData.shares_for_sale])
+
+  React.useEffect(() => {
+    if (!isEditingSharesForSale) {
+      setSharesForSaleInput(formatShareholdingInput(formData.shares_for_sale ?? 100))
+    }
+  }, [formData.shares_for_sale, isEditingSharesForSale])
+
   return (
     <AuroraFormSection title={t('ownershipStructure')}>
       <AuroraFormGrid columns={2}>
@@ -66,14 +90,26 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
           <AuroraNumberInput
             label={t('equityStakeForSale')}
             placeholder={t('equityStakePlaceholder')}
-            value={formData.shares_for_sale ?? 100}
-            onChange={(e) =>
+            value={sharesForSaleInput}
+            onChange={(e) => {
+              const { value } = e.target
+              setSharesForSaleInput(value)
               updateFormData({
-                shares_for_sale:
-                  e.target.value === '' ? undefined : Number.parseFloat(e.target.value),
+                shares_for_sale: value === '' ? undefined : parseShareholdingInput(value),
               })
-            }
-            onBlur={() => {}}
+            }}
+            onFocus={() => setIsEditingSharesForSale(true)}
+            onBlur={(e) => {
+              setIsEditingSharesForSale(false)
+              const parsed = parseShareholdingInput(e.target.value)
+              const nextValue =
+                parsed !== undefined && isShareholdingValueInRange(parsed)
+                  ? parsed
+                  : lastValidSharesForSaleRef.current
+              const formatted = formatShareholdingInput(nextValue)
+              setSharesForSaleInput(formatted)
+              updateFormData({ shares_for_sale: Number.parseFloat(formatted) })
+            }}
             name="shares_for_sale"
             min={0}
             max={100}

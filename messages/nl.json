@@ -2101,10 +2101,33 @@
     "title": "Methodevergelijking (accountantswerkruimte)",
     "available": "beschikbaar",
     "selected": "Geselecteerd",
+    "modeLabel": "Methodeselectie",
+    "modeAi": "UpSwitch bepaalt",
+    "modeManual": "Kies handmatig",
+    "comparisonTitle": "Vergelijking",
+    "comparisonAi": "UpSwitch Adaptive",
+    "comparisonManual": "Handmatige keuze",
+    "comparisonDelta": "Verschil",
+    "overrideJustificationTitle": "Reden voor override",
+    "overrideJustificationBlurb": "U wijkt af van de UpSwitch-aanbeveling. Documenteer de reden — dit wordt opgeslagen in het auditlogboek en kan in het rapport verschijnen.",
+    "overrideReasonPlaceholder": "Kies een reden…",
+    "overrideReasons": {
+      "fiscal_compliance": "Fiscale naleving (meerwaardebelasting)",
+      "asset_heavy_business": "Asset-intensief bedrijf — NAV is relevanter",
+      "internal_transfer": "Interne overdracht of familiale successie",
+      "conservative_anchor": "Conservatieve waarde voor due diligence",
+      "client_preference": "Voorkeur van de cliënt",
+      "regulatory_requirement": "Regelgevende vereiste",
+      "other": "Andere"
+    },
+    "overrideNotePlaceholder": "Optionele toelichting (bv. \"Klant wil conservatieve fiscale waarde voor interne overdracht\")",
+    "overrideConfirm": "Bevestig methode",
+    "overrideCancel": "Annuleer",
     "fiscalAnchor": "Forfait 4× EBITDA-component",
     "fiscalAnchorFootnote": "Het PDF-pakket toont de volledige forfaitaire referentie: eigen vermogen + 4 × genormaliseerde EBITDA (Belgische regelgeving).",
     "rangeModel": "Modelrange",
     "rangeIllustrative": "Illustratief ±20%",
+    "showAllMethods": "Toon alle methoden ({count})",
     "zeroDraftBlurb": "Technisch pakket — midden en bandbreedte per methode voor uw dossier. Het klantenrapport blijft één duidelijke headline.",
     "exportZeroDraft": "Download Zero Draft (CSV)",
     "zeroDraftFilename": "upswitch-zero-draft-{reportId}.csv"
@@ -2151,6 +2174,8 @@
     "extremeWarning": "Deze multiple ligt ver buiten het typische bereik voor dit bedrijfstype. Bevestig om verder te gaan.",
     "resetBenchmark": "Terug naar benchmark",
     "recalcHint": "Pas het formulier aan en herbereken — uw aanpassing wordt meegestuurd wanneer ze afwijkt van de benchmark en een reden is gekozen.",
-    "extremeServerToast": "Multiple buiten de guardrails: vink de bevestiging aan en probeer opnieuw, of nader tot de benchmark."
+    "extremeServerToast": "Multiple buiten de guardrails: vink de bevestiging aan en probeer opnieuw, of nader tot de benchmark.",
+    "hintFiscalMethod": "Fiscale referentie gebruikt een vaste 4× EBITDA-multiple — kantoor correctie is niet van toepassing op deze methode.",
+    "hintOtherMethod": "Multiple-aanpassing is alleen van toepassing wanneer EV/EBITDA of UpSwitch Adaptive is geselecteerd als waarderingsmethode."
   }
 }

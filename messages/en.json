@@ -2101,10 +2101,33 @@
     "title": "Method comparison (accountant workspace)",
     "available": "available",
     "selected": "Selected",
+    "modeLabel": "Method selection",
+    "modeAi": "Let UpSwitch decide",
+    "modeManual": "Choose manually",
+    "comparisonTitle": "Comparison",
+    "comparisonAi": "UpSwitch Adaptive",
+    "comparisonManual": "Manual choice",
+    "comparisonDelta": "Difference",
+    "overrideJustificationTitle": "Override justification",
+    "overrideJustificationBlurb": "You are overriding the UpSwitch recommendation. Document the reason — it will be saved in the audit log and may appear in the report.",
+    "overrideReasonPlaceholder": "Select a reason…",
+    "overrideReasons": {
+      "fiscal_compliance": "Fiscal compliance (capital gains tax)",
+      "asset_heavy_business": "Asset-heavy business — NAV is more relevant",
+      "internal_transfer": "Internal transfer or family succession",
+      "conservative_anchor": "Conservative value for due diligence",
+      "client_preference": "Client preference",
+      "regulatory_requirement": "Regulatory requirement",
+      "other": "Other"
+    },
+    "overrideNotePlaceholder": "Optional note (e.g. \"Client wants conservative fiscal value for internal transfer\")",
+    "overrideConfirm": "Confirm method",
+    "overrideCancel": "Cancel",
     "fiscalAnchor": "Forfait 4× EBITDA component",
     "fiscalAnchorFootnote": "The PDF appendix shows the full notional value: book equity + 4 × normalized EBITDA (Belgian rules).",
     "rangeModel": "Model range",
     "rangeIllustrative": "Illustrative ±20%",
+    "showAllMethods": "Show all methods ({count})",
     "zeroDraftBlurb": "Technical package — every method’s midpoint and range for your files. The client-facing report stays one clear headline.",
     "exportZeroDraft": "Download Zero Draft (CSV)",
     "zeroDraftFilename": "upswitch-zero-draft-{reportId}.csv"
@@ -2151,6 +2174,8 @@
     "extremeWarning": "This multiple is far outside the typical band for this business type. Confirm to proceed.",
     "resetBenchmark": "Reset to benchmark",
     "recalcHint": "Change the main form and recalculate, or use Recalculate — your adjustment is included when it differs from the benchmark and a reason is selected.",
-    "extremeServerToast": "Multiple outside guardrails: confirm the checkbox and try again, or move closer to the benchmark."
+    "extremeServerToast": "Multiple outside guardrails: confirm the checkbox and try again, or move closer to the benchmark.",
+    "hintFiscalMethod": "Fiscal reference uses a fixed 4× EBITDA multiple — firm adjusted multiple does not apply to this method.",
+    "hintOtherMethod": "Multiple adjustment only applies when EV/EBITDA or UpSwitch Adaptive is selected as the valuation method."
   }
 }

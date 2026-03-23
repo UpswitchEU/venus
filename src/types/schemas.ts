@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod'
+import { isValidShareholdingValue } from '../utils/shareholding'
 
 /**
  * Financial Data Schema
@@ -37,7 +38,10 @@ export const ValuationRequestSchema = z
     number_of_employees: z.number().int().min(0).optional(),
     number_of_owners: z.number().int().min(1).optional(),
     recurring_revenue_percentage: z.number().min(0).max(100).optional(),
-    shares_for_sale: z.number().min(0).max(100).optional(),
+    shares_for_sale: z
+      .number()
+      .refine(isValidShareholdingValue, 'Shares for sale must be between 0.00 and 100.00 with at most two decimal places')
+      .optional(),
     business_type_id: z.string().optional(),
     business_context: z.record(z.unknown()).optional(),
     comparables: z.array(z.unknown()).optional(),

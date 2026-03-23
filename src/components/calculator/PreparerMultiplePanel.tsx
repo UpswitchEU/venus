@@ -1,6 +1,7 @@
 'use client'
 
 import { AuroraButton } from '@/design-system/components/Button'
+import { AuroraSelect } from '@/design-system/components/Select'
 import { cn } from '@/design-system/utils'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight } from 'lucide-react'
@@ -21,6 +22,8 @@ interface PreparerMultiplePanelProps {
   industryLabel?: string
   businessTypeLabel?: string
   countryCode?: string
+  /** Currently selected Omni-Calc method — controls contextual hints */
+  selectedOmniMethod?: string
 }
 
 export function PreparerMultiplePanel({
@@ -31,6 +34,7 @@ export function PreparerMultiplePanel({
   industryLabel,
   businessTypeLabel,
   countryCode,
+  selectedOmniMethod,
 }: PreparerMultiplePanelProps) {
   const t = useTranslations('preparerMultiple')
   const locale = useLocale()
@@ -98,6 +102,12 @@ export function PreparerMultiplePanel({
 
   if (!result?.multiples_valuation?.ebitda_multiple && benchmarkMedian == null) return null
 
+  const nonEbitdaMethodSelected =
+    selectedOmniMethod != null &&
+    selectedOmniMethod !== 'upswitch_adaptive' &&
+    selectedOmniMethod !== 'ebitda_multiple'
+  const effectiveDisabled = disabled || nonEbitdaMethodSelected
+
   const savedSummary = result?.multiple_adjustment_summary
   const livePreview =
     benchmarkNum != null &&
@@ -136,7 +146,16 @@ export function PreparerMultiplePanel({
         {open ? <ChevronDown className="w-4 h-4 shrink-0 opacity-50" /> : <ChevronRight className="w-4 h-4 shrink-0 opacity-50" />}
       </button>
       {open && (
-        <div className="px-3 pb-3 pt-0 space-y-3 border-t border-border/40">
+        <div className={cn("px-3 pb-3 pt-0 space-y-3 border-t border-border/40", nonEbitdaMethodSelected && "opacity-60")}>
+          {nonEbitdaMethodSelected && (
+            <div className="mt-2 rounded-md border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2">
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
+                {selectedOmniMethod === 'fiscal_4x'
+                  ? t('hintFiscalMethod')
+                  : t('hintOtherMethod')}
+              </p>
+            </div>
+          )}
           <p className="text-[11px] text-foreground/50 leading-snug pt-2">{t('description')}</p>
           <div className="grid gap-1.5">
             <span className="text-[10px] font-medium text-foreground/45 uppercase">{t('benchmark')}</span>
@@ -180,7 +199,7 @@ export function PreparerMultiplePanel({
               step="0.05"
               min={0.5}
               max={40}
-              disabled={disabled}
+              disabled={effectiveDisabled}
               value={appliedMedian ?? ''}
               onChange={(e) => {
                 const v = e.target.value
@@ -196,7 +215,7 @@ export function PreparerMultiplePanel({
             <input
               type="range"
               aria-label={t('applied')}
-              disabled={disabled}
+              disabled={effectiveDisabled}
               min={sliderMin}
               max={sliderMax}
               step={0.05}
@@ -217,22 +236,20 @@ export function PreparerMultiplePanel({
             <label className="text-[10px] font-medium text-foreground/45 uppercase" htmlFor="prep-reason">
               {t('reason')}
             </label>
-            <select
-              id="prep-reason"
-              disabled={disabled}
+            <AuroraSelect
+              size="sm"
               value={reasonKey}
-              onChange={(e) =>
-                setReasonKey(e.target.value as (typeof PREPARER_EBITDA_REASON_KEYS)[number] | '')
+              onChange={(v) =>
+                setReasonKey(v as (typeof PREPARER_EBITDA_REASON_KEYS)[number] | '')
               }
-              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs"
-            >
-              <option value="">{t('reasonPlaceholder')}</option>
-              {PREPARER_EBITDA_REASON_KEYS.map((k) => (
-                <option key={k} value={k}>
-                  {t(`reasons.${k}`)}
-                </option>
-              ))}
-            </select>
+              disabled={effectiveDisabled}
+              placeholder={t('reasonPlaceholder')}
+              options={PREPARER_EBITDA_REASON_KEYS.map((k) => ({
+                value: k,
+                label: t(`reasons.${k}`),
+              }))}
+              clearable
+            />
           </div>
           <div className="grid gap-1">
             <label className="text-[10px] font-medium text-foreground/45 uppercase" htmlFor="prep-note">
@@ -240,7 +257,7 @@ export function PreparerMultiplePanel({
             </label>
             <textarea
               id="prep-note"
-              disabled={disabled}
+              disabled={effectiveDisabled}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}
@@ -265,7 +282,7 @@ export function PreparerMultiplePanel({
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"
-                disabled={disabled}
+                disabled={effectiveDisabled}
                 checked={acknowledgedExtreme}
                 onChange={(e) => setAcknowledgedExtreme(e.target.checked)}
                 className="mt-1"
@@ -281,7 +298,7 @@ export function PreparerMultiplePanel({
                 type="button"
                 variant="primary"
                 size="sm"
-                disabled={disabled}
+                disabled={effectiveDisabled}
                 className="w-full text-xs"
                 onClick={() => onRecalculate()}
               >
@@ -292,7 +309,7 @@ export function PreparerMultiplePanel({
               type="button"
               variant="outline"
               size="sm"
-              disabled={disabled}
+              disabled={effectiveDisabled}
               className="w-full text-xs"
               onClick={() => resetToBenchmark()}
             >

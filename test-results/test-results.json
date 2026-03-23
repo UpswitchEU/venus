@@ -128,20 +128,20 @@
   },
   "suites": [
     {
-      "title": "locale-nl.spec.ts",
-      "file": "locale-nl.spec.ts",
+      "title": "shareholding-ux.spec.ts",
+      "file": "shareholding-ux.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Dutch Locale Display",
-          "file": "locale-nl.spec.ts",
-          "line": 13,
+          "title": "Shareholding UX",
+          "file": "shareholding-ux.spec.ts",
+          "line": 23,
           "column": 6,
           "specs": [
             {
-              "title": "should display Dutch when navigating to /nl/reports/new",
+              "title": "preserves 33.33 ownership in the browser request and preview surface",
               "ok": false,
               "tags": [],
               "tests": [
@@ -155,83 +155,139 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
+                      "status": "timedOut",
+                      "duration": 60877,
                       "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
+                            "column": 14,
+                            "line": 14
+                          },
+                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:63:11"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-03T08:24:24.600Z",
+                      "startTime": "2026-03-23T09:59:12.893Z",
                       "annotations": [],
-                      "attachments": []
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium/video.webm"
+                        }
+                      ]
                     },
                     {
                       "workerIndex": 1,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
+                      "status": "timedOut",
+                      "duration": 62304,
                       "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
+                            "column": 14,
+                            "line": 14
+                          },
+                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:63:11"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 1,
-                      "startTime": "2026-03-03T08:24:25.828Z",
+                      "startTime": "2026-03-23T10:00:16.274Z",
                       "annotations": [],
                       "attachments": [
                         {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry1/video.webm"
+                        },
+                        {
                           "name": "trace",
                           "contentType": "application/zip",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/locale-nl-Dutch-Locale-Dis-3792a-avigating-to-nl-reports-new-chromium-retry1/trace.zip"
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry1/trace.zip"
                         }
                       ]
                     },
                     {
                       "workerIndex": 2,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
+                      "status": "timedOut",
+                      "duration": 62991,
                       "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
+                            "column": 14,
+                            "line": 14
+                          },
+                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:63:11"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 2,
-                      "startTime": "2026-03-03T08:24:27.044Z",
+                      "startTime": "2026-03-23T10:01:20.632Z",
                       "annotations": [],
-                      "attachments": []
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry2/video.webm"
+                        }
+                      ]
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "63ec45d80e57d765d533-670f5f06dea22604a0e7",
-              "file": "locale-nl.spec.ts",
-              "line": 14,
+              "id": "1c61f220aca22bbcbf17-77b8e9c8d62f0af1ec3d",
+              "file": "shareholding-ux.spec.ts",
+              "line": 30,
               "column": 3
             },
             {
-              "title": "should display Dutch when navigating to /nl/ (redirects to reports/new)",
+              "title": "restores the last valid ownership value when invalid precision is blurred",
               "ok": false,
               "tags": [],
               "tests": [
@@ -245,259 +301,135 @@
                     {
                       "workerIndex": 3,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
+                      "status": "timedOut",
+                      "duration": 62692,
                       "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
+                            "column": 14,
+                            "line": 14
+                          },
+                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:82:11"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-03T08:24:28.233Z",
+                      "startTime": "2026-03-23T10:02:26.610Z",
                       "annotations": [],
-                      "attachments": []
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium/video.webm"
+                        }
+                      ]
                     },
                     {
                       "workerIndex": 4,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
+                      "status": "timedOut",
+                      "duration": 62997,
                       "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
+                            "column": 14,
+                            "line": 14
+                          },
+                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:82:11"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 1,
-                      "startTime": "2026-03-03T08:24:29.333Z",
+                      "startTime": "2026-03-23T10:03:32.770Z",
                       "annotations": [],
                       "attachments": [
                         {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry1/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry1/video.webm"
+                        },
+                        {
                           "name": "trace",
                           "contentType": "application/zip",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/locale-nl-Dutch-Locale-Dis-67d2b-l-redirects-to-reports-new--chromium-retry1/trace.zip"
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry1/trace.zip"
                         }
                       ]
                     },
                     {
                       "workerIndex": 5,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
+                      "status": "timedOut",
+                      "duration": 62552,
                       "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
                       },
                       "errors": [
                         {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
+                            "column": 14,
+                            "line": 14
+                          },
+                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:82:11"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 2,
-                      "startTime": "2026-03-03T08:24:30.484Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "63ec45d80e57d765d533-b22ae3b0faf5a7304550",
-              "file": "locale-nl.spec.ts",
-              "line": 28,
-              "column": 3
-            },
-            {
-              "title": "should display English when navigating to /en/reports/new",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 6,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
-                      "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                      },
-                      "errors": [
-                        {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-03T08:24:31.583Z",
-                      "annotations": [],
-                      "attachments": []
-                    },
-                    {
-                      "workerIndex": 7,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
-                      "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                      },
-                      "errors": [
-                        {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 1,
-                      "startTime": "2026-03-03T08:24:32.697Z",
+                      "startTime": "2026-03-23T10:04:39.721Z",
                       "annotations": [],
                       "attachments": [
                         {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/locale-nl-Dutch-Locale-Dis-29886-avigating-to-en-reports-new-chromium-retry1/trace.zip"
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry2/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry2/video.webm"
                         }
                       ]
-                    },
-                    {
-                      "workerIndex": 8,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
-                      "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                      },
-                      "errors": [
-                        {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 2,
-                      "startTime": "2026-03-03T08:24:34.105Z",
-                      "annotations": [],
-                      "attachments": []
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "63ec45d80e57d765d533-960b0a527b1d54de2d4f",
-              "file": "locale-nl.spec.ts",
-              "line": 44,
-              "column": 3
-            },
-            {
-              "title": "should redirect /reports/new?locale=nl to /nl/reports/new and show Dutch",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 9,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
-                      "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                      },
-                      "errors": [
-                        {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-03T08:24:35.269Z",
-                      "annotations": [],
-                      "attachments": []
-                    },
-                    {
-                      "workerIndex": 10,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
-                      "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                      },
-                      "errors": [
-                        {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 1,
-                      "startTime": "2026-03-03T08:24:36.440Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/locale-nl-Dutch-Locale-Dis-60fed--reports-new-and-show-Dutch-chromium-retry1/trace.zip"
-                        }
-                      ]
-                    },
-                    {
-                      "workerIndex": 11,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 1,
-                      "error": {
-                        "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
-                        "stack": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                      },
-                      "errors": [
-                        {
-                          "message": "Error: browserType.launch: Executable doesn't exist at /Users/matthiasmandiau/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     pnpm exec playwright install                                        ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 2,
-                      "startTime": "2026-03-03T08:24:37.630Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "63ec45d80e57d765d533-9b9baa96534434c8d0ac",
-              "file": "locale-nl.spec.ts",
-              "line": 56,
+              "id": "1c61f220aca22bbcbf17-7e3d9d2135920beaa7a2",
+              "file": "shareholding-ux.spec.ts",
+              "line": 76,
               "column": 3
             }
           ]
@@ -507,11 +439,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-03-03T08:24:23.812Z",
-    "duration": 14260.609,
+    "startTime": "2026-03-23T09:59:12.036Z",
+    "duration": 391239.37299999996,
     "expected": 0,
     "skipped": 0,
-    "unexpected": 4,
+    "unexpected": 2,
     "flaky": 0
   }
 }

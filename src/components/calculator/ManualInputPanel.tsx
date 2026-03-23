@@ -67,11 +67,19 @@ import { getLastFullFiscalYear } from '../../utils/fiscalYear'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import { CurrencyInput } from './CurrencyInput'
 import { ProvenanceDot } from './ProvenanceDot'
 import { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
 import { SpotlightBanner } from './SpotlightBanner'
 import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
+import {
+  formatShareholdingInput,
+  hasAtMostTwoShareholdingDecimals,
+  isValidShareholdingValue,
+  isShareholdingValueInRange,
+  parseShareholdingInput,
+} from '../../utils/shareholding'
 
 // Types
 export interface YearlyFinancials {
@@ -287,6 +295,25 @@ export function ManualInputPanel({
     fteEmployees: initialData.fteEmployees ?? 5,
     yearlyFinancials: initialData.yearlyFinancials || generateDefaultYearlyFinancials(),
   })
+  const [isEditingEquityStake, setIsEditingEquityStake] = useState(false)
+  const [equityStakeInput, setEquityStakeInput] = useState(() =>
+    formatShareholdingInput(initialData.equityStake ?? 100)
+  )
+  const lastValidEquityStakeRef = useRef(
+    isValidShareholdingValue(initialData.equityStake ?? 100) ? (initialData.equityStake ?? 100) : 100
+  )
+
+  useEffect(() => {
+    if (!isEditingEquityStake) {
+      setEquityStakeInput(formatShareholdingInput(formData.equityStake))
+    }
+  }, [formData.equityStake, isEditingEquityStake])
+
+  useEffect(() => {
+    if (isValidShareholdingValue(formData.equityStake)) {
+      lastValidEquityStakeRef.current = formData.equityStake
+    }
+  }, [formData.equityStake])
 
   // Sync form financials to ref during render for sibling components (e.g. normalization modal)
   // that need latest data without effect delay — eliminates race when opening modal immediately
@@ -539,6 +566,7 @@ export function ManualInputPanel({
 
   // Section collapse states
   const [showConnectModal, setShowConnectModal] = useState(false)
+  const [showCSVUpload, setShowCSVUpload] = useState(false)
   const [showValuationMethodModal, setShowValuationMethodModal] = useState(false)
   const [connectedIntegration, setConnectedIntegration] = useState<string | null>(null)
   const [hideUploadHint, setHideUploadHint] = useState(false)
@@ -846,7 +874,8 @@ export function ManualInputPanel({
     if (
       !Number.isFinite(formData.equityStake) ||
       formData.equityStake < 0 ||
-      formData.equityStake > 100
+      formData.equityStake > 100 ||
+      !hasAtMostTwoShareholdingDecimals(formData.equityStake)
     )
       errors.equityStake = mi('validation.equityRange')
     // Year founded
@@ -1354,10 +1383,28 @@ export function ManualInputPanel({
                       min={0}
                       max={100}
                       step={0.01}
-                      value={formData.equityStake ?? ''}
+                      value={equityStakeInput}
                       onChange={(e) => {
-                        const n = Number(e.target.value)
-                        updateField('equityStake', Number.isFinite(n) ? n : 0)
+                        const { value } = e.target
+                        setEquityStakeInput(value)
+                        const parsed = parseShareholdingInput(value)
+                        if (parsed !== undefined) {
+                          updateField('equityStake', parsed)
+                        }
+                      }}
+                      onFocus={() => setIsEditingEquityStake(true)}
+                      onBlur={(e) => {
+                        setIsEditingEquityStake(false)
+                        const parsed = parseShareholdingInput(e.target.value)
+                        const nextValue =
+                          parsed === undefined
+                            ? lastValidEquityStakeRef.current
+                            : isShareholdingValueInRange(parsed)
+                              ? parsed
+                              : lastValidEquityStakeRef.current
+                        const formatted = formatShareholdingInput(nextValue)
+                        setEquityStakeInput(formatted)
+                        updateField('equityStake', Number.parseFloat(formatted))
                       }}
                       size="sm"
                       placeholder="100"

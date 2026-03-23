@@ -124,6 +124,7 @@ import { isAuthError } from '../../../utils/errorDetection'
 import { generalLogger } from '../../../utils/logger'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
+import { formatShareholdingToast, isShareholdingValueInRange } from '../../../utils/shareholding'
 import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../../utils/versionConfirmation'
 import {
   areChangesSignificant,
@@ -1247,17 +1248,28 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Omni-Calc: Persist method selection to Titan (fire-and-forget) ───
   const isFirstMethodRender = useRef(true)
+  const pendingOverrideRef = useRef<{ reason?: string; note?: string }>({})
   useEffect(() => {
     if (isFirstMethodRender.current) {
       isFirstMethodRender.current = false
       return
     }
     if (!reportId) return
+    const { reason, note } = pendingOverrideRef.current
+    pendingOverrideRef.current = {}
     const timer = setTimeout(() => {
-      backendAPI.updateSelectedMethod(reportId, selectedMethod).catch(() => {})
+      backendAPI.updateSelectedMethod(reportId, selectedMethod, reason, note).catch(() => {})
     }, 500)
     return () => clearTimeout(timer)
   }, [selectedMethod, reportId])
+
+  const handleSelectMethodWithOverride = useCallback(
+    (method: string, overrideReason?: string, overrideNote?: string) => {
+      pendingOverrideRef.current = { reason: overrideReason, note: overrideNote }
+      setSelectedMethod(method)
+    },
+    [],
+  )
 
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
@@ -1847,14 +1859,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (!Number.isNaN(n) && n >= 0) updateFormData({ number_of_employees: n })
       } else if (field === 'equityStake' || field === 'equity_stake') {
         const n = typeof value === 'number' ? value : Number.parseFloat(String(value))
-        if (!Number.isNaN(n) && n >= 0 && n <= 100) updateFormData({ shares_for_sale: n })
+        if (!Number.isNaN(n) && isShareholdingValueInRange(n)) {
+          updateFormData({ shares_for_sale: Number.parseFloat(n.toFixed(2)) })
+        }
       }
       const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
       toast.success(
         t('fieldUpdated', {
           field,
           value:
-            typeof value === 'number' ? `€${value.toLocaleString(currencyLocale)}` : String(value),
+            typeof value === 'number'
+              ? field === 'equityStake' || field === 'equity_stake'
+                ? formatShareholdingToast(value)
+                : `€${value.toLocaleString(currencyLocale)}`
+              : String(value),
         })
       )
       setChatMessages((prev) => [
@@ -3448,7 +3466,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               <OmniCalcPanel
                 valuationResults={result.valuation_results}
                 selectedMethod={selectedMethod}
-                onSelectMethod={setSelectedMethod}
+                onSelectMethod={handleSelectMethodWithOverride}
                 fiscalAnchor={result.fiscal_4x_anchor}
                 showFiscalAnchorRow={showFiscalReferenceForOmni === true}
                 compact
@@ -3470,6 +3488,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 industryLabel={collectedData.industry}
                 businessTypeLabel={collectedData.businessType}
                 countryCode={collectedData.country}
+                selectedOmniMethod={selectedMethod}
               />
             </div>
           )}
@@ -3670,7 +3689,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   <OmniCalcPanel
                     valuationResults={result.valuation_results}
                     selectedMethod={selectedMethod}
-                    onSelectMethod={setSelectedMethod}
+                    onSelectMethod={handleSelectMethodWithOverride}
                     fiscalAnchor={result.fiscal_4x_anchor}
                     showFiscalAnchorRow={showFiscalReferenceForOmni === true}
                     compact
@@ -3692,6 +3711,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     industryLabel={collectedData.industry}
                     businessTypeLabel={collectedData.businessType}
                     countryCode={collectedData.country}
+                    selectedOmniMethod={selectedMethod}
                   />
                 </div>
               )}
@@ -3726,7 +3746,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               <OmniCalcPanel
                                 valuationResults={result.valuation_results}
                                 selectedMethod={selectedMethod}
-                                onSelectMethod={setSelectedMethod}
+                                onSelectMethod={handleSelectMethodWithOverride}
                                 fiscalAnchor={result.fiscal_4x_anchor}
                                 showFiscalAnchorRow={showFiscalReferenceForOmni === true}
                                 compact

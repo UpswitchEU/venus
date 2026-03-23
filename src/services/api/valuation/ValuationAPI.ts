@@ -258,14 +258,20 @@ export class ValuationAPI extends HttpClient {
    */
   async updateSelectedMethod(
     reportId: string,
-    selectedMethod: string
+    selectedMethod: string,
+    overrideReason?: string,
+    overrideNote?: string,
   ): Promise<{ selected_method: string }> {
     try {
       return await this.executeRequest<{ selected_method: string }>(
         {
           method: 'PATCH',
           url: `/api/v2/valuations/reports/${reportId}/method`,
-          data: { selected_method: selectedMethod },
+          data: {
+            selected_method: selectedMethod,
+            ...(overrideReason ? { override_reason: overrideReason } : {}),
+            ...(overrideNote ? { override_note: overrideNote } : {}),
+          },
           headers: {},
         } as any,
       )
