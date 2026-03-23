@@ -578,9 +578,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           fiscal_4x_anchor: r.fiscal_4x_anchor ?? existingResult?.fiscal_4x_anchor ?? null,
         }
 
-        if (mergedResult.html_report || mergedResult.valuation_results) {
-          setResult(mergedResult)
-        }
+        // Always sync from Titan so selected_valuation_method / fiscal flags hydrate even when
+        // html_report or valuation_results are missing in this response (partial payloads).
+        setResult(mergedResult)
       })
       .catch(() => {
         if (!cancelled) setShowFiscalReferenceForOmni(false)

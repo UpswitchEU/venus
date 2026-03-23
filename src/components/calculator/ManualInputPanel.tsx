@@ -15,9 +15,12 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertCircle,
+  ArrowDown,
   Building2,
   Check,
   ChevronRight,
+  CloudDownload,
+  ExternalLink,
   FileSpreadsheet,
   HelpCircle,
   Link2,
@@ -26,7 +29,7 @@ import {
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   type BusinessType,
   BusinessTypeSearchInput,
@@ -60,6 +63,7 @@ import type { CompanySearchResult } from '../../services/registry/types'
 import {
   accountingAPI,
   accountingProviderDisplayName,
+  isAccountingImportProvider,
   parseAccountingApiError,
   pickConnectedImportStatus,
   type AccountingImportProvider,
@@ -806,9 +810,11 @@ export function ManualInputPanel({
   const [importingFromAccounting, setImportingFromAccounting] = useState(false)
   const [importAccountingError, setImportAccountingError] = useState<string | null>(null)
   const accountingRefetchThrottle = useRef(0)
+  const accountingCompanyDescId = useId()
 
   const mercuryIntegrationsUrl = `${getMercuryUrl()}/${locale}/accountant/settings?tab=integrations`
 
+  /** `silent` refetch (tab visible): on failure, keep prior UI/error — do not flip to a false "disconnected" state. Use Retry after a failed initial load. */
   const loadAccountingIntegrationStatus = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) {
       setAccountingStatusPhase('loading')
@@ -854,7 +860,7 @@ export function ManualInputPanel({
         row = pickConnectedImportStatus(statuses) ?? null
         setAccountingConnectedStatus(row)
       }
-      const provider = row?.provider as AccountingImportProvider | undefined
+      const provider = row && isAccountingImportProvider(row.provider) ? row.provider : null
       if (!provider) {
         const hint =
           mi('accountingNotConnectedHint') ||
@@ -886,12 +892,27 @@ export function ManualInputPanel({
         return { ...prev, yearlyFinancials: updated }
       })
       const label = accountingProviderDisplayName(provider)
-      import('sonner').then(({ toast }) =>
-        toast.success(
-          mi('importFromAccountingSuccess', { provider: label }) ||
-            `Financial data imported from ${label}`
-        )
-      )
+      import('sonner').then(({ toast }) => {
+        const fyDescription =
+          mi('importFromAccountingSuccessDescription', { year }) || `Fiscal year ${year}`
+        if (revenue === 0 && ebitda === 0) {
+          toast.warning(
+            mi('importFromAccountingEmpty', { provider: label, year }) ||
+              `No figures returned for ${year} from ${label}`,
+            {
+              description:
+                mi('importFromAccountingEmptyDescription') ||
+                'Revenue and EBITDA are zero. Check the fiscal year in your accounting tool or enter values manually.',
+            }
+          )
+        } else {
+          toast.success(
+            mi('importFromAccountingSuccess', { provider: label }) ||
+              `Financial data imported from ${label}`,
+            { description: fyDescription }
+          )
+        }
+      })
     } catch (err) {
       const msg = parseAccountingApiError(err)
       setImportAccountingError(msg)
@@ -1142,6 +1163,7 @@ export function ManualInputPanel({
   const { result, selectedMethod } = useManualResultsStore()
   const hasOmniCalcResults =
     !!result?.valuation_results && Object.keys(result.valuation_results).length > 0
+  const showValuationWorkspace = !!result
   const currentMethodLabel =
     selectedMethod === 'upswitch_adaptive'
       ? mi('valuationMethod.upswitchRecommended')
@@ -1483,100 +1505,157 @@ export function ManualInputPanel({
                   </h3>
                 </div>
 
-                {/* Step indicator */}
-                <div className="flex items-center justify-between gap-2 -mt-1 ml-8 flex-wrap">
-                  <div className="text-xs text-foreground/40">
-                    {mi('financialInstruction')}
+                {/* Financial step: plain-language intro + “Quick fill” card (accounting import) */}
+                <div className="-mt-1 ml-8 space-y-3">
+                  <div className="space-y-1 max-w-prose">
+                    <p className="text-xs text-foreground/70 leading-relaxed">
+                      {mi('financialInstructionPlain')}
+                    </p>
+                    <p className="text-[11px] text-foreground/40 leading-relaxed">
+                      {mi('financialInstruction')}
+                    </p>
                   </div>
-                  <div className="flex flex-col items-end gap-1 min-w-0 text-right">
-                    {accountingStatusPhase === 'loading' ? (
-                      <span
-                        className="text-xs text-foreground/40 flex items-center gap-1.5"
-                        role="status"
-                        aria-live="polite"
-                      >
-                        <Loader2 className="w-3 h-3 animate-spin" aria-hidden />
-                        {mi('accountingStatusLoading') || 'Checking integrations…'}
-                      </span>
-                    ) : accountingStatusPhase === 'error' ? (
-                      <div className="flex flex-col items-end gap-1.5 max-w-[min(100%,260px)]">
-                        <span className="text-xs text-destructive">
-                          {mi('accountingStatusError') || 'Could not load accounting integrations.'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => void loadAccountingIntegrationStatus()}
-                          className={cn(
-                            'text-xs font-medium px-2 py-1 rounded-lg',
-                            'text-primary hover:bg-primary/10 transition-colors underline-offset-2 hover:underline'
-                          )}
-                        >
-                          {mi('accountingStatusRetry') || 'Retry'}
-                        </button>
-                      </div>
-                    ) : accountingConnectedStatus ? (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <button
-                          type="button"
-                          onClick={handleImportFromAccounting}
-                          disabled={importingFromAccounting}
-                          aria-busy={importingFromAccounting}
-                          aria-label={
-                            mi('importFromAccountingAria', {
-                              provider: accountingProviderDisplayName(
-                                accountingConnectedStatus.provider
-                              ),
-                            }) ||
-                            `Import revenue and EBITDA from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`
-                          }
-                          className={cn(
-                            'text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg',
-                            'text-primary hover:bg-primary/10 transition-colors',
-                            importingFromAccounting && 'opacity-60 cursor-not-allowed'
-                          )}
-                        >
-                          {importingFromAccounting ? (
-                            <Loader2 className="w-3 h-3 animate-spin" aria-hidden />
-                          ) : (
-                            <Link2 className="w-3 h-3 shrink-0" aria-hidden />
-                          )}
-                          {mi('importFromAccounting', {
-                            provider: accountingProviderDisplayName(
-                              accountingConnectedStatus.provider
-                            ),
-                          }) ||
-                            `Import from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`}
-                        </button>
-                        {accountingConnectedStatus.company_name ? (
-                          <span
-                            className="text-[10px] text-foreground/45 max-w-[220px] truncate"
-                            title={accountingConnectedStatus.company_name}
-                          >
-                            {accountingConnectedStatus.company_name}
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <a
-                        href={mercuryIntegrationsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={mi('connectAccountingOpensNewTab') || 'Opens in a new tab'}
-                        className={cn(
-                          'text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg',
-                          'text-primary hover:bg-primary/10 transition-colors',
-                          'focus:outline-none focus:ring-2 focus:ring-primary/25 focus:ring-offset-1'
-                        )}
-                      >
-                        <Link2 className="w-3 h-3 shrink-0" aria-hidden />
-                        {mi('connectAccountingInSettings') || 'Connect accounting in Settings'}
-                      </a>
+
+                  <div
+                    className={cn(
+                      'rounded-xl border p-4 shadow-sm transition-colors',
+                      accountingStatusPhase === 'error'
+                        ? 'border-destructive/25 bg-destructive/[0.04]'
+                        : 'border-border/60 bg-muted/25'
                     )}
+                  >
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0 space-y-1.5 flex-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-foreground/45">
+                            {mi('accountingQuickFillEyebrow')}
+                          </p>
+                          <p className="text-sm font-medium text-foreground leading-snug">
+                            {mi('accountingQuickFillBody')}
+                          </p>
+                          <p className="text-xs text-foreground/50 tabular-nums">
+                            {mi('accountingImportYearLabel', {
+                              year: String(getLastFullFiscalYear()),
+                            })}
+                          </p>
+                          {accountingStatusPhase === 'ready' && accountingConnectedStatus ? (
+                            <p
+                              id={accountingCompanyDescId}
+                              className="text-xs font-medium text-foreground/70 truncate max-w-full"
+                              title={
+                                accountingConnectedStatus.company_name ||
+                                accountingProviderDisplayName(accountingConnectedStatus.provider)
+                              }
+                            >
+                              {accountingProviderDisplayName(accountingConnectedStatus.provider)}
+                              {accountingConnectedStatus.company_name
+                                ? ` · ${accountingConnectedStatus.company_name}`
+                                : null}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="flex flex-col gap-2 w-full shrink-0 lg:w-auto lg:min-w-[220px]">
+                          {accountingStatusPhase === 'loading' ? (
+                            <div
+                              className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/60 px-3 py-2.5 text-xs text-foreground/60"
+                              role="status"
+                              aria-live="polite"
+                            >
+                              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                              <span>{mi('accountingCheckingIntegrations')}</span>
+                            </div>
+                          ) : accountingStatusPhase === 'error' ? (
+                            <div className="flex flex-col gap-2" role="alert">
+                              <p className="text-xs text-destructive leading-relaxed">
+                                {mi('accountingStatusErrorShort')}
+                              </p>
+                              <AuroraButton
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void loadAccountingIntegrationStatus()}
+                                aria-label={
+                                  mi('accountingStatusRetryAria') ||
+                                  'Retry loading accounting integration status'
+                                }
+                                className="w-full lg:w-auto"
+                              >
+                                {mi('accountingStatusRetry')}
+                              </AuroraButton>
+                            </div>
+                          ) : accountingConnectedStatus ? (
+                            <AuroraButton
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              loading={importingFromAccounting}
+                              onClick={handleImportFromAccounting}
+                              disabled={importingFromAccounting}
+                              aria-busy={importingFromAccounting}
+                              aria-describedby={accountingCompanyDescId}
+                              aria-label={
+                                mi('importFromAccountingAria', {
+                                  provider: accountingProviderDisplayName(
+                                    accountingConnectedStatus.provider
+                                  ),
+                                }) ||
+                                `Import revenue and EBITDA from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`
+                              }
+                              className="w-full lg:w-auto gap-2"
+                            >
+                              <CloudDownload className="size-4 shrink-0" aria-hidden />
+                              {mi('importFromAccountingCta', {
+                                provider: accountingProviderDisplayName(
+                                  accountingConnectedStatus.provider
+                                ),
+                              }) ||
+                                mi('importFromAccounting', {
+                                  provider: accountingProviderDisplayName(
+                                    accountingConnectedStatus.provider
+                                  ),
+                                })}
+                            </AuroraButton>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              <a
+                                href={mercuryIntegrationsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={mi('connectAccountingOpensNewTab')}
+                                aria-label={mi('connectAccountingAria')}
+                                className={cn(
+                                  'inline-flex h-8 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium',
+                                  'border border-foreground/15 bg-background/80 text-foreground/85',
+                                  'hover:bg-foreground/[0.06] hover:border-foreground/25',
+                                  'focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:ring-offset-2 focus:ring-offset-background',
+                                  'transition-colors lg:w-auto'
+                                )}
+                              >
+                                <ExternalLink className="size-4 shrink-0 opacity-70" aria-hidden />
+                                {mi('accountingConnectPrompt')}
+                              </a>
+                              <p className="text-[11px] text-foreground/45 leading-relaxed lg:text-right">
+                                {mi('accountingConnectDetail')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {importAccountingError ? (
+                        <div
+                          className="flex gap-2.5 rounded-lg border border-destructive/20 bg-destructive/[0.06] px-3 py-2.5 text-xs text-destructive"
+                          role="alert"
+                          aria-live="assertive"
+                        >
+                          <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden />
+                          <span className="leading-relaxed">{importAccountingError}</span>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-                {importAccountingError && (
-                  <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
-                )}
 
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
                 {hasEbitdaValue && hasFinancials && totalYearsWithEbitda > 0 && (
@@ -1844,11 +1923,14 @@ export function ManualInputPanel({
                     </button>
                   )}
 
-                  {/* Valuation method is now managed in Omni-Calc, not in the form */}
+                  {/* Valuation method is set in the report panel, not in this form */}
                   <div className="pt-4 mt-4 border-t border-foreground/[0.06]">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/45 mb-2">
+                      {mi('valuationMethod.sectionEyebrow')}
+                    </p>
                     <div className="flex items-center gap-1.5 mb-2">
-                      <h3 className="text-sm font-medium text-foreground/70">
-                        {mi('valuationMethod.label')}
+                      <h3 className="text-sm font-medium text-foreground/90">
+                        {mi('valuationMethod.headlineLabel')}
                       </h3>
                       <TooltipProvider delayDuration={300}>
                         <TooltipRoot>
@@ -1879,25 +1961,28 @@ export function ManualInputPanel({
                         </p>
                       )}
                       <p className="text-sm font-medium text-foreground">
-                        {hasOmniCalcResults
-                          ? mi('valuationMethod.workspaceHintReady')
-                          : mi('valuationMethod.workspaceHintPending')}
+                        {!showValuationWorkspace
+                          ? mi('valuationMethod.workspaceHintPending')
+                          : hasOmniCalcResults
+                            ? mi('valuationMethod.workspaceHintReady')
+                            : mi('valuationMethod.workspaceHintPartial')}
                       </p>
                       <p className="mt-1 text-xs leading-relaxed text-foreground/55">
                         {mi('valuationMethod.workspaceHintBlurb')}
                       </p>
-                      {hasOmniCalcResults && (
+                      {showValuationWorkspace && (
                         <AuroraButton
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="mt-3 w-full text-xs"
+                          className="mt-3 w-full text-xs gap-2"
                           onClick={() => {
                             document
                               .querySelector('[data-omni-calc-panel="true"]')
                               ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
                           }}
                         >
+                          <ArrowDown className="w-3.5 h-3.5 shrink-0 opacity-70" aria-hidden />
                           {mi('valuationMethod.goToWorkspace')}
                         </AuroraButton>
                       )}

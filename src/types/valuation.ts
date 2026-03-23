@@ -719,6 +719,9 @@ export interface ValuationMethodResult {
 export interface ValuationResponse {
   valuation_id: string
   company_name: string
+  /** Optional labels when API includes them (e.g. contribute-multiples, exports). */
+  business_type?: string
+  industry?: string
   timestamp?: string
   valuation_date?: string
   creditsRemaining?: number // Added for backend credit synchronization
