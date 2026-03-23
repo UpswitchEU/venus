@@ -57,6 +57,19 @@ export interface BusinessTypeOption {
   category: string
 }
 
+/** Titan caps `limit` at 200 per request — one call loads the full ~168-type catalog. */
+const BUSINESS_TYPES_PAGE_LIMIT = 200
+
+/** Pure mapping for dropdowns; avoids a second `getBusinessTypes()` round-trip when types are already loaded. */
+export function businessTypesToOptions(businessTypes: BusinessType[]): BusinessTypeOption[] {
+  return businessTypes.map((bt) => ({
+    value: bt.id,
+    label: `${bt.icon || '🏢'} ${bt.title}`,
+    icon: bt.icon || '🏢',
+    category: bt.category,
+  }))
+}
+
 export interface ApiResponse<T> {
   success: boolean
   data?: T
@@ -106,8 +119,9 @@ class BusinessTypesApiService {
   }
 
   /**
-   * Get all business types from API with enhanced caching
-   * Uses batched fetching like Mercury to ensure all 168+ types are loaded
+   * Get all business types from API with enhanced caching.
+   * First page uses Titan max page size (200); runs in parallel with categories.
+   * Extra pages load only if `has_more` (large catalogs).
    */
   async getBusinessTypes(signal?: AbortSignal): Promise<BusinessType[]> {
     try {
@@ -140,40 +154,77 @@ class BusinessTypesApiService {
         }
       }
 
-      // Fetch from API with locale parameter
-      // Use batched fetching like Mercury to ensure all 168+ types are loaded
-      generalLogger.debug('[BusinessTypesAPI] Fetching from API in batches', { locale })
-
-      // Add cache buster to force fresh data (timestamp)
-      const cacheBuster = Date.now()
-
-      // First batch: 0-100
-      const batch1Response = await this.api.get('/types', {
-        params: { limit: 100, offset: 0, locale, _t: cacheBuster },
-        signal,
+      // First types page + categories in parallel (one RTT saved). Categories are non-fatal: if
+      // the categories request fails, we still load types and cache with categories=[].
+      generalLogger.debug('[BusinessTypesAPI] Fetching from API (first types page + categories)', {
+        locale,
       })
 
-      if (!batch1Response.data.success || !batch1Response.data.data) {
+      const cacheBuster = Date.now()
+
+      const [typesSettled, categoriesSettled] = await Promise.allSettled([
+        this.api.get('/types', {
+          params: {
+            limit: BUSINESS_TYPES_PAGE_LIMIT,
+            offset: 0,
+            locale,
+            _t: cacheBuster,
+          },
+          signal,
+        }),
+        this.api.get('/categories', { params: { locale }, signal }),
+      ])
+
+      if (typesSettled.status === 'rejected') {
+        throw typesSettled.reason
+      }
+
+      const typesResponse = typesSettled.value
+      if (!typesResponse.data.success || !typesResponse.data.data) {
         throw new Error('API returned unsuccessful response')
       }
 
-      let allBusinessTypes = [...batch1Response.data.data.business_types]
-
-      // Second batch: 100-200 (if there are more)
-      if (batch1Response.data.data.has_more) {
-        const batch2Response = await this.api.get('/types', {
-          params: { limit: 100, offset: 100, locale, _t: cacheBuster },
-          signal,
-        })
-
-        if (batch2Response.data.success && batch2Response.data.data) {
-          allBusinessTypes = [...allBusinessTypes, ...batch2Response.data.data.business_types]
+      let categories: Array<{ id: string; name: string; icon: string }> = []
+      if (categoriesSettled.status === 'fulfilled') {
+        const cr = categoriesSettled.value
+        if (cr.data?.success && cr.data.data) {
+          categories = cr.data.data
         }
+      } else {
+        generalLogger.warn(
+          '[BusinessTypesAPI] Categories request failed; continuing with business types only',
+          {
+            error:
+              categoriesSettled.reason instanceof Error
+                ? categoriesSettled.reason.message
+                : String(categoriesSettled.reason),
+          }
+        )
       }
 
-      // Fetch categories
-      const categoriesResponse = await this.api.get('/categories', { params: { locale }, signal })
-      const categories = categoriesResponse.data.success ? categoriesResponse.data.data : []
+      const first = typesResponse.data.data
+      const firstTypes = first.business_types ?? []
+      const allBusinessTypes: BusinessType[] = [...firstTypes]
+      let hasMore = Boolean(first.has_more)
+      let offset = BUSINESS_TYPES_PAGE_LIMIT
+      const maxExtraPages = 8
+
+      for (let p = 0; p < maxExtraPages && hasMore; p++) {
+        const next = await this.api.get('/types', {
+          params: {
+            limit: BUSINESS_TYPES_PAGE_LIMIT,
+            offset,
+            locale,
+            _t: cacheBuster,
+          },
+          signal,
+        })
+        if (!next.data.success || !next.data.data) break
+        const pageTypes = next.data.data.business_types ?? []
+        allBusinessTypes.push(...pageTypes)
+        hasMore = Boolean(next.data.data.has_more)
+        offset += BUSINESS_TYPES_PAGE_LIMIT
+      }
 
       // Cache the complete data
       await businessTypesCache.setBusinessTypes({
@@ -257,17 +308,11 @@ class BusinessTypesApiService {
   }
 
   /**
-   * Get business types as options for dropdown
+   * Get business types as options for dropdown (loads types then maps — prefer `businessTypesToOptions` if you already have types).
    */
-  async getBusinessTypeOptions(): Promise<BusinessTypeOption[]> {
-    const businessTypes = await this.getBusinessTypes()
-
-    return businessTypes.map((bt) => ({
-      value: bt.id,
-      label: `${bt.icon || '🏢'} ${bt.title}`,
-      icon: bt.icon || '🏢',
-      category: bt.category,
-    }))
+  async getBusinessTypeOptions(signal?: AbortSignal): Promise<BusinessTypeOption[]> {
+    const businessTypes = await this.getBusinessTypes(signal)
+    return businessTypesToOptions(businessTypes)
   }
 
   /**

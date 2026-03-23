@@ -7,11 +7,12 @@
  * @version 1.0.0
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   BusinessType,
   BusinessTypeOption,
   businessTypesApiService,
+  businessTypesToOptions,
 } from '../services/businessTypesApi'
 import { createContextLogger } from '../utils/logger'
 
@@ -33,24 +34,39 @@ export interface UseBusinessTypesState {
 // HOOK
 // ============================================================================
 
+function isAbortLike(err: unknown): boolean {
+  if (err instanceof Error && err.name === 'AbortError') return true
+  const code = (err as { code?: string })?.code
+  if (code === 'ERR_CANCELED') return true
+  return false
+}
+
 export function useBusinessTypes(): UseBusinessTypesState {
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([])
   const [businessTypeOptions, setBusinessTypeOptions] = useState<BusinessTypeOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
+  const inFlightRef = useRef<AbortController | null>(null)
 
   const fetchBusinessTypes = useCallback(async () => {
+    inFlightRef.current?.abort()
+    const controller = new AbortController()
+    inFlightRef.current = controller
+
     let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined
     try {
       setLoading(true)
       setError(null)
 
-      const controller = new AbortController()
       timeoutId = setTimeout(() => controller.abort(), 6000)
 
       const types = await businessTypesApiService.getBusinessTypes(controller.signal)
       if (timeoutId) clearTimeout(timeoutId)
-      const options = await businessTypesApiService.getBusinessTypeOptions()
+
+      if (!mountedRef.current || controller.signal.aborted) return
+
+      const options = businessTypesToOptions(types)
 
       logger.debug('Loaded business types', {
         typesCount: types.length,
@@ -61,15 +77,19 @@ export function useBusinessTypes(): UseBusinessTypesState {
       setBusinessTypeOptions(options)
     } catch (err) {
       if (timeoutId) clearTimeout(timeoutId)
-      if (err instanceof Error && err.name === 'AbortError') return
+      if (isAbortLike(err)) return
       const errorMessage =
         err instanceof Error
           ? err.message
           : 'Bedrijfstypes laden mislukt. Probeer het later opnieuw.'
-      setError(errorMessage)
+      if (mountedRef.current) {
+        setError(errorMessage)
+      }
       logger.error('Failed to fetch business types', { error: errorMessage })
     } finally {
-      setLoading(false)
+      if (mountedRef.current) {
+        setLoading(false)
+      }
     }
   }, [])
 
@@ -78,7 +98,12 @@ export function useBusinessTypes(): UseBusinessTypesState {
   }, [fetchBusinessTypes])
 
   useEffect(() => {
+    mountedRef.current = true
     fetchBusinessTypes()
+    return () => {
+      mountedRef.current = false
+      inFlightRef.current?.abort()
+    }
   }, [fetchBusinessTypes])
 
   return {

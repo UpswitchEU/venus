@@ -997,6 +997,7 @@ export interface ValuationResponse {
 
   // Omni-Calc: all methods calculated simultaneously
   valuation_results?: Record<string, ValuationMethodResult>
+  selected_valuation_method?: string
   fiscal_4x_anchor?: number | null
   /** Effective fiscal PDF flag (Titan: branding + per-report override) */
   show_fiscal_reference?: boolean

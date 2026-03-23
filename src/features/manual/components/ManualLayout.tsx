@@ -565,9 +565,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     let cancelled = false
     backendAPI
       .getReport(id)
-      .then((r: { show_fiscal_reference?: boolean }) => {
+      .then((r: ValuationResponse) => {
         if (cancelled) return
         setShowFiscalReferenceForOmni(!!r.show_fiscal_reference)
+
+        const existingResult = useManualResultsStore.getState().result
+        const mergedResult: ValuationResponse = {
+          ...(existingResult || {}),
+          ...r,
+          html_report: r.html_report || existingResult?.html_report,
+          valuation_results: r.valuation_results || existingResult?.valuation_results,
+          fiscal_4x_anchor: r.fiscal_4x_anchor ?? existingResult?.fiscal_4x_anchor ?? null,
+        }
+
+        if (mergedResult.html_report || mergedResult.valuation_results) {
+          setResult(mergedResult)
+        }
       })
       .catch(() => {
         if (!cancelled) setShowFiscalReferenceForOmni(false)
@@ -575,7 +588,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return () => {
       cancelled = true
     }
-  }, [resolvedReportId, reportId])
+  }, [resolvedReportId, reportId, setResult])
 
   // ─── Chat Co-pilot State ───
   const [chatDrawerOpen, setChatDrawerOpen] = useState(initialDrawerOpen)
@@ -3463,10 +3476,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           <div className="flex-1 min-h-0 overflow-y-auto">
             <ManualInputPanel key={reportId} {...manualInputProps} />
           </div>
-          {result?.valuation_results && Object.keys(result.valuation_results).length > 0 && (
+          {result && (
             <div className="shrink-0 border-t border-border max-h-[min(40vh,320px)] overflow-y-auto bg-card/50">
               <OmniCalcPanel
-                valuationResults={result.valuation_results}
+                valuationResults={result.valuation_results ?? {}}
                 selectedMethod={selectedMethod}
                 onSelectMethod={handleSelectMethodWithOverride}
                 fiscalAnchor={result.fiscal_4x_anchor}
@@ -3686,10 +3699,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               <div className="flex-1 min-h-0 overflow-y-auto">
                 <ManualInputPanel key={reportId} {...manualInputProps} />
               </div>
-              {result?.valuation_results && Object.keys(result.valuation_results).length > 0 && (
+              {result && (
                 <div className="shrink-0 border-t border-border max-h-[min(40vh,360px)] overflow-y-auto bg-card/50">
                   <OmniCalcPanel
-                    valuationResults={result.valuation_results}
+                    valuationResults={result.valuation_results ?? {}}
                     selectedMethod={selectedMethod}
                     onSelectMethod={handleSelectMethodWithOverride}
                     fiscalAnchor={result.fiscal_4x_anchor}
@@ -3743,10 +3756,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     >
                       {report?.htmlReport ? (
                         <>
-                          {result?.valuation_results && (
+                          {result && (
                             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
                               <OmniCalcPanel
-                                valuationResults={result.valuation_results}
+                                valuationResults={result.valuation_results ?? {}}
                                 selectedMethod={selectedMethod}
                                 onSelectMethod={handleSelectMethodWithOverride}
                                 fiscalAnchor={result.fiscal_4x_anchor}

@@ -17,7 +17,6 @@ import {
   AlertCircle,
   Building2,
   Check,
-  ChevronDown,
   ChevronRight,
   FileSpreadsheet,
   HelpCircle,
@@ -58,9 +57,16 @@ import { useCanSave } from '../../hooks/useCanSave'
 import { looksLikeNaceCode, naceBusinessTypeService } from '../../services/naceBusinessTypeService'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
-import { accountingAPI } from '../../services/api/accounting'
+import {
+  accountingAPI,
+  accountingProviderDisplayName,
+  parseAccountingApiError,
+  pickConnectedImportStatus,
+  type AccountingImportProvider,
+  type IntegrationStatus,
+} from '../../services/api/accounting'
+import { getMercuryUrl } from '../../utils/getMercuryUrl'
 import { shouldShowLedgerUploadHint } from '../../config/features'
-import { trackValuationMethodComingSoon } from '../../lib/analytics'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { getLastFullFiscalYear } from '../../utils/fiscalYear'
@@ -567,7 +573,6 @@ export function ManualInputPanel({
   // Section collapse states
   const [showConnectModal, setShowConnectModal] = useState(false)
   const [showCSVUpload, setShowCSVUpload] = useState(false)
-  const [showValuationMethodModal, setShowValuationMethodModal] = useState(false)
   const [connectedIntegration, setConnectedIntegration] = useState<string | null>(null)
   const [hideUploadHint, setHideUploadHint] = useState(false)
 
@@ -792,14 +797,77 @@ export function ManualInputPanel({
     updateField('yearlyFinancials', updated)
   }
 
-  // Import from Yuki - fetch financials and prefill current year
-  const [importingFromYuki, setImportingFromYuki] = useState(false)
-  const [importYukiError, setImportYukiError] = useState<string | null>(null)
-  const handleImportFromYuki = useCallback(async () => {
-    setImportYukiError(null)
-    setImportingFromYuki(true)
+  // Accounting import — preflight via GET /integrations/accounting/status (Titan)
+  type AccountingStatusPhase = 'loading' | 'ready' | 'error'
+  const [accountingStatusPhase, setAccountingStatusPhase] =
+    useState<AccountingStatusPhase>('loading')
+  const [accountingConnectedStatus, setAccountingConnectedStatus] =
+    useState<IntegrationStatus | null>(null)
+  const [importingFromAccounting, setImportingFromAccounting] = useState(false)
+  const [importAccountingError, setImportAccountingError] = useState<string | null>(null)
+  const accountingRefetchThrottle = useRef(0)
+
+  const mercuryIntegrationsUrl = `${getMercuryUrl()}/${locale}/accountant/settings?tab=integrations`
+
+  const loadAccountingIntegrationStatus = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setAccountingStatusPhase('loading')
+      setImportAccountingError(null)
+    }
     try {
-      const res = await accountingAPI.getYukiFinancialData()
+      const statuses = await accountingAPI.getAllIntegrationStatus()
+      setAccountingConnectedStatus(pickConnectedImportStatus(statuses))
+      setAccountingStatusPhase('ready')
+    } catch {
+      if (!opts?.silent) {
+        setAccountingConnectedStatus(null)
+        setAccountingStatusPhase('error')
+      }
+      // Silent refresh (e.g. tab focus): keep prior connection state; avoid UI flash.
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadAccountingIntegrationStatus()
+  }, [loadAccountingIntegrationStatus])
+
+  /** After connecting in Mercury (new tab), refresh status when user returns — no loading flash. */
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      const now = Date.now()
+      if (now - accountingRefetchThrottle.current < 2500) return
+      accountingRefetchThrottle.current = now
+      void loadAccountingIntegrationStatus({ silent: true })
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [loadAccountingIntegrationStatus])
+
+  const handleImportFromAccounting = useCallback(async () => {
+    setImportAccountingError(null)
+    setImportingFromAccounting(true)
+    try {
+      let row = accountingConnectedStatus
+      if (!row?.is_connected) {
+        const statuses = await accountingAPI.getAllIntegrationStatus()
+        row = pickConnectedImportStatus(statuses) ?? null
+        setAccountingConnectedStatus(row)
+      }
+      const provider = row?.provider as AccountingImportProvider | undefined
+      if (!provider) {
+        const hint =
+          mi('accountingNotConnectedHint') ||
+          'Connect Yuki or Exact Online in accountant settings to import.'
+        setImportAccountingError(hint)
+        import('sonner').then(({ toast }) =>
+          toast.error(mi('importFromAccountingError') || 'Import failed', { description: hint })
+        )
+        return
+      }
+
+      const fiscalYear = getLastFullFiscalYear()
+      const res = await accountingAPI.getProviderFinancialData(provider, fiscalYear)
       const d = res.data
       const year = String(d.fiscal_year ?? new Date().getFullYear())
       const revenue = Number(d.revenue) || 0
@@ -817,19 +885,23 @@ export function ManualInputPanel({
         }
         return { ...prev, yearlyFinancials: updated }
       })
+      const label = accountingProviderDisplayName(provider)
       import('sonner').then(({ toast }) =>
-        toast.success(mi('importFromYukiSuccess') || 'Financial data imported from Yuki')
+        toast.success(
+          mi('importFromAccountingSuccess', { provider: label }) ||
+            `Financial data imported from ${label}`
+        )
       )
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to import'
-      setImportYukiError(msg)
+      const msg = parseAccountingApiError(err)
+      setImportAccountingError(msg)
       import('sonner').then(({ toast }) =>
-        toast.error(mi('importFromYukiError') || 'Import failed', { description: msg })
+        toast.error(mi('importFromAccountingError') || 'Import failed', { description: msg })
       )
     } finally {
-      setImportingFromYuki(false)
+      setImportingFromAccounting(false)
     }
-  }, [mi])
+  }, [accountingConnectedStatus, mi])
 
 
   // ─── Field-level Validation ───
@@ -1067,53 +1139,13 @@ export function ManualInputPanel({
     normalizedData.years.some((y) => y.normalizationCount > 0), // Step 4: Normalizations
   ].filter(Boolean).length
 
-  const { result, selectedMethod, setSelectedMethod } = useManualResultsStore()
-  const valuationResults = result?.valuation_results
-
-  const valuationMethodOptions = useMemo(() => {
-    const methodAvailable = (key: string) =>
-      valuationResults?.[key]?.available === true
-
-    return [
-      {
-        value: 'upswitch_adaptive',
-        label: mi('valuationMethod.upswitchRecommended'),
-        disabled: false,
-      },
-      {
-        value: 'ebitda_multiple',
-        label: mi('valuationMethod.ebitdaMultiple'),
-        description: methodAvailable('ebitda_multiple')
-          ? undefined
-          : valuationResults?.ebitda_multiple?.unavailable_reason ?? mi('valuationMethod.comingSoon'),
-        disabled: !methodAvailable('ebitda_multiple'),
-      },
-      {
-        value: 'sde_multiple',
-        label: mi('valuationMethod.sdeMultiple'),
-        description: methodAvailable('sde_multiple')
-          ? undefined
-          : valuationResults?.sde_multiple?.unavailable_reason ?? mi('valuationMethod.comingSoon'),
-        disabled: !methodAvailable('sde_multiple'),
-      },
-      {
-        value: 'omzet_multiple',
-        label: mi('valuationMethod.revenueMultiple'),
-        description: methodAvailable('omzet_multiple')
-          ? undefined
-          : valuationResults?.omzet_multiple?.unavailable_reason ?? mi('valuationMethod.comingSoon'),
-        disabled: !methodAvailable('omzet_multiple'),
-      },
-      {
-        value: 'dcf',
-        label: mi('valuationMethod.dcf'),
-        description: methodAvailable('dcf')
-          ? undefined
-          : valuationResults?.dcf?.unavailable_reason ?? mi('valuationMethod.comingSoon'),
-        disabled: !methodAvailable('dcf'),
-      },
-    ]
-  }, [mi, valuationResults])
+  const { result, selectedMethod } = useManualResultsStore()
+  const hasOmniCalcResults =
+    !!result?.valuation_results && Object.keys(result.valuation_results).length > 0
+  const currentMethodLabel =
+    selectedMethod === 'upswitch_adaptive'
+      ? mi('valuationMethod.upswitchRecommended')
+      : result?.valuation_results?.[selectedMethod]?.label || mi('valuationMethod.upswitchRecommended')
 
   return (
     <>
@@ -1452,30 +1484,98 @@ export function ManualInputPanel({
                 </div>
 
                 {/* Step indicator */}
-                <div className="flex items-center justify-between gap-2 -mt-1 ml-8">
+                <div className="flex items-center justify-between gap-2 -mt-1 ml-8 flex-wrap">
                   <div className="text-xs text-foreground/40">
                     {mi('financialInstruction')}
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleImportFromYuki}
-                    disabled={importingFromYuki}
-                    className={cn(
-                      'text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg',
-                      'text-primary hover:bg-primary/10 transition-colors',
-                      importingFromYuki && 'opacity-60 cursor-not-allowed'
-                    )}
-                  >
-                    {importingFromYuki ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
+                  <div className="flex flex-col items-end gap-1 min-w-0 text-right">
+                    {accountingStatusPhase === 'loading' ? (
+                      <span
+                        className="text-xs text-foreground/40 flex items-center gap-1.5"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <Loader2 className="w-3 h-3 animate-spin" aria-hidden />
+                        {mi('accountingStatusLoading') || 'Checking integrations…'}
+                      </span>
+                    ) : accountingStatusPhase === 'error' ? (
+                      <div className="flex flex-col items-end gap-1.5 max-w-[min(100%,260px)]">
+                        <span className="text-xs text-destructive">
+                          {mi('accountingStatusError') || 'Could not load accounting integrations.'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void loadAccountingIntegrationStatus()}
+                          className={cn(
+                            'text-xs font-medium px-2 py-1 rounded-lg',
+                            'text-primary hover:bg-primary/10 transition-colors underline-offset-2 hover:underline'
+                          )}
+                        >
+                          {mi('accountingStatusRetry') || 'Retry'}
+                        </button>
+                      </div>
+                    ) : accountingConnectedStatus ? (
+                      <div className="flex flex-col items-end gap-0.5">
+                        <button
+                          type="button"
+                          onClick={handleImportFromAccounting}
+                          disabled={importingFromAccounting}
+                          aria-busy={importingFromAccounting}
+                          aria-label={
+                            mi('importFromAccountingAria', {
+                              provider: accountingProviderDisplayName(
+                                accountingConnectedStatus.provider
+                              ),
+                            }) ||
+                            `Import revenue and EBITDA from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`
+                          }
+                          className={cn(
+                            'text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg',
+                            'text-primary hover:bg-primary/10 transition-colors',
+                            importingFromAccounting && 'opacity-60 cursor-not-allowed'
+                          )}
+                        >
+                          {importingFromAccounting ? (
+                            <Loader2 className="w-3 h-3 animate-spin" aria-hidden />
+                          ) : (
+                            <Link2 className="w-3 h-3 shrink-0" aria-hidden />
+                          )}
+                          {mi('importFromAccounting', {
+                            provider: accountingProviderDisplayName(
+                              accountingConnectedStatus.provider
+                            ),
+                          }) ||
+                            `Import from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`}
+                        </button>
+                        {accountingConnectedStatus.company_name ? (
+                          <span
+                            className="text-[10px] text-foreground/45 max-w-[220px] truncate"
+                            title={accountingConnectedStatus.company_name}
+                          >
+                            {accountingConnectedStatus.company_name}
+                          </span>
+                        ) : null}
+                      </div>
                     ) : (
-                      <Link2 className="w-3 h-3" />
+                      <a
+                        href={mercuryIntegrationsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={mi('connectAccountingOpensNewTab') || 'Opens in a new tab'}
+                        className={cn(
+                          'text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg',
+                          'text-primary hover:bg-primary/10 transition-colors',
+                          'focus:outline-none focus:ring-2 focus:ring-primary/25 focus:ring-offset-1'
+                        )}
+                      >
+                        <Link2 className="w-3 h-3 shrink-0" aria-hidden />
+                        {mi('connectAccountingInSettings') || 'Connect accounting in Settings'}
+                      </a>
                     )}
-                    {mi('importFromYuki') || 'Import from Yuki'}
-                  </button>
+                  </div>
                 </div>
-                {importYukiError && (
-                  <p className="text-xs text-destructive ml-8">{importYukiError}</p>
+                {importAccountingError && (
+                  <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
                 )}
 
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
@@ -1744,7 +1844,7 @@ export function ManualInputPanel({
                     </button>
                   )}
 
-                  {/* Valuation method — trigger button opens modal */}
+                  {/* Valuation method is now managed in Omni-Calc, not in the form */}
                   <div className="pt-4 mt-4 border-t border-foreground/[0.06]">
                     <div className="flex items-center gap-1.5 mb-2">
                       <h3 className="text-sm font-medium text-foreground/70">
@@ -1772,22 +1872,36 @@ export function ManualInputPanel({
                         </TooltipRoot>
                       </TooltipProvider>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowValuationMethodModal(true)}
-                      className={cn(
-                        'w-full flex items-center justify-between p-4 rounded-xl min-h-[44px]',
-                        'border border-foreground/[0.10] hover:border-foreground/[0.20]',
-                        'bg-foreground/[0.02] hover:bg-foreground/[0.04]',
-                        'text-left transition-colors'
+                    <div className="rounded-xl border border-dashed border-foreground/[0.10] bg-foreground/[0.02] p-4">
+                      {hasOmniCalcResults && (
+                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-foreground/45">
+                          {mi('valuationMethod.currentMethodLabel', { method: currentMethodLabel })}
+                        </p>
                       )}
-                    >
-                      <span className="text-sm font-medium text-foreground">
-                        {valuationMethodOptions.find((o) => o.value === selectedMethod)?.label ??
-                          mi('valuationMethod.upswitchRecommended')}
-                      </span>
-                      <ChevronDown className="w-4 h-4 text-foreground/50 shrink-0" />
-                    </button>
+                      <p className="text-sm font-medium text-foreground">
+                        {hasOmniCalcResults
+                          ? mi('valuationMethod.workspaceHintReady')
+                          : mi('valuationMethod.workspaceHintPending')}
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-foreground/55">
+                        {mi('valuationMethod.workspaceHintBlurb')}
+                      </p>
+                      {hasOmniCalcResults && (
+                        <AuroraButton
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-3 w-full text-xs"
+                          onClick={() => {
+                            document
+                              .querySelector('[data-omni-calc-panel="true"]')
+                              ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                          }}
+                        >
+                          {mi('valuationMethod.goToWorkspace')}
+                        </AuroraButton>
+                      )}
+                    </div>
                   </div>
                 </div>
               </motion.section>
@@ -1845,60 +1959,6 @@ export function ManualInputPanel({
         </ModalContent>
       </Modal>
 
-      {/* Valuation Method Modal */}
-      <Modal open={showValuationMethodModal} onOpenChange={setShowValuationMethodModal}>
-        <ModalContent className="max-w-md pt-14">
-          <ModalHeader>
-            <ModalTitle>{mi('valuationMethod.label')}</ModalTitle>
-            <ModalDescription className="text-sm text-foreground/60">
-              {mi('valuationMethod.tooltip')}
-            </ModalDescription>
-          </ModalHeader>
-
-          <div className="py-4 space-y-2">
-            {valuationMethodOptions.map((opt) => {
-              const isSelected = opt.value === selectedMethod
-              const disabled = opt.disabled ?? false
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    if (disabled) {
-                      trackValuationMethodComingSoon(opt.value, 'click')
-                    } else {
-                      setSelectedMethod(opt.value)
-                      setShowValuationMethodModal(false)
-                    }
-                  }}
-                  onMouseEnter={() => {
-                    if (disabled) trackValuationMethodComingSoon(opt.value, 'hover')
-                  }}
-                  className={cn(
-                    'w-full flex items-center gap-3 p-4 rounded-xl text-left transition-colors',
-                    'border border-foreground/[0.08]',
-                    disabled
-                      ? 'opacity-60 cursor-not-allowed'
-                      : 'hover:border-primary/30 hover:bg-primary/5',
-                    isSelected && 'border-primary/50 bg-primary/5'
-                  )}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">{opt.label}</p>
-                    {opt.description && (
-                      <p className="text-xs text-foreground/50 mt-0.5">{opt.description}</p>
-                    )}
-                  </div>
-                  {isSelected && (
-                    <Check className="w-5 h-5 text-primary shrink-0" aria-hidden />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </ModalContent>
-      </Modal>
     </>
   )
 }

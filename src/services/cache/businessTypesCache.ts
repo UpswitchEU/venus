@@ -48,7 +48,7 @@ export interface CacheStats {
 // ============================================================================
 
 const CACHE_CONFIG = {
-  VERSION: '1.3.0', // Bumped to invalidate stale cache (category string format from Titan)
+  VERSION: '1.4.0', // Bumped: Venus fetch path (single-page types + parallel categories, resilient categories)
   TTL: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
   KEYS: {
     BUSINESS_TYPES: 'upswitch_valuation_tester_business_types_cache',

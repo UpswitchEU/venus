@@ -48,6 +48,15 @@ const formatCurrency = (amount: number) =>
       ? `€${(amount / 1_000).toFixed(0)}K`
       : `€${Math.round(amount)}`
 
+const getSelectedMethodLabel = (
+  selectedMethod: string,
+  valuationResults: Record<string, ValuationMethodResult>,
+  fallback: string
+) =>
+  selectedMethod === 'upswitch_adaptive'
+    ? fallback
+    : valuationResults[selectedMethod]?.label || fallback
+
 export function OmniCalcPanel({
   valuationResults,
   selectedMethod,
@@ -61,6 +70,7 @@ export function OmniCalcPanel({
   zeroDraftCreatedAt,
 }: OmniCalcPanelProps) {
   const t = useTranslations('omniCalc')
+  const adaptiveLabel = t('currentMethodAdaptive')
 
   const isManualMode = selectedMethod !== 'upswitch_adaptive'
   const [mode, setMode] = useState<'ai' | 'manual'>(isManualMode ? 'manual' : 'ai')
@@ -74,7 +84,20 @@ export function OmniCalcPanel({
   }, [selectedMethod])
 
   const entries = Object.entries(valuationResults)
-  if (entries.length === 0) return null
+  if (entries.length === 0) {
+    return (
+      <div className={cn('space-y-2', compact ? 'px-3 py-2' : 'px-4 py-3')}>
+        <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-3 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
+            {t('unavailableTitle')}
+          </p>
+          <p className="mt-1 text-[11px] leading-snug text-foreground/50">
+            {t('unavailableBlurb')}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   const adaptiveValue =
     valuationResults['upswitch_adaptive']?.value != null
@@ -84,6 +107,7 @@ export function OmniCalcPanel({
     selectedMethod !== 'upswitch_adaptive' && valuationResults[selectedMethod]?.value != null
       ? Number(valuationResults[selectedMethod].value)
       : null
+  const currentMethodLabel = getSelectedMethodLabel(selectedMethod, valuationResults, adaptiveLabel)
 
   const handleModeChange = (newMode: 'ai' | 'manual') => {
     setMode(newMode)
@@ -117,17 +141,40 @@ export function OmniCalcPanel({
   const deltaPercent = showComparisonCard && adaptiveValue! > 0
     ? ((delta / adaptiveValue!) * 100)
     : 0
+  const guidanceTone = pendingMethod
+    ? 'border-primary/20 bg-primary/[0.04] text-primary/80'
+    : mode === 'manual'
+      ? 'border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400'
+      : 'border-border/60 bg-background/60 text-foreground/60'
+  const guidanceText = pendingMethod
+    ? t('stepExplainReason')
+    : mode === 'manual'
+      ? t('stepChooseMethod')
+      : t('stepAiActive')
 
   return (
-    <div className={cn('space-y-2', compact ? 'px-3 py-2' : 'px-4 py-3')}>
+    <div
+      data-omni-calc-panel="true"
+      className={cn('space-y-2', compact ? 'px-3 py-2' : 'px-4 py-3')}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
-          {t('title')}
-        </h4>
-        <span className="text-[10px] text-foreground/40">
-          {entries.filter(([, m]) => m.available).length}/{entries.length} {t('available')}
-        </span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
+            {t('title')}
+          </h4>
+          <p className="text-[11px] leading-snug text-foreground/50">
+            {t('subtitle')}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <span className="text-[10px] text-foreground/40">
+            {entries.filter(([, m]) => m.available).length}/{entries.length} {t('available')}
+          </span>
+          <div className="mt-1 inline-flex items-center rounded-full border border-primary/15 bg-primary/[0.05] px-2 py-1 text-[10px] font-medium text-primary/80">
+            {t('currentMethodLabel', { method: currentMethodLabel })}
+          </div>
+        </div>
       </div>
 
       {/* AI vs Manual Toggle */}
@@ -142,6 +189,12 @@ export function OmniCalcPanel({
         fullWidth
         aria-label={t('modeLabel')}
       />
+      <p className="px-1 text-[10px] leading-snug text-foreground/45">
+        {mode === 'ai' ? t('modeAiBlurb') : t('modeManualBlurb')}
+      </p>
+      <div className={cn('rounded-md border px-3 py-2 text-[11px] leading-snug', guidanceTone)}>
+        {guidanceText}
+      </div>
 
       {/* Comparison Card (visible when manual override active) */}
       {showComparisonCard && !pendingMethod && (

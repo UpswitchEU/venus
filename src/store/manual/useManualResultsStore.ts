@@ -80,10 +80,16 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   setResult: (result: ValuationResponse | null) => {
     set((state) => {
       if (result) {
+        const hydratedSelectedMethod =
+          typeof result.selected_valuation_method === 'string' && result.selected_valuation_method.trim()
+            ? result.selected_valuation_method
+            : state.selectedMethod
+
         storeLogger.info('[Manual] Valuation result set', {
           valuationId: result.valuation_id,
           hasHtmlReport: !!result.html_report,
           htmlReportLength: result.html_report?.length || 0,
+          selectedMethod: hydratedSelectedMethod,
         })
 
         // Warn if html_report is missing
@@ -121,6 +127,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           ...state,
           result,
           htmlReport: result.html_report || state.htmlReport,
+          selectedMethod: hydratedSelectedMethod,
         }
       } else {
         storeLogger.debug('[Manual] Valuation result cleared')
