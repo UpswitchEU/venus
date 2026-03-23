@@ -49,6 +49,10 @@
   - Error handling
   - Business logic
 
+### Financial ingestion (positioning)
+
+- **[CSV import positioning](./CSV_IMPORT_POSITIONING.md)** — CSV in Venus is normalization hints / gap-analysis assist, **not** the Hermes→Titan ledger pipeline (integration-first strategy).
+
 ---
 
 ## Quick Links

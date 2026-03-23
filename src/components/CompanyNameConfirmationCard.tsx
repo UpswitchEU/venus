@@ -102,7 +102,7 @@ export const CompanyNameConfirmationCard: React.FC<CompanyNameConfirmationCardPr
 
                 {/* Confirmation Text */}
                 <div className="mt-4 pt-3 border-t border-foreground/5 text-sm text-muted-foreground leading-relaxed">
-                  We've successfully verified your company in the KBO registry.
+                  We've successfully verified your company in the business registry.
                 </div>
               </div>
             </div>

@@ -3142,7 +3142,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     [reportId, resolvedReportId, updateFormData, setResult, normalizationActions]
   )
 
-  // ─── CSV Import → Normalization Hub ───
+  // ─── CSV / “import” UI → normalization hints only (NOT Hermes MAR ingestion) ───
+  // Calls /api/ai/normalize → gap-analysis style suggestions. Full ledger ingest must go
+  // Hermes aggregate + Titan sync; see docs/financial-ingestion/CSV_UNIFIED_PIPELINE.md.
   const handleCSVImportComplete = useCallback(
     async (
       source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable',

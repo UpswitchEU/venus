@@ -5,10 +5,9 @@ import { useTranslations } from 'next-intl'
 /**
  * Integration Step Panel
  *
- * First step in valuation flow - upload CSV export or choose manual input.
- * Clean, trust-building design with clear paths.
- *
- * Bootstrap-optimized: CSV upload instead of full API integration.
+ * First step in valuation flow — CSV export or manual input (calculator bootstrap).
+ * ICP path: native integrations (Yuki/Exact) live in Mercury; CSV here is **not** Hermes
+ * ledger ingestion — see `apps/venus/docs/CSV_IMPORT_POSITIONING.md`.
  */
 
 import { AnimatePresence, motion } from 'framer-motion'

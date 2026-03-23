@@ -1,9 +1,13 @@
 /**
  * Integrations Components Index
  *
- * Exports all integration-related components for accounting software imports.
- * Bootstrap-optimized: CSV upload flow instead of full API integration.
- * Direct API integrations planned for 2025.
+ * Exports calculator-adjacent helpers (CSV preview/upload UI, legacy Yuki card exports).
+ *
+ * **Product position (ICP):** Native accounting integrations (Yuki/Exact via Titan→Hermes) are
+ * first-class; Mercury owns connect/sync. CSV UI here is **assistant / normalization hints only**
+ * — not Hermes MAR ingestion. See `apps/venus/docs/CSV_IMPORT_POSITIONING.md` and
+ * `docs/financial-ingestion/CSV_UNIFIED_PIPELINE.md` for the future unified path if CSV-as-ingestion
+ * is ever approved.
  */
 
 export {
@@ -12,7 +16,7 @@ export {
   type MappedAccount,
 } from './CSVMappingPreview'
 
-// CSV Upload Components (Bootstrap-optimized)
+// CSV UI — calculator bootstrap / assistant (not Hermes ingestion)
 export {
   CSVUploadCard,
   type CSVUploadCardProps,

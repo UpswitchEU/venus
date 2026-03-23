@@ -1549,7 +1549,7 @@ function MessageBubble({
                         : update.source === 'yuki'
                           ? 'Yuki'
                           : update.source === 'kbo'
-                            ? 'KBO'
+                            ? ca('registrySource') ?? 'Registry'
                             : update.source}
                     </span>
                   )}

@@ -1212,7 +1212,7 @@ export function ManualInputPanel({
                   <p className="text-xs text-foreground/50 mb-0.5">{mi('fields.companyNameOrKbo')}</p>
                   <p className="text-sm font-medium text-foreground">{selectedCompany.name}</p>
                   {selectedCompany.kboNumber && (
-                    <p className="text-xs text-foreground/40 font-mono mt-0.5">KBO {selectedCompany.kboNumber}</p>
+                    <p className="text-xs text-foreground/40 font-mono mt-0.5">{searchCountry === 'NL' ? 'KVK' : 'KBO'} {selectedCompany.kboNumber}</p>
                   )}
                 </div>
               ) : (
