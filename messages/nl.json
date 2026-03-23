@@ -2077,6 +2077,7 @@
     "subtitle": "Bepaalt het hoofdvermogenscijfer in het cliëntrapport en exporten.",
     "available": "klaar",
     "selected": "Geselecteerd",
+    "selectionPersistenceHint": "Dit wijzigt de rapportweergave en de volgende export. Het start geen nieuwe waarderingsberekening.",
     "modeLabel": "Adaptive of handmatig hoofdcijfer",
     "modeAi": "UpSwitch bepaalt",
     "modeManual": "Kies handmatig",
@@ -2123,6 +2124,7 @@
   "preparerMultiple": {
     "title": "EV/EBITDA-multiple (gevorderd)",
     "description": "De Upswitch KMO-indexbenchmark is uw anker—pas enkel aan waar uw oordeel dat vereist. Gestructureerde redenen helpen Upswitch de marktkalibratie in de tijd te verfijnen, terwijl het klantenrapport één duidelijk hoofdcijfer blijft.",
+    "applyHint": "Deze controle ondersteunt alleen de EV/EBITDA-benchmarkmultiple. Wijzigingen worden pas toegepast na herberekening.",
     "benchmark": "Upswitch-benchmark (verankerd)",
     "contextSeparator": " · ",
     "benchmarkAnchored": "Upswitch KMO-index — {context}: {multiple}×",

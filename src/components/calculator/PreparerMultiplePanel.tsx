@@ -157,6 +157,9 @@ export function PreparerMultiplePanel({
             </div>
           )}
           <p className="text-[11px] text-foreground/50 leading-snug pt-2">{t('description')}</p>
+          <div className="rounded-md border border-border/60 bg-background/60 px-3 py-2">
+            <p className="text-[11px] leading-snug text-foreground/60">{t('applyHint')}</p>
+          </div>
           <div className="grid gap-1.5">
             <span className="text-[10px] font-medium text-foreground/45 uppercase">{t('benchmark')}</span>
             <p className="text-[12px] text-foreground/80 leading-snug font-medium">

@@ -2077,6 +2077,7 @@
     "subtitle": "Controls the main equity figure in the client report and exports.",
     "available": "ready",
     "selected": "Selected",
+    "selectionPersistenceHint": "This changes the report view and the next export. It does not rerun the valuation.",
     "modeLabel": "Adaptive or manual headline",
     "modeAi": "Let UpSwitch decide",
     "modeManual": "Choose manually",
@@ -2123,6 +2124,7 @@
   "preparerMultiple": {
     "title": "EV/EBITDA multiple (advanced)",
     "description": "The Upswitch SME Index benchmark is your anchor—adjust only when your judgment requires it. Standardized reason tags help Upswitch refine market calibration over time while client reports stay on one clear headline.",
+    "applyHint": "This control only supports the EV/EBITDA benchmark multiple. Changes apply only after you recalculate.",
     "benchmark": "Upswitch benchmark (anchored)",
     "contextSeparator": " · ",
     "benchmarkAnchored": "Upswitch SME Index — {context}: {multiple}×",

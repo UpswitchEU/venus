@@ -205,6 +205,9 @@ export function OmniCalcPanel({
       <p className="px-1 text-[10px] leading-snug text-foreground/45">
         {mode === 'ai' ? t('modeAiBlurb') : t('modeManualBlurb')}
       </p>
+      <p className="px-1 text-[10px] leading-snug text-foreground/40">
+        {t('selectionPersistenceHint')}
+      </p>
       <div
         role="status"
         aria-live="polite"
