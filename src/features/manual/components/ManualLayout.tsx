@@ -1571,7 +1571,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ) {
             setCalculating(false)
             setIsGenerating(false)
-            trySetCalculating()
             toast.error(tPreparer('extremeWarning'))
             return
           }
@@ -3060,7 +3059,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       await recalculateWithNormalizations(norms)
     },
-    [financialYears, normalizationActions, originalEBITDAByYear, reportId, resolvedReportId]
+    [financialYears, normalizationActions, originalEBITDAByYear, reportId, resolvedReportId, recalculateWithNormalizations, getYearsToPersist]
   )
 
   const getYearsToPersist = useCallback(
@@ -3110,7 +3109,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
       await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t]
+    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t, recalculateWithNormalizations]
   )
 
   const handleRejectNormalisation = useCallback(
@@ -3148,7 +3147,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
       await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t]
+    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t, recalculateWithNormalizations]
   )
 
   // ─── Auto-recalculate valuation with normalized EBITDA ───
@@ -3257,6 +3256,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       calculationRequestIdentifiers.reportId,
       calculationRequestIdentifiers.sessionKey,
       linkedIdentifier,
+      collectedData,
+      result,
+      currentLocale,
+      t,
     ]
   )
 

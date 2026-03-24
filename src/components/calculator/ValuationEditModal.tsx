@@ -58,12 +58,15 @@ const METHOD_OVERRIDE_REASON_KEYS = [
   'other',
 ] as const
 
-const formatCurrency = (amount: number) =>
-  amount >= 1_000_000
-    ? `€${(amount / 1_000_000).toFixed(1)}M`
-    : amount >= 1_000
-      ? `€${(amount / 1_000).toFixed(0)}K`
-      : `€${Math.round(amount)}`
+const formatCurrency = (amount: number) => {
+  const sign = amount < 0 ? '-' : ''
+  const abs = Math.abs(amount)
+  return abs >= 1_000_000
+    ? `${sign}€${(abs / 1_000_000).toFixed(1)}M`
+    : abs >= 1_000
+      ? `${sign}€${(abs / 1_000).toFixed(0)}K`
+      : `${sign}€${Math.round(abs)}`
+}
 
 const formatMultiple = (value: number | null) =>
   value == null ? null : `${value.toFixed(2)}x`
@@ -560,11 +563,9 @@ export function ValuationEditModal({
   useEffect(() => {
     const newMode = selectedMethod === 'upswitch_adaptive' ? 'ai' : 'manual'
     setMode(newMode)
-    if (newMode === 'ai') {
-      setPendingMethod(null)
-      setOverrideReasonKey('')
-      setOverrideNote('')
-    }
+    setPendingMethod(null)
+    setOverrideReasonKey('')
+    setOverrideNote('')
   }, [selectedMethod])
 
   useEffect(() => {
@@ -613,12 +614,10 @@ export function ValuationEditModal({
 
   const handleModeChange = (newMode: 'ai' | 'manual') => {
     if (methodSelectionLocked) return
-    setMode(newMode)
     if (newMode === 'ai') {
-      setPendingMethod(null)
-      setOverrideReasonKey('')
-      setOverrideNote('')
       onSelectMethod('upswitch_adaptive')
+    } else {
+      setMode('manual')
     }
   }
 
@@ -638,6 +637,8 @@ export function ValuationEditModal({
     if (!pendingMethod || !overrideReasonKey) return
     onSelectMethod(pendingMethod, overrideReasonKey, overrideNote || undefined)
     setPendingMethod(null)
+    setOverrideReasonKey('')
+    setOverrideNote('')
   }
 
   const showMethodList = mode === 'manual'
@@ -798,9 +799,11 @@ export function ValuationEditModal({
         key={key}
         type="button"
         disabled={!isAvailable || methodSelectionLocked}
+        aria-pressed={isSelected}
         onClick={() => isAvailable && !methodSelectionLocked && handleMethodClick(key)}
         className={cn(
           'w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all border',
+          'focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:outline-none',
           isSelected
             ? 'border-primary/50 bg-primary/5'
             : isPending
@@ -861,7 +864,7 @@ export function ValuationEditModal({
               )}
               {method.wacc != null && (
                 <span className="block text-[10px] text-foreground/40 tabular-nums">
-                  WACC {(Number(method.wacc) * 100).toFixed(1)}%
+                  {tBreakdown('wacc')} {(Number(method.wacc) * 100).toFixed(1)}%
                 </span>
               )}
             </>
@@ -892,6 +895,7 @@ export function ValuationEditModal({
         size="lg"
         description={tModal('description')}
         className="max-h-[85vh] overflow-y-auto"
+        aria-busy={isMethodPersisting}
       >
         <ModalHeader>
           <ModalTitle>{tModal('title')}</ModalTitle>
@@ -972,7 +976,7 @@ export function ValuationEditModal({
                     method.multiple_used != null
                       ? formatMultiple(Number(method.multiple_used))
                       : method.wacc != null
-                        ? `WACC ${formatPercent(Number(method.wacc), 100)}`
+                        ? `${tBreakdown('wacc')} ${formatPercent(Number(method.wacc), 100)}`
                         : null
                   const deltaValue = adaptiveValue != null ? value - adaptiveValue : null
                   const deltaPercent =
@@ -1022,7 +1026,7 @@ export function ValuationEditModal({
                                 deltaValue >= 0 ? 'text-success' : 'text-warning',
                               )}
                             >
-                              {deltaValue >= 0 ? '+' : ''}
+                              {deltaValue >= 0 ? '+' : '−'}
                               {formatCurrency(Math.abs(deltaValue))} ({deltaPercent >= 0 ? '+' : ''}
                               {deltaPercent.toFixed(1)}%)
                             </p>
@@ -1049,6 +1053,7 @@ export function ValuationEditModal({
                   <button
                     type="button"
                     disabled={methodSelectionLocked}
+                    aria-expanded={showAllMethods || hasActiveSecondary}
                     onClick={() => !methodSelectionLocked && setShowAllMethods((v) => !v)}
                     className="w-full flex items-center gap-1.5 px-1 py-1 text-[10px] text-foreground/40 hover:text-foreground/60 transition-colors disabled:opacity-40 disabled:pointer-events-none"
                   >
@@ -1088,6 +1093,7 @@ export function ValuationEditModal({
                 size="sm"
                 value={overrideReasonKey}
                 onChange={(v) => setOverrideReasonKey(v)}
+                label={t('overrideJustificationTitle')}
                 placeholder={t('overrideReasonPlaceholder')}
                 options={METHOD_OVERRIDE_REASON_KEYS.map((k) => ({
                   value: k,
@@ -1100,6 +1106,7 @@ export function ValuationEditModal({
                 rows={2}
                 maxLength={500}
                 placeholder={t('overrideNotePlaceholder')}
+                aria-label={t('overrideNotePlaceholder')}
                 className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs resize-none"
               />
               <div className="flex gap-2">
@@ -1228,7 +1235,7 @@ export function ValuationEditModal({
                       return
                     }
                     const n = parseFloat(v)
-                    if (Number.isFinite(n)) setAppliedMedian(n)
+                    if (Number.isFinite(n)) setAppliedMedian(Math.min(20, Math.max(0.1, n)))
                   }}
                   className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums"
                 />
