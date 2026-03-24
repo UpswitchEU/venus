@@ -32,6 +32,7 @@ import {
   Maximize2,
   MessageCircle,
   MoreVertical,
+  Pencil,
   Send,
   Settings,
   Trash2,
@@ -139,6 +140,7 @@ export interface CalculatorNavProps {
   showSourceDataToggle?: boolean
   sourceDataOpen?: boolean
   onToggleSourceData?: () => void
+  onOpenValuationEdit?: () => void
 }
 
 // ─────────────────────────────────────────
@@ -274,6 +276,7 @@ export function CalculatorNav({
   showSourceDataToggle = false,
   sourceDataOpen = false,
   onToggleSourceData,
+  onOpenValuationEdit,
 }: CalculatorNavProps) {
   const t = useTranslations()
   const navLocale = useLocale()
@@ -392,7 +395,7 @@ export function CalculatorNav({
                               <button
                                 type="button"
                                 className="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-foreground/[0.08] text-foreground/50 hover:text-foreground transition-all"
-                                aria-label={t('valuation.deleteReportTitle')}
+                                aria-label="More actions"
                               >
                                 <MoreVertical className="w-4 h-4" />
                               </button>
@@ -400,6 +403,18 @@ export function CalculatorNav({
                             align="end"
                           >
                             <div className="p-1">
+                              {onOpenValuationEdit && val.id === activeReportId && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onOpenValuationEdit()
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-foreground/70 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                  {t('valuationEditModal.editValuation')}
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -549,6 +564,19 @@ export function CalculatorNav({
                             {t('valuation.currentVersion')}
                           </p>
                         </div>
+                      )}
+                      {onOpenValuationEdit && (
+                        <>
+                          <div className="mx-2 my-1 border-t border-foreground/[0.06]" />
+                          <button
+                            type="button"
+                            onClick={() => onOpenValuationEdit()}
+                            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-foreground/60 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            {t('valuationEditModal.editValuation')}
+                          </button>
+                        </>
                       )}
                     </div>
                   </Dropdown>

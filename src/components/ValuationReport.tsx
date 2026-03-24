@@ -11,6 +11,7 @@ import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
+import { submitAnonymizedBenchmarkContribution } from '../utils/submitAnonymizedBenchmarkContribution'
 
 // Lazy load heavy components for code splitting
 const ValuationFlowSelector = React.lazy(() =>
@@ -19,10 +20,6 @@ const ValuationFlowSelector = React.lazy(() =>
 const ValuationSessionManager = React.lazy(() =>
   import('./ValuationSessionManager').then((m) => ({ default: m.ValuationSessionManager }))
 )
-const ContributeMultiplePrompt = React.lazy(() =>
-  import('./ContributeMultiplePrompt').then((m) => ({ default: m.ContributeMultiplePrompt }))
-)
-
 /**
  * ValuationReport Component - Next.js Compatible
  *
@@ -140,9 +137,8 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       urlParams.embedded,
     ])
 
-    // Delphi 2.0: Give-to-Get contribution prompt state
+    /** Set when valuation completes; used for optional silent anonymized benchmark contribution */
     const [completedResult, setCompletedResult] = React.useState<ValuationResponse | null>(null)
-    const [showContributePrompt, setShowContributePrompt] = React.useState(false)
 
     // Handle valuation completion
     // NOTE: saveCompleteSession is already called in useValuationFormSubmission
@@ -159,9 +155,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
           valuationId: result.valuation_id,
         })
 
-        // Delphi 2.0: Show give-to-get contribution prompt after completion
         setCompletedResult(result)
-        setTimeout(() => setShowContributePrompt(true), 2000)
       } catch (error) {
         // BANK-GRADE: Specific error handling - report completion failure
         // Don't show error to user as the valuation is already complete locally
@@ -194,17 +188,27 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       }
     }, [reportId, router])
 
-    // Early return AFTER all hooks have been called
-    if (!reportId || !isValidReportId(reportId)) {
-      return null
-    }
+    // Anonymized multiples: Mercury passes benchmark_contribution=0 when opted out. Missing/1 = allow.
+    const benchmarkContributionParam = urlParams.benchmark_contribution
+    React.useEffect(() => {
+      if (!completedResult) return
+      if (benchmarkContributionParam === '0') {
+        generalLogger.info('Anonymized benchmark contribution skipped (workspace preference)')
+        return
+      }
+      const timer = window.setTimeout(() => {
+        void submitAnonymizedBenchmarkContribution(completedResult).catch((err) => {
+          generalLogger.error('Anonymized benchmark contribution failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+        })
+      }, 2000)
+      return () => window.clearTimeout(timer)
+    }, [completedResult, benchmarkContributionParam])
 
-    // Preload critical resources in background
+    // Preload critical resources in background (must run before any conditional return — Rules of Hooks)
     useEffect(() => {
-      // Preload ValuationFlowSelector and ValuationSessionManager
-      // These are already lazy loaded, but we can prefetch them
       if (typeof window !== 'undefined') {
-        // Prefetch critical components
         Promise.all([import('./ValuationFlowSelector'), import('./ValuationSessionManager')]).catch(
           () => {
             // Non-critical - preloading is optional
@@ -213,13 +217,11 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       }
     }, [])
 
-    // ✅ WORLD CLASS: Signal Mercury when Venus is fully loaded and ready
-    // This allows Mercury to hide the VenusTransitionLoader overlay smoothly
-    // We signal when session is ready (stage === 'data-entry'), not just bootstrap synced
+    // Signal Mercury when Venus is fully loaded (iframe postMessage or hash for full-page)
     useEffect(() => {
       if (typeof window === 'undefined') return
+      if (!reportId || !isValidReportId(reportId)) return
 
-      // Check if we're coming from Mercury
       const sourceApp =
         urlParams.source ||
         (typeof window !== 'undefined'
@@ -229,12 +231,10 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
 
       if (!isFromMercury) return
 
-      // Signal readiness function
       const signalReady = () => {
         const venusUrl = process.env.NEXT_PUBLIC_VENUS_URL || 'https://valuation.upswitch.app'
         const venusOrigin = new URL(venusUrl).origin
 
-        // If embedded (iframe), use postMessage
         if (window.parent !== window) {
           window.parent.postMessage(
             {
@@ -255,12 +255,15 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
         }
       }
 
-      // Signal after bootstrap sync completes - signal mainly for iframe flow
-      // No delay: content is already visible; VenusTransitionLoader not used in full-page flow
       if (isBootstrapSynced) {
         signalReady()
       }
     }, [isBootstrapSynced, reportId, urlParams.source])
+
+    // Early return AFTER all hooks have been called
+    if (!reportId || !isValidReportId(reportId)) {
+      return null
+    }
 
     return (
       <div
@@ -314,14 +317,6 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
           </ValuationSessionManager>
         </Suspense>
 
-        {showContributePrompt && completedResult && (
-          <Suspense fallback={null}>
-            <ContributeMultiplePrompt
-              result={completedResult}
-              onDismiss={() => setShowContributePrompt(false)}
-            />
-          </Suspense>
-        )}
       </div>
     )
   }

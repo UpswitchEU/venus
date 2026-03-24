@@ -2169,5 +2169,13 @@
     "extremeServerToast": "Multiple outside guardrails: confirm the checkbox and try again, or move closer to the benchmark.",
     "hintFiscalMethod": "Fiscal reference uses a fixed 4× EBITDA multiple — firm adjusted multiple does not apply to this method.",
     "hintOtherMethod": "Multiple adjustment only applies when EV/EBITDA or UpSwitch Adaptive is selected as the valuation method."
+  },
+  "valuationEditModal": {
+    "title": "Edit Valuation",
+    "description": "Adjust the valuation method and EV/EBITDA multiple override.",
+    "editValuation": "Edit Valuation",
+    "methodSection": "Valuation Method",
+    "multipleSection": "EV/EBITDA Multiple Override",
+    "close": "Close"
   }
 }

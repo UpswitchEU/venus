@@ -2169,5 +2169,13 @@
     "extremeServerToast": "Multiple buiten de guardrails: vink de bevestiging aan en probeer opnieuw, of nader tot de benchmark.",
     "hintFiscalMethod": "Fiscale referentie gebruikt een vaste 4× EBITDA-multiple — kantoor correctie is niet van toepassing op deze methode.",
     "hintOtherMethod": "Multiple-aanpassing is alleen van toepassing wanneer EV/EBITDA of UpSwitch Adaptive is geselecteerd als waarderingsmethode."
+  },
+  "valuationEditModal": {
+    "title": "Waardering bewerken",
+    "description": "Pas de waarderingsmethode en EV/EBITDA-multiple aan.",
+    "editValuation": "Waardering bewerken",
+    "methodSection": "Waarderingsmethode",
+    "multipleSection": "EV/EBITDA-multiple aanpassen",
+    "close": "Sluiten"
   }
 }

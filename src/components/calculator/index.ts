@@ -124,6 +124,8 @@ export type {
 } from './UnifiedNormalizationModal'
 export { UnifiedNormalizationModal } from './UnifiedNormalizationModal'
 export type { ReportMetric, ValuationReportData } from './types'
+export type { ValuationEditModalProps } from './ValuationEditModal'
+export { ValuationEditModal } from './ValuationEditModal'
 export type {
   VersionChange,
   VersionCompareModalProps,

@@ -55,8 +55,7 @@ import {
 } from '../../../components/calculator'
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
-import { OmniCalcPanel } from '../../../components/calculator/OmniCalcPanel'
-import { PreparerMultiplePanel } from '../../../components/calculator/PreparerMultiplePanel'
+import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
@@ -799,6 +798,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
   const [showInviteClientModal, setShowInviteClientModal] = useState(false)
+  const [showValuationEditModal, setShowValuationEditModal] = useState(false)
   const [showNormalisationModal, setShowNormalisationModal] = useState(false)
   const [showUnifiedNormalizationModal, setShowUnifiedNormalizationModal] = useState(false)
   const [currentNormalisationSuggestion, setCurrentNormalisationSuggestion] =
@@ -3492,6 +3492,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           showSourceDataToggle={hasImportQuality}
           sourceDataOpen={showSourceDataPanel}
           onToggleSourceData={toggleSourceDataPanel}
+          onOpenValuationEdit={() => setShowValuationEditModal(true)}
         />
 
         {/* Context Bar - Accountant Mode (mobile, Clarity parity) */}
@@ -3526,37 +3527,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           <div className="flex-1 min-h-0 overflow-y-auto">
             <ManualInputPanel key={reportId} {...manualInputProps} />
           </div>
-          {result && (
-            <div className="shrink-0 border-t border-border max-h-[min(40vh,320px)] overflow-y-auto bg-card/50">
-              <OmniCalcPanel
-                valuationResults={result.valuation_results ?? {}}
-                selectedMethod={selectedMethod}
-                onSelectMethod={handleSelectMethodWithOverride}
-                fiscalAnchor={result.fiscal_4x_anchor}
-                showFiscalAnchorRow={showFiscalReferenceForOmni === true}
-                compact
-                showZeroDraftExport={showPreparerMultiplePanel}
-                zeroDraftReportId={resolvedReportId || reportId}
-                zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
-                zeroDraftCreatedAt={
-                  report?.generatedAt instanceof Date ? report.generatedAt.toISOString() : undefined
-                }
-              />
-            </div>
-          )}
-          {showPreparerMultiplePanel && report && result && (
-            <div className="shrink-0 border-t border-border p-2 bg-card/40">
-              <PreparerMultiplePanel
-                result={result}
-                disabled={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
-                onRecalculate={handlePreparerMultipleRecalculate}
-                industryLabel={collectedData.industry}
-                businessTypeLabel={collectedData.businessType}
-                countryCode={collectedData.country}
-                selectedOmniMethod={selectedMethod}
-              />
-            </div>
-          )}
         </div>
 
         <ChatAssistantDrawer {...chatDrawerProps} />
@@ -3721,6 +3691,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         showSourceDataToggle={hasImportQuality}
         sourceDataOpen={showSourceDataPanel}
         onToggleSourceData={toggleSourceDataPanel}
+        onOpenValuationEdit={() => setShowValuationEditModal(true)}
       />
 
       {/* Context Bar - Accountant Mode (Clarity parity) */}
@@ -3760,37 +3731,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               <div className="flex-1 min-h-0 overflow-y-auto">
                 <ManualInputPanel key={reportId} {...manualInputProps} />
               </div>
-              {result && (
-                <div className="shrink-0 border-t border-border max-h-[min(40vh,360px)] overflow-y-auto bg-card/50">
-                  <OmniCalcPanel
-                    valuationResults={result.valuation_results ?? {}}
-                    selectedMethod={selectedMethod}
-                    onSelectMethod={handleSelectMethodWithOverride}
-                    fiscalAnchor={result.fiscal_4x_anchor}
-                    showFiscalAnchorRow={showFiscalReferenceForOmni === true}
-                    compact
-                    showZeroDraftExport={showPreparerMultiplePanel}
-                    zeroDraftReportId={resolvedReportId || reportId}
-                    zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
-                    zeroDraftCreatedAt={
-                      report?.generatedAt instanceof Date ? report.generatedAt.toISOString() : undefined
-                    }
-                  />
-                </div>
-              )}
-              {showPreparerMultiplePanel && report && result && (
-                <div className="shrink-0 border-t border-border p-2 bg-card/40 max-h-[min(35vh,320px)] overflow-y-auto">
-                  <PreparerMultiplePanel
-                    result={result}
-                    disabled={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
-                    onRecalculate={handlePreparerMultipleRecalculate}
-                    industryLabel={collectedData.industry}
-                    businessTypeLabel={collectedData.businessType}
-                    countryCode={collectedData.country}
-                    selectedOmniMethod={selectedMethod}
-                  />
-                </div>
-              )}
             </div>
           </ResizablePanel>
 
@@ -3817,26 +3757,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     >
                       {report?.htmlReport ? (
                         <>
-                          {result && (
-                            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
-                              <OmniCalcPanel
-                                valuationResults={result.valuation_results ?? {}}
-                                selectedMethod={selectedMethod}
-                                onSelectMethod={handleSelectMethodWithOverride}
-                                fiscalAnchor={result.fiscal_4x_anchor}
-                                showFiscalAnchorRow={showFiscalReferenceForOmni === true}
-                                compact
-                                showZeroDraftExport={showPreparerMultiplePanel}
-                                zeroDraftReportId={resolvedReportId || reportId}
-                                zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
-                                zeroDraftCreatedAt={
-                                  report?.generatedAt instanceof Date
-                                    ? report.generatedAt.toISOString()
-                                    : undefined
-                                }
-                              />
-                            </div>
-                          )}
                           <div className="valuation-report">
                             <div
                               dangerouslySetInnerHTML={{
@@ -3998,6 +3918,29 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       {/* Source Data Panel — "Trust but Verify" raw ledger data */}
       <SourceDataPanel />
+
+      <ValuationEditModal
+        open={showValuationEditModal}
+        onClose={() => setShowValuationEditModal(false)}
+        valuationResults={result?.valuation_results ?? {}}
+        selectedMethod={selectedMethod}
+        onSelectMethod={handleSelectMethodWithOverride}
+        fiscalAnchor={result?.fiscal_4x_anchor}
+        showFiscalAnchorRow={showFiscalReferenceForOmni === true}
+        result={result}
+        preparerDisabled={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
+        onRecalculate={handlePreparerMultipleRecalculate}
+        industryLabel={collectedData.industry}
+        businessTypeLabel={collectedData.businessType}
+        countryCode={collectedData.country}
+        showZeroDraftExport={showPreparerMultiplePanel}
+        zeroDraftReportId={resolvedReportId || reportId}
+        zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
+        zeroDraftCreatedAt={
+          report?.generatedAt instanceof Date ? report.generatedAt.toISOString() : undefined
+        }
+        showPreparerMultiple={showPreparerMultiplePanel}
+      />
     </div>
   )
 }
