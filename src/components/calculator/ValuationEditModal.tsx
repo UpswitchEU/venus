@@ -880,7 +880,14 @@ export function ValuationEditModal({
   )
 
   return (
-    <Modal open={open} onOpenChange={(v) => !v && onClose()}>
+    <Modal
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) return
+        if (isMethodPersisting) return
+        onClose()
+      }}
+    >
       <ModalContent
         size="lg"
         description={tModal('description')}

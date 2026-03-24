@@ -4169,7 +4169,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       <ValuationEditModal
         open={showValuationEditModal}
-        onClose={() => setShowValuationEditModal(false)}
+        onClose={() => {
+          if (isMethodSwitchRendering) return
+          setShowValuationEditModal(false)
+        }}
         valuationResults={getHydratedValuationResults(result) ?? {}}
         isHydratingMethods={isHydratingEditModalData}
         selectedMethod={selectedMethod}
