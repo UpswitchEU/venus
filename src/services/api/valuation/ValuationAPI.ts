@@ -253,17 +253,18 @@ export class ValuationAPI extends HttpClient {
   }
 
   /**
-   * Omni-Calc: Persist the accountant's selected valuation method for PDF generation.
-   * Fire-and-forget from the UI — no loading state needed.
+   * Omni-Calc: Persist the accountant's selected valuation method and re-render
+   * the HTML report. Returns the new html_report when the backend successfully
+   * re-renders, allowing the preview to update immediately.
    */
   async updateSelectedMethod(
     reportId: string,
     selectedMethod: string,
     overrideReason?: string,
     overrideNote?: string,
-  ): Promise<{ selected_method: string }> {
+  ): Promise<{ selected_method: string; html_report?: string }> {
     try {
-      return await this.executeRequest<{ selected_method: string }>(
+      return await this.executeRequest<{ selected_method: string; html_report?: string }>(
         {
           method: 'PATCH',
           url: `/api/v2/valuations/reports/${reportId}/method`,
@@ -274,6 +275,7 @@ export class ValuationAPI extends HttpClient {
           },
           headers: {},
         } as any,
+        { timeout: 30_000 },
       )
     } catch (error) {
       apiLogger.warn('Failed to persist selected method (non-critical)', {

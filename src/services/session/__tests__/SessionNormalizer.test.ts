@@ -43,4 +43,38 @@ describe('normalizeSessionData', () => {
       { year: 2024, revenue: 950000, ebitda: 95000 },
     ])
   })
+
+  it('prefers the richer persisted valuation result when top-level output is partial', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_789',
+      valuationResult: {
+        equity_value_low: 200000,
+        equity_value_mid: 250000,
+        equity_value_high: 300000,
+      },
+      session_data: {
+        valuation_result: {
+          equity_value_low: 200000,
+          equity_value_mid: 250000,
+          equity_value_high: 300000,
+          details: {
+            valuation_results: {
+              ebitda_multiple: {
+                available: true,
+                value: 250000,
+                label: 'EBITDA Multiple',
+              },
+            },
+          },
+        },
+      },
+    })
+
+    expect((normalized.valuationResult as any)?.details?.valuation_results).toMatchObject({
+      ebitda_multiple: {
+        available: true,
+        value: 250000,
+      },
+    })
+  })
 })

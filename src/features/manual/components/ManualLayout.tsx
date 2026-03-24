@@ -176,7 +176,12 @@ function getUserInitials(user: { name?: string; email?: string } | null): string
 function getHydratedValuationResults(
   result: Pick<ValuationResponse, 'valuation_results' | 'valuation_result'> | null | undefined
 ) {
-  return result?.valuation_results ?? result?.valuation_result?.valuation_results ?? null
+  return (
+    result?.valuation_results ??
+    result?.valuation_result?.valuation_results ??
+    (result?.valuation_result as Record<string, any> | undefined)?.details?.valuation_results ??
+    null
+  )
 }
 
 // ─────────────────────────────────────────
@@ -565,6 +570,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Report & Generation State ───
   const [report, setReport] = useState<ValuationReportData | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isMethodSwitchRendering, setIsMethodSwitchRendering] = useState(false)
   // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
   const isRestoringExistingReport =
     !report &&
@@ -1322,7 +1328,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     )
   }, [selectedMethod, result?.valuation_results])
 
-  // ─── Omni-Calc: Persist method selection to Titan (fire-and-forget) ───
+  // ─── Omni-Calc: Persist method selection to Titan + re-render report ───
   const isFirstMethodRender = useRef(true)
   const pendingOverrideRef = useRef<{ reason?: string; note?: string }>({})
   useEffect(() => {
@@ -1333,15 +1339,36 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (!persistedReportLookupId) return
     const { reason, note } = pendingOverrideRef.current
     pendingOverrideRef.current = {}
-    const timer = setTimeout(() => {
-      backendAPI
-        .updateSelectedMethod(persistedReportLookupId, selectedMethod, reason, note)
-        .catch(() => {
-          toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
-        })
+    const timer = setTimeout(async () => {
+      setIsMethodSwitchRendering(true)
+      try {
+        const res = await backendAPI.updateSelectedMethod(
+          persistedReportLookupId,
+          selectedMethod,
+          reason,
+          note,
+        )
+        if (res?.html_report) {
+          setReport((prev) =>
+            prev ? { ...prev, htmlReport: res.html_report } : prev,
+          )
+          setResult((prev: any) =>
+            prev ? { ...prev, html_report: res.html_report } : prev,
+          )
+          generatePdf?.().catch((err) => {
+            generalLogger.warn('[ManualLayout] PDF re-generation after method switch failed', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+          })
+        }
+      } catch {
+        toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+      } finally {
+        setIsMethodSwitchRendering(false)
+      }
     }, 500)
     return () => clearTimeout(timer)
-  }, [selectedMethod, persistedReportLookupId, t])
+  }, [selectedMethod, persistedReportLookupId, t, generatePdf])
 
   const handleSelectMethodWithOverride = useCallback(
     (method: string, overrideReason?: string, overrideNote?: string) => {
@@ -3511,7 +3538,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             suggestedNormalisations.filter((n: any) => n.status === 'pending').length +
             pendingUpdates.length
           }
-          isExporting={isExporting}
+          isExporting={isExporting || isMethodSwitchRendering}
           recentValuations={recentValuations}
           activeReportId={resolvedReportId || reportId}
           onNewValuation={handleNewValuation}
@@ -3668,7 +3695,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           suggestedNormalisations.filter((n: any) => n.status === 'pending').length +
           pendingUpdates.length
         }
-        isExporting={isExporting}
+        isExporting={isExporting || isMethodSwitchRendering}
         downloadHistory={downloadHistory}
         onRedownload={(item: any) => {
           if (item.url) {
@@ -3795,7 +3822,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       className="valuation-report-container h-full overflow-y-auto bg-background"
                     >
                       {report?.htmlReport ? (
-                        <>
+                        <div className="relative">
+                          {isMethodSwitchRendering && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
+                              <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
+                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                <span className="text-sm text-foreground/70">
+                                  {t('updatingReport', { defaultValue: 'Rapport bijwerken…' })}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                           <div className="valuation-report">
                             <div
                               dangerouslySetInnerHTML={{
@@ -3803,7 +3840,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               }}
                             />
                           </div>
-                        </>
+                        </div>
                       ) : (isGenerating || isCalculating) ? (
                         <div className="h-full flex flex-col bg-background">
                           <div className="flex items-center justify-center gap-2 py-4">
@@ -3842,8 +3879,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={springDefault}
-                      className="valuation-report-container h-full overflow-y-auto bg-background"
+                      className="valuation-report-container h-full overflow-y-auto bg-background relative"
                     >
+                      {isMethodSwitchRendering && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
+                          <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
+                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm text-foreground/70">
+                              {t('updatingReport', { defaultValue: 'Rapport bijwerken…' })}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       <div className="valuation-report">
                         <div
                           dangerouslySetInnerHTML={{
@@ -3961,7 +4008,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       <ValuationEditModal
         open={showValuationEditModal}
         onClose={() => setShowValuationEditModal(false)}
-        valuationResults={result?.valuation_results ?? result?.valuation_result?.valuation_results ?? {}}
+        valuationResults={getHydratedValuationResults(result) ?? {}}
         isHydratingMethods={isHydratingEditModalData}
         selectedMethod={selectedMethod}
         onSelectMethod={handleSelectMethodWithOverride}

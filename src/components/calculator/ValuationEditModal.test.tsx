@@ -63,4 +63,22 @@ describe('ValuationEditModal', () => {
       screen.getByText('Methoden zijn niet geladen. Tik opnieuw op Bereken of vernieuw de pagina.')
     ).toBeInTheDocument()
   })
+
+  it('renders method options when a persisted method map is available', () => {
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        valuationResults={{
+          ebitda_multiple: {
+            available: true,
+            value: 250000,
+            label: 'EBITDA Multiple',
+          },
+        }}
+      />
+    )
+
+    expect(screen.queryByText('Methodedata niet beschikbaar')).not.toBeInTheDocument()
+    expect(screen.getByText('Waardering bewerken')).toBeInTheDocument()
+  })
 })

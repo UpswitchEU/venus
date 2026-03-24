@@ -177,6 +177,34 @@ describe('useManualResultsStore', () => {
       })
     })
 
+    it('should derive the active valuation from valuation_result.details payloads', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setSelectedMethod('ebitda_multiple')
+        result.current.setResult({
+          valuation_id: 'val-123',
+          html_report: '<html>Report</html>',
+          valuation_result: {
+            details: {
+              valuation_results: {
+                ebitda_multiple: {
+                  available: true,
+                  value: 260000,
+                  label: 'EBITDA Multiple',
+                },
+              },
+            },
+          },
+        } as any)
+      })
+
+      expect(result.current.getActiveValuation()).toMatchObject({
+        available: true,
+        value: 260000,
+      })
+    })
+
     it('should clear result when null is passed', () => {
       const { result } = renderHook(() => useManualResultsStore())
 

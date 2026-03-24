@@ -39,7 +39,13 @@ import {
 function extractValuationResults(
   result: Record<string, any> | null | undefined
 ): Record<string, any> | null {
-  return result?.valuation_results ?? result?.valuation_result?.valuation_results ?? null
+  return (
+    result?.valuation_results ??
+    result?.details?.valuation_results ??
+    result?.valuation_result?.valuation_results ??
+    result?.valuation_result?.details?.valuation_results ??
+    null
+  )
 }
 
 /**

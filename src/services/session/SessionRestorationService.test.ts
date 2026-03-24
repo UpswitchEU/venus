@@ -5,6 +5,7 @@ import { useSessionStore } from '../../store/useSessionStore'
 
 describe('SessionRestorationService', () => {
   beforeEach(() => {
+    SessionRestorationService.clearRestorationState()
     useManualResultsStore.setState({
       result: null,
       htmlReport: null,
@@ -58,5 +59,41 @@ describe('SessionRestorationService', () => {
       },
     })
     expect(state.result?.html_report).toBe('<html>Fresh report</html>')
+  })
+
+  it('restores persisted method maps when they only exist under details', async () => {
+    await SessionRestorationService.restore('val_details_only', {
+      reportId: 'val_details_only',
+      sessionData: {
+        company_name: 'Metaalwerken Geuns',
+      },
+      valuationResult: {
+        valuation_id: 'val_details_only',
+        details: {
+          valuation_results: {
+            ebitda_multiple: {
+              available: true,
+              value: 250000,
+              label: 'EBITDA Multiple',
+            },
+          },
+        },
+      },
+      htmlReport: '<html>Report</html>',
+    } as any)
+
+    const state = useManualResultsStore.getState()
+    expect(state.result?.valuation_results).toMatchObject({
+      ebitda_multiple: {
+        available: true,
+        value: 250000,
+      },
+    })
+    expect((state.result as any)?.details?.valuation_results).toMatchObject({
+      ebitda_multiple: {
+        available: true,
+        value: 250000,
+      },
+    })
   })
 })

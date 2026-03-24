@@ -117,10 +117,32 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
     (existingSessionData as any).htmlReport ||
     (existingSessionData as any).html_report ||
     (existingSessionData as any)._htmlReport
+  const valuationCandidates = [
+    session.valuationResult,
+    (existingSessionData as any).valuationResult,
+    (existingSessionData as any).valuation_result,
+  ].filter((candidate) => candidate && typeof candidate === 'object') as Array<Record<string, any>>
+  const candidateScore = (candidate: Record<string, any>) => {
+    let score = 0
+    if (candidate.valuation_results || candidate.details?.valuation_results) score += 8
+    if (candidate.html_report || candidate.htmlReport || candidate.details?.html_report) score += 4
+    if (
+      candidate.equity_value_mid != null ||
+      candidate.valuation_midpoint != null ||
+      candidate.pricing_range ||
+      candidate.priceRange
+    ) {
+      score += 2
+    }
+    score += Math.min(Object.keys(candidate).length, 5)
+    return score
+  }
   const valuationResult =
-    session.valuationResult ||
-    (existingSessionData as any).valuationResult ||
-    (existingSessionData as any).valuation_result
+    valuationCandidates.length > 0
+      ? valuationCandidates.reduce((best, candidate) =>
+          candidateScore(candidate) > candidateScore(best) ? candidate : best
+        )
+      : undefined
   const priceRange =
     (session as any).priceRange ||
     (existingSessionData as any).priceRange ||

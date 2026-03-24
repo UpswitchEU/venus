@@ -197,23 +197,38 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
  * Checks multiple possible locations and naming conventions
  */
 function extractValuationResult(sessionData: any, topLevelSession: any): ValuationResponse | null {
-  // Priority order for finding valuation result:
-  // 1. Top-level session.valuationResult (camelCase)
-  // 2. sessionData.valuationResult (camelCase)
-  // 3. sessionData.valuation_result (snake_case)
-  // 4. Top-level session.valuation_result (snake_case - legacy)
-  // 5. Linked report: session.report.valuation_result (from Titan JOIN)
+  const candidates = [
+    topLevelSession?.valuationResult,
+    sessionData?.valuationResult,
+    sessionData?.valuation_result,
+    topLevelSession?.valuation_result,
+    topLevelSession?.report?.valuation_result,
+    topLevelSession?.report?.valuationResult,
+  ].filter((candidate) => candidate && typeof candidate === 'object') as ValuationResponse[]
 
-  const result =
-    topLevelSession?.valuationResult ||
-    sessionData?.valuationResult ||
-    sessionData?.valuation_result ||
-    topLevelSession?.valuation_result ||
-    topLevelSession?.report?.valuation_result ||
-    topLevelSession?.report?.valuationResult ||
-    null
+  if (candidates.length === 0) return null
 
-  return result
+  const scoreCandidate = (candidate: Record<string, any>) => {
+    let score = 0
+    if (candidate.valuation_results || candidate.details?.valuation_results) score += 8
+    if (candidate.html_report || candidate.htmlReport || candidate.details?.html_report) score += 4
+    if (
+      candidate.equity_value_mid != null ||
+      candidate.valuation_midpoint != null ||
+      candidate.pricing_range ||
+      candidate.priceRange
+    ) {
+      score += 2
+    }
+    score += Math.min(Object.keys(candidate).length, 5)
+    return score
+  }
+
+  return candidates.reduce((best, candidate) =>
+    scoreCandidate(candidate as Record<string, any>) > scoreCandidate(best as Record<string, any>)
+      ? candidate
+      : best
+  )
 }
 
 /**
@@ -222,13 +237,7 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
  */
 function extractHtmlReport(sessionData: any, topLevelSession: any): string | null {
   // Get valuation result first (may contain html_report)
-  const valuationResult =
-    topLevelSession?.valuationResult ||
-    sessionData?.valuationResult ||
-    sessionData?.valuation_result ||
-    topLevelSession?.valuation_result ||
-    topLevelSession?.report?.valuation_result ||
-    null
+  const valuationResult = extractValuationResult(sessionData, topLevelSession)
 
   return (
     // Direct top-level fields

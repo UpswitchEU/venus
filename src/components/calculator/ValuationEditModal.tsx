@@ -1,14 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
+  BarChart3,
+  Calculator,
   Check,
-  Download,
-  ArrowRightLeft,
-  Sparkles,
-  Pencil,
   ChevronDown,
   ChevronRight,
+  Download,
+  Pencil,
+  Scale,
+  Sparkles,
+  TrendingUp,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
@@ -21,7 +24,12 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/design-system/components/Modal'
-import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
+import type {
+  MultiplePipelineStage,
+  ValuationMethodResult,
+  ValuationResponse,
+  WaterfallStep,
+} from '../../types/valuation'
 import { getOmniMethodEquityRange } from '../../utils/omniCalcRange'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
 import {
@@ -47,6 +55,405 @@ const METHOD_OVERRIDE_REASON_KEYS = [
   'other',
 ] as const
 
+const formatCurrency = (amount: number) =>
+  amount >= 1_000_000
+    ? `EUR ${(amount / 1_000_000).toFixed(1)}M`
+    : amount >= 1_000
+      ? `EUR ${(amount / 1_000).toFixed(0)}K`
+      : `EUR ${Math.round(amount)}`
+
+const formatMultiple = (value: number | null) =>
+  value == null ? null : `${value.toFixed(2)}x`
+
+const formatPercent = (value: number | null, scale = 1) =>
+  value == null ? null : `${(value * scale).toFixed(1)}%`
+
+const toNumberOrNull = (value: unknown): number | null => {
+  if (value == null || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const sumAdjustmentValues = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+
+  if (Array.isArray(value)) {
+    const total = value.reduce((sum, item) => {
+      if (!item || typeof item !== 'object') return sum
+      const record = item as Record<string, unknown>
+      const amount =
+        toNumberOrNull(record.amount) ??
+        toNumberOrNull(record.value) ??
+        toNumberOrNull(record.adjustment) ??
+        toNumberOrNull(record.delta) ??
+        0
+      return sum + amount
+    }, 0)
+    return Number.isFinite(total) ? total : null
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return (
+      toNumberOrNull(record.total_adjustment_amount) ??
+      toNumberOrNull(record.total_adjustment) ??
+      toNumberOrNull(record.amount) ??
+      toNumberOrNull(record.value) ??
+      null
+    )
+  }
+
+  return null
+}
+
+function BreakdownMetricCard({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string
+  value: string
+  accent?: boolean
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
+        {label}
+      </p>
+      <p
+        className={cn(
+          'mt-1 text-sm font-mono font-semibold tabular-nums',
+          accent ? 'text-primary' : 'text-foreground/80',
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function MethodBreakdownSection({
+  methodKey,
+  method,
+  result,
+  fiscalAnchor,
+  benchmarkMultiple,
+  appliedMultiple,
+  previewEquity,
+}: {
+  methodKey: string
+  method: ValuationMethodResult | null
+  result: ValuationResponse | null
+  fiscalAnchor?: number | null
+  benchmarkMultiple: number | null
+  appliedMultiple: number | null
+  previewEquity: number | null
+}) {
+  const tBreakdown = useTranslations('methodBreakdown')
+
+  if (!method?.available) {
+    return (
+      <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
+          {tBreakdown('title')}
+        </p>
+        <p className="mt-1 text-[11px] leading-snug text-foreground/50">
+          {tBreakdown('notAvailable')}
+        </p>
+      </div>
+    )
+  }
+
+  const resultAny = (result ?? null) as Record<string, any> | null
+  const resultDetails =
+    resultAny?.details && typeof resultAny.details === 'object'
+      ? (resultAny.details as Record<string, unknown>)
+      : {}
+  const details =
+    method.details && typeof method.details === 'object'
+      ? (method.details as Record<string, unknown>)
+      : {}
+
+  const normalizedEbitda =
+    toNumberOrNull(resultDetails.sustainable_ebitda) ??
+    toNumberOrNull(resultDetails.weighted_ebitda_total) ??
+    toNumberOrNull(resultAny?.ebitda)
+  const netDebt =
+    toNumberOrNull(resultDetails.net_debt) ??
+    toNumberOrNull(resultAny?.net_debt) ??
+    toNumberOrNull((resultAny?.valuation_result as Record<string, unknown> | undefined)?.netDebt)
+  const balanceSheetAdjustments =
+    sumAdjustmentValues(resultDetails.balance_sheet_adjustments) ??
+    sumAdjustmentValues(resultAny?.balance_sheet_adjustments)
+  const enterpriseValue =
+    toNumberOrNull(details.enterprise_value) ??
+    toNumberOrNull(result?.multiples_valuation?.enterprise_value) ??
+    toNumberOrNull(
+      (resultAny?.valuation_result as Record<string, unknown> | undefined)?.enterpriseValueMid,
+    )
+  const equityValue = toNumberOrNull(method.value)
+  const wacc = toNumberOrNull(method.wacc ?? details.wacc)
+  const terminalValue = toNumberOrNull(details.terminal_value)
+  const ownerSalaryEstimate = toNumberOrNull(details.owner_salary_estimate)
+  const sdeValue = toNumberOrNull(details.sde)
+  const comparablesCount = toNumberOrNull(result?.multiples_valuation?.comparables_count)
+  const comparablesQuality = result?.multiples_valuation?.comparables_quality ?? null
+  const pipelineRows = (
+    result?.multiple_pipeline?.discount_waterfall?.slice(0, 4) ?? []
+  ).map((row: WaterfallStep) => ({
+    label: row.step_name,
+    before: toNumberOrNull(row.multiple_before_mid) ?? toNumberOrNull(row.multiple_before_low),
+    after: toNumberOrNull(row.multiple_after_mid) ?? toNumberOrNull(row.multiple_after_low),
+    discount: toNumberOrNull(row.discount_percentage),
+  }))
+
+  const fallbackPipelineRows =
+    pipelineRows.length > 0
+      ? pipelineRows
+      : (result?.multiple_pipeline?.stages?.slice(0, 4) ?? []).map(
+          (stage: MultiplePipelineStage) => ({
+            label: stage.step_name,
+            before: toNumberOrNull(stage.multiple_before_mid ?? stage.multiple_before),
+            after: toNumberOrNull(stage.multiple_after_mid ?? stage.multiple_after),
+            discount: toNumberOrNull(stage.discount_percentage),
+          }),
+        )
+
+  const effectiveAppliedMultiple =
+    appliedMultiple ??
+    toNumberOrNull(method.multiple_used) ??
+    toNumberOrNull(result?.multiple_pipeline?.final_multiple_mid) ??
+    toNumberOrNull(result?.multiple_pipeline?.final_multiple)
+
+  return (
+    <div className="rounded-lg border border-primary/15 bg-primary/[0.03] px-4 py-4 space-y-3">
+      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-primary/75">
+        <Calculator className="w-3.5 h-3.5" />
+        {tBreakdown('title')}
+      </div>
+      <p className="text-[11px] leading-snug text-foreground/55">
+        {tBreakdown('subtitle', { method: method.label })}
+      </p>
+
+      {methodKey === 'dcf' ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {wacc != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('wacc')}
+              value={formatPercent(wacc, 100) || '—'}
+            />
+          )}
+          {terminalValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('terminalValue')}
+              value={formatCurrency(terminalValue)}
+            />
+          )}
+          {enterpriseValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('enterpriseValue')}
+              value={formatCurrency(enterpriseValue)}
+            />
+          )}
+          {equityValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('equityValue')}
+              value={formatCurrency(equityValue)}
+              accent
+            />
+          )}
+        </div>
+      ) : methodKey === 'sde_multiple' ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {ownerSalaryEstimate != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('ownerSalaryEstimate')}
+              value={formatCurrency(ownerSalaryEstimate)}
+            />
+          )}
+          {sdeValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('estimatedSde')}
+              value={formatCurrency(sdeValue)}
+            />
+          )}
+          {effectiveAppliedMultiple != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('appliedMultiple')}
+              value={formatMultiple(effectiveAppliedMultiple) || '—'}
+            />
+          )}
+          {enterpriseValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('enterpriseValue')}
+              value={formatCurrency(enterpriseValue)}
+            />
+          )}
+          {netDebt != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('netDebt')}
+              value={formatCurrency(netDebt)}
+            />
+          )}
+          {equityValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('equityValue')}
+              value={formatCurrency(equityValue)}
+              accent
+            />
+          )}
+        </div>
+      ) : methodKey === 'fiscal_4x' ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {normalizedEbitda != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('normalizedEbitda')}
+              value={formatCurrency(normalizedEbitda)}
+            />
+          )}
+          <BreakdownMetricCard label={tBreakdown('fixedMultiple')} value="4.00x" />
+          {fiscalAnchor != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('fiscalAnchor')}
+              value={formatCurrency(fiscalAnchor)}
+            />
+          )}
+          {equityValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('equityValue')}
+              value={formatCurrency(equityValue)}
+              accent
+            />
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {normalizedEbitda != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('normalizedEbitda')}
+                value={formatCurrency(normalizedEbitda)}
+              />
+            )}
+            {benchmarkMultiple != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('benchmarkMultiple')}
+                value={formatMultiple(benchmarkMultiple) || '—'}
+              />
+            )}
+            {effectiveAppliedMultiple != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('appliedMultiple')}
+                value={formatMultiple(effectiveAppliedMultiple) || '—'}
+              />
+            )}
+            {enterpriseValue != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('enterpriseValue')}
+                value={formatCurrency(enterpriseValue)}
+              />
+            )}
+            {netDebt != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('netDebt')}
+                value={formatCurrency(netDebt)}
+              />
+            )}
+            {balanceSheetAdjustments != null && balanceSheetAdjustments !== 0 && (
+              <BreakdownMetricCard
+                label={tBreakdown('balanceSheetAdjustments')}
+                value={formatCurrency(balanceSheetAdjustments)}
+              />
+            )}
+            {equityValue != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('equityValue')}
+                value={formatCurrency(equityValue)}
+                accent
+              />
+            )}
+            {previewEquity != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('previewEquity')}
+                value={formatCurrency(previewEquity)}
+                accent
+              />
+            )}
+          </div>
+
+          {(comparablesCount != null || comparablesQuality || fallbackPipelineRows.length > 0) && (
+            <div className="rounded-lg border border-border/60 bg-background/70 px-3 py-3 space-y-2">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
+                <TrendingUp className="w-3.5 h-3.5" />
+                {tBreakdown('multiplePipeline')}
+              </div>
+              {(comparablesCount != null || comparablesQuality) && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {comparablesCount != null && (
+                    <BreakdownMetricCard
+                      label={tBreakdown('comparablesCount')}
+                      value={String(Math.round(comparablesCount))}
+                    />
+                  )}
+                  {comparablesQuality && (
+                    <BreakdownMetricCard
+                      label={tBreakdown('comparablesQuality')}
+                      value={comparablesQuality}
+                    />
+                  )}
+                </div>
+              )}
+              {fallbackPipelineRows.length > 0 && (
+                <div className="space-y-2">
+                  {fallbackPipelineRows.map((row, index) => (
+                    <div
+                      key={`${row.label}-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-md border border-border/50 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium text-foreground/75 truncate">
+                          {row.label}
+                        </p>
+                        <p className="text-[10px] text-foreground/45">
+                          {row.before != null && row.after != null
+                            ? `${formatMultiple(row.before)} -> ${formatMultiple(row.after)}`
+                            : tBreakdown('pipelineApplied')}
+                        </p>
+                      </div>
+                      {row.discount != null && (
+                        <span className="text-[11px] font-mono tabular-nums text-foreground/65">
+                          {row.discount > 0 ? '+' : ''}
+                          {row.discount.toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-3 py-2">
+        <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-foreground/55">
+          <Scale className="w-3.5 h-3.5" />
+          {tBreakdown('formulaHeading')}
+        </div>
+        <p className="mt-1 text-[11px] leading-snug text-foreground/55">
+          {methodKey === 'dcf'
+            ? tBreakdown('formulaDcf')
+            : methodKey === 'fiscal_4x'
+              ? tBreakdown('formulaFiscal')
+              : methodKey === 'sde_multiple'
+                ? tBreakdown('formulaSde')
+                : tBreakdown('formulaMultiple')}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export interface ValuationEditModalProps {
   open: boolean
   onClose: () => void
@@ -68,13 +475,6 @@ export interface ValuationEditModalProps {
   zeroDraftCreatedAt?: string | null
   showPreparerMultiple?: boolean
 }
-
-const formatCurrency = (amount: number) =>
-  amount >= 1_000_000
-    ? `€${(amount / 1_000_000).toFixed(1)}M`
-    : amount >= 1_000
-      ? `€${(amount / 1_000).toFixed(0)}K`
-      : `€${Math.round(amount)}`
 
 export function ValuationEditModal({
   open,
@@ -100,6 +500,7 @@ export function ValuationEditModal({
   const t = useTranslations('omniCalc')
   const tPrep = useTranslations('preparerMultiple')
   const tModal = useTranslations('valuationEditModal')
+  const tBreakdown = useTranslations('methodBreakdown')
   const locale = useLocale()
 
   const adaptiveLabel = t('currentMethodAdaptive')
@@ -147,6 +548,8 @@ export function ValuationEditModal({
   }, [result, syncFromValuationResult])
 
   const entries = Object.entries(valuationResults)
+  const activeMethodKey = pendingMethod ?? selectedMethod
+  const activeMethod = valuationResults[activeMethodKey] ?? null
 
   // Method selection helpers
   const getSelectedMethodLabel = (method: string) =>
@@ -157,10 +560,6 @@ export function ValuationEditModal({
   const adaptiveValue =
     valuationResults['upswitch_adaptive']?.value != null
       ? Number(valuationResults['upswitch_adaptive'].value)
-      : null
-  const selectedValue =
-    selectedMethod !== 'upswitch_adaptive' && valuationResults[selectedMethod]?.value != null
-      ? Number(valuationResults[selectedMethod].value)
       : null
   const currentMethodLabel = getSelectedMethodLabel(selectedMethod)
 
@@ -191,10 +590,6 @@ export function ValuationEditModal({
   }
 
   const showMethodList = mode === 'manual'
-  const showComparisonCard = isManualMode && adaptiveValue != null && selectedValue != null
-  const delta = showComparisonCard ? selectedValue! - adaptiveValue! : 0
-  const deltaPercent =
-    showComparisonCard && adaptiveValue! > 0 ? (delta / adaptiveValue!) * 100 : 0
   const guidanceTone = pendingMethod
     ? 'border-primary/20 bg-primary/[0.04] text-primary/80'
     : mode === 'manual'
@@ -281,6 +676,34 @@ export function ValuationEditModal({
       ? (savedSummary?.generated_footnote_nl ?? savedSummary?.generated_footnote ?? null)
       : (savedSummary?.generated_footnote_en ?? savedSummary?.generated_footnote ?? null)
   const previewText = livePreview ?? savedPreview
+  const resultDetails =
+    result && (result as Record<string, any>).details && typeof (result as Record<string, any>).details === 'object'
+      ? (((result as Record<string, any>).details as Record<string, unknown>) ?? {})
+      : {}
+  const previewNetDebt =
+    toNumberOrNull(resultDetails.net_debt) ??
+    toNumberOrNull((result as Record<string, any> | null)?.net_debt) ??
+    0
+  const previewBalanceSheetAdjustments =
+    sumAdjustmentValues(resultDetails.balance_sheet_adjustments) ??
+    sumAdjustmentValues((result as Record<string, any> | null)?.balance_sheet_adjustments) ??
+    0
+  const sustainableEbitda =
+    toNumberOrNull(resultDetails.sustainable_ebitda) ??
+    toNumberOrNull(resultDetails.weighted_ebitda_total) ??
+    toNumberOrNull(result?.ebitda)
+  const liveEquityPreview =
+    !effectiveDisabled && sustainableEbitda != null && appliedNum != null
+      ? Math.round(sustainableEbitda * appliedNum - previewNetDebt + previewBalanceSheetAdjustments)
+      : null
+  const comparisonMethods = entries.filter(
+    ([, method]) => method.available && toNumberOrNull(method.value) != null,
+  )
+  const maxComparisonValue = comparisonMethods.reduce((max, [, method]) => {
+    const next = toNumberOrNull(method.value) ?? 0
+    return Math.max(max, next)
+  }, 0)
+  const activeMetricValue = toNumberOrNull(activeMethod?.value)
 
   if (entries.length === 0) {
     const title = isHydratingMethods ? tModal('loadingTitle') : t('unavailableTitle')
@@ -464,42 +887,80 @@ export function ValuationEditModal({
             {guidanceText}
           </div>
 
-          {showComparisonCard && !pendingMethod && (
-            <div className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2.5 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary/70">
-                <ArrowRightLeft className="w-3 h-3" />
-                {t('comparisonTitle')}
+          {showMethodList && comparisonMethods.length > 0 && (
+            <div className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary/75">
+                <BarChart3 className="w-3.5 h-3.5" />
+                {tBreakdown('comparisonTitle')}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="block text-[10px] text-foreground/45">
-                    {t('comparisonAi')}
-                  </span>
-                  <span className="text-sm font-mono font-semibold tabular-nums text-foreground/70">
-                    {formatCurrency(adaptiveValue!)}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="block text-[10px] text-foreground/45">
-                    {t('comparisonManual')}
-                  </span>
-                  <span className="text-sm font-mono font-semibold tabular-nums text-primary">
-                    {formatCurrency(selectedValue!)}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-primary/10">
-                <span className="text-[10px] text-foreground/40">{t('comparisonDelta')}</span>
-                <span
-                  className={cn(
-                    'text-xs font-mono font-medium tabular-nums',
-                    delta >= 0 ? 'text-success' : 'text-warning',
-                  )}
-                >
-                  {delta >= 0 ? '+' : ''}
-                  {formatCurrency(Math.abs(delta))} ({deltaPercent >= 0 ? '+' : ''}
-                  {deltaPercent.toFixed(1)}%)
-                </span>
+              <div className="space-y-2">
+                {comparisonMethods.map(([key, method]) => {
+                  const value = toNumberOrNull(method.value)
+                  if (value == null) return null
+                  const metric =
+                    method.multiple_used != null
+                      ? formatMultiple(Number(method.multiple_used))
+                      : method.wacc != null
+                        ? `WACC ${formatPercent(Number(method.wacc), 100)}`
+                        : null
+                  const deltaValue = adaptiveValue != null ? value - adaptiveValue : null
+                  const deltaPercent =
+                    adaptiveValue != null && adaptiveValue > 0 ? (deltaValue! / adaptiveValue) * 100 : null
+                  const isActive = key === activeMethodKey
+                  const width =
+                    maxComparisonValue > 0 ? `${Math.max(10, (value / maxComparisonValue) * 100)}%` : '0%'
+
+                  return (
+                    <div
+                      key={key}
+                      className={cn(
+                        'rounded-md border px-3 py-2',
+                        isActive
+                          ? 'border-primary/40 bg-background/80'
+                          : 'border-border/50 bg-background/60',
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium text-foreground/80 truncate">
+                            {method.label}
+                          </p>
+                          <div className="mt-1 h-1.5 w-full rounded-full bg-foreground/[0.06] overflow-hidden">
+                            <div
+                              className={cn(
+                                'h-full rounded-full',
+                                isActive ? 'bg-primary' : 'bg-primary/45',
+                              )}
+                              style={{ width }}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-mono font-semibold tabular-nums text-foreground/85">
+                            {formatCurrency(value)}
+                          </p>
+                          {metric && (
+                            <p className="text-[10px] text-foreground/45 font-mono tabular-nums">
+                              {metric}
+                            </p>
+                          )}
+                          {deltaValue != null && deltaPercent != null && (
+                            <p
+                              className={cn(
+                                'text-[10px] font-mono tabular-nums',
+                                deltaValue >= 0 ? 'text-success' : 'text-warning',
+                              )}
+                            >
+                              {deltaValue >= 0 ? '+' : ''}
+                              {formatCurrency(Math.abs(deltaValue))} ({deltaPercent >= 0 ? '+' : ''}
+                              {deltaPercent.toFixed(1)}%)
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -608,6 +1069,16 @@ export function ValuationEditModal({
               </p>
             </div>
           )}
+
+          <MethodBreakdownSection
+            methodKey={activeMethodKey}
+            method={activeMethod}
+            result={result}
+            fiscalAnchor={fiscalAnchor}
+            benchmarkMultiple={benchmarkNum}
+            appliedMultiple={appliedNum}
+            previewEquity={liveEquityPreview}
+          />
         </div>
 
         {/* ─── Section 2: EV/EBITDA Multiple Override ─── */}
@@ -709,6 +1180,43 @@ export function ValuationEditModal({
                 />
                 <p className="text-[10px] text-foreground/35">{tPrep('sliderHint')}</p>
               </div>
+
+              {liveEquityPreview != null && activeMetricValue != null && (
+                <div className="rounded-md border border-primary/20 bg-primary/[0.05] px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/80">
+                      {tBreakdown('previewEquity')}
+                    </span>
+                    <span className="text-[10px] text-primary/65">
+                      {tBreakdown('previewLabel')}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-mono font-semibold tabular-nums text-primary">
+                        {formatCurrency(liveEquityPreview)}
+                      </p>
+                      <p className="text-[11px] leading-snug text-foreground/55">
+                        {tBreakdown('previewBlurb')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wide text-foreground/45">
+                        {tBreakdown('deltaToHeadline')}
+                      </p>
+                      <p
+                        className={cn(
+                          'text-[11px] font-mono tabular-nums',
+                          liveEquityPreview - activeMetricValue >= 0 ? 'text-success' : 'text-warning',
+                        )}
+                      >
+                        {liveEquityPreview - activeMetricValue >= 0 ? '+' : ''}
+                        {formatCurrency(Math.abs(liveEquityPreview - activeMetricValue))}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-1">
                 <label

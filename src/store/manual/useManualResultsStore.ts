@@ -66,7 +66,10 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   getActiveValuation: () => {
     const { result, selectedMethod } = get()
     const valuationResults =
-      result?.valuation_results ?? result?.valuation_result?.valuation_results ?? null
+      result?.valuation_results ??
+      result?.valuation_result?.valuation_results ??
+      (result?.valuation_result as Record<string, any> | undefined)?.details?.valuation_results ??
+      null
     if (!valuationResults) return null
     return valuationResults[selectedMethod] ?? null
   },

@@ -7,38 +7,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   createBaseSession,
-  generateSessionId,
   mergePrefilledQuery,
+  mergeSessionFields,
   normalizeSessionDates,
 } from '../sessionHelpers'
 
 describe('sessionHelpers', () => {
-  describe('generateSessionId', () => {
-    it('should generate unique session IDs', () => {
-      const id1 = generateSessionId()
-      const id2 = generateSessionId()
-
-      expect(id1).toMatch(/^session_\d+_[a-z0-9]+$/)
-      expect(id2).toMatch(/^session_\d+_[a-z0-9]+$/)
-      expect(id1).not.toBe(id2)
-    })
-
-    it('should have correct format', () => {
-      const id = generateSessionId()
-      const parts = id.split('_')
-
-      expect(parts[0]).toBe('session')
-      expect(parts[1]).toMatch(/^\d+$/) // timestamp
-      expect(parts[2]).toMatch(/^[a-z0-9]+$/) // random string
-    })
-  })
-
   describe('createBaseSession', () => {
     it('should create session with all required fields', () => {
-      const session = createBaseSession('val_123', 'session_456', 'manual')
+      const session = createBaseSession('val_123', 'manual')
 
       expect(session.reportId).toBe('val_123')
-      expect(session.sessionId).toBe('session_456')
       expect(session.currentView).toBe('manual')
       expect(session.dataSource).toBe('manual')
       expect(session.createdAt).toBeInstanceOf(Date)
@@ -48,13 +27,13 @@ describe('sessionHelpers', () => {
     })
 
     it('should include prefilled query when provided', () => {
-      const session = createBaseSession('val_123', 'session_456', 'conversational', 'Restaurant')
+      const session = createBaseSession('val_123', 'conversational', 'Restaurant')
 
       expect(session.partialData).toEqual({ _prefilledQuery: 'Restaurant' })
     })
 
     it('should handle null prefilled query', () => {
-      const session = createBaseSession('val_123', 'session_456', 'manual', null)
+      const session = createBaseSession('val_123', 'manual', null)
 
       expect(session.partialData).toEqual({})
     })
@@ -118,6 +97,49 @@ describe('sessionHelpers', () => {
       const result = normalizeSessionDates(session)
 
       expect(result.completedAt).toBeUndefined()
+    })
+  })
+
+  describe('mergeSessionFields', () => {
+    it('should keep the richer persisted valuation result when top-level data is partial', () => {
+      const result = mergeSessionFields({
+        reportId: 'val_123',
+        sessionId: 'session_456',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        partialData: {},
+        sessionData: {
+          valuation_result: {
+            equity_value_mid: 250000,
+            details: {
+              valuation_results: {
+                ebitda_multiple: {
+                  available: true,
+                  value: 250000,
+                },
+              },
+            },
+          },
+        } as any,
+        valuationResult: {
+          equity_value_mid: 250000,
+        } as any,
+      } as any)
+
+      expect((result.valuationResult as any)?.details?.valuation_results).toMatchObject({
+        ebitda_multiple: {
+          available: true,
+          value: 250000,
+        },
+      })
+      expect((result.sessionData as any)?.valuation_result?.details?.valuation_results).toMatchObject({
+        ebitda_multiple: {
+          available: true,
+          value: 250000,
+        },
+      })
     })
   })
 })
