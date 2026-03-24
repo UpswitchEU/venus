@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   BarChart3,
   Calculator,
@@ -504,8 +504,9 @@ export function ValuationEditModal({
   const locale = useLocale()
 
   const adaptiveLabel = t('currentMethodAdaptive')
-  const isManualMode = selectedMethod !== 'upswitch_adaptive'
-  const [mode, setMode] = useState<'ai' | 'manual'>(isManualMode ? 'manual' : 'ai')
+  const [mode, setMode] = useState<'ai' | 'manual'>(
+    selectedMethod !== 'upswitch_adaptive' ? 'manual' : 'ai',
+  )
   const [pendingMethod, setPendingMethod] = useState<string | null>(null)
   const [overrideReasonKey, setOverrideReasonKey] = useState('')
   const [overrideNote, setOverrideNote] = useState('')
