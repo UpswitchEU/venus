@@ -3690,9 +3690,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onContinueToListing={() => {
           trackReturnToMercury()
           const mercuryBaseUrl = getMercuryUrl()
-          const returnPath = clientContextId
-            ? `${mercuryBaseUrl}/${mercuryLocale}/accountant/clients/${clientContextId}?from=venus`
+          const basePath = clientContextId
+            ? `${mercuryBaseUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
             : `${mercuryBaseUrl}/${mercuryLocale}/accountant/clients`
+          const hasCompletedValuation =
+            (!!report &&
+              typeof report.valuation === 'number' &&
+              Number.isFinite(report.valuation)) ||
+            !!(session?.valuationResult || session?.htmlReport)
+          const returnPath = getSafeMercuryReturnUrl(basePath, {
+            clientContextId: clientContextId ?? undefined,
+            locale: mercuryLocale,
+            sourceApp: 'mercury',
+            celebrateMercuryReturn: hasCompletedValuation,
+          })
           window.location.href = returnPath
         }}
         recentValuations={recentValuations}

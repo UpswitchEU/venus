@@ -47,6 +47,10 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   const reportId =
     session?.reportId || (isOnReportPage ? pathname?.split('/reports/')[1]?.split('?')[0] : null)
 
+  /** Only then may Mercury show "valuation added to business card" — not on plain exit. */
+  const celebrateMercuryReturn =
+    !!session?.valuationResult || !!session?.htmlReport
+
   // Debug logging for pathname detection
   useEffect(() => {
     if (isOnReportPage) {
@@ -175,6 +179,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       clientContextId: relationshipId ?? undefined,
       locale,
       sourceApp: sourceApp ?? undefined,
+      celebrateMercuryReturn,
     })
     window.location.href = targetUrl
   }
@@ -267,6 +272,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           clientContextId: relId ?? undefined,
           locale,
           sourceApp: sourceApp ?? undefined,
+          celebrateMercuryReturn,
         })
         window.location.href = targetUrl
         return
@@ -351,6 +357,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             clientContextId: relId2 ?? undefined,
             locale,
             sourceApp: sourceApp ?? undefined,
+            celebrateMercuryReturn,
           })
           window.location.href = targetUrl
           return
@@ -387,6 +394,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
             clientContextId: relId3 ?? undefined,
             locale,
             sourceApp: sourceApp ?? undefined,
+            celebrateMercuryReturn,
           })
           window.location.href = targetUrl
           return

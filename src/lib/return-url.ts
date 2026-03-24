@@ -16,8 +16,36 @@ export function isLegacyReturnUrl(url: string): boolean {
 }
 
 /**
+ * Set or strip `from=venus` on a Mercury URL. Only set when returning after a completed
+ * valuation so Mercury can show "added to business card" — never for a plain exit.
+ */
+/** Only client detail (or sub-routes) should carry `from=venus` — not dashboard fallbacks. */
+function isAccountantClientPath(pathname: string): boolean {
+  return pathname.includes('/accountant/clients/')
+}
+
+export function applyMercuryCelebrationQuery(urlString: string, celebrate: boolean): string {
+  try {
+    const u = new URL(urlString)
+    if (celebrate) {
+      if (isAccountantClientPath(u.pathname)) {
+        u.searchParams.set('from', 'venus')
+      }
+    } else {
+      u.searchParams.delete('from')
+    }
+    return u.toString()
+  } catch {
+    return urlString
+  }
+}
+
+/**
  * Returns a safe Mercury URL for redirect. If storedUrl is legacy or invalid,
  * falls back to dashboard or client valuations.
+ *
+ * @param celebrateMercuryReturn When true, appends `?from=venus` so Mercury can celebrate.
+ *   When false/undefined, strips `from` if present (defensive cleanup of old links).
  */
 export function getSafeMercuryReturnUrl(
   storedUrl: string | null,
@@ -25,33 +53,38 @@ export function getSafeMercuryReturnUrl(
     clientContextId?: string
     locale?: string
     sourceApp?: string
+    celebrateMercuryReturn?: boolean
   }
 ): string {
   const mercuryUrl = getMercuryUrl()
   const validLocale =
     options?.locale && ['en', 'nl', 'fr', 'de'].includes(options.locale) ? options.locale : 'en'
+  const celebrate = options?.celebrateMercuryReturn === true
+
+  let result: string
 
   if (storedUrl && !isLegacyReturnUrl(storedUrl)) {
     if (storedUrl.startsWith('http://') || storedUrl.startsWith('https://')) {
       try {
         const url = new URL(storedUrl)
         if (url.origin.includes('upswitch.app') && !isLegacyReturnUrl(url.pathname)) {
-          return storedUrl
+          result = storedUrl
+        } else {
+          result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
         }
       } catch {
-        // Invalid URL, fall through
+        result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
       }
     } else {
-      return `${mercuryUrl}${storedUrl.startsWith('/') ? '' : '/'}${storedUrl}`
+      result = `${mercuryUrl}${storedUrl.startsWith('/') ? '' : '/'}${storedUrl}`
     }
+  } else if (options?.clientContextId) {
+    result = `${mercuryUrl}/${validLocale}/accountant/clients/${options.clientContextId}/valuations`
+  } else if (options?.sourceApp?.includes('mercury')) {
+    result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
+  } else {
+    result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
   }
 
-  // Fallback: client valuations or dashboard
-  if (options?.clientContextId) {
-    return `${mercuryUrl}/${validLocale}/accountant/clients/${options.clientContextId}/valuations`
-  }
-  if (options?.sourceApp?.includes('mercury')) {
-    return `${mercuryUrl}/${validLocale}/accountant/dashboard`
-  }
-  return `${mercuryUrl}/${validLocale}/accountant/dashboard`
+  return applyMercuryCelebrationQuery(result, celebrate)
 }
