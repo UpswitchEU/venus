@@ -597,12 +597,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setShowFiscalReferenceForOmni(!!r.show_fiscal_reference)
 
         const existingResult = useManualResultsStore.getState().result
+        const nextValuationResults =
+          r.valuation_results ||
+          r.valuation_result?.valuation_results ||
+          existingResult?.valuation_results
         const mergedResult: ValuationResponse = {
           ...(existingResult || {}),
           ...r,
           html_report: r.html_report || existingResult?.html_report,
-          valuation_results: r.valuation_results || existingResult?.valuation_results,
+          valuation_results: nextValuationResults,
           fiscal_4x_anchor: r.fiscal_4x_anchor ?? existingResult?.fiscal_4x_anchor ?? null,
+          multiple_adjustment_summary:
+            r.multiple_adjustment_summary || existingResult?.multiple_adjustment_summary,
         }
 
         // Always sync from Titan so selected_valuation_method / fiscal flags hydrate even when
@@ -1295,14 +1301,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       isFirstMethodRender.current = false
       return
     }
-    if (!reportId) return
+    if (!persistedReportLookupId) return
     const { reason, note } = pendingOverrideRef.current
     pendingOverrideRef.current = {}
     const timer = setTimeout(() => {
-      backendAPI.updateSelectedMethod(reportId, selectedMethod, reason, note).catch(() => {})
+      backendAPI
+        .updateSelectedMethod(persistedReportLookupId, selectedMethod, reason, note)
+        .catch(() => {
+          toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+        })
     }, 500)
     return () => clearTimeout(timer)
-  }, [selectedMethod, reportId])
+  }, [selectedMethod, persistedReportLookupId, t])
 
   const handleSelectMethodWithOverride = useCallback(
     (method: string, overrideReason?: string, overrideNote?: string) => {
@@ -3922,7 +3932,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       <ValuationEditModal
         open={showValuationEditModal}
         onClose={() => setShowValuationEditModal(false)}
-        valuationResults={result?.valuation_results ?? {}}
+        valuationResults={result?.valuation_results ?? result?.valuation_result?.valuation_results ?? {}}
         selectedMethod={selectedMethod}
         onSelectMethod={handleSelectMethodWithOverride}
         fiscalAnchor={result?.fiscal_4x_anchor}

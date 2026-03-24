@@ -102,6 +102,24 @@ export class SessionCacheManager {
         delete sd.htmlReport
         delete sd.html_report
         delete sd._htmlReport
+        const stripNestedHtml = (value: unknown) => {
+          if (!value || typeof value !== 'object') return value
+          const next = { ...(value as Record<string, unknown>) }
+          delete next.html_report
+          delete next.htmlReport
+          if (next.details && typeof next.details === 'object') {
+            next.details = { ...(next.details as Record<string, unknown>) }
+            delete (next.details as Record<string, unknown>).html_report
+            delete (next.details as Record<string, unknown>).htmlReport
+          }
+          return next
+        }
+        if ('valuationResult' in sd) {
+          sd.valuationResult = stripNestedHtml(sd.valuationResult)
+        }
+        if ('valuation_result' in sd) {
+          sd.valuation_result = stripNestedHtml(sd.valuation_result)
+        }
         sessionWithoutHtml.sessionData = sd
       }
 

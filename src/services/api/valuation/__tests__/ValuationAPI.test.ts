@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ValidationError } from '../../../../types/errors'
 import { ValuationAPI } from '../ValuationAPI'
 
@@ -36,5 +36,15 @@ describe('ValuationAPI validation handling', () => {
       'current_year_data.revenue: Revenue must be positive.'
     )
     expect((thrownError as ValidationError).field).toBe('current_year_data.revenue')
+  })
+
+  it('rethrows selected method persistence failures', async () => {
+    const api = new ValuationAPI()
+    const error = new Error('report not found')
+    vi.spyOn(api as any, 'executeRequest').mockRejectedValue(error)
+
+    await expect(api.updateSelectedMethod('val_123', 'ebitda_multiple')).rejects.toThrow(
+      'report not found'
+    )
   })
 })

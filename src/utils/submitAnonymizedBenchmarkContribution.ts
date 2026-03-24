@@ -32,15 +32,33 @@ export async function submitAnonymizedBenchmarkContribution(
 
   const row = result as unknown as Record<string, unknown>
   const titanUrl = process.env.NEXT_PUBLIC_TITAN_API_URL || ''
+  const ebitda = row.ebitda != null ? Number(row.ebitda) : null
+  const revenue = row.revenue != null ? Number(row.revenue) : null
+
+  if (!titanUrl || !businessTypeId) {
+    return
+  }
+
+  const hasContributionData =
+    (evEbitda != null && ebitda != null && Number.isFinite(ebitda)) ||
+    (evRevenue != null && revenue != null && Number.isFinite(revenue))
+  if (!hasContributionData) {
+    generalLogger.info('Skipping anonymized benchmark contribution (incomplete valuation payload)', {
+      businessType: businessTypeId,
+      hasValuationResults: !!valuationResults,
+    })
+    return
+  }
+
   const res = await fetch(`${titanUrl}/api/v2/multiples/contribute`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       business_type_id: businessTypeId,
       country_code: (row.country_code as string) || 'XX',
-      enterprise_value: evEbitda ? evEbitda * (Number(row.ebitda) || 1) : null,
-      ebitda: row.ebitda != null ? Number(row.ebitda) : null,
-      revenue: row.revenue != null ? Number(row.revenue) : null,
+      enterprise_value: evEbitda != null && ebitda != null ? evEbitda * ebitda : null,
+      ebitda,
+      revenue,
       observation_type: 'CLOSED_DEAL',
     }),
   })

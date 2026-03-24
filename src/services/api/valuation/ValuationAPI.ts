@@ -281,7 +281,7 @@ export class ValuationAPI extends HttpClient {
         selectedMethod,
         error,
       })
-      return { selected_method: selectedMethod }
+      throw error
     }
   }
 

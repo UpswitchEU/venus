@@ -30,6 +30,13 @@ interface PreparerMultipleState {
       p75_ebitda_multiple?: number
       p90_ebitda_multiple?: number
     } | null
+    multiple_adjustment_summary?: {
+      benchmark_multiple?: number | null
+      selected_multiple?: number | null
+      reason_key?: string | null
+      free_text_reason?: string | null
+      acknowledged_extreme?: boolean
+    } | null
   } | null) => void
   setAppliedMedian: (v: number | null) => void
   setReasonKey: (v: PreparerEbitdaReasonKey | '') => void
@@ -47,24 +54,35 @@ export const usePreparerMultipleStore = create<PreparerMultipleState>((set, get)
 
   syncFromValuationResult: (result) => {
     const mv = result?.multiples_valuation
-    if (!mv) return
+    const summary = result?.multiple_adjustment_summary
+    const summaryReasonKey =
+      summary?.reason_key && PREPARER_EBITDA_REASON_KEYS.includes(summary.reason_key as PreparerEbitdaReasonKey)
+        ? (summary.reason_key as PreparerEbitdaReasonKey)
+        : ''
+
+    if (!mv && !summary) return
     const bench =
-      mv.unadjusted_ebitda_multiple != null && Number.isFinite(Number(mv.unadjusted_ebitda_multiple))
+      summary?.benchmark_multiple != null && Number.isFinite(Number(summary.benchmark_multiple))
+        ? Number(summary.benchmark_multiple)
+        : mv?.unadjusted_ebitda_multiple != null &&
+            Number.isFinite(Number(mv.unadjusted_ebitda_multiple))
         ? Number(mv.unadjusted_ebitda_multiple)
-        : mv.ebitda_multiple != null && Number.isFinite(Number(mv.ebitda_multiple))
+        : mv?.ebitda_multiple != null && Number.isFinite(Number(mv.ebitda_multiple))
           ? Number(mv.ebitda_multiple)
           : null
     if (bench == null) return
     const applied =
-      mv.ebitda_multiple != null && Number.isFinite(Number(mv.ebitda_multiple))
+      summary?.selected_multiple != null && Number.isFinite(Number(summary.selected_multiple))
+        ? Number(summary.selected_multiple)
+        : mv?.ebitda_multiple != null && Number.isFinite(Number(mv.ebitda_multiple))
         ? Number(mv.ebitda_multiple)
         : bench
     set({
       benchmarkMedian: bench,
       appliedMedian: applied,
-      reasonKey: '',
-      note: '',
-      acknowledgedExtreme: false,
+      reasonKey: summaryReasonKey,
+      note: summary?.free_text_reason?.trim() || '',
+      acknowledgedExtreme: !!summary?.acknowledged_extreme,
     })
   },
 
