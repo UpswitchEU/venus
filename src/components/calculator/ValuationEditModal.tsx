@@ -439,7 +439,10 @@ function MethodBreakdownSection({
                   {comparablesQuality && (
                     <BreakdownMetricCard
                       label={tBreakdown('comparablesQuality')}
-                      value={comparablesQuality}
+                      value={tBreakdown(
+                        `comparablesQualityValues.${comparablesQuality.toLowerCase()}`,
+                        { defaultValue: comparablesQuality },
+                      )}
                     />
                   )}
                 </div>
@@ -1124,6 +1127,7 @@ export function ValuationEditModal({
                   type="button"
                   variant="outline"
                   size="sm"
+                  disabled={methodSelectionLocked}
                   className="text-xs"
                   onClick={() => setPendingMethod(null)}
                 >

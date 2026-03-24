@@ -1188,7 +1188,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Keyboard Shortcuts ───
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
         if (showFullscreenModal) setShowFullscreenModal(false)
         else if (chatDrawerOpen) setChatDrawerOpen(false)
       }
@@ -1975,7 +1975,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       resolvedReportId,
       report,
       isDirty,
-      showRecalculateConfirmation,
       hasExistingValuation,
       currentVersionNumber,
       formStoreData,
@@ -2382,7 +2381,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleRejectUpdate = useCallback((field: string) => {
     setPendingUpdates((prev) => prev.filter((u) => u.field !== field))
     toast.info(t('suggestionRejected'))
-  }, [])
+  }, [t])
 
   // Retry a failed assistant message by resending the preceding user message
   const handleRetry = useCallback(
@@ -2431,7 +2430,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (!report) return
     setIsExporting(true)
 
-    const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-Schattingsrapport.pdf`
+    const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-${tReport('pdfSuffix')}.pdf`
 
     try {
       if (isPdfReady) {
@@ -2496,7 +2495,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsExporting(false)
     }
-  }, [report, reportId, resolvedReportId, isPdfReady, downloadPdf, generatePdf, tReport])
+  }, [report, reportId, resolvedReportId, isPdfReady, downloadPdf, generatePdf, tReport, t])
 
   // ─── Navigation Handlers ───
   const handleBack = useCallback(() => {
@@ -3489,7 +3488,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setShowNormalisationModal(false)
     setCurrentNormalisationSuggestion(null)
     toast.info(t('suggestionRejected'))
-  }, [])
+  }, [t])
 
   // ─── Shared ManualInputPanel Props ───
   const manualInputProps = {

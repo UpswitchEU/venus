@@ -640,6 +640,7 @@
     "fullscreen": "Fullscreen",
     "download": "Download",
     "defaultFilename": "Report",
+    "pdfSuffix": "Valuation-Report",
     "placeholder": {
       "title": "Your report will appear here",
       "description": "Fill in the business details on the left. Once you're done, the system will automatically generate a defensible indicative estimate report with audit trail.",
@@ -2208,6 +2209,13 @@
     "multiplePipeline": "Multiple pipeline",
     "comparablesCount": "Comparables",
     "comparablesQuality": "Comparable quality",
+    "comparablesQualityValues": {
+      "high": "High",
+      "moderate": "Moderate",
+      "low": "Low",
+      "very_high": "Very high",
+      "very_low": "Very low"
+    },
     "pipelineApplied": "Adjustment applied in valuation pipeline",
     "formulaHeading": "Formula",
     "formulaMultiple": "Normalized EBITDA x applied multiple -> enterprise value -> net debt and balance sheet adjustments -> equity value.",

@@ -640,6 +640,7 @@
     "fullscreen": "Volledig scherm",
     "download": "Download",
     "defaultFilename": "Rapport",
+    "pdfSuffix": "Schattingsrapport",
     "placeholder": {
       "title": "Uw rapport verschijnt hier",
       "description": "Vul links de bedrijfsgegevens in. Zodra u klaar bent, genereert het systeem automatisch een verdedigbaar schattingsrapport met audit trail.",
@@ -2208,6 +2209,13 @@
     "multiplePipeline": "Multiple-pijplijn",
     "comparablesCount": "Vergelijkbare bedrijven",
     "comparablesQuality": "Kwaliteit vergelijkbaren",
+    "comparablesQualityValues": {
+      "high": "Hoog",
+      "moderate": "Gemiddeld",
+      "low": "Laag",
+      "very_high": "Zeer hoog",
+      "very_low": "Zeer laag"
+    },
     "pipelineApplied": "Aanpassing toegepast in de waarderingspijplijn",
     "formulaHeading": "Formule",
     "formulaMultiple": "Genormaliseerde EBITDA x toegepaste multiple -> ondernemingswaarde -> nettoschuld en balanscorrecties -> aandelenwaarde.",
