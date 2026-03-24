@@ -9,6 +9,7 @@
 
 import { APIError, AuthenticationError, NetworkError } from '../../../types/errors'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
+import { isSessionKey } from '../../../utils/identifiers'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
@@ -18,10 +19,14 @@ export class ReportAPI extends HttpClient {
    */
   async getReport(reportId: string, options?: APIRequestConfig): Promise<ValuationResponse> {
     try {
+      const url = isSessionKey(reportId)
+        ? `/api/v2/valuations/reports/by-session/${reportId}`
+        : `/api/v2/valuations/reports/${reportId}`
+
       return await this.executeRequest<ValuationResponse>(
         {
           method: 'GET',
-          url: `/api/v2/valuations/reports/${reportId}`,
+          url,
           headers: {},
         } as any,
         options

@@ -1514,6 +1514,8 @@
     "searchOtherLedger": "Zoek een andere grootboekcode...",
     "searchOrAddNew": "Zoek in normalisaties of voeg nieuwe toe...",
     "typeCodeOrChoose": "Typ een grootboekcode (bijv. 620) of kies hieronder...",
+    "importLedger": "Grootboek importeren",
+    "ledgerAccounts": "Grootboekrekeningen",
     "uploadOrAddManual": "Upload data of voeg handmatig normalisaties toe",
     "noNormalizationsAdded": "Geen normalisaties toegevoegd",
     "addedNormalizations": "Toegevoegde normalisaties ({count})",

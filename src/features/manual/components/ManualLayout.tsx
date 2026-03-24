@@ -127,6 +127,7 @@ import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isAuthError } from '../../../utils/errorDetection'
+import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
@@ -483,6 +484,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return reportId
   }, [reportId, session?.reportId, session])
 
+  const linkedIdentifier = useMemo(() => {
+    const id = resolvedReportId || reportId
+    if (!id || id === 'new' || typeof id !== 'string') return null
+    return id
+  }, [resolvedReportId, reportId])
+
+  const calculationRequestIdentifiers = useMemo(
+    () => ({
+      reportId:
+        linkedIdentifier && (isUuid(linkedIdentifier) || isSessionKey(linkedIdentifier))
+          ? linkedIdentifier
+          : undefined,
+      sessionKey: linkedIdentifier && isSessionKey(linkedIdentifier) ? linkedIdentifier : undefined,
+    }),
+    [linkedIdentifier]
+  )
+
+  const persistedReportLookupId = useMemo(() => {
+    const candidates = [session?.reportId, resolvedReportId, reportId]
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && isUuid(candidate)) return candidate
+    }
+    return null
+  }, [session?.reportId, resolvedReportId, reportId])
+
   // Session matches when reportId equals session.reportId (UUID) or session.key (session key)
   const sessionMatchesReport =
     session &&
@@ -559,7 +585,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab ?? 'preview')
 
   useEffect(() => {
-    const id = resolvedReportId || reportId
+    const id = persistedReportLookupId
     if (!id || id === 'new') {
       setShowFiscalReferenceForOmni(false)
       return
@@ -590,7 +616,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return () => {
       cancelled = true
     }
-  }, [resolvedReportId, reportId, setResult])
+  }, [persistedReportLookupId, setResult])
 
   // ─── Chat Co-pilot State ───
   const [chatDrawerOpen, setChatDrawerOpen] = useState(initialDrawerOpen)
@@ -1347,8 +1373,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
         const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
-        const idForApi = resolvedReportId || reportId
-        if (idForApi) (request as any).reportId = idForApi
+        const idForApi = linkedIdentifier
+        if (calculationRequestIdentifiers.reportId) {
+          ;(request as any).reportId = calculationRequestIdentifiers.reportId
+        }
+        if (calculationRequestIdentifiers.sessionKey) {
+          ;(request as any).sessionKey = calculationRequestIdentifiers.sessionKey
+        }
 
         mergePreparerMultipleIntoRequest(request as unknown as Record<string, unknown>)
         const prep = usePreparerMultipleStore.getState()
@@ -2985,7 +3016,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           recalcLocale as 'nl' | 'en'
         )
         ;(request as any).dataSource = 'manual'
-        ;(request as any).reportId = idForApi
+        if (calculationRequestIdentifiers.reportId) {
+          ;(request as any).reportId = calculationRequestIdentifiers.reportId
+        }
+        if (calculationRequestIdentifiers.sessionKey) {
+          ;(request as any).sessionKey = calculationRequestIdentifiers.sessionKey
+        }
 
         mergePreparerMultipleIntoRequest(request as unknown as Record<string, unknown>)
         const prepN = usePreparerMultipleStore.getState()
@@ -3050,6 +3086,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setResult,
       sessionName,
       tPreparer,
+      calculationRequestIdentifiers.reportId,
+      calculationRequestIdentifiers.sessionKey,
+      linkedIdentifier,
     ]
   )
 

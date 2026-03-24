@@ -1514,6 +1514,8 @@
     "searchOtherLedger": "Search another ledger code...",
     "searchOrAddNew": "Search normalizations or add new...",
     "typeCodeOrChoose": "Type a ledger code (e.g. 620) or choose below...",
+    "importLedger": "Import ledger",
+    "ledgerAccounts": "Ledger accounts",
     "uploadOrAddManual": "Upload data or add normalizations manually",
     "noNormalizationsAdded": "No normalizations added",
     "addedNormalizations": "Added normalizations ({count})",

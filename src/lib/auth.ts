@@ -20,6 +20,7 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { User } from '../contexts/AuthContextTypes'
 import { getApiUrl } from '../utils/getMercuryUrl'
+import { isSessionKey, isUuid } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
 import { isLegacyReturnUrl } from './return-url'
@@ -1146,11 +1147,7 @@ async function initializeAuth(): Promise<void> {
             const reportId = reportIdMatch ? reportIdMatch[1] : null
 
             // Check if reportId is valid (session key format or UUID)
-            if (
-              reportId &&
-              (reportId.startsWith('val_') ||
-                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId))
-            ) {
+            if (reportId && (isSessionKey(reportId) || isUuid(reportId))) {
               // Check if client context already exists
               const { useClientContext } = await import('../stores/clientContext')
               const contextState = useClientContext.getState()
@@ -1163,16 +1160,16 @@ async function initializeAuth(): Promise<void> {
                 try {
                   const reportAbort = new AbortController()
                   const reportTimeout = setTimeout(() => reportAbort.abort(), 5000)
+                  const reportEndpoint = isSessionKey(reportId)
+                    ? `${API_URL}/api/v2/valuations/reports/by-session/${reportId}`
+                    : `${API_URL}/api/v2/valuations/reports/${reportId}`
 
-                  const reportResponse = await fetch(
-                    `${API_URL}/api/v2/valuations/reports/by-session/${reportId}`,
-                    {
-                      method: 'GET',
-                      credentials: 'include',
-                      headers: { Accept: 'application/json' },
-                      signal: reportAbort.signal,
-                    }
-                  )
+                  const reportResponse = await fetch(reportEndpoint, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: { Accept: 'application/json' },
+                    signal: reportAbort.signal,
+                  })
                   clearTimeout(reportTimeout)
 
                   if (reportResponse.ok) {

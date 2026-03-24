@@ -21,6 +21,7 @@ import { ValidationError } from '../../../types/errors'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
+import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import {
@@ -258,10 +259,18 @@ export const useValuationFormSubmission = (
         // This ensures backend knows this is a manual (FREE) calculation
         ;(request as any).dataSource = 'manual'
 
-        // CRITICAL: Include reportId from session for version linking
-        // This ensures versions are created correctly and linked to the session
-        if (reportId) {
-          ;(request as any).reportId = reportId
+        const calculationRequestIdentifiers = {
+          reportId:
+            reportId && (isUuid(reportId) || isSessionKey(reportId)) ? reportId : undefined,
+          sessionKey: reportId && isSessionKey(reportId) ? reportId : undefined,
+        }
+
+        // Preserve the report/session identifier contract used by the manual flow.
+        if (calculationRequestIdentifiers.reportId) {
+          ;(request as any).reportId = calculationRequestIdentifiers.reportId
+        }
+        if (calculationRequestIdentifiers.sessionKey) {
+          ;(request as any).sessionKey = calculationRequestIdentifiers.sessionKey
         }
 
         // M&A Workflow: Check if this is a regeneration
