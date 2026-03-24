@@ -110,7 +110,7 @@ class BackendAPI {
     selectedMethod: string,
     overrideReason?: string,
     overrideNote?: string,
-  ): Promise<{ selected_method: string }> {
+  ): Promise<{ selected_method: string; html_report?: string }> {
     return this.valuationAPI.updateSelectedMethod(reportId, selectedMethod, overrideReason, overrideNote)
   }
 

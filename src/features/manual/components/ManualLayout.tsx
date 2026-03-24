@@ -435,6 +435,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     isGenerating: isPdfGenerating,
     isReady: isPdfReady,
   } = usePdfGeneration(reportId)
+  const preparerAppliedMedian = usePreparerMultipleStore((s) => s.appliedMedian)
+  const preparerBenchmarkMedian = usePreparerMultipleStore((s) => s.benchmarkMedian)
 
   const currentLocale = useLocale()
 
@@ -571,6 +573,60 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [report, setReport] = useState<ValuationReportData | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isMethodSwitchRendering, setIsMethodSwitchRendering] = useState(false)
+  const liveMultipleReportPreview = useMemo(() => {
+    const resultAny = result as Record<string, any> | null
+    const details =
+      resultAny?.details && typeof resultAny.details === 'object'
+        ? (resultAny.details as Record<string, unknown>)
+        : null
+    const sustainableEbitda = Number(
+      details?.sustainable_ebitda ??
+        details?.weighted_ebitda_total ??
+        resultAny?.ebitda ??
+        0,
+    )
+    const netDebt = Number(details?.net_debt ?? resultAny?.net_debt ?? 0)
+    const currentHeadline = Number(report?.valuation ?? result?.equity_value_mid ?? 0)
+    const appliedMultiple =
+      preparerAppliedMedian != null && Number.isFinite(preparerAppliedMedian)
+        ? Number(preparerAppliedMedian)
+        : null
+    const benchmarkMultiple =
+      preparerBenchmarkMedian != null && Number.isFinite(preparerBenchmarkMedian)
+        ? Number(preparerBenchmarkMedian)
+        : result?.multiples_valuation?.ebitda_multiple != null
+          ? Number(result.multiples_valuation.ebitda_multiple)
+          : null
+
+    if (
+      !report?.htmlReport ||
+      (selectedMethod !== 'ebitda_multiple' && selectedMethod !== 'upswitch_adaptive') ||
+      appliedMultiple == null ||
+      benchmarkMultiple == null ||
+      Math.abs(appliedMultiple - benchmarkMultiple) < 0.005 ||
+      !Number.isFinite(sustainableEbitda) ||
+      sustainableEbitda <= 0
+    ) {
+      return null
+    }
+
+    const previewEquity = Math.round(sustainableEbitda * appliedMultiple - netDebt)
+    if (!Number.isFinite(previewEquity)) return null
+
+    return {
+      previewEquity,
+      delta: previewEquity - currentHeadline,
+      appliedMultiple,
+      benchmarkMultiple,
+    }
+  }, [
+    preparerAppliedMedian,
+    preparerBenchmarkMedian,
+    report?.htmlReport,
+    report?.valuation,
+    result,
+    selectedMethod,
+  ])
   // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
   const isRestoringExistingReport =
     !report &&
@@ -1352,9 +1408,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setReport((prev) =>
             prev ? { ...prev, htmlReport: res.html_report } : prev,
           )
-          setResult((prev: any) =>
-            prev ? { ...prev, html_report: res.html_report } : prev,
-          )
+          setResult(result ? { ...result, html_report: res.html_report } : result)
           generatePdf?.().catch((err) => {
             generalLogger.warn('[ManualLayout] PDF re-generation after method switch failed', {
               error: err instanceof Error ? err.message : String(err),
@@ -3833,6 +3887,36 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               </div>
                             </div>
                           )}
+                          {liveMultipleReportPreview && (
+                            <div className="sticky top-0 z-[5] border-b border-primary/15 bg-primary/[0.06] px-4 py-3 backdrop-blur-sm">
+                              <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
+                                    {t('previewEquityValue', { defaultValue: 'Voorbeeldberekening' })}
+                                  </p>
+                                  <p className="text-sm text-foreground/70">
+                                    {t(
+                                      'previewEquityBlurb',
+                                      {
+                                        defaultValue:
+                                          'Live accountant preview based on the current EV/EBITDA multiple. Recalculate to persist it into the report and PDF.',
+                                      },
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="text-left md:text-right">
+                                  <p className="text-lg font-mono font-semibold tabular-nums text-primary">
+                                    €{(liveMultipleReportPreview.previewEquity / 1_000_000).toFixed(2)}M
+                                  </p>
+                                  <p className="text-[11px] font-mono tabular-nums text-foreground/55">
+                                    {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
+                                    {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}K ·{' '}
+                                    {liveMultipleReportPreview.appliedMultiple.toFixed(2)}x
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           <div className="valuation-report">
                             <div
                               dangerouslySetInnerHTML={{
@@ -3888,6 +3972,36 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                             <span className="text-sm text-foreground/70">
                               {t('updatingReport', { defaultValue: 'Rapport bijwerken…' })}
                             </span>
+                          </div>
+                        </div>
+                      )}
+                      {liveMultipleReportPreview && (
+                        <div className="sticky top-0 z-[5] border-b border-primary/15 bg-primary/[0.06] px-4 py-3 backdrop-blur-sm">
+                          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
+                                {t('previewEquityValue', { defaultValue: 'Voorbeeldberekening' })}
+                              </p>
+                              <p className="text-sm text-foreground/70">
+                                {t(
+                                  'previewEquityBlurb',
+                                  {
+                                    defaultValue:
+                                      'Live accountant preview based on the current EV/EBITDA multiple. Recalculate to persist it into the report and PDF.',
+                                  },
+                                )}
+                              </p>
+                            </div>
+                            <div className="text-left md:text-right">
+                              <p className="text-lg font-mono font-semibold tabular-nums text-primary">
+                                €{(liveMultipleReportPreview.previewEquity / 1_000_000).toFixed(2)}M
+                              </p>
+                              <p className="text-[11px] font-mono tabular-nums text-foreground/55">
+                                {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
+                                {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}K ·{' '}
+                                {liveMultipleReportPreview.appliedMultiple.toFixed(2)}x
+                              </p>
+                            </div>
                           </div>
                         </div>
                       )}

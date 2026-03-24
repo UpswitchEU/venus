@@ -2200,6 +2200,8 @@
     "terminalValue": "Terminal value",
     "ownerSalaryEstimate": "Owner salary estimate",
     "estimatedSde": "Adjusted SDE",
+    "revenue": "Revenue",
+    "adjustedNav": "Adjusted NAV",
     "fixedMultiple": "Fixed fiscal multiple",
     "fiscalAnchor": "Fiscal reference anchor",
     "multiplePipeline": "Multiple pipeline",
@@ -2210,6 +2212,8 @@
     "formulaMultiple": "Normalized EBITDA x applied multiple -> enterprise value -> net debt and balance sheet adjustments -> equity value.",
     "formulaDcf": "Discounted cash flows and terminal value combine into enterprise value, then move to equity value.",
     "formulaFiscal": "Belgian fiscal anchor: book equity + 4x normalized EBITDA.",
+    "formulaNav": "Adjusted net asset value starts from the corrected balance sheet and then moves to equity value.",
+    "formulaRevenue": "Revenue x applied multiple -> enterprise value -> net debt and balance sheet adjustments -> equity value.",
     "formulaSde": "Adjusted seller discretionary earnings x selected multiple -> enterprise value -> equity value."
   }
 }

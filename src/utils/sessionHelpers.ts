@@ -8,7 +8,7 @@
  */
 
 import { backendAPI } from '../services/backendApi'
-import type { ValuationSession } from '../types/valuation'
+import type { ValuationResponse, ValuationSession } from '../types/valuation'
 import { is409Conflict } from './errorDetection'
 import { isRetryable } from './errors/errorGuards'
 import { createContextLogger } from './logger'
@@ -159,7 +159,7 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
     ...session,
     sessionData: mergedSessionData,
     htmlReport,
-    valuationResult,
+    valuationResult: valuationResult as ValuationResponse | undefined,
   }
 }
 

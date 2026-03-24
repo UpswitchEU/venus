@@ -57,10 +57,10 @@ const METHOD_OVERRIDE_REASON_KEYS = [
 
 const formatCurrency = (amount: number) =>
   amount >= 1_000_000
-    ? `EUR ${(amount / 1_000_000).toFixed(1)}M`
+    ? `€${(amount / 1_000_000).toFixed(1)}M`
     : amount >= 1_000
-      ? `EUR ${(amount / 1_000).toFixed(0)}K`
-      : `EUR ${Math.round(amount)}`
+      ? `€${(amount / 1_000).toFixed(0)}K`
+      : `€${Math.round(amount)}`
 
 const formatMultiple = (value: number | null) =>
   value == null ? null : `${value.toFixed(2)}x`
@@ -178,6 +178,10 @@ function MethodBreakdownSection({
     toNumberOrNull(resultDetails.sustainable_ebitda) ??
     toNumberOrNull(resultDetails.weighted_ebitda_total) ??
     toNumberOrNull(resultAny?.ebitda)
+  const revenueValue =
+    toNumberOrNull(details.revenue) ??
+    toNumberOrNull(resultDetails.revenue) ??
+    toNumberOrNull(resultAny?.revenue)
   const netDebt =
     toNumberOrNull(resultDetails.net_debt) ??
     toNumberOrNull(resultAny?.net_debt) ??
@@ -326,14 +330,45 @@ function MethodBreakdownSection({
             />
           )}
         </div>
+      ) : methodKey === 'adjusted_nav' ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {enterpriseValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('adjustedNav')}
+              value={formatCurrency(enterpriseValue)}
+            />
+          )}
+          {netDebt != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('netDebt')}
+              value={formatCurrency(netDebt)}
+            />
+          )}
+          {equityValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('equityValue')}
+              value={formatCurrency(equityValue)}
+              accent
+            />
+          )}
+        </div>
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-2">
-            {normalizedEbitda != null && (
-              <BreakdownMetricCard
-                label={tBreakdown('normalizedEbitda')}
-                value={formatCurrency(normalizedEbitda)}
-              />
+            {methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple' ? (
+              revenueValue != null && (
+                <BreakdownMetricCard
+                  label={tBreakdown('revenue')}
+                  value={formatCurrency(revenueValue)}
+                />
+              )
+            ) : (
+              normalizedEbitda != null && (
+                <BreakdownMetricCard
+                  label={tBreakdown('normalizedEbitda')}
+                  value={formatCurrency(normalizedEbitda)}
+                />
+              )
             )}
             {benchmarkMultiple != null && (
               <BreakdownMetricCard
@@ -445,8 +480,12 @@ function MethodBreakdownSection({
             ? tBreakdown('formulaDcf')
             : methodKey === 'fiscal_4x'
               ? tBreakdown('formulaFiscal')
+              : methodKey === 'adjusted_nav'
+                ? tBreakdown('formulaNav')
               : methodKey === 'sde_multiple'
                 ? tBreakdown('formulaSde')
+                : methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple'
+                  ? tBreakdown('formulaRevenue')
                 : tBreakdown('formulaMultiple')}
         </p>
       </div>
@@ -692,7 +731,7 @@ export function ValuationEditModal({
   const sustainableEbitda =
     toNumberOrNull(resultDetails.sustainable_ebitda) ??
     toNumberOrNull(resultDetails.weighted_ebitda_total) ??
-    toNumberOrNull(result?.ebitda)
+    toNumberOrNull((result as Record<string, any> | null)?.ebitda)
   const liveEquityPreview =
     !effectiveDisabled && sustainableEbitda != null && appliedNum != null
       ? Math.round(sustainableEbitda * appliedNum - previewNetDebt + previewBalanceSheetAdjustments)

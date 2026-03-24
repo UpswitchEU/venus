@@ -995,6 +995,11 @@ export interface ValuationResponse {
   multiple_pipeline?: MultiplePipeline
 
   // Additional data
+  revenue?: ApiNumeric
+  ebitda?: ApiNumeric
+  details?: Record<string, unknown>
+  valuation_result?: Record<string, any>
+  htmlReport?: string
   current_year_data?: YearDataInput // For accessing revenue, ebitda, etc.
   historical_years_data?: YearDataInput[] // Historical financial data for trend analysis
 

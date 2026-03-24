@@ -2200,6 +2200,8 @@
     "terminalValue": "Terminale waarde",
     "ownerSalaryEstimate": "Inschatting eigenaarsloon",
     "estimatedSde": "Aangepaste SDE",
+    "revenue": "Omzet",
+    "adjustedNav": "Gecorrigeerde NAV",
     "fixedMultiple": "Vaste fiscale multiple",
     "fiscalAnchor": "Fiscale referentie",
     "multiplePipeline": "Multiple-pijplijn",
@@ -2210,6 +2212,8 @@
     "formulaMultiple": "Genormaliseerde EBITDA x toegepaste multiple -> ondernemingswaarde -> nettoschuld en balanscorrecties -> aandelenwaarde.",
     "formulaDcf": "Verdisconteerde kasstromen en terminale waarde vormen samen de ondernemingswaarde en daarna de aandelenwaarde.",
     "formulaFiscal": "Belgische fiscale referentie: boekhoudkundig eigen vermogen + 4x genormaliseerde EBITDA.",
+    "formulaNav": "De gecorrigeerde netto-actiefwaarde start vanuit de aangepaste balans en leidt daarna naar de aandelenwaarde.",
+    "formulaRevenue": "Omzet x toegepaste multiple -> ondernemingswaarde -> nettoschuld en balanscorrecties -> aandelenwaarde.",
     "formulaSde": "Aangepaste seller discretionary earnings x gekozen multiple -> ondernemingswaarde -> aandelenwaarde."
   }
 }
