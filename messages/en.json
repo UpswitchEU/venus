@@ -2168,7 +2168,7 @@
     "recalcHint": "Change the main form and recalculate, or use Recalculate — your adjustment is included when it differs from the benchmark and a reason is selected.",
     "extremeServerToast": "Multiple outside guardrails: confirm the checkbox and try again, or move closer to the benchmark.",
     "hintFiscalMethod": "Fiscal reference uses a fixed 4× EBITDA multiple — firm adjusted multiple does not apply to this method.",
-    "hintOtherMethod": "Multiple adjustment only applies when EV/EBITDA or UpSwitch Adaptive is selected as the valuation method."
+    "hintOtherMethod": "Benchmark vs applied multiple is shown for EV/EBITDA, revenue multiple, or UpSwitch Adaptive. For other methods this panel is contextual only."
   },
   "valuationEditModal": {
     "title": "Edit Valuation",
@@ -2178,7 +2178,8 @@
     "editValuation": "Edit Valuation",
     "methodSection": "Valuation Method",
     "multipleSection": "EV/EBITDA Multiple Override",
-    "close": "Close"
+    "close": "Close",
+    "persistingMethod": "Saving method and refreshing report…"
   },
   "methodBreakdown": {
     "title": "Calculation transparency",

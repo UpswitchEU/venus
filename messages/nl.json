@@ -2168,7 +2168,7 @@
     "recalcHint": "Pas het formulier aan en herbereken — uw aanpassing wordt meegestuurd wanneer ze afwijkt van de benchmark en een reden is gekozen.",
     "extremeServerToast": "Multiple buiten de guardrails: vink de bevestiging aan en probeer opnieuw, of nader tot de benchmark.",
     "hintFiscalMethod": "Fiscale referentie gebruikt een vaste 4× EBITDA-multiple — kantoor correctie is niet van toepassing op deze methode.",
-    "hintOtherMethod": "Multiple-aanpassing is alleen van toepassing wanneer EV/EBITDA of UpSwitch Adaptive is geselecteerd als waarderingsmethode."
+    "hintOtherMethod": "Benchmark versus toegepaste multiple ziet u voor EV/EBITDA, omzetmultiple of UpSwitch Adaptive. Voor andere methoden is dit paneel enkel context."
   },
   "valuationEditModal": {
     "title": "Waardering bewerken",
@@ -2178,7 +2178,8 @@
     "editValuation": "Waardering bewerken",
     "methodSection": "Waarderingsmethode",
     "multipleSection": "EV/EBITDA-multiple aanpassen",
-    "close": "Sluiten"
+    "close": "Sluiten",
+    "persistingMethod": "Methode opslaan en rapport vernieuwen…"
   },
   "methodBreakdown": {
     "title": "Berekeningstransparantie",

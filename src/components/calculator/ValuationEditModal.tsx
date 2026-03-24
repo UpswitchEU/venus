@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Loader2,
   Pencil,
   Scale,
   Sparkles,
@@ -41,6 +42,8 @@ import {
 const PRIMARY_METHOD_KEYS = new Set([
   'upswitch_adaptive',
   'ebitda_multiple',
+  'omzet_multiple',
+  'revenue_multiple',
   'adjusted_nav',
   'fiscal_4x',
 ])
@@ -513,6 +516,8 @@ export interface ValuationEditModalProps {
   zeroDraftBusinessName?: string | null
   zeroDraftCreatedAt?: string | null
   showPreparerMultiple?: boolean
+  /** True while PATCH + getReport merge runs after a method change (parent drives) */
+  isMethodPersisting?: boolean
 }
 
 export function ValuationEditModal({
@@ -535,6 +540,7 @@ export function ValuationEditModal({
   zeroDraftBusinessName,
   zeroDraftCreatedAt,
   showPreparerMultiple = false,
+  isMethodPersisting = false,
 }: ValuationEditModalProps) {
   const t = useTranslations('omniCalc')
   const tPrep = useTranslations('preparerMultiple')
@@ -603,7 +609,10 @@ export function ValuationEditModal({
       : null
   const currentMethodLabel = getSelectedMethodLabel(selectedMethod)
 
+  const methodSelectionLocked = isMethodPersisting
+
   const handleModeChange = (newMode: 'ai' | 'manual') => {
+    if (methodSelectionLocked) return
     setMode(newMode)
     if (newMode === 'ai') {
       setPendingMethod(null)
@@ -614,6 +623,7 @@ export function ValuationEditModal({
   }
 
   const handleMethodClick = (key: string) => {
+    if (methodSelectionLocked) return
     if (key === 'upswitch_adaptive') {
       handleModeChange('ai')
       return
@@ -624,6 +634,7 @@ export function ValuationEditModal({
   }
 
   const handleConfirmOverride = () => {
+    if (methodSelectionLocked) return
     if (!pendingMethod || !overrideReasonKey) return
     onSelectMethod(pendingMethod, overrideReasonKey, overrideNote || undefined)
     setPendingMethod(null)
@@ -694,7 +705,8 @@ export function ValuationEditModal({
   const hasPrepData = !!(result?.multiples_valuation?.ebitda_multiple || benchmarkMedian != null)
   const nonEbitdaMethodSelected =
     selectedMethod !== 'upswitch_adaptive' && selectedMethod !== 'ebitda_multiple'
-  const effectiveDisabled = preparerDisabled || nonEbitdaMethodSelected
+  const effectiveDisabled =
+    preparerDisabled || nonEbitdaMethodSelected || isMethodPersisting
 
   const savedSummary = result?.multiple_adjustment_summary
   const livePreview =
@@ -785,8 +797,8 @@ export function ValuationEditModal({
       <button
         key={key}
         type="button"
-        disabled={!isAvailable}
-        onClick={() => isAvailable && handleMethodClick(key)}
+        disabled={!isAvailable || methodSelectionLocked}
+        onClick={() => isAvailable && !methodSelectionLocked && handleMethodClick(key)}
         className={cn(
           'w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all border',
           isSelected
@@ -916,6 +928,7 @@ export function ValuationEditModal({
             onChange={handleModeChange}
             size="sm"
             fullWidth
+            disabled={methodSelectionLocked}
             aria-label={t('modeLabel')}
           />
 
@@ -926,6 +939,17 @@ export function ValuationEditModal({
           >
             {guidanceText}
           </div>
+
+          {isMethodPersisting && (
+            <p
+              className="text-[11px] text-foreground/50 mt-2 flex items-center gap-2"
+              role="status"
+              aria-live="polite"
+            >
+              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-primary/70" aria-hidden />
+              {tModal('persistingMethod')}
+            </p>
+          )}
 
           {showMethodList && comparisonMethods.length > 0 && (
             <div className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-3 space-y-2">
@@ -1017,8 +1041,9 @@ export function ValuationEditModal({
                 <>
                   <button
                     type="button"
-                    onClick={() => setShowAllMethods((v) => !v)}
-                    className="w-full flex items-center gap-1.5 px-1 py-1 text-[10px] text-foreground/40 hover:text-foreground/60 transition-colors"
+                    disabled={methodSelectionLocked}
+                    onClick={() => !methodSelectionLocked && setShowAllMethods((v) => !v)}
+                    className="w-full flex items-center gap-1.5 px-1 py-1 text-[10px] text-foreground/40 hover:text-foreground/60 transition-colors disabled:opacity-40 disabled:pointer-events-none"
                   >
                     {showAllMethods || hasActiveSecondary ? (
                       <ChevronDown className="w-3 h-3" />
@@ -1075,7 +1100,7 @@ export function ValuationEditModal({
                   type="button"
                   variant="primary"
                   size="sm"
-                  disabled={!overrideReasonKey}
+                  disabled={!overrideReasonKey || methodSelectionLocked}
                   className="flex-1 text-xs"
                   onClick={handleConfirmOverride}
                 >

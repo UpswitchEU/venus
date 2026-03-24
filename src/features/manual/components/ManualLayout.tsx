@@ -78,6 +78,7 @@ import {
   isLegacyReturnUrl,
 } from '../../../lib/return-url'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
+import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
 import { backendAPI } from '../../../services/backendApi'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { reportService, valuationService } from '../../../services'
@@ -176,20 +177,7 @@ function getUserInitials(user: { name?: string; email?: string } | null): string
 function getHydratedValuationResults(
   result: Pick<ValuationResponse, 'valuation_results' | 'valuation_result'> | null | undefined
 ) {
-  const candidates = [
-    result?.valuation_results,
-    (result as Record<string, any> | undefined)?.details?.valuation_results,
-    result?.valuation_result?.valuation_results,
-    (result?.valuation_result as Record<string, any> | undefined)?.details?.valuation_results,
-  ]
-
-  for (const candidate of candidates) {
-    if (candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0) {
-      return candidate as Record<string, any>
-    }
-  }
-
-  return null
+  return extractValuationResultsMap(result as Record<string, any> | null | undefined)
 }
 
 // ─────────────────────────────────────────
@@ -1369,11 +1357,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Omni-Calc: Update displayed valuation when selected method changes ───
   const prevSelectedMethodRef = useRef(selectedMethod)
   useEffect(() => {
-    if (!result?.valuation_results || !report) return
+    if (!report) return
+    const hydrated = getHydratedValuationResults(result) ?? {}
+    if (!Object.keys(hydrated).length) return
     if (selectedMethod === prevSelectedMethodRef.current) return
     prevSelectedMethodRef.current = selectedMethod
 
-    const methodData = result.valuation_results[selectedMethod]
+    const methodData = hydrated[selectedMethod]
     if (!methodData?.available || methodData.value == null) return
 
     const val = Number(methodData.value)
@@ -1390,7 +1380,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
         : prev
     )
-  }, [selectedMethod, result?.valuation_results])
+  }, [selectedMethod, result, report])
 
   // ─── Omni-Calc: Persist method selection to Titan + re-render report ───
   const isFirstMethodRender = useRef(true)
@@ -1407,6 +1397,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const previousMethod = lastPersistedMethodRef.current
     const { reason, note } = pendingOverrideRef.current
     pendingOverrideRef.current = {}
+    let cancelled = false
     const timer = setTimeout(async () => {
       setIsMethodSwitchRendering(true)
       try {
@@ -1416,27 +1407,69 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           reason,
           note,
         )
-        if (res?.html_report) {
-          setReport((prev) =>
-            prev ? { ...prev, htmlReport: res.html_report } : prev,
-          )
-          const latestResult = useManualResultsStore.getState().result
-          setResult(latestResult ? { ...latestResult, html_report: res.html_report } : latestResult)
-          generatePdf?.().catch((err) => {
-            generalLogger.warn('[ManualLayout] PDF re-generation after method switch failed', {
-              error: err instanceof Error ? err.message : String(err),
+        if (cancelled) return
+        const htmlFromPatch = res?.html_report
+        try {
+          const fresh = await backendAPI.getReport(persistedReportLookupId)
+          if (cancelled) return
+          const latestExistingResult = useManualResultsStore.getState().result
+          const nextValuationResults =
+            getHydratedValuationResults(fresh) ?? getHydratedValuationResults(latestExistingResult)
+          const mergedResult: ValuationResponse = {
+            ...(latestExistingResult || {}),
+            ...fresh,
+            html_report: htmlFromPatch || fresh.html_report || latestExistingResult?.html_report,
+            valuation_results: nextValuationResults ?? undefined,
+            fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
+            multiple_adjustment_summary:
+              fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
+          }
+          setResult(mergedResult)
+          const htmlForPreview = htmlFromPatch || fresh.html_report
+          if (htmlForPreview) {
+            setReport((prev) =>
+              prev ? { ...prev, htmlReport: htmlForPreview } : prev,
+            )
+            generatePdf?.().catch((err) => {
+              generalLogger.warn('[ManualLayout] PDF re-generation after method switch failed', {
+                error: err instanceof Error ? err.message : String(err),
+              })
             })
+          }
+        } catch (refreshErr) {
+          if (cancelled) return
+          generalLogger.warn('[ManualLayout] getReport after method switch failed', {
+            error: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
           })
+          if (htmlFromPatch) {
+            setReport((prev) =>
+              prev ? { ...prev, htmlReport: htmlFromPatch } : prev,
+            )
+            const latestResult = useManualResultsStore.getState().result
+            setResult(latestResult ? { ...latestResult, html_report: htmlFromPatch } : latestResult)
+            generatePdf?.().catch((err) => {
+              generalLogger.warn('[ManualLayout] PDF re-generation after method switch failed', {
+                error: err instanceof Error ? err.message : String(err),
+              })
+            })
+          }
         }
-        lastPersistedMethodRef.current = selectedMethod
+        if (!cancelled) {
+          lastPersistedMethodRef.current = selectedMethod
+        }
       } catch {
-        setSelectedMethod(previousMethod)
-        toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+        if (!cancelled) {
+          setSelectedMethod(previousMethod)
+          toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+        }
       } finally {
         setIsMethodSwitchRendering(false)
       }
     }, 500)
-    return () => clearTimeout(timer)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [selectedMethod, persistedReportLookupId, t, generatePdf])
 
   const handleSelectMethodWithOverride = useCallback(
@@ -4156,6 +4189,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           report?.generatedAt instanceof Date ? report.generatedAt.toISOString() : undefined
         }
         showPreparerMultiple={showPreparerMultiplePanel}
+        isMethodPersisting={isMethodSwitchRendering}
       />
     </div>
   )

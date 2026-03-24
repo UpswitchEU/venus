@@ -15,6 +15,7 @@
 
 import { create } from 'zustand'
 import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
+import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { storeLogger } from '../../utils/logger'
 
 interface ManualResultsStore {
@@ -65,17 +66,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
 
   getActiveValuation: () => {
     const { result, selectedMethod } = get()
-    const candidates = [
-      result?.valuation_results,
-      (result as Record<string, any> | undefined)?.details?.valuation_results,
-      result?.valuation_result?.valuation_results,
-      (result?.valuation_result as Record<string, any> | undefined)?.details?.valuation_results,
-    ]
-    const valuationResults =
-      candidates.find(
-        (candidate) =>
-          candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0
-      ) ?? null
+    const valuationResults = result ? extractValuationResultsMap(result as Record<string, any>) : null
     if (!valuationResults) return null
     return valuationResults[selectedMethod] ?? null
   },
@@ -91,17 +82,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   setResult: (result: ValuationResponse | null) => {
     set((state) => {
       if (result) {
-        const valuationResultsCandidates = [
-          result.valuation_results,
-          (result as Record<string, any> | undefined)?.details?.valuation_results,
-          result.valuation_result?.valuation_results,
-          (result.valuation_result as Record<string, any> | undefined)?.details?.valuation_results,
-        ]
-        const hydratedValuationResults =
-          valuationResultsCandidates.find(
-            (candidate) =>
-              candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0
-          ) ?? null
+        const hydratedValuationResults = extractValuationResultsMap(result as Record<string, any>)
         const hydratedMethodFromPayload =
           typeof result.selected_valuation_method === 'string' && result.selected_valuation_method.trim()
             ? result.selected_valuation_method

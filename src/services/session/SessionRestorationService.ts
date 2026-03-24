@@ -35,25 +35,7 @@ import {
   normalizeSessionData,
   validateNormalizedData,
 } from './SessionNormalizer'
-
-function extractValuationResults(
-  result: Record<string, any> | null | undefined
-): Record<string, any> | null {
-  const candidates = [
-    result?.valuation_results,
-    result?.details?.valuation_results,
-    result?.valuation_result?.valuation_results,
-    result?.valuation_result?.details?.valuation_results,
-  ]
-
-  for (const candidate of candidates) {
-    if (candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0) {
-      return candidate
-    }
-  }
-
-  return null
-}
+import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 
 /**
  * Bank-grade retry utility with exponential backoff
@@ -486,8 +468,8 @@ class SessionRestorationServiceImpl {
       try {
         const existingResult = useManualResultsStore.getState().result as Record<string, any> | null
         const normalizedValuationResults =
-          extractValuationResults(data.valuationResult as Record<string, any> | null | undefined) ??
-          extractValuationResults(existingResult)
+          extractValuationResultsMap(data.valuationResult as Record<string, any> | null | undefined) ??
+          extractValuationResultsMap(existingResult)
         // Build complete result with HTML reports merged in
         const fullResult = {
           ...(data.valuationResult || {}),
@@ -898,7 +880,7 @@ class SessionRestorationServiceImpl {
           ...pricingResult,
           html_report: pkg.htmlReport || undefined,
           valuation_results:
-            extractValuationResults(existingResult as Record<string, any> | null) ?? undefined,
+            extractValuationResultsMap(existingResult as Record<string, any> | null) ?? undefined,
         }
         manualStore.setResult({
           ...existingResult,

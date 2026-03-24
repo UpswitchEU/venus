@@ -8,6 +8,21 @@ const translations: Record<string, Record<string, string>> = {
     unavailableTitle: 'Methodedata niet beschikbaar',
     unavailableBlurb: 'Methoden zijn niet geladen. Tik opnieuw op Bereken of vernieuw de pagina.',
     currentMethodAdaptive: 'UpSwitch Adaptive',
+    subtitle: 'Kies methode',
+    methodsReadyBadge: '{available}/{total} klaar',
+    currentMethodLabel: 'Huidig: {method}',
+    modeAi: 'Adaptive',
+    modeManual: 'Handmatig',
+    modeLabel: 'Modus',
+    stepChooseMethod: 'Kies een methode',
+    stepAiActive: 'Adaptive actief',
+    methodsListHeading: 'Methoden',
+    showAllMethods: 'Toon alle ({count})',
+    selected: 'Geselecteerd',
+    rangeModel: 'model',
+    rangeIllustrative: 'illustratief',
+    fiscalAnchor: 'Fiscaal',
+    fiscalAnchorFootnote: 'Voetnoot',
   },
   valuationEditModal: {
     title: 'Waardering bewerken',
@@ -15,15 +30,28 @@ const translations: Record<string, Record<string, string>> = {
     loadingTitle: 'Methodedata wordt geladen',
     loadingBlurb:
       'We herstellen de waarderingsmethoden voor dit rapport. Dit duurt normaal maar heel kort.',
+    methodSection: 'Methode',
+    persistingMethod: 'Methode opslaan en rapport vernieuwen…',
   },
   preparerMultiple: {
     contextSeparator: ' · ',
+  },
+  methodBreakdown: {
+    comparisonTitle: 'Vergelijking',
   },
 }
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
-  useTranslations: (namespace: string) => (key: string) => translations[namespace]?.[key] ?? key,
+  useTranslations: (namespace: string) => (key: string, values?: Record<string, string | number>) => {
+    let raw = translations[namespace]?.[key] ?? key
+    if (values && typeof raw === 'string') {
+      for (const [k, v] of Object.entries(values)) {
+        raw = raw.replace(`{${k}}`, String(v))
+      }
+    }
+    return raw
+  },
 }))
 
 vi.mock('@/design-system/components/Modal', () => ({
@@ -80,5 +108,36 @@ describe('ValuationEditModal', () => {
 
     expect(screen.queryByText('Methodedata niet beschikbaar')).not.toBeInTheDocument()
     expect(screen.getByText('Waardering bewerken')).toBeInTheDocument()
+  })
+
+  it('shows persist status and disables mode radios while method is saving', () => {
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        valuationResults={{
+          upswitch_adaptive: {
+            available: true,
+            value: 100_000,
+            label: 'UpSwitch Adaptive',
+          },
+          ebitda_multiple: {
+            available: true,
+            value: 120_000,
+            label: 'EBITDA Multiple',
+          },
+        }}
+        selectedMethod="ebitda_multiple"
+        isMethodPersisting
+        result={null}
+      />,
+    )
+
+    expect(screen.getByText('Methode opslaan en rapport vernieuwen…')).toBeInTheDocument()
+
+    const radios = screen.getAllByRole('radio')
+    expect(radios.length).toBeGreaterThanOrEqual(2)
+    for (const radio of radios) {
+      expect(radio).toBeDisabled()
+    }
   })
 })
