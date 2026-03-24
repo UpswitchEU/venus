@@ -173,6 +173,12 @@ function getUserInitials(user: { name?: string; email?: string } | null): string
   return user.name.substring(0, 2).toUpperCase()
 }
 
+function getHydratedValuationResults(
+  result: Pick<ValuationResponse, 'valuation_results' | 'valuation_result'> | null | undefined
+) {
+  return result?.valuation_results ?? result?.valuation_result?.valuation_results ?? null
+}
+
 // ─────────────────────────────────────────
 // MOBILE HOOK
 // ─────────────────────────────────────────
@@ -508,6 +514,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return null
   }, [session?.reportId, resolvedReportId, reportId])
 
+  const reportHydrationLookupId = useMemo(() => {
+    const candidates = [
+      session?.reportId,
+      resolvedReportId,
+      reportId,
+      (session as any)?.key,
+      (session as any)?.session_key,
+    ]
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && (isUuid(candidate) || isSessionKey(candidate))) {
+        return candidate
+      }
+    }
+    return null
+  }, [session?.reportId, resolvedReportId, reportId, session])
+
   // Session matches when reportId equals session.reportId (UUID) or session.key (session key)
   const sessionMatchesReport =
     session &&
@@ -579,16 +601,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [isConfirmingNewValuation, setIsConfirmingNewValuation] = useState(false)
   /** Effective fiscal PDF flag from Titan (matches PDF + branding); gates Omni-Calc 4× EBITDA row */
   const [showFiscalReferenceForOmni, setShowFiscalReferenceForOmni] = useState<boolean | null>(null)
+  const [isHydratingEditModalData, setIsHydratingEditModalData] = useState(false)
 
   // ─── Panel View State ───
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab ?? 'preview')
 
   useEffect(() => {
-    const id = persistedReportLookupId
+    const id = reportHydrationLookupId
     if (!id || id === 'new') {
       setShowFiscalReferenceForOmni(false)
+      setIsHydratingEditModalData(false)
       return
     }
+    const existingResult = useManualResultsStore.getState().result
+    const needsMethodHydration = !getHydratedValuationResults(existingResult)
+    setIsHydratingEditModalData(needsMethodHydration)
     let cancelled = false
     backendAPI
       .getReport(id)
@@ -596,32 +623,34 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (cancelled) return
         setShowFiscalReferenceForOmni(!!r.show_fiscal_reference)
 
-        const existingResult = useManualResultsStore.getState().result
+        const latestExistingResult = useManualResultsStore.getState().result
         const nextValuationResults =
-          r.valuation_results ||
-          r.valuation_result?.valuation_results ||
-          existingResult?.valuation_results
+          getHydratedValuationResults(r) ?? getHydratedValuationResults(latestExistingResult)
         const mergedResult: ValuationResponse = {
-          ...(existingResult || {}),
+          ...(latestExistingResult || {}),
           ...r,
-          html_report: r.html_report || existingResult?.html_report,
+          html_report: r.html_report || latestExistingResult?.html_report,
           valuation_results: nextValuationResults,
-          fiscal_4x_anchor: r.fiscal_4x_anchor ?? existingResult?.fiscal_4x_anchor ?? null,
+          fiscal_4x_anchor: r.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
           multiple_adjustment_summary:
-            r.multiple_adjustment_summary || existingResult?.multiple_adjustment_summary,
+            r.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
         }
 
         // Always sync from Titan so selected_valuation_method / fiscal flags hydrate even when
         // html_report or valuation_results are missing in this response (partial payloads).
         setResult(mergedResult)
+        setIsHydratingEditModalData(false)
       })
       .catch(() => {
-        if (!cancelled) setShowFiscalReferenceForOmni(false)
+        if (!cancelled) {
+          setShowFiscalReferenceForOmni(false)
+          setIsHydratingEditModalData(false)
+        }
       })
     return () => {
       cancelled = true
     }
-  }, [persistedReportLookupId, setResult])
+  }, [reportHydrationLookupId, setResult])
 
   // ─── Chat Co-pilot State ───
   const [chatDrawerOpen, setChatDrawerOpen] = useState(initialDrawerOpen)
@@ -3933,6 +3962,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         open={showValuationEditModal}
         onClose={() => setShowValuationEditModal(false)}
         valuationResults={result?.valuation_results ?? result?.valuation_result?.valuation_results ?? {}}
+        isHydratingMethods={isHydratingEditModalData}
         selectedMethod={selectedMethod}
         onSelectMethod={handleSelectMethodWithOverride}
         fiscalAnchor={result?.fiscal_4x_anchor}

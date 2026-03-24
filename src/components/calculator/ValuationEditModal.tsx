@@ -51,6 +51,7 @@ export interface ValuationEditModalProps {
   open: boolean
   onClose: () => void
   valuationResults: Record<string, ValuationMethodResult>
+  isHydratingMethods?: boolean
   selectedMethod: string
   onSelectMethod: (method: string, reason?: string, note?: string) => void
   fiscalAnchor?: number | null
@@ -79,6 +80,7 @@ export function ValuationEditModal({
   open,
   onClose,
   valuationResults,
+  isHydratingMethods = false,
   selectedMethod,
   onSelectMethod,
   fiscalAnchor,
@@ -281,6 +283,8 @@ export function ValuationEditModal({
   const previewText = livePreview ?? savedPreview
 
   if (entries.length === 0) {
+    const title = isHydratingMethods ? tModal('loadingTitle') : t('unavailableTitle')
+    const blurb = isHydratingMethods ? tModal('loadingBlurb') : t('unavailableBlurb')
     return (
       <Modal open={open} onOpenChange={(v) => !v && onClose()}>
         <ModalContent size="lg" description={tModal('description')}>
@@ -289,10 +293,10 @@ export function ValuationEditModal({
           </ModalHeader>
           <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-4 py-5 text-center space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
-              {t('unavailableTitle')}
+              {title}
             </p>
             <p className="text-[11px] leading-snug text-foreground/50">
-              {t('unavailableBlurb')}
+              {blurb}
             </p>
           </div>
         </ModalContent>

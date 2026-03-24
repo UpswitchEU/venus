@@ -2173,6 +2173,8 @@
   "valuationEditModal": {
     "title": "Waardering bewerken",
     "description": "Pas de waarderingsmethode en EV/EBITDA-multiple aan.",
+    "loadingTitle": "Methodedata wordt geladen",
+    "loadingBlurb": "We herstellen de waarderingsmethoden voor dit rapport. Dit duurt normaal maar heel kort.",
     "editValuation": "Waardering bewerken",
     "methodSection": "Waarderingsmethode",
     "multipleSection": "EV/EBITDA-multiple aanpassen",

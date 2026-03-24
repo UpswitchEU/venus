@@ -36,6 +36,12 @@ import {
   validateNormalizedData,
 } from './SessionNormalizer'
 
+function extractValuationResults(
+  result: Record<string, any> | null | undefined
+): Record<string, any> | null {
+  return result?.valuation_results ?? result?.valuation_result?.valuation_results ?? null
+}
+
 /**
  * Bank-grade retry utility with exponential backoff
  * Used for resilient asset fetching during restoration
@@ -465,11 +471,16 @@ class SessionRestorationServiceImpl {
 
     if (hasResult || hasOutputAssets) {
       try {
+        const existingResult = useManualResultsStore.getState().result as Record<string, any> | null
+        const normalizedValuationResults =
+          extractValuationResults(data.valuationResult as Record<string, any> | null | undefined) ??
+          extractValuationResults(existingResult)
         // Build complete result with HTML reports merged in
         const fullResult = {
           ...(data.valuationResult || {}),
           valuation_id: (data.valuationResult as any)?.valuation_id || data.reportId,
           html_report: data.htmlReport || (data.valuationResult as any)?.html_report,
+          valuation_results: normalizedValuationResults ?? undefined,
           ...(data.pricingRange && {
             equity_value_low: data.pricingRange.min,
             equity_value_mid: data.pricingRange.mid,
@@ -866,15 +877,16 @@ class SessionRestorationServiceImpl {
           }
         : {}
 
-      const fullResult = {
-        valuation_id: reportId,
-        ...pricingResult,
-        html_report: pkg.htmlReport || undefined,
-      }
-
       if (flow === 'manual') {
         const manualStore = useManualResultsStore.getState()
         const existingResult = manualStore.result || {}
+        const fullResult = {
+          valuation_id: reportId,
+          ...pricingResult,
+          html_report: pkg.htmlReport || undefined,
+          valuation_results:
+            extractValuationResults(existingResult as Record<string, any> | null) ?? undefined,
+        }
         manualStore.setResult({
           ...existingResult,
           ...fullResult,
@@ -902,6 +914,11 @@ class SessionRestorationServiceImpl {
           // Non-critical: session may not be loaded yet
         }
       } else {
+        const fullResult = {
+          valuation_id: reportId,
+          ...pricingResult,
+          html_report: pkg.htmlReport || undefined,
+        }
         generalLogger.debug(
           '[SessionRestoration] Skipping conversational hydration - stores removed',
           {
