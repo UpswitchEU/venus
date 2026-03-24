@@ -39,13 +39,20 @@ import {
 function extractValuationResults(
   result: Record<string, any> | null | undefined
 ): Record<string, any> | null {
-  return (
-    result?.valuation_results ??
-    result?.details?.valuation_results ??
-    result?.valuation_result?.valuation_results ??
-    result?.valuation_result?.details?.valuation_results ??
-    null
-  )
+  const candidates = [
+    result?.valuation_results,
+    result?.details?.valuation_results,
+    result?.valuation_result?.valuation_results,
+    result?.valuation_result?.details?.valuation_results,
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0) {
+      return candidate
+    }
+  }
+
+  return null
 }
 
 /**

@@ -210,7 +210,18 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
 
   const scoreCandidate = (candidate: Record<string, any>) => {
     let score = 0
-    if (candidate.valuation_results || candidate.details?.valuation_results) score += 8
+    const valuationResultsCandidate =
+      candidate.valuation_results ??
+      candidate.details?.valuation_results ??
+      candidate.valuation_result?.valuation_results ??
+      candidate.valuation_result?.details?.valuation_results
+    if (
+      valuationResultsCandidate &&
+      typeof valuationResultsCandidate === 'object' &&
+      Object.keys(valuationResultsCandidate).length > 0
+    ) {
+      score += 8
+    }
     if (candidate.html_report || candidate.htmlReport || candidate.details?.html_report) score += 4
     if (
       candidate.equity_value_mid != null ||

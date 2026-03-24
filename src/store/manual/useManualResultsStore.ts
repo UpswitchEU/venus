@@ -65,11 +65,17 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
 
   getActiveValuation: () => {
     const { result, selectedMethod } = get()
+    const candidates = [
+      result?.valuation_results,
+      (result as Record<string, any> | undefined)?.details?.valuation_results,
+      result?.valuation_result?.valuation_results,
+      (result?.valuation_result as Record<string, any> | undefined)?.details?.valuation_results,
+    ]
     const valuationResults =
-      result?.valuation_results ??
-      result?.valuation_result?.valuation_results ??
-      (result?.valuation_result as Record<string, any> | undefined)?.details?.valuation_results ??
-      null
+      candidates.find(
+        (candidate) =>
+          candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0
+      ) ?? null
     if (!valuationResults) return null
     return valuationResults[selectedMethod] ?? null
   },
@@ -85,10 +91,33 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   setResult: (result: ValuationResponse | null) => {
     set((state) => {
       if (result) {
-        const hydratedSelectedMethod =
+        const valuationResultsCandidates = [
+          result.valuation_results,
+          (result as Record<string, any> | undefined)?.details?.valuation_results,
+          result.valuation_result?.valuation_results,
+          (result.valuation_result as Record<string, any> | undefined)?.details?.valuation_results,
+        ]
+        const hydratedValuationResults =
+          valuationResultsCandidates.find(
+            (candidate) =>
+              candidate && typeof candidate === 'object' && Object.keys(candidate).length > 0
+          ) ?? null
+        const hydratedMethodFromPayload =
           typeof result.selected_valuation_method === 'string' && result.selected_valuation_method.trim()
             ? result.selected_valuation_method
-            : state.selectedMethod
+            : null
+        const hydratedSelectedMethod =
+          hydratedMethodFromPayload &&
+          hydratedValuationResults &&
+          hydratedMethodFromPayload in hydratedValuationResults
+            ? hydratedMethodFromPayload
+            : hydratedValuationResults && state.selectedMethod in hydratedValuationResults
+              ? state.selectedMethod
+              : hydratedValuationResults && 'upswitch_adaptive' in hydratedValuationResults
+                ? 'upswitch_adaptive'
+                : hydratedValuationResults
+                  ? Object.keys(hydratedValuationResults)[0]
+                  : state.selectedMethod
 
         storeLogger.info('[Manual] Valuation result set', {
           valuationId: result.valuation_id,
