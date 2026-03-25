@@ -18,6 +18,8 @@ describe('deriveManualReportPresentation', () => {
           details: {
             equity_range_low: 261000,
             equity_range_high: 423000,
+            p25_multiple: 2.59,
+            p75_multiple: 4.6,
           },
         },
       },
@@ -29,6 +31,7 @@ describe('deriveManualReportPresentation', () => {
     expect(presentation.valuationLow).toBe(261000)
     expect(presentation.valuationHigh).toBe(423000)
     expect(presentation.multiple).toBe(3.45)
+    expect(presentation.multipleRange).toEqual({ low: 2.59, high: 4.6 })
   })
 
   it('falls back to report payload multiple when no method-specific multiple exists', () => {
