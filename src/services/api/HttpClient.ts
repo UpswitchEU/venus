@@ -355,7 +355,7 @@ export class HttpClient {
    * - Network errors (no response)
    * - 5xx server errors
    * - 408 timeout errors
-   * - 429 rate limit errors (with longer backoff)
+   * - 429 rate limit errors (HTTP status checked before classifyError so axios error messages do not block retry)
    *
    * Does NOT retry:
    * - 4xx client errors (except 408, 429)
@@ -363,7 +363,13 @@ export class HttpClient {
    * - Validation errors (400)
    */
   private shouldRetryError(error: any): boolean {
-    // Use error classification for intelligent retry decisions
+    const status = error.response?.status
+
+    // Retry 429 before classifyError: message text containing "429" maps to ratelimit and would otherwise skip retry
+    if (status === 429) {
+      return true
+    }
+
     const errorCategory = classifyError(error)
 
     // Retry network and server errors
@@ -376,34 +382,24 @@ export class HttpClient {
       return false
     }
 
-    // Don't retry rate limit errors - user should wait
+    // Don't retry message-classified rate limit without HTTP status (avoid retry loops on user-facing text)
     if (errorCategory === 'ratelimit') {
       return false
     }
 
-    // Fallback to status-based check for unknown errors
     if (!error.response) {
-      return true // Network error
+      return true
     }
-
-    const status = error.response?.status
 
     // Retry on 5xx server errors
     if (status >= 500 && status < 600) {
       return true
     }
 
-    // Retry on timeout errors
     if (status === 408) {
       return true
     }
 
-    // Retry on rate limit errors (will use longer backoff)
-    if (status === 429) {
-      return true
-    }
-
-    // Don't retry on client errors (4xx) except 408, 429
     return false
   }
 
