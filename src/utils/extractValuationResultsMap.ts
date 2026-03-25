@@ -3,6 +3,63 @@
  * Legacy payloads may store `{}` at `valuation_results` while real methods live under
  * `details`, `report_context`, or nested `valuation_result`.
  */
+function getCanonicalReportContext(
+  valuationResult: Record<string, any>
+): Record<string, any> | null {
+  const vr = valuationResult.valuation_result
+  const nested = vr && typeof vr === 'object' ? (vr as Record<string, any>) : null
+  const candidates = [
+    valuationResult.report_context,
+    valuationResult.details?.report_context,
+    nested?.report_context,
+    nested?.details?.report_context,
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+      return candidate as Record<string, any>
+    }
+  }
+  return null
+}
+
+function normalizeAdaptiveMethod(
+  map: Record<string, any>,
+  valuationResult: Record<string, any>
+): Record<string, any> {
+  const adaptive = map.upswitch_adaptive
+  if (!adaptive || typeof adaptive !== 'object') return map
+
+  const reportContext = getCanonicalReportContext(valuationResult)
+  const canonicalMultiple =
+    reportContext?.applied_multiple ??
+    valuationResult.valuation_result?.multiple ??
+    valuationResult.multiple ??
+    null
+  const multipleLow = reportContext?.multiple_low ?? null
+  const multipleHigh = reportContext?.multiple_high ?? null
+  const details =
+    adaptive.details && typeof adaptive.details === 'object' && !Array.isArray(adaptive.details)
+      ? { ...adaptive.details }
+      : {}
+
+  if (multipleLow != null && details.p25_multiple == null) {
+    details.p25_multiple = multipleLow
+  }
+  if (multipleHigh != null && details.p75_multiple == null) {
+    details.p75_multiple = multipleHigh
+  }
+
+  return {
+    ...map,
+    upswitch_adaptive: {
+      ...adaptive,
+      ...(canonicalMultiple != null ? { multiple_used: canonicalMultiple } : {}),
+      details,
+    },
+  }
+}
+
 export function extractValuationResultsMap(
   valuationResult: Record<string, any> | null | undefined
 ): Record<string, any> | null {
@@ -29,7 +86,7 @@ export function extractValuationResultsMap(
       !Array.isArray(candidate) &&
       Object.keys(candidate).length > 0
     ) {
-      return candidate as Record<string, any>
+      return normalizeAdaptiveMethod(candidate as Record<string, any>, valuationResult)
     }
   }
 
