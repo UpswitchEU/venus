@@ -23,7 +23,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
-import { Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -60,6 +60,7 @@ import { ValuationEditModal } from '../../../components/calculator/ValuationEdit
 import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
+import { AuroraButton } from '../../../design-system/components/Button'
 import { springDefault } from '../../../design-system/components/motion'
 // Design System
 import {
@@ -142,6 +143,10 @@ import {
   detectVersionChanges,
   generateAutoLabel,
 } from '../../../utils/versionDiffDetection'
+
+/** Poll while PDF is stale; extend max window so slow jobs can still complete */
+const PDF_STALE_POLL_INTERVAL_MS = 2500
+const PDF_STALE_POLL_MAX_MS = 120_000
 
 // ─────────────────────────────────────────
 // TYPES
@@ -484,6 +489,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return () => setNormalizationToastMessages(null)
   }, [t])
   const reportPanelRef = useRef<HTMLDivElement>(null)
+  /** Avoid overlapping getReport calls from the PDF-stale poll interval */
+  const pdfStalePollInFlightRef = useRef(false)
 
   // Venus infrastructure
   const { user } = useAuth()
@@ -507,12 +514,27 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const hasImportQuality =
     !!importQualityMap && typeof importQualityMap === 'object' && Object.keys(importQualityMap).length > 0
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
+
+  // Resolve session key (val_xxx) to UUID before PDF hook — POST /api/valuations/:id/pdf must match Titan id
+  const resolvedReportId = useMemo(() => {
+    if (!reportId) return reportId
+    if (reportId === 'new' && session?.reportId) return session.reportId
+    if (reportId === 'new' && session) {
+      const sk = (session as any)?.key ?? (session as any)?.session_key
+      if (sk && sk.length >= 8) return sk
+    }
+    if (typeof reportId === 'string' && reportId.startsWith('val_') && session?.reportId) {
+      return session.reportId
+    }
+    return reportId
+  }, [reportId, session?.reportId, session])
+
   const {
     generatePdf,
     downloadPdf,
     isGenerating: isPdfGenerating,
     isReady: isPdfReady,
-  } = usePdfGeneration(reportId)
+  } = usePdfGeneration(resolvedReportId ?? reportId)
   const preparerAppliedMedian = usePreparerMultipleStore((s) => s.appliedMedian)
   const preparerBenchmarkMedian = usePreparerMultipleStore((s) => s.benchmarkMedian)
   const preparerReasonKey = usePreparerMultipleStore((s) => s.reasonKey)
@@ -560,22 +582,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       role === 'admin'
     )
   }, [isAccountantMode, user?.role])
-
-  // Resolve session key (val_xxx) to UUID for Titan API calls - session.reportId is set after first calculation
-  // Titan requires session_id 8–128 chars; prefer UUID when available, else session_key (val_xxx)
-  const resolvedReportId = useMemo(() => {
-    if (!reportId) return reportId
-    if (reportId === 'new' && session?.reportId) return session.reportId
-    // When reportId is 'new' but session.reportId undefined, use session_key (Titan may not have created report yet)
-    if (reportId === 'new' && session) {
-      const sk = (session as any)?.key ?? (session as any)?.session_key
-      if (sk && sk.length >= 8) return sk
-    }
-    if (typeof reportId === 'string' && reportId.startsWith('val_') && session?.reportId) {
-      return session.reportId
-    }
-    return reportId
-  }, [reportId, session?.reportId, session])
 
   const linkedIdentifier = useMemo(() => {
     const id = resolvedReportId || reportId
@@ -744,6 +750,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     isRestoringExistingReport && !restorationComplete && !restoreTimeoutFired
   const [reportStatus, setReportStatus] = useState<'draft' | 'final'>('draft')
   const [pdfWaitTimedOut, setPdfWaitTimedOut] = useState(false)
+  const [isPdfRetrying, setIsPdfRetrying] = useState(false)
+  const [pdfPollErrorCount, setPdfPollErrorCount] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
   const [downloadHistory, setDownloadHistory] = useState<
     { id: string; fileName: string; timestamp: Date; size: string }[]
@@ -1578,6 +1586,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useEffect(() => {
     if (!pdfStale) {
       setPdfWaitTimedOut(false)
+      setPdfPollErrorCount(0)
       return
     }
     setPdfWaitTimedOut(false)
@@ -1588,6 +1597,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useEffect(() => {
     if (!pdfStale || !persistedReportLookupId) return
     const id = setInterval(async () => {
+      if (pdfStalePollInFlightRef.current) return
+      pdfStalePollInFlightRef.current = true
       try {
         const fresh = await backendAPI.getReport(persistedReportLookupId)
         const latestExistingResult = useManualResultsStore.getState().result
@@ -1615,16 +1626,130 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             pdfUrl: typeof fresh.pdf_url === 'string' ? fresh.pdf_url : prev.pdfUrl,
           }
         })
-      } catch {
-        /* ignore */
+        setPdfPollErrorCount(0)
+      } catch (err) {
+        generalLogger.warn('[ManualLayout] PDF stale poll getReport failed', {
+          reportId: persistedReportLookupId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+        setPdfPollErrorCount((c) => c + 1)
+      } finally {
+        pdfStalePollInFlightRef.current = false
       }
-    }, 2500)
-    const max = setTimeout(() => clearInterval(id), 60_000)
+    }, PDF_STALE_POLL_INTERVAL_MS)
+    const max = setTimeout(() => clearInterval(id), PDF_STALE_POLL_MAX_MS)
     return () => {
       clearInterval(id)
       clearTimeout(max)
+      pdfStalePollInFlightRef.current = false
     }
   }, [pdfStale, persistedReportLookupId, setResult])
+
+  const handleRetryPdfStalled = useCallback(async () => {
+    if (!persistedReportLookupId) return
+    setIsPdfRetrying(true)
+    try {
+      await generatePdf()
+      const fresh = await backendAPI.getReport(persistedReportLookupId)
+      const latestExistingResult = useManualResultsStore.getState().result
+      const nextValuationResults =
+        getHydratedValuationResults(fresh) ?? getHydratedValuationResults(latestExistingResult)
+      const mergedResult: ValuationResponse = {
+        ...(latestExistingResult || {}),
+        ...fresh,
+        html_report: fresh.html_report || latestExistingResult?.html_report,
+        valuation_results: nextValuationResults ?? undefined,
+        fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
+        multiple_adjustment_summary:
+          fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
+      }
+      setResult(mergedResult)
+      setReport((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : prev.reportUpdatedAt,
+          pdfGeneratedAt:
+            fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
+              ? new Date(String(fresh.pdf_generated_at))
+              : null,
+          pdfUrl: typeof fresh.pdf_url === 'string' ? fresh.pdf_url : prev.pdfUrl,
+        }
+      })
+      setPdfPollErrorCount(0)
+    } catch (err) {
+      generalLogger.warn('[ManualLayout] Retry stalled PDF failed', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+      toast.error(t('pdfExportFailed'), { description: t('pdfExportFailedDesc') })
+    } finally {
+      setIsPdfRetrying(false)
+    }
+  }, [generatePdf, persistedReportLookupId, setResult, t])
+
+  const pdfStaleBannerEl = useMemo(() => {
+    if (!report || !pdfStale) return null
+    const pollBlurb =
+      pdfWaitTimedOut
+        ? t('pdfStalledBlurb')
+        : pdfPollErrorCount >= 2
+          ? t('pdfPollDegradedHint')
+          : t('pdfUpdatingBlurb')
+    return (
+      <div
+        role="status"
+        className="shrink-0 border-b border-primary/20 bg-primary/[0.06] px-4 py-3 flex flex-col sm:flex-row sm:items-start gap-3"
+      >
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          {pdfWaitTimedOut ? (
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-primary" aria-hidden />
+          ) : (
+            <Loader2 className="w-4 h-4 shrink-0 mt-0.5 text-primary animate-spin" aria-hidden />
+          )}
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">
+              {pdfWaitTimedOut ? t('pdfStalledTitle') : t('pdfUpdating')}
+            </p>
+            <p className="text-[11px] text-foreground/55 mt-1 leading-snug">{pollBlurb}</p>
+          </div>
+        </div>
+        {pdfWaitTimedOut ? (
+          <div className="flex flex-wrap items-center gap-2 shrink-0 sm:ml-auto">
+            <AuroraButton
+              type="button"
+              size="sm"
+              variant="primary"
+              loading={isPdfRetrying}
+              disabled={isPdfRetrying || !persistedReportLookupId}
+              onClick={() => void handleRetryPdfStalled()}
+            >
+              {t('pdfRetry')}
+            </AuroraButton>
+            {report.pdfUrl ? (
+              <AuroraButton
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isPdfRetrying}
+                onClick={() => window.open(report.pdfUrl!, '_blank', 'noopener,noreferrer')}
+              >
+                {t('pdfOpenLastVersion')}
+              </AuroraButton>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    )
+  }, [
+    report,
+    pdfStale,
+    pdfWaitTimedOut,
+    pdfPollErrorCount,
+    t,
+    isPdfRetrying,
+    persistedReportLookupId,
+    handleRetryPdfStalled,
+  ])
 
   const persistModalEdit = useCallback(
     async ({
@@ -3971,20 +4096,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenValuationEdit={() => setShowValuationEditModal(true)}
         />
 
-        {report && pdfStale && (
-          <div
-            role="status"
-            className="shrink-0 border-b border-primary/20 bg-primary/[0.06] px-4 py-3 flex items-start gap-3"
-          >
-            <Loader2 className="w-4 h-4 shrink-0 mt-0.5 text-primary animate-spin" aria-hidden />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">{t('pdfUpdating')}</p>
-              <p className="text-[11px] text-foreground/55 mt-1 leading-snug">
-                {pdfWaitTimedOut ? t('pdfStillGenerating') : t('pdfUpdatingBlurb')}
-              </p>
-            </div>
-          </div>
-        )}
+        {pdfStaleBannerEl}
 
         {/* Context Bar - Accountant Mode (mobile, Clarity parity) */}
         {isAccountantMode && (clientContextName || collectedData.companyName) && (
@@ -4185,20 +4297,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onOpenValuationEdit={() => setShowValuationEditModal(true)}
       />
 
-      {report && pdfStale && (
-        <div
-          role="status"
-          className="shrink-0 border-b border-primary/20 bg-primary/[0.06] px-4 py-3 flex items-start gap-3"
-        >
-          <Loader2 className="w-4 h-4 shrink-0 mt-0.5 text-primary animate-spin" aria-hidden />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{t('pdfUpdating')}</p>
-            <p className="text-[11px] text-foreground/55 mt-1 leading-snug">
-              {pdfWaitTimedOut ? t('pdfStillGenerating') : t('pdfUpdatingBlurb')}
-            </p>
-          </div>
-        </div>
-      )}
+      {pdfStaleBannerEl}
 
       {/* Context Bar - Accountant Mode (Clarity parity) */}
       {isAccountantMode && (clientContextName || collectedData.companyName) && (

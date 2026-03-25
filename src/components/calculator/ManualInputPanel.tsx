@@ -354,9 +354,23 @@ export function ManualInputPanel({
   const [companySearchValue, setCompanySearchValue] = useState(formData.companyName || '')
   const updateFormData = useManualFormStore((s) => s.updateFormData)
 
+  const prefillAbortRef = useRef<boolean>(false)
+  /** After user picks a country, do not overwrite from late prefill/session (panel remount resets). */
+  const countryUserOverrideRef = useRef(false)
+
+  // Drop registry selection when operating country changes (e.g. firm NL prefill after BE default)
+  useEffect(() => {
+    const c = (formData.country || 'BE').toUpperCase()
+    setSelectedCompany((prev) => {
+      if (!prev) return prev
+      const pc = prev.countryCode?.toUpperCase()
+      if (pc && pc !== c) return null
+      return prev
+    })
+  }, [formData.country])
+
   // Sync prefill from bootstrap/session when initialData arrives after mount
   // Dependencies on key fields ensure we re-run when prefill arrives late (e.g. async store hydration)
-  const prefillAbortRef = useRef<boolean>(false)
   useEffect(() => {
     const prefill = initialData
     if (!prefill || typeof prefill !== 'object') return
@@ -371,6 +385,18 @@ export function ManualInputPanel({
       key: keyof ValuationFormData,
       value: string | number | undefined
     ) => {
+      if (key === 'country') {
+        if (countryUserOverrideRef.current) return
+        if (value === undefined || value === null) return
+        const v = String(value).trim().toUpperCase()
+        if (!v) return
+        const cur = (String(prev.country || '').trim().toUpperCase() || 'BE') as string
+        // Default BE is a placeholder until parent/store sends NL from firm/session (not "user chose Belgium")
+        if (cur === 'BE' && v !== cur) {
+          ;(updates as Record<string, unknown>)[key] = v
+        }
+        return
+      }
       if (value === undefined || value === null) return
       if (typeof value === 'string' && value === '') return
       const current = prev[key]
@@ -1272,6 +1298,28 @@ export function ManualInputPanel({
                   {mi('sections.companyDetails')}
                 </h3>
               </div>
+
+              <AuroraSelect
+                label={mi('fields.operatingCountry')}
+                options={[
+                  { value: 'BE', label: mi('countryOptionBE') },
+                  { value: 'NL', label: mi('countryOptionNL') },
+                ]}
+                value={formData.country || 'BE'}
+                onChange={(val) => {
+                  countryUserOverrideRef.current = true
+                  const prev = formData.country || 'BE'
+                  updateField('country', val)
+                  if (val !== prev) {
+                    setSelectedCompany(null)
+                    setCompanySearchValue('')
+                  }
+                }}
+                helpText={mi('fields.operatingCountryHelp')}
+                helpTextPlacement="below"
+                size="sm"
+                disabled={isCalculating}
+              />
 
               {readOnlyKbo && selectedCompany ? (
                 <div className="rounded-lg border border-foreground/[0.08] bg-muted/30 px-3 py-2.5">

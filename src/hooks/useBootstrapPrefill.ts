@@ -144,12 +144,27 @@ export function useBootstrapPrefill(): {
       return
     }
 
-    // Skip if no meaningful prefill data
+    // Skip if no meaningful prefill data (country-only may still be <0.05 if weights change — keep NL/BE path)
     if (!bootstrap.hasPrefilledData || bootstrap.prefillData.confidence < 0.05) {
-      logger.debug('No meaningful prefill data from bootstrap', {
-        hasPrefilledData: bootstrap.hasPrefilledData,
-        confidence: bootstrap.prefillData.confidence,
-      })
+      const countryOnly = resolveCountryCode(
+        bootstrap.prefillData.companyInfo?.countryCode
+      )
+      if (bootstrap.report.mode === 'new' && countryOnly) {
+        queueMicrotask(() => {
+          const cur = formStore.getState().formData.country_code?.trim().toUpperCase()
+          if (cur === countryOnly) return
+          formStore.getState().updateFormData({ country_code: countryOnly })
+        })
+        logger.info('Applied bootstrap country prefill (below confidence threshold)', {
+          country_code: countryOnly,
+          confidence: bootstrap.prefillData.confidence,
+        })
+      } else {
+        logger.debug('No meaningful prefill data from bootstrap', {
+          hasPrefilledData: bootstrap.hasPrefilledData,
+          confidence: bootstrap.prefillData.confidence,
+        })
+      }
       globalPrefillApplied = true
       globalPrefillReportId = currentReportId
       hasPrefilledRef.current = true

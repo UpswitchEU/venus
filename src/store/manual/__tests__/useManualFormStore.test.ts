@@ -96,6 +96,16 @@ describe('useManualFormStore', () => {
       expect(result.current.formData.business_type_id).toBe('restaurant')
     })
 
+    it('should update country_code for Netherlands operating country', () => {
+      const { result } = renderHook(() => useManualFormStore())
+
+      act(() => {
+        result.current.updateFormData({ country_code: 'NL' })
+      })
+
+      expect(result.current.formData.country_code).toBe('NL')
+    })
+
     it('should preserve existing fields when updating', () => {
       const { result } = renderHook(() => useManualFormStore())
 

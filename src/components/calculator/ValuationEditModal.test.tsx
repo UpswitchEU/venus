@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ValuationEditModal } from './ValuationEditModal'
 
@@ -17,10 +17,18 @@ const translations: Record<string, Record<string, string>> = {
     stepChooseMethod: 'Kies een methode',
     stepAiActive: 'Adaptive actief',
     methodsListHeading: 'Methoden',
-    showAllMethods: 'Toon alle ({count})',
+    methodsPanoramaTitle: 'Alle methoden in één oogopslag',
+    columnEquity: 'Waarde',
+    columnMultiple: 'Multiple',
+    columnDelta: 't.o.v. Adaptive',
+    columnHintMobile: 'Elke methoderegel toont de waardering, de gebruikte multiple en het verschil ten opzichte van UpSwitch Adaptive.',
+    adaptiveBaselineLabel: 'Referentie',
     selected: 'Geselecteerd',
     rangeModel: 'model',
     rangeIllustrative: 'illustratief',
+    'methodDescriptions.upswitch_adaptive': 'Adaptive beschrijving',
+    'methodDescriptions.ebitda_multiple': 'EBITDA beschrijving',
+    'methodDescriptions.dcf': 'DCF beschrijving',
     fiscalAnchor: 'Fiscaal',
     fiscalAnchorFootnote: 'Voetnoot',
   },
@@ -105,22 +113,33 @@ describe('ValuationEditModal', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders method options when a persisted method map is available', () => {
+  it('renders the unified panorama with heading and desktop metric labels', () => {
     render(
       <ValuationEditModal
         {...baseProps}
         valuationResults={{
+          upswitch_adaptive: {
+            available: true,
+            value: 257_000,
+            label: 'UpSwitch Adaptive',
+          },
           ebitda_multiple: {
             available: true,
-            value: 250000,
+            value: 250_000,
             label: 'EBITDA Multiple',
           },
         }}
+        selectedMethod="ebitda_multiple"
       />
     )
 
     expect(screen.queryByText('Methodedata niet beschikbaar')).not.toBeInTheDocument()
     expect(screen.getByText('Waardering bewerken')).toBeInTheDocument()
+    expect(screen.getByText('Alle methoden in één oogopslag')).toBeInTheDocument()
+    expect(screen.getByText('Waarde')).toBeInTheDocument()
+    expect(screen.getAllByText('Multiple').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('t.o.v. Adaptive')).toBeInTheDocument()
+    expect(screen.getByText('Referentie')).toBeInTheDocument()
   })
 
   it('shows persist status and disables mode radios while method is saving', () => {
@@ -189,7 +208,7 @@ describe('ValuationEditModal', () => {
     expect(screen.getByText('Gemiddeld')).toBeInTheDocument()
   })
 
-  it('lists DCF in the primary method list when all methods are primary (no “show all”)', () => {
+  it('shows unavailable methods as disabled panorama rows with their reason', () => {
     render(
       <ValuationEditModal
         {...baseProps}
@@ -206,8 +225,8 @@ describe('ValuationEditModal', () => {
             label: 'EBITDA Multiple',
           },
           dcf: {
-            available: true,
-            value: 99_000,
+            available: false,
+            unavailable_reason: 'Revenue below €1M',
             label: 'Discounted Cash Flow',
           },
         }}
@@ -215,7 +234,47 @@ describe('ValuationEditModal', () => {
       />,
     )
 
-    expect(screen.getAllByText('Discounted Cash Flow').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('button', { name: 'Discounted Cash Flow' })).toBeDisabled()
+    expect(screen.getByText('Revenue below €1M')).toBeInTheDocument()
     expect(screen.queryByText(/Toon alle/)).not.toBeInTheDocument()
+  })
+
+  it('returns to Adaptive segment after Handmatig when selectedMethod is still upswitch_adaptive', () => {
+    const onSelectMethod = vi.fn()
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        onSelectMethod={onSelectMethod}
+        selectedMethod="upswitch_adaptive"
+        valuationResults={{
+          upswitch_adaptive: {
+            available: true,
+            value: 100_000,
+            label: 'UpSwitch Adaptive',
+          },
+          ebitda_multiple: {
+            available: true,
+            value: 120_000,
+            label: 'EBITDA Multiple',
+          },
+        }}
+        result={null}
+      />,
+    )
+
+    const aiRadio = screen.getByRole('radio', { name: /Adaptive/i })
+    const manualRadio = screen.getByRole('radio', { name: /Handmatig/i })
+
+    expect(aiRadio).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(manualRadio)
+    expect(onSelectMethod).not.toHaveBeenCalled()
+    expect(manualRadio).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.click(aiRadio)
+    expect(onSelectMethod).toHaveBeenCalledWith('upswitch_adaptive')
+    expect(
+      screen.getByRole('radio', { name: /Adaptive/i }),
+    ).toHaveAttribute('aria-checked', 'true')
   })
 })

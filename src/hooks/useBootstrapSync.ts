@@ -103,6 +103,23 @@ function buildPrefillFormFields(prefillData: PrefillDataParam): Record<string, u
   return fields
 }
 
+/** Country-only prefill can score below 0.05 confidence — still hydrate form store for new reports */
+function applyCountryPrefillIfNewReport(
+  report: SessionBootstrapState['report'],
+  prefillData: PrefillDataParam,
+): void {
+  if (report.mode !== 'new') return
+  const cc = resolveCountryCode(prefillData.companyInfo?.countryCode)
+  if (!cc) return
+  const cur = useManualFormStore.getState().formData.country_code?.trim().toUpperCase()
+  if (cur === cc) return
+  useManualFormStore.getState().updateFormData({ country_code: cc })
+  logger.info('Applied country from bootstrap (syncSession, no confidence gate)', {
+    reportId: report.reportId.substring(0, 30),
+    country_code: cc,
+  })
+}
+
 interface SyncStatus {
   identity: boolean
   session: boolean
@@ -129,10 +146,25 @@ export function useBootstrapSync(): {
   const bootstrap = useBootstrapSafe()
   const [isSynced, setIsSynced] = useState(false)
   const hasSyncedRef = useRef(false)
+  /** Enables re-sync when navigating to another report without remounting ManualLayout */
+  const lastSyncedReportIdRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
-    // Skip if no bootstrap context or already synced
-    if (!bootstrap || hasSyncedRef.current) {
+    if (!bootstrap) {
+      return
+    }
+
+    const reportId = bootstrap.state?.report?.reportId?.trim()
+    if (reportId && lastSyncedReportIdRef.current && lastSyncedReportIdRef.current !== reportId) {
+      hasSyncedRef.current = false
+      setIsSynced(false)
+      logger.info('Bootstrap reportId changed — resetting sync gate for new valuation', {
+        previousReportId: lastSyncedReportIdRef.current.substring(0, 30),
+        nextReportId: reportId.substring(0, 30),
+      })
+    }
+
+    if (hasSyncedRef.current) {
       return
     }
 
@@ -164,6 +196,9 @@ export function useBootstrapSync(): {
     }
 
     hasSyncedRef.current = true
+    if (reportId) {
+      lastSyncedReportIdRef.current = reportId
+    }
     setIsSynced(true)
 
     logger.info('Bootstrap sync complete', {
@@ -444,6 +479,8 @@ function syncSession(state: SessionBootstrapState): void {
         }
       )
     }
+
+    applyCountryPrefillIfNewReport(report, prefillData)
 
     syncStatusRef.current.session = true
   } catch (error) {

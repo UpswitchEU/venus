@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import {
-  BarChart3,
   Calculator,
-  Check,
-  ChevronDown,
-  ChevronRight,
   Download,
   Loader2,
   Pencil,
@@ -30,17 +26,13 @@ import type {
   ValuationResponse,
   WaterfallStep,
 } from '../../types/valuation'
-import { getOmniMethodEquityRange } from '../../utils/omniCalcRange'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
 import {
   PREPARER_EBITDA_REASON_KEYS,
   clientShouldWarnExtremeMultiple,
   usePreparerMultipleStore,
 } from '../../store/manual/usePreparerMultipleStore'
-import {
-  compareOmniMethodKeys,
-  partitionOmniMethodEntries,
-} from '@/constants/omniCalcMethods'
+import { OmniMethodPanorama } from './omni/OmniMethodPanorama'
 
 const METHOD_OVERRIDE_REASON_KEYS = [
   'fiscal_compliance',
@@ -579,7 +571,6 @@ export function ValuationEditModal({
   const [pendingMethod, setPendingMethod] = useState<string | null>(null)
   const [overrideReasonKey, setOverrideReasonKey] = useState('')
   const [overrideNote, setOverrideNote] = useState('')
-  const [showAllMethods, setShowAllMethods] = useState(false)
 
   useEffect(() => {
     const newMode = selectedMethod === 'upswitch_adaptive' ? 'ai' : 'manual'
@@ -594,7 +585,6 @@ export function ValuationEditModal({
       setPendingMethod(null)
       setOverrideReasonKey('')
       setOverrideNote('')
-      setShowAllMethods(false)
     }
   }, [open])
 
@@ -616,8 +606,6 @@ export function ValuationEditModal({
   }, [result, syncFromValuationResult])
 
   const entries = Object.entries(valuationResults)
-  const { primary: primaryEntries, secondary: secondaryEntries } =
-    partitionOmniMethodEntries(entries)
   const activeMethodKey = pendingMethod ?? selectedMethod
   const activeMethod = valuationResults[activeMethodKey] ?? null
 
@@ -627,20 +615,18 @@ export function ValuationEditModal({
       ? adaptiveLabel
       : valuationResults[method]?.label || adaptiveLabel
 
-  const adaptiveValue =
-    valuationResults['upswitch_adaptive']?.value != null
-      ? Number(valuationResults['upswitch_adaptive'].value)
-      : null
   const currentMethodLabel = getSelectedMethodLabel(selectedMethod)
 
   const methodSelectionLocked = isMethodPersisting
 
   const handleModeChange = (newMode: 'ai' | 'manual') => {
     if (methodSelectionLocked) return
+    setMode(newMode)
     if (newMode === 'ai') {
+      setPendingMethod(null)
+      setOverrideReasonKey('')
+      setOverrideNote('')
       onSelectMethod('upswitch_adaptive')
-    } else {
-      setMode('manual')
     }
   }
 
@@ -772,13 +758,6 @@ export function ValuationEditModal({
     !effectiveDisabled && sustainableEbitda != null && appliedNum != null
       ? Math.round(sustainableEbitda * appliedNum - previewNetDebt + previewBalanceSheetAdjustments)
       : null
-  const comparisonMethods = entries
-    .filter(([, method]) => method.available && toNumberOrNull(method.value) != null)
-    .sort(([ka], [kb]) => compareOmniMethodKeys(ka, kb))
-  const maxComparisonValue = comparisonMethods.reduce((max, [, method]) => {
-    const next = toNumberOrNull(method.value) ?? 0
-    return Math.max(max, next)
-  }, 0)
   const activeMetricValue = toNumberOrNull(activeMethod?.value)
 
   if (entries.length === 0) {
@@ -802,122 +781,6 @@ export function ValuationEditModal({
       </Modal>
     )
   }
-
-  const renderMethodButton = ([key, method]: [string, ValuationMethodResult]) => {
-    const isSelected = key === selectedMethod
-    const isPending = key === pendingMethod
-    const isAvailable = method.available
-    const value = method.value != null ? Number(method.value) : null
-    const range =
-      isAvailable && value != null
-        ? getOmniMethodEquityRange({
-            value: method.value,
-            available: method.available,
-            details: method.details,
-          })
-        : null
-
-    return (
-      <button
-        key={key}
-        type="button"
-        disabled={!isAvailable || methodSelectionLocked}
-        aria-pressed={isSelected}
-        onClick={() => isAvailable && !methodSelectionLocked && handleMethodClick(key)}
-        className={cn(
-          'w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all border',
-          'focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:outline-none',
-          isSelected
-            ? 'border-primary/50 bg-primary/5'
-            : isPending
-              ? 'border-primary/30 bg-primary/[0.03] ring-1 ring-primary/20'
-              : isAvailable
-                ? 'border-border/50 hover:border-primary/30 hover:bg-primary/[0.02]'
-                : 'border-border/30 opacity-50 cursor-not-allowed',
-        )}
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                'text-sm font-medium truncate',
-                isSelected || isPending ? 'text-primary' : 'text-foreground',
-              )}
-            >
-              {method.label}
-            </span>
-            {isSelected && (
-              <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
-                <Check className="w-2.5 h-2.5" />
-                {t('selected')}
-              </span>
-            )}
-          </div>
-          {!isAvailable && method.unavailable_reason && (
-            <p className="text-[10px] text-foreground/40 mt-0.5 truncate">
-              {method.unavailable_reason}
-            </p>
-          )}
-          {(() => {
-            const msg = t(`methodDescriptions.${key}` as never)
-            if (
-              typeof msg !== 'string' ||
-              msg.length === 0 ||
-              msg === `methodDescriptions.${key}` ||
-              msg.startsWith('methodDescriptions.')
-            ) {
-              return null
-            }
-            return (
-              <p className="text-[10px] text-foreground/45 mt-1 leading-snug line-clamp-2">
-                {msg}
-              </p>
-            )
-          })()}
-        </div>
-        <div className="text-right shrink-0">
-          {isAvailable && value != null ? (
-            <>
-              <span
-                className={cn(
-                  'text-sm font-mono font-semibold tabular-nums',
-                  isSelected || isPending ? 'text-primary' : 'text-foreground',
-                )}
-              >
-                {formatCurrency(value)}
-              </span>
-              {range && (
-                <>
-                  <span className="block text-[10px] text-foreground/30 tabular-nums">
-                    {formatCurrency(range.low)} – {formatCurrency(range.high)}
-                  </span>
-                  <span className="block text-[9px] text-foreground/25 uppercase tracking-wide">
-                    {range.source === 'model' ? t('rangeModel') : t('rangeIllustrative')}
-                  </span>
-                </>
-              )}
-              {method.multiple_used != null && (
-                <span className="block text-[10px] text-foreground/40 tabular-nums">
-                  {Number(method.multiple_used).toFixed(1)}x
-                </span>
-              )}
-              {method.wacc != null && (
-                <span className="block text-[10px] text-foreground/40 tabular-nums">
-                  {tBreakdown('wacc')} {(Number(method.wacc) * 100).toFixed(1)}%
-                </span>
-              )}
-            </>
-          ) : (
-            <span className="text-xs text-foreground/30">&mdash;</span>
-          )}
-        </div>
-      </button>
-    )
-  }
-
-  const hasActiveSecondary = secondaryEntries.some(
-    ([key]) => key === selectedMethod || key === pendingMethod,
-  )
 
   return (
     <Modal
@@ -946,7 +809,7 @@ export function ValuationEditModal({
         </ModalHeader>
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch lg:gap-8">
-          {/* Left: headline method, comparison, override */}
+          {/* Left: method mode, panorama selection, override */}
           <div className="space-y-3 min-h-0 min-w-0 flex-1 lg:max-h-[min(82vh,880px)] lg:overflow-y-auto lg:pr-2">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1 min-w-0">
@@ -1006,116 +869,14 @@ export function ValuationEditModal({
             </p>
           )}
 
-          {showMethodList && comparisonMethods.length > 0 && (
-            <div className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-3 space-y-2">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary/75">
-                <BarChart3 className="w-3.5 h-3.5" />
-                {tBreakdown('comparisonTitle')}
-              </div>
-              <div className="space-y-2">
-                {comparisonMethods.map(([key, method]) => {
-                  const value = toNumberOrNull(method.value)
-                  if (value == null) return null
-                  const metric =
-                    method.multiple_used != null
-                      ? formatMultiple(Number(method.multiple_used))
-                      : method.wacc != null
-                        ? `${tBreakdown('wacc')} ${formatPercent(Number(method.wacc), 100)}`
-                        : null
-                  const deltaValue = adaptiveValue != null ? value - adaptiveValue : null
-                  const deltaPercent =
-                    adaptiveValue != null && adaptiveValue > 0 ? (deltaValue! / adaptiveValue) * 100 : null
-                  const isActive = key === activeMethodKey
-                  const width =
-                    maxComparisonValue > 0 ? `${Math.max(10, (value / maxComparisonValue) * 100)}%` : '0%'
-
-                  return (
-                    <div
-                      key={key}
-                      className={cn(
-                        'rounded-md border px-3 py-2',
-                        isActive
-                          ? 'border-primary/40 bg-background/80'
-                          : 'border-border/50 bg-background/60',
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-medium text-foreground/80 truncate">
-                            {method.label}
-                          </p>
-                          <div className="mt-1 h-1.5 w-full rounded-full bg-foreground/[0.06] overflow-hidden">
-                            <div
-                              className={cn(
-                                'h-full rounded-full',
-                                isActive ? 'bg-primary' : 'bg-primary/45',
-                              )}
-                              style={{ width }}
-                            />
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-mono font-semibold tabular-nums text-foreground/85">
-                            {formatCurrency(value)}
-                          </p>
-                          {metric && (
-                            <p className="text-[10px] text-foreground/45 font-mono tabular-nums">
-                              {metric}
-                            </p>
-                          )}
-                          {deltaValue != null && deltaPercent != null && (
-                            <p
-                              className={cn(
-                                'text-[10px] font-mono tabular-nums',
-                                deltaValue >= 0 ? 'text-success' : 'text-warning',
-                              )}
-                            >
-                              {deltaValue >= 0 ? '+' : '−'}
-                              {formatCurrency(Math.abs(deltaValue))} ({deltaPercent >= 0 ? '+' : ''}
-                              {deltaPercent.toFixed(1)}%)
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
           {showMethodList && (
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45 px-0.5">
-                {t('methodsListHeading')}
-              </p>
-              <div className="grid gap-1.5 grid-cols-1">
-                {primaryEntries.map(renderMethodButton)}
-              </div>
-              {secondaryEntries.length > 0 && (
-                <>
-                  <button
-                    type="button"
-                    disabled={methodSelectionLocked}
-                    aria-expanded={showAllMethods || hasActiveSecondary}
-                    onClick={() => !methodSelectionLocked && setShowAllMethods((v) => !v)}
-                    className="w-full flex items-center gap-1.5 px-1 py-1 text-[10px] text-foreground/40 hover:text-foreground/60 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                  >
-                    {showAllMethods || hasActiveSecondary ? (
-                      <ChevronDown className="w-3 h-3" />
-                    ) : (
-                      <ChevronRight className="w-3 h-3" />
-                    )}
-                    {t('showAllMethods', { count: secondaryEntries.length })}
-                  </button>
-                  {(showAllMethods || hasActiveSecondary) && (
-                    <div className="grid gap-1.5 grid-cols-1">
-                      {secondaryEntries.map(renderMethodButton)}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+            <OmniMethodPanorama
+              valuationResults={valuationResults}
+              selectedMethod={selectedMethod}
+              pendingMethod={pendingMethod}
+              methodSelectionLocked={methodSelectionLocked}
+              onMethodClick={handleMethodClick}
+            />
           )}
 
           {pendingMethod && pendingMethod !== 'upswitch_adaptive' && (

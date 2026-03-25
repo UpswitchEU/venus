@@ -1132,6 +1132,8 @@
       "financialHistory": "Financiële historie"
     },
     "fields": {
+      "operatingCountry": "Land van vestiging",
+      "operatingCountryHelp": "Bepaalt KBO-zoekopdracht (België) of KVK-zoekopdracht (Nederland) en terminologie.",
       "companyNameOrKbo": "Bedrijfsnaam of KBO-nummer",
       "businessType": "Bedrijfstype",
       "legalForm": "Rechtsvorm",
@@ -1165,6 +1167,8 @@
     "importFromAccountingEmpty": "Geen cijfers van {provider} voor {year}",
     "importFromAccountingEmptyDescription": "Omzet en EBITDA zijn nul. Controleer het boekjaar in je boekhoudpakket of vul de waarden handmatig in.",
     "importFromAccountingError": "Importeren mislukt",
+    "countryOptionBE": "België (KBO)",
+    "countryOptionNL": "Nederland (KVK)",
     "businessTypeHint": "Dit bedrijfstype bepaalt de benchmark data en multiples voor de schatting",
     "ownershipHint": "Deze gegevens beïnvloeden de risicopremie en meervoudscorrecties in de schatting",
     "ownerManagersHint": "Hoeveel eigenaar-managers zijn actief in de dagelijkse operaties?",
@@ -1238,6 +1242,11 @@
     "pdfUpdating": "PDF wordt bijgewerkt…",
     "pdfUpdatingBlurb": "Het downloadbestand wordt opnieuw gegenereerd na je laatste wijziging. Dit duurt meestal enkele seconden.",
     "pdfStillGenerating": "De PDF wordt mogelijk nog gegenereerd. Probeer het over een ogenblik opnieuw te exporteren.",
+    "pdfStalledTitle": "PDF nog niet klaar",
+    "pdfStalledBlurb": "De server heeft het downloadbestand nog niet bijgewerkt. U kunt opnieuw proberen te genereren of — als beschikbaar — de vorige PDF openen.",
+    "pdfRetry": "Opnieuw genereren",
+    "pdfOpenLastVersion": "Vorige PDF openen",
+    "pdfPollDegradedHint": "Synchronisatie met de server mislukte tijdelijk. Opnieuw proberen helpt meestal.",
     "downloadPdfStaleHint": "Wacht tot de PDF klaar is met bijwerken om de nieuwste versie te downloaden.",
     "modalEditInputsMissing": "Opgeslagen waarderingsinvoer voor dit rapport is niet gevonden. Voer een volledige berekening uit in de werkomgeving, of neem contact op met support als dit aanhoudt.",
     "modalEditInputsIncomplete": "Opgeslagen waarderingsinvoer is onvolledig. Rond de waardering in de calculator af en probeer opnieuw.",
@@ -2104,6 +2113,13 @@
     "stepChooseMethod": "Volgende: kies een methode in de lijst hieronder.",
     "stepExplainReason": "Bijna klaar: kies een reden, voeg desgewenst een notitie toe en bevestig.",
     "methodsListHeading": "Kies een methode",
+    "methodsPanoramaTitle": "Alle methoden in één oogopslag",
+    "columnEquity": "Waarde",
+    "columnMultiple": "Multiple",
+    "columnDelta": "t.o.v. Adaptive",
+    "columnHintMobile": "Elke methoderegel toont de waardering, de gebruikte multiple en het verschil ten opzichte van UpSwitch Adaptive.",
+    "adaptiveBaselineLabel": "Referentie",
+    "deltaVsAdaptiveAria": "Verschil t.o.v. UpSwitch Adaptive",
     "comparisonTitle": "Adaptive vs uw keuze",
     "comparisonAi": "UpSwitch Adaptive",
     "comparisonManual": "Uw hoofdcijfer",
@@ -2143,7 +2159,7 @@
       "sde_multiple": "Seller discretionary earnings × multiple — typisch voor KMO's met eigenaar-operator.",
       "adjusted_nav": "Gecorrigeerde netto activawaarde vanuit de balans — anker voor asset-heavy of holdings.",
       "fiscal_4x": "Belgische fiscale referentiewaarde (forfait): eigen vermogen + 4× genormaliseerde EBITDA.",
-      "dcf": "Discontante kasstromethode (DCF): projecteert toekomstige kasstromen en verdiscont naar vandaag — intrinsieke waarde."
+      "dcf": "Discontante kasstromethode (DCF): projecteert toekomstige kasstromen en verdiscont naar vandaag — intrinsieke waarde. Alleen beschikbaar als de motor DCF kan berekenen (geen uitsluiting); anders ziet u hieronder de reden."
     }
   },
   "preparerMultiple": {

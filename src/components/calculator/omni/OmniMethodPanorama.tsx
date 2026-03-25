@@ -1,0 +1,272 @@
+'use client'
+
+import { Check } from 'lucide-react'
+import { useMemo } from 'react'
+import { useTranslations } from 'next-intl'
+import { cn } from '@/design-system/utils'
+import type { ValuationMethodResult } from '../../../types/valuation'
+import { compareOmniMethodKeys } from '@/constants/omniCalcMethods'
+import { getOmniMethodEquityRange } from '../../../utils/omniCalcRange'
+
+interface OmniMethodPanoramaProps {
+  valuationResults: Record<string, ValuationMethodResult>
+  selectedMethod: string
+  pendingMethod?: string | null
+  methodSelectionLocked?: boolean
+  onMethodClick: (key: string) => void
+  className?: string
+}
+
+const formatCurrency = (amount: number) => {
+  const sign = amount < 0 ? '-' : ''
+  const abs = Math.abs(amount)
+  const rounded = Math.round(abs)
+  return abs >= 1_000_000
+    ? `${sign}€${(abs / 1_000_000).toFixed(1)}M`
+    : rounded >= 1_000
+      ? `${sign}€${Math.round(abs / 1_000)}K`
+      : `${sign}€${rounded}`
+}
+
+const formatMultiple = (value: number | null) => (value == null ? null : `${value.toFixed(2)}x`)
+
+const formatPercent = (value: number | null, scale = 1) =>
+  value == null ? null : `${(value * scale).toFixed(1)}%`
+
+const toNumberOrNull = (value: unknown): number | null => {
+  if (value == null || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function OmniMethodPanorama({
+  valuationResults,
+  selectedMethod,
+  pendingMethod = null,
+  methodSelectionLocked = false,
+  onMethodClick,
+  className,
+}: OmniMethodPanoramaProps) {
+  const t = useTranslations('omniCalc')
+  const tBreakdown = useTranslations('methodBreakdown')
+
+  const sortedMethodEntries = useMemo(
+    () => Object.entries(valuationResults).sort(([a], [b]) => compareOmniMethodKeys(a, b)),
+    [valuationResults],
+  )
+
+  const adaptiveValue =
+    valuationResults['upswitch_adaptive']?.value != null
+      ? Number(valuationResults['upswitch_adaptive'].value)
+      : null
+
+  const maxComparisonValue = useMemo(() => {
+    return sortedMethodEntries.reduce((max, [, method]) => {
+      const next = toNumberOrNull(method.value)
+      if (next == null || !method.available) return max
+      return Math.max(max, next)
+    }, 0)
+  }, [sortedMethodEntries])
+
+  if (sortedMethodEntries.length === 0) return null
+
+  return (
+    <div className={cn('space-y-2', className)}>
+      <div className="flex items-end justify-between gap-2 px-0.5">
+        <div className="space-y-1">
+          <h5 className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
+            {t('methodsPanoramaTitle')}
+          </h5>
+          <p className="sr-only">{t('columnHintMobile')}</p>
+        </div>
+        <div
+          className="hidden sm:grid sm:grid-cols-[5.5rem_3.5rem_4.25rem] gap-3 text-right text-[9px] font-medium uppercase tracking-wide text-foreground/35 shrink-0"
+          aria-hidden
+        >
+          <span>{t('columnEquity')}</span>
+          <span>{t('columnMultiple')}</span>
+          <span className="whitespace-nowrap">{t('columnDelta')}</span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {sortedMethodEntries.map(([key, method]) => {
+          const isSelected = key === selectedMethod
+          const isPending = key === pendingMethod
+          const isAvailable = method.available
+          const value = method.value != null ? Number(method.value) : null
+          const range =
+            isAvailable && value != null
+              ? getOmniMethodEquityRange({
+                  value: method.value,
+                  available: method.available,
+                  details: method.details,
+                })
+              : null
+          const metric =
+            method.multiple_used != null
+              ? formatMultiple(Number(method.multiple_used))
+              : method.wacc != null
+                ? `${tBreakdown('wacc')} ${formatPercent(Number(method.wacc), 100)}`
+                : null
+          const deltaValue =
+            adaptiveValue != null && value != null && key !== 'upswitch_adaptive'
+              ? value - adaptiveValue
+              : null
+          const deltaPercent =
+            adaptiveValue != null && adaptiveValue > 0 && deltaValue != null
+              ? (deltaValue / adaptiveValue) * 100
+              : null
+          const barWidth =
+            maxComparisonValue > 0 && value != null && isAvailable
+              ? `${Math.max(8, (value / maxComparisonValue) * 100)}%`
+              : '0%'
+
+          const msg = t(`methodDescriptions.${key}` as never)
+          const descriptionEl =
+            typeof msg === 'string' &&
+            msg.length > 0 &&
+            msg !== `methodDescriptions.${key}` &&
+            !msg.startsWith('methodDescriptions.')
+              ? <p className="text-[10px] text-foreground/45 mt-1 leading-snug line-clamp-2">{msg}</p>
+              : null
+
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={!isAvailable || methodSelectionLocked}
+              aria-pressed={isSelected}
+              aria-label={isSelected ? `${method.label}, ${t('selected')}` : method.label}
+              onClick={() => isAvailable && !methodSelectionLocked && onMethodClick(key)}
+              className={cn(
+                'w-full text-left rounded-xl border px-3 py-3 sm:px-3.5 sm:py-3 transition-all duration-200',
+                'focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:outline-none focus-visible:ring-offset-background',
+                isSelected
+                  ? 'border-primary/45 bg-primary/[0.07] ring-1 ring-primary/15'
+                  : isPending
+                    ? 'border-primary/35 bg-primary/[0.04] ring-1 ring-primary/20'
+                    : isAvailable
+                      ? 'border-foreground/[0.08] bg-background/40 hover:border-primary/25 hover:bg-primary/[0.03]'
+                      : 'border-border/30 bg-background/30 opacity-[0.85] cursor-not-allowed',
+              )}
+            >
+              <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={cn(
+                          'text-sm font-semibold tracking-tight',
+                          isSelected || isPending ? 'text-primary' : 'text-foreground',
+                        )}
+                      >
+                        {method.label}
+                      </span>
+                      {isSelected && (
+                        <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-medium text-primary bg-primary/12 px-2 py-0.5 rounded-full border border-primary/15">
+                          <Check className="w-2.5 h-2.5" aria-hidden />
+                          {t('selected')}
+                        </span>
+                      )}
+                    </div>
+
+                    {!isAvailable && method.unavailable_reason && (
+                      <p className="text-[10px] text-foreground/45 leading-snug">
+                        {method.unavailable_reason}
+                      </p>
+                    )}
+
+                    {descriptionEl}
+                  </div>
+
+                  <div className="flex flex-wrap items-start justify-end gap-x-4 gap-y-2 sm:gap-x-6 shrink-0">
+                    <div className="text-right min-w-[5.5rem]">
+                      {isAvailable && value != null ? (
+                        <>
+                          <span
+                            className={cn(
+                              'text-base font-mono font-semibold tabular-nums tracking-tight',
+                              isSelected || isPending ? 'text-primary' : 'text-foreground',
+                            )}
+                          >
+                            {formatCurrency(value)}
+                          </span>
+                          {range && (
+                            <>
+                              <span className="block text-[10px] text-foreground/40 tabular-nums mt-0.5">
+                                {formatCurrency(range.low)} – {formatCurrency(range.high)}
+                              </span>
+                              <span className="block text-[9px] text-foreground/25 uppercase tracking-wide">
+                                {range.source === 'model' ? t('rangeModel') : t('rangeIllustrative')}
+                              </span>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-sm text-foreground/30 font-mono tabular-nums">—</span>
+                      )}
+                    </div>
+
+                    <div className="text-right min-w-[3.5rem]">
+                      {metric ? (
+                        <span className="text-sm font-mono font-semibold tabular-nums text-foreground/80">
+                          {metric}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-foreground/30 font-mono">—</span>
+                      )}
+                    </div>
+
+                    <div className="text-right min-w-[3.75rem] sm:min-w-[4.25rem]">
+                      {key === 'upswitch_adaptive' ? (
+                        <span className="text-[11px] font-medium text-foreground/45 tabular-nums">
+                          {t('adaptiveBaselineLabel')}
+                        </span>
+                      ) : deltaValue != null && deltaPercent != null ? (
+                        <div className="space-y-0.5">
+                          <p
+                            className={cn(
+                              'text-sm font-mono font-semibold tabular-nums',
+                              deltaValue >= 0 ? 'text-success' : 'text-warning',
+                            )}
+                          >
+                            {deltaValue >= 0 ? '+' : '−'}
+                            {formatCurrency(Math.abs(deltaValue))}
+                          </p>
+                          <p
+                            className={cn(
+                              'text-[10px] font-mono tabular-nums',
+                              deltaValue >= 0 ? 'text-success/90' : 'text-warning/90',
+                            )}
+                          >
+                            ({deltaPercent >= 0 ? '+' : ''}
+                            {deltaPercent.toFixed(1)}%)
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-foreground/30">—</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {isAvailable && value != null && maxComparisonValue > 0 && (
+                  <div className="h-1 w-full rounded-full bg-foreground/[0.07] overflow-hidden">
+                    <div
+                      className={cn(
+                        'h-full rounded-full transition-[width] duration-300 ease-out',
+                        isSelected || isPending ? 'bg-primary' : 'bg-primary/45',
+                      )}
+                      style={{ width: barWidth }}
+                    />
+                  </div>
+                )}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

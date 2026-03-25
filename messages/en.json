@@ -1132,6 +1132,8 @@
       "financialHistory": "Financial History"
     },
     "fields": {
+      "operatingCountry": "Operating country",
+      "operatingCountryHelp": "Chooses KBO (Belgium) or KVK (Netherlands) company search and terminology.",
       "companyNameOrKbo": "Company name or KBO number",
       "businessType": "Business Type",
       "legalForm": "Legal Form",
@@ -1165,6 +1167,8 @@
     "importFromAccountingEmpty": "No figures from {provider} for {year}",
     "importFromAccountingEmptyDescription": "Revenue and EBITDA are zero. Check the fiscal year in your accounting tool or enter values manually.",
     "importFromAccountingError": "Import failed",
+    "countryOptionBE": "Belgium (KBO)",
+    "countryOptionNL": "Netherlands (KVK)",
     "businessTypeHint": "This business type determines the benchmark data and multiples for the estimate",
     "ownershipHint": "These details influence the risk premium and multiple corrections in the estimate",
     "ownerManagersHint": "How many owner-managers are active in daily operations?",
@@ -1238,6 +1242,11 @@
     "pdfUpdating": "PDF is updating…",
     "pdfUpdatingBlurb": "The downloadable file is being regenerated after your last change. This usually takes a few seconds.",
     "pdfStillGenerating": "The PDF may still be generating. Try exporting again in a moment.",
+    "pdfStalledTitle": "PDF not ready yet",
+    "pdfStalledBlurb": "The server has not finished updating the downloadable file. You can try generating again or — if available — open the previous PDF.",
+    "pdfRetry": "Generate again",
+    "pdfOpenLastVersion": "Open previous PDF",
+    "pdfPollDegradedHint": "Sync with the server failed temporarily. Retrying usually fixes it.",
     "downloadPdfStaleHint": "Wait until the PDF has finished updating to download the latest version.",
     "modalEditInputsMissing": "Saved valuation inputs for this report were not found. Run a full calculation in the workspace, or contact support if this persists.",
     "modalEditInputsIncomplete": "Saved valuation inputs are incomplete. Finish the valuation in the calculator, then try again.",
@@ -2104,6 +2113,13 @@
     "stepChooseMethod": "Next: pick a method in the list below.",
     "stepExplainReason": "Almost there: choose a reason, add a note if needed, then confirm.",
     "methodsListHeading": "Pick a method",
+    "methodsPanoramaTitle": "All methods at a glance",
+    "columnEquity": "Equity",
+    "columnMultiple": "Multiple",
+    "columnDelta": "vs Adaptive",
+    "columnHintMobile": "Each method row shows equity value, benchmark multiple, and difference versus UpSwitch Adaptive.",
+    "adaptiveBaselineLabel": "Baseline",
+    "deltaVsAdaptiveAria": "Difference vs UpSwitch Adaptive",
     "comparisonTitle": "Adaptive vs your choice",
     "comparisonAi": "UpSwitch Adaptive",
     "comparisonManual": "Your headline",
@@ -2143,7 +2159,7 @@
       "sde_multiple": "Seller discretionary earnings × a multiple — common for owner-operated SMEs.",
       "adjusted_nav": "Adjusted net asset value from the balance sheet — anchor for asset-heavy or holding structures.",
       "fiscal_4x": "Belgian fiscal reference (notional): book equity + 4× normalized EBITDA.",
-      "dcf": "Discounted cash flow (DCF): projects future cash flows and discounts them to today — intrinsic value."
+      "dcf": "Discounted cash flow (DCF): projects future cash flows and discounts them to today — intrinsic value. Only selectable when the engine can compute DCF (no exclusion); otherwise the reason appears below."
     }
   },
   "preparerMultiple": {

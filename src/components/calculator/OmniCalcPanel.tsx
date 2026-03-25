@@ -2,11 +2,7 @@
 
 import { useEffect, useId, useState } from 'react'
 import {
-  Check,
   Download,
-  ArrowRightLeft,
-  ChevronDown,
-  ChevronRight,
   Loader2,
   Pencil,
 } from 'lucide-react'
@@ -16,9 +12,8 @@ import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraSelect } from '@/design-system/components/Select'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import type { ValuationMethodResult } from '../../types/valuation'
-import { getOmniMethodEquityRange } from '../../utils/omniCalcRange'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
-import { partitionOmniMethodEntries } from '@/constants/omniCalcMethods'
+import { OmniMethodPanorama } from './omni/OmniMethodPanorama'
 
 const METHOD_OVERRIDE_REASON_KEYS = [
   'fiscal_compliance',
@@ -84,7 +79,6 @@ export function OmniCalcPanel({
   const [pendingMethod, setPendingMethod] = useState<string | null>(null)
   const [overrideReasonKey, setOverrideReasonKey] = useState('')
   const [overrideNote, setOverrideNote] = useState('')
-  const [showAllMethods, setShowAllMethods] = useState(false)
 
   useEffect(() => {
     setMode(selectedMethod === 'upswitch_adaptive' ? 'ai' : 'manual')
@@ -94,8 +88,6 @@ export function OmniCalcPanel({
   }, [selectedMethod])
 
   const entries = Object.entries(valuationResults)
-  const { primary: primaryEntries, secondary: secondaryEntries } =
-    partitionOmniMethodEntries(entries)
   if (entries.length === 0) {
     return (
       <div
@@ -116,14 +108,6 @@ export function OmniCalcPanel({
     )
   }
 
-  const adaptiveValue =
-    valuationResults['upswitch_adaptive']?.value != null
-      ? Number(valuationResults['upswitch_adaptive'].value)
-      : null
-  const selectedValue =
-    selectedMethod !== 'upswitch_adaptive' && valuationResults[selectedMethod]?.value != null
-      ? Number(valuationResults[selectedMethod].value)
-      : null
   const currentMethodLabel = getSelectedMethodLabel(selectedMethod, valuationResults, adaptiveLabel)
 
   const methodSelectionLocked = isMethodPersisting
@@ -158,11 +142,6 @@ export function OmniCalcPanel({
   }
 
   const showMethodList = mode === 'manual'
-  const showComparisonCard = isManualMode && adaptiveValue != null && selectedValue != null
-  const delta = showComparisonCard ? selectedValue! - adaptiveValue! : 0
-  const deltaPercent = showComparisonCard && adaptiveValue! > 0
-    ? ((delta / adaptiveValue!) * 100)
-    : 0
   const guidanceTone = pendingMethod
     ? 'border-primary/20 bg-primary/[0.04] text-primary/80'
     : mode === 'manual'
@@ -245,184 +224,15 @@ export function OmniCalcPanel({
         </p>
       )}
 
-      {/* Comparison Card (visible when manual override active) */}
-      {showComparisonCard && !pendingMethod && (
-        <div className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2.5 space-y-1.5">
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary/70">
-            <ArrowRightLeft className="w-3 h-3" />
-            {t('comparisonTitle')}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <span className="block text-[10px] text-foreground/45">{t('comparisonAi')}</span>
-              <span className="text-sm font-mono font-semibold tabular-nums text-foreground/70">
-                {formatCurrency(adaptiveValue!)}
-              </span>
-            </div>
-            <div className="text-right">
-              <span className="block text-[10px] text-foreground/45">{t('comparisonManual')}</span>
-              <span className="text-sm font-mono font-semibold tabular-nums text-primary">
-                {formatCurrency(selectedValue!)}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between pt-1 border-t border-primary/10">
-            <span className="text-[10px] text-foreground/40">{t('comparisonDelta')}</span>
-            <span className={cn(
-              'text-xs font-mono font-medium tabular-nums',
-              delta >= 0 ? 'text-success' : 'text-warning',
-            )}>
-              {delta >= 0 ? '+' : ''}{formatCurrency(Math.abs(delta))} ({deltaPercent >= 0 ? '+' : ''}{deltaPercent.toFixed(1)}%)
-            </span>
-          </div>
-        </div>
+      {showMethodList && (
+        <OmniMethodPanorama
+          valuationResults={valuationResults}
+          selectedMethod={selectedMethod}
+          pendingMethod={pendingMethod}
+          methodSelectionLocked={methodSelectionLocked}
+          onMethodClick={handleMethodClick}
+        />
       )}
-
-      {/* Method List (expanded when manual mode) */}
-      {showMethodList && (() => {
-        const hasActiveSecondary = secondaryEntries.some(([key]) => key === selectedMethod || key === pendingMethod)
-
-        const renderMethodButton = ([key, method]: [string, ValuationMethodResult]) => {
-          const isSelected = key === selectedMethod
-          const isPending = key === pendingMethod
-          const isAvailable = method.available
-          const value = method.value != null ? Number(method.value) : null
-          const range =
-            isAvailable && value != null
-              ? getOmniMethodEquityRange({
-                  value: method.value,
-                  available: method.available,
-                  details: method.details ?? undefined,
-                })
-              : null
-
-          return (
-            <button
-              key={key}
-              type="button"
-              disabled={!isAvailable || methodSelectionLocked}
-              onClick={() => isAvailable && !methodSelectionLocked && handleMethodClick(key)}
-              className={cn(
-                'w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all',
-                'border',
-                isSelected
-                  ? 'border-primary/50 bg-primary/5'
-                  : isPending
-                    ? 'border-primary/30 bg-primary/[0.03] ring-1 ring-primary/20'
-                    : isAvailable
-                      ? 'border-border/50 hover:border-primary/30 hover:bg-primary/[0.02]'
-                      : 'border-border/30 opacity-50 cursor-not-allowed',
-              )}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className={cn(
-                    'text-sm font-medium truncate',
-                    isSelected || isPending ? 'text-primary' : 'text-foreground',
-                  )}>
-                    {method.label}
-                  </span>
-                  {isSelected && (
-                    <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
-                      <Check className="w-2.5 h-2.5" />
-                      {t('selected')}
-                    </span>
-                  )}
-                </div>
-                {!isAvailable && method.unavailable_reason && (
-                  <p className="text-[10px] text-foreground/40 mt-0.5 truncate">
-                    {method.unavailable_reason}
-                  </p>
-                )}
-                {(() => {
-                  const msg = t(`methodDescriptions.${key}` as never)
-                  if (
-                    typeof msg !== 'string' ||
-                    msg.length === 0 ||
-                    msg === `methodDescriptions.${key}` ||
-                    msg.startsWith('methodDescriptions.')
-                  ) {
-                    return null
-                  }
-                  return (
-                    <p className="text-[10px] text-foreground/45 mt-1 leading-snug line-clamp-2">
-                      {msg}
-                    </p>
-                  )
-                })()}
-              </div>
-
-              <div className="text-right shrink-0">
-                {isAvailable && value != null ? (
-                  <>
-                    <span className={cn(
-                      'text-sm font-mono font-semibold tabular-nums',
-                      isSelected || isPending ? 'text-primary' : 'text-foreground',
-                    )}>
-                      {formatCurrency(value)}
-                    </span>
-                    {range && (
-                      <>
-                        <span className="block text-[10px] text-foreground/30 tabular-nums">
-                          {formatCurrency(range.low)} – {formatCurrency(range.high)}
-                        </span>
-                        <span className="block text-[9px] text-foreground/25 uppercase tracking-wide">
-                          {range.source === 'model' ? t('rangeModel') : t('rangeIllustrative')}
-                        </span>
-                      </>
-                    )}
-                    {method.multiple_used != null && (
-                      <span className="block text-[10px] text-foreground/40 tabular-nums">
-                        {Number(method.multiple_used).toFixed(1)}x
-                      </span>
-                    )}
-                    {method.wacc != null && (
-                      <span className="block text-[10px] text-foreground/40 tabular-nums">
-                        WACC {(Number(method.wacc) * 100).toFixed(1)}%
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-xs text-foreground/30">&mdash;</span>
-                )}
-              </div>
-            </button>
-          )
-        }
-
-        return (
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45 px-0.5">
-              {t('methodsListHeading')}
-            </p>
-            <div className="grid gap-1.5 grid-cols-1">
-              {primaryEntries.map(renderMethodButton)}
-            </div>
-            {secondaryEntries.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  disabled={methodSelectionLocked}
-                  onClick={() => !methodSelectionLocked && setShowAllMethods((v) => !v)}
-                  className="w-full flex items-center gap-1.5 px-1 py-1 text-[10px] text-foreground/40 hover:text-foreground/60 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  {showAllMethods || hasActiveSecondary ? (
-                    <ChevronDown className="w-3 h-3" />
-                  ) : (
-                    <ChevronRight className="w-3 h-3" />
-                  )}
-                  {t('showAllMethods', { count: secondaryEntries.length })}
-                </button>
-                {(showAllMethods || hasActiveSecondary) && (
-                  <div className="grid gap-1.5 grid-cols-1">
-                    {secondaryEntries.map(renderMethodButton)}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )
-      })()}
 
       {/* Override Justification (required before confirming a manual method) */}
       {pendingMethod && pendingMethod !== 'upswitch_adaptive' && (
