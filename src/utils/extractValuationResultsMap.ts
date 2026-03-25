@@ -2,7 +2,16 @@
  * Client-side parity with Titan `extractValuationResultsMap`.
  * Legacy payloads may store `{}` at `valuation_results` while real methods live under
  * `details`, `report_context`, or nested `valuation_result`.
+ *
+ * Adaptive: `report_context.applied_multiple` is canonical; `normalizeAdaptiveMethod` fixes stale
+ * persisted `upswitch_adaptive.multiple_used` on legacy saves.
  */
+function toFiniteNumber(value: unknown): number | null {
+  if (value == null || value === '') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
 function getCanonicalReportContext(
   valuationResult: Record<string, any>
 ): Record<string, any> | null {
@@ -32,12 +41,12 @@ function normalizeAdaptiveMethod(
 
   const reportContext = getCanonicalReportContext(valuationResult)
   const canonicalMultiple =
-    reportContext?.applied_multiple ??
-    valuationResult.valuation_result?.multiple ??
-    valuationResult.multiple ??
+    toFiniteNumber(reportContext?.applied_multiple) ??
+    toFiniteNumber(valuationResult.valuation_result?.multiple) ??
+    toFiniteNumber(valuationResult.multiple) ??
     null
-  const multipleLow = reportContext?.multiple_low ?? null
-  const multipleHigh = reportContext?.multiple_high ?? null
+  const multipleLow = toFiniteNumber(reportContext?.multiple_low)
+  const multipleHigh = toFiniteNumber(reportContext?.multiple_high)
   const details =
     adaptive.details && typeof adaptive.details === 'object' && !Array.isArray(adaptive.details)
       ? { ...adaptive.details }

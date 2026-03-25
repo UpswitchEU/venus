@@ -32,4 +32,24 @@ describe('extractValuationResultsMap', () => {
       },
     })
   })
+
+  it('coerces string canonical multiples to numbers', () => {
+    const payload = {
+      details: {
+        valuation_results: {
+          upswitch_adaptive: { available: true, value: 357000, multiple_used: 4.75, details: {} },
+        },
+      },
+      report_context: {
+        applied_multiple: '3.45' as unknown as number,
+        multiple_low: '2.59' as unknown as number,
+        multiple_high: '4.6' as unknown as number,
+      },
+    };
+
+    const out = extractValuationResultsMap(payload);
+    expect(out?.upswitch_adaptive?.multiple_used).toBe(3.45);
+    expect(out?.upswitch_adaptive?.details?.p25_multiple).toBe(2.59);
+    expect(out?.upswitch_adaptive?.details?.p75_multiple).toBe(4.6);
+  });
 })
