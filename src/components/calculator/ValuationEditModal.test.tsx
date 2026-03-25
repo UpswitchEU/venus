@@ -7,6 +7,8 @@ const translations: Record<string, Record<string, string>> = {
   omniCalc: {
     unavailableTitle: 'Methodedata niet beschikbaar',
     unavailableBlurb: 'Methoden zijn niet geladen. Tik opnieuw op Bereken of vernieuw de pagina.',
+    transientLoadTitle: 'Methodedata tijdelijk niet geladen',
+    transientLoadBlurb: 'De server was te druk. Wacht even of vernieuw de pagina.',
     currentMethodAdaptive: 'UpSwitch Adaptive',
     subtitle: 'Kies methode',
     methodsReadyBadge: '{available}/{total} klaar',
@@ -38,6 +40,7 @@ const translations: Record<string, Record<string, string>> = {
     loadingTitle: 'Methodedata wordt geladen',
     loadingBlurb:
       'We herstellen de waarderingsmethoden voor dit rapport. Dit duurt normaal maar heel kort.',
+    retryMethodDataLoad: 'Opnieuw laden',
     methodSection: 'Methode',
     persistingMethod: 'Methode opslaan en rapport vernieuwen…',
   },
@@ -111,6 +114,25 @@ describe('ValuationEditModal', () => {
     expect(
       screen.getByText('Methoden zijn niet geladen. Tik opnieuw op Bereken of vernieuw de pagina.')
     ).toBeInTheDocument()
+  })
+
+  it('shows transient copy and retry when load failed transiently', () => {
+    const onRetry = vi.fn()
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        isHydratingMethods={false}
+        methodDataLoadError="transient"
+        onRetryMethodDataLoad={onRetry}
+      />
+    )
+
+    expect(screen.getByText('Methodedata tijdelijk niet geladen')).toBeInTheDocument()
+    expect(
+      screen.getByText('De server was te druk. Wacht even of vernieuw de pagina.')
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Opnieuw laden' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
   it('renders the unified panorama with heading and desktop metric labels', () => {

@@ -2216,6 +2216,7 @@
     "description": "Adjust the valuation method and EV/EBITDA multiple override.",
     "loadingTitle": "Loading valuation methods",
     "loadingBlurb": "We are restoring the saved method data for this report. This should only take a moment.",
+    "retryMethodDataLoad": "Try again",
     "editValuation": "Edit Valuation",
     "methodSection": "Valuation Method",
     "multipleSection": "EV/EBITDA Multiple Override",

@@ -818,6 +818,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [reportMethodHydrationError, setReportMethodHydrationError] = useState<
     'transient' | null
   >(null)
+  /** Bumps to re-run getReport hydration without changing report id (e.g. modal "Try again") */
+  const [reportHydrationRetryNonce, setReportHydrationRetryNonce] = useState(0)
 
   // ─── Panel View State ───
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab ?? 'preview')
@@ -906,7 +908,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return () => {
       cancelled = true
     }
-  }, [reportHydrationLookupId, setResult])
+  }, [reportHydrationLookupId, reportHydrationRetryNonce, setResult])
 
   // ─── Chat Co-pilot State ───
   const [chatDrawerOpen, setChatDrawerOpen] = useState(initialDrawerOpen)
@@ -4783,6 +4785,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         valuationResults={getHydratedValuationResults(result) ?? {}}
         isHydratingMethods={isHydratingEditModalData}
         methodDataLoadError={reportMethodHydrationError}
+        onRetryMethodDataLoad={() => setReportHydrationRetryNonce((n) => n + 1)}
         selectedMethod={selectedMethod}
         onSelectMethod={handleSelectMethodWithOverride}
         fiscalAnchor={result?.fiscal_4x_anchor}

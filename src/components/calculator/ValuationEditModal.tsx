@@ -519,6 +519,8 @@ export interface ValuationEditModalProps {
   isHydratingMethods?: boolean
   /** Set when report hydration failed after retries (e.g. 429) — distinct from missing payloads */
   methodDataLoadError?: 'transient' | null
+  /** Re-fetch report method data (parent bumps hydration nonce); shown for transient errors */
+  onRetryMethodDataLoad?: () => void
   selectedMethod: string
   onSelectMethod: (method: string, reason?: string, note?: string) => void
   fiscalAnchor?: number | null
@@ -544,6 +546,7 @@ export function ValuationEditModal({
   valuationResults,
   isHydratingMethods = false,
   methodDataLoadError = null,
+  onRetryMethodDataLoad,
   selectedMethod,
   onSelectMethod,
   fiscalAnchor,
@@ -780,13 +783,25 @@ export function ValuationEditModal({
           <ModalHeader className="shrink-0">
             <ModalTitle>{tModal('title')}</ModalTitle>
           </ModalHeader>
-          <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-4 py-5 text-center space-y-1.5">
+          <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-4 py-5 text-center space-y-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
               {title}
             </p>
             <p className="text-[11px] leading-snug text-foreground/50">
               {blurb}
             </p>
+            {methodDataLoadError === 'transient' && onRetryMethodDataLoad ? (
+              <AuroraButton
+                type="button"
+                variant="primary"
+                size="sm"
+                className="text-xs"
+                disabled={isHydratingMethods}
+                onClick={onRetryMethodDataLoad}
+              >
+                {tModal('retryMethodDataLoad')}
+              </AuroraButton>
+            ) : null}
           </div>
         </ModalContent>
       </Modal>
