@@ -98,6 +98,11 @@ export interface CompanyInfo {
   countryCode?: string
   naceCode?: string
   naceDescription?: string
+  /** Canonical NACE for backend lookups (when naceCode is market-facing only). */
+  canonicalNaceCode?: string
+  activityCode?: string
+  activityLabel?: string
+  taxonomy?: string
   foundingYear?: number
   isActive?: boolean
 }

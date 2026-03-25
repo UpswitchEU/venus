@@ -46,6 +46,9 @@ const ALL_PREFILL_FIELDS = [
   'postal_code',
   'nace_code',
   'nace_description',
+  'activity_code',
+  'taxonomy',
+  'canonical_nace_code',
 ]
 
 interface UserProfile {
@@ -86,7 +89,28 @@ interface SessionDataForPrefill {
   postal_code?: string
   nace_code?: string
   nace_description?: string
+  activity_code?: string
+  activity_label?: string
+  taxonomy?: string
+  canonical_nace_code?: string
   _businessInfo?: Record<string, unknown>
+}
+
+function normalizeCountryCode(countryCode?: string | null): string | undefined {
+  if (!countryCode) return undefined
+  const normalized = countryCode.trim().toUpperCase()
+  return normalized.length > 0 ? normalized : undefined
+}
+
+function resolveCountryCode(
+  ...candidates: Array<string | null | undefined>
+): string | undefined {
+  for (const candidate of candidates) {
+    const normalized = normalizeCountryCode(candidate)
+    if (normalized) return normalized
+  }
+
+  return undefined
 }
 
 export class PrefillResolver implements BootstrapResolver<PrefillData> {
@@ -105,7 +129,15 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     const sources: PrefillSource[] = []
 
     try {
-      const resolvedCountryCode = (sessionData as any)?.country_code || 'BE'
+      const sessionBusinessInfo = (sessionData as any)?._businessInfo as
+        | Record<string, unknown>
+        | undefined
+      const resolvedCountryCode =
+        resolveCountryCode(
+          (sessionData as any)?.country_code as string | undefined,
+          sessionBusinessInfo?.country_code as string | undefined,
+          sessionBusinessInfo?.country as string | undefined
+        ) || 'BE'
 
       // Parallel fetch from all sources
       const [kboResult, profileResult, sessionResult] = await Promise.all([
@@ -261,7 +293,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         address: kbo.address,
         postalCode: kbo.postal_code,
         city: kbo.city,
-        countryCode: kbo.country_code || 'BE',
+        countryCode: resolveCountryCode(kbo.country_code, countryCode, 'BE'),
         naceCode: kbo.nace_code,
         naceDescription: kbo.nace_description,
         foundationDate: kbo.foundation_date,
@@ -276,7 +308,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         address: kbo.address,
         postalCode: kbo.postal_code,
         city: kbo.city,
-        countryCode: 'BE',
+        countryCode: resolveCountryCode(kbo.country_code, countryCode, 'BE'),
         naceCode: kbo.nace_code,
         naceDescription: kbo.nace_description,
         foundingYear: kbo.foundation_date ? new Date(kbo.foundation_date).getFullYear() : undefined,
@@ -351,7 +383,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         legalForm: profile.legal_form,
         postalCode: profile.postal_code,
         city: profile.city,
-        countryCode: profile.country || 'BE',
+        countryCode: resolveCountryCode(profile.country),
         naceCode: profile.nace_code,
         naceDescription: profile.nace_description,
         foundingYear: profile.founded_year,
@@ -471,6 +503,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     const businessInfo = sessionData._businessInfo || {}
     const merged = { ...businessInfo, ...sessionData }
 
+    const canonicalNace =
+      (merged.canonical_nace_code as string) || (merged.nace_code as string) || undefined
+    const activityPresentation = (merged.activity_code as string) || undefined
     const companyInfo: CompanyInfo = {
       companyName: merged.company_name as string,
       kboNumber: merged.kbo_number as string,
@@ -478,10 +513,21 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       legalForm: merged.legal_form as string,
       city: merged.city as string,
       postalCode: merged.postal_code as string,
-      countryCode: merged.country_code as string,
+      countryCode: resolveCountryCode(
+        merged.country_code as string | undefined,
+        (businessInfo as Record<string, unknown>).country as string | undefined
+      ),
       foundingYear: merged.founding_year as number,
-      naceCode: merged.nace_code as string,
-      naceDescription: merged.nace_description as string,
+      canonicalNaceCode: canonicalNace,
+      naceCode:
+        activityPresentation && canonicalNace && activityPresentation.trim() !== canonicalNace.trim()
+          ? activityPresentation
+          : canonicalNace,
+      naceDescription:
+        (merged.activity_label as string) || (merged.nace_description as string) || undefined,
+      activityCode: activityPresentation,
+      activityLabel: merged.activity_label as string,
+      taxonomy: merged.taxonomy as string,
     }
 
     // Extract financials: prefer top-level, fallback to current_year_data (Mercury accountant flow)

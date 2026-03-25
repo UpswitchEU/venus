@@ -53,6 +53,7 @@ import { useTranslations } from 'next-intl'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { looksLikeNaceCode, naceBusinessTypeService } from '@/services/naceBusinessTypeService'
+import { getFinancialTerm } from '@/utils/locale/financial-terms'
 import { cn, safeString } from '../utils'
 
 // ─────────────────────────────────────────
@@ -189,6 +190,11 @@ export interface KBOCompany {
   startDate?: string
   naceCode?: string
   naceDescription?: string
+  activityCode?: string
+  activityLabel?: string
+  activityTaxonomy?: string
+  canonicalNaceCode?: string
+  countryCode?: string
   /** Website URL for screenshot feature */
   website?: string
 }
@@ -218,6 +224,8 @@ export interface KBOSearchInputProps extends VariantProps<typeof searchFieldVari
   className?: string
   /** Disabled state */
   disabled?: boolean
+  /** Country code for registry-aware labels */
+  countryCode?: string
 }
 
 function defaultKBOSearch(_query: string, _signal?: AbortSignal): KBOCompany[] {
@@ -240,6 +248,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       size = 'md',
       className,
       disabled,
+      countryCode = 'BE',
     },
     ref
   ) => {
@@ -260,6 +269,13 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       width: number
     } | null>(null)
     const [naceSearchResult, setNaceSearchResult] = React.useState<BusinessType | null>(null)
+    const getActivityCodeShort = React.useCallback(
+      (code?: string) =>
+        getFinancialTerm('activityCode', code ?? countryCode)
+          .replace(/-code$/i, '')
+          .trim(),
+      [countryCode]
+    )
     const [isLoadingNaceSearch, setIsLoadingNaceSearch] = React.useState(false)
     const inputRef = React.useRef<HTMLInputElement>(null)
     const containerRef = React.useRef<HTMLDivElement>(null)
@@ -708,7 +724,10 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                   {safeString(selectedCompany.naceDescription) && (
                     <div className="flex items-center gap-1.5 mt-2">
                       <span className="text-[10px] font-mono text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
-                        NACE {safeString(selectedCompany.naceCode)}
+                        {getActivityCodeShort(selectedCompany.countryCode)}{' '}
+                        {safeString(
+                          selectedCompany.activityCode ?? selectedCompany.naceCode
+                        )}
                       </span>
                       <span className="text-[11px] text-foreground/50 truncate">
                         {safeString(selectedCompany.naceDescription)}

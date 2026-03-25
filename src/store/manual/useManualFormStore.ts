@@ -85,7 +85,22 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
   // Update form data (atomic with functional update)
   updateFormData: (updates: Partial<ValuationFormData>) => {
     set((state) => {
-      const updatedFormData = { ...state.formData, ...updates }
+      const next: ValuationFormData = { ...state.formData }
+      const mutable = next as unknown as Record<string, unknown>
+
+      for (const key of Object.keys(updates) as Array<keyof ValuationFormData>) {
+        const value = updates[key]
+        // Undefined removes market presentation keys so session autosave cannot keep a stale
+        // NL SBI after switching registry rows or when display matches canonical NACE.
+        if (
+          value === undefined &&
+          (key === 'activity_code' || key === 'activity_label')
+        ) {
+          delete mutable[key as string]
+        } else {
+          mutable[key as string] = value
+        }
+      }
 
       storeLogger.debug('[Manual] Form data updated', {
         fieldsUpdated: Object.keys(updates),
@@ -94,7 +109,7 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
 
       return {
         ...state,
-        formData: updatedFormData,
+        formData: next,
         isDirty: true, // Mark as dirty for autosave
       }
     })

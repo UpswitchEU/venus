@@ -68,6 +68,7 @@ import {
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { getLastFullFiscalYear } from '../../utils/fiscalYear'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
+import { getFinancialTerm } from '../../utils/locale/financial-terms'
 import { getLatestCompleteYearlyFinancial, hasExplicitNumericValue as hasExplicitFinancialValue } from '../../utils/yearlyFinancials'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
@@ -100,6 +101,8 @@ export interface ValuationFormData {
   address?: string
   naceCode?: string
   naceDescription?: string
+  /** Canonical NACE for Titan lookups when naceCode shows a market alias (e.g. SBI). */
+  canonicalNaceCode?: string
   businessType: string
   businessTypeCode?: string
   industry: string
@@ -283,6 +286,8 @@ export function ManualInputPanel({
     legalForm: initialData.legalForm || '',
     address: initialData.address || '',
     naceCode: initialData.naceCode || '',
+    canonicalNaceCode:
+      initialData.canonicalNaceCode?.trim() || initialData.naceCode?.trim() || '',
     naceDescription: initialData.naceDescription || '',
     businessType: initialData.businessType || '',
     businessTypeCode: initialData.businessTypeCode || '',
@@ -295,6 +300,22 @@ export function ManualInputPanel({
     fteEmployees: initialData.fteEmployees ?? 5,
     yearlyFinancials: initialData.yearlyFinancials || generateDefaultYearlyFinancials(),
   })
+  const activityCodeTerm = getFinancialTerm(
+    'activityCode',
+    formData.country,
+    locale === 'en' ? 'en' : 'nl'
+  )
+  const activityCodeShort = activityCodeTerm.replace(/-code$/i, '').trim()
+  const localizeActivityCodeCopy = useCallback(
+    (copy: string) =>
+      copy
+        .replace(/NACE-code/g, activityCodeTerm)
+        .replace(/NACE code/g, activityCodeTerm)
+        .replace(/NACE/g, activityCodeShort)
+        .replace(/KBO-nummer/g, getFinancialTerm('registrationNumber', formData.country))
+        .replace(/KBO number/g, getFinancialTerm('registrationNumber', formData.country, 'en')),
+    [activityCodeShort, activityCodeTerm, formData.country]
+  )
   const [isEditingEquityStake, setIsEditingEquityStake] = useState(false)
   const [equityStakeInput, setEquityStakeInput] = useState(() =>
     formatShareholdingInput(initialData.equityStake ?? 100)
@@ -403,6 +424,7 @@ export function ManualInputPanel({
         )
         applyPrefill(prev, updates, 'address', prefill.address)
         applyPrefill(prev, updates, 'naceCode', prefill.naceCode)
+        applyPrefill(prev, updates, 'canonicalNaceCode', prefill.canonicalNaceCode)
         applyPrefill(prev, updates, 'naceDescription', prefill.naceDescription)
         applyPrefill(prev, updates, 'businessType', businessTypeToApply || undefined)
         applyPrefill(prev, updates, 'businessTypeCode', prefill.businessTypeCode)
@@ -439,8 +461,15 @@ export function ManualInputPanel({
           address: prefill.address || '',
           postalCode: '',
           city: '',
-          naceCode: prefill.naceCode,
+          naceCode: prefill.canonicalNaceCode || prefill.naceCode,
           naceDescription: prefill.naceDescription,
+          canonicalNaceCode: prefill.canonicalNaceCode || prefill.naceCode,
+          activityCode:
+            prefill.naceCode &&
+            prefill.canonicalNaceCode &&
+            prefill.naceCode !== prefill.canonicalNaceCode
+              ? prefill.naceCode
+              : undefined,
         })
       }
     }
@@ -455,6 +484,7 @@ export function ManualInputPanel({
     initialData?.businessStructure,
     initialData?.address,
     initialData?.naceCode,
+    initialData?.canonicalNaceCode,
     initialData?.naceDescription,
     initialData?.businessType,
     initialData?.industry,
@@ -496,8 +526,16 @@ export function ManualInputPanel({
   const syncFormData = useCallback(() => {
     if (!onFormDataChangeRef.current) return
     const current = getLatestCompleteYearlyFinancial(formData.yearlyFinancials)
+    // Registry + NACE/SBI: must flow to ManualLayout → Zustand on every change so session
+    // autosave and refresh never race ahead with stale kbo/nace (canonical vs display).
     onFormDataChangeRef.current({
       companyName: formData.companyName,
+      kboNumber: formData.kboNumber,
+      legalForm: formData.legalForm,
+      address: formData.address,
+      naceCode: formData.naceCode,
+      canonicalNaceCode: formData.canonicalNaceCode,
+      naceDescription: formData.naceDescription,
       industry: formData.industry,
       country: formData.country,
       yearFounded: formData.yearFounded,
@@ -512,7 +550,23 @@ export function ManualInputPanel({
         ? { year: parseInt(current.year, 10), revenue: current.revenue, ebitda: current.ebitda }
         : undefined,
     })
-  }, [formData.companyName, formData.industry, formData.country, formData.yearFounded, formData.ownerManagers, formData.fteEmployees, formData.equityStake, formData.businessType, formData.yearlyFinancials])
+  }, [
+    formData.companyName,
+    formData.kboNumber,
+    formData.legalForm,
+    formData.address,
+    formData.naceCode,
+    formData.canonicalNaceCode,
+    formData.naceDescription,
+    formData.industry,
+    formData.country,
+    formData.yearFounded,
+    formData.ownerManagers,
+    formData.fteEmployees,
+    formData.equityStake,
+    formData.businessType,
+    formData.yearlyFinancials,
+  ])
   useEffect(() => {
     syncFormData()
     const t = setTimeout(syncFormData, 300)
@@ -643,19 +697,31 @@ export function ManualInputPanel({
         throw new Error(response.error || tKbo('searchUnavailable'))
       }
       if (!response.results) return []
-      return response.results.map((r: CompanySearchResult, index: number) => ({
-        id:
-          r.company_id ||
-          (r.kbo_number || r.registration_number || `kbo-${index}`).replace(/[.\s]/g, ''),
-        name: r.company_name,
-        kboNumber: r.kbo_number || r.registration_number,
-        legalForm: r.legal_form,
-        address: [r.address, r.postal_code, r.city].filter(Boolean).join(', '),
-        postalCode: r.postal_code || '',
-        city: r.city || '',
-        naceCode: r.nace_code || '',
-        naceDescription: r.nace_description || '',
-      }))
+      return response.results.map((r: CompanySearchResult, index: number) => {
+        const canonical =
+          (r.canonical_nace_code || r.nace_code)?.trim() || ''
+        const activity = (r.activity_code || '').trim()
+        const displayActivity =
+          activity && canonical && activity !== canonical ? activity : undefined
+        return {
+          id:
+            r.company_id ||
+            (r.kbo_number || r.registration_number || `kbo-${index}`).replace(/[.\s]/g, ''),
+          name: r.company_name,
+          kboNumber: r.kbo_number || r.registration_number,
+          legalForm: r.legal_form,
+          address: [r.address, r.postal_code, r.city].filter(Boolean).join(', '),
+          postalCode: r.postal_code || '',
+          city: r.city || '',
+          naceCode: canonical,
+          naceDescription: (r.activity_label || r.nace_description || '').trim() || '',
+          canonicalNaceCode: canonical || undefined,
+          activityCode: displayActivity,
+          activityLabel: (r.activity_label || r.nace_description || '').trim() || undefined,
+          activityTaxonomy: r.taxonomy,
+          countryCode: r.country_code || searchCountry,
+        }
+      })
     },
     [tKbo, searchCountry]
   )
@@ -713,7 +779,11 @@ export function ManualInputPanel({
   }, [])
 
   useEffect(() => {
-    const naceCode = formData.naceCode?.trim() || selectedCompany?.naceCode?.trim()
+    const naceCode =
+      formData.canonicalNaceCode?.trim() ||
+      formData.naceCode?.trim() ||
+      selectedCompany?.canonicalNaceCode?.trim() ||
+      selectedCompany?.naceCode?.trim()
     if (!naceCode || formData.businessType?.trim()) {
       setNacePrefillError(null)
       return
@@ -745,17 +815,17 @@ export function ManualInputPanel({
           })
           setNacePrefillError(null)
         } else {
-          setNacePrefillError(t('errors.noBusinessTypeForNace'))
+          setNacePrefillError(localizeActivityCodeCopy(t('errors.noBusinessTypeForNace')))
         }
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
           const msg =
             err instanceof Error && err.message === 'BUSINESS_TYPE_FETCH_FAILED'
-              ? t('errors.businessTypeFetchFailed')
+              ? localizeActivityCodeCopy(t('errors.businessTypeFetchFailed'))
               : err instanceof Error
-                ? err.message
-                : t('errors.businessTypeFetchFailed')
+                ? localizeActivityCodeCopy(err.message)
+                : localizeActivityCodeCopy(t('errors.businessTypeFetchFailed'))
           setNacePrefillError(msg)
         }
       })
@@ -764,7 +834,16 @@ export function ManualInputPanel({
       })
 
     return () => controller.abort()
-  }, [formData.naceCode, formData.businessType, selectedCompany?.naceCode, naceRetryTrigger])
+  }, [
+    formData.naceCode,
+    formData.canonicalNaceCode,
+    formData.businessType,
+    selectedCompany?.naceCode,
+    selectedCompany?.canonicalNaceCode,
+    naceRetryTrigger,
+    localizeActivityCodeCopy,
+    t,
+  ])
 
   // Sync selectedBusinessType when formData.businessType is set from prefill/bootstrap (DB or KBO)
   useEffect(() => {
@@ -987,12 +1066,16 @@ export function ManualInputPanel({
       const addressStr =
         postal && addr && !addr.includes(postal) ? `${addr}, ${postal} ${city}` : addr
 
+      const canonical =
+        company.canonicalNaceCode?.trim() || company.naceCode?.trim() || ''
+      const displayCode = company.activityCode?.trim() || company.naceCode?.trim() || ''
       const baseUpdates: Partial<ValuationFormData> = {
         companyName: company.name ?? '',
         kboNumber: company.kboNumber ?? '',
         legalForm: company.legalForm ?? '',
         address: addressStr,
-        naceCode: company.naceCode ?? '',
+        naceCode: displayCode,
+        canonicalNaceCode: canonical,
         naceDescription: company.naceDescription ?? '',
         businessStructure: mapLegalFormToBusinessStructure(company.legalForm ?? ''),
       }
@@ -1000,7 +1083,18 @@ export function ManualInputPanel({
       setFormData((prev) => ({ ...prev, ...baseUpdates }))
       setNacePrefillError(null)
 
-      const naceCode = company.naceCode?.trim()
+      updateFormData({
+        kbo_number: company.kboNumber ?? '',
+        legal_form: company.legalForm ?? '',
+        nace_code: canonical,
+        nace_description: baseUpdates.naceDescription || '',
+        // Clear stale SBI when switching to a BE row or when display matches canonical
+        ...(displayCode && canonical && displayCode !== canonical
+          ? { activity_code: displayCode }
+          : { activity_code: undefined }),
+      })
+
+      const naceCode = canonical || company.naceCode?.trim()
       if (naceCode) {
         try {
           const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(
@@ -1021,16 +1115,16 @@ export function ManualInputPanel({
             updateFormData({ business_type_id: bt.id, industry: bt.category })
             setNacePrefillError(null)
           } else {
-            setNacePrefillError(t('errors.noBusinessTypeForNace'))
+            setNacePrefillError(localizeActivityCodeCopy(t('errors.noBusinessTypeForNace')))
           }
         } catch (err) {
           if (controller.signal.aborted) return
           const msg =
             err instanceof Error && err.message === 'BUSINESS_TYPE_FETCH_FAILED'
-              ? t('errors.businessTypeFetchFailed')
+              ? localizeActivityCodeCopy(t('errors.businessTypeFetchFailed'))
               : err instanceof Error
-                ? err.message
-                : t('errors.businessTypeFetchFailed')
+                ? localizeActivityCodeCopy(err.message)
+                : localizeActivityCodeCopy(t('errors.businessTypeFetchFailed'))
           setNacePrefillError(msg)
         } finally {
           if (companySelectAbortRef.current === controller) {
@@ -1041,7 +1135,7 @@ export function ManualInputPanel({
         companySelectAbortRef.current = null
       }
     },
-    [businessTypesForSearch, updateFormData]
+    [businessTypesForSearch, localizeActivityCodeCopy, t, updateFormData]
   )
 
   const handleBusinessTypeSelect = (value: string, businessType?: BusinessType) => {
@@ -1071,13 +1165,22 @@ export function ManualInputPanel({
       legalForm: '',
       address: '',
       naceCode: '',
+      canonicalNaceCode: '',
       naceDescription: '',
       businessStructure: '',
       businessType: '',
       businessTypeCode: '',
       industry: '',
     }))
-    updateFormData({ business_type_id: undefined, industry: undefined })
+    updateFormData({
+      business_type_id: undefined,
+      industry: undefined,
+      kbo_number: '',
+      legal_form: '',
+      nace_code: '',
+      nace_description: '',
+      activity_code: undefined,
+    })
   }
 
 
@@ -1172,7 +1275,9 @@ export function ManualInputPanel({
 
               {readOnlyKbo && selectedCompany ? (
                 <div className="rounded-lg border border-foreground/[0.08] bg-muted/30 px-3 py-2.5">
-                  <p className="text-xs text-foreground/50 mb-0.5">{mi('fields.companyNameOrKbo')}</p>
+                  <p className="text-xs text-foreground/50 mb-0.5">
+                    {localizeActivityCodeCopy(mi('fields.companyNameOrKbo'))}
+                  </p>
                   <p className="text-sm font-medium text-foreground">{selectedCompany.name}</p>
                   {selectedCompany.kboNumber && (
                     <p className="text-xs text-foreground/40 font-mono mt-0.5">{searchCountry === 'NL' ? 'KVK' : 'KBO'} {selectedCompany.kboNumber}</p>
@@ -1180,7 +1285,7 @@ export function ManualInputPanel({
                 </div>
               ) : (
                 <KBOSearchInput
-                  label={mi('fields.companyNameOrKbo')}
+                  label={localizeActivityCodeCopy(mi('fields.companyNameOrKbo'))}
                   value={companySearchValue}
                   onChange={setCompanySearchValue}
                   onCompanySelect={handleCompanySelect}
@@ -1191,6 +1296,7 @@ export function ManualInputPanel({
                   debounceMs={400}
                   size="sm"
                   disabled={isCalculating}
+                  countryCode={searchCountry}
                 />
               )}
 

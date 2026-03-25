@@ -27,6 +27,23 @@ const logger = createContextLogger('BootstrapSync')
 
 type PrefillDataParam = SessionBootstrapState['prefillData']
 
+function normalizeCountryCode(countryCode?: string | null): string | undefined {
+  if (!countryCode) return undefined
+  const normalized = countryCode.trim().toUpperCase()
+  return normalized.length > 0 ? normalized : undefined
+}
+
+function resolveCountryCode(
+  ...candidates: Array<string | null | undefined>
+): string | undefined {
+  for (const candidate of candidates) {
+    const normalized = normalizeCountryCode(candidate)
+    if (normalized) return normalized
+  }
+
+  return undefined
+}
+
 /**
  * Builds flat session data fields from prefill data.
  * Single source of truth for prefill → sessionData mapping.
@@ -35,8 +52,11 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
   const fields: Record<string, unknown> = {}
   if (prefillData.companyInfo?.companyName)
     fields.company_name = prefillData.companyInfo.companyName
-  if (prefillData.companyInfo?.countryCode)
-    fields.country_code = prefillData.companyInfo.countryCode
+  const authoritativeCountryCode = resolveCountryCode(
+    prefillData.companyInfo?.countryCode,
+    prefillData.kboData?.countryCode
+  )
+  if (authoritativeCountryCode) fields.country_code = authoritativeCountryCode
   if (prefillData.companyInfo?.foundingYear)
     fields.founding_year = prefillData.companyInfo.foundingYear
   if (prefillData.companyInfo?.kboNumber) fields.kbo_number = prefillData.companyInfo.kboNumber

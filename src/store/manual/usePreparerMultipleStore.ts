@@ -14,6 +14,17 @@ export const PREPARER_EBITDA_REASON_KEYS = [
 
 export type PreparerEbitdaReasonKey = (typeof PREPARER_EBITDA_REASON_KEYS)[number]
 
+export interface PreparerEbitdaOverridePayload {
+  reason_key: PreparerEbitdaReasonKey
+  note?: string
+  acknowledged_extreme?: boolean
+}
+
+export interface PreparerMultiplePatchPayload {
+  preparer_ev_ebitda_median: number
+  preparer_ev_ebitda_override: PreparerEbitdaOverridePayload
+}
+
 interface PreparerMultipleState {
   benchmarkMedian: number | null
   appliedMedian: number | null
@@ -131,15 +142,61 @@ export function clientShouldWarnExtremeMultiple(
 }
 
 export function mergePreparerMultipleIntoRequest(request: Record<string, unknown>): void {
-  const st = usePreparerMultipleStore.getState()
-  const { benchmarkMedian, appliedMedian, reasonKey, note, acknowledgedExtreme } = st
-  if (benchmarkMedian == null || appliedMedian == null || appliedMedian <= 0) return
-  if (Math.abs(appliedMedian - benchmarkMedian) < 0.005) return
-  if (!reasonKey) return
-  request.preparer_ev_ebitda_median = Math.round(appliedMedian * 1000) / 1000
-  request.preparer_ev_ebitda_override = {
-    reason_key: reasonKey,
-    ...(note?.trim() ? { note: note.trim().slice(0, 500) } : {}),
-    ...(acknowledgedExtreme ? { acknowledged_extreme: true } : {}),
+  const payload = buildPreparerMultiplePayload(usePreparerMultipleStore.getState())
+  if (!payload) return
+  request.preparer_ev_ebitda_median = payload.preparer_ev_ebitda_median
+  request.preparer_ev_ebitda_override = payload.preparer_ev_ebitda_override
+}
+
+export function buildPreparerMultiplePayload(state: Pick<
+  PreparerMultipleState,
+  'benchmarkMedian' | 'appliedMedian' | 'reasonKey' | 'note' | 'acknowledgedExtreme'
+>): PreparerMultiplePatchPayload | null {
+  const { benchmarkMedian, appliedMedian, reasonKey, note, acknowledgedExtreme } = state
+  if (benchmarkMedian == null || appliedMedian == null || appliedMedian <= 0) return null
+  if (Math.abs(appliedMedian - benchmarkMedian) < 0.005) return null
+  if (!reasonKey) return null
+
+  return {
+    preparer_ev_ebitda_median: Math.round(appliedMedian * 1000) / 1000,
+    preparer_ev_ebitda_override: {
+      reason_key: reasonKey,
+      ...(note?.trim() ? { note: note.trim().slice(0, 500) } : {}),
+      ...(acknowledgedExtreme ? { acknowledged_extreme: true } : {}),
+    },
+  }
+}
+
+export function buildPersistedPreparerMultiplePayload(result: {
+  multiple_adjustment_summary?: {
+    benchmark_multiple?: number | null
+    selected_multiple?: number | null
+    reason_key?: string | null
+    free_text_reason?: string | null
+    acknowledged_extreme?: boolean
+  } | null
+} | null): PreparerMultiplePatchPayload | null {
+  const summary = result?.multiple_adjustment_summary
+  if (!summary?.reason_key) return null
+  if (!PREPARER_EBITDA_REASON_KEYS.includes(summary.reason_key as PreparerEbitdaReasonKey)) {
+    return null
+  }
+  if (
+    summary.benchmark_multiple == null ||
+    summary.selected_multiple == null ||
+    Math.abs(Number(summary.selected_multiple) - Number(summary.benchmark_multiple)) < 0.005
+  ) {
+    return null
+  }
+
+  return {
+    preparer_ev_ebitda_median: Math.round(Number(summary.selected_multiple) * 1000) / 1000,
+    preparer_ev_ebitda_override: {
+      reason_key: summary.reason_key as PreparerEbitdaReasonKey,
+      ...(summary.free_text_reason?.trim()
+        ? { note: summary.free_text_reason.trim().slice(0, 500) }
+        : {}),
+      ...(summary.acknowledged_extreme ? { acknowledged_extreme: true } : {}),
+    },
   }
 }

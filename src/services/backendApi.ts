@@ -110,8 +110,23 @@ class BackendAPI {
     selectedMethod: string,
     overrideReason?: string,
     overrideNote?: string,
+    options?: {
+      preparer_ev_ebitda_median?: number
+      preparer_ev_ebitda_override?: {
+        reason_key: string
+        note?: string
+        acknowledged_extreme?: boolean
+      }
+      clear_preparer_override?: boolean
+    },
   ): Promise<{ selected_method: string; html_report?: string }> {
-    return this.valuationAPI.updateSelectedMethod(reportId, selectedMethod, overrideReason, overrideNote)
+    return this.valuationAPI.updateSelectedMethod(
+      reportId,
+      selectedMethod,
+      overrideReason,
+      overrideNote,
+      options,
+    )
   }
 
   // ===== REPORT OPERATIONS =====

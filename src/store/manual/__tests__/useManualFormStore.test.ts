@@ -110,6 +110,43 @@ describe('useManualFormStore', () => {
       expect(result.current.formData.company_name).toBe('Test Corp')
       expect(result.current.formData.revenue).toBe(1000000)
     })
+
+    it('removes activity_code and activity_label from formData when updated with undefined', () => {
+      const { result } = renderHook(() => useManualFormStore())
+
+      act(() => {
+        result.current.updateFormData({
+          activity_code: '62010',
+          activity_label: 'Software development',
+        })
+      })
+
+      expect(result.current.formData.activity_code).toBe('62010')
+      expect(result.current.formData.activity_label).toBe('Software development')
+
+      act(() => {
+        result.current.updateFormData({
+          activity_code: undefined,
+          activity_label: undefined,
+        })
+      })
+
+      expect('activity_code' in result.current.formData).toBe(false)
+      expect('activity_label' in result.current.formData).toBe(false)
+    })
+
+    it('still assigns undefined for other optional fields (not activity presentation)', () => {
+      const { result } = renderHook(() => useManualFormStore())
+
+      act(() => {
+        result.current.updateFormData({ business_type_id: 'x' })
+      })
+      act(() => {
+        result.current.updateFormData({ business_type_id: undefined })
+      })
+
+      expect(result.current.formData.business_type_id).toBeUndefined()
+    })
   })
 
   describe('setValidationErrors', () => {

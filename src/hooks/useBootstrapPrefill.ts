@@ -24,6 +24,23 @@ import { createContextLogger } from '../utils/logger'
 
 const logger = createContextLogger('BootstrapPrefill')
 
+function normalizeCountryCode(countryCode?: string | null): string | undefined {
+  if (!countryCode) return undefined
+  const normalized = countryCode.trim().toUpperCase()
+  return normalized.length > 0 ? normalized : undefined
+}
+
+function resolveCountryCode(
+  ...candidates: Array<string | null | undefined>
+): string | undefined {
+  for (const candidate of candidates) {
+    const normalized = normalizeCountryCode(candidate)
+    if (normalized) return normalized
+  }
+
+  return undefined
+}
+
 // Track if prefill has been applied globally (survives re-renders/re-mounts)
 let globalPrefillApplied = false
 let globalPrefillReportId: string | null = null
@@ -313,6 +330,15 @@ function applyPrefillToForm(
     })
   }
 
+  const authoritativeCountryCode = resolveCountryCode(
+    allData.country_code,
+    companyInfo?.countryCode,
+    kboData?.countryCode
+  )
+  if (authoritativeCountryCode) {
+    allData.country_code = authoritativeCountryCode
+  }
+
   // 3. Apply financials
   if (financials) {
     if (financials.revenue !== undefined) allData.revenue = financials.revenue
@@ -437,7 +463,8 @@ function applyPrefillToForm(
     const businessCard = buildBusinessCard(
       { ...companyInfo, companyName: finalCompanyName } as CompanyInfo,
       financials,
-      businessType
+      businessType,
+      authoritativeCountryCode
     )
     // Call directly - prefillFromBusinessCard now handles deferral internally
     prefillFromBusinessCard(businessCard)
@@ -460,14 +487,15 @@ function applyPrefillToForm(
 function buildBusinessCard(
   companyInfo: CompanyInfo,
   financials?: PartialFinancials,
-  businessType?: BusinessTypeInfo
+  businessType?: BusinessTypeInfo,
+  fallbackCountryCode?: string
 ): any {
   return {
     company_name: companyInfo.companyName,
     industry: businessType?.industry || 'services',
     business_model: businessType?.id || 'other',
     founding_year: companyInfo.foundingYear || new Date().getFullYear() - 5,
-    country_code: companyInfo.countryCode || 'BE',
+    country_code: resolveCountryCode(companyInfo.countryCode, fallbackCountryCode, 'BE') || 'BE',
     employee_count: financials?.employeeCount,
     // KBO registry fields
     kbo_number: companyInfo.kboNumber,

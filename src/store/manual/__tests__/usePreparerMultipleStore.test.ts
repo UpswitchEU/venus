@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { usePreparerMultipleStore } from '../usePreparerMultipleStore'
+import {
+  buildPersistedPreparerMultiplePayload,
+  buildPreparerMultiplePayload,
+  usePreparerMultipleStore,
+} from '../usePreparerMultipleStore'
 
 describe('usePreparerMultipleStore', () => {
   beforeEach(() => {
@@ -33,5 +37,36 @@ describe('usePreparerMultipleStore', () => {
     expect(state.reasonKey).toBe('customer_concentration')
     expect(state.note).toBe('Large customer renewal is still pending.')
     expect(state.acknowledgedExtreme).toBe(true)
+  })
+
+  it('builds the same preparer payload used by recalculation and modal autosave', () => {
+    const payload = buildPreparerMultiplePayload({
+      benchmarkMedian: 5.1,
+      appliedMedian: 4.8,
+      reasonKey: 'customer_concentration',
+      note: 'Large customer renewal is still pending.',
+      acknowledgedExtreme: true,
+    })
+
+    expect(payload).toEqual({
+      preparer_ev_ebitda_median: 4.8,
+      preparer_ev_ebitda_override: {
+        reason_key: 'customer_concentration',
+        note: 'Large customer renewal is still pending.',
+        acknowledged_extreme: true,
+      },
+    })
+  })
+
+  it('returns null persisted payload when the saved summary no longer has an active override', () => {
+    expect(
+      buildPersistedPreparerMultiplePayload({
+        multiple_adjustment_summary: {
+          benchmark_multiple: 5.1,
+          selected_multiple: 5.1,
+          reason_key: null,
+        },
+      }),
+    ).toBeNull()
   })
 })

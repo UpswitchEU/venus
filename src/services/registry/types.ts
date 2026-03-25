@@ -23,6 +23,10 @@ export interface CompanySearchResult {
   nace_code?: string
   /** NACE activity description (Titan KBO returns this) */
   nace_description?: string
+  activity_code?: string
+  activity_label?: string
+  taxonomy?: string
+  canonical_nace_code?: string
   postal_code?: string
   city?: string
 }

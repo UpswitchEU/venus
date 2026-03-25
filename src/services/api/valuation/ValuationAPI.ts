@@ -262,6 +262,15 @@ export class ValuationAPI extends HttpClient {
     selectedMethod: string,
     overrideReason?: string,
     overrideNote?: string,
+    options?: {
+      preparer_ev_ebitda_median?: number
+      preparer_ev_ebitda_override?: {
+        reason_key: string
+        note?: string
+        acknowledged_extreme?: boolean
+      }
+      clear_preparer_override?: boolean
+    },
   ): Promise<{ selected_method: string; html_report?: string }> {
     try {
       return await this.executeRequest<{ selected_method: string; html_report?: string }>(
@@ -272,6 +281,13 @@ export class ValuationAPI extends HttpClient {
             selected_method: selectedMethod,
             ...(overrideReason ? { override_reason: overrideReason } : {}),
             ...(overrideNote ? { override_note: overrideNote } : {}),
+            ...(options?.preparer_ev_ebitda_median != null
+              ? { preparer_ev_ebitda_median: options.preparer_ev_ebitda_median }
+              : {}),
+            ...(options?.preparer_ev_ebitda_override
+              ? { preparer_ev_ebitda_override: options.preparer_ev_ebitda_override }
+              : {}),
+            ...(options?.clear_preparer_override ? { clear_preparer_override: true } : {}),
           },
           headers: {},
         } as any,

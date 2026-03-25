@@ -118,6 +118,10 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['legal_form', 'legalForm'],
     ['nace_code', 'naceCode'],
     ['nace_description', 'naceDescription'],
+    ['activity_code', 'activityCode'],
+    ['activity_label', 'activityLabel'],
+    ['taxonomy'],
+    ['canonical_nace_code', 'canonicalNaceCode'],
     ['business_type_id', 'businessTypeId'],
     ['business_context', 'businessContext'],
     ['government_bond_yield', 'governmentBondYield'],
@@ -188,6 +192,23 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
   if (cyd && (fd.revenue === undefined || fd.ebitda === undefined)) {
     if (fd.revenue === undefined && cyd.revenue != null) (fd as any).revenue = Number(cyd.revenue)
     if (fd.ebitda === undefined && cyd.ebitda != null) (fd as any).ebitda = Number(cyd.ebitda)
+  }
+
+  // Activity presentation: canonical NACE for lookups; prefer activity_label for description
+  const canonicalRaw =
+    (typeof fd.canonical_nace_code === 'string' && fd.canonical_nace_code.trim()) ||
+    (typeof fd.nace_code === 'string' && fd.nace_code.trim()) ||
+    ''
+  if (canonicalRaw) {
+    ;(fd as any).canonical_nace_code = canonicalRaw
+    ;(fd as any).nace_code = canonicalRaw
+  }
+  const activityLabel =
+    (typeof fd.activity_label === 'string' && fd.activity_label.trim()) ||
+    (typeof fd.nace_description === 'string' && fd.nace_description.trim()) ||
+    ''
+  if (activityLabel) {
+    ;(fd as any).nace_description = activityLabel
   }
 
   return formData

@@ -47,4 +47,33 @@ describe('ValuationAPI validation handling', () => {
       'report not found'
     )
   })
+
+  it('forwards preparer multiple edits on the method PATCH request', async () => {
+    const api = new ValuationAPI()
+    const executeRequest = vi.spyOn(api as any, 'executeRequest').mockResolvedValue({
+      selected_method: 'upswitch_adaptive',
+    })
+
+    await api.updateSelectedMethod('val_123', 'upswitch_adaptive', undefined, undefined, {
+      preparer_ev_ebitda_median: 6.2,
+      preparer_ev_ebitda_override: {
+        reason_key: 'strategic_buyer_premium',
+        note: 'Strategic synergies expected.',
+      },
+    })
+
+    expect(executeRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          selected_method: 'upswitch_adaptive',
+          preparer_ev_ebitda_median: 6.2,
+          preparer_ev_ebitda_override: {
+            reason_key: 'strategic_buyer_premium',
+            note: 'Strategic synergies expected.',
+          },
+        }),
+      }),
+      expect.any(Object),
+    )
+  })
 })

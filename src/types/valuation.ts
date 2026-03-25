@@ -106,6 +106,12 @@ export interface ValuationRequest {
   legal_form?: string
   nace_code?: string
   nace_description?: string
+  /** Market-facing activity code (e.g. NL SBI when it differs from canonical NACE). */
+  activity_code?: string
+  activity_label?: string
+  taxonomy?: string
+  /** Stable canonical NACE key for mappings (mirrors nace_code when known). */
+  canonical_nace_code?: string
 
   // NEW: PostgreSQL business type integration
   business_type_id?: string // PostgreSQL business type ID

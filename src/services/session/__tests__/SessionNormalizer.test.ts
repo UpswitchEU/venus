@@ -44,6 +44,39 @@ describe('normalizeSessionData', () => {
     ])
   })
 
+  it('merges activity_* with canonical NACE and prefers activity_label for description', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_act',
+      session_data: {
+        nace_code: '47.11',
+        canonical_nace_code: '47.11',
+        activity_code: '471100',
+        activity_label: 'SBI beschrijving',
+        taxonomy: 'SBI_2008',
+        nace_description: 'Legacy NACE beschrijving',
+      },
+    })
+
+    expect(normalized.formData.nace_code).toBe('47.11')
+    expect(normalized.formData.canonical_nace_code).toBe('47.11')
+    expect(normalized.formData.activity_code).toBe('471100')
+    expect(normalized.formData.taxonomy).toBe('SBI_2008')
+    expect(normalized.formData.nace_description).toBe('SBI beschrijving')
+  })
+
+  it('handles legacy session payloads with only nace_* fields', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_legacy',
+      session_data: {
+        nace_code: '56.101',
+        nace_description: 'Restaurants',
+      },
+    })
+
+    expect(normalized.formData.nace_code).toBe('56.101')
+    expect(normalized.formData.nace_description).toBe('Restaurants')
+  })
+
   it('prefers the richer persisted valuation result when top-level output is partial', () => {
     const normalized = normalizeSessionData({
       session_key: 'val_789',

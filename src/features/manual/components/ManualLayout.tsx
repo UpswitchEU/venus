@@ -85,6 +85,8 @@ import { reportService, valuationService } from '../../../services'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import {
+  buildPersistedPreparerMultiplePayload,
+  buildPreparerMultiplePayload,
   clientShouldWarnExtremeMultiple,
   mergePreparerMultipleIntoRequest,
   usePreparerMultipleStore,
@@ -152,6 +154,8 @@ interface CollectedData {
   address?: string
   naceCode?: string
   naceDescription?: string
+  /** Canonical NACE (store-aligned); optional when equal to display naceCode */
+  canonicalNaceCode?: string
   businessType?: string
   industry?: string
   country?: string
@@ -178,6 +182,21 @@ function getHydratedValuationResults(
   result: Pick<ValuationResponse, 'valuation_results' | 'valuation_result'> | null | undefined
 ) {
   return extractValuationResultsMap(result as Record<string, any> | null | undefined)
+}
+
+function serializePreparerPayload(
+  payload:
+    | {
+        preparer_ev_ebitda_median: number
+        preparer_ev_ebitda_override: {
+          reason_key: string
+          note?: string
+          acknowledged_extreme?: boolean
+        }
+      }
+    | null
+) {
+  return payload ? JSON.stringify(payload) : 'none'
 }
 
 // ─────────────────────────────────────────
@@ -299,6 +318,27 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
   const current = allYears[0]
   const historical = allYears.slice(1)
 
+  const canonicalNace =
+    (typeof data.canonicalNaceCode === 'string' && data.canonicalNaceCode.trim()) ||
+    (typeof data.naceCode === 'string' && data.naceCode.trim()) ||
+    ''
+  const displayNace = typeof data.naceCode === 'string' ? data.naceCode.trim() : ''
+  const activityPresentation =
+    canonicalNace &&
+    displayNace &&
+    displayNace !== canonicalNace
+      ? displayNace
+      : ''
+
+  // Only merge KBO/NACE into the store when we have registry identifiers in the panel.
+  // Do not use "company name only" — the first sync after title prefill would push
+  // kbo_number: '' and wipe session/bootstrap KBO before KBO search state catches up.
+  const hasKbo = typeof data.kboNumber === 'string' && data.kboNumber.trim() !== ''
+  const hasNaceFields =
+    (typeof data.naceCode === 'string' && data.naceCode.trim() !== '') ||
+    (typeof data.canonicalNaceCode === 'string' && data.canonicalNaceCode.trim() !== '')
+  const companySectionActive = hasKbo || hasNaceFields
+
   return {
     company_name: data.companyName || '',
     country_code: (data.country || 'BE').toUpperCase(),
@@ -323,10 +363,17 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
       revenue: h.revenue,
       ebitda: h.ebitda,
     })),
-    ...(data.kboNumber && { kbo_number: data.kboNumber }),
-    ...(data.naceCode && { nace_code: data.naceCode }),
-    ...(data.naceDescription && { nace_description: data.naceDescription }),
-    ...(data.legalForm && { legal_form: data.legalForm }),
+    ...(companySectionActive
+      ? {
+          kbo_number: data.kboNumber || '',
+          legal_form: data.legalForm || '',
+          nace_code: canonicalNace || '',
+          nace_description:
+            typeof data.naceDescription === 'string' ? data.naceDescription : '',
+          // When display matches canonical, pass undefined so updateFormData strips activity_code
+          activity_code: (activityPresentation || undefined) as VenusFormData['activity_code'],
+        }
+      : {}),
     ...((data.businessType || data.businessTypeCode) && {
       business_type_id: data.businessType || data.businessTypeCode,
     }),
@@ -433,6 +480,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   } = usePdfGeneration(reportId)
   const preparerAppliedMedian = usePreparerMultipleStore((s) => s.appliedMedian)
   const preparerBenchmarkMedian = usePreparerMultipleStore((s) => s.benchmarkMedian)
+  const preparerReasonKey = usePreparerMultipleStore((s) => s.reasonKey)
+  const preparerNote = usePreparerMultipleStore((s) => s.note)
+  const preparerAcknowledgedExtreme = usePreparerMultipleStore((s) => s.acknowledgedExtreme)
 
   const currentLocale = useLocale()
 
@@ -707,7 +757,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
       .catch(() => {
         if (!cancelled) {
-          setShowFiscalReferenceForOmni(false)
+          const current = useManualResultsStore.getState().result
+          if (!getHydratedValuationResults(current)) {
+            setShowFiscalReferenceForOmni(false)
+          }
           setIsHydratingEditModalData(false)
         }
       })
@@ -919,6 +972,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const formCity = useManualFormStore((s) => s.formData.city)
   const formPostalCode = useManualFormStore((s) => s.formData.postal_code)
   const formNaceCode = useManualFormStore((s) => s.formData.nace_code)
+  const formActivityCode = useManualFormStore((s) => s.formData.activity_code)
   const formNaceDescription = useManualFormStore((s) => s.formData.nace_description)
   const resultCompanyName = result?.company_name
   const companyName = formCompanyName || resultCompanyName
@@ -931,7 +985,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     legalForm: formLegalForm || '',
     businessStructure: mapLegalFormToBusinessStructure(formLegalForm || '') || undefined,
     address: formAddress || '',
-    naceCode: formNaceCode || '',
+    naceCode: formActivityCode || formNaceCode || '',
     naceDescription: formNaceDescription || '',
     businessType: formBusinessTypeId || '',
     industry: formIndustry || '',
@@ -1053,7 +1107,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const derivedBusinessStructure = mapLegalFormToBusinessStructure(formLegalForm || '')
       next.businessStructure = derivedBusinessStructure || prev.businessStructure || undefined
       if (formAddress && formAddress !== prev.address) next.address = formAddress
-      if (formNaceCode && formNaceCode !== prev.naceCode) next.naceCode = formNaceCode
+      const displayNace = formActivityCode || formNaceCode
+      if (displayNace && displayNace !== prev.naceCode) next.naceCode = displayNace
       if (formNaceDescription && formNaceDescription !== prev.naceDescription)
         next.naceDescription = formNaceDescription
       return next
@@ -1068,6 +1123,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formLegalForm,
     formAddress,
     formNaceCode,
+    formActivityCode,
     formNaceDescription,
   ])
 
@@ -1087,7 +1143,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       (merged.legalForm as string)?.trim()
     const formStoreEmpty =
       !formCompanyName?.trim() && !formKboNumber?.trim() && !formLegalForm?.trim()
-    const sessionHasNace = !!(merged.nace_code || merged.naceCode)
+    const sessionHasNace = !!(
+      merged.nace_code ||
+      merged.naceCode ||
+      merged.canonical_nace_code ||
+      merged.activity_code
+    )
     const sessionHasBusinessType = !!(
       merged.business_type_id ||
       merged.businessTypeId ||
@@ -1106,8 +1167,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const sessionAddress = [merged.postal_code || merged.postalCode, merged.city]
       .filter(Boolean)
       .join(' ')
-    const sessionNace = (merged.nace_code || merged.naceCode) as string
-    const sessionNaceDesc = (merged.nace_description || merged.naceDescription) as string
+    const sessionCanonical = (
+      (merged.canonical_nace_code || merged.nace_code || merged.naceCode) as string
+    )?.trim()
+    const sessionActivity = (merged.activity_code || merged.activityCode) as string | undefined
+    const sessionNace = (sessionActivity?.trim() || sessionCanonical || '') as string
+    const sessionNaceDesc = (merged.activity_label ||
+      merged.nace_description ||
+      merged.naceDescription) as string
     const sessionCountry = (merged.country_code || merged.countryCode || merged.country) as string
     const sessionYear = merged.founding_year ?? merged.founded_year
     const sessionBusinessType = (merged.business_type_id ||
@@ -1127,7 +1194,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const sessionCity = merged.city as string
     if (sessionPostalCode && !formPostalCode?.trim()) formUpdates.postal_code = sessionPostalCode
     if (sessionCity && !formCity?.trim()) formUpdates.city = sessionCity
-    if (sessionNace && !formNaceCode?.trim()) formUpdates.nace_code = sessionNace
+    if (sessionCanonical && !formNaceCode?.trim()) formUpdates.nace_code = sessionCanonical
+    if (
+      sessionActivity?.trim() &&
+      sessionCanonical &&
+      sessionActivity.trim() !== sessionCanonical &&
+      !formActivityCode?.trim()
+    ) {
+      formUpdates.activity_code = sessionActivity.trim()
+    }
     if (sessionNaceDesc && !formNaceDescription?.trim())
       formUpdates.nace_description = sessionNaceDesc
     if (sessionCountry && !formCountry?.trim()) formUpdates.country_code = sessionCountry
@@ -1165,11 +1240,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formKboNumber,
     formLegalForm,
     formNaceCode,
+    formActivityCode,
     formBusinessTypeId,
     formPostalCode,
     formCity,
     formYearFounded,
     formIndustry,
+    formNaceDescription,
     updateFormData,
   ])
 
@@ -1289,6 +1366,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Bridge: Result from Venus API → Report for Clarity components ───
   useEffect(() => {
     if (result) {
+      usePreparerMultipleStore.getState().syncFromValuationResult(result)
       onComplete(result)
 
       const r = result as any
@@ -1392,6 +1470,91 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const isFirstMethodRender = useRef(true)
   const pendingOverrideRef = useRef<{ reason?: string; note?: string }>({})
   const lastPersistedMethodRef = useRef(selectedMethod)
+  const lastPersistedPreparerRef = useRef('none')
+  const refreshReportAfterEdit = useCallback(
+    async (htmlFromPatch?: string) => {
+      try {
+        const fresh = await backendAPI.getReport(persistedReportLookupId)
+        const latestExistingResult = useManualResultsStore.getState().result
+        const nextValuationResults =
+          getHydratedValuationResults(fresh) ?? getHydratedValuationResults(latestExistingResult)
+        const mergedResult: ValuationResponse = {
+          ...(latestExistingResult || {}),
+          ...fresh,
+          html_report: htmlFromPatch || fresh.html_report || latestExistingResult?.html_report,
+          valuation_results: nextValuationResults ?? undefined,
+          fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
+          multiple_adjustment_summary:
+            fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
+        }
+        setResult(mergedResult)
+        const htmlForPreview = htmlFromPatch || fresh.html_report
+        if (htmlForPreview) {
+          setReport((prev) => (prev ? { ...prev, htmlReport: htmlForPreview } : prev))
+          generatePdf?.().catch((err) => {
+            generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+          })
+        }
+        return true
+      } catch (refreshErr) {
+        generalLogger.warn('[ManualLayout] getReport after valuation edit failed', {
+          error: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
+        })
+        if (htmlFromPatch) {
+          setReport((prev) => (prev ? { ...prev, htmlReport: htmlFromPatch } : prev))
+          const latestResult = useManualResultsStore.getState().result
+          setResult(latestResult ? { ...latestResult, html_report: htmlFromPatch } : latestResult)
+          generatePdf?.().catch((err) => {
+            generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+          })
+        }
+        return false
+      }
+    },
+    [generatePdf, persistedReportLookupId, setResult],
+  )
+
+  const persistModalEdit = useCallback(
+    async ({
+      method,
+      overrideReason,
+      overrideNote,
+      preparerPayload,
+      clearPreparerOverride = false,
+    }: {
+      method: string
+      overrideReason?: string
+      overrideNote?: string
+      preparerPayload?: ReturnType<typeof buildPreparerMultiplePayload> | null
+      clearPreparerOverride?: boolean
+    }) => {
+      const res = await backendAPI.updateSelectedMethod(
+        persistedReportLookupId,
+        method,
+        overrideReason,
+        overrideNote,
+        preparerPayload
+          ? preparerPayload
+          : clearPreparerOverride
+            ? { clear_preparer_override: true }
+            : undefined,
+      )
+      await refreshReportAfterEdit(res?.html_report)
+      return res
+    },
+    [persistedReportLookupId, refreshReportAfterEdit],
+  )
+
+  useEffect(() => {
+    lastPersistedPreparerRef.current = serializePreparerPayload(
+      buildPersistedPreparerMultiplePayload(result),
+    )
+  }, [result])
+
   useEffect(() => {
     if (isFirstMethodRender.current) {
       isFirstMethodRender.current = false
@@ -1407,59 +1570,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const timer = setTimeout(async () => {
       setIsMethodSwitchRendering(true)
       try {
-        const res = await backendAPI.updateSelectedMethod(
-          persistedReportLookupId,
-          selectedMethod,
-          reason,
-          note,
-        )
-        if (cancelled) return
-        const htmlFromPatch = res?.html_report
-        try {
-          const fresh = await backendAPI.getReport(persistedReportLookupId)
-          if (cancelled) return
-          const latestExistingResult = useManualResultsStore.getState().result
-          const nextValuationResults =
-            getHydratedValuationResults(fresh) ?? getHydratedValuationResults(latestExistingResult)
-          const mergedResult: ValuationResponse = {
-            ...(latestExistingResult || {}),
-            ...fresh,
-            html_report: htmlFromPatch || fresh.html_report || latestExistingResult?.html_report,
-            valuation_results: nextValuationResults ?? undefined,
-            fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
-            multiple_adjustment_summary:
-              fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
-          }
-          setResult(mergedResult)
-          const htmlForPreview = htmlFromPatch || fresh.html_report
-          if (htmlForPreview) {
-            setReport((prev) =>
-              prev ? { ...prev, htmlReport: htmlForPreview } : prev,
-            )
-            generatePdf?.().catch((err) => {
-              generalLogger.warn('[ManualLayout] PDF re-generation after method switch failed', {
-                error: err instanceof Error ? err.message : String(err),
-              })
-            })
-          }
-        } catch (refreshErr) {
-          if (cancelled) return
-          generalLogger.warn('[ManualLayout] getReport after method switch failed', {
-            error: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
-          })
-          if (htmlFromPatch) {
-            setReport((prev) =>
-              prev ? { ...prev, htmlReport: htmlFromPatch } : prev,
-            )
-            const latestResult = useManualResultsStore.getState().result
-            setResult(latestResult ? { ...latestResult, html_report: htmlFromPatch } : latestResult)
-            generatePdf?.().catch((err) => {
-              generalLogger.warn('[ManualLayout] PDF re-generation after method switch failed', {
-                error: err instanceof Error ? err.message : String(err),
-              })
-            })
-          }
-        }
+        await persistModalEdit({
+          method: selectedMethod,
+          overrideReason: reason,
+          overrideNote: note,
+        })
         if (!cancelled) {
           lastPersistedMethodRef.current = selectedMethod
         }
@@ -1480,7 +1595,78 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [selectedMethod, persistedReportLookupId, t, generatePdf])
+  }, [persistModalEdit, selectedMethod, persistedReportLookupId, t])
+
+  useEffect(() => {
+    if (!showValuationEditModal || !persistedReportLookupId || isMethodSwitchRendering) return
+    const mv = result?.multiples_valuation
+    const currentPayload = buildPreparerMultiplePayload({
+      benchmarkMedian: preparerBenchmarkMedian,
+      appliedMedian: preparerAppliedMedian,
+      reasonKey: preparerReasonKey,
+      note: preparerNote,
+      acknowledgedExtreme: preparerAcknowledgedExtreme,
+    })
+    if (
+      currentPayload &&
+      clientShouldWarnExtremeMultiple(
+        currentPayload.preparer_ev_ebitda_median,
+        mv?.p10_ebitda_multiple,
+        mv?.p90_ebitda_multiple,
+        preparerBenchmarkMedian,
+        mv?.p25_ebitda_multiple,
+        mv?.p75_ebitda_multiple,
+      ) &&
+      !preparerAcknowledgedExtreme
+    ) {
+      return
+    }
+    const currentSignature = serializePreparerPayload(currentPayload)
+    if (currentSignature === lastPersistedPreparerRef.current) return
+
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      setIsMethodSwitchRendering(true)
+      try {
+        await persistModalEdit({
+          method: selectedMethod,
+          preparerPayload: currentPayload,
+          clearPreparerOverride: currentPayload == null,
+        })
+        if (!cancelled) {
+          lastPersistedPreparerRef.current = currentSignature
+        }
+      } catch (error) {
+        generalLogger.error('[ManualLayout] Preparer multiple persist failed', {
+          error: error instanceof Error ? error.message : String(error),
+          selectedMethod,
+        })
+        if (!cancelled) {
+          toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+        }
+      } finally {
+        setIsMethodSwitchRendering(false)
+      }
+    }, 700)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [
+    isMethodSwitchRendering,
+    persistedReportLookupId,
+    persistModalEdit,
+    preparerAcknowledgedExtreme,
+    preparerAppliedMedian,
+    preparerBenchmarkMedian,
+    preparerNote,
+    preparerReasonKey,
+    result,
+    selectedMethod,
+    showValuationEditModal,
+    t,
+  ])
 
   const handleSelectMethodWithOverride = useCallback(
     (method: string, overrideReason?: string, overrideNote?: string) => {
@@ -2003,21 +2189,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     pendingSubmitDataRef.current = null
     if (pending) handleManualSubmit(pending)
   }, [handleManualSubmit])
-
-  const handlePreparerMultipleRecalculate = useCallback(() => {
-    const fromSession =
-      latestFormDataRef.current &&
-      typeof latestFormDataRef.current === 'object' &&
-      Object.keys(latestFormDataRef.current).length > 0
-        ? latestFormDataRef.current
-        : null
-    const raw = lastSubmittedDataRef.current || fromSession
-    if (!raw || typeof raw !== 'object') {
-      toast.error(tPreparer('recalculateNeedForm'))
-      return
-    }
-    void wrappedOnSubmit(raw)
-  }, [wrappedOnSubmit, tPreparer])
 
   // ─── Chat Handlers (bi-directional sync) ───
   const handleApplyFieldUpdate = useCallback(
@@ -3524,7 +3695,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         collectedData.businessStructure ||
         mapLegalFormToBusinessStructure(collectedData.legalForm || ''),
       address: collectedData.address,
-      naceCode: collectedData.naceCode,
+      naceCode: formActivityCode || formNaceCode || collectedData.naceCode,
+      canonicalNaceCode: formNaceCode || '',
       naceDescription: collectedData.naceDescription,
       businessType: collectedData.businessType,
       industry: collectedData.industry,
@@ -4182,7 +4354,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         showFiscalAnchorRow={showFiscalReferenceForOmni === true}
         result={result}
         preparerDisabled={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
-        onRecalculate={handlePreparerMultipleRecalculate}
         industryLabel={collectedData.industry}
         businessTypeLabel={collectedData.businessType}
         countryCode={collectedData.country}
