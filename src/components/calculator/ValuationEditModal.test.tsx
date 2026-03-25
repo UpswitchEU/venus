@@ -38,6 +38,19 @@ const translations: Record<string, Record<string, string>> = {
   },
   methodBreakdown: {
     comparisonTitle: 'Vergelijking',
+    title: 'Berekeningstransparantie',
+    subtitle: 'Stap-voor-stap voor {method}',
+    normalizedEbitda: 'Genormaliseerde EBITDA',
+    benchmarkMultiple: 'Benchmarkmultiple',
+    appliedMultiple: 'Toegepaste multiple',
+    enterpriseValue: 'Ondernemingswaarde',
+    equityValue: 'Aandelenwaarde',
+    formulaHeading: 'Formule',
+    formulaMultiple: 'Formule multiple',
+    multiplePipeline: 'Multiple-pijplijn',
+    comparablesCount: 'Vergelijkbare bedrijven',
+    comparablesQuality: 'Kwaliteit vergelijkbaren',
+    'comparablesQualityValues.medium': 'Gemiddeld',
   },
 }
 
@@ -139,5 +152,70 @@ describe('ValuationEditModal', () => {
     for (const radio of radios) {
       expect(radio).toBeDisabled()
     }
+  })
+
+  it('renders translated comparables quality label for API value medium (not raw i18n key)', () => {
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        valuationResults={{
+          upswitch_adaptive: {
+            available: true,
+            value: 357_000,
+            label: 'UpSwitch Adaptive',
+          },
+        }}
+        result={
+          {
+            ebitda: 100_000,
+            multiples_valuation: {
+              comparables_count: 0,
+              comparables_quality: 'medium',
+              ebitda_multiple: 4.75,
+              enterprise_value: 479_000,
+            },
+            details: {
+              sustainable_ebitda: 100_000,
+            },
+          } as import('@/types/valuation').ValuationResponse
+        }
+      />,
+    )
+
+    expect(
+      screen.queryByText(/methodBreakdown\.comparablesQualityValues\.medium/),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('Kwaliteit vergelijkbaren')).toBeInTheDocument()
+    expect(screen.getByText('Gemiddeld')).toBeInTheDocument()
+  })
+
+  it('lists DCF in the primary method list when all methods are primary (no “show all”)', () => {
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        selectedMethod="ebitda_multiple"
+        valuationResults={{
+          upswitch_adaptive: {
+            available: true,
+            value: 100_000,
+            label: 'UpSwitch Adaptive',
+          },
+          ebitda_multiple: {
+            available: true,
+            value: 120_000,
+            label: 'EBITDA Multiple',
+          },
+          dcf: {
+            available: true,
+            value: 99_000,
+            label: 'Discounted Cash Flow',
+          },
+        }}
+        result={null}
+      />,
+    )
+
+    expect(screen.getAllByText('Discounted Cash Flow').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText(/Toon alle/)).not.toBeInTheDocument()
   })
 })

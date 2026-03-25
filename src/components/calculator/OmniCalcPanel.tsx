@@ -1,7 +1,15 @@
 'use client'
 
 import { useEffect, useId, useState } from 'react'
-import { Check, Download, ArrowRightLeft, Sparkles, Pencil, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  Check,
+  Download,
+  ArrowRightLeft,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Pencil,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
 import { AuroraButton } from '@/design-system/components/Button'
@@ -10,13 +18,7 @@ import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import type { ValuationMethodResult } from '../../types/valuation'
 import { getOmniMethodEquityRange } from '../../utils/omniCalcRange'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
-
-const PRIMARY_METHOD_KEYS = new Set([
-  'upswitch_adaptive',
-  'ebitda_multiple',
-  'adjusted_nav',
-  'fiscal_4x',
-])
+import { partitionOmniMethodEntries } from '@/constants/omniCalcMethods'
 
 const METHOD_OVERRIDE_REASON_KEYS = [
   'fiscal_compliance',
@@ -39,6 +41,8 @@ interface OmniCalcPanelProps {
   zeroDraftReportId?: string
   zeroDraftBusinessName?: string | null
   zeroDraftCreatedAt?: string | null
+  /** When true, locks method UI (matches ValuationEditModal during PATCH). */
+  isMethodPersisting?: boolean
 }
 
 const formatCurrency = (amount: number) =>
@@ -68,8 +72,10 @@ export function OmniCalcPanel({
   zeroDraftReportId,
   zeroDraftBusinessName,
   zeroDraftCreatedAt,
+  isMethodPersisting = false,
 }: OmniCalcPanelProps) {
   const t = useTranslations('omniCalc')
+  const tValuationModal = useTranslations('valuationEditModal')
   const panelHeadingId = useId()
   const adaptiveLabel = t('currentMethodAdaptive')
 
@@ -82,9 +88,14 @@ export function OmniCalcPanel({
 
   useEffect(() => {
     setMode(selectedMethod === 'upswitch_adaptive' ? 'ai' : 'manual')
+    setPendingMethod(null)
+    setOverrideReasonKey('')
+    setOverrideNote('')
   }, [selectedMethod])
 
   const entries = Object.entries(valuationResults)
+  const { primary: primaryEntries, secondary: secondaryEntries } =
+    partitionOmniMethodEntries(entries)
   if (entries.length === 0) {
     return (
       <div
@@ -115,7 +126,10 @@ export function OmniCalcPanel({
       : null
   const currentMethodLabel = getSelectedMethodLabel(selectedMethod, valuationResults, adaptiveLabel)
 
+  const methodSelectionLocked = isMethodPersisting
+
   const handleModeChange = (newMode: 'ai' | 'manual') => {
+    if (methodSelectionLocked) return
     setMode(newMode)
     if (newMode === 'ai') {
       setPendingMethod(null)
@@ -126,6 +140,7 @@ export function OmniCalcPanel({
   }
 
   const handleMethodClick = (key: string) => {
+    if (methodSelectionLocked) return
     if (key === 'upswitch_adaptive') {
       handleModeChange('ai')
       return
@@ -136,6 +151,7 @@ export function OmniCalcPanel({
   }
 
   const handleConfirmOverride = () => {
+    if (methodSelectionLocked) return
     if (!pendingMethod || !overrideReasonKey) return
     onSelectMethod(pendingMethod, overrideReasonKey, overrideNote || undefined)
     setPendingMethod(null)
@@ -165,6 +181,7 @@ export function OmniCalcPanel({
       data-omni-calc-panel="true"
       role="region"
       aria-labelledby={panelHeadingId}
+      aria-busy={isMethodPersisting}
       className={cn('space-y-2', compact ? 'px-3 py-2' : 'px-4 py-3')}
     >
       {/* Header */}
@@ -193,13 +210,14 @@ export function OmniCalcPanel({
       {/* AI vs Manual Toggle */}
       <SegmentedControl
         options={[
-          { value: 'ai' as const, label: t('modeAi'), icon: <Sparkles className="w-3 h-3" /> },
+          { value: 'ai' as const, label: t('modeAi') },
           { value: 'manual' as const, label: t('modeManual'), icon: <Pencil className="w-3 h-3" /> },
         ]}
         value={mode}
         onChange={handleModeChange}
         size="sm"
         fullWidth
+        disabled={methodSelectionLocked}
         aria-label={t('modeLabel')}
       />
       <p className="px-1 text-[10px] leading-snug text-foreground/45">
@@ -215,6 +233,17 @@ export function OmniCalcPanel({
       >
         {guidanceText}
       </div>
+
+      {isMethodPersisting && (
+        <p
+          className="text-[11px] text-foreground/50 flex items-center gap-2"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-primary/70" aria-hidden />
+          {tValuationModal('persistingMethod')}
+        </p>
+      )}
 
       {/* Comparison Card (visible when manual override active) */}
       {showComparisonCard && !pendingMethod && (
@@ -251,8 +280,6 @@ export function OmniCalcPanel({
 
       {/* Method List (expanded when manual mode) */}
       {showMethodList && (() => {
-        const primaryEntries = entries.filter(([key]) => PRIMARY_METHOD_KEYS.has(key))
-        const secondaryEntries = entries.filter(([key]) => !PRIMARY_METHOD_KEYS.has(key))
         const hasActiveSecondary = secondaryEntries.some(([key]) => key === selectedMethod || key === pendingMethod)
 
         const renderMethodButton = ([key, method]: [string, ValuationMethodResult]) => {
@@ -273,8 +300,8 @@ export function OmniCalcPanel({
             <button
               key={key}
               type="button"
-              disabled={!isAvailable}
-              onClick={() => isAvailable && handleMethodClick(key)}
+              disabled={!isAvailable || methodSelectionLocked}
+              onClick={() => isAvailable && !methodSelectionLocked && handleMethodClick(key)}
               className={cn(
                 'w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all',
                 'border',
@@ -307,6 +334,22 @@ export function OmniCalcPanel({
                     {method.unavailable_reason}
                   </p>
                 )}
+                {(() => {
+                  const msg = t(`methodDescriptions.${key}` as never)
+                  if (
+                    typeof msg !== 'string' ||
+                    msg.length === 0 ||
+                    msg === `methodDescriptions.${key}` ||
+                    msg.startsWith('methodDescriptions.')
+                  ) {
+                    return null
+                  }
+                  return (
+                    <p className="text-[10px] text-foreground/45 mt-1 leading-snug line-clamp-2">
+                      {msg}
+                    </p>
+                  )
+                })()}
               </div>
 
               <div className="text-right shrink-0">
@@ -359,8 +402,9 @@ export function OmniCalcPanel({
               <>
                 <button
                   type="button"
-                  onClick={() => setShowAllMethods((v) => !v)}
-                  className="w-full flex items-center gap-1.5 px-1 py-1 text-[10px] text-foreground/40 hover:text-foreground/60 transition-colors"
+                  disabled={methodSelectionLocked}
+                  onClick={() => !methodSelectionLocked && setShowAllMethods((v) => !v)}
+                  className="w-full flex items-center gap-1.5 px-1 py-1 text-[10px] text-foreground/40 hover:text-foreground/60 transition-colors disabled:opacity-40 disabled:pointer-events-none"
                 >
                   {showAllMethods || hasActiveSecondary ? (
                     <ChevronDown className="w-3 h-3" />
@@ -399,6 +443,7 @@ export function OmniCalcPanel({
             value={overrideReasonKey}
             onChange={(v) => setOverrideReasonKey(v)}
             placeholder={t('overrideReasonPlaceholder')}
+            disabled={methodSelectionLocked}
             options={METHOD_OVERRIDE_REASON_KEYS.map((k) => ({
               value: k,
               label: t(`overrideReasons.${k}`),
@@ -410,6 +455,7 @@ export function OmniCalcPanel({
             rows={2}
             maxLength={500}
             placeholder={t('overrideNotePlaceholder')}
+            disabled={methodSelectionLocked}
             className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs resize-none"
           />
           <div className="flex gap-2">
@@ -417,7 +463,7 @@ export function OmniCalcPanel({
               type="button"
               variant="primary"
               size="sm"
-              disabled={!overrideReasonKey}
+              disabled={!overrideReasonKey || methodSelectionLocked}
               className="flex-1 text-xs"
               onClick={handleConfirmOverride}
             >
@@ -427,6 +473,7 @@ export function OmniCalcPanel({
               type="button"
               variant="outline"
               size="sm"
+              disabled={methodSelectionLocked}
               className="text-xs"
               onClick={() => setPendingMethod(null)}
             >

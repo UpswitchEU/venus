@@ -7,7 +7,7 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { Loader2, Mic, Paperclip, Send, Sparkles, User } from 'lucide-react'
+import { Loader2, MessageSquare, Mic, Paperclip, Send, User } from 'lucide-react'
 import * as React from 'react'
 import { cn } from '../../lib/utils'
 import { fadeInUp, springDefault } from './motion'
@@ -103,7 +103,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           isUser ? 'bg-primary text-primary-foreground' : 'bg-foreground/[0.08] text-foreground/60'
         )}
       >
-        {isUser ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+        {isUser ? <User className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
       </div>
 
       {/* Bubble */}
@@ -170,7 +170,7 @@ const TypingIndicator: React.FC = () => (
     className="flex items-center gap-3 max-w-[85%]"
   >
     <div className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center bg-foreground/[0.08] text-foreground/60">
-      <Sparkles className="w-4 h-4" />
+      <MessageSquare className="w-4 h-4" />
     </div>
     <div className="flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-tl-md bg-foreground/[0.06] border border-foreground/[0.06]">
       {[0, 1, 2].map((i) => (

@@ -5,7 +5,7 @@
  * SOLID Principles: SRP, OCP, LSP, ISP, DIP
  */
 
-import { Sparkles } from 'lucide-react'
+import { ListChecks } from 'lucide-react'
 import React from 'react'
 import { FieldRendererProps, ParsedFieldValue } from '../../../types/data-collection'
 
@@ -44,7 +44,7 @@ export const SuggestionFieldRenderer: React.FC<FieldRendererProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex items-center space-x-2">
-        <Sparkles className="w-4 h-4 text-primary" />
+        <ListChecks className="w-4 h-4 text-primary" />
         <label className="text-sm font-medium text-foreground">
           {field.label}
           {field.required && <span className="text-destructive ml-1">*</span>}

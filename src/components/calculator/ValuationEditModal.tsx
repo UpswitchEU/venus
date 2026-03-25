@@ -11,7 +11,6 @@ import {
   Loader2,
   Pencil,
   Scale,
-  Sparkles,
   TrendingUp,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -38,15 +37,10 @@ import {
   clientShouldWarnExtremeMultiple,
   usePreparerMultipleStore,
 } from '../../store/manual/usePreparerMultipleStore'
-
-const PRIMARY_METHOD_KEYS = new Set([
-  'upswitch_adaptive',
-  'ebitda_multiple',
-  'omzet_multiple',
-  'revenue_multiple',
-  'adjusted_nav',
-  'fiscal_4x',
-])
+import {
+  compareOmniMethodKeys,
+  partitionOmniMethodEntries,
+} from '@/constants/omniCalcMethods'
 
 const METHOD_OVERRIDE_REASON_KEYS = [
   'fiscal_compliance',
@@ -111,6 +105,32 @@ const sumAdjustmentValues = (value: unknown): number | null => {
   }
 
   return null
+}
+
+/** API may send `moderate` or legacy spellings — map to i18n keys under comparablesQualityValues */
+function normalizeComparablesQualityKey(raw: string): string {
+  const k = raw.toLowerCase().trim()
+  if (k === 'moderate') return 'medium'
+  return k
+}
+
+function getComparablesQualityLabel(
+  tBreakdown: (key: string) => string,
+  raw: string,
+): string {
+  const nestedKey = `comparablesQualityValues.${normalizeComparablesQualityKey(raw)}`
+  const translated = tBreakdown(nestedKey as never)
+  if (
+    translated &&
+    translated !== nestedKey &&
+    !translated.startsWith('comparablesQualityValues.') &&
+    !translated.includes('methodBreakdown.')
+  ) {
+    return translated
+  }
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function BreakdownMetricCard({
@@ -440,10 +460,7 @@ function MethodBreakdownSection({
                   {comparablesQuality && (
                     <BreakdownMetricCard
                       label={tBreakdown('comparablesQuality')}
-                      value={tBreakdown(
-                        `comparablesQualityValues.${comparablesQuality.toLowerCase()}`,
-                        { defaultValue: comparablesQuality },
-                      )}
+                      value={getComparablesQualityLabel(tBreakdown, String(comparablesQuality))}
                     />
                   )}
                 </div>
@@ -599,6 +616,8 @@ export function ValuationEditModal({
   }, [result, syncFromValuationResult])
 
   const entries = Object.entries(valuationResults)
+  const { primary: primaryEntries, secondary: secondaryEntries } =
+    partitionOmniMethodEntries(entries)
   const activeMethodKey = pendingMethod ?? selectedMethod
   const activeMethod = valuationResults[activeMethodKey] ?? null
 
@@ -753,9 +772,9 @@ export function ValuationEditModal({
     !effectiveDisabled && sustainableEbitda != null && appliedNum != null
       ? Math.round(sustainableEbitda * appliedNum - previewNetDebt + previewBalanceSheetAdjustments)
       : null
-  const comparisonMethods = entries.filter(
-    ([, method]) => method.available && toNumberOrNull(method.value) != null,
-  )
+  const comparisonMethods = entries
+    .filter(([, method]) => method.available && toNumberOrNull(method.value) != null)
+    .sort(([ka], [kb]) => compareOmniMethodKeys(ka, kb))
   const maxComparisonValue = comparisonMethods.reduce((max, [, method]) => {
     const next = toNumberOrNull(method.value) ?? 0
     return Math.max(max, next)
@@ -767,8 +786,8 @@ export function ValuationEditModal({
     const blurb = isHydratingMethods ? tModal('loadingBlurb') : t('unavailableBlurb')
     return (
       <Modal open={open} onOpenChange={(v) => !v && onClose()}>
-        <ModalContent size="lg" description={tModal('description')}>
-          <ModalHeader>
+        <ModalContent size="2xl" description={tModal('description')} className="max-h-[92vh] flex flex-col overflow-hidden">
+          <ModalHeader className="shrink-0">
             <ModalTitle>{tModal('title')}</ModalTitle>
           </ModalHeader>
           <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-4 py-5 text-center space-y-1.5">
@@ -839,6 +858,22 @@ export function ValuationEditModal({
               {method.unavailable_reason}
             </p>
           )}
+          {(() => {
+            const msg = t(`methodDescriptions.${key}` as never)
+            if (
+              typeof msg !== 'string' ||
+              msg.length === 0 ||
+              msg === `methodDescriptions.${key}` ||
+              msg.startsWith('methodDescriptions.')
+            ) {
+              return null
+            }
+            return (
+              <p className="text-[10px] text-foreground/45 mt-1 leading-snug line-clamp-2">
+                {msg}
+              </p>
+            )
+          })()}
         </div>
         <div className="text-right shrink-0">
           {isAvailable && value != null ? (
@@ -880,8 +915,6 @@ export function ValuationEditModal({
     )
   }
 
-  const primaryEntries = entries.filter(([key]) => PRIMARY_METHOD_KEYS.has(key))
-  const secondaryEntries = entries.filter(([key]) => !PRIMARY_METHOD_KEYS.has(key))
   const hasActiveSecondary = secondaryEntries.some(
     ([key]) => key === selectedMethod || key === pendingMethod,
   )
@@ -896,17 +929,25 @@ export function ValuationEditModal({
       }}
     >
       <ModalContent
-        size="lg"
+        size="2xl"
         description={tModal('description')}
-        className="max-h-[85vh] overflow-y-auto"
+        className="max-h-[92vh] flex flex-col overflow-hidden"
         aria-busy={isMethodPersisting}
+        closeDisabled={isMethodPersisting}
+        onPointerDownOutside={(e) => {
+          if (isMethodPersisting) e.preventDefault()
+        }}
+        onEscapeKeyDown={(e) => {
+          if (isMethodPersisting) e.preventDefault()
+        }}
       >
-        <ModalHeader>
+        <ModalHeader className="shrink-0">
           <ModalTitle>{tModal('title')}</ModalTitle>
         </ModalHeader>
 
-        {/* ─── Section 1: Method Selection ─── */}
-        <div className="space-y-3">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch lg:gap-8">
+          {/* Left: headline method, comparison, override */}
+          <div className="space-y-3 min-h-0 min-w-0 flex-1 lg:max-h-[min(82vh,880px)] lg:overflow-y-auto lg:pr-2">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1 min-w-0">
               <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
@@ -931,7 +972,6 @@ export function ValuationEditModal({
               {
                 value: 'ai' as const,
                 label: t('modeAi'),
-                icon: <Sparkles className="w-3 h-3" />,
               },
               {
                 value: 'manual' as const,
@@ -1153,23 +1193,27 @@ export function ValuationEditModal({
               </p>
             </div>
           )}
+          </div>
 
-          <MethodBreakdownSection
-            methodKey={activeMethodKey}
-            method={activeMethod}
-            result={result}
-            fiscalAnchor={fiscalAnchor}
-            benchmarkMultiple={benchmarkNum}
-            appliedMultiple={appliedNum}
-            previewEquity={liveEquityPreview}
-          />
-        </div>
+          {/* Right: calculation transparency, EV/EBITDA preparer, Zero Draft */}
+          <div
+            role="region"
+            aria-label={t('detailsColumnTitle')}
+            className="space-y-4 min-h-0 min-w-0 flex-1 border-t lg:border-t-0 lg:border-l border-border/40 pt-4 lg:pt-0 lg:pl-6 lg:max-h-[min(82vh,880px)] lg:overflow-y-auto"
+          >
+            <MethodBreakdownSection
+              methodKey={activeMethodKey}
+              method={activeMethod}
+              result={result}
+              fiscalAnchor={fiscalAnchor}
+              benchmarkMultiple={benchmarkNum}
+              appliedMultiple={appliedNum}
+              previewEquity={liveEquityPreview}
+            />
 
-        {/* ─── Section 2: EV/EBITDA Multiple Override ─── */}
+        {/* ─── EV/EBITDA Multiple Override ─── */}
         {showPreparerMultiple && hasPrepData && (
-          <>
-            <div className="my-5 border-t border-border/40" />
-            <div className={cn('space-y-3', nonEbitdaMethodSelected && 'opacity-60')}>
+          <div className={cn('space-y-3', nonEbitdaMethodSelected && 'opacity-60')}>
               <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
                 {tModal('multipleSection')}
               </h4>
@@ -1402,13 +1446,10 @@ export function ValuationEditModal({
                 </AuroraButton>
               </div>
             </div>
-          </>
         )}
 
         {/* ─── Zero Draft Export ─── */}
         {showZeroDraftExport && zeroDraftReportId && entries.length > 0 && (
-          <>
-            <div className="my-5 border-t border-border/40" />
             <div className="space-y-1">
               <p className="text-[10px] text-foreground/45 leading-snug px-0.5">
                 {t('zeroDraftBlurb')}
@@ -1437,10 +1478,12 @@ export function ValuationEditModal({
               >
                 <Download className="w-3.5 h-3.5" />
                 {t('exportZeroDraft')}
-              </AuroraButton>
+                </AuroraButton>
             </div>
-          </>
         )}
+
+          </div>
+        </div>
       </ModalContent>
     </Modal>
   )

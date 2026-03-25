@@ -35,6 +35,9 @@ const modalVariants = cva(
         md: 'max-w-md p-6',
         lg: 'max-w-lg p-8',
         xl: 'max-w-xl p-8',
+        /** Wide dialogs: valuation editor, dense forms */
+        '2xl':
+          'max-w-5xl w-[calc(100vw-1.5rem)] sm:w-full p-6 sm:p-8',
         full: 'max-w-[90vw] max-h-[90vh] p-8',
       },
     },
@@ -59,6 +62,8 @@ export interface ModalContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
     VariantProps<typeof modalVariants> {
   showClose?: boolean
+  /** Disables the dismiss control (e.g. while a save is in flight). Outside-click / Escape still need handlers on Content. */
+  closeDisabled?: boolean
   children?: React.ReactNode
   className?: string
   /** Accessible description; when omitted, a generic sr-only description is used to satisfy aria-describedby */
@@ -105,7 +110,7 @@ ModalOverlay.displayName = 'ModalOverlay'
 const ModalContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   ModalContentProps
->(({ className, children, variant, size, showClose = true, description, 'aria-describedby': ariaDescById, ...props }, ref) => {
+>(({ className, children, variant, size, showClose = true, closeDisabled = false, description, 'aria-describedby': ariaDescById, ...props }, ref) => {
   const descId = React.useId()
   const hasValidExternalDesc = ariaDescById != null && ariaDescById !== ''
   return (
@@ -134,13 +139,14 @@ const ModalContent = React.forwardRef<
         {children}
         {showClose && (
           <DialogPrimitive.Close
+            disabled={closeDisabled}
             className={cn(
               'absolute right-4 top-4 rounded-full p-1.5',
               'text-foreground/50 hover:text-foreground',
               'bg-foreground/5 hover:bg-foreground/10',
               'transition-colors duration-200',
               'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background',
-              'disabled:pointer-events-none'
+              'disabled:pointer-events-none disabled:opacity-40'
             )}
           >
             <X className="h-4 w-4" />

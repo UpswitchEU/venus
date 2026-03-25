@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/design-system/utils'
-import { PanelRight, Sparkles, Wand2 } from 'lucide-react'
+import { Info, ListChecks, PanelRight } from 'lucide-react'
 import type { SpotlightResolutionContext } from './useSpotlightResolutionContext'
 
 interface SpotlightResolutionDetailsProps {
@@ -26,7 +26,7 @@ export function SpotlightResolutionDetails({
       </p>
       {aiNote && (
         <div className='flex gap-1.5 text-[10px] text-violet-700 dark:text-violet-300'>
-          <Sparkles className='w-3 h-3 shrink-0 mt-0.5' />
+          <Info className='w-3 h-3 shrink-0 mt-0.5' />
           <p className='leading-snug'>
             <span className='opacity-80'>AI ({aiNote.confidence}%) — </span>
             {aiNote.text}
@@ -36,7 +36,7 @@ export function SpotlightResolutionDetails({
       {normHints.length > 0 && (
         <div className='space-y-1.5 border-t border-foreground/[0.06] pt-1.5'>
           <p className='text-[10px] font-medium text-amber-700/90 dark:text-amber-400/90 flex items-center gap-1'>
-            <Wand2 className='w-3 h-3' />
+            <ListChecks className='w-3 h-3' />
             {locale === 'nl' ? 'Normalisatie-suggesties' : 'Normalization hints'}
           </p>
           {normHints.map((h, i) => (

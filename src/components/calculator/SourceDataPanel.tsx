@@ -20,7 +20,7 @@ import {
   ChevronDown,
   ChevronRight,
   Database,
-  Sparkles,
+  ScrollText,
   X,
 } from 'lucide-react'
 import { useLocale } from 'next-intl'
@@ -164,7 +164,7 @@ export function SourceDataPanel() {
         {Object.entries(importQuality).some(([, q]) => q.ai_enrichment) && (
           <div className='px-4 py-3 border-b border-border bg-violet-500/[0.06]'>
             <div className='flex items-center gap-2 text-xs font-semibold text-foreground mb-1'>
-              <Sparkles className='w-3.5 h-3.5 text-violet-600' />
+              <ScrollText className='w-3.5 h-3.5 text-violet-600' />
               {locale === 'nl' ? 'Titan AI — uitleg' : 'Titan AI — rationale'}
             </div>
             <p className='text-[10px] text-muted-foreground mb-2 leading-snug'>

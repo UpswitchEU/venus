@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, CheckCircle, Sparkles, XCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle, ListChecks, XCircle } from 'lucide-react'
 import React from 'react'
 import { springSnappy } from '@/design-system/components/motion'
 
@@ -30,7 +30,7 @@ export const SuggestionChips: React.FC<SuggestionChipsProps> = ({
         className="flex items-center gap-2.5 mb-3"
       >
         <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shadow-[0_0_10px_hsl(var(--primary)/0.1)]">
-          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <ListChecks className="w-3.5 h-3.5 text-primary" />
         </div>
         <p className="text-[13px] font-medium text-muted-foreground tracking-wide">
           Did you mean one of these?

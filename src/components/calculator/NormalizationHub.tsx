@@ -24,7 +24,7 @@ import {
   Clock,
   FileSpreadsheet,
   Settings2,
-  Sparkles,
+  LayoutGrid,
   Upload,
   X,
 } from 'lucide-react'
@@ -274,7 +274,7 @@ export function NormalizationHub({
               onClick={() => setIsModalOpen(true)}
               className="w-full max-w-xs gap-2 h-12 text-sm font-medium shadow-lg shadow-primary/20"
             >
-              <Sparkles className="w-4 h-4" />
+              <LayoutGrid className="w-4 h-4" />
               {nh('openHub')}
               <ArrowRight className="w-4 h-4 ml-auto" />
             </Button>

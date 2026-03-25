@@ -2133,7 +2133,18 @@
     "showAllMethods": "Show all methods ({count})",
     "zeroDraftBlurb": "Technical package — every method’s midpoint and range for your files. The client-facing report stays one clear headline.",
     "exportZeroDraft": "Download Zero Draft (CSV)",
-    "zeroDraftFilename": "upswitch-zero-draft-{reportId}.csv"
+    "zeroDraftFilename": "upswitch-zero-draft-{reportId}.csv",
+    "detailsColumnTitle": "Transparency & benchmark",
+    "methodDescriptions": {
+      "upswitch_adaptive": "Blends the strongest signals from your dossier into one defensible headline equity value.",
+      "ebitda_multiple": "Normalized EBITDA × a market multiple — standard for trading companies with reliable earnings.",
+      "omzet_multiple": "Revenue × a multiple — useful when margins swing or peers are quoted on sales.",
+      "revenue_multiple": "Revenue × a multiple (same idea as turnover / omzet multiple).",
+      "sde_multiple": "Seller discretionary earnings × a multiple — common for owner-operated SMEs.",
+      "adjusted_nav": "Adjusted net asset value from the balance sheet — anchor for asset-heavy or holding structures.",
+      "fiscal_4x": "Belgian fiscal reference (notional): book equity + 4× normalized EBITDA.",
+      "dcf": "Discounted cash flow (DCF): projects future cash flows and discounts them to today — intrinsic value."
+    }
   },
   "preparerMultiple": {
     "title": "EV/EBITDA multiple (advanced)",
@@ -2222,6 +2233,7 @@
     "comparablesQuality": "Comparable quality",
     "comparablesQualityValues": {
       "high": "High",
+      "medium": "Moderate",
       "moderate": "Moderate",
       "low": "Low",
       "very_high": "Very high",

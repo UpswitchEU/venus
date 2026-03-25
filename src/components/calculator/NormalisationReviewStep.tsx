@@ -29,7 +29,6 @@ import {
   Percent,
   Plus,
   Search,
-  Sparkles,
   Trash2,
   Undo2,
   X,
