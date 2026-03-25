@@ -3019,58 +3019,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setShowUnifiedNormalizationModal(true)
   }, [])
 
-  const handleNormalizationsChange = useCallback(
-    async (norms: NormalizationItem[]) => {
-      const previousItems = useNormalizationStore.getState().items
-      useNormalizationStore.getState().setItems(norms)
-
-      const acceptedSignature = (items: NormalizationItem[]) =>
-        JSON.stringify(
-          items
-            .filter((item) => item.status === 'accepted')
-            .map((item) => ({
-              id: item.id,
-              type: item.type,
-              value: item.value,
-              adjustment: item.adjustment,
-              year: item.year,
-              applyAllYears: item.applyAllYears,
-              applyYears: item.applyYears ?? [],
-            }))
-            .sort((a, b) => a.id.localeCompare(b.id))
-        )
-
-      if (acceptedSignature(previousItems) === acceptedSignature(norms)) return
-
-      const idForApi = resolvedReportId || reportId
-      if (!idForApi) return
-
-      const allYears = Array.from(
-        new Set([
-          ...financialYears,
-          ...previousItems.flatMap((item) => getYearsToPersist(item)),
-          ...norms.flatMap((item) => getYearsToPersist(item)),
-        ])
-      ).filter((year) => Number.isFinite(year))
-
-      try {
-        await persistOrDeleteNormalizationsForYears(
-          idForApi,
-          allYears,
-          originalEBITDAByYear,
-          norms
-        )
-      } catch (error) {
-        generalLogger.warn('[ManualLayout] Sync after normalization edit failed', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-
-      await recalculateWithNormalizations(norms)
-    },
-    [financialYears, normalizationActions, originalEBITDAByYear, reportId, resolvedReportId, recalculateWithNormalizations, getYearsToPersist]
-  )
-
   const getYearsToPersist = useCallback(
     (item: NormalizationItem): number[] => {
       const allDataYears = financialYears
@@ -3081,82 +3029,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           : [item.year]
     },
     [financialYears]
-  )
-
-  const handleAcceptNormalisation = useCallback(
-    async (id: string) => {
-      trackAINormalizationAccept()
-      normalizationActions.acceptItem(id)
-      setSuggestedNormalisations((prev: any[]) =>
-        prev.map((n: any) => (n.id === id ? { ...n, status: 'accepted' } : n))
-      )
-      const idForApi = resolvedReportId || reportId
-      if (idForApi) {
-        const item = useNormalizationStore.getState().items.find((n) => n.id === id)
-        if (item) {
-          const years = getYearsToPersist(item)
-          try {
-            await persistOrDeleteNormalizationsForYears(
-              idForApi,
-              years,
-              originalEBITDAByYear,
-              useNormalizationStore.getState().items
-            )
-          } catch (error) {
-            generalLogger.warn('[ManualLayout] Titan persist failed after accept — rolling back', {
-              id,
-              error: error instanceof Error ? error.message : String(error),
-            })
-            normalizationActions.updateItem(id, { status: 'pending' })
-            setSuggestedNormalisations((prev: any[]) =>
-              prev.map((n: any) => (n.id === id ? { ...n, status: 'pending' } : n))
-            )
-            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
-            return
-          }
-        }
-      }
-      await recalculateWithNormalizations(useNormalizationStore.getState().items)
-    },
-    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t, recalculateWithNormalizations]
-  )
-
-  const handleRejectNormalisation = useCallback(
-    async (id: string) => {
-      normalizationActions.rejectItem(id)
-      setSuggestedNormalisations((prev: any[]) =>
-        prev.map((n: any) => (n.id === id ? { ...n, status: 'rejected' } : n))
-      )
-      const idForApi = resolvedReportId || reportId
-      if (idForApi) {
-        const item = useNormalizationStore.getState().items.find((n) => n.id === id)
-        if (item) {
-          const years = getYearsToPersist(item)
-          const norms = useNormalizationStore.getState().items
-          try {
-            await persistOrDeleteNormalizationsForYears(
-              idForApi,
-              years,
-              originalEBITDAByYear,
-              norms
-            )
-          } catch (error) {
-            generalLogger.warn('[ManualLayout] Titan persist failed after reject — rolling back', {
-              id,
-              error: error instanceof Error ? error.message : String(error),
-            })
-            normalizationActions.updateItem(id, { status: 'pending' })
-            setSuggestedNormalisations((prev: any[]) =>
-              prev.map((n: any) => (n.id === id ? { ...n, status: 'pending' } : n))
-            )
-            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
-            return
-          }
-        }
-      }
-      await recalculateWithNormalizations(useNormalizationStore.getState().items)
-    },
-    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t, recalculateWithNormalizations]
   )
 
   // ─── Auto-recalculate valuation with normalized EBITDA ───
@@ -3271,6 +3143,134 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       currentLocale,
       t,
     ]
+  )
+
+  const handleNormalizationsChange = useCallback(
+    async (norms: NormalizationItem[]) => {
+      const previousItems = useNormalizationStore.getState().items
+      useNormalizationStore.getState().setItems(norms)
+
+      const acceptedSignature = (items: NormalizationItem[]) =>
+        JSON.stringify(
+          items
+            .filter((item) => item.status === 'accepted')
+            .map((item) => ({
+              id: item.id,
+              type: item.type,
+              value: item.value,
+              adjustment: item.adjustment,
+              year: item.year,
+              applyAllYears: item.applyAllYears,
+              applyYears: item.applyYears ?? [],
+            }))
+            .sort((a, b) => a.id.localeCompare(b.id))
+        )
+
+      if (acceptedSignature(previousItems) === acceptedSignature(norms)) return
+
+      const idForApi = resolvedReportId || reportId
+      if (!idForApi) return
+
+      const allYears = Array.from(
+        new Set([
+          ...financialYears,
+          ...previousItems.flatMap((item) => getYearsToPersist(item)),
+          ...norms.flatMap((item) => getYearsToPersist(item)),
+        ])
+      ).filter((year) => Number.isFinite(year))
+
+      try {
+        await persistOrDeleteNormalizationsForYears(
+          idForApi,
+          allYears,
+          originalEBITDAByYear,
+          norms
+        )
+      } catch (error) {
+        generalLogger.warn('[ManualLayout] Sync after normalization edit failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+
+      await recalculateWithNormalizations(norms)
+    },
+    [financialYears, normalizationActions, originalEBITDAByYear, reportId, resolvedReportId, recalculateWithNormalizations, getYearsToPersist]
+  )
+
+  const handleAcceptNormalisation = useCallback(
+    async (id: string) => {
+      trackAINormalizationAccept()
+      normalizationActions.acceptItem(id)
+      setSuggestedNormalisations((prev: any[]) =>
+        prev.map((n: any) => (n.id === id ? { ...n, status: 'accepted' } : n))
+      )
+      const idForApi = resolvedReportId || reportId
+      if (idForApi) {
+        const item = useNormalizationStore.getState().items.find((n) => n.id === id)
+        if (item) {
+          const years = getYearsToPersist(item)
+          try {
+            await persistOrDeleteNormalizationsForYears(
+              idForApi,
+              years,
+              originalEBITDAByYear,
+              useNormalizationStore.getState().items
+            )
+          } catch (error) {
+            generalLogger.warn('[ManualLayout] Titan persist failed after accept — rolling back', {
+              id,
+              error: error instanceof Error ? error.message : String(error),
+            })
+            normalizationActions.updateItem(id, { status: 'pending' })
+            setSuggestedNormalisations((prev: any[]) =>
+              prev.map((n: any) => (n.id === id ? { ...n, status: 'pending' } : n))
+            )
+            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+            return
+          }
+        }
+      }
+      await recalculateWithNormalizations(useNormalizationStore.getState().items)
+    },
+    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t, recalculateWithNormalizations]
+  )
+
+  const handleRejectNormalisation = useCallback(
+    async (id: string) => {
+      normalizationActions.rejectItem(id)
+      setSuggestedNormalisations((prev: any[]) =>
+        prev.map((n: any) => (n.id === id ? { ...n, status: 'rejected' } : n))
+      )
+      const idForApi = resolvedReportId || reportId
+      if (idForApi) {
+        const item = useNormalizationStore.getState().items.find((n) => n.id === id)
+        if (item) {
+          const years = getYearsToPersist(item)
+          const norms = useNormalizationStore.getState().items
+          try {
+            await persistOrDeleteNormalizationsForYears(
+              idForApi,
+              years,
+              originalEBITDAByYear,
+              norms
+            )
+          } catch (error) {
+            generalLogger.warn('[ManualLayout] Titan persist failed after reject — rolling back', {
+              id,
+              error: error instanceof Error ? error.message : String(error),
+            })
+            normalizationActions.updateItem(id, { status: 'pending' })
+            setSuggestedNormalisations((prev: any[]) =>
+              prev.map((n: any) => (n.id === id ? { ...n, status: 'pending' } : n))
+            )
+            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+            return
+          }
+        }
+      }
+      await recalculateWithNormalizations(useNormalizationStore.getState().items)
+    },
+    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t, recalculateWithNormalizations]
   )
 
   // ─── Version Restore ───
