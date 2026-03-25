@@ -32,4 +32,8 @@ export interface ValuationReportData {
   htmlReport?: string
   /** Recommended asking price */
   recommendedAskingPrice?: number
+  /** Titan `updated_at` on the report row — compared to PDF generation time */
+  reportUpdatedAt?: Date
+  pdfGeneratedAt?: Date | null
+  pdfUrl?: string | null
 }

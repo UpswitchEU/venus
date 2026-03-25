@@ -23,6 +23,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
+import { Loader2 } from 'lucide-react'
 import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -197,6 +198,40 @@ function serializePreparerPayload(
     | null
 ) {
   return payload ? JSON.stringify(payload) : 'none'
+}
+
+/** True when the stored PDF is older than the last report update (async PDF queue may still be running). */
+function isPdfLikelyStaleVenus(r: ValuationReportData | null | undefined): boolean {
+  if (!r?.reportUpdatedAt) return false
+  const updated = r.reportUpdatedAt.getTime()
+  if (!Number.isFinite(updated)) return false
+  if (r.pdfGeneratedAt == null) return true
+  const pdfAt = r.pdfGeneratedAt.getTime()
+  if (!Number.isFinite(pdfAt)) return true
+  return pdfAt < updated
+}
+
+function axiosLikeErrorMessage(err: unknown): string {
+  const e = err as { response?: { data?: { message?: unknown } }; message?: string }
+  const raw = e?.response?.data?.message
+  if (typeof raw === 'string') return raw
+  if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === 'string').join(' ')
+  if (typeof e?.message === 'string') return e.message
+  return ''
+}
+
+/** Titan modal-edit failures — same messages as Mercury OmniCalcSummary mapping */
+function toastModalEditPersistError(err: unknown, tToast: (key: string) => string) {
+  const msg = axiosLikeErrorMessage(err)
+  if (msg.includes('Stored valuation inputs not found')) {
+    toast.error(tToast('modalEditInputsMissing'))
+    return
+  }
+  if (msg.includes('Stored valuation inputs are incomplete')) {
+    toast.error(tToast('modalEditInputsIncomplete'))
+    return
+  }
+  toast.error(tToast('persistFailed'), { description: tToast('persistFailedDesc') })
 }
 
 // ─────────────────────────────────────────
@@ -679,6 +714,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     result,
     selectedMethod,
   ])
+  const pdfStale = useMemo(() => (report ? isPdfLikelyStaleVenus(report) : false), [report])
   // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
   const isRestoringExistingReport =
     !report &&
@@ -707,6 +743,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const effectiveIsRestoringExistingReport =
     isRestoringExistingReport && !restorationComplete && !restoreTimeoutFired
   const [reportStatus, setReportStatus] = useState<'draft' | 'final'>('draft')
+  const [pdfWaitTimedOut, setPdfWaitTimedOut] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [downloadHistory, setDownloadHistory] = useState<
     { id: string; fileName: string; timestamp: Date; size: string }[]
@@ -1417,6 +1454,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             value: r.business_type ?? r.details?.business_type ?? tReport('defaultSector'),
           },
         ],
+        reportUpdatedAt: r.updated_at ? new Date(String(r.updated_at)) : undefined,
+        pdfGeneratedAt:
+          r.pdf_generated_at != null && String(r.pdf_generated_at) !== ''
+            ? new Date(String(r.pdf_generated_at))
+            : null,
+        pdfUrl: typeof r.pdf_url === 'string' ? r.pdf_url : undefined,
       })
       setDraftStatus('saved')
       setLastSaved(new Date())
@@ -1473,6 +1516,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const lastPersistedPreparerRef = useRef('none')
   const refreshReportAfterEdit = useCallback(
     async (htmlFromPatch?: string) => {
+      if (!persistedReportLookupId) return false
       try {
         const fresh = await backendAPI.getReport(persistedReportLookupId)
         const latestExistingResult = useManualResultsStore.getState().result
@@ -1489,8 +1533,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
         setResult(mergedResult)
         const htmlForPreview = htmlFromPatch || fresh.html_report
+        setReport((prev) => {
+          if (!prev) return prev
+          const pdfMeta: Pick<ValuationReportData, 'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'> = {
+            reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : prev.reportUpdatedAt,
+            pdfGeneratedAt:
+              fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
+                ? new Date(String(fresh.pdf_generated_at))
+                : null,
+            pdfUrl: typeof fresh.pdf_url === 'string' ? fresh.pdf_url : prev.pdfUrl,
+          }
+          return htmlForPreview
+            ? { ...prev, htmlReport: htmlForPreview, ...pdfMeta }
+            : { ...prev, ...pdfMeta }
+        })
         if (htmlForPreview) {
-          setReport((prev) => (prev ? { ...prev, htmlReport: htmlForPreview } : prev))
           generatePdf?.().catch((err) => {
             generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
               error: err instanceof Error ? err.message : String(err),
@@ -1518,6 +1575,57 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     [generatePdf, persistedReportLookupId, setResult],
   )
 
+  useEffect(() => {
+    if (!pdfStale) {
+      setPdfWaitTimedOut(false)
+      return
+    }
+    setPdfWaitTimedOut(false)
+    const tid = setTimeout(() => setPdfWaitTimedOut(true), 60_000)
+    return () => clearTimeout(tid)
+  }, [pdfStale, report?.reportUpdatedAt, report?.pdfGeneratedAt])
+
+  useEffect(() => {
+    if (!pdfStale || !persistedReportLookupId) return
+    const id = setInterval(async () => {
+      try {
+        const fresh = await backendAPI.getReport(persistedReportLookupId)
+        const latestExistingResult = useManualResultsStore.getState().result
+        const nextValuationResults =
+          getHydratedValuationResults(fresh) ?? getHydratedValuationResults(latestExistingResult)
+        const mergedResult: ValuationResponse = {
+          ...(latestExistingResult || {}),
+          ...fresh,
+          html_report: fresh.html_report || latestExistingResult?.html_report,
+          valuation_results: nextValuationResults ?? undefined,
+          fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
+          multiple_adjustment_summary:
+            fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
+        }
+        setResult(mergedResult)
+        setReport((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : prev.reportUpdatedAt,
+            pdfGeneratedAt:
+              fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
+                ? new Date(String(fresh.pdf_generated_at))
+                : null,
+            pdfUrl: typeof fresh.pdf_url === 'string' ? fresh.pdf_url : prev.pdfUrl,
+          }
+        })
+      } catch {
+        /* ignore */
+      }
+    }, 2500)
+    const max = setTimeout(() => clearInterval(id), 60_000)
+    return () => {
+      clearInterval(id)
+      clearTimeout(max)
+    }
+  }, [pdfStale, persistedReportLookupId, setResult])
+
   const persistModalEdit = useCallback(
     async ({
       method,
@@ -1532,6 +1640,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       preparerPayload?: ReturnType<typeof buildPreparerMultiplePayload> | null
       clearPreparerOverride?: boolean
     }) => {
+      if (!persistedReportLookupId) return
       const res = await backendAPI.updateSelectedMethod(
         persistedReportLookupId,
         method,
@@ -1642,7 +1751,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           selectedMethod,
         })
         if (!cancelled) {
-          toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+          toastModalEditPersistError(error, t)
         }
       } finally {
         setIsMethodSwitchRendering(false)
@@ -2609,6 +2718,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Export Handler (server-side only — no client-side fallbacks) ───
   const handleExport = useCallback(async () => {
     if (!report) return
+    if (pdfStale) {
+      toast.warning(t('downloadPdfStaleHint'))
+      return
+    }
     setIsExporting(true)
 
     const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-${tReport('pdfSuffix')}.pdf`
@@ -2676,7 +2789,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsExporting(false)
     }
-  }, [report, reportId, resolvedReportId, isPdfReady, downloadPdf, generatePdf, tReport, t])
+  }, [
+    report,
+    reportId,
+    resolvedReportId,
+    isPdfReady,
+    downloadPdf,
+    generatePdf,
+    tReport,
+    t,
+    pdfStale,
+  ])
 
   // ─── Navigation Handlers ───
   const handleBack = useCallback(() => {
@@ -3848,6 +3971,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenValuationEdit={() => setShowValuationEditModal(true)}
         />
 
+        {report && pdfStale && (
+          <div
+            role="status"
+            className="shrink-0 border-b border-primary/20 bg-primary/[0.06] px-4 py-3 flex items-start gap-3"
+          >
+            <Loader2 className="w-4 h-4 shrink-0 mt-0.5 text-primary animate-spin" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">{t('pdfUpdating')}</p>
+              <p className="text-[11px] text-foreground/55 mt-1 leading-snug">
+                {pdfWaitTimedOut ? t('pdfStillGenerating') : t('pdfUpdatingBlurb')}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Context Bar - Accountant Mode (mobile, Clarity parity) */}
         {isAccountantMode && (clientContextName || collectedData.companyName) && (
           <ContextBar
@@ -4046,6 +4184,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onToggleSourceData={toggleSourceDataPanel}
         onOpenValuationEdit={() => setShowValuationEditModal(true)}
       />
+
+      {report && pdfStale && (
+        <div
+          role="status"
+          className="shrink-0 border-b border-primary/20 bg-primary/[0.06] px-4 py-3 flex items-start gap-3"
+        >
+          <Loader2 className="w-4 h-4 shrink-0 mt-0.5 text-primary animate-spin" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{t('pdfUpdating')}</p>
+            <p className="text-[11px] text-foreground/55 mt-1 leading-snug">
+              {pdfWaitTimedOut ? t('pdfStillGenerating') : t('pdfUpdatingBlurb')}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Context Bar - Accountant Mode (Clarity parity) */}
       {isAccountantMode && (clientContextName || collectedData.companyName) && (

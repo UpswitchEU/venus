@@ -1017,6 +1017,11 @@ export interface ValuationResponse {
   show_fiscal_reference?: boolean
   fiscal_reference_pdf_mode?: 'inherit' | 'include' | 'exclude'
 
+  /** Report row timestamps (Titan spreads `...report` on GET report) — PDF staleness UX */
+  updated_at?: string | null
+  pdf_generated_at?: string | null
+  pdf_url?: string | null
+
   // HTML Reports (REQUIRED for display)
   /** Complete Accountant View HTML report (20-30 pages) */
   html_report?: string
