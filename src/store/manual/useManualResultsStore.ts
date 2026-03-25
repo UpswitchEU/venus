@@ -66,7 +66,11 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
 
   getActiveValuation: () => {
     const { result, selectedMethod } = get()
-    const valuationResults = result ? extractValuationResultsMap(result as Record<string, any>) : null
+    const valuationResults = result
+      ? extractValuationResultsMap(result as Record<string, any>, {
+          selectedValuationMethod: result.selected_valuation_method,
+        })
+      : null
     if (!valuationResults) return null
     return valuationResults[selectedMethod] ?? null
   },
@@ -82,7 +86,9 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   setResult: (result: ValuationResponse | null) => {
     set((state) => {
       if (result) {
-        const hydratedValuationResults = extractValuationResultsMap(result as Record<string, any>)
+        const hydratedValuationResults = extractValuationResultsMap(result as Record<string, any>, {
+          selectedValuationMethod: result.selected_valuation_method,
+        })
         const hydratedMethodFromPayload =
           typeof result.selected_valuation_method === 'string' && result.selected_valuation_method.trim()
             ? result.selected_valuation_method

@@ -3,9 +3,16 @@
  * Legacy payloads may store `{}` at `valuation_results` while real methods live under
  * `details`, `report_context`, or nested `valuation_result`.
  *
+ * When no path has a non-empty map but `report_context` still holds headline numbers, we synthesize
+ * a minimal single-method map (same rules as Titan).
+ *
  * Adaptive: `report_context.applied_multiple` is canonical; `normalizeAdaptiveMethod` fixes stale
  * persisted `upswitch_adaptive.multiple_used` on legacy saves.
  */
+export type ExtractValuationResultsContext = {
+  selectedValuationMethod?: string | null
+}
+
 function toFiniteNumber(value: unknown): number | null {
   if (value == null || value === '') return null
   const n = Number(value)
@@ -69,8 +76,105 @@ function normalizeAdaptiveMethod(
   }
 }
 
+function resolveSelectedMethodForSynthesis(
+  valuationResult: Record<string, any>,
+  context?: ExtractValuationResultsContext | null
+): string {
+  const fromContext = context?.selectedValuationMethod?.trim()
+  if (fromContext) return fromContext
+
+  const rc = getCanonicalReportContext(valuationResult)
+  const candidates = [
+    rc?.selected_valuation_method,
+    valuationResult?.selected_valuation_method,
+    valuationResult?.details?.selected_valuation_method,
+    valuationResult?.valuation_result?.selected_valuation_method,
+  ]
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) return c.trim()
+  }
+  return 'upswitch_adaptive'
+}
+
+function synthesizeMinimalValuationResultsMap(
+  valuationResult: Record<string, any>,
+  context?: ExtractValuationResultsContext | null
+): Record<string, any> | null {
+  const rc = getCanonicalReportContext(valuationResult)
+  const reportContext = rc && typeof rc === 'object' ? (rc as Record<string, any>) : {}
+  const vr = valuationResult.valuation_result
+  const nested = vr && typeof vr === 'object' ? (vr as Record<string, any>) : null
+
+  const equityMid =
+    toFiniteNumber(reportContext.equity_value) ??
+    toFiniteNumber(reportContext.equity_value_mid) ??
+    toFiniteNumber((valuationResult as any).equity_value_mid) ??
+    toFiniteNumber((valuationResult as any).valuation_midpoint) ??
+    toFiniteNumber(nested?.equity_value_mid) ??
+    null
+
+  const enterpriseMid =
+    toFiniteNumber(reportContext.valuation) ??
+    toFiniteNumber(reportContext.enterprise_value_mid) ??
+    toFiniteNumber((valuationResult as any).enterprise_value_mid) ??
+    toFiniteNumber(nested?.enterprise_value_mid) ??
+    null
+
+  const multiple =
+    toFiniteNumber(reportContext.applied_multiple) ??
+    toFiniteNumber((valuationResult as any).multiple) ??
+    toFiniteNumber(valuationResult?.ebitda_multiple) ??
+    toFiniteNumber(nested?.multiple) ??
+    null
+
+  if (equityMid == null && enterpriseMid == null) {
+    return null
+  }
+
+  const methodKey = resolveSelectedMethodForSynthesis(valuationResult, context)
+
+  const equityLow =
+    toFiniteNumber(reportContext.equity_value_low) ??
+    toFiniteNumber((valuationResult as any).equity_value_low) ??
+    null
+  const equityHigh =
+    toFiniteNumber(reportContext.equity_value_high) ??
+    toFiniteNumber((valuationResult as any).equity_value_high) ??
+    null
+  const multipleLow = toFiniteNumber(reportContext.multiple_low)
+  const multipleHigh = toFiniteNumber(reportContext.multiple_high)
+
+  const details: Record<string, unknown> = {}
+  if (equityLow != null) details.equity_range_low = equityLow
+  if (equityHigh != null) details.equity_range_high = equityHigh
+  if (enterpriseMid != null) details.enterprise_value = enterpriseMid
+  if (multipleLow != null) details.p25_multiple = multipleLow
+  if (multipleHigh != null) details.p75_multiple = multipleHigh
+
+  const value = equityMid ?? enterpriseMid ?? 0
+
+  const methodEntry = {
+    available: true,
+    value,
+    multiple_used: multiple,
+    label: methodKey,
+    details,
+  }
+
+  if (methodKey === 'upswitch_adaptive') {
+    return normalizeAdaptiveMethod({ upswitch_adaptive: methodEntry }, valuationResult)
+  }
+
+  return { [methodKey]: methodEntry }
+}
+
+/**
+ * @param context When the API/report row has `selected_valuation_method` but nested JSON does not,
+ * pass it so legacy synthesis picks the correct method key (parity with Titan).
+ */
 export function extractValuationResultsMap(
-  valuationResult: Record<string, any> | null | undefined
+  valuationResult: Record<string, any> | null | undefined,
+  context?: ExtractValuationResultsContext | null
 ): Record<string, any> | null {
   if (!valuationResult || typeof valuationResult !== 'object') return null
 
@@ -99,5 +203,5 @@ export function extractValuationResultsMap(
     }
   }
 
-  return null
+  return synthesizeMinimalValuationResultsMap(valuationResult, context)
 }

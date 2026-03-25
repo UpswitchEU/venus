@@ -232,7 +232,9 @@ function extractValuationResult(sessionData: any, topLevelSession: any): Valuati
 
   const scoreCandidate = (candidate: Record<string, any>) => {
     let score = 0
-    const valuationResultsCandidate = extractValuationResultsMap(candidate)
+    const valuationResultsCandidate = extractValuationResultsMap(candidate, {
+      selectedValuationMethod: candidate.selected_valuation_method,
+    })
     if (valuationResultsCandidate) {
       score += 8
     }

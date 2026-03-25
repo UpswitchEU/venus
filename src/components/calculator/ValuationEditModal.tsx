@@ -518,7 +518,7 @@ export interface ValuationEditModalProps {
   valuationResults: Record<string, ValuationMethodResult>
   isHydratingMethods?: boolean
   /** Set when report hydration failed after retries (e.g. 429) — distinct from missing payloads */
-  methodDataLoadError?: 'transient' | null
+  methodDataLoadError?: 'transient' | 'report_pending' | null
   /** Re-fetch report method data (parent bumps hydration nonce); shown for transient errors */
   onRetryMethodDataLoad?: () => void
   selectedMethod: string
@@ -771,12 +771,16 @@ export function ValuationEditModal({
       ? tModal('loadingTitle')
       : methodDataLoadError === 'transient'
         ? t('transientLoadTitle')
-        : t('unavailableTitle')
+        : methodDataLoadError === 'report_pending'
+          ? t('unavailableTitleReportPending')
+          : t('unavailableTitleLegacy')
     const blurb = isHydratingMethods
       ? tModal('loadingBlurb')
       : methodDataLoadError === 'transient'
         ? t('transientLoadBlurb')
-        : t('unavailableBlurb')
+        : methodDataLoadError === 'report_pending'
+          ? t('unavailableBlurbReportPending')
+          : t('unavailableBlurbLegacy')
     return (
       <Modal open={open} onOpenChange={(v) => !v && onClose()}>
         <ModalContent size="2xl" description={tModal('description')} className="max-h-[92vh] flex flex-col overflow-hidden">
@@ -790,7 +794,8 @@ export function ValuationEditModal({
             <p className="text-[11px] leading-snug text-foreground/50">
               {blurb}
             </p>
-            {methodDataLoadError === 'transient' && onRetryMethodDataLoad ? (
+            {(methodDataLoadError === 'transient' || methodDataLoadError === 'report_pending') &&
+            onRetryMethodDataLoad ? (
               <AuroraButton
                 type="button"
                 variant="primary"

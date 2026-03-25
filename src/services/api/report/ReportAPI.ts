@@ -10,6 +10,7 @@
 import { APIError, AuthenticationError, NetworkError } from '../../../types/errors'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { isSessionKey } from '../../../utils/identifiers'
+import { BY_SESSION_404_BACKOFF_MS } from '../../../constants/reportBySessionRetry'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
@@ -18,22 +19,40 @@ export class ReportAPI extends HttpClient {
    * Get valuation report by ID
    */
   async getReport(reportId: string, options?: APIRequestConfig): Promise<ValuationResponse> {
-    try {
-      const url = isSessionKey(reportId)
-        ? `/api/v2/valuations/reports/by-session/${reportId}`
-        : `/api/v2/valuations/reports/${reportId}`
+    const isBySession = isSessionKey(reportId)
+    const url = isBySession
+      ? `/api/v2/valuations/reports/by-session/${reportId}`
+      : `/api/v2/valuations/reports/${reportId}`
 
-      return await this.executeRequest<ValuationResponse>(
-        {
-          method: 'GET',
-          url,
-          headers: {},
-        } as any,
-        options
-      )
-    } catch (error) {
-      this.handleReportError(error, 'get report')
+    const requestOptions: APIRequestConfig = {
+      ...options,
+      retry: { ...options?.retry, maxRetries: 0 },
     }
+
+    const maxAttempts = isBySession ? BY_SESSION_404_BACKOFF_MS.length : 1
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, BY_SESSION_404_BACKOFF_MS[attempt]))
+      }
+      try {
+        return await this.executeRequest<ValuationResponse>(
+          {
+            method: 'GET',
+            url,
+            headers: {},
+          } as any,
+          requestOptions
+        )
+      } catch (error) {
+        const status = (error as { response?: { status?: number } })?.response?.status
+        if (isBySession && status === 404 && attempt < maxAttempts - 1) {
+          apiLogger.info('Report by-session not ready yet, retrying', { reportId, attempt })
+          continue
+        }
+        this.handleReportError(error, 'get report')
+      }
+    }
+    throw new Error('Unreachable: getReport exhausted retries without response')
   }
 
   /**

@@ -467,9 +467,13 @@ class SessionRestorationServiceImpl {
     if (hasResult || hasOutputAssets) {
       try {
         const existingResult = useManualResultsStore.getState().result as Record<string, any> | null
+        const vr = data.valuationResult as Record<string, any> | null | undefined
+        const valuationExtractCtx = {
+          selectedValuationMethod: vr?.selected_valuation_method ?? existingResult?.selected_valuation_method,
+        }
         const normalizedValuationResults =
-          extractValuationResultsMap(data.valuationResult as Record<string, any> | null | undefined) ??
-          extractValuationResultsMap(existingResult)
+          extractValuationResultsMap(vr, valuationExtractCtx) ??
+          extractValuationResultsMap(existingResult, valuationExtractCtx)
         // Build complete result with HTML reports merged in
         const fullResult = {
           ...(data.valuationResult || {}),
@@ -880,7 +884,9 @@ class SessionRestorationServiceImpl {
           ...pricingResult,
           html_report: pkg.htmlReport || undefined,
           valuation_results:
-            extractValuationResultsMap(existingResult as Record<string, any> | null) ?? undefined,
+            extractValuationResultsMap(existingResult as Record<string, any> | null, {
+              selectedValuationMethod: (existingResult as Record<string, any>)?.selected_valuation_method,
+            }) ?? undefined,
         }
         manualStore.setResult({
           ...existingResult,

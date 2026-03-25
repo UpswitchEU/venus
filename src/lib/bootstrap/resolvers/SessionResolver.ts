@@ -8,6 +8,7 @@
  */
 
 import { getApiUrl } from '../../../utils/getMercuryUrl'
+import { fetchWithBySession404Retry } from '../../../utils/fetchWithBySession404Retry'
 import { isUuid } from '../../../utils/identifiers'
 import type {
   BootstrapContext,
@@ -436,46 +437,50 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
     sessionKey: string,
     identity?: IdentityState
   ): Promise<{ success: boolean; data?: any; error?: string }> {
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    }
+
+    // Add client context headers if accountant flow (omit X-Client-User-Id when null)
+    if (identity?.type === 'accountant_for_client' && identity.clientContext) {
+      if (identity.clientContext.clientUserId) {
+        headers['X-Client-User-Id'] = identity.clientContext.clientUserId
+      }
+      headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
+    }
+
+    const url = `${API_URL}/api/v2/valuations/reports/by-session/${sessionKey}`
+
     try {
-      const headers: Record<string, string> = {
-        Accept: 'application/json',
-      }
-
-      // Add client context headers if accountant flow (omit X-Client-User-Id when null)
-      if (identity?.type === 'accountant_for_client' && identity.clientContext) {
-        if (identity.clientContext.clientUserId) {
-          headers['X-Client-User-Id'] = identity.clientContext.clientUserId
-        }
-        headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
-      }
-
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 8000)
-
-      const response = await fetch(
-        `${API_URL}/api/v2/valuations/reports/by-session/${sessionKey}`,
+      const response = await fetchWithBySession404Retry(
+        url,
         {
           method: 'GET',
           credentials: 'include',
           headers,
-          signal: controller.signal,
+        },
+        {
+          log: (_message, context) => {
+            this.logger.info('[SessionResolver] Report by-session not ready yet, retrying', {
+              sessionKey: truncateForLog(sessionKey),
+              attempt: context.attempt,
+            })
+          },
         }
       )
 
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error:
-            response.status === 404
-              ? 'Report not created yet'
-              : `Failed to fetch existing report (${response.status})`,
-        }
+      if (response.ok) {
+        const data = await response.json()
+        return { success: true, data: data.data || data }
       }
 
-      const data = await response.json()
-      return { success: true, data: data.data || data }
+      return {
+        success: false,
+        error:
+          response.status === 404
+            ? 'Report not created yet'
+            : `Failed to fetch existing report (${response.status})`,
+      }
     } catch (error) {
       return {
         success: false,

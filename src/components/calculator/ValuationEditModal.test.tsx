@@ -7,6 +7,10 @@ const translations: Record<string, Record<string, string>> = {
   omniCalc: {
     unavailableTitle: 'Methodedata niet beschikbaar',
     unavailableBlurb: 'Methoden zijn niet geladen. Tik opnieuw op Bereken of vernieuw de pagina.',
+    unavailableTitleLegacy: 'Methodedata niet beschikbaar (legacy)',
+    unavailableBlurbLegacy: 'Oudere waarderingen.',
+    unavailableTitleReportPending: 'Rapport nog niet gekoppeld',
+    unavailableBlurbReportPending: 'Wacht even.',
     transientLoadTitle: 'Methodedata tijdelijk niet geladen',
     transientLoadBlurb: 'De server was te druk. Wacht even of vernieuw de pagina.',
     currentMethodAdaptive: 'UpSwitch Adaptive',
@@ -104,16 +108,14 @@ describe('ValuationEditModal', () => {
         'We herstellen de waarderingsmethoden voor dit rapport. Dit duurt normaal maar heel kort.'
       )
     ).toBeInTheDocument()
-    expect(screen.queryByText('Methodedata niet beschikbaar')).not.toBeInTheDocument()
+    expect(screen.queryByText('Methodedata niet beschikbaar (legacy)')).not.toBeInTheDocument()
   })
 
   it('shows the unavailable state only when hydration has finished without methods', () => {
     render(<ValuationEditModal {...baseProps} isHydratingMethods={false} />)
 
-    expect(screen.getByText('Methodedata niet beschikbaar')).toBeInTheDocument()
-    expect(
-      screen.getByText('Methoden zijn niet geladen. Tik opnieuw op Bereken of vernieuw de pagina.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Methodedata niet beschikbaar (legacy)')).toBeInTheDocument()
+    expect(screen.getByText('Oudere waarderingen.')).toBeInTheDocument()
   })
 
   it('shows transient copy and retry when load failed transiently', () => {
@@ -131,6 +133,23 @@ describe('ValuationEditModal', () => {
     expect(
       screen.getByText('De server was te druk. Wacht even of vernieuw de pagina.')
     ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Opnieuw laden' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows report_pending copy and retry when by-session report is not linked yet', () => {
+    const onRetry = vi.fn()
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        isHydratingMethods={false}
+        methodDataLoadError="report_pending"
+        onRetryMethodDataLoad={onRetry}
+      />
+    )
+
+    expect(screen.getByText('Rapport nog niet gekoppeld')).toBeInTheDocument()
+    expect(screen.getByText('Wacht even.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Opnieuw laden' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
   })

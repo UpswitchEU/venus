@@ -18,7 +18,10 @@ export function deriveManualReportPresentation(
 
   const valuationResult = r.valuation_result ?? {}
   const reportContext = r.report_context ?? valuationResult?.report_context ?? r.details?.report_context ?? {}
-  const hydrated = extractValuationResultsMap(r as Record<string, any> | null | undefined) ?? {}
+  const hydrated =
+    extractValuationResultsMap(r as Record<string, any> | null | undefined, {
+      selectedValuationMethod: r.selected_valuation_method,
+    }) ?? {}
   const methodKey =
     selectedMethod ?? r.selected_valuation_method ?? r.selectedMethod ?? 'upswitch_adaptive'
   const methodData = hydrated[methodKey]

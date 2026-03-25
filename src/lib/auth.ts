@@ -20,6 +20,7 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { User } from '../contexts/AuthContextTypes'
 import { getApiUrl } from '../utils/getMercuryUrl'
+import { fetchWithBySession404Retry } from '../utils/fetchWithBySession404Retry'
 import { isSessionKey, isUuid } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
@@ -1158,19 +1159,23 @@ async function initializeAuth(): Promise<void> {
                 )
 
                 try {
-                  const reportAbort = new AbortController()
-                  const reportTimeout = setTimeout(() => reportAbort.abort(), 5000)
                   const reportEndpoint = isSessionKey(reportId)
                     ? `${API_URL}/api/v2/valuations/reports/by-session/${reportId}`
                     : `${API_URL}/api/v2/valuations/reports/${reportId}`
 
-                  const reportResponse = await fetch(reportEndpoint, {
-                    method: 'GET',
-                    credentials: 'include',
-                    headers: { Accept: 'application/json' },
-                    signal: reportAbort.signal,
-                  })
-                  clearTimeout(reportTimeout)
+                  const reportResponse = await fetchWithBySession404Retry(
+                    reportEndpoint,
+                    {
+                      method: 'GET',
+                      credentials: 'include',
+                      headers: { Accept: 'application/json' },
+                    },
+                    {
+                      perAttemptTimeoutMs: 8000,
+                      log: (message, context) =>
+                        generalLogger.debug(`[Auth:${traceId}] ${message}`, context),
+                    }
+                  )
 
                   if (reportResponse.ok) {
                     const reportData = await reportResponse.json()

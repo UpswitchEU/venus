@@ -125,7 +125,9 @@ export function mergeSessionFields(session: ValuationSession): ValuationSession 
   ].filter((candidate) => candidate && typeof candidate === 'object') as Array<Record<string, any>>
   const candidateScore = (candidate: Record<string, any>) => {
     let score = 0
-    const valuationResultsCandidate = extractValuationResultsMap(candidate)
+    const valuationResultsCandidate = extractValuationResultsMap(candidate, {
+      selectedValuationMethod: candidate.selected_valuation_method,
+    })
     if (valuationResultsCandidate) {
       score += 8
     }

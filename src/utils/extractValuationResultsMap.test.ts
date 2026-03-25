@@ -51,5 +51,30 @@ describe('extractValuationResultsMap', () => {
     expect(out?.upswitch_adaptive?.multiple_used).toBe(3.45);
     expect(out?.upswitch_adaptive?.details?.p25_multiple).toBe(2.59);
     expect(out?.upswitch_adaptive?.details?.p75_multiple).toBe(4.6);
-  });
+  })
+
+  it('synthesizes from report_context when valuation_results paths are empty', () => {
+    const payload = {
+      valuation_results: {},
+      details: { valuation_results: {} },
+      report_context: {
+        equity_value_mid: 500_000,
+        applied_multiple: 4.2,
+        multiple_low: 3.1,
+        multiple_high: 5.4,
+      },
+    }
+    const out = extractValuationResultsMap(payload, { selectedValuationMethod: 'upswitch_adaptive' })
+    expect(out?.upswitch_adaptive?.value).toBe(500_000)
+    expect(out?.upswitch_adaptive?.multiple_used).toBe(4.2)
+  })
+
+  it('does not synthesize from multiple alone', () => {
+    expect(
+      extractValuationResultsMap({
+        valuation_results: {},
+        report_context: { applied_multiple: 4.5 },
+      }),
+    ).toBeNull()
+  })
 })

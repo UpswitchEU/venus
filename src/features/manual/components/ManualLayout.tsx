@@ -210,9 +210,14 @@ function getUserInitials(user: { name?: string; email?: string } | null): string
 }
 
 function getHydratedValuationResults(
-  result: Pick<ValuationResponse, 'valuation_results' | 'valuation_result'> | null | undefined
+  result:
+    | Pick<ValuationResponse, 'valuation_results' | 'valuation_result' | 'selected_valuation_method'>
+    | null
+    | undefined
 ) {
-  return extractValuationResultsMap(result as Record<string, any> | null | undefined)
+  return extractValuationResultsMap(result as Record<string, any> | null | undefined, {
+    selectedValuationMethod: result?.selected_valuation_method,
+  })
 }
 
 function serializePreparerPayload(
@@ -816,7 +821,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [isHydratingEditModalData, setIsHydratingEditModalData] = useState(false)
   /** After retries, distinguish rate-limit / transient failure from truly missing method payloads */
   const [reportMethodHydrationError, setReportMethodHydrationError] = useState<
-    'transient' | null
+    'transient' | 'report_pending' | null
   >(null)
   /** Bumps to re-run getReport hydration without changing report id (e.g. modal "Try again") */
   const [reportHydrationRetryNonce, setReportHydrationRetryNonce] = useState(0)
@@ -871,13 +876,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setIsHydratingEditModalData(false)
       const stillMissingMethods = !getHydratedValuationResults(current)
       const transient = stillMissingMethods && isRetryableReportHydrationError(lastError)
+      const status = getHttpStatusFromError(lastError)
       if (transient) {
         generalLogger.warn('[ManualLayout] Report method hydration failed after retries', {
           reportHydrationLookupId: id,
-          status: getHttpStatusFromError(lastError),
+          status,
           errorName: lastError instanceof Error ? lastError.name : typeof lastError,
         })
         setReportMethodHydrationError('transient')
+      } else if (stillMissingMethods && isSessionKey(id) && status === 404) {
+        setReportMethodHydrationError('report_pending')
       } else {
         setReportMethodHydrationError(null)
       }
