@@ -81,6 +81,7 @@ import {
 } from '../../../lib/return-url'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
+import { deriveManualReportPresentation } from './manualReportPresentation'
 import { backendAPI } from '../../../services/backendApi'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { reportService, valuationService } from '../../../services'
@@ -1415,16 +1416,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       onComplete(result)
 
       const r = result as any
-      const equityMid =
-        Number(r.equity_value_mid ?? r.valuation_midpoint ?? r.details?.equity_value_mid) || 0
-      const equityLow =
-        Number(r.equity_value_low ?? r.valuation_min ?? r.details?.equity_value_low) || 0
-      const equityHigh =
-        Number(r.equity_value_high ?? r.valuation_max ?? r.details?.equity_value_high) || 0
+      const presentation = deriveManualReportPresentation(r, selectedMethod)
       const ebitda = Number(r.current_year_data?.ebitda) || 0
       const normalizedEbitda = Number(r.latest_normalized_ebitda) || ebitda
       const revenue = r.current_year_data?.revenue || 0
-      const ebitdaMultiple = r.multiples_valuation?.ebitda_multiple || 0
       const p25 = r.multiples_valuation?.p25_ebitda_multiple
       const p75 = r.multiples_valuation?.p75_ebitda_multiple
       const confidence = (r.overall_confidence ?? r.details?.overall_confidence)?.toLowerCase() as
@@ -1440,13 +1435,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setReport({
         id: reportId || r.valuation_id || r.id || 'draft',
         companyName: r.company_name ?? r.business_name ?? tReport('defaultCompanyName'),
-        valuation: equityMid,
-        valuationLow: equityLow || undefined,
-        valuationHigh: equityHigh || undefined,
+        valuation: presentation.valuation,
+        valuationLow: presentation.valuationLow || undefined,
+        valuationHigh: presentation.valuationHigh || undefined,
         ebitda,
         normalizedEbitda: normalizedEbitda || undefined,
-        multiple: ebitdaMultiple,
-        multipleRange: p25 != null && p75 != null ? { low: p25, high: p75 } : undefined,
+        multiple: presentation.multiple ?? 0,
+        multipleRange:
+          presentation.multipleRange ?? (p25 != null && p75 != null ? { low: p25, high: p75 } : undefined),
         generatedAt: new Date(),
         confidenceLevel: confidence || 'medium',
         htmlReport: htmlReport || undefined,
@@ -1487,7 +1483,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       }
     }
-  }, [result, onComplete, reportId, generatePdf, isMobile, tReport])
+  }, [result, onComplete, reportId, generatePdf, isMobile, tReport, selectedMethod])
 
   // ─── Omni-Calc: Update displayed valuation when selected method changes ───
   const prevSelectedMethodRef = useRef(selectedMethod)
@@ -1500,18 +1496,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
     const methodData = hydrated[selectedMethod]
     if (!methodData?.available || methodData.value == null) return
-
-    const val = Number(methodData.value)
+    const presentation = deriveManualReportPresentation(result, selectedMethod)
 
     setReport((prev) =>
       prev
         ? {
             ...prev,
-            valuation: val,
-            valuationLow: Math.round(val * 0.8),
-            valuationHigh: Math.round(val * 1.2),
-            multiple: methodData.multiple_used ? Number(methodData.multiple_used) : prev.multiple,
-            recommendedAskingPrice: val,
+            valuation: presentation.valuation,
+            valuationLow: presentation.valuationLow,
+            valuationHigh: presentation.valuationHigh,
+            multiple: presentation.multiple ?? prev.multiple,
+            multipleRange: presentation.multipleRange ?? prev.multipleRange,
+            recommendedAskingPrice: presentation.valuation,
           }
         : prev
     )

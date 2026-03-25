@@ -2110,7 +2110,7 @@
     "currentMethodLabel": "Headline: {method}",
     "methodsReadyBadge": "{available} of {total} methods available",
     "stepAiActive": "Adaptive is on. Use Manual only when you want a different headline than the recommendation.",
-    "stepChooseMethod": "Next: pick a method in the list below.",
+    "stepChooseMethod": "Next: pick a headline method in the panorama below.",
     "stepExplainReason": "Almost there: choose a reason, add a note if needed, then confirm.",
     "methodsListHeading": "Pick a method",
     "methodsPanoramaTitle": "All methods at a glance",

@@ -2110,7 +2110,7 @@
     "currentMethodLabel": "Hoofdcijfer: {method}",
     "methodsReadyBadge": "{available} van {total} methoden beschikbaar",
     "stepAiActive": "Adaptive staat aan. Gebruik Handmatig alleen als u een ander hoofdcijfer wilt dan de aanbeveling.",
-    "stepChooseMethod": "Volgende: kies een methode in de lijst hieronder.",
+    "stepChooseMethod": "Volgende: kies een hoofdmethode in het overzicht hieronder.",
     "stepExplainReason": "Bijna klaar: kies een reden, voeg desgewenst een notitie toe en bevestig.",
     "methodsListHeading": "Kies een methode",
     "methodsPanoramaTitle": "Alle methoden in één oogopslag",

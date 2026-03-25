@@ -126,6 +126,7 @@ export { UnifiedNormalizationModal } from './UnifiedNormalizationModal'
 export type { ReportMetric, ValuationReportData } from './types'
 export type { ValuationEditModalProps } from './ValuationEditModal'
 export { ValuationEditModal } from './ValuationEditModal'
+export { OmniMethodPanorama } from './omni/OmniMethodPanorama'
 export type {
   VersionChange,
   VersionCompareModalProps,
