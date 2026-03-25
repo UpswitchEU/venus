@@ -94,11 +94,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   }, [])
 
   /**
-   * WORLD-CLASS: Poll for PDF status without jobId (for bootstrap 'generating' state)
+   * Poll for PDF generation status
    */
-  const startStatusPolling = useCallback(() => {
-    if (!reportId) return
-
+  const startPolling = useCallback((jobId: string) => {
     // Clear any existing polling
     if (pollingRef.current) {
       clearInterval(pollingRef.current)
@@ -110,8 +108,10 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     pollingRef.current = setInterval(async () => {
       pollCount++
 
-        if (pollCount > maxPolls) {
-        clearInterval(pollingRef.current!)
+      if (pollCount > maxPolls) {
+        const timer = pollingRef.current
+        if (timer) clearInterval(timer)
+        isGeneratingRef.current = false
         if (mountedRef.current) {
           setState({
             status: 'error',
@@ -124,28 +124,26 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       }
 
       try {
-        // Check PDF status via GET endpoint
-        const response = await fetch(`/api/valuations/${reportId}/pdf`, {
-          method: 'GET',
+        const response = await fetch(`/api/valuations/pdf/status/${jobId}`, {
           credentials: 'include',
         })
 
         if (!response.ok) {
-          if (response.status === 404) {
-            // PDF not ready yet, continue polling
-            setState((prev) => ({
-              ...prev,
-              progress: Math.min(20 + pollCount, 90),
-            }))
-            return
-          }
-          throw new Error('Failed to check PDF status')
+          throw new Error('Failed to check status')
         }
 
         const data = await response.json()
 
-        if (data.status === 'ready' && data.pdfUrl) {
-          clearInterval(pollingRef.current!)
+        if (!mountedRef.current) return
+
+        // Update progress
+        const progress = Math.min(30 + pollCount, 90)
+        setState((prev) => ({ ...prev, progress }))
+
+        if (data.status === 'completed' && data.pdfUrl) {
+          const timer = pollingRef.current
+          if (timer) clearInterval(timer)
+          isGeneratingRef.current = false
           if (mountedRef.current) {
             setState({
               status: 'ready',
@@ -154,34 +152,25 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
               progress: 100,
             })
           }
-          generalLogger.info('[PDF] PDF ready after polling', {
-            reportId: reportId.substring(0, 30),
-            pollCount,
-          })
-        } else if (data.status === 'none') {
-          // PDF generation completed but no URL - may have failed silently
-          clearInterval(pollingRef.current!)
+        } else if (data.status === 'failed') {
+          const timer = pollingRef.current
+          if (timer) clearInterval(timer)
+          isGeneratingRef.current = false
           if (mountedRef.current) {
             setState({
-              status: 'none',
+              status: 'error',
               url: null,
-              error: null,
+              error: data.error || 'PDF generation failed',
               progress: 0,
             })
           }
-        } else {
-          // Still generating, update progress
-          setState((prev) => ({
-            ...prev,
-            progress: Math.min(20 + pollCount, 90),
-          }))
         }
       } catch (error) {
         // Don't fail on polling errors - keep trying
         generalLogger.warn('[PDF] Polling error', { error })
       }
     }, 2000)
-  }, [reportId])
+  }, [])
 
   /**
    * Trigger PDF generation via Titan API
@@ -280,127 +269,54 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       }
       return null
     }
-  }, [reportId])
+  }, [reportId, startPolling])
 
   /**
-   * Poll for PDF generation status
+   * Download the PDF file via proxy (avoids CORS/403 when fetching Supabase storage directly)
    */
-  const startPolling = useCallback((jobId: string) => {
-    // Clear any existing polling
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current)
-    }
-
-    let pollCount = 0
-    const maxPolls = 150 // 5 minutes max (2s intervals)
-
-    pollingRef.current = setInterval(async () => {
-      pollCount++
-
-      if (pollCount > maxPolls) {
-        clearInterval(pollingRef.current!)
-        isGeneratingRef.current = false
-        if (mountedRef.current) {
-          setState({
-            status: 'error',
-            url: null,
-            error: 'PDF generation timed out',
-            progress: 0,
-          })
+  const downloadPdf = useCallback(
+    async (url?: string, filename?: string) => {
+      if (!reportId) {
+        if (!isGeneratingRef.current) {
+          await generatePdf()
         }
         return
       }
 
       try {
-        const response = await fetch(`/api/valuations/pdf/status/${jobId}`, {
+        // Use proxy to avoid CORS/403 when fetching Supabase storage from browser
+        const response = await fetch(`/api/valuations/${reportId}/pdf/download`, {
           credentials: 'include',
         })
 
         if (!response.ok) {
-          throw new Error('Failed to check status')
+          const errBody = await response.json().catch(() => ({}))
+          throw new Error(errBody.error || 'Failed to download PDF')
         }
 
-        const data = await response.json()
+        const blob = await response.blob()
 
-        if (!mountedRef.current) return
-
-        // Update progress
-        const progress = Math.min(30 + pollCount, 90)
-        setState((prev) => ({ ...prev, progress }))
-
-        if (data.status === 'completed' && data.pdfUrl) {
-          clearInterval(pollingRef.current!)
-          isGeneratingRef.current = false
-          if (mountedRef.current) {
-            setState({
-              status: 'ready',
-              url: data.pdfUrl,
-              error: null,
-              progress: 100,
-            })
-          }
-        } else if (data.status === 'failed') {
-          clearInterval(pollingRef.current!)
-          isGeneratingRef.current = false
-          if (mountedRef.current) {
-            setState({
-              status: 'error',
-              url: null,
-              error: data.error || 'PDF generation failed',
-              progress: 0,
-            })
-          }
-        }
+        const blobUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.download = filename || `valuation-report-${reportId}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(blobUrl)
       } catch (error) {
-        // Don't fail on polling errors - keep trying
-        generalLogger.warn('[PDF] Polling error', { error })
+        generalLogger.error('[PDF] Download error', { error })
+        if (mountedRef.current) {
+          setState((prev) => ({
+            ...prev,
+            error: error instanceof Error ? error.message : 'Download failed',
+          }))
+        }
+        throw error
       }
-    }, 2000)
-  }, [])
-
-  /**
-   * Download the PDF file via proxy (avoids CORS/403 when fetching Supabase storage directly)
-   */
-  const downloadPdf = useCallback(async (url?: string, filename?: string) => {
-    if (!reportId) {
-      if (!isGeneratingRef.current) {
-        await generatePdf()
-      }
-      return
-    }
-
-    try {
-      // Use proxy to avoid CORS/403 when fetching Supabase storage from browser
-      const response = await fetch(`/api/valuations/${reportId}/pdf/download`, {
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}))
-        throw new Error(errBody.error || 'Failed to download PDF')
-      }
-
-      const blob = await response.blob()
-
-      const blobUrl = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = filename || `valuation-report-${reportId}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobUrl)
-    } catch (error) {
-      generalLogger.error('[PDF] Download error', { error })
-      if (mountedRef.current) {
-        setState((prev) => ({
-          ...prev,
-          error: error instanceof Error ? error.message : 'Download failed',
-        }))
-      }
-      throw error
-    }
-  }, [reportId, generatePdf])
+    },
+    [reportId, generatePdf]
+  )
 
   return {
     state,

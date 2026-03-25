@@ -517,6 +517,8 @@ export interface ValuationEditModalProps {
   onClose: () => void
   valuationResults: Record<string, ValuationMethodResult>
   isHydratingMethods?: boolean
+  /** Set when report hydration failed after retries (e.g. 429) — distinct from missing payloads */
+  methodDataLoadError?: 'transient' | null
   selectedMethod: string
   onSelectMethod: (method: string, reason?: string, note?: string) => void
   fiscalAnchor?: number | null
@@ -541,6 +543,7 @@ export function ValuationEditModal({
   onClose,
   valuationResults,
   isHydratingMethods = false,
+  methodDataLoadError = null,
   selectedMethod,
   onSelectMethod,
   fiscalAnchor,
@@ -761,8 +764,16 @@ export function ValuationEditModal({
   const activeMetricValue = toNumberOrNull(activeMethod?.value)
 
   if (entries.length === 0) {
-    const title = isHydratingMethods ? tModal('loadingTitle') : t('unavailableTitle')
-    const blurb = isHydratingMethods ? tModal('loadingBlurb') : t('unavailableBlurb')
+    const title = isHydratingMethods
+      ? tModal('loadingTitle')
+      : methodDataLoadError === 'transient'
+        ? t('transientLoadTitle')
+        : t('unavailableTitle')
+    const blurb = isHydratingMethods
+      ? tModal('loadingBlurb')
+      : methodDataLoadError === 'transient'
+        ? t('transientLoadBlurb')
+        : t('unavailableBlurb')
     return (
       <Modal open={open} onOpenChange={(v) => !v && onClose()}>
         <ModalContent size="2xl" description={tModal('description')} className="max-h-[92vh] flex flex-col overflow-hidden">

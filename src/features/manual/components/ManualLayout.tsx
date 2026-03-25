@@ -21,10 +21,18 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
-import { AlertCircle, Loader2 } from 'lucide-react'
-import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { toast } from 'sonner'
 import {
   trackAIFieldUpdate,
@@ -43,8 +51,8 @@ import {
   ContextBar,
   type FieldContext,
   FullscreenReportModal,
-  InviteClientModal,
   HistoryPanel,
+  InviteClientModal,
   ManualInputPanel,
   type NormalisationSuggestion,
   NormalisationSuggestionModal,
@@ -54,10 +62,10 @@ import {
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
+import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
+import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
-import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
-import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { AuroraButton } from '../../../design-system/components/Button'
@@ -72,19 +80,14 @@ import {
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
+import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
-import {
-  getSafeMercuryReturnUrl,
-  isLegacyReturnUrl,
-} from '../../../lib/return-url'
-import { parseEmployeeCount } from '../../../utils/employeeCount'
-import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
-import { deriveManualReportPresentation } from './manualReportPresentation'
-import { backendAPI } from '../../../services/backendApi'
-import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
+import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../../../lib/return-url'
 import { reportService, valuationService } from '../../../services'
+import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
+import { backendAPI } from '../../../services/backendApi'
 import { looksLikeNaceCode } from '../../../services/naceBusinessTypeService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import {
@@ -102,17 +105,16 @@ import {
   setNormalizationToastMessages,
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
-import {
-  enableTaxLatencyAutoPersist,
-  useTaxLatencyStore,
-} from '../../../store/useTaxLatencyStore'
-import { useClientContext } from '../../../stores/clientContext'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { spotlightDomId, useSpotlightStore } from '../../../store/useSpotlightStore'
+import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
+import { useClientContext } from '../../../stores/clientContext'
 import {
+  APIError,
   AuthenticationError,
   CreditError,
+  NetworkError,
   RateLimitError,
   ValidationError,
 } from '../../../types/errors'
@@ -121,29 +123,51 @@ import type {
   ValuationFormData as VenusFormData,
 } from '../../../types/valuation'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
+import { parseEmployeeCount } from '../../../utils/employeeCount'
+import { isAuthError } from '../../../utils/errorDetection'
+import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
+import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
+import { getMercuryUrl } from '../../../utils/getMercuryUrl'
+import { HTMLProcessor } from '../../../utils/htmlProcessor'
+import { isSessionKey, isUuid } from '../../../utils/identifiers'
+import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
+import { generalLogger } from '../../../utils/logger'
+
+function getHttpStatusFromError(err: unknown): number | undefined {
+  if (err instanceof APIError) return err.statusCode
+  const ax = err as { response?: { status?: number } }
+  return ax?.response?.status
+}
+
+/** Retries for getReport hydration: rate limits and upstream/transient HTTP + network errors */
+function isRetryableReportHydrationError(err: unknown): boolean {
+  if (err instanceof NetworkError) return true
+  const s = getHttpStatusFromError(err)
+  return s === 429 || s === 502 || s === 503 || s === 408
+}
+import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
   persistNormalizationsBeforeCalculate,
   persistOrDeleteNormalizationsForYears,
 } from '../../../utils/normalizationPersist'
-import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
-import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
-import { getMercuryUrl } from '../../../utils/getMercuryUrl'
-import { HTMLProcessor } from '../../../utils/htmlProcessor'
-import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
-import { deleteValuationEntry } from '../utils/deleteValuationEntry'
-import { isAuthError } from '../../../utils/errorDetection'
-import { isSessionKey, isUuid } from '../../../utils/identifiers'
-import { generalLogger } from '../../../utils/logger'
-import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { formatShareholdingToast, isShareholdingValueInRange } from '../../../utils/shareholding'
-import { getCompleteYearlyFinancialsDesc, getLatestCompleteYearlyFinancial } from '../../../utils/yearlyFinancials'
-import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../../utils/versionConfirmation'
+import {
+  hasExistingValuationVersion,
+  shouldOpenVersionConfirmation,
+} from '../../../utils/versionConfirmation'
 import {
   areChangesSignificant,
   detectVersionChanges,
   generateAutoLabel,
 } from '../../../utils/versionDiffDetection'
+import {
+  getCompleteYearlyFinancialsDesc,
+  getLatestCompleteYearlyFinancial,
+} from '../../../utils/yearlyFinancials'
+import { deleteValuationEntry } from '../utils/deleteValuationEntry'
+import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+import { deriveManualReportPresentation } from './manualReportPresentation'
 
 /** Poll while PDF is stale; extend max window so slow jobs can still complete */
 const PDF_STALE_POLL_INTERVAL_MS = 2500
@@ -192,29 +216,16 @@ function getHydratedValuationResults(
 }
 
 function serializePreparerPayload(
-  payload:
-    | {
-        preparer_ev_ebitda_median: number
-        preparer_ev_ebitda_override: {
-          reason_key: string
-          note?: string
-          acknowledged_extreme?: boolean
-        }
-      }
-    | null
+  payload: {
+    preparer_ev_ebitda_median: number
+    preparer_ev_ebitda_override: {
+      reason_key: string
+      note?: string
+      acknowledged_extreme?: boolean
+    }
+  } | null
 ) {
   return payload ? JSON.stringify(payload) : 'none'
-}
-
-/** True when the stored PDF is older than the last report update (async PDF queue may still be running). */
-function isPdfLikelyStaleVenus(r: ValuationReportData | null | undefined): boolean {
-  if (!r?.reportUpdatedAt) return false
-  const updated = r.reportUpdatedAt.getTime()
-  if (!Number.isFinite(updated)) return false
-  if (r.pdfGeneratedAt == null) return true
-  const pdfAt = r.pdfGeneratedAt.getTime()
-  if (!Number.isFinite(pdfAt)) return true
-  return pdfAt < updated
 }
 
 function axiosLikeErrorMessage(err: unknown): string {
@@ -365,11 +376,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ''
   const displayNace = typeof data.naceCode === 'string' ? data.naceCode.trim() : ''
   const activityPresentation =
-    canonicalNace &&
-    displayNace &&
-    displayNace !== canonicalNace
-      ? displayNace
-      : ''
+    canonicalNace && displayNace && displayNace !== canonicalNace ? displayNace : ''
 
   // Only merge KBO/NACE into the store when we have registry identifiers in the panel.
   // Do not use "company name only" — the first sync after title prefill would push
@@ -409,8 +416,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
           kbo_number: data.kboNumber || '',
           legal_form: data.legalForm || '',
           nace_code: canonicalNace || '',
-          nace_description:
-            typeof data.naceDescription === 'string' ? data.naceDescription : '',
+          nace_description: typeof data.naceDescription === 'string' ? data.naceDescription : '',
           // When display matches canonical, pass undefined so updateFormData strips activity_code
           activity_code: (activityPresentation || undefined) as VenusFormData['activity_code'],
         }
@@ -499,8 +505,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useBootstrapSync()
   const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
 
-  const { isCalculating, error, result, selectedMethod, setSelectedMethod, trySetCalculating, setCalculating, setResult } =
-    useManualResultsStore()
+  const {
+    isCalculating,
+    error,
+    result,
+    selectedMethod,
+    setSelectedMethod,
+    trySetCalculating,
+    setCalculating,
+    setResult,
+  } = useManualResultsStore()
   const { updateFormData } = useManualFormStore()
   const formStoreData = useManualFormStore((s) => s.formData)
   const status = useSessionStore((s) => s.status)
@@ -513,7 +527,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const toggleSourceDataPanel = useSpotlightStore((s) => s.toggleSourcePanel)
   const showSourceDataPanel = useSpotlightStore((s) => s.showSourcePanel)
   const hasImportQuality =
-    !!importQualityMap && typeof importQualityMap === 'object' && Object.keys(importQualityMap).length > 0
+    !!importQualityMap &&
+    typeof importQualityMap === 'object' &&
+    Object.keys(importQualityMap).length > 0
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
 
   // Resolve session key (val_xxx) to UUID before PDF hook — POST /api/valuations/:id/pdf must match Titan id
@@ -531,6 +547,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [reportId, session?.reportId, session])
 
   const {
+    state: pdfGenerationState,
     generatePdf,
     downloadPdf,
     isGenerating: isPdfGenerating,
@@ -627,8 +644,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // Session matches when reportId equals session.reportId (UUID) or session.key (session key)
   const sessionMatchesReport =
-    session &&
-    (session.reportId === reportId || (session as any)?.key === reportId)
+    session && (session.reportId === reportId || (session as any)?.key === reportId)
 
   // Async loading: show calculator shell skeleton instead of blocking LoadingState
   const isLoading = status === 'loading'
@@ -668,18 +684,20 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ? (resultAny.details as Record<string, unknown>)
         : null
     const sustainableEbitda = Number(
-      details?.sustainable_ebitda ??
-        details?.weighted_ebitda_total ??
-        resultAny?.ebitda ??
-        0,
+      details?.sustainable_ebitda ?? details?.weighted_ebitda_total ?? resultAny?.ebitda ?? 0
     )
     const netDebt = Number(details?.net_debt ?? resultAny?.net_debt ?? 0)
     const bsaRaw = details?.balance_sheet_adjustments ?? resultAny?.balance_sheet_adjustments
-    const balanceSheetAdj = typeof bsaRaw === 'number' && Number.isFinite(bsaRaw)
-      ? bsaRaw
-      : Array.isArray(bsaRaw)
-        ? bsaRaw.reduce((s: number, item: any) => s + (Number(item?.amount ?? item?.value ?? item?.adjustment ?? 0) || 0), 0)
-        : 0
+    const balanceSheetAdj =
+      typeof bsaRaw === 'number' && Number.isFinite(bsaRaw)
+        ? bsaRaw
+        : Array.isArray(bsaRaw)
+          ? bsaRaw.reduce(
+              (s: number, item: any) =>
+                s + (Number(item?.amount ?? item?.value ?? item?.adjustment ?? 0) || 0),
+              0
+            )
+          : 0
     const currentHeadline = Number(report?.valuation ?? result?.equity_value_mid ?? 0)
     const appliedMultiple =
       preparerAppliedMedian != null && Number.isFinite(preparerAppliedMedian)
@@ -704,7 +722,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return null
     }
 
-    const previewEquity = Math.round(sustainableEbitda * appliedMultiple - netDebt + balanceSheetAdj)
+    const previewEquity = Math.round(
+      sustainableEbitda * appliedMultiple - netDebt + balanceSheetAdj
+    )
     if (!Number.isFinite(previewEquity)) return null
 
     return {
@@ -721,7 +741,39 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     result,
     selectedMethod,
   ])
-  const pdfStale = useMemo(() => (report ? isPdfLikelyStaleVenus(report) : false), [report])
+  const pdfStale = useMemo(() => {
+    if (!report) return false
+    const stale = isPdfLikelyStaleVenus(report)
+    if (!stale) return false
+    // Hook has a ready PDF but report row still has no pdf_generated_at — do not block UX.
+    // When both timestamps exist and the PDF is older than updated_at, we still show stale
+    // (do not blanket-ignore isPdfReady or the banner never returns after a recalculation).
+    if (isPdfReady && report.pdfGeneratedAt == null) return false
+    return true
+  }, [report, isPdfReady])
+
+  // When client-side PDF generation has a URL, treat report as fresh and sync metadata
+  // so `isPdfLikelyStaleVenus` stays false until the next server refresh.
+  useEffect(() => {
+    if (!isPdfReady || !pdfGenerationState.url) return
+    const url = pdfGenerationState.url
+    setReport((prev) => {
+      if (!prev) return prev
+      const syncAt = prev.reportUpdatedAt ?? new Date()
+      if (
+        prev.pdfUrl === url &&
+        prev.pdfGeneratedAt != null &&
+        prev.pdfGeneratedAt.getTime() === syncAt.getTime()
+      ) {
+        return prev
+      }
+      return {
+        ...prev,
+        pdfUrl: url,
+        pdfGeneratedAt: syncAt,
+      }
+    })
+  }, [isPdfReady, pdfGenerationState.url])
   // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
   const isRestoringExistingReport =
     !report &&
@@ -762,6 +814,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   /** Effective fiscal PDF flag from Titan (matches PDF + branding); gates Omni-Calc 4× EBITDA row */
   const [showFiscalReferenceForOmni, setShowFiscalReferenceForOmni] = useState<boolean | null>(null)
   const [isHydratingEditModalData, setIsHydratingEditModalData] = useState(false)
+  /** After retries, distinguish rate-limit / transient failure from truly missing method payloads */
+  const [reportMethodHydrationError, setReportMethodHydrationError] = useState<
+    'transient' | null
+  >(null)
 
   // ─── Panel View State ───
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab ?? 'preview')
@@ -771,45 +827,75 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (!id || id === 'new') {
       setShowFiscalReferenceForOmni(false)
       setIsHydratingEditModalData(false)
+      setReportMethodHydrationError(null)
       return
     }
     const existingResult = useManualResultsStore.getState().result
     const needsMethodHydration = !getHydratedValuationResults(existingResult)
     setIsHydratingEditModalData(needsMethodHydration)
+    setReportMethodHydrationError(null)
     let cancelled = false
-    backendAPI
-      .getReport(id)
-      .then((r: ValuationResponse) => {
+    const backoffMs = [400, 1000, 2200]
+
+    const applySuccess = (r: ValuationResponse) => {
+      setShowFiscalReferenceForOmni(!!r.show_fiscal_reference)
+
+      const latestExistingResult = useManualResultsStore.getState().result
+      const nextValuationResults =
+        getHydratedValuationResults(r) ?? getHydratedValuationResults(latestExistingResult)
+      const mergedResult: ValuationResponse = {
+        ...(latestExistingResult || {}),
+        ...r,
+        html_report: r.html_report || latestExistingResult?.html_report,
+        valuation_results: nextValuationResults ?? undefined,
+        fiscal_4x_anchor: r.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
+        multiple_adjustment_summary:
+          r.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
+      }
+
+      // Always sync from Titan so selected_valuation_method / fiscal flags hydrate even when
+      // html_report or valuation_results are missing in this response (partial payloads).
+      setResult(mergedResult)
+      setIsHydratingEditModalData(false)
+      setReportMethodHydrationError(null)
+    }
+
+    const finishFailure = (lastError: unknown) => {
+      if (cancelled) return
+      const current = useManualResultsStore.getState().result
+      if (!getHydratedValuationResults(current)) {
+        setShowFiscalReferenceForOmni(false)
+      }
+      setIsHydratingEditModalData(false)
+      if (!getHydratedValuationResults(current) && isRetryableReportHydrationError(lastError)) {
+        setReportMethodHydrationError('transient')
+      } else {
+        setReportMethodHydrationError(null)
+      }
+    }
+
+    ;(async () => {
+      for (let attempt = 0; attempt < 4; attempt++) {
         if (cancelled) return
-        setShowFiscalReferenceForOmni(!!r.show_fiscal_reference)
-
-        const latestExistingResult = useManualResultsStore.getState().result
-        const nextValuationResults =
-          getHydratedValuationResults(r) ?? getHydratedValuationResults(latestExistingResult)
-        const mergedResult: ValuationResponse = {
-          ...(latestExistingResult || {}),
-          ...r,
-          html_report: r.html_report || latestExistingResult?.html_report,
-          valuation_results: nextValuationResults ?? undefined,
-          fiscal_4x_anchor: r.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
-          multiple_adjustment_summary:
-            r.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, backoffMs[attempt - 1]))
+          if (cancelled) return
         }
-
-        // Always sync from Titan so selected_valuation_method / fiscal flags hydrate even when
-        // html_report or valuation_results are missing in this response (partial payloads).
-        setResult(mergedResult)
-        setIsHydratingEditModalData(false)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          const current = useManualResultsStore.getState().result
-          if (!getHydratedValuationResults(current)) {
-            setShowFiscalReferenceForOmni(false)
+        try {
+          const r = await backendAPI.getReport(id)
+          if (cancelled) return
+          applySuccess(r)
+          return
+        } catch (e) {
+          if (attempt < 3 && isRetryableReportHydrationError(e)) {
+            continue
           }
-          setIsHydratingEditModalData(false)
+          finishFailure(e)
+          return
         }
-      })
+      }
+    })()
+
     return () => {
       cancelled = true
     }
@@ -991,7 +1077,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         (report as any)?.reportedEbitda ?? (report as any)?.reported_ebitda,
       ],
     })
-  }, [formStoreData?.current_year_data?.ebitda, formStoreData?.ebitda, originalEBITDAByYear, report, result])
+  }, [
+    formStoreData?.current_year_data?.ebitda,
+    formStoreData?.ebitda,
+    originalEBITDAByYear,
+    report,
+    result,
+  ])
 
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
@@ -1078,7 +1170,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const snapRev = snapshot.revenue != null ? Number(snapshot.revenue) : undefined
       const snapEbitda = snapshot.ebitda != null ? Number(snapshot.ebitda) : undefined
       const revMatch = revNum === undefined || snapRev === undefined || revNum === snapRev
-      const ebitdaMatch = ebitdaNum === undefined || snapEbitda === undefined || ebitdaNum === snapEbitda
+      const ebitdaMatch =
+        ebitdaNum === undefined || snapEbitda === undefined || ebitdaNum === snapEbitda
       const sortYf = (arr: Array<{ year: string; revenue: number; ebitda: number }>) =>
         [...arr].sort((a, b) => parseInt(b.year) - parseInt(a.year))
       const norm = (y: { year: string; revenue: number; ebitda: number }) => ({
@@ -1120,7 +1213,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       hy.some((h) => (h.revenue ?? 0) > 0 || (h.ebitda ?? 0) !== 0)
     if (!hasFinancials) return
     const allYf = [
-      ...(cyd ? [{ year: String(cyd.year), revenue: cyd.revenue ?? 0, ebitda: cyd.ebitda ?? 0 }] : []),
+      ...(cyd
+        ? [{ year: String(cyd.year), revenue: cyd.revenue ?? 0, ebitda: cyd.ebitda ?? 0 }]
+        : []),
       ...hy.map((h) => ({ year: String(h.year), revenue: h.revenue, ebitda: h.ebitda })),
     ].sort((a, b) => parseInt(b.year) - parseInt(a.year))
     lastSubmittedFinancialSnapshotRef.current = {
@@ -1129,7 +1224,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       yearlyFinancials: allYf,
     }
     setIsDirty(false)
-  }, [result, formStoreData.current_year_data, formStoreData.historical_years_data, formStoreData.revenue, formStoreData.ebitda])
+  }, [
+    result,
+    formStoreData.current_year_data,
+    formStoreData.historical_years_data,
+    formStoreData.revenue,
+    formStoreData.ebitda,
+  ])
 
   // Reset dirty state when switching reports
   useEffect(() => {
@@ -1331,9 +1432,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [showFullscreenModal, chatDrawerOpen])
 
   // ─── Version History (REAL - from useVersionHistoryStore) ───
-  const versions = useVersionHistoryStore(
-    (s) => s.versions[resolvedReportId || reportId] || []
-  )
+  const versions = useVersionHistoryStore((s) => s.versions[resolvedReportId || reportId] || [])
   const [selectedVersionId, setSelectedVersionId] = useState<string>('current')
 
   // NOTE: Version fetching is owned by HistoryPanel (single owner pattern).
@@ -1442,7 +1541,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         normalizedEbitda: normalizedEbitda || undefined,
         multiple: presentation.multiple ?? 0,
         multipleRange:
-          presentation.multipleRange ?? (p25 != null && p75 != null ? { low: p25, high: p75 } : undefined),
+          presentation.multipleRange ??
+          (p25 != null && p75 != null ? { low: p25, high: p75 } : undefined),
         generatedAt: new Date(),
         confidenceLevel: confidence || 'medium',
         htmlReport: htmlReport || undefined,
@@ -1531,7 +1631,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ...fresh,
           html_report: htmlFromPatch || fresh.html_report || latestExistingResult?.html_report,
           valuation_results: nextValuationResults ?? undefined,
-          fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
+          fiscal_4x_anchor:
+            fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
           multiple_adjustment_summary:
             fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
         }
@@ -1539,8 +1640,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const htmlForPreview = htmlFromPatch || fresh.html_report
         setReport((prev) => {
           if (!prev) return prev
-          const pdfMeta: Pick<ValuationReportData, 'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'> = {
-            reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : prev.reportUpdatedAt,
+          const pdfMeta: Pick<
+            ValuationReportData,
+            'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'
+          > = {
+            reportUpdatedAt: fresh.updated_at
+              ? new Date(String(fresh.updated_at))
+              : prev.reportUpdatedAt,
             pdfGeneratedAt:
               fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
                 ? new Date(String(fresh.pdf_generated_at))
@@ -1576,7 +1682,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         return false
       }
     },
-    [generatePdf, persistedReportLookupId, setResult],
+    [generatePdf, persistedReportLookupId, setResult]
   )
 
   useEffect(() => {
@@ -1605,7 +1711,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ...fresh,
           html_report: fresh.html_report || latestExistingResult?.html_report,
           valuation_results: nextValuationResults ?? undefined,
-          fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
+          fiscal_4x_anchor:
+            fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
           multiple_adjustment_summary:
             fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
         }
@@ -1614,7 +1721,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           if (!prev) return prev
           return {
             ...prev,
-            reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : prev.reportUpdatedAt,
+            reportUpdatedAt: fresh.updated_at
+              ? new Date(String(fresh.updated_at))
+              : prev.reportUpdatedAt,
             pdfGeneratedAt:
               fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
                 ? new Date(String(fresh.pdf_generated_at))
@@ -1664,7 +1773,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (!prev) return prev
         return {
           ...prev,
-          reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : prev.reportUpdatedAt,
+          reportUpdatedAt: fresh.updated_at
+            ? new Date(String(fresh.updated_at))
+            : prev.reportUpdatedAt,
           pdfGeneratedAt:
             fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
               ? new Date(String(fresh.pdf_generated_at))
@@ -1685,12 +1796,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const pdfStaleBannerEl = useMemo(() => {
     if (!report || !pdfStale) return null
-    const pollBlurb =
-      pdfWaitTimedOut
-        ? t('pdfStalledBlurb')
-        : pdfPollErrorCount >= 2
-          ? t('pdfPollDegradedHint')
-          : t('pdfUpdatingBlurb')
+    const pollBlurb = pdfWaitTimedOut
+      ? t('pdfStalledBlurb')
+      : pdfPollErrorCount >= 2
+        ? t('pdfPollDegradedHint')
+        : t('pdfUpdatingBlurb')
     return (
       <div
         role="status"
@@ -1771,17 +1881,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ? preparerPayload
           : clearPreparerOverride
             ? { clear_preparer_override: true }
-            : undefined,
+            : undefined
       )
       await refreshReportAfterEdit(res?.html_report)
       return res
     },
-    [persistedReportLookupId, refreshReportAfterEdit],
+    [persistedReportLookupId, refreshReportAfterEdit]
   )
 
   useEffect(() => {
     lastPersistedPreparerRef.current = serializePreparerPayload(
-      buildPersistedPreparerMultiplePayload(result),
+      buildPersistedPreparerMultiplePayload(result)
     )
   }, [result])
 
@@ -1845,7 +1955,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         mv?.p90_ebitda_multiple,
         preparerBenchmarkMedian,
         mv?.p25_ebitda_multiple,
-        mv?.p75_ebitda_multiple,
+        mv?.p75_ebitda_multiple
       ) &&
       !preparerAcknowledgedExtreme
     ) {
@@ -1903,7 +2013,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       pendingOverrideRef.current = { reason: overrideReason, note: overrideNote }
       setSelectedMethod(method)
     },
-    [],
+    []
   )
 
   // Store last submitted data for retry capability
@@ -1991,7 +2101,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               mv0?.p90_ebitda_multiple,
               prep.benchmarkMedian,
               mv0?.p25_ebitda_multiple,
-              mv0?.p75_ebitda_multiple,
+              mv0?.p75_ebitda_multiple
             ) &&
             !prep.acknowledgedExtreme
           ) {
@@ -2098,72 +2208,75 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             latestAfterFetch = useVersionHistoryStore.getState().getLatestVersion(idForApi)
           } catch (fetchErr) {
             const fetchMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
-            generalLogger.warn('[ManualLayout] fetchVersions failed', { reportId: idForApi, error: fetchMsg })
+            generalLogger.warn('[ManualLayout] fetchVersions failed', {
+              reportId: idForApi,
+              error: fetchMsg,
+            })
             toast.warning(tHistory('loadError'), { description: fetchMsg })
             // Continue - calculation succeeded; versions may be stale
           }
 
           if (latestAfterFetch !== null) {
             try {
-            // Log regeneration when Titan created version (first calculation)
-            if (!previousVersion && latestAfterFetch) {
-              valuationAuditService.logRegeneration(
-                idForApi,
-                latestAfterFetch.versionNumber,
-                { totalChanges: 0, significantChanges: [] },
-                calculationDuration,
-                user?.id
-              )
-            }
-
-            if (previousVersion) {
-              // Re-calculation: a version existed BEFORE we called calculate.
-              // Titan created a new version server-side. Check if Venus should
-              // also snapshot (only if the changes are significant vs the pre-calc state).
-              const effectivePrevious = latestAfterFetch ?? previousVersion
-              const effectiveChanges = detectVersionChanges(previousVersion.formData, request)
-
-              // Log when Titan created new version (effectivePrevious > previousVersion)
-              if (effectivePrevious.versionNumber > previousVersion.versionNumber) {
+              // Log regeneration when Titan created version (first calculation)
+              if (!previousVersion && latestAfterFetch) {
                 valuationAuditService.logRegeneration(
                   idForApi,
-                  effectivePrevious.versionNumber,
-                  effectiveChanges,
+                  latestAfterFetch.versionNumber,
+                  { totalChanges: 0, significantChanges: [] },
                   calculationDuration,
                   user?.id
                 )
               }
 
-              // Only create a Venus-side version when there are significant form-data changes
-              // relative to the version that existed BEFORE the calculation.
-              if (
-                areChangesSignificant(effectiveChanges) &&
-                effectivePrevious.versionNumber === previousVersion.versionNumber
-              ) {
-                const newVersion = await createVersion({
-                  reportId: idForApi,
-                  formData: request,
-                  valuationResult: calcResult,
-                  htmlReport: calcResult.html_report || undefined,
-                  changesSummary: effectiveChanges,
-                  versionLabel: generateAutoLabel(
-                    effectivePrevious.versionNumber + 1,
-                    effectiveChanges
-                  ),
-                })
-                await snapshotNormalizationsToVersion(idForApi, newVersion.id)
+              if (previousVersion) {
+                // Re-calculation: a version existed BEFORE we called calculate.
+                // Titan created a new version server-side. Check if Venus should
+                // also snapshot (only if the changes are significant vs the pre-calc state).
+                const effectivePrevious = latestAfterFetch ?? previousVersion
+                const effectiveChanges = detectVersionChanges(previousVersion.formData, request)
 
-                // Log regeneration to audit trail (accountant compliance)
-                valuationAuditService.logRegeneration(
-                  idForApi,
-                  newVersion.versionNumber,
-                  effectiveChanges,
-                  calculationDuration,
-                  user?.id
-                )
+                // Log when Titan created new version (effectivePrevious > previousVersion)
+                if (effectivePrevious.versionNumber > previousVersion.versionNumber) {
+                  valuationAuditService.logRegeneration(
+                    idForApi,
+                    effectivePrevious.versionNumber,
+                    effectiveChanges,
+                    calculationDuration,
+                    user?.id
+                  )
+                }
+
+                // Only create a Venus-side version when there are significant form-data changes
+                // relative to the version that existed BEFORE the calculation.
+                if (
+                  areChangesSignificant(effectiveChanges) &&
+                  effectivePrevious.versionNumber === previousVersion.versionNumber
+                ) {
+                  const newVersion = await createVersion({
+                    reportId: idForApi,
+                    formData: request,
+                    valuationResult: calcResult,
+                    htmlReport: calcResult.html_report || undefined,
+                    changesSummary: effectiveChanges,
+                    versionLabel: generateAutoLabel(
+                      effectivePrevious.versionNumber + 1,
+                      effectiveChanges
+                    ),
+                  })
+                  await snapshotNormalizationsToVersion(idForApi, newVersion.id)
+
+                  // Log regeneration to audit trail (accountant compliance)
+                  valuationAuditService.logRegeneration(
+                    idForApi,
+                    newVersion.versionNumber,
+                    effectiveChanges,
+                    calculationDuration,
+                    user?.id
+                  )
+                }
               }
-            }
-            // else: first calculation — Titan already created V1, nothing to do
+              // else: first calculation — Titan already created V1, nothing to do
             } catch (versionError) {
               versionCreationFailed = true
               const errMsg =
@@ -2211,8 +2324,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             })
             useSessionStore.getState().markSaved()
           } catch (saveError) {
-            const errMsg =
-              saveError instanceof Error ? saveError.message : String(saveError)
+            const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
             generalLogger.error('[ManualLayout] Failed to save report assets', {
               reportId: idForApi,
               error: errMsg,
@@ -2256,8 +2368,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           })
           return
         }
-        const isSessionExpired =
-          error instanceof AuthenticationError || isAuthError(error)
+        const isSessionExpired = error instanceof AuthenticationError || isAuthError(error)
         const title = isSessionExpired ? tErrors('session.expired') : t('calculationFailed')
         const description = isSessionExpired
           ? tErrors('authentication.expired')
@@ -2322,12 +2433,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // Dirty-state interceptor: only show "Create V2" when we already have a valuation.
         // For first-ever calculation, we're creating V1 — never show the version popup.
         if (report && isDirty && hasExistingValuation) {
-          generalLogger.info('[ManualLayout] Dirty state detected, showing recalculation confirmation', {
-            isDirty,
-            currentVersionNumber,
-          })
+          generalLogger.info(
+            '[ManualLayout] Dirty state detected, showing recalculation confirmation',
+            {
+              isDirty,
+              currentVersionNumber,
+            }
+          )
           pendingSubmitDataRef.current = data
-          pendingPopupFlagsRef.current = { hasFormChanges: true, hasNormalizations: hasAnyNormalization }
+          pendingPopupFlagsRef.current = {
+            hasFormChanges: true,
+            hasNormalizations: hasAnyNormalization,
+          }
           recalculateConfirmationOpenRef.current = true
           setShowRecalculateConfirmation(true)
           return
@@ -2340,15 +2457,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           return
         }
         // Sync versions before submit so currentVersion is fresh (avoids stale hasFormChanges)
-        await useVersionHistoryStore.getState().fetchVersions(idForVersions).catch((err) => {
-          generalLogger.warn('[ManualLayout] Pre-submit fetchVersions failed', {
-            error: err instanceof Error ? err.message : String(err),
+        await useVersionHistoryStore
+          .getState()
+          .fetchVersions(idForVersions)
+          .catch((err) => {
+            generalLogger.warn('[ManualLayout] Pre-submit fetchVersions failed', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+            toast.warning(tHistory('loadError'), {
+              description: err instanceof Error ? err.message : undefined,
+            })
+            // Non-blocking: proceed with submit even if fetch fails
           })
-          toast.warning(tHistory('loadError'), {
-            description: err instanceof Error ? err.message : undefined,
-          })
-          // Non-blocking: proceed with submit even if fetch fails
-        })
         const latestVersion = getLatestVersion(idForVersions)
         const hasExistingValuationNow = hasExistingValuationVersion(latestVersion)
         if (!hasExistingValuationNow) {
@@ -2380,11 +2500,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             isConfirmationOpen: recalculateConfirmationOpenRef.current,
           })
         ) {
-          generalLogger.info('[ManualLayout] Changes detected, showing recalculation confirmation', {
-            hasFormChanges,
-            hasAnyNormalization,
-            currentVersionNumber: previousVersion.versionNumber,
-          })
+          generalLogger.info(
+            '[ManualLayout] Changes detected, showing recalculation confirmation',
+            {
+              hasFormChanges,
+              hasAnyNormalization,
+              currentVersionNumber: previousVersion.versionNumber,
+            }
+          )
           pendingSubmitDataRef.current = data
           pendingPopupFlagsRef.current = { hasFormChanges, hasNormalizations: hasAnyNormalization }
           recalculateConfirmationOpenRef.current = true
@@ -2585,9 +2708,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ([, v]) => v !== '' && v !== undefined && v !== null
         )
         const formCompletenessScore = Math.round((formFields.length / 7) * 100)
-        const versions = (resolvedReportId || reportId)
-          ? useVersionHistoryStore.getState().versions[resolvedReportId || reportId] || []
-          : []
+        const versions =
+          resolvedReportId || reportId
+            ? useVersionHistoryStore.getState().versions[resolvedReportId || reportId] || []
+            : []
 
         const latestFinancials = latestFormDataRef.current
         const enrichedFormData = {
@@ -2789,10 +2913,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setPendingUpdates((prev) => prev.filter((u) => u.field !== field))
   }, [])
 
-  const handleRejectUpdate = useCallback((field: string) => {
-    setPendingUpdates((prev) => prev.filter((u) => u.field !== field))
-    toast.info(t('suggestionRejected'))
-  }, [t])
+  const handleRejectUpdate = useCallback(
+    (field: string) => {
+      setPendingUpdates((prev) => prev.filter((u) => u.field !== field))
+      toast.info(t('suggestionRejected'))
+    },
+    [t]
+  )
 
   // Retry a failed assistant message by resending the preceding user message
   const handleRetry = useCallback(
@@ -3005,8 +3132,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setRawRecentValuations(
           (Array.isArray(reports) ? reports : []).slice(0, 5).map((r: any) => ({
             id: r.id || r.report_id || r.reportId,
-            companyName:
-              r.company_name || r.companyName || r.name || t('unnamed'),
+            companyName: r.company_name || r.companyName || r.name || t('unnamed'),
             updatedAt: new Date(r.updated_at || r.updatedAt || r.created_at || Date.now()),
             isDraft: r.status === 'draft' || r.status === 'in_progress',
             deleteMode: 'report' as const,
@@ -3045,8 +3171,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           v.id === resolvedReportId
       )
     // Prepend when: we have a current report (reportId or report) and it's not in the list
-    const shouldPrepend =
-      (currentId || (reportId && reportId !== 'new') || report) && !inList
+    const shouldPrepend = (currentId || (reportId && reportId !== 'new') || report) && !inList
     if (shouldPrepend && (currentId || reportId)) {
       const companyName =
         report?.companyName?.trim() ||
@@ -3104,7 +3229,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       // Store current form data for prefill on new valuation (business + financials)
       try {
         const formData = useManualFormStore.getState().formData
-        const normItems = useNormalizationStore.getState().items.filter((n) => n.status === 'accepted')
+        const normItems = useNormalizationStore
+          .getState()
+          .items.filter((n) => n.status === 'accepted')
         const prefillPayload: Record<string, unknown> = {
           ...formData,
           _fromNewValuation: true,
@@ -3233,8 +3360,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             let redirectUrl: string
             if (isAccountantMode) {
               try {
-                const returnUrl = typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_return_url') : null
-                const sourceApp = typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_source') : null
+                const returnUrl =
+                  typeof window !== 'undefined'
+                    ? sessionStorage.getItem('upswitch_return_url')
+                    : null
+                const sourceApp =
+                  typeof window !== 'undefined' ? sessionStorage.getItem('upswitch_source') : null
                 redirectUrl = getSafeMercuryReturnUrl(returnUrl, {
                   clientContextId: clientContextId ?? undefined,
                   locale: currentLocale,
@@ -3328,9 +3459,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           return
         }
       } catch (error) {
-        generalLogger.warn('[ManualLayout] handleSwitchWorkspace: sessionStorage unavailable, falling back to Venus home', {
-          error: error instanceof Error ? error.message : String(error),
-        })
+        generalLogger.warn(
+          '[ManualLayout] handleSwitchWorkspace: sessionStorage unavailable, falling back to Venus home',
+          {
+            error: error instanceof Error ? error.message : String(error),
+          }
+        )
       }
     }
     router.push(`/${currentLocale}/home`)
@@ -3467,7 +3601,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const requestSource = {
           ...formStoreData,
           ...latestFinancialOverrides,
-          current_year_data: latestFinancialOverrides.current_year_data ?? formStoreData.current_year_data,
+          current_year_data:
+            latestFinancialOverrides.current_year_data ?? formStoreData.current_year_data,
           historical_years_data:
             latestFinancialOverrides.historical_years_data ?? formStoreData.historical_years_data,
           revenue: latestFinancialOverrides.revenue ?? formStoreData.revenue,
@@ -3502,7 +3637,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               mvN?.p90_ebitda_multiple,
               prepN.benchmarkMedian,
               mvN?.p25_ebitda_multiple,
-              mvN?.p75_ebitda_multiple,
+              mvN?.p75_ebitda_multiple
             ) &&
             !prepN.acknowledgedExtreme
           ) {
@@ -3524,10 +3659,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               name: sessionName,
             })
           } catch (saveError) {
-            generalLogger.warn('[ManualLayout] Failed to sync recalculated normalization report assets', {
-              reportId: idForApi,
-              error: saveError instanceof Error ? saveError.message : String(saveError),
-            })
+            generalLogger.warn(
+              '[ManualLayout] Failed to sync recalculated normalization report assets',
+              {
+                reportId: idForApi,
+                error: saveError instanceof Error ? saveError.message : String(saveError),
+              }
+            )
           }
           toast.success(t('recalculatedWithNorms'), {
             description: t('recalculatedWithNormsDesc', { count: acceptedNorms.length }),
@@ -3595,12 +3733,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       ).filter((year) => Number.isFinite(year))
 
       try {
-        await persistOrDeleteNormalizationsForYears(
-          idForApi,
-          allYears,
-          originalEBITDAByYear,
-          norms
-        )
+        await persistOrDeleteNormalizationsForYears(idForApi, allYears, originalEBITDAByYear, norms)
       } catch (error) {
         generalLogger.warn('[ManualLayout] Sync after normalization edit failed', {
           error: error instanceof Error ? error.message : String(error),
@@ -3609,7 +3742,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       await recalculateWithNormalizations(norms)
     },
-    [financialYears, normalizationActions, originalEBITDAByYear, reportId, resolvedReportId, recalculateWithNormalizations, getYearsToPersist]
+    [
+      financialYears,
+      normalizationActions,
+      originalEBITDAByYear,
+      reportId,
+      resolvedReportId,
+      recalculateWithNormalizations,
+      getYearsToPersist,
+    ]
   )
 
   const handleAcceptNormalisation = useCallback(
@@ -3647,7 +3788,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
       await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t, recalculateWithNormalizations]
+    [
+      reportId,
+      resolvedReportId,
+      normalizationActions,
+      getYearsToPersist,
+      originalEBITDAByYear,
+      t,
+      recalculateWithNormalizations,
+    ]
   )
 
   const handleRejectNormalisation = useCallback(
@@ -3685,7 +3834,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
       await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
-    [reportId, resolvedReportId, normalizationActions, getYearsToPersist, originalEBITDAByYear, t, recalculateWithNormalizations]
+    [
+      reportId,
+      resolvedReportId,
+      normalizationActions,
+      getYearsToPersist,
+      originalEBITDAByYear,
+      t,
+      recalculateWithNormalizations,
+    ]
   )
 
   // ─── Version Restore ───
@@ -3776,7 +3933,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
 
         // 5. Restore tax latencies from version snapshot
-        if (version.tax_latency_data && Array.isArray(version.tax_latency_data) && version.tax_latency_data.length > 0) {
+        if (
+          version.tax_latency_data &&
+          Array.isArray(version.tax_latency_data) &&
+          version.tax_latency_data.length > 0
+        ) {
           useTaxLatencyStore.getState().setItems(version.tax_latency_data)
         } else {
           useTaxLatencyStore.getState().clear()
@@ -3805,10 +3966,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Calls /api/ai/normalize → gap-analysis style suggestions. Full ledger ingest must go
   // Hermes aggregate + Titan sync; see docs/financial-ingestion/CSV_UNIFIED_PIPELINE.md.
   const handleCSVImportComplete = useCallback(
-    async (
-      source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable',
-      _fileName?: string
-    ) => {
+    async (source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable', _fileName?: string) => {
       const labels = {
         yuki: 'Yuki',
         exact: 'Exact Online',
@@ -3956,8 +4114,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Shared Chat Drawer Props ───
   const cyd = formStoreData?.current_year_data as { ebitda?: number } | undefined
   const hy = (formStoreData?.historical_years_data || []) as Array<{ ebitda?: number }>
-  const hasEbitda =
-    (cyd && (cyd.ebitda ?? 0) !== 0) || hy.some((h) => (h.ebitda ?? 0) !== 0)
+  const hasEbitda = (cyd && (cyd.ebitda ?? 0) !== 0) || hy.some((h) => (h.ebitda ?? 0) !== 0)
   const chatDrawerProps = {
     open: chatDrawerOpen,
     onOpenChange: setChatDrawerOpen,
@@ -4135,7 +4292,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenChange={setShowFullscreenModal}
           report={report}
           onDownload={handleExport}
-          onShare={isAccountantMode && clientContextId ? () => { setShowFullscreenModal(false); setShowInviteClientModal(true) } : undefined}
+          onShare={
+            isAccountantMode && clientContextId
+              ? () => {
+                  setShowFullscreenModal(false)
+                  setShowInviteClientModal(true)
+                }
+              : undefined
+          }
         />
 
         <InviteClientModal
@@ -4190,7 +4354,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           countryCode={formCountry || 'BE'}
           onUploadClick={() => {}}
           financialYears={financialYears}
-          fallbackFormDataRef={latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>}
+          fallbackFormDataRef={
+            latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>
+          }
         />
       </div>
     )
@@ -4381,12 +4547,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                                 </div>
                                 <div className="text-left md:text-right">
                                   <p className="text-lg font-mono font-semibold tabular-nums text-primary">
-                                    €{(liveMultipleReportPreview.previewEquity / 1_000_000).toFixed(2)}M
+                                    €
+                                    {(liveMultipleReportPreview.previewEquity / 1_000_000).toFixed(
+                                      2
+                                    )}
+                                    M
                                   </p>
                                   <p className="text-[11px] font-mono tabular-nums text-foreground/55">
                                     {liveMultipleReportPreview.delta >= 0 ? '+' : '-'}€
-                                    {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}K ·{' '}
-                                    {liveMultipleReportPreview.appliedMultiple.toFixed(2)}x
+                                    {(Math.abs(liveMultipleReportPreview.delta) / 1_000).toFixed(0)}
+                                    K · {liveMultipleReportPreview.appliedMultiple.toFixed(2)}x
                                   </p>
                                 </div>
                               </div>
@@ -4400,7 +4570,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                             />
                           </div>
                         </div>
-                      ) : (isGenerating || isCalculating) ? (
+                      ) : isGenerating || isCalculating ? (
                         <div className="h-full flex flex-col bg-background">
                           <div className="flex items-center justify-center gap-2 py-4">
                             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -4482,7 +4652,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                         />
                       </div>
                     </motion.div>
-                  ) : (isGenerating || isCalculating) ? (
+                  ) : isGenerating || isCalculating ? (
                     <motion.div
                       key="report"
                       initial={{ opacity: 0 }}
@@ -4523,7 +4693,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onOpenChange={setShowFullscreenModal}
         report={report}
         onDownload={handleExport}
-        onShare={isAccountantMode && clientContextId ? () => { setShowFullscreenModal(false); setShowInviteClientModal(true) } : undefined}
+        onShare={
+          isAccountantMode && clientContextId
+            ? () => {
+                setShowFullscreenModal(false)
+                setShowInviteClientModal(true)
+              }
+            : undefined
+        }
       />
 
       {/* Invite Client Modal */}
@@ -4582,7 +4759,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         countryCode={formCountry || 'BE'}
         onUploadClick={() => {}}
         financialYears={financialYears}
-        fallbackFormDataRef={latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>}
+        fallbackFormDataRef={
+          latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>
+        }
       />
 
       {/* Source Data Panel — "Trust but Verify" raw ledger data */}
@@ -4596,6 +4775,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }}
         valuationResults={getHydratedValuationResults(result) ?? {}}
         isHydratingMethods={isHydratingEditModalData}
+        methodDataLoadError={reportMethodHydrationError}
         selectedMethod={selectedMethod}
         onSelectMethod={handleSelectMethodWithOverride}
         fiscalAnchor={result?.fiscal_4x_anchor}

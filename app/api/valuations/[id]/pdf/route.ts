@@ -6,6 +6,10 @@
  *
  * POST /api/valuations/:id/pdf - Trigger PDF generation
  * GET /api/valuations/:id/pdf - Get existing PDF or check status
+ *
+ * **Embedded preview (e.g. Mercury iframe → Venus on `preview.valuation.upswitch.app`):** the browser may
+ * not send `upswitch_access_token` as a first-party cookie (third-party / SameSite), so POST can return
+ * **401**. Fixing that requires infra (BFF, short-lived token, or cookie scope alignment), not only UI.
  */
 
 import { type NextRequest, NextResponse } from 'next/server'

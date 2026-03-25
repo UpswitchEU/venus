@@ -2146,6 +2146,8 @@
     "rangeIllustrative": "Illustrative ±20%",
     "unavailableTitle": "Valuation method data unavailable",
     "unavailableBlurb": "Method options didn’t load. Tap Calculate again or refresh the page.",
+    "transientLoadTitle": "Method data temporarily unavailable",
+    "transientLoadBlurb": "The server was busy or unreachable. Wait a moment and try again, or refresh the page.",
     "showAllMethods": "Show all methods ({count})",
     "zeroDraftBlurb": "Technical package — every method’s midpoint and range for your files. The client-facing report stays one clear headline.",
     "exportZeroDraft": "Download Zero Draft (CSV)",
