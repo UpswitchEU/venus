@@ -132,19 +132,6 @@ import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
-
-function getHttpStatusFromError(err: unknown): number | undefined {
-  if (err instanceof APIError) return err.statusCode
-  const ax = err as { response?: { status?: number } }
-  return ax?.response?.status
-}
-
-/** Retries for getReport hydration: rate limits and upstream/transient HTTP + network errors */
-function isRetryableReportHydrationError(err: unknown): boolean {
-  if (err instanceof NetworkError) return true
-  const s = getHttpStatusFromError(err)
-  return s === 429 || s === 502 || s === 503 || s === 408
-}
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
   persistNormalizationsBeforeCalculate,
@@ -168,6 +155,19 @@ import {
 import { deleteValuationEntry } from '../utils/deleteValuationEntry'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import { deriveManualReportPresentation } from './manualReportPresentation'
+
+function getHttpStatusFromError(err: unknown): number | undefined {
+  if (err instanceof APIError) return err.statusCode
+  const ax = err as { response?: { status?: number } }
+  return ax?.response?.status
+}
+
+/** Retries for getReport hydration: rate limits, gateway/transient HTTP, and network errors */
+function isRetryableReportHydrationError(err: unknown): boolean {
+  if (err instanceof NetworkError || err instanceof RateLimitError) return true
+  const s = getHttpStatusFromError(err)
+  return s === 429 || s === 502 || s === 503 || s === 504 || s === 408
+}
 
 /** Poll while PDF is stale; extend max window so slow jobs can still complete */
 const PDF_STALE_POLL_INTERVAL_MS = 2500
@@ -867,7 +867,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setShowFiscalReferenceForOmni(false)
       }
       setIsHydratingEditModalData(false)
-      if (!getHydratedValuationResults(current) && isRetryableReportHydrationError(lastError)) {
+      const stillMissingMethods = !getHydratedValuationResults(current)
+      const transient = stillMissingMethods && isRetryableReportHydrationError(lastError)
+      if (transient) {
+        generalLogger.warn('[ManualLayout] Report method hydration failed after retries', {
+          reportHydrationLookupId: id,
+          status: getHttpStatusFromError(lastError),
+          errorName: lastError instanceof Error ? lastError.name : typeof lastError,
+        })
         setReportMethodHydrationError('transient')
       } else {
         setReportMethodHydrationError(null)
