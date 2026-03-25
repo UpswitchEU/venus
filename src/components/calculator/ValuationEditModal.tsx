@@ -61,11 +61,12 @@ const METHOD_OVERRIDE_REASON_KEYS = [
 const formatCurrency = (amount: number) => {
   const sign = amount < 0 ? '-' : ''
   const abs = Math.abs(amount)
+  const rounded = Math.round(abs)
   return abs >= 1_000_000
     ? `${sign}€${(abs / 1_000_000).toFixed(1)}M`
-    : abs >= 1_000
-      ? `${sign}€${(abs / 1_000).toFixed(0)}K`
-      : `${sign}€${Math.round(abs)}`
+    : rounded >= 1_000
+      ? `${sign}€${Math.round(abs / 1_000)}K`
+      : `${sign}€${rounded}`
 }
 
 const formatMultiple = (value: number | null) =>
@@ -1293,7 +1294,7 @@ export function ValuationEditModal({
                           liveEquityPreview - activeMetricValue >= 0 ? 'text-success' : 'text-warning',
                         )}
                       >
-                        {liveEquityPreview - activeMetricValue >= 0 ? '+' : ''}
+                        {liveEquityPreview - activeMetricValue >= 0 ? '+' : '−'}
                         {formatCurrency(Math.abs(liveEquityPreview - activeMetricValue))}
                       </p>
                     </div>

@@ -582,6 +582,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         0,
     )
     const netDebt = Number(details?.net_debt ?? resultAny?.net_debt ?? 0)
+    const bsaRaw = details?.balance_sheet_adjustments ?? resultAny?.balance_sheet_adjustments
+    const balanceSheetAdj = typeof bsaRaw === 'number' && Number.isFinite(bsaRaw)
+      ? bsaRaw
+      : Array.isArray(bsaRaw)
+        ? bsaRaw.reduce((s: number, item: any) => s + (Number(item?.amount ?? item?.value ?? item?.adjustment ?? 0) || 0), 0)
+        : 0
     const currentHeadline = Number(report?.valuation ?? result?.equity_value_mid ?? 0)
     const appliedMultiple =
       preparerAppliedMedian != null && Number.isFinite(preparerAppliedMedian)
@@ -606,7 +612,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return null
     }
 
-    const previewEquity = Math.round(sustainableEbitda * appliedMultiple - netDebt)
+    const previewEquity = Math.round(sustainableEbitda * appliedMultiple - netDebt + balanceSheetAdj)
     if (!Number.isFinite(previewEquity)) return null
 
     return {
@@ -1457,7 +1463,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         if (!cancelled) {
           lastPersistedMethodRef.current = selectedMethod
         }
-      } catch {
+      } catch (error) {
+        generalLogger.error('[ManualLayout] Method persist failed', {
+          error: error instanceof Error ? error.message : String(error),
+          selectedMethod,
+        })
         if (!cancelled) {
           setSelectedMethod(previousMethod)
           toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
@@ -3240,6 +3250,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         generalLogger.warn('[ManualLayout] Normalization recalculation failed (non-blocking)', {
           error: error instanceof Error ? error.message : String(error),
         })
+        toast.error(t('normRecalcFailed'), { description: t('normRecalcFailedDesc') })
       }
     },
     [
@@ -3932,7 +3943,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
                                 <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                                 <span className="text-sm text-foreground/70">
-                                  {t('updatingReport', { defaultValue: 'Rapport bijwerken…' })}
+                                  {t('updatingReport')}
                                 </span>
                               </div>
                             </div>
@@ -3942,16 +3953,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
                                 <div>
                                   <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
-                                    {t('previewEquityValue', { defaultValue: 'Voorbeeldberekening' })}
+                                    {t('previewEquityValue')}
                                   </p>
                                   <p className="text-sm text-foreground/70">
-                                    {t(
-                                      'previewEquityBlurb',
-                                      {
-                                        defaultValue:
-                                          'Live accountant preview based on the current EV/EBITDA multiple. Recalculate to persist it into the report and PDF.',
-                                      },
-                                    )}
+                                    {t('previewEquityBlurb')}
                                   </p>
                                 </div>
                                 <div className="text-left md:text-right">
@@ -4020,7 +4025,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           <div className="flex items-center gap-2 rounded-lg bg-background/90 px-4 py-2 shadow-sm">
                             <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                             <span className="text-sm text-foreground/70">
-                              {t('updatingReport', { defaultValue: 'Rapport bijwerken…' })}
+                              {t('updatingReport')}
                             </span>
                           </div>
                         </div>
@@ -4030,16 +4035,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
                             <div>
                               <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
-                                {t('previewEquityValue', { defaultValue: 'Voorbeeldberekening' })}
+                                {t('previewEquityValue')}
                               </p>
                               <p className="text-sm text-foreground/70">
-                                {t(
-                                  'previewEquityBlurb',
-                                  {
-                                    defaultValue:
-                                      'Live accountant preview based on the current EV/EBITDA multiple. Recalculate to persist it into the report and PDF.',
-                                  },
-                                )}
+                                {t('previewEquityBlurb')}
                               </p>
                             </div>
                             <div className="text-left md:text-right">
