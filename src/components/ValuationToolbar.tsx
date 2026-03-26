@@ -293,7 +293,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
       : `/${currentLocale}/my-business/overview`
     const targetUrl = getSafeMercuryReturnUrl(returnUrl ?? fallbackPath, {
       locale: currentLocale,
-      sourceApp,
+      sourceApp: sourceApp ?? undefined,
     })
 
     // Navigate back to Mercury

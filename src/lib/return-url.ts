@@ -30,7 +30,9 @@ export function isLegacyReturnUrl(url: string): boolean {
  * Whether a raw Mercury return_url value is safe to persist/read.
  * Treat stored session values as untrusted until they pass this check.
  */
-export function isSafeMercuryReturnUrlInput(storedUrl: string | null | undefined): boolean {
+export function isSafeMercuryReturnUrlInput(
+  storedUrl: string | null | undefined
+): storedUrl is string {
   const raw = storedUrl?.trim()
   if (!raw || isLegacyReturnUrl(raw)) return false
 
