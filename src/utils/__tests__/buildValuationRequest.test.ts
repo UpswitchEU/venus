@@ -93,10 +93,25 @@ describe('buildValuationRequest', () => {
     expect(result.current_year_data.cash).toBe(0)
   })
 
-  it('always uses the last closed fiscal year for current_year_data', () => {
+  it('uses the default filing year for current_year_data when no explicit year is provided', () => {
     const result = buildValuationRequest(makeFormData(), [])
 
     expect(result.current_year_data.year).toBe(getCurrentFilingYear())
+  })
+
+  it('preserves an explicitly selected filing year for current_year_data', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: getCurrentFilingYear() + 1,
+          revenue: 1_500_000,
+          ebitda: 250_000,
+        },
+      }),
+      []
+    )
+
+    expect(result.current_year_data.year).toBe(getCurrentFilingYear() + 1)
   })
 
   it('always forces shares_for_sale to 100', () => {
