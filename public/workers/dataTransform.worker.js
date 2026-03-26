@@ -6,12 +6,16 @@
  * 
  * Messages:
  * - sortData: Sort large datasets
- * - filterData: Filter large datasets
+ * - filterData: Filter large datasets (structured FilterSpec object; not arbitrary JS/expression strings)
  * - aggregateData: Aggregate/group data
  * - transformForChart: Transform data for chart libraries
  * - calculateStats: Calculate statistical metrics
  * 
  * @module workers/dataTransform
+ *
+ * filterData `filter` shape: logical nodes `{ op: 'and'|'or', conditions }`, `{ op: 'not', condition }`;
+ * leaf nodes `{ op, field, value?, values? }` with op in eq, neq, gt, gte, lt, lte, in, contains.
+ * Field paths use dots for nesting (e.g. parent.child).
  */
 
 // Worker scope
@@ -43,15 +47,92 @@ function sortData({ data, key, direction = 'asc' }) {
 }
 
 /**
+ * Read nested property by dot path (e.g. "a.b.c")
+ */
+function getByPath(obj, path) {
+  if (path == null || path === '') {
+    return obj
+  }
+  const parts = path.split('.')
+  let cur = obj
+  for (let i = 0; i < parts.length; i++) {
+    if (cur == null) {
+      return undefined
+    }
+    cur = cur[parts[i]]
+  }
+  return cur
+}
+
+/**
+ * Evaluate a JSON-serializable filter tree (no eval / Function).
+ */
+function matchesFilter(item, spec) {
+  if (spec == null || typeof spec !== 'object') {
+    throw new Error('Filter spec must be a non-null object')
+  }
+
+  const { op } = spec
+
+  if (op === 'and') {
+    if (!Array.isArray(spec.conditions)) {
+      throw new Error('Filter op "and" requires conditions array')
+    }
+    return spec.conditions.every((c) => matchesFilter(item, c))
+  }
+
+  if (op === 'or') {
+    if (!Array.isArray(spec.conditions)) {
+      throw new Error('Filter op "or" requires conditions array')
+    }
+    return spec.conditions.some((c) => matchesFilter(item, c))
+  }
+
+  if (op === 'not') {
+    return !matchesFilter(item, spec.condition)
+  }
+
+  if (typeof spec.field !== 'string' || spec.field === '') {
+    throw new Error('Leaf filter requires non-empty string field')
+  }
+
+  const val = getByPath(item, spec.field)
+
+  switch (op) {
+    case 'eq':
+      return val === spec.value
+    case 'neq':
+      return val !== spec.value
+    case 'gt':
+      return val > spec.value
+    case 'gte':
+      return val >= spec.value
+    case 'lt':
+      return val < spec.value
+    case 'lte':
+      return val <= spec.value
+    case 'in':
+      if (!Array.isArray(spec.values)) {
+        throw new Error('Filter op "in" requires values array')
+      }
+      return spec.values.includes(val)
+    case 'contains': {
+      const hay = val == null ? '' : String(val)
+      const needle = spec.value == null ? '' : String(spec.value)
+      return hay.includes(needle)
+    }
+    default:
+      throw new Error(`Unknown filter op: ${op}`)
+  }
+}
+
+/**
  * Filter large dataset
  */
-function filterData({ data, predicate }) {
+function filterData({ data, filter }) {
   const startTime = performance.now()
 
-  // Convert predicate string to function
-  const filterFn = new Function('item', `return ${predicate}`)
-
-  const filtered = data.filter(filterFn)
+  const filtered = data.filter((item) => matchesFilter(item, filter))
 
   const duration = performance.now() - startTime
 

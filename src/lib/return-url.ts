@@ -5,6 +5,17 @@
 
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 
+/**
+ * True only for real Upswitch/Venus hosts.
+ * Never use `origin.includes('upswitch.app')` — that matches typosquats like `notupswitch.app`.
+ */
+export function isTrustedUpswitchHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase()
+  if (h === 'localhost' || h === '127.0.0.1') return true
+  if (h === 'upswitch.app' || h.endsWith('.upswitch.app')) return true
+  return false
+}
+
 /** Route patterns that no longer exist in Mercury and would 404 */
 export const LEGACY_ROUTE_PATTERNS = ['_listings', 'accountant_listings', 'seller_listings']
 
@@ -13,6 +24,26 @@ export const LEGACY_ROUTE_PATTERNS = ['_listings', 'accountant_listings', 'selle
  */
 export function isLegacyReturnUrl(url: string): boolean {
   return LEGACY_ROUTE_PATTERNS.some((pattern) => url.includes(pattern))
+}
+
+/**
+ * Whether a raw Mercury return_url value is safe to persist/read.
+ * Treat stored session values as untrusted until they pass this check.
+ */
+export function isSafeMercuryReturnUrlInput(storedUrl: string | null | undefined): boolean {
+  const raw = storedUrl?.trim()
+  if (!raw || isLegacyReturnUrl(raw)) return false
+
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    try {
+      const url = new URL(raw)
+      return isTrustedUpswitchHostname(url.hostname) && !isLegacyReturnUrl(url.pathname)
+    } catch {
+      return false
+    }
+  }
+
+  return !raw.startsWith('//')
 }
 
 /**
@@ -63,20 +94,32 @@ export function getSafeMercuryReturnUrl(
 
   let result: string
 
-  if (storedUrl && !isLegacyReturnUrl(storedUrl)) {
-    if (storedUrl.startsWith('http://') || storedUrl.startsWith('https://')) {
+  const raw = storedUrl?.trim()
+  if (isSafeMercuryReturnUrlInput(raw)) {
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
       try {
-        const url = new URL(storedUrl)
-        if (url.origin.includes('upswitch.app') && !isLegacyReturnUrl(url.pathname)) {
-          result = storedUrl
-        } else {
+        const url = new URL(raw)
+        if (!isTrustedUpswitchHostname(url.hostname) || isLegacyReturnUrl(url.pathname)) {
           result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
+        } else {
+          const allowHttp =
+            url.protocol === 'http:' &&
+            (url.hostname === 'localhost' || url.hostname === '127.0.0.1')
+          if (url.protocol === 'http:' && !allowHttp) {
+            url.protocol = 'https:'
+            result = url.toString()
+          } else {
+            result = raw
+          }
         }
       } catch {
         result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
       }
+    } else if (raw.startsWith('//')) {
+      // Protocol-relative "URLs" must not be concatenated onto a base (open-redirect footgun).
+      result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
     } else {
-      result = `${mercuryUrl}${storedUrl.startsWith('/') ? '' : '/'}${storedUrl}`
+      result = `${mercuryUrl}${raw.startsWith('/') ? '' : '/'}${raw}`
     }
   } else if (options?.clientContextId) {
     result = `${mercuryUrl}/${validLocale}/accountant/clients/${options.clientContextId}/valuations`

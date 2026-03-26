@@ -19,12 +19,12 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { User } from '../contexts/AuthContextTypes'
-import { getApiUrl } from '../utils/getMercuryUrl'
 import { fetchWithBySession404Retry } from '../utils/fetchWithBySession404Retry'
+import { getApiUrl } from '../utils/getMercuryUrl'
 import { isSessionKey, isUuid } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
-import { isLegacyReturnUrl } from './return-url'
+import { isLegacyReturnUrl, isSafeMercuryReturnUrlInput } from './return-url'
 
 // Backend API URL - environment-aware (shared utility)
 const API_URL = getApiUrl()
@@ -835,9 +835,9 @@ async function initializeAuth(): Promise<void> {
       const returnUrl = params.get('return_url')
       const sourceApp = params.get('source')
 
-      if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
+      if (isSafeMercuryReturnUrlInput(returnUrl)) {
         // Store in sessionStorage for later use when user wants to return (always overwrite stale values)
-        sessionStorage.setItem('upswitch_return_url', returnUrl)
+        sessionStorage.setItem('upswitch_return_url', returnUrl.trim())
         if (sourceApp) {
           sessionStorage.setItem('upswitch_source', sourceApp)
         }
@@ -878,7 +878,6 @@ async function initializeAuth(): Promise<void> {
           } catch {
             /* ignore */
           }
-
           // BANK GRADE: Execute client context exchange
           // Using IIFE to run async code, but resolving/rejecting the DEFERRED promise
           // (not creating a new promise - initClientContextPromise already did that)

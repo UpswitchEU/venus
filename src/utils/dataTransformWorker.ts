@@ -21,6 +21,44 @@ export interface FilterDataResult<T = any> {
   duration_ms: number
 }
 
+/** Leaf ops compare `getByPath(item, field)` to value(s). Use dot paths for nesting, e.g. `user.name`. */
+export type FilterLeafOp =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'in'
+  | 'contains'
+
+export type FilterLeaf = {
+  op: FilterLeafOp
+  field: string
+  /** Right-hand side for eq, neq, ordering, contains */
+  value?: unknown
+  /** Allowed values for `in` */
+  values?: unknown[]
+}
+
+export type FilterLogicalAnd = {
+  op: 'and'
+  conditions: FilterSpec[]
+}
+
+export type FilterLogicalOr = {
+  op: 'or'
+  conditions: FilterSpec[]
+}
+
+export type FilterLogicalNot = {
+  op: 'not'
+  condition: FilterSpec
+}
+
+/** JSON-serializable filter tree (no arbitrary JS strings). Evaluated in the worker without dynamic code. */
+export type FilterSpec = FilterLeaf | FilterLogicalAnd | FilterLogicalOr | FilterLogicalNot
+
 export interface AggregateDataResult {
   data: any[]
   groupCount: number
@@ -171,17 +209,17 @@ class DataTransformWorkerClient {
   }
 
   /**
-   * Filter large dataset in background
+   * Filter large dataset in background using a structured filter (not a JS expression string).
    */
-  async filterData<T = any>(data: T[], predicate: string): Promise<FilterDataResult<T>> {
+  async filterData<T = any>(data: T[], filter: FilterSpec): Promise<FilterDataResult<T>> {
     generalLogger.debug('[DataTransformWorker] Filtering data', {
       count: data.length,
-      predicate,
+      filter,
     })
 
     const result = await this.sendMessage<FilterDataResult<T>>('filterData', {
       data,
-      predicate,
+      filter,
     })
 
     generalLogger.info('[DataTransformWorker] Data filtered', {

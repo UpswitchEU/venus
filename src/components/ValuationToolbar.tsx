@@ -16,7 +16,6 @@ import {
 import { useTranslations } from 'next-intl'
 import React from 'react'
 import { Tooltip } from '@/design-system'
-import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { generalLogger } from '@/utils/logger'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import {
@@ -28,6 +27,7 @@ import {
   useValuationToolbarTabs,
   type ValuationTab,
 } from '../hooks/valuationToolbar'
+import { getSafeMercuryReturnUrl } from '../lib/return-url'
 import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { ValuationToolbarProps } from '../types/valuation'
@@ -284,50 +284,17 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
       }
     }
 
-    // ✅ FIX: Construct full Mercury URL from returnUrl
-    // Return URL from Mercury is relative (e.g., /nl/accountant/clients/...)
-    // We need to construct full URL using Mercury domain (upswitch.app, not valuation.upswitch.app)
-    const mercuryUrl = getMercuryUrl()
-
-    let targetUrl: string
-
-    // Detect legacy/invalid route patterns that no longer exist in Mercury
-    const LEGACY_ROUTE_PATTERNS = ['_listings', 'accountant_listings', 'seller_listings']
-    const isLegacyRoute = (url: string) =>
-      LEGACY_ROUTE_PATTERNS.some((pattern) => url.includes(pattern))
-
-    if (returnUrl && !isLegacyRoute(returnUrl)) {
-      if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
-        // Already a full URL - use as-is if it's from upswitch.app domain
-        const url = new URL(returnUrl)
-        if (url.origin.includes('upswitch.app') && !isLegacyRoute(url.pathname)) {
-          targetUrl = returnUrl
-        } else {
-          // Different domain or legacy path - fall back to dashboard
-          const locale = returnUrl.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-          targetUrl = `${mercuryUrl}/${locale}/accountant/dashboard`
-        }
-      } else {
-        // Relative URL - construct full URL using Mercury domain
-        targetUrl = `${mercuryUrl}${returnUrl.startsWith('/') ? '' : '/'}${returnUrl}`
-      }
-    } else {
-      // No return URL - fall back to dashboard based on user role
-      // Try to get locale from current URL or default to 'en'
-      const currentLocale =
-        typeof window !== 'undefined'
-          ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
-          : 'en'
-
-      // Determine dashboard based on source app or default to accountant dashboard
-      // ✅ FIX: Mercury sends 'mercury' as source, not 'mercury-accountant'
-      if (sourceApp?.includes('mercury')) {
-        targetUrl = `${mercuryUrl}/${currentLocale}/accountant/dashboard`
-      } else {
-        // Default to seller dashboard or home
-        targetUrl = `${mercuryUrl}/${currentLocale}/my-business/overview`
-      }
-    }
+    const currentLocale =
+      typeof window !== 'undefined'
+        ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
+        : 'en'
+    const fallbackPath = sourceApp?.includes('mercury')
+      ? `/${currentLocale}/accountant/dashboard`
+      : `/${currentLocale}/my-business/overview`
+    const targetUrl = getSafeMercuryReturnUrl(returnUrl ?? fallbackPath, {
+      locale: currentLocale,
+      sourceApp,
+    })
 
     // Navigate back to Mercury
     window.location.href = targetUrl

@@ -12,6 +12,7 @@ export type {
   AggregateDataResult,
   ChartDataResult,
   FilterDataResult,
+  FilterSpec,
   SortDataResult,
   StatsResult,
 } from '../dataTransformWorker'

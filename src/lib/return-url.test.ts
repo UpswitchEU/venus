@@ -4,15 +4,17 @@ vi.mock('@/utils/getMercuryUrl', () => ({
   getMercuryUrl: () => 'https://upswitch.app',
 }))
 
-import { applyMercuryCelebrationQuery, getSafeMercuryReturnUrl } from './return-url'
+import {
+  applyMercuryCelebrationQuery,
+  getSafeMercuryReturnUrl,
+  isSafeMercuryReturnUrlInput,
+  isTrustedUpswitchHostname,
+} from './return-url'
 
 describe('applyMercuryCelebrationQuery', () => {
   it('strips from when not celebrating', () => {
     expect(
-      applyMercuryCelebrationQuery(
-        'https://upswitch.app/nl/accountant/clients/x?from=venus',
-        false
-      )
+      applyMercuryCelebrationQuery('https://upswitch.app/nl/accountant/clients/x?from=venus', false)
     ).toBe('https://upswitch.app/nl/accountant/clients/x')
   })
 
@@ -27,7 +29,53 @@ describe('applyMercuryCelebrationQuery', () => {
   })
 })
 
+describe('isTrustedUpswitchHostname', () => {
+  it('rejects typosquats where the label merely contains upswitch.app as a substring', () => {
+    expect(isTrustedUpswitchHostname('notupswitch.app')).toBe(false)
+  })
+
+  it('accepts real Upswitch apex and subdomains', () => {
+    expect(isTrustedUpswitchHostname('upswitch.app')).toBe(true)
+    expect(isTrustedUpswitchHostname('www.upswitch.app')).toBe(true)
+    expect(isTrustedUpswitchHostname('valuation.upswitch.app')).toBe(true)
+  })
+})
+
+describe('isSafeMercuryReturnUrlInput', () => {
+  it('accepts safe Mercury-relative paths used by toolbar return flows', () => {
+    expect(isSafeMercuryReturnUrlInput('/nl/my-business/overview')).toBe(true)
+    expect(isSafeMercuryReturnUrlInput('/nl/accountant/clients/c1')).toBe(true)
+  })
+
+  it('rejects typosquats and protocol-relative values before they are stored', () => {
+    expect(isSafeMercuryReturnUrlInput('https://notupswitch.app/phish')).toBe(false)
+    expect(isSafeMercuryReturnUrlInput('//evil.example/phish')).toBe(false)
+  })
+})
+
 describe('getSafeMercuryReturnUrl', () => {
+  it('rejects notupswitch.app typosquat and falls back to dashboard', () => {
+    const out = getSafeMercuryReturnUrl('https://notupswitch.app/phish', { locale: 'en' })
+    expect(out).toBe('https://upswitch.app/en/accountant/dashboard')
+  })
+
+  it('rejects protocol-relative stored paths (//...) and falls back to dashboard', () => {
+    const out = getSafeMercuryReturnUrl('//evil.example/phish', { locale: 'en' })
+    expect(out).toBe('https://upswitch.app/en/accountant/dashboard')
+  })
+
+  it('upgrades http to https for production Upswitch hosts (no cleartext downgrade)', () => {
+    const out = getSafeMercuryReturnUrl('http://valuation.upswitch.app/en/foo?x=1', {
+      locale: 'en',
+    })
+    expect(out).toBe('https://valuation.upswitch.app/en/foo?x=1')
+  })
+
+  it('preserves http for localhost dev', () => {
+    const out = getSafeMercuryReturnUrl('http://localhost:3000/en/foo', { locale: 'en' })
+    expect(out).toBe('http://localhost:3000/en/foo')
+  })
+
   it('strips legacy from=venus from stored absolute URLs when celebrate is false', () => {
     const out = getSafeMercuryReturnUrl(
       'https://upswitch.app/nl/accountant/clients/c1?from=venus&keep=1',

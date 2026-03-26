@@ -52,10 +52,36 @@ export class RefreshService {
    * @param url - URL to navigate to
    */
   static navigateTo(url: string): void {
-    if (typeof window !== 'undefined' && window.location) {
-      generalLogger.info('Navigating to new URL', { url })
-      window.location.href = url
+    if (typeof window === 'undefined' || !window.location) return
+
+    const trimmed = url.trim()
+    if (!trimmed) {
+      generalLogger.warn('NavigateTo blocked: empty URL')
+      return
     }
+
+    const isPathOnlySafe = trimmed.startsWith('/') && !trimmed.startsWith('//')
+    let sameOrigin = false
+    if (!isPathOnlySafe) {
+      try {
+        sameOrigin = new URL(trimmed, window.location.origin).origin === window.location.origin
+      } catch {
+        sameOrigin = false
+      }
+    }
+
+    if (!isPathOnlySafe && !sameOrigin) {
+      generalLogger.warn(
+        'NavigateTo blocked: URL must be same-origin path or full same-origin URL',
+        {
+          url: trimmed,
+        }
+      )
+      return
+    }
+
+    generalLogger.info('Navigating to new URL', { url: trimmed })
+    window.location.href = trimmed
   }
 
   /**

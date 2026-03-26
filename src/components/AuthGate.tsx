@@ -26,6 +26,7 @@ import { AuroraButton, GlassCard } from '@/design-system'
 import type { User } from '../contexts/AuthContextTypes'
 import { useLanguageSync } from '../hooks/useLanguageSync'
 import { clearInitThrottle, clearReloadCounter, getInitTraceId, useAuthStore } from '../lib/auth'
+import { getSafeMercuryReturnUrl } from '../lib/return-url'
 import { useClientContext } from '../stores/clientContext'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
@@ -155,11 +156,20 @@ function DefaultErrorState({
   onRetry: () => void
 }) {
   const t = useTranslations('auth.authGate')
+  const locale =
+    typeof window !== 'undefined'
+      ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+      : 'en'
+
   const handleLogIn = () => {
     const currentUrl = window.location.href
     const mercuryUrl = getMercuryUrl()
-    const locale = window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
     window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+  }
+
+  const handleGoBack = () => {
+    if (!returnUrl) return
+    window.location.href = getSafeMercuryReturnUrl(returnUrl, { locale })
   }
 
   return (
@@ -198,9 +208,7 @@ function DefaultErrorState({
           </AuroraButton>
           {returnUrl && (
             <AuroraButton
-              onClick={() => {
-                window.location.href = returnUrl
-              }}
+              onClick={handleGoBack}
               variant="secondary"
               size="lg"
               className="flex items-center justify-center gap-2"
@@ -275,8 +283,8 @@ export function AuthGate({
   const needsClientContext = hasClientToken
 
   // Subscribe to client context when needsClientContext (client null when invitation not accepted)
-  const clientContextReady = useClientContext((s) =>
-    !needsClientContext || (s.isActingAsClient && !!s.accountant && !!s.relationshipId)
+  const clientContextReady = useClientContext(
+    (s) => !needsClientContext || (s.isActingAsClient && !!s.accountant && !!s.relationshipId)
   )
 
   const handleRetry = useCallback(() => {

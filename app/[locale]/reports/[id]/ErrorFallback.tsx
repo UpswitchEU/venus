@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { AuroraButton, GlassCard } from '@/design-system'
+import { getSafeMercuryReturnUrl } from '@/lib/return-url'
 
 interface ErrorFallbackProps {
   returnUrl?: string
@@ -36,6 +37,16 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
   }, [returnUrl])
 
   const effectiveReturnUrl = returnUrl || storedReturnUrl
+
+  const locale =
+    typeof window !== 'undefined'
+      ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+      : 'en'
+
+  const handleReturnToDashboard = () => {
+    if (!effectiveReturnUrl) return
+    window.location.href = getSafeMercuryReturnUrl(effectiveReturnUrl, { locale })
+  }
 
   // Categorize error for better messaging
   const getErrorDetails = () => {
@@ -99,9 +110,7 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
           </AuroraButton>
           {effectiveReturnUrl && (
             <AuroraButton
-              onClick={() => {
-                window.location.href = effectiveReturnUrl
-              }}
+              onClick={handleReturnToDashboard}
               variant="ghost"
               size="lg"
               className="flex items-center justify-center gap-2"
