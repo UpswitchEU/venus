@@ -27,33 +27,12 @@ describe('shareholding utilities', () => {
     expect(hasAtMostTwoShareholdingDecimals(33.333)).toBe(false)
   })
 
-  it('rejects shareholding inputs with more than two decimals in the request schema', () => {
-    const valid = ValuationRequestSchema.safeParse({
+  it('ValuationRequestSchema allows shares_for_sale only as omitted or exactly 100', () => {
+    const omitted = ValuationRequestSchema.safeParse({
       company_name: 'Precision Co',
       country_code: 'BE',
       industry: 'technology',
       current_year_data: { revenue: 100000, ebitda: 10000 },
-      shares_for_sale: 33.33,
-    })
-    const invalid = ValuationRequestSchema.safeParse({
-      company_name: 'Precision Co',
-      country_code: 'BE',
-      industry: 'technology',
-      current_year_data: { revenue: 100000, ebitda: 10000 },
-      shares_for_sale: 33.333,
-    })
-
-    expect(valid.success).toBe(true)
-    expect(invalid.success).toBe(false)
-  })
-
-  it('accepts 0 and 100 boundaries and rejects values above 100', () => {
-    const zero = ValuationRequestSchema.safeParse({
-      company_name: 'Precision Co',
-      country_code: 'BE',
-      industry: 'technology',
-      current_year_data: { revenue: 100000, ebitda: 10000 },
-      shares_for_sale: 0,
     })
     const full = ValuationRequestSchema.safeParse({
       company_name: 'Precision Co',
@@ -61,6 +40,35 @@ describe('shareholding utilities', () => {
       industry: 'technology',
       current_year_data: { revenue: 100000, ebitda: 10000 },
       shares_for_sale: 100,
+    })
+    const partial = ValuationRequestSchema.safeParse({
+      company_name: 'Precision Co',
+      country_code: 'BE',
+      industry: 'technology',
+      current_year_data: { revenue: 100000, ebitda: 10000 },
+      shares_for_sale: 33.33,
+    })
+    const tooManyDecimals = ValuationRequestSchema.safeParse({
+      company_name: 'Precision Co',
+      country_code: 'BE',
+      industry: 'technology',
+      current_year_data: { revenue: 100000, ebitda: 10000 },
+      shares_for_sale: 33.333,
+    })
+
+    expect(omitted.success).toBe(true)
+    expect(full.success).toBe(true)
+    expect(partial.success).toBe(false)
+    expect(tooManyDecimals.success).toBe(false)
+  })
+
+  it('ValuationRequestSchema rejects non-100 numeric shares_for_sale including 0 and >100', () => {
+    const zero = ValuationRequestSchema.safeParse({
+      company_name: 'Precision Co',
+      country_code: 'BE',
+      industry: 'technology',
+      current_year_data: { revenue: 100000, ebitda: 10000 },
+      shares_for_sale: 0,
     })
     const aboveRange = ValuationRequestSchema.safeParse({
       company_name: 'Precision Co',
@@ -70,8 +78,7 @@ describe('shareholding utilities', () => {
       shares_for_sale: 100.01,
     })
 
-    expect(zero.success).toBe(true)
-    expect(full.success).toBe(true)
+    expect(zero.success).toBe(false)
     expect(aboveRange.success).toBe(false)
   })
 })

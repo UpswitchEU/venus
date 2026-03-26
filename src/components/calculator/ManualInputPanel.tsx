@@ -135,10 +135,15 @@ export interface ValuationFormData {
   nav_goodwill_writeoff?: number
   saas_arr?: number
   saas_mrr?: number
+  saas_arr_growth_pct?: number
   saas_churn_pct?: number
+  saas_customer_churn_pct?: number
   saas_nrr_pct?: number
+  saas_gross_margin_pct?: number
   saas_cac?: number
   saas_customer_concentration_pct?: number
+  saas_expansion_revenue_pct?: number
+  saas_sm_spend?: number
   rev_recurring_pct?: number
   rev_top_client_concentration_pct?: number
   rev_contract_backlog?: number
@@ -2074,10 +2079,15 @@ export function AdaptiveSections({
           key="saas_metrics"
           saasArr={formData.saas_arr as number | undefined}
           saasMrr={formData.saas_mrr as number | undefined}
+          saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
           saasChurnPct={formData.saas_churn_pct as number | undefined}
+          saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
           saasNrrPct={formData.saas_nrr_pct as number | undefined}
+          saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
           saasCac={formData.saas_cac as number | undefined}
           saasCustomerConcentrationPct={formData.saas_customer_concentration_pct as number | undefined}
+          saasExpansionRevenuePct={formData.saas_expansion_revenue_pct as number | undefined}
+          saasSmSpend={formData.saas_sm_spend as number | undefined}
           onFieldChange={onFieldChange}
           disabled={disabled}
         />

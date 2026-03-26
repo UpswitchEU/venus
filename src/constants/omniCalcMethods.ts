@@ -5,6 +5,7 @@
  */
 export const PRIMARY_OMNI_METHOD_ORDER = [
   'upswitch_adaptive',
+  'arr_multiple',
   'ebitda_multiple',
   'omzet_multiple',
   'revenue_multiple',

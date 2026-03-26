@@ -320,6 +320,11 @@ describe('buildValuationRequest', () => {
         dcf_revenue_growth_pct: 12,
         dcf_wacc_pct: 9,
         nav_real_estate_adjustment: 150_000,
+        saas_arr_growth_pct: 32,
+        saas_customer_churn_pct: 6,
+        saas_gross_margin_pct: 81,
+        saas_expansion_revenue_pct: 18,
+        saas_sm_spend: 120_000,
         rev_top_client_concentration_pct: 18,
       } as Partial<ValuationFormData>),
       []
@@ -329,6 +334,11 @@ describe('buildValuationRequest', () => {
       dcf_revenue_growth_pct: 12,
       dcf_wacc_pct: 9,
       nav_real_estate_adjustment: 150_000,
+      saas_arr_growth_pct: 32,
+      saas_customer_churn_pct: 6,
+      saas_gross_margin_pct: 81,
+      saas_expansion_revenue_pct: 18,
+      saas_sm_spend: 120_000,
       rev_top_client_concentration_pct: 18,
     })
   })

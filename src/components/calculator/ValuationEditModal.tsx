@@ -203,6 +203,9 @@ function MethodBreakdownSection({
     toNumberOrNull(details.revenue) ??
     toNumberOrNull(resultDetails.revenue) ??
     toNumberOrNull(resultAny?.revenue)
+  const arrValue =
+    toNumberOrNull(details.arr) ??
+    toNumberOrNull((details.saas_metrics as Record<string, unknown> | undefined)?.arr)
   const netDebt =
     toNumberOrNull(resultDetails.net_debt) ??
     toNumberOrNull(resultAny?.net_debt) ??
@@ -221,6 +224,12 @@ function MethodBreakdownSection({
   const terminalValue = toNumberOrNull(details.terminal_value)
   const ownerSalaryEstimate = toNumberOrNull(details.owner_salary_estimate)
   const sdeValue = toNumberOrNull(details.sde)
+  const saasMetrics =
+    details.saas_metrics && typeof details.saas_metrics === 'object'
+      ? (details.saas_metrics as Record<string, unknown>)
+      : null
+  const saasRuleOf40 = toNumberOrNull(saasMetrics?.rule_of_40)
+  const saasNrr = toNumberOrNull(saasMetrics?.nrr_pct)
   const comparablesCount = toNumberOrNull(result?.multiples_valuation?.comparables_count)
   const comparablesQuality = result?.multiples_valuation?.comparables_quality ?? null
   const pipelineRows = (
@@ -373,6 +382,52 @@ function MethodBreakdownSection({
             />
           )}
         </div>
+      ) : methodKey === 'arr_multiple' ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {arrValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('arr')}
+              value={formatCurrency(arrValue)}
+            />
+          )}
+          {effectiveAppliedMultiple != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('appliedMultiple')}
+              value={formatMultiple(effectiveAppliedMultiple) || '—'}
+            />
+          )}
+          {saasRuleOf40 != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('ruleOf40')}
+              value={formatPercent(saasRuleOf40, 1) || '—'}
+            />
+          )}
+          {saasNrr != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('netRevenueRetention')}
+              value={formatPercent(saasNrr, 1) || '—'}
+            />
+          )}
+          {enterpriseValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('enterpriseValue')}
+              value={formatCurrency(enterpriseValue)}
+            />
+          )}
+          {netDebt != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('netDebt')}
+              value={formatCurrency(netDebt)}
+            />
+          )}
+          {equityValue != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('equityValue')}
+              value={formatCurrency(equityValue)}
+              accent
+            />
+          )}
+        </div>
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -505,6 +560,8 @@ function MethodBreakdownSection({
                 ? tBreakdown('formulaNav')
               : methodKey === 'sde_multiple'
                 ? tBreakdown('formulaSde')
+                : methodKey === 'arr_multiple'
+                  ? tBreakdown('formulaArr')
                 : methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple'
                   ? tBreakdown('formulaRevenue')
                 : tBreakdown('formulaMultiple')}

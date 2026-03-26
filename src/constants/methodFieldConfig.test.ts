@@ -22,4 +22,8 @@ describe('methodFieldConfig', () => {
   it('falls back to business-type sections when the method is unknown', () => {
     expect(getBonusSections('unknown_method', 'saas_software')).toEqual(['saas_metrics'])
   })
+
+  it('supports arr_multiple as a result-only SaaS method', () => {
+    expect(getBonusSections('arr_multiple', 'saas_software')).toEqual(['saas_metrics'])
+  })
 })

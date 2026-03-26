@@ -26,6 +26,7 @@ export interface MethodFieldEntry {
 export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
   upswitch_adaptive: { bonusSections: [] },
   ebitda_multiple: { bonusSections: ['revenue_quality'] },
+  arr_multiple: { bonusSections: ['saas_metrics'] },
   dcf: { bonusSections: ['dcf_projections'] },
   adjusted_nav: { bonusSections: ['nav_asset_schedule'] },
   fiscal_4x: { bonusSections: [] },

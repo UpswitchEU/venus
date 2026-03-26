@@ -30,6 +30,9 @@ describe('AdaptiveSections', () => {
 
     expect(screen.getByText('sections.dcfProjections')).toBeInTheDocument()
     expect(screen.getByText('sections.saasMetrics')).toBeInTheDocument()
+    expect(screen.getByText('fields.saasArrGrowthPct')).toBeInTheDocument()
+    expect(screen.getByText('fields.saasGrossMarginPct')).toBeInTheDocument()
+    expect(screen.getByText('fields.ruleOf40Score')).toBeInTheDocument()
     expect(screen.queryByText('sections.navAssetSchedule')).not.toBeInTheDocument()
   })
 

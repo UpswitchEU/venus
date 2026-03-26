@@ -438,10 +438,15 @@ export function buildValuationRequest(
   if (fd.nav_goodwill_writeoff != null) adaptiveFields.nav_goodwill_writeoff = fd.nav_goodwill_writeoff
   if (fd.saas_arr != null) adaptiveFields.saas_arr = fd.saas_arr
   if (fd.saas_mrr != null) adaptiveFields.saas_mrr = fd.saas_mrr
+  if (fd.saas_arr_growth_pct != null) adaptiveFields.saas_arr_growth_pct = fd.saas_arr_growth_pct
   if (fd.saas_churn_pct != null) adaptiveFields.saas_churn_pct = fd.saas_churn_pct
+  if (fd.saas_customer_churn_pct != null) adaptiveFields.saas_customer_churn_pct = fd.saas_customer_churn_pct
   if (fd.saas_nrr_pct != null) adaptiveFields.saas_nrr_pct = fd.saas_nrr_pct
+  if (fd.saas_gross_margin_pct != null) adaptiveFields.saas_gross_margin_pct = fd.saas_gross_margin_pct
   if (fd.saas_cac != null) adaptiveFields.saas_cac = fd.saas_cac
   if (fd.saas_customer_concentration_pct != null) adaptiveFields.saas_customer_concentration_pct = fd.saas_customer_concentration_pct
+  if (fd.saas_expansion_revenue_pct != null) adaptiveFields.saas_expansion_revenue_pct = fd.saas_expansion_revenue_pct
+  if (fd.saas_sm_spend != null) adaptiveFields.saas_sm_spend = fd.saas_sm_spend
   if (fd.rev_recurring_pct != null) adaptiveFields.rev_recurring_pct = fd.rev_recurring_pct
   if (fd.rev_top_client_concentration_pct != null) adaptiveFields.rev_top_client_concentration_pct = fd.rev_top_client_concentration_pct
   if (fd.rev_contract_backlog != null) adaptiveFields.rev_contract_backlog = fd.rev_contract_backlog

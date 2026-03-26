@@ -99,6 +99,9 @@ function resolveSelectedMethodForSynthesis(
 }
 
 function getFallbackMethodLabel(methodKey: string): string {
+  if (methodKey === 'arr_multiple') {
+    return 'ARR multiple'
+  }
   if (methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple') {
     return 'Omzetmultiple'
   }

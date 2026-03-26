@@ -226,10 +226,15 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   // SaaS metrics
   saas_arr?: number
   saas_mrr?: number
+  saas_arr_growth_pct?: number
   saas_churn_pct?: number
+  saas_customer_churn_pct?: number
   saas_nrr_pct?: number
+  saas_gross_margin_pct?: number
   saas_cac?: number
   saas_customer_concentration_pct?: number
+  saas_expansion_revenue_pct?: number
+  saas_sm_spend?: number
   // Revenue quality
   rev_recurring_pct?: number
   rev_top_client_concentration_pct?: number
