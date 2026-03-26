@@ -14,6 +14,7 @@
  */
 
 import { create } from 'zustand'
+import { useSessionStore } from '../useSessionStore'
 import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { storeLogger } from '../../utils/logger'
@@ -26,6 +27,11 @@ interface ManualResultsStore {
   // Omni-Calc: selected valuation method
   selectedMethod: string
 
+  // Upfront pre-selection: method chosen before calculation starts.
+  // When set, drives adaptive input sections and becomes the default
+  // selected_method sent with the calculation request.
+  preSelectedMethod: string | null
+
   // Calculation state
   isCalculating: boolean
   error: string | null
@@ -36,10 +42,15 @@ interface ManualResultsStore {
   // Omni-Calc: derived active valuation from selected method
   getActiveValuation: () => ValuationMethodResult | null
 
+  // The effective method is preSelectedMethod when set, otherwise selectedMethod.
+  // Use this to drive UI that needs to react to the user's current intent.
+  getEffectiveMethod: () => string
+
   // Actions (all atomic with functional updates)
   setResult: (result: ValuationResponse | null) => void
   setHtmlReport: (html: string) => void
   setSelectedMethod: (method: string) => void
+  setPreSelectedMethod: (method: string | null) => void
   setError: (error: string | null) => void
   clearError: () => void
   clearResults: () => void
@@ -51,8 +62,6 @@ interface ManualResultsStore {
   trySetCalculating: () => boolean
   setCalculating: (isCalculating: boolean) => void
 
-  // Async optimized methods (non-blocking, parallel execution)
-  calculateInBackground: (request: any) => Promise<ValuationResponse | null>
 }
 
 export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
@@ -60,6 +69,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   result: null,
   htmlReport: null,
   selectedMethod: 'upswitch_adaptive',
+  preSelectedMethod: null,
   isCalculating: false,
   error: null,
   calculationProgress: 0,
@@ -75,10 +85,28 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
     return valuationResults[selectedMethod] ?? null
   },
 
+  getEffectiveMethod: () => {
+    const { preSelectedMethod, selectedMethod } = get()
+    return preSelectedMethod ?? selectedMethod
+  },
+
   setSelectedMethod: (method: string) => {
     set((state) => {
       storeLogger.info('[Manual] Valuation method switched', { method })
-      return { ...state, selectedMethod: method }
+      return { ...state, selectedMethod: method, preSelectedMethod: method }
+    })
+  },
+
+  setPreSelectedMethod: (method: string | null) => {
+    set((state) => {
+      storeLogger.info('[Manual] Pre-selected method changed', { method })
+      return {
+        ...state,
+        preSelectedMethod: method,
+        // Keep selectedMethod in sync so downstream consumers always react
+        // to the user's current intent, including returning to Adaptive.
+        selectedMethod: method ?? 'upswitch_adaptive',
+      }
     })
   },
 
@@ -125,7 +153,6 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         // This ensures page refresh shows the result without waiting for backend save
         try {
           if (typeof window !== 'undefined') {
-            const { useSessionStore } = require('../useSessionStore')
             const session = useSessionStore.getState().session
             if (session) {
               useSessionStore.getState().updateSession({
@@ -149,6 +176,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           result,
           htmlReport: result.html_report || state.htmlReport,
           selectedMethod: hydratedSelectedMethod,
+          preSelectedMethod: hydratedSelectedMethod,
         }
       } else {
         storeLogger.debug('[Manual] Valuation result cleared')
@@ -157,6 +185,8 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           ...state,
           result: null,
           htmlReport: null,
+          selectedMethod: 'upswitch_adaptive',
+          preSelectedMethod: null,
         }
       }
     })
@@ -225,8 +255,10 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
       result: null,
       htmlReport: null,
       selectedMethod: 'upswitch_adaptive',
+      preSelectedMethod: null,
       error: null,
       calculationProgress: 0,
+      isCalculating: false,
     }))
 
     storeLogger.debug('[Manual] Results cleared')
@@ -286,74 +318,5 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         isCalculating,
       }
     })
-  },
-
-  // Async optimized: Calculate with progress tracking
-  // Non-blocking, runs in background, immediate UI feedback
-  calculateInBackground: async (request: any) => {
-    const { trySetCalculating, setResult, setCalculationProgress, setError, setCalculating } = get()
-
-    // Step 1: Immediate UI feedback (< 16ms) via trySetCalculating
-    const wasSet = trySetCalculating()
-    if (!wasSet) {
-      storeLogger.warn('[Manual] Calculation already in progress, skipping')
-      return null
-    }
-
-    try {
-      // Step 2: Background calculation with progress tracking
-      storeLogger.info('[Manual] Starting background calculation', {
-        companyName: request.company_name,
-      })
-
-      const startTime = performance.now()
-
-      // Import ValuationService dynamically
-      const { valuationService } = await import('../../services')
-
-      // Calculate with progress callback
-      const result = await valuationService.calculateValuation(request, (progress, message) => {
-        // Update progress in real-time
-        setCalculationProgress(progress)
-        storeLogger.debug('[Manual] Calculation progress', { progress, message })
-      })
-
-      // Step 3: Atomic state update
-      set((state) => ({
-        ...state,
-        result,
-        htmlReport: result.html_report || null,
-        isCalculating: false,
-        calculationProgress: 100,
-        error: null,
-      }))
-
-      const duration = performance.now() - startTime
-
-      storeLogger.info('[Manual] Calculation completed successfully (background)', {
-        valuationId: result.valuation_id,
-        duration_ms: duration.toFixed(2),
-        hasHtmlReport: !!result.html_report,
-      })
-
-      return result
-    } catch (error) {
-      // Error handling (non-blocking)
-      const errorMessage = error instanceof Error ? error.message : 'Calculation failed'
-
-      set((state) => ({
-        ...state,
-        isCalculating: false,
-        calculationProgress: 0,
-        error: errorMessage,
-      }))
-
-      storeLogger.error('[Manual] Calculation failed (background)', {
-        error: errorMessage,
-        companyName: request.company_name,
-      })
-
-      throw error
-    }
   },
 }))

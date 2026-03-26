@@ -14,7 +14,7 @@ import { useCanSave } from '../../../hooks/useCanSave'
 import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizationStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import type { ValuationFormData } from '../../../types/valuation'
-import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 
 interface FormSubmitSectionProps {
@@ -39,7 +39,7 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
   isRegenerationMode = false,
 }) => {
   const t = useTranslations()
-  const lastFullYear = getLastFullFiscalYear()
+  const lastFullYear = getCurrentFilingYear()
   const normalizationItems = useNormalizationStore((state) => state.items)
   const hasLegacyNormalization = useEbitdaNormalizationStore((state) => state.hasNormalization)
   const { canSave, reason: canSaveReason } = useCanSave()

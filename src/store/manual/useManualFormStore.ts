@@ -90,6 +90,13 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
 
       for (const key of Object.keys(updates) as Array<keyof ValuationFormData>) {
         const value = updates[key]
+        // The product narrative now always values 100% of the business.
+        // Keep store state normalized even when legacy sessions/package payloads
+        // still contain partial share values.
+        if (key === 'shares_for_sale') {
+          mutable[key as string] = 100
+          continue
+        }
         // Undefined removes market presentation keys so session autosave cannot keep a stale
         // NL SBI after switching registry rows or when display matches canonical NACE.
         if (

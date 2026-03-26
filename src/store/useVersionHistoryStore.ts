@@ -17,7 +17,7 @@ import type {
   VersionChanges,
   VersionComparison,
 } from '../types/ValuationVersion'
-import { getLastFullFiscalYear } from '../utils/fiscalYear'
+import { getCurrentFilingYear } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { useNormalizationStore } from './useNormalizationStore'
@@ -363,7 +363,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             // Build year-keyed normalization data from unified store
             // CRITICAL: Respect applyAllYears and applyYears — put each item under every year it applies to
             const accepted = normStore.items.filter((n) => n.status === 'accepted')
-            const lastFullYear = getLastFullFiscalYear()
+            const lastFullYear = getCurrentFilingYear()
             const historicalYears =
               enrichedRequest.formData?.historical_years_data
                 ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)

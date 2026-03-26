@@ -78,7 +78,6 @@ export function hasMeaningfulSessionData(sessionData: any, session?: any): boole
       // Ownership
       'number_of_employees',
       'number_of_owners',
-      'shares_for_sale',
 
       // Generated content
       'html_report',

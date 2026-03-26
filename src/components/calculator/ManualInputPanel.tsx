@@ -22,6 +22,7 @@ import {
   HelpCircle,
   Loader2,
   Plus,
+  TrendingUp,
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -66,7 +67,8 @@ import {
   type IntegrationStatus,
 } from '../../services/api/accounting'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
-import { getLastFullFiscalYear } from '../../utils/fiscalYear'
+import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
+import { getCurrentFilingYear, getLastFullFiscalYear } from '../../utils/fiscalYear'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
 import { getLatestCompleteYearlyFinancial, hasExplicitNumericValue as hasExplicitFinancialValue } from '../../utils/yearlyFinancials'
@@ -78,13 +80,14 @@ import { ProvenanceDot } from './ProvenanceDot'
 import { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
 import { SpotlightBanner } from './SpotlightBanner'
 import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
+import {} from '../../utils/shareholding'
+import { getBonusSections } from '../../constants/methodFieldConfig'
 import {
-  formatShareholdingInput,
-  hasAtMostTwoShareholdingDecimals,
-  isValidShareholdingValue,
-  isShareholdingValueInRange,
-  parseShareholdingInput,
-} from '../../utils/shareholding'
+  DcfProjectionsSection,
+  NavAssetScheduleSection,
+  SaasMetricsSection,
+  RevenueQualitySection,
+} from './sections'
 
 // Types
 export interface YearlyFinancials {
@@ -92,6 +95,7 @@ export interface YearlyFinancials {
   revenue: number
   ebitda: number
   normalizedEbitda?: number
+  isForecast?: boolean
 }
 
 export interface ValuationFormData {
@@ -109,7 +113,6 @@ export interface ValuationFormData {
   country: string
   yearFounded: string
   businessStructure: string
-  equityStake: number
   ownerManagers: number
   fteEmployees: number | undefined
   // Multi-year financials with normalizations per year
@@ -120,6 +123,25 @@ export interface ValuationFormData {
   revenue?: number
   ebitda?: number
   current_year_data?: { year: number; revenue: number; ebitda: number }
+  // Adaptive Input Studio: method-specific bonus fields
+  dcf_revenue_growth_pct?: number
+  dcf_ebitda_margin_pct?: number
+  dcf_capex_pct?: number
+  dcf_wacc_pct?: number
+  dcf_terminal_growth_pct?: number
+  nav_real_estate_adjustment?: number
+  nav_inventory_adjustment?: number
+  nav_hidden_reserves?: number
+  nav_goodwill_writeoff?: number
+  saas_arr?: number
+  saas_mrr?: number
+  saas_churn_pct?: number
+  saas_nrr_pct?: number
+  saas_cac?: number
+  saas_customer_concentration_pct?: number
+  rev_recurring_pct?: number
+  rev_top_client_concentration_pct?: number
+  rev_contract_backlog?: number
 }
 
 // Field help context for AI assistant integration
@@ -231,14 +253,13 @@ function FieldHelpTrigger({
   )
 }
 
-const currentYear = getLastFullFiscalYear() + 1
+const baseFilingYear = getCurrentFilingYear()
 
-// Generate default yearly financials for last 3 years
 const generateDefaultYearlyFinancials = (): YearlyFinancials[] => {
   return [
-    { year: String(currentYear - 1), revenue: 0, ebitda: 0 },
-    { year: String(currentYear - 2), revenue: 0, ebitda: 0 },
-    { year: String(currentYear - 3), revenue: 0, ebitda: 0 },
+    { year: String(baseFilingYear), revenue: 0, ebitda: 0 },
+    { year: String(baseFilingYear - 1), revenue: 0, ebitda: 0 },
+    { year: String(baseFilingYear - 2), revenue: 0, ebitda: 0 },
   ]
 }
 
@@ -295,7 +316,6 @@ export function ManualInputPanel({
     country: initialData.country || 'BE',
     yearFounded: initialData.yearFounded || '',
     businessStructure: initialData.businessStructure || '',
-    equityStake: initialData.equityStake ?? 100,
     ownerManagers: initialData.ownerManagers || 1,
     fteEmployees: initialData.fteEmployees ?? 5,
     yearlyFinancials: initialData.yearlyFinancials || generateDefaultYearlyFinancials(),
@@ -316,25 +336,6 @@ export function ManualInputPanel({
         .replace(/KBO number/g, getFinancialTerm('registrationNumber', formData.country, 'en')),
     [activityCodeShort, activityCodeTerm, formData.country]
   )
-  const [isEditingEquityStake, setIsEditingEquityStake] = useState(false)
-  const [equityStakeInput, setEquityStakeInput] = useState(() =>
-    formatShareholdingInput(initialData.equityStake ?? 100)
-  )
-  const lastValidEquityStakeRef = useRef(
-    isValidShareholdingValue(initialData.equityStake ?? 100) ? (initialData.equityStake ?? 100) : 100
-  )
-
-  useEffect(() => {
-    if (!isEditingEquityStake) {
-      setEquityStakeInput(formatShareholdingInput(formData.equityStake))
-    }
-  }, [formData.equityStake, isEditingEquityStake])
-
-  useEffect(() => {
-    if (isValidShareholdingValue(formData.equityStake)) {
-      lastValidEquityStakeRef.current = formData.equityStake
-    }
-  }, [formData.equityStake])
 
   // Sync form financials to ref during render for sibling components (e.g. normalization modal)
   // that need latest data without effect delay — eliminates race when opening modal immediately
@@ -405,7 +406,6 @@ export function ManualInputPanel({
         current === null ||
         (typeof current === 'string' && current === '') ||
         (typeof current === 'number' && key === 'ownerManagers' && current === 1) ||
-        (typeof current === 'number' && key === 'equityStake' && current === 100) ||
         // fteEmployees: apply when empty, or when default 5 and prefill has different value (e.g. 0 from restore)
         (key === 'fteEmployees' &&
           (current === undefined ||
@@ -459,7 +459,6 @@ export function ManualInputPanel({
         applyPrefill(prev, updates, 'yearFounded', prefill.yearFounded)
         applyPrefill(prev, updates, 'ownerManagers', prefill.ownerManagers)
         applyPrefill(prev, updates, 'fteEmployees', prefill.fteEmployees)
-        applyPrefill(prev, updates, 'equityStake', prefill.equityStake)
         if (
           prefill.yearlyFinancials?.length &&
           prefill.yearlyFinancials.some((yf: any) => yf.revenue > 0 || yf.ebitda !== 0)
@@ -518,7 +517,6 @@ export function ManualInputPanel({
     initialData?.yearFounded,
     initialData?.ownerManagers,
     initialData?.fteEmployees,
-    initialData?.equityStake,
     initialData?.yearlyFinancials,
     updateFormData,
   ])
@@ -567,7 +565,6 @@ export function ManualInputPanel({
       yearFounded: formData.yearFounded,
       ownerManagers: formData.ownerManagers,
       fteEmployees: formData.fteEmployees,
-      equityStake: formData.equityStake,
       businessType: formData.businessType,
       revenue: current?.revenue,
       ebitda: current?.ebitda,
@@ -589,7 +586,6 @@ export function ManualInputPanel({
     formData.yearFounded,
     formData.ownerManagers,
     formData.fteEmployees,
-    formData.equityStake,
     formData.businessType,
     formData.yearlyFinancials,
   ])
@@ -646,6 +642,7 @@ export function ManualInputPanel({
 
   // Section collapse states
   const [showCSVUpload, setShowCSVUpload] = useState(false)
+  const [showForecastRemovalConfirm, setShowForecastRemovalConfirm] = useState(false)
 
   // Calculate normalized EBITDA per year and average using global normalization store
   const normalizedData = useMemo(() => {
@@ -688,8 +685,9 @@ export function ManualInputPanel({
 
     // Weighted average: most recent years weighted higher (McKinsey method).
     // Include break-even and loss-making years, but ignore incomplete empty rows.
+    // Forecast years are excluded — this metric represents historical performance only.
     const validYears = years
-      .filter((y) => y.year != null && Number(y.year) >= 2000 && Number(y.year) <= 2100)
+      .filter((y) => !y.isForecast && y.year != null && Number(y.year) >= 2000 && Number(y.year) <= 2100)
       .sort((a, b) => Number(a.year) - Number(b.year))
     const yearsWithEbitda = validYears.filter(
       (y) => (Number(y.revenue) || 0) > 0 && hasExplicitNumericValue(y.ebitda)
@@ -886,12 +884,59 @@ export function ManualInputPanel({
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const updateYearlyFinancials = (year: string, field: 'revenue' | 'ebitda', value: number) => {
+  const updateYearlyFinancials = (year: string, isForecast: boolean, field: 'revenue' | 'ebitda', value: number) => {
     const updated = formData.yearlyFinancials.map((yf) =>
-      yf.year === year ? { ...yf, [field]: value } : yf
+      yf.year === year && !!yf.isForecast === isForecast ? { ...yf, [field]: value } : yf
     )
     updateField('yearlyFinancials', updated)
   }
+
+  // DCF auto-injection: add forecast years when DCF is selected, prompt removal on switch-away.
+  // Also handles initial mount (e.g. page reload with DCF pre-selected).
+  const selectedMethod = useManualResultsStore((s) => s.selectedMethod)
+  const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
+  const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
+  const prevMethodRef = useRef<string | null>(null)
+  useEffect(() => {
+    const prev = prevMethodRef.current
+    prevMethodRef.current = effectiveMethod
+    const isMount = prev === null
+
+    if (!isMount && prev === effectiveMethod) return
+
+    if (effectiveMethod === 'dcf') {
+      setShowForecastRemovalConfirm(false)
+      setFormData((current) => {
+        const hasForecast = current.yearlyFinancials.some((yf) => yf.isForecast)
+        if (hasForecast) return current
+        const existingYears = current.yearlyFinancials.map((yf) => Number(yf.year))
+        const maxYear =
+          existingYears.length > 0
+            ? Math.max(...existingYears)
+            : getCurrentFilingYear()
+        const forecastYears: YearlyFinancials[] = [1, 2, 3].map((offset) => ({
+          year: String(maxYear + offset),
+          revenue: 0,
+          ebitda: 0,
+          isForecast: true,
+        }))
+        if (!isMount) {
+          import('sonner').then(({ toast }) =>
+            toast.info(mi('dcfForecastAdded', { count: 3 }))
+          )
+        }
+        return { ...current, yearlyFinancials: [...current.yearlyFinancials, ...forecastYears] }
+      })
+    } else if (!isMount && prev === 'dcf') {
+      setFormData((current) => {
+        const forecastEntries = current.yearlyFinancials.filter((yf) => yf.isForecast)
+        if (forecastEntries.length > 0) {
+          setShowForecastRemovalConfirm(true)
+        }
+        return current
+      })
+    }
+  }, [effectiveMethod, mi]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Accounting import — silent preflight; button only appears when a provider is connected
   const [accountingConnectedStatus, setAccountingConnectedStatus] =
@@ -1039,14 +1084,6 @@ export function ManualInputPanel({
       if (formData.fteEmployees < 0) errors.fteEmployees = mi('validation.minZero')
       else if (formData.fteEmployees > 10000) warnings.fteEmployees = mi('validation.fteOver10k')
     }
-    // Equity stake (reject NaN/Infinity)
-    if (
-      !Number.isFinite(formData.equityStake) ||
-      formData.equityStake < 0 ||
-      formData.equityStake > 100 ||
-      !hasAtMostTwoShareholdingDecimals(formData.equityStake)
-    )
-      errors.equityStake = mi('validation.equityRange')
     // Year founded
     if (
       formData.yearFounded &&
@@ -1230,12 +1267,14 @@ export function ManualInputPanel({
   const { canSave, reason: canSaveReason } = useCanSave()
   const canSubmit = hasCompanyInfo && hasBusinessType && hasFinancials && canSave
 
-  // Field-level: detect partially filled years (has one of revenue/ebitda but not both)
+  // Field-level: detect partially filled years (has one of revenue/ebitda but not both).
+  // Forecast years are excluded — they start as empty placeholders by design.
   const partialYears = formData.yearlyFinancials
     .filter(
       (yf) =>
-        ((Number(yf.revenue) || 0) > 0 && !hasExplicitNumericValue(yf.ebitda)) ||
-        (hasExplicitNumericValue(yf.ebitda) && (Number(yf.revenue) || 0) <= 0)
+        !yf.isForecast &&
+        (((Number(yf.revenue) || 0) > 0 && !hasExplicitNumericValue(yf.ebitda)) ||
+        (hasExplicitNumericValue(yf.ebitda) && (Number(yf.revenue) || 0) <= 0))
     )
     .map((yf) => yf.year)
 
@@ -1279,7 +1318,7 @@ export function ManualInputPanel({
         )}
 
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
-          <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 flex flex-col">
             <SpotlightBanner />
             <GuidedResolutionOrphanFields />
 
@@ -1444,7 +1483,7 @@ export function ManualInputPanel({
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="relative">
                     <AuroraInput
                       label={mi('fields.ownerManagers')}
@@ -1499,45 +1538,6 @@ export function ManualInputPanel({
                       >
                         {fieldValidation.errors.fteEmployees ||
                           fieldValidation.warnings.fteEmployees}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <AuroraInput
-                      label={mi('fields.equityStakePercent')}
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.01}
-                      value={equityStakeInput}
-                      onChange={(e) => {
-                        const { value } = e.target
-                        setEquityStakeInput(value)
-                        const parsed = parseShareholdingInput(value)
-                        if (parsed !== undefined) {
-                          updateField('equityStake', parsed)
-                        }
-                      }}
-                      onFocus={() => setIsEditingEquityStake(true)}
-                      onBlur={(e) => {
-                        setIsEditingEquityStake(false)
-                        const parsed = parseShareholdingInput(e.target.value)
-                        const nextValue =
-                          parsed === undefined
-                            ? lastValidEquityStakeRef.current
-                            : isShareholdingValueInRange(parsed)
-                              ? parsed
-                              : lastValidEquityStakeRef.current
-                        const formatted = formatShareholdingInput(nextValue)
-                        setEquityStakeInput(formatted)
-                        updateField('equityStake', Number.parseFloat(formatted))
-                      }}
-                      size="sm"
-                      placeholder="100"
-                    />
-                    {fieldValidation.errors.equityStake && (
-                      <p className="text-[10px] mt-0.5 text-destructive">
-                        {fieldValidation.errors.equityStake}
                       </p>
                     )}
                   </div>
@@ -1727,27 +1727,38 @@ export function ManualInputPanel({
 
                 {/* Year-by-year financial input */}
                 <div className="space-y-3">
-                  {formData.yearlyFinancials.map((yearData, index) => {
+                  {[...formData.yearlyFinancials]
+                    .sort((a, b) => Number(b.year) - Number(a.year))
+                    .map((yearData, index) => {
                     const normalizedYear = normalizedData.years.find(
-                      (y) => y.year === yearData.year
+                      (y) =>
+                        y.year === yearData.year &&
+                        !!y.isForecast === !!yearData.isForecast
                     )
                     const normCount = Number(normalizedYear?.normalizationCount ?? 0)
 
                     return (
                       <div
-                        key={yearData.year}
+                        key={`${yearData.year}-${yearData.isForecast ? 'f' : 'h'}`}
                         className={cn(
                           'p-3 rounded-xl border transition-colors',
-                          partialYears.includes(yearData.year)
-                            ? 'border-warning/40 bg-warning/[0.03]'
-                            : yearData.ebitda > 0 && yearData.revenue > 0
-                              ? 'border-foreground/[0.08] bg-foreground/[0.02]'
-                              : 'border-dashed border-foreground/[0.06]'
+                          yearData.isForecast
+                            ? 'border-dashed border-primary/20 bg-primary/[0.02]'
+                            : partialYears.includes(yearData.year)
+                              ? 'border-warning/40 bg-warning/[0.03]'
+                              : yearData.ebitda > 0 && yearData.revenue > 0
+                                ? 'border-foreground/[0.08] bg-foreground/[0.02]'
+                                : 'border-dashed border-foreground/[0.06]'
                         )}
                       >
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm font-semibold text-foreground">
                             {yearData.year}
+                            {yearData.isForecast && (
+                              <span className="ml-1.5 text-xs font-normal text-primary/60">
+                                ({mi('forecastLabel')})
+                              </span>
+                            )}
                           </span>
                           {normCount > 0 && (
                             <button
@@ -1768,7 +1779,14 @@ export function ManualInputPanel({
                                 <CurrencyInput
                                   label={mi('fields.revenue')}
                                   value={yearData.revenue}
-                                  onChange={(v) => updateYearlyFinancials(yearData.year, 'revenue', v)}
+                                  onChange={(v) =>
+                                    updateYearlyFinancials(
+                                      yearData.year,
+                                      !!yearData.isForecast,
+                                      'revenue',
+                                      v ?? 0
+                                    )
+                                  }
                                   size="sm"
                                   placeholder="1.500.000"
                                 />
@@ -1791,7 +1809,14 @@ export function ManualInputPanel({
                                 <CurrencyInput
                                   label={mi('fields.ebitda')}
                                   value={yearData.ebitda}
-                                  onChange={(v) => updateYearlyFinancials(yearData.year, 'ebitda', v)}
+                                  onChange={(v) =>
+                                    updateYearlyFinancials(
+                                      yearData.year,
+                                      !!yearData.isForecast,
+                                      'ebitda',
+                                      v ?? 0
+                                    )
+                                  }
                                   size="sm"
                                   placeholder="250.000"
                                   rightIcon={
@@ -1857,8 +1882,28 @@ export function ManualInputPanel({
                     )
                   })}
 
-                  {/* Add Year Button */}
-                  {formData.yearlyFinancials.length < 5 && (
+                  {/* Add Forecast Year Button */}
+                  {formData.yearlyFinancials.filter((yf) => yf.isForecast).length < 5 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const existingYears = formData.yearlyFinancials.map((yf) => Number(yf.year))
+                        const nextForecastYear = Math.max(...existingYears) + 1
+                        updateField('yearlyFinancials', [
+                          ...formData.yearlyFinancials,
+                          { year: String(nextForecastYear), revenue: 0, ebitda: 0, isForecast: true },
+                        ])
+                      }}
+                      className="w-full p-3 rounded-xl border border-dashed border-primary/20 text-sm text-primary/50 hover:text-primary/70 hover:border-primary/30 hover:bg-primary/[0.03] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      {mi('addForecastYear')} (
+                      {Math.max(...formData.yearlyFinancials.map((yf) => Number(yf.year))) + 1})
+                    </button>
+                  )}
+
+                  {/* Add Historical Year Button */}
+                  {formData.yearlyFinancials.filter((yf) => !yf.isForecast).length < 5 && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1879,33 +1924,42 @@ export function ManualInputPanel({
                 </div>
               </motion.section>
             )}
-          </form>
+            {/* Adaptive Input Sections — driven by effective method + business type */}
+            <AdaptiveSections
+              effectiveMethod={effectiveMethod}
+              businessCategory={selectedBusinessType?.category}
+              formData={formData}
+              onFieldChange={(field, value) => {
+                setFormData((prev) => ({ ...prev, [field]: value }))
+              }}
+              disabled={isCalculating}
+            />
 
-          {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
-          <div className="sticky bottom-0 z-20 shrink-0 px-6 py-4 border-t border-foreground/[0.06] bg-background mt-auto">
-          <AuroraButton
-            type="submit"
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={isCalculating}
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-          >
-            {isCalculating ? mi('calculating') : mi('calculateEstimate')}
-          </AuroraButton>
-          {!canSubmit && (
-            <p className="text-center text-xs text-foreground/40 mt-2">
-              {!canSave
-                ? canSaveReason
-                : !hasCompanyInfo
-                  ? mi('validation.enterCompanyName')
-                  : !hasBusinessType
-                    ? mi('validation.selectBusinessType')
-                    : mi('validation.enterFinancials')}
-            </p>
-          )}
-          </div>
+            {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
+            <div className="sticky bottom-0 z-20 shrink-0 px-6 py-4 -mx-6 -mb-6 border-t border-foreground/[0.06] bg-background mt-auto">
+              <AuroraButton
+                type="submit"
+                variant="primary"
+                size="lg"
+                fullWidth
+                loading={isCalculating}
+                disabled={!canSubmit}
+              >
+                {isCalculating ? mi('calculating') : mi('calculateEstimate')}
+              </AuroraButton>
+              {!canSubmit && (
+                <p className="text-center text-xs text-foreground/40 mt-2">
+                  {!canSave
+                    ? canSaveReason
+                    : !hasCompanyInfo
+                      ? mi('validation.enterCompanyName')
+                      : !hasBusinessType
+                        ? mi('validation.selectBusinessType')
+                        : mi('validation.enterFinancials')}
+                </p>
+              )}
+            </div>
+          </form>
         </div>
       </div>
 
@@ -1926,6 +1980,118 @@ export function ManualInputPanel({
         </ModalContent>
       </Modal>
 
+      {/* Forecast Removal Confirmation Modal */}
+      <Modal open={showForecastRemovalConfirm} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedMethod('dcf')
+          prevMethodRef.current = 'dcf'
+        }
+        setShowForecastRemovalConfirm(open)
+      }}>
+        <ModalContent className="max-w-sm">
+          <ModalHeader>
+            <ModalTitle>{mi('removeForecastPrompt')}</ModalTitle>
+            <ModalDescription>
+              {mi('removeForecastDescription')}
+            </ModalDescription>
+          </ModalHeader>
+          <ModalFooter>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMethod('dcf')
+                prevMethodRef.current = 'dcf'
+                setShowForecastRemovalConfirm(false)
+              }}
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-foreground/10 text-foreground hover:bg-foreground/[0.03] transition-colors"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFormData((current) => ({
+                  ...current,
+                  yearlyFinancials: current.yearlyFinancials.filter((yf) => !yf.isForecast),
+                }))
+                setShowForecastRemovalConfirm(false)
+              }}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+            >
+              {t('common.actions.confirm')}
+            </button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
     </>
+  )
+}
+
+export function AdaptiveSections({
+  effectiveMethod,
+  businessCategory,
+  formData,
+  onFieldChange,
+  disabled,
+}: {
+  effectiveMethod: string
+  businessCategory?: string
+  formData: ValuationFormData
+  onFieldChange: (field: string, value: number | undefined) => void
+  disabled?: boolean
+}) {
+  const sections = getBonusSections(effectiveMethod, businessCategory)
+  if (sections.length === 0) return null
+
+  return (
+    <AnimatePresence mode="sync">
+      {sections.includes('dcf_projections') && (
+        <DcfProjectionsSection
+          key="dcf_projections"
+          dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
+          dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
+          dcfCapexPct={formData.dcf_capex_pct as number | undefined}
+          dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
+          dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
+          onFieldChange={onFieldChange}
+          disabled={disabled}
+        />
+      )}
+      {sections.includes('nav_asset_schedule') && (
+        <NavAssetScheduleSection
+          key="nav_asset_schedule"
+          navRealEstateAdjustment={formData.nav_real_estate_adjustment as number | undefined}
+          navInventoryAdjustment={formData.nav_inventory_adjustment as number | undefined}
+          navHiddenReserves={formData.nav_hidden_reserves as number | undefined}
+          navGoodwillWriteoff={formData.nav_goodwill_writeoff as number | undefined}
+          onFieldChange={onFieldChange}
+          disabled={disabled}
+        />
+      )}
+      {sections.includes('saas_metrics') && (
+        <SaasMetricsSection
+          key="saas_metrics"
+          saasArr={formData.saas_arr as number | undefined}
+          saasMrr={formData.saas_mrr as number | undefined}
+          saasChurnPct={formData.saas_churn_pct as number | undefined}
+          saasNrrPct={formData.saas_nrr_pct as number | undefined}
+          saasCac={formData.saas_cac as number | undefined}
+          saasCustomerConcentrationPct={formData.saas_customer_concentration_pct as number | undefined}
+          onFieldChange={onFieldChange}
+          disabled={disabled}
+        />
+      )}
+      {sections.includes('revenue_quality') && (
+        <RevenueQualitySection
+          key="revenue_quality"
+          revRecurringPct={formData.rev_recurring_pct as number | undefined}
+          revTopClientConcentrationPct={formData.rev_top_client_concentration_pct as number | undefined}
+          revContractBacklog={formData.rev_contract_backlog as number | undefined}
+          onFieldChange={onFieldChange}
+          disabled={disabled}
+        />
+      )}
+    </AnimatePresence>
   )
 }

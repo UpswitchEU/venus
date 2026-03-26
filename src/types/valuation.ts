@@ -70,6 +70,9 @@ export interface YearDataInput {
 
   // Cash flow
   nwc_change?: number
+
+  // Forecast flag — distinguishes user-provided projections from historical actuals
+  is_forecast?: boolean
 }
 
 export interface ValuationRequest {
@@ -83,6 +86,7 @@ export interface ValuationRequest {
   // Financial data (required)
   current_year_data: YearDataInput
   historical_years_data?: YearDataInput[]
+  forecast_years_data?: YearDataInput[]
 
   // Optional company details
   number_of_employees?: number
@@ -203,6 +207,33 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   legal_form?: string
   nace_code?: string
   nace_description?: string
+
+  /** Manual-flow forecast years used as explicit DCF projection inputs. */
+  forecast_years_data?: YearDataInput[]
+
+  // Adaptive Input Studio: method-specific bonus fields
+  // DCF projections
+  dcf_revenue_growth_pct?: number
+  dcf_ebitda_margin_pct?: number
+  dcf_capex_pct?: number
+  dcf_wacc_pct?: number
+  dcf_terminal_growth_pct?: number
+  // Adjusted NAV
+  nav_real_estate_adjustment?: number
+  nav_inventory_adjustment?: number
+  nav_hidden_reserves?: number
+  nav_goodwill_writeoff?: number
+  // SaaS metrics
+  saas_arr?: number
+  saas_mrr?: number
+  saas_churn_pct?: number
+  saas_nrr_pct?: number
+  saas_cac?: number
+  saas_customer_concentration_pct?: number
+  // Revenue quality
+  rev_recurring_pct?: number
+  rev_top_client_concentration_pct?: number
+  rev_contract_backlog?: number
 }
 
 export interface QuickValuationRequest {

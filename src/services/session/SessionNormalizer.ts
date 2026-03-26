@@ -102,6 +102,7 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['founding_year', 'foundingYear'],
     ['current_year_data', 'currentYearData'],
     ['historical_years_data', 'historicalYearsData'],
+    ['forecast_years_data', 'forecastYearsData'],
     ['number_of_employees', 'numberOfEmployees', 'employee_count', 'employeeCount'],
     ['number_of_owners', 'numberOfOwners'],
     ['recurring_revenue_percentage', 'recurringRevenuePercentage'],
@@ -153,6 +154,13 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     if (value !== undefined && value !== null) {
       ;(formData as any)[primaryKey] = value
     }
+  }
+
+  // Venus now treats ownership percentage as a fixed 100% valuation invariant.
+  // Normalize any legacy restored value so stale partial-share sessions cannot
+  // re-enter current product state, but avoid fabricating data for truly empty sessions.
+  if (Object.keys(formData).length > 0) {
+    ;(formData as Partial<ValuationRequest>).shares_for_sale = 100
   }
 
   // Preserve manual history exactly as stored. Do not fabricate historical years from

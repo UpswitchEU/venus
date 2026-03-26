@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ValuationFormData } from '../../types/valuation'
 import { buildValuationRequest } from '../buildValuationRequest'
-import { getLastFullFiscalYear } from '../fiscalYear'
+import { getCurrentFilingYear } from '../fiscalYear'
 import { getCompleteYearlyFinancialsDesc } from '../yearlyFinancials'
 
 function makeFormData(overrides: Partial<ValuationFormData> = {}): ValuationFormData {
@@ -22,7 +22,7 @@ function makeFormData(overrides: Partial<ValuationFormData> = {}): ValuationForm
       cash: 25_000,
     },
     historical_years_data: [
-      { year: getLastFullFiscalYear() - 1, revenue: 900_000, ebitda: 90_000 },
+      { year: getCurrentFilingYear() - 1, revenue: 900_000, ebitda: 90_000 },
     ],
     recurring_revenue_percentage: 0.5,
     ...overrides,
@@ -42,7 +42,7 @@ describe('buildValuationRequest', () => {
   })
 
   it('preserves a single historical year exactly as entered', () => {
-    const lastFullYear = getLastFullFiscalYear()
+    const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(
       makeFormData({
         historical_years_data: [{ year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000 }],
@@ -56,7 +56,7 @@ describe('buildValuationRequest', () => {
   })
 
   it('sorts multiple historical years oldest-to-newest', () => {
-    const lastFullYear = getLastFullFiscalYear()
+    const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(
       makeFormData({
         historical_years_data: [
@@ -96,10 +96,10 @@ describe('buildValuationRequest', () => {
   it('always uses the last closed fiscal year for current_year_data', () => {
     const result = buildValuationRequest(makeFormData(), [])
 
-    expect(result.current_year_data.year).toBe(getLastFullFiscalYear())
+    expect(result.current_year_data.year).toBe(getCurrentFilingYear())
   })
 
-  it('preserves two-decimal shareholding values, including explicit zero', () => {
+  it('always forces shares_for_sale to 100', () => {
     const decimalResult = buildValuationRequest(
       makeFormData({
         shares_for_sale: 33.33,
@@ -112,13 +112,15 @@ describe('buildValuationRequest', () => {
       }),
       []
     )
+    const defaultResult = buildValuationRequest(makeFormData(), [])
 
-    expect(decimalResult.shares_for_sale).toBe(33.33)
-    expect(zeroResult.shares_for_sale).toBe(0)
+    expect(decimalResult.shares_for_sale).toBe(100)
+    expect(zeroResult.shares_for_sale).toBe(100)
+    expect(defaultResult.shares_for_sale).toBe(100)
   })
 
   it('keeps zero EBITDA as the reported baseline for normalization math', () => {
-    const lastFullYear = getLastFullFiscalYear()
+    const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(
       makeFormData({
         ebitda: 0,
@@ -160,7 +162,7 @@ describe('buildValuationRequest', () => {
         makeFormData({
           revenue: 0,
           current_year_data: {
-            year: getLastFullFiscalYear(),
+            year: getCurrentFilingYear(),
             revenue: 0,
             ebitda: 100_000,
           },
@@ -171,7 +173,7 @@ describe('buildValuationRequest', () => {
   })
 
   it('accepts the latest complete year when newer placeholder years are empty', () => {
-    const lastFullYear = getLastFullFiscalYear()
+    const lastFullYear = getCurrentFilingYear()
     const yearlyFinancials = [
       { year: '2025', revenue: 0, ebitda: 0 },
       { year: '2024', revenue: 1_500_000, ebitda: 250_000 },
@@ -205,7 +207,7 @@ describe('buildValuationRequest', () => {
   })
 
   it('rejects historical revenue that Python would refuse', () => {
-    const lastFullYear = getLastFullFiscalYear()
+    const lastFullYear = getCurrentFilingYear()
 
     expect(() =>
       buildValuationRequest(
@@ -218,7 +220,7 @@ describe('buildValuationRequest', () => {
   })
 
   it('rejects historical years that duplicate the current fiscal year', () => {
-    const lastFullYear = getLastFullFiscalYear()
+    const lastFullYear = getCurrentFilingYear()
 
     expect(() =>
       buildValuationRequest(
@@ -228,5 +230,106 @@ describe('buildValuationRequest', () => {
         []
       )
     ).toThrow(`Historical year ${lastFullYear} must be earlier than the current fiscal year ${lastFullYear}.`)
+  })
+
+  it('strips forecast rows from historical_years_data to protect engine integrity', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [
+          { year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000 },
+          { year: lastFullYear + 1, revenue: 500_000, ebitda: 50_000, is_forecast: true },
+          { year: lastFullYear + 2, revenue: 600_000, ebitda: 60_000, is_forecast: true },
+        ],
+      }),
+      []
+    )
+
+    expect(result.historical_years_data).toHaveLength(1)
+    expect(result.historical_years_data[0].year).toBe(lastFullYear - 1)
+    expect(result.historical_years_data.every((y: any) => !y.is_forecast)).toBe(true)
+  })
+
+  it('still produces valid output when all historical rows are forecast-only', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [
+          { year: lastFullYear + 1, revenue: 0, ebitda: 0, is_forecast: true },
+          { year: lastFullYear + 2, revenue: 0, ebitda: 0, is_forecast: true },
+        ],
+      }),
+      []
+    )
+
+    expect(result.historical_years_data).toHaveLength(0)
+  })
+
+  it('emits forecast_years_data separately from historical actuals', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [{ year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000 }],
+        forecast_years_data: [
+          {
+            year: lastFullYear + 1,
+            revenue: 100_000,
+            ebitda: 10_000,
+            depreciation: 2_000,
+            cash: 8_000,
+            nwc_change: -1_000,
+          },
+          { year: lastFullYear + 2, revenue: 110_000, ebitda: 11_000 },
+        ],
+      } as any),
+      []
+    )
+    expect(result.historical_years_data).toEqual([
+      { year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000, ebitda_normalized: false },
+    ])
+    expect(result.forecast_years_data).toEqual([
+      {
+        year: lastFullYear + 1,
+        revenue: 100_000,
+        ebitda: 10_000,
+        depreciation: 2_000,
+        cash: 8_000,
+        nwc_change: -1_000,
+        is_forecast: true,
+      },
+      { year: lastFullYear + 2, revenue: 110_000, ebitda: 11_000, is_forecast: true },
+    ])
+  })
+
+  it('uses revenue-quality fallback for recurring revenue when the base field is absent', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        recurring_revenue_percentage: undefined,
+        rev_recurring_pct: 65,
+      }),
+      []
+    )
+
+    expect(result.recurring_revenue_percentage).toBe(0.65)
+  })
+
+  it('serializes adaptive DCF and NAV inputs into business_context', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        business_type_id: 'saas',
+        dcf_revenue_growth_pct: 12,
+        dcf_wacc_pct: 9,
+        nav_real_estate_adjustment: 150_000,
+        rev_top_client_concentration_pct: 18,
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.business_context).toMatchObject({
+      dcf_revenue_growth_pct: 12,
+      dcf_wacc_pct: 9,
+      nav_real_estate_adjustment: 150_000,
+      rev_top_client_concentration_pct: 18,
+    })
   })
 })

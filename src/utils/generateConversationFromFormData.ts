@@ -7,7 +7,6 @@
 
 import type { Message } from '../types/message'
 import type { ValuationFormData } from '../types/valuation'
-import { formatShareholdingToast } from './shareholding'
 
 /**
  * Generate conversation messages that represent manual form data
@@ -110,16 +109,6 @@ export function generateConversationFromFormData(
     const structureLabel =
       formData.business_type === 'sole-trader' ? 'Sole Trader' : 'Limited Company'
     addMessagePair('What is your business structure?', structureLabel, 'business_type')
-  }
-
-  // Shares for Sale
-  if (formData.shares_for_sale !== undefined && formData.shares_for_sale !== null) {
-    addMessagePair(
-      "What percentage of the company's equity are we valuing?",
-      formatShareholdingToast(formData.shares_for_sale),
-      'shares_for_sale',
-      { shares_for_sale: formData.shares_for_sale }
-    )
   }
 
   // Number of Owners

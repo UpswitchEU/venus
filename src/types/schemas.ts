@@ -23,6 +23,15 @@ export const FinancialDataSchema = z
   })
   .strict()
 
+export const YearFinancialDataSchema = z
+  .object({
+    year: z.number().int().min(1900).max(2100),
+    revenue: z.number().min(0, 'Revenue must be positive'),
+    ebitda: z.number(),
+    is_forecast: z.boolean().optional(),
+  })
+  .passthrough()
+
 /**
  * Valuation Request Schema
  */
@@ -34,7 +43,8 @@ export const ValuationRequestSchema = z
     business_model: z.string().optional(),
     founding_year: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
     current_year_data: FinancialDataSchema,
-    historical_years_data: z.array(FinancialDataSchema).optional(),
+    historical_years_data: z.array(YearFinancialDataSchema).optional(),
+    forecast_years_data: z.array(YearFinancialDataSchema).optional(),
     number_of_employees: z.number().int().min(0).optional(),
     number_of_owners: z.number().int().min(1).optional(),
     recurring_revenue_percentage: z.number().min(0).max(100).optional(),

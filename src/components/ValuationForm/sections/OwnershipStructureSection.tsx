@@ -19,12 +19,6 @@ import {
   AuroraSelect,
 } from '../../../design-system/components'
 import type { ValuationFormData } from '../../../types/valuation'
-import {
-  formatShareholdingInput,
-  isValidShareholdingValue,
-  isShareholdingValueInRange,
-  parseShareholdingInput,
-} from '../../../utils/shareholding'
 
 interface OwnershipStructureSectionProps {
   formData: ValuationFormData
@@ -33,16 +27,6 @@ interface OwnershipStructureSectionProps {
   setEmployeeCountError: (error: string | null) => void
 }
 
-/**
- * OwnershipStructureSection Component
- *
- * Renders Ownership Structure section with:
- * - Business Structure (sole-trader/company)
- * - Shares for Sale (if company)
- * - Owner-Managers count (if company)
- * - Employee count (if company)
- * - Owner Concentration Risk Warning (if applicable)
- */
 export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps> = ({
   formData,
   updateFormData,
@@ -50,23 +34,6 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
   setEmployeeCountError,
 }) => {
   const t = useTranslations('forms.sections')
-  const [isEditingSharesForSale, setIsEditingSharesForSale] = React.useState(false)
-  const [sharesForSaleInput, setSharesForSaleInput] = React.useState(
-    formatShareholdingInput(formData.shares_for_sale ?? 100)
-  )
-  const lastValidSharesForSaleRef = React.useRef(formData.shares_for_sale ?? 100)
-
-  React.useEffect(() => {
-    if (formData.shares_for_sale !== undefined && isValidShareholdingValue(formData.shares_for_sale)) {
-      lastValidSharesForSaleRef.current = formData.shares_for_sale
-    }
-  }, [formData.shares_for_sale])
-
-  React.useEffect(() => {
-    if (!isEditingSharesForSale) {
-      setSharesForSaleInput(formatShareholdingInput(formData.shares_for_sale ?? 100))
-    }
-  }, [formData.shares_for_sale, isEditingSharesForSale])
 
   return (
     <AuroraFormSection title={t('ownershipStructure')}>
@@ -84,40 +51,6 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
             updateFormData({ business_type: value as 'sole-trader' | 'company' })
           }
         />
-
-        {/* Shares for Sale */}
-        {formData.business_type === 'company' && (
-          <AuroraNumberInput
-            label={t('equityStakeForSale')}
-            placeholder={t('equityStakePlaceholder')}
-            value={sharesForSaleInput}
-            onChange={(e) => {
-              const { value } = e.target
-              setSharesForSaleInput(value)
-              updateFormData({
-                shares_for_sale: value === '' ? undefined : parseShareholdingInput(value),
-              })
-            }}
-            onFocus={() => setIsEditingSharesForSale(true)}
-            onBlur={(e) => {
-              setIsEditingSharesForSale(false)
-              const parsed = parseShareholdingInput(e.target.value)
-              const nextValue =
-                parsed !== undefined && isShareholdingValueInRange(parsed)
-                  ? parsed
-                  : lastValidSharesForSaleRef.current
-              const formatted = formatShareholdingInput(nextValue)
-              setSharesForSaleInput(formatted)
-              updateFormData({ shares_for_sale: Number.parseFloat(formatted) })
-            }}
-            name="shares_for_sale"
-            min={0}
-            max={100}
-            step={0.01}
-            suffix="%"
-            helpText={t('equityStakeHelp')}
-          />
-        )}
       </AuroraFormGrid>
 
       {/* Owner Concentration Fields - Only for Companies */}

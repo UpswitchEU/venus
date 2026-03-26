@@ -110,4 +110,25 @@ describe('normalizeSessionData', () => {
       },
     })
   })
+
+  it('normalizes legacy shares_for_sale values to 100', () => {
+    const normalizedSnake = normalizeSessionData({
+      session_key: 'val_shares_snake',
+      session_data: {
+        company_name: 'Legacy Snake',
+        shares_for_sale: 40,
+      },
+    })
+
+    const normalizedCamel = normalizeSessionData({
+      session_key: 'val_shares_camel',
+      session_data: {
+        companyName: 'Legacy Camel',
+        sharesForSale: 25,
+      },
+    })
+
+    expect(normalizedSnake.formData.shares_for_sale).toBe(100)
+    expect(normalizedCamel.formData.shares_for_sale).toBe(100)
+  })
 })

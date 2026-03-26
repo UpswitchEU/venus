@@ -13,6 +13,8 @@ export type ExtractValuationResultsContext = {
   selectedValuationMethod?: string | null
 }
 
+const REVENUE_METHOD_KEYS = new Set(['omzet_multiple', 'revenue_multiple'])
+
 function toFiniteNumber(value: unknown): number | null {
   if (value == null || value === '') return null
   const n = Number(value)
@@ -96,6 +98,110 @@ function resolveSelectedMethodForSynthesis(
   return 'upswitch_adaptive'
 }
 
+function getFallbackMethodLabel(methodKey: string): string {
+  if (methodKey === 'omzet_multiple' || methodKey === 'revenue_multiple') {
+    return 'Omzetmultiple'
+  }
+  if (methodKey === 'ebitda_multiple') {
+    return 'EBITDA-multiple'
+  }
+  if (methodKey === 'adjusted_nav') {
+    return 'Gecorrigeerde Netto Actiefwaarde (NAV)'
+  }
+  return methodKey
+}
+
+function extractRevenueForMethodEligibility(
+  valuationResult: Record<string, any>,
+  reportContext: Record<string, any>,
+  nested: Record<string, any> | null
+): number | null {
+  return (
+    toFiniteNumber(reportContext.revenue) ??
+    toFiniteNumber(reportContext.turnover) ??
+    toFiniteNumber(valuationResult.current_year_data?.revenue) ??
+    toFiniteNumber(valuationResult.revenue) ??
+    toFiniteNumber(valuationResult.turnover) ??
+    toFiniteNumber(valuationResult.details?.revenue) ??
+    toFiniteNumber(nested?.current_year_data?.revenue) ??
+    toFiniteNumber(nested?.revenue) ??
+    null
+  )
+}
+
+function collectExplicitAssetBasedDetails(
+  valuationResult: Record<string, any>,
+  reportContext: Record<string, any>,
+  nested: Record<string, any> | null
+): Record<string, unknown> | null {
+  const candidates = [
+    reportContext,
+    valuationResult,
+    valuationResult.details,
+    nested,
+    nested?.details,
+    valuationResult.asset_based_details,
+    valuationResult.details?.asset_based_details,
+    nested?.asset_based_details,
+    nested?.details?.asset_based_details,
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      continue
+    }
+
+    const detailsCandidate =
+      candidate.asset_based_details &&
+      typeof candidate.asset_based_details === 'object' &&
+      !Array.isArray(candidate.asset_based_details)
+        ? candidate.asset_based_details
+        : candidate
+
+    const hasEvidence =
+      detailsCandidate.asset_based_evidence === true ||
+      Array.isArray(detailsCandidate.asset_adjustments) ||
+      toFiniteNumber(detailsCandidate.net_asset_value) != null ||
+      toFiniteNumber(detailsCandidate.total_assets_adjusted) != null ||
+      toFiniteNumber(detailsCandidate.total_liabilities_adjusted) != null
+
+    if (!hasEvidence) {
+      continue
+    }
+
+    const assetDetails: Record<string, unknown> = {
+      asset_based_evidence: true,
+    }
+
+    const explicitFields = [
+      'enterprise_value',
+      'net_asset_value',
+      'total_assets_book',
+      'total_liabilities_book',
+      'total_assets_adjusted',
+      'total_liabilities_adjusted',
+      'tangible_asset_value',
+      'intangible_asset_value',
+      'equity_range_low',
+      'equity_range_high',
+      'methodology',
+      'confidence',
+      'warnings',
+      'asset_adjustments',
+    ]
+
+    for (const field of explicitFields) {
+      if (detailsCandidate[field] != null) {
+        assetDetails[field] = detailsCandidate[field]
+      }
+    }
+
+    return assetDetails
+  }
+
+  return null
+}
+
 function synthesizeMinimalValuationResultsMap(
   valuationResult: Record<string, any>,
   context?: ExtractValuationResultsContext | null
@@ -132,6 +238,7 @@ function synthesizeMinimalValuationResultsMap(
   }
 
   const methodKey = resolveSelectedMethodForSynthesis(valuationResult, context)
+  const currentRevenue = extractRevenueForMethodEligibility(valuationResult, reportContext, nested)
 
   const equityLow =
     toFiniteNumber(reportContext.equity_value_low) ??
@@ -151,13 +258,38 @@ function synthesizeMinimalValuationResultsMap(
   if (multipleLow != null) details.p25_multiple = multipleLow
   if (multipleHigh != null) details.p75_multiple = multipleHigh
 
+  if (methodKey === 'adjusted_nav') {
+    const assetDetails = collectExplicitAssetBasedDetails(
+      valuationResult,
+      reportContext,
+      nested
+    )
+    if (!assetDetails) {
+      return null
+    }
+    Object.assign(details, assetDetails)
+  }
+
   const value = equityMid ?? enterpriseMid ?? 0
+
+  if (REVENUE_METHOD_KEYS.has(methodKey) && currentRevenue != null && currentRevenue <= 0) {
+    return {
+      [methodKey]: {
+        available: false,
+        value: null,
+        multiple_used: multiple,
+        label: getFallbackMethodLabel(methodKey),
+        unavailable_reason: 'Omzet moet positief zijn.',
+        details,
+      },
+    }
+  }
 
   const methodEntry = {
     available: true,
     value,
     multiple_used: multiple,
-    label: methodKey,
+    label: getFallbackMethodLabel(methodKey),
     details,
   }
 

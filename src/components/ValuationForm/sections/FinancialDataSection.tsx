@@ -23,7 +23,7 @@ import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizati
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationFormData } from '../../../types/valuation'
-import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { getNormalizationAmountForBase } from '../../../utils/normalizationMath'
 import { NormalizationModal } from '../../normalization/NormalizationModal'
 import { NormalizedEBITDAField } from '../../normalization/NormalizedEBITDAField'
@@ -46,7 +46,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   updateFormData,
 }) => {
   const t = useTranslations('forms.fields')
-  const lastFullYear = getLastFullFiscalYear()
+  const lastFullYear = getCurrentFilingYear()
   const reportId = useSessionStore((state) => state.session?.reportId)
   const sessionId = reportId // Use reportId as sessionId
   const unifiedItems = useNormalizationStore((state) => state.items)

@@ -245,7 +245,7 @@ export function NormalizationTableView({
               <th
                 key={year}
                 className={cn(
-                  'px-3 py-3.5 text-center text-[10px] font-bold uppercase tracking-wider text-foreground/70 min-w-[100px] whitespace-nowrap',
+                  'px-3 py-3.5 text-center text-[10px] font-bold uppercase tracking-wider min-w-[100px] whitespace-nowrap text-foreground/70',
                   idx > 0 && 'border-l border-foreground/[0.08]'
                 )}
               >

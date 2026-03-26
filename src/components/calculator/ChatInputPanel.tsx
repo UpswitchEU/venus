@@ -32,7 +32,6 @@ export interface CollectedData {
   country?: string
   yearFounded?: string
   ownerManagers?: number
-  equityStake?: number
 }
 
 export interface ChatInputPanelProps {

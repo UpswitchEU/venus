@@ -9,7 +9,7 @@
 
 import React from 'react'
 import { AuroraFormSection } from '../../../design-system/components'
-import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { HistoricalDataInputs } from '../../forms'
 
 interface HistoricalDataSectionProps {
@@ -28,10 +28,7 @@ export const HistoricalDataSection: React.FC<HistoricalDataSectionProps> = ({
   setHistoricalInputs,
   foundingYear,
 }) => {
-  // Calculate last full year (same calculation as FinancialDataSection)
-  // This ensures historical years are relative to the "Last Full Year" (2025)
-  // not the current calendar year (2026)
-  const lastFullYear = getLastFullFiscalYear()
+  const lastFullYear = getCurrentFilingYear()
 
   return (
     <AuroraFormSection

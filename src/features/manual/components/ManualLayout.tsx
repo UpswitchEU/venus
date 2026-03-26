@@ -126,7 +126,7 @@ import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
-import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
@@ -138,7 +138,6 @@ import {
   persistOrDeleteNormalizationsForYears,
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
-import { formatShareholdingToast, isShareholdingValueInRange } from '../../../utils/shareholding'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -193,7 +192,6 @@ interface CollectedData {
   yearFounded?: string
   ownerManagers?: number
   fteEmployees?: number
-  equityStake?: number
   /** Financial data from ManualInputPanel (for AI context before submit) */
   revenue?: number
   ebitda?: number
@@ -368,12 +366,16 @@ function generateDefaultNormalizationSuggestions(
 // ─────────────────────────────────────────
 
 function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
-  const allYears = getCompleteYearlyFinancialsDesc(
-    (data.yearlyFinancials || []) as Array<{ year: string; revenue: number; ebitda: number }>
-  )
+  const yearlyFinancials = (data.yearlyFinancials || []) as Array<{
+    year: string; revenue: number; ebitda: number; isForecast?: boolean
+  }>
 
-  const current = allYears[0]
-  const historical = allYears.slice(1)
+  const historicalRows = yearlyFinancials.filter((yf) => !yf.isForecast)
+  const forecastRows = yearlyFinancials.filter((yf) => yf.isForecast)
+
+  const completeHistorical = getCompleteYearlyFinancialsDesc(historicalRows)
+  const current = completeHistorical[0]
+  const historical = completeHistorical.slice(1)
 
   const canonicalNace =
     (typeof data.canonicalNaceCode === 'string' && data.canonicalNaceCode.trim()) ||
@@ -400,7 +402,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     founding_year: parseInt(data.yearFounded) || new Date().getFullYear() - 5,
     number_of_owners: data.ownerManagers || 1,
     number_of_employees: data.fteEmployees,
-    shares_for_sale: data.equityStake ?? 100,
+    shares_for_sale: 100,
     business_type: data.businessStructure || 'company',
     revenue: current?.revenue,
     ebitda: current?.ebitda,
@@ -416,6 +418,11 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
       revenue: h.revenue,
       ebitda: h.ebitda,
     })),
+    forecast_years_data: forecastRows.map((f) => ({
+      year: parseInt(f.year),
+      revenue: f.revenue,
+      ebitda: f.ebitda,
+    })),
     ...(companySectionActive
       ? {
           kbo_number: data.kboNumber || '',
@@ -429,6 +436,25 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...((data.businessType || data.businessTypeCode) && {
       business_type_id: data.businessType || data.businessTypeCode,
     }),
+    // Adaptive Input Studio bonus fields (camelCase panel → snake_case store)
+    ...(data.dcf_revenue_growth_pct != null && { dcf_revenue_growth_pct: data.dcf_revenue_growth_pct }),
+    ...(data.dcf_ebitda_margin_pct != null && { dcf_ebitda_margin_pct: data.dcf_ebitda_margin_pct }),
+    ...(data.dcf_capex_pct != null && { dcf_capex_pct: data.dcf_capex_pct }),
+    ...(data.dcf_wacc_pct != null && { dcf_wacc_pct: data.dcf_wacc_pct }),
+    ...(data.dcf_terminal_growth_pct != null && { dcf_terminal_growth_pct: data.dcf_terminal_growth_pct }),
+    ...(data.nav_real_estate_adjustment != null && { nav_real_estate_adjustment: data.nav_real_estate_adjustment }),
+    ...(data.nav_inventory_adjustment != null && { nav_inventory_adjustment: data.nav_inventory_adjustment }),
+    ...(data.nav_hidden_reserves != null && { nav_hidden_reserves: data.nav_hidden_reserves }),
+    ...(data.nav_goodwill_writeoff != null && { nav_goodwill_writeoff: data.nav_goodwill_writeoff }),
+    ...(data.saas_arr != null && { saas_arr: data.saas_arr }),
+    ...(data.saas_mrr != null && { saas_mrr: data.saas_mrr }),
+    ...(data.saas_churn_pct != null && { saas_churn_pct: data.saas_churn_pct }),
+    ...(data.saas_nrr_pct != null && { saas_nrr_pct: data.saas_nrr_pct }),
+    ...(data.saas_cac != null && { saas_cac: data.saas_cac }),
+    ...(data.saas_customer_concentration_pct != null && { saas_customer_concentration_pct: data.saas_customer_concentration_pct }),
+    ...(data.rev_recurring_pct != null && { rev_recurring_pct: data.rev_recurring_pct }),
+    ...(data.rev_top_client_concentration_pct != null && { rev_top_client_concentration_pct: data.rev_top_client_concentration_pct }),
+    ...(data.rev_contract_backlog != null && { rev_contract_backlog: data.rev_contract_backlog }),
   }
 }
 
@@ -516,6 +542,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     result,
     selectedMethod,
     setSelectedMethod,
+    preSelectedMethod,
+    setPreSelectedMethod,
     trySetCalculating,
     setCalculating,
     setResult,
@@ -998,13 +1026,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           year: string
           revenue: number
           ebitda: number
+          isForecast?: boolean
         }>)
       : []
     if (latestYearlyFinancials.length > 0) {
       return [...latestYearlyFinancials].sort((a, b) => Number(b.year) - Number(a.year))
     }
 
-    const allYears: Array<{ year: string; revenue: number; ebitda: number }> = []
+    const allYears: Array<{ year: string; revenue: number; ebitda: number; isForecast?: boolean }> =
+      []
     const cyd = formStoreData.current_year_data as
       | { year?: number; revenue?: number; ebitda?: number }
       | undefined
@@ -1031,15 +1061,39 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
     }
 
+    const forecastPersisted = formStoreData.forecast_years_data
+    if (forecastPersisted?.length) {
+      for (const y of forecastPersisted) {
+        if (
+          y.year >= 2000 &&
+          y.year <= 2100 &&
+          !allYears.some((existing) => existing.year === String(y.year))
+        ) {
+          allYears.push({
+            year: String(y.year),
+            revenue: Number(y.revenue) || 0,
+            ebitda: Number(y.ebitda) || 0,
+            isForecast: true,
+          })
+        }
+      }
+    }
+
     return allYears.sort((a, b) => Number(b.year) - Number(a.year))
-  }, [formStoreData.current_year_data, formStoreData.historical_years_data])
+  }, [
+    formStoreData.current_year_data,
+    formStoreData.historical_years_data,
+    formStoreData.forecast_years_data,
+  ])
 
   // Derive financial years from the latest live form snapshot for the normalization modal.
+  // Exclude forecast years — normalization only applies to historical actuals.
   const financialYears = (() => {
-    const years = new Set<number>([getLastFullFiscalYear()])
+    const filingYear = getCurrentFilingYear()
+    const years = new Set<number>([filingYear])
     getLiveYearlyFinancials().forEach((yearData) => {
       const year = Number(yearData.year)
-      if (Number.isFinite(year) && year >= 2000 && year <= 2100) {
+      if (Number.isFinite(year) && year >= 2000 && year <= filingYear) {
         years.add(year)
       }
     })
@@ -1063,7 +1117,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         byYear[year] = ebitda
       }
     })
-    if (!(getLastFullFiscalYear() in byYear)) {
+    if (!(getCurrentFilingYear() in byYear)) {
       const fallbackCurrentEbitda =
         latestFormDataRef.current?.ebitda ??
         latestFormDataRef.current?.current_year_data?.ebitda ??
@@ -1071,7 +1125,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         formStoreData?.ebitda
       const parsedFallbackCurrentEbitda = Number(fallbackCurrentEbitda)
       if (Number.isFinite(parsedFallbackCurrentEbitda)) {
-        byYear[getLastFullFiscalYear()] = parsedFallbackCurrentEbitda
+        byYear[getCurrentFilingYear()] = parsedFallbackCurrentEbitda
       }
     }
     return byYear
@@ -1081,7 +1135,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // report.ebitda is the normalized value used in valuation — using it would show wrong
   // Origineel (e.g. €99K instead of €100K) and double-apply adjustments.
   const getOriginalEbitdaForDisplay = useCallback(() => {
-    const year = getLastFullFiscalYear()
+    const year = getCurrentFilingYear()
     return getReportedEbitdaBaseline({
       year,
       originalEBITDAByYear,
@@ -1148,7 +1202,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     yearFounded: formYearFounded ? String(formYearFounded) : '',
     ownerManagers: 1,
     fteEmployees: formNumber_of_employees,
-    equityStake: 100,
   })
 
   /** Dirty state: user edited financial inputs after a report was generated. Reset on successful submit. */
@@ -2033,6 +2086,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     []
   )
 
+  const handlePreSelectMethod = useCallback(
+    (method: string) => {
+      setPreSelectedMethod(method === 'upswitch_adaptive' ? null : method)
+    },
+    [setPreSelectedMethod]
+  )
+
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
 
@@ -2081,7 +2141,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         yearFounded: data.yearFounded,
         ownerManagers: data.ownerManagers,
         fteEmployees: data.fteEmployees,
-        equityStake: data.equityStake,
       })
 
       try {
@@ -2094,6 +2153,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
         const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
+        if (preSelectedMethod) {
+          ;(request as any).selected_method = preSelectedMethod
+        }
         const idForApi = linkedIdentifier
         if (calculationRequestIdentifiers.reportId) {
           ;(request as any).reportId = calculationRequestIdentifiers.reportId
@@ -2427,6 +2489,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       tErrors,
       tPreparer,
       result,
+      preSelectedMethod,
     ]
   )
 
@@ -2498,6 +2561,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
         ;(request as any).reportId = idForVersions
+        if (preSelectedMethod) {
+          ;(request as any).selected_method = preSelectedMethod
+        }
 
         const previousVersion = getLatestVersion(idForVersions)
         if (!previousVersion) {
@@ -2549,6 +2615,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       handleManualSubmit,
       hasAnyNormalization,
       tHistory,
+      preSelectedMethod,
     ]
   )
 
@@ -2576,7 +2643,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ownerManagers: 'ownerManagers',
         number_of_employees: 'fteEmployees',
         fteEmployees: 'fteEmployees',
-        equityStake: 'equityStake',
       }
       const dataKey = fieldToDataKey[field] ?? field
       // Address fields (postal_code, city) update form store only; collectedData syncs via form store
@@ -2629,11 +2695,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       } else if (field === 'fteEmployees' || field === 'number_of_employees') {
         const n = parseEmployeeCount(value)
         if (n !== undefined) updateFormData({ number_of_employees: n })
-      } else if (field === 'equityStake' || field === 'equity_stake') {
-        const n = typeof value === 'number' ? value : Number.parseFloat(String(value))
-        if (!Number.isNaN(n) && isShareholdingValueInRange(n)) {
-          updateFormData({ shares_for_sale: Number.parseFloat(n.toFixed(2)) })
-        }
       }
       const currencyLocale = currentLocale === 'en' ? 'en-BE' : 'nl-BE'
       toast.success(
@@ -2641,9 +2702,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           field,
           value:
             typeof value === 'number'
-              ? field === 'equityStake' || field === 'equity_stake'
-                ? formatShareholdingToast(value)
-                : `€${value.toLocaleString(currencyLocale)}`
+              ? `€${value.toLocaleString(currencyLocale)}`
               : String(value),
         })
       )
@@ -3631,6 +3690,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           recalcLocale as 'nl' | 'en'
         )
         ;(request as any).dataSource = 'manual'
+        if (preSelectedMethod) {
+          ;(request as any).selected_method = preSelectedMethod
+        }
         if (calculationRequestIdentifiers.reportId) {
           ;(request as any).reportId = calculationRequestIdentifiers.reportId
         }
@@ -3712,6 +3774,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       result,
       currentLocale,
       t,
+      preSelectedMethod,
     ]
   )
 
@@ -4121,7 +4184,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       industry: collectedData.industry,
       country: collectedData.country,
       yearFounded: collectedData.yearFounded,
-      equityStake: collectedData.equityStake,
       ownerManagers: collectedData.ownerManagers,
       fteEmployees: formStoreData.number_of_employees ?? collectedData.fteEmployees,
       yearlyFinancials: restoredYearlyFinancials,
@@ -4161,7 +4223,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }
 
   // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
-  const lastFullYear = getLastFullFiscalYear()
+  const lastFullYear = getCurrentFilingYear()
 
   const guidedResolutionAppliedRef = useRef(false)
 
@@ -4264,6 +4326,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           sourceDataOpen={showSourceDataPanel}
           onToggleSourceData={toggleSourceDataPanel}
           onOpenValuationEdit={() => setShowValuationEditModal(true)}
+          preSelectedMethod={preSelectedMethod ?? undefined}
+          onPreSelectMethod={handlePreSelectMethod}
         />
 
         {pdfStaleBannerEl}
@@ -4474,6 +4538,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         sourceDataOpen={showSourceDataPanel}
         onToggleSourceData={toggleSourceDataPanel}
         onOpenValuationEdit={() => setShowValuationEditModal(true)}
+        preSelectedMethod={preSelectedMethod ?? undefined}
+        onPreSelectMethod={handlePreSelectMethod}
       />
 
       {pdfStaleBannerEl}

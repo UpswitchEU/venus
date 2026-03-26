@@ -15,7 +15,7 @@ import type { DataResponse } from '../types/data-collection'
 import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
-import { getLastFullFiscalYear } from './fiscalYear'
+import { getCurrentFilingYear } from './fiscalYear'
 import { generalLogger } from './logger'
 
 function toFiniteNumber(value: unknown): number | null {
@@ -35,6 +35,64 @@ function requirePositiveRevenue(value: unknown, field: string): number {
   }
 
   return revenue
+}
+
+const YEAR_DATA_OPTIONAL_FIELDS = [
+  'cogs',
+  'gross_profit',
+  'operating_expenses',
+  'ebit',
+  'depreciation',
+  'amortization',
+  'interest_expense',
+  'tax_expense',
+  'net_income',
+  'total_assets',
+  'current_assets',
+  'cash',
+  'accounts_receivable',
+  'inventory',
+  'total_liabilities',
+  'current_liabilities',
+  'total_debt',
+  'total_equity',
+  'nwc_change',
+] as const
+
+const NON_NEGATIVE_YEAR_FIELDS = new Set<string>([
+  'cogs',
+  'operating_expenses',
+  'depreciation',
+  'amortization',
+  'total_assets',
+  'current_assets',
+  'cash',
+  'accounts_receivable',
+  'inventory',
+  'total_liabilities',
+  'current_liabilities',
+  'total_debt',
+])
+
+function pickOptionalYearDataFields(source: Record<string, unknown> | undefined): Record<string, number> {
+  if (!source) {
+    return {}
+  }
+
+  const result: Record<string, number> = {}
+
+  for (const field of YEAR_DATA_OPTIONAL_FIELDS) {
+    const numeric = toFiniteNumber(source[field])
+    if (numeric === null) {
+      continue
+    }
+    if (NON_NEGATIVE_YEAR_FIELDS.has(field) && numeric < 0) {
+      continue
+    }
+    result[field] = numeric
+  }
+
+  return result
 }
 
 /**
@@ -74,9 +132,7 @@ export function buildValuationRequest(
   }
 
   // Normalize last full year (2000-2100)
-  // Valuations use the most recent completed fiscal year, not the current calendar year
-  // ALWAYS calculate from current date, never trust formData to fix year 2026 bug
-  const lastFullYear = getLastFullFiscalYear()
+  const lastFullYear = getCurrentFilingYear()
 
   // Normalize founding year (1900-2100)
   const foundingYear = Math.min(Math.max(formData.founding_year || lastFullYear - 5, 1900), 2100)
@@ -141,17 +197,22 @@ export function buildValuationRequest(
   const acceptedNorms = allItems.filter((n) => n.status === 'accepted')
   const legacyNormalizations = useEbitdaNormalizationStore.getState().normalizations
 
-  // Collect all years that have financial data (current + historical)
-  const historicalYears =
-    formData.historical_years_data
-      ?.filter((y) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
-      .map((y) => y.year) ?? []
+  // Separate historical actuals from explicit forecast projections.
+  const actualHistoricalData =
+    formData.historical_years_data?.filter((y) => !y.is_forecast) ?? []
+  const rawForecastData =
+    formData.forecast_years_data && formData.forecast_years_data.length > 0
+      ? formData.forecast_years_data
+      : formData.historical_years_data?.filter((y) => y.is_forecast) ?? []
+
+  const historicalYears = actualHistoricalData
+    .filter((y) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
+    .map((y) => y.year)
   const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
 
-  // Build year-to-EBITDA map for percentage recalculation
   const yearEbitdaMap: Record<number, number> = {}
   yearEbitdaMap[lastFullYear] = ebitda
-  formData.historical_years_data?.forEach((y) => {
+  actualHistoricalData.forEach((y) => {
     if (y.ebitda != null) yearEbitdaMap[y.year] = Number(y.ebitda)
   })
 
@@ -220,24 +281,13 @@ export function buildValuationRequest(
         has_custom_adjustments: false,
       },
     }),
-    ...(formData.current_year_data?.total_assets != null &&
-      Number(formData.current_year_data.total_assets) >= 0 && {
-        total_assets: Number(formData.current_year_data.total_assets),
-      }),
-    ...(formData.current_year_data?.total_debt != null &&
-      Number(formData.current_year_data.total_debt) >= 0 && {
-        total_debt: Number(formData.current_year_data.total_debt),
-      }),
-    ...(formData.current_year_data?.cash != null &&
-      Number(formData.current_year_data.cash) >= 0 && {
-        cash: Number(formData.current_year_data.cash),
-      }),
+    ...pickOptionalYearDataFields(formData.current_year_data as Record<string, unknown> | undefined),
   }
 
   // Normalize historical data (filter and sort) with normalization support
   const historicalYearsData =
-    formData.historical_years_data
-      ?.filter(
+    actualHistoricalData
+      .filter(
         (year) =>
           year.ebitda !== undefined &&
           year.ebitda !== null &&
@@ -245,9 +295,10 @@ export function buildValuationRequest(
           year.year <= 2100
       )
       .map((year) => {
+        const clampedYear = Math.min(Math.max(year.year, 2000), 2100)
+
         const normalization = normByYear[year.year]
 
-        // If normalization exists, use normalized EBITDA
         if (normalization) {
           const reportedEbitda = Number(year.ebitda)
           const normalizedRevenue = requirePositiveRevenue(
@@ -255,9 +306,10 @@ export function buildValuationRequest(
             `historical_years_data.${year.year}.revenue`
           )
           return {
-            year: Math.min(Math.max(year.year, 2000), 2100),
+            year: clampedYear,
             revenue: normalizedRevenue,
             ebitda: reportedEbitda + normalization.totalAdjustment,
+            ...pickOptionalYearDataFields(year as Record<string, unknown>),
             ebitda_normalized: true,
             ebitda_normalization_metadata: {
               reported_ebitda: reportedEbitda,
@@ -274,12 +326,38 @@ export function buildValuationRequest(
           `historical_years_data.${year.year}.revenue`
         )
 
-        // No normalization, use reported EBITDA
         return {
-          year: Math.min(Math.max(year.year, 2000), 2100),
+          year: clampedYear,
           revenue: normalizedRevenue,
           ebitda: Number(year.ebitda),
+          ...pickOptionalYearDataFields(year as Record<string, unknown>),
           ebitda_normalized: false,
+        }
+      })
+      .sort((a, b) => a.year - b.year) || []
+
+  const forecastYearsData =
+    rawForecastData
+      .filter((year) => year.year >= 2000 && year.year <= 2100)
+      .map((year) => {
+        const clampedYear = Math.min(Math.max(year.year, 2000), 2100)
+        const revenue = toFiniteNumber(year.revenue)
+        if (revenue === null || revenue < 0) {
+          throw new ValidationError(
+            'Forecast revenue must be a valid number and cannot be negative.',
+            `forecast_years_data.${year.year}.revenue`,
+            year.revenue
+          )
+        }
+
+        const normalizedEbitda = toFiniteNumber(year.ebitda) ?? 0
+
+        return {
+          year: clampedYear,
+          revenue,
+          ebitda: normalizedEbitda,
+          ...pickOptionalYearDataFields(year as Record<string, unknown>),
+          is_forecast: true,
         }
       })
       .sort((a, b) => a.year - b.year) || []
@@ -305,11 +383,40 @@ export function buildValuationRequest(
     historicalYearSet.add(year.year)
   }
 
+  const forecastYearSet = new Set<number>()
+  for (const year of forecastYearsData) {
+    if (forecastYearSet.has(year.year)) {
+      throw new ValidationError(
+        `Forecast year ${year.year} is duplicated. Each forecast year must appear only once.`,
+        'forecast_years_data',
+        year.year
+      )
+    }
+
+    if (historicalYearSet.has(year.year)) {
+      throw new ValidationError(
+        `Forecast year ${year.year} cannot duplicate a historical year.`,
+        'forecast_years_data',
+        year.year
+      )
+    }
+
+    if (year.year <= lastFullYear) {
+      throw new ValidationError(
+        `Forecast year ${year.year} must be later than the current fiscal year ${lastFullYear}.`,
+        'forecast_years_data',
+        year.year
+      )
+    }
+
+    forecastYearSet.add(year.year)
+  }
+
   // Normalize recurring revenue percentage (0.0-1.0)
-  const recurringRevenuePercentage = Math.min(
-    Math.max(formData.recurring_revenue_percentage || 0, 0.0),
-    1.0
-  )
+  const recurringRevenueInput =
+    formData.recurring_revenue_percentage ??
+    ((formData as any).rev_recurring_pct != null ? (formData as any).rev_recurring_pct / 100 : 0)
+  const recurringRevenuePercentage = Math.min(Math.max(recurringRevenueInput || 0, 0.0), 1.0)
 
   // Handle sole trader vs company
   const numberOfEmployees =
@@ -317,17 +424,41 @@ export function buildValuationRequest(
   const numberOfOwners =
     formData.business_type === 'sole-trader' ? undefined : formData.number_of_owners || 1
 
-  // Build business context from internal metadata
+  // Build business context from internal metadata + adaptive input fields
+  const fd = formData as any
+  const adaptiveFields: Record<string, unknown> = {}
+  if (fd.dcf_revenue_growth_pct != null) adaptiveFields.dcf_revenue_growth_pct = fd.dcf_revenue_growth_pct
+  if (fd.dcf_ebitda_margin_pct != null) adaptiveFields.dcf_ebitda_margin_pct = fd.dcf_ebitda_margin_pct
+  if (fd.dcf_capex_pct != null) adaptiveFields.dcf_capex_pct = fd.dcf_capex_pct
+  if (fd.dcf_wacc_pct != null) adaptiveFields.dcf_wacc_pct = fd.dcf_wacc_pct
+  if (fd.dcf_terminal_growth_pct != null) adaptiveFields.dcf_terminal_growth_pct = fd.dcf_terminal_growth_pct
+  if (fd.nav_real_estate_adjustment != null) adaptiveFields.nav_real_estate_adjustment = fd.nav_real_estate_adjustment
+  if (fd.nav_inventory_adjustment != null) adaptiveFields.nav_inventory_adjustment = fd.nav_inventory_adjustment
+  if (fd.nav_hidden_reserves != null) adaptiveFields.nav_hidden_reserves = fd.nav_hidden_reserves
+  if (fd.nav_goodwill_writeoff != null) adaptiveFields.nav_goodwill_writeoff = fd.nav_goodwill_writeoff
+  if (fd.saas_arr != null) adaptiveFields.saas_arr = fd.saas_arr
+  if (fd.saas_mrr != null) adaptiveFields.saas_mrr = fd.saas_mrr
+  if (fd.saas_churn_pct != null) adaptiveFields.saas_churn_pct = fd.saas_churn_pct
+  if (fd.saas_nrr_pct != null) adaptiveFields.saas_nrr_pct = fd.saas_nrr_pct
+  if (fd.saas_cac != null) adaptiveFields.saas_cac = fd.saas_cac
+  if (fd.saas_customer_concentration_pct != null) adaptiveFields.saas_customer_concentration_pct = fd.saas_customer_concentration_pct
+  if (fd.rev_recurring_pct != null) adaptiveFields.rev_recurring_pct = fd.rev_recurring_pct
+  if (fd.rev_top_client_concentration_pct != null) adaptiveFields.rev_top_client_concentration_pct = fd.rev_top_client_concentration_pct
+  if (fd.rev_contract_backlog != null) adaptiveFields.rev_contract_backlog = fd.rev_contract_backlog
+
   const businessContext = formData.business_type_id
     ? {
-        dcfPreference: (formData as any)._internal_dcf_preference,
-        multiplesPreference: (formData as any)._internal_multiples_preference,
-        ownerDependencyImpact: (formData as any)._internal_owner_dependency_impact,
-        keyMetrics: (formData as any)._internal_key_metrics,
-        typicalEmployeeRange: (formData as any)._internal_typical_employee_range,
-        typicalRevenueRange: (formData as any)._internal_typical_revenue_range,
+        dcfPreference: fd._internal_dcf_preference,
+        multiplesPreference: fd._internal_multiples_preference,
+        ownerDependencyImpact: fd._internal_owner_dependency_impact,
+        keyMetrics: fd._internal_key_metrics,
+        typicalEmployeeRange: fd._internal_typical_employee_range,
+        typicalRevenueRange: fd._internal_typical_revenue_range,
+        ...adaptiveFields,
       }
-    : undefined
+    : Object.keys(adaptiveFields).length > 0
+      ? adaptiveFields
+      : undefined
 
   // Build ValuationRequest
   const request: ValuationRequest = {
@@ -338,6 +469,7 @@ export function buildValuationRequest(
     founding_year: foundingYear,
     current_year_data: currentYearData,
     historical_years_data: historicalYearsData,
+    forecast_years_data: forecastYearsData,
     number_of_employees: numberOfEmployees,
     number_of_owners: numberOfOwners,
     recurring_revenue_percentage: recurringRevenuePercentage,
@@ -347,7 +479,7 @@ export function buildValuationRequest(
     comparables: formData.comparables || [],
     business_type_id: formData.business_type_id,
     business_type: formData.business_type,
-    shares_for_sale: formData.shares_for_sale ?? 100,
+    shares_for_sale: 100,
     business_context: businessContext,
     ...(locale && { locale }),
   }

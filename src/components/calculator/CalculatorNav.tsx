@@ -34,7 +34,6 @@ import {
   MoreVertical,
   Pencil,
   Send,
-  Settings,
   Trash2,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -43,6 +42,60 @@ import React, { useState } from 'react'
 import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
 import { useSessionStore } from '@/store/useSessionStore'
+import { PRE_SELECTABLE_METHODS } from '@/constants/methodFieldConfig'
+
+const METHOD_LABEL_KEYS: Record<string, string> = {
+  upswitch_adaptive: 'manualInput.methodSelector.adaptiveRecommended',
+  ebitda_multiple: 'manualInput.methodSelector.ebitdaMultiple',
+  dcf: 'manualInput.methodSelector.dcf',
+  adjusted_nav: 'manualInput.methodSelector.adjustedNav',
+  fiscal_4x: 'manualInput.methodSelector.fiscal4x',
+}
+
+function MethodSelectorMenu({
+  preSelectedMethod,
+  onPreSelectMethod,
+  t,
+}: {
+  preSelectedMethod?: string
+  onPreSelectMethod: (method: string) => void
+  t: (key: string, values?: Record<string, string>) => string
+}) {
+  return (
+    <div className="p-1.5 w-72" role="listbox" aria-label={t('manualInput.methodSelector.label')}>
+      <div className="text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
+        {t('manualInput.methodSelector.label')}
+      </div>
+      {PRE_SELECTABLE_METHODS.map((key) => {
+        const isActive = (preSelectedMethod ?? 'upswitch_adaptive') === key
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onPreSelectMethod(key)}
+            role="option"
+            aria-selected={isActive}
+            className={cn(
+              'w-full min-h-[44px] flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left',
+              isActive
+                ? 'bg-primary/8 text-foreground font-medium'
+                : 'text-foreground/80 hover:bg-foreground/[0.04]'
+            )}
+          >
+            {isActive ? (
+              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                <Check className="w-3 h-3 text-primary" />
+              </div>
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-foreground/[0.06] shrink-0" />
+            )}
+            <span>{t(METHOD_LABEL_KEYS[key] ?? 'manualInput.methodSelector.adaptiveRecommended')}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 // ─────────────────────────────────────────
 // TYPES
@@ -141,6 +194,9 @@ export interface CalculatorNavProps {
   sourceDataOpen?: boolean
   onToggleSourceData?: () => void
   onOpenValuationEdit?: () => void
+  // Upfront method pre-selection
+  preSelectedMethod?: string
+  onPreSelectMethod?: (method: string) => void
 }
 
 // ─────────────────────────────────────────
@@ -179,6 +235,7 @@ interface DropdownProps {
 const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start', variant = 'default' }) => {
   const [open, setOpen] = React.useState(false)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
+  const menuId = React.useId()
 
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -201,10 +258,36 @@ const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start',
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <div onClick={() => setOpen(!open)}>{trigger}</div>
+      {React.isValidElement(trigger)
+        ? React.cloneElement(trigger as React.ReactElement<any>, {
+            onClick: (event: React.MouseEvent) => {
+              trigger.props.onClick?.(event)
+              if (!event.defaultPrevented) setOpen((current: boolean) => !current)
+            },
+            'aria-expanded': open,
+            'aria-controls': menuId,
+          })
+        : (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setOpen((current) => !current)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                setOpen((current) => !current)
+              }
+            }}
+            aria-expanded={open}
+            aria-controls={menuId}
+          >
+            {trigger}
+          </div>
+        )}
       <AnimatePresence>
         {open && (
           <motion.div
+            id={menuId}
             initial={{ opacity: 0, y: -4, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
@@ -277,6 +360,8 @@ export function CalculatorNav({
   sourceDataOpen = false,
   onToggleSourceData,
   onOpenValuationEdit,
+  preSelectedMethod,
+  onPreSelectMethod,
 }: CalculatorNavProps) {
   const t = useTranslations()
   const navLocale = useLocale()
@@ -461,6 +546,34 @@ export function CalculatorNav({
               )}
             </div>
           </Dropdown>
+
+          {/* Method Pre-Selector — compact pill next to company name */}
+          {onPreSelectMethod && (
+            <div className="hidden sm:flex items-center">
+              <div className="h-5 w-px bg-foreground/[0.08] mx-1.5" />
+              <Dropdown
+                trigger={
+                  <button
+                    type="button"
+                    aria-haspopup="listbox"
+                    className="flex items-center gap-1.5 rounded-full min-h-[44px] border border-foreground/[0.06] bg-foreground/[0.03] px-3 py-1 text-sm font-semibold hover:bg-foreground/[0.06] transition-colors group"
+                  >
+                    <span className="text-foreground/70 font-medium">{t('manualInput.methodSelector.label')}:</span>
+                    <span className="text-foreground truncate max-w-[180px]">
+                      {t(METHOD_LABEL_KEYS[preSelectedMethod ?? 'upswitch_adaptive'] ?? 'manualInput.methodSelector.adaptiveRecommended')}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-foreground/40 group-hover:text-foreground/60 shrink-0" />
+                  </button>
+                }
+              >
+                <MethodSelectorMenu
+                  preSelectedMethod={preSelectedMethod}
+                  onPreSelectMethod={onPreSelectMethod}
+                  t={t}
+                />
+              </Dropdown>
+            </div>
+          )}
         </div>
 
         {/* Center: Valuation Summary */}
@@ -833,6 +946,27 @@ export function CalculatorNav({
 
           {/* Mobile actions */}
           <div className="flex sm:hidden items-center gap-1">
+            {/* Mobile method selector — compact labeled trigger */}
+            {onPreSelectMethod && (
+              <Dropdown
+                trigger={
+                  <button
+                    type="button"
+                    aria-haspopup="listbox"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg min-h-[44px] border border-foreground/[0.06] bg-foreground/[0.03] text-xs font-medium text-foreground hover:bg-foreground/[0.05] transition-colors"
+                  >
+                    <span className="text-foreground/60">{t('manualInput.methodSelector.label')}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-foreground/40 shrink-0" />
+                  </button>
+                }
+              >
+                <MethodSelectorMenu
+                  preSelectedMethod={preSelectedMethod}
+                  onPreSelectMethod={onPreSelectMethod}
+                  t={t}
+                />
+              </Dropdown>
+            )}
             <AnimatePresence>
               {displaySummary && hasReport && (
                 <motion.button

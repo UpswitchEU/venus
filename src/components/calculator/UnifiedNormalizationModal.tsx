@@ -66,7 +66,7 @@ import {
   getNetTaxLatencyImpact,
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
-import { getLastFullFiscalYear } from '../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import {
   getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
@@ -382,7 +382,7 @@ export function UnifiedNormalizationModal({
   open,
   onOpenChange,
   companyName,
-  currentYear = getLastFullFiscalYear(),
+  currentYear = getCurrentFilingYear(),
   originalEBITDA,
   originalEBITDAByYear,
   normalizations,
@@ -514,7 +514,7 @@ export function UnifiedNormalizationModal({
 
   // Derive available years from user-entered financial data, falling back to 4-year range
   const availableYears = useMemo(() => {
-    const base = Number.isFinite(currentYear) ? currentYear : getLastFullFiscalYear()
+    const base = Number.isFinite(currentYear) ? currentYear : getCurrentFilingYear()
     if (financialYears && financialYears.length > 0) {
       const valid = financialYears.filter((y) => Number.isFinite(y)) as number[]
       return valid.length > 0 ? [...valid].sort((a, b) => b - a) : [base, base - 1, base - 2, base - 3]

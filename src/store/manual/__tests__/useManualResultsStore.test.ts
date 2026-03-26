@@ -222,6 +222,63 @@ describe('useManualResultsStore', () => {
       })
 
       expect(result.current.result).toBeNull()
+      expect(result.current.selectedMethod).toBe('upswitch_adaptive')
+      expect(result.current.preSelectedMethod).toBeNull()
+      expect(result.current.getEffectiveMethod()).toBe('upswitch_adaptive')
+    })
+
+    it('hydrates selected and preselected methods from selected_valuation_method', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setPreSelectedMethod('dcf')
+        result.current.setResult({
+          valuation_id: 'val-456',
+          html_report: '<html>Report</html>',
+          selected_valuation_method: 'adjusted_nav',
+          valuation_result: {
+            valuation_results: {
+              adjusted_nav: { available: true, value: 300000, label: 'NAV' },
+              dcf: { available: true, value: 250000, label: 'DCF' },
+            },
+          },
+        } as any)
+      })
+
+      expect(result.current.selectedMethod).toBe('adjusted_nav')
+      expect(result.current.preSelectedMethod).toBe('adjusted_nav')
+      expect(result.current.getEffectiveMethod()).toBe('adjusted_nav')
+    })
+  })
+
+  describe('method coherence', () => {
+    it('returns to adaptive when preselection is cleared', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setPreSelectedMethod('dcf')
+      })
+      expect(result.current.getEffectiveMethod()).toBe('dcf')
+
+      act(() => {
+        result.current.setPreSelectedMethod(null)
+      })
+
+      expect(result.current.selectedMethod).toBe('upswitch_adaptive')
+      expect(result.current.preSelectedMethod).toBeNull()
+      expect(result.current.getEffectiveMethod()).toBe('upswitch_adaptive')
+    })
+
+    it('keeps post-calculation method changes bidirectionally synced', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setSelectedMethod('dcf')
+      })
+
+      expect(result.current.selectedMethod).toBe('dcf')
+      expect(result.current.preSelectedMethod).toBe('dcf')
+      expect(result.current.getEffectiveMethod()).toBe('dcf')
     })
   })
 
@@ -321,6 +378,24 @@ describe('useManualResultsStore', () => {
       expect(result.current.result).toBeNull()
       expect(result.current.htmlReport).toBeNull()
       expect(result.current.error).toBeNull()
+    })
+
+    it('resets calculation state and method selection', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setPreSelectedMethod('dcf')
+        result.current.setCalculating(true)
+      })
+
+      act(() => {
+        result.current.clearResults()
+      })
+
+      expect(result.current.isCalculating).toBe(false)
+      expect(result.current.selectedMethod).toBe('upswitch_adaptive')
+      expect(result.current.preSelectedMethod).toBeNull()
+      expect(result.current.getEffectiveMethod()).toBe('upswitch_adaptive')
     })
   })
 

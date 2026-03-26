@@ -26,7 +26,7 @@ import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
-import { getLastFullFiscalYear } from '../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
 import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../utils/versionConfirmation'
 import { RecalculateConfirmationPopup } from '../normalization/RecalculateConfirmationPopup'
@@ -599,7 +599,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // EBITDA Normalization integration
   const normalizationItems = useNormalizationStore((state) => state.items)
   const hasLegacyNormalization = useEbitdaNormalizationStore((state) => state.hasNormalization)
-  const lastFullYear = getLastFullFiscalYear()
+  const lastFullYear = getCurrentFilingYear()
   const [showNormalizationConfirmation, setShowNormalizationConfirmation] = useState(false)
   const [hasPendingSubmit, setHasPendingSubmit] = useState(false)
   const versionConfirmationOpenRef = useRef(false)

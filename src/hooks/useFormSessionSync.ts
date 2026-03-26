@@ -22,7 +22,7 @@ import { useCallback, useEffect } from 'react'
 import { backendAPI } from '../services/backendApi'
 import { useSessionStore } from '../store/useSessionStore'
 import { debounceWithFlush } from '../utils/debounce'
-import { getLastFullFiscalYear } from '../utils/fiscalYear'
+import { getCurrentFilingYear } from '../utils/fiscalYear'
 import { generalLogger } from '../utils/logger'
 import { NameGenerator } from '../utils/nameGenerator'
 
@@ -82,6 +82,22 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
     )
     if (formStr !== sessStr) return false
 
+    // Treat missing vs [] as equivalent — both mean "no persisted forecast rows".
+    const formFc = Array.isArray(formData.forecast_years_data)
+      ? formData.forecast_years_data
+      : []
+    const sessFc = Array.isArray(sessionData.forecast_years_data)
+      ? sessionData.forecast_years_data
+      : []
+    if (formFc.length !== sessFc.length) return false
+    const fcFormStr = JSON.stringify(
+      formFc.map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda })).sort((a: any, b: any) => a.year - b.year)
+    )
+    const fcSessStr = JSON.stringify(
+      sessFc.map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda })).sort((a: any, b: any) => a.year - b.year)
+    )
+    if (fcFormStr !== fcSessStr) return false
+
     return true
   }, [])
 
@@ -119,7 +135,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       try {
         // Convert ValuationFormData to Partial<ValuationRequest> for session
         // ✅ FIX: Include ALL form fields for complete persistence
-        const lastFullYear = getLastFullFiscalYear()
+        const lastFullYear = getCurrentFilingYear()
         const explicitCurrentYear = Number(data.current_year_data?.year ?? data.year)
         const normalizedCurrentYear =
           Number.isFinite(explicitCurrentYear) && explicitCurrentYear >= 2000
@@ -153,13 +169,16 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
             ...(data.current_year_data?.cash && { cash: data.current_year_data.cash }),
           },
           historical_years_data: data.historical_years_data,
+          ...(data.forecast_years_data !== undefined && {
+            forecast_years_data: data.forecast_years_data,
+          }),
           number_of_employees: data.number_of_employees,
           number_of_owners: data.number_of_owners,
           recurring_revenue_percentage: data.recurring_revenue_percentage,
           comparables: data.comparables,
           business_type_id: data.business_type_id,
           business_type: data.business_type,
-          shares_for_sale: data.shares_for_sale,
+          shares_for_sale: 100,
           business_context: data.business_context,
           kbo_number: data.kbo_number,
           vat_number: data.vat_number,

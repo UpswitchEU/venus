@@ -1521,7 +1521,7 @@ export class SessionService {
           number_of_employees: data.formData.number_of_employees,
           number_of_owners: data.formData.number_of_owners,
           recurring_revenue_percentage: data.formData.recurring_revenue_percentage,
-          shares_for_sale: data.formData.shares_for_sale,
+          shares_for_sale: 100,
           business_type_id: data.formData.business_type_id,
           business_context: data.formData.business_context,
           comparables: data.formData.comparables,

@@ -19,7 +19,7 @@ import type {
 } from '../lib/bootstrap/types'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { buildBusinessTypeFormData } from '../components/ValuationForm/utils/businessTypeFormData'
-import { getLastFullFiscalYear } from '../utils/fiscalYear'
+import { getCurrentFilingYear } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
 
 const logger = createContextLogger('BootstrapPrefill')
@@ -386,7 +386,7 @@ function applyPrefillToForm(
     ) {
       // Scalar revenue/ebitda (no per-year breakdown available) — prefill current year only.
       // Again, do NOT duplicate to a prior year with identical figures.
-      const currentYear = getLastFullFiscalYear()
+      const currentYear = getCurrentFilingYear()
       const rev = financials.revenue ?? 0
       const ebit = financials.ebitda ?? 0
       historicalYears.push({ year: currentYear, revenue: rev, ebitda: ebit })

@@ -10,7 +10,7 @@
 
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import { useNormalizationStore } from '../store/useNormalizationStore'
-import { getLastFullFiscalYear } from './fiscalYear'
+import { getCurrentFilingYear } from './fiscalYear'
 import { isValidSessionId } from './sessionIdValidation'
 import { appliesToYear } from './normalizationMath'
 
@@ -65,7 +65,7 @@ export async function persistNormalizationsBeforeCalculate(
     if (h?.year != null) originalEBITDAByYear[h.year] = getReportedEbitda(h)
   }
 
-  const yearsToUse = years.length > 0 ? years : [getLastFullFiscalYear()]
+  const yearsToUse = years.length > 0 ? years : [getCurrentFilingYear()]
   const persist = () =>
     useNormalizationStore.getState().persistAllToTitan(reportId, originalEBITDAByYear, yearsToUse)
 

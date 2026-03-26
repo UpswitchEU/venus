@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SessionRestorationService } from './SessionRestorationService'
+import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
 
 describe('SessionRestorationService', () => {
   beforeEach(() => {
     SessionRestorationService.clearRestorationState()
+    useManualFormStore.getState().resetForm()
     useManualResultsStore.setState({
       result: null,
       htmlReport: null,
@@ -95,5 +97,18 @@ describe('SessionRestorationService', () => {
         value: 250000,
       },
     })
+  })
+
+  it('normalizes restored partial shares_for_sale back to 100', async () => {
+    await SessionRestorationService.restore('val_partial_shares', {
+      reportId: 'val_partial_shares',
+      sessionData: {
+        company_name: 'Legacy Stake Co',
+        shares_for_sale: 40,
+      },
+    } as any)
+
+    const state = useManualFormStore.getState()
+    expect(state.formData.shares_for_sale).toBe(100)
   })
 })

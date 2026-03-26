@@ -798,6 +798,7 @@ class SessionRestorationServiceImpl {
             postalCode: 'postal_code',
             netIncome: 'net_income',
             historicalYearsData: 'historical_years_data',
+            forecastYearsData: 'forecast_years_data',
             currentYearData: 'current_year_data',
             naceCode: 'nace_code',
             naceDescription: 'nace_description',

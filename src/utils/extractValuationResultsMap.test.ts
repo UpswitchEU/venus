@@ -69,6 +69,65 @@ describe('extractValuationResultsMap', () => {
     expect(out?.upswitch_adaptive?.multiple_used).toBe(4.2)
   })
 
+  it('marks synthesized revenue methods unavailable when payload revenue is zero', () => {
+    const payload = {
+      valuation_results: {},
+      current_year_data: {
+        revenue: 0,
+      },
+      report_context: {
+        equity_value_mid: 120_000,
+        applied_multiple: 1.2,
+      },
+    }
+    const out = extractValuationResultsMap(payload, { selectedValuationMethod: 'omzet_multiple' })
+    expect(out?.omzet_multiple).toMatchObject({
+      available: false,
+      value: null,
+      label: 'Omzetmultiple',
+      unavailable_reason: 'Omzet moet positief zijn.',
+    })
+  })
+
+  it('does not synthesize adjusted_nav from generic headline equity alone', () => {
+    const payload = {
+      valuation_results: {},
+      report_context: {
+        equity_value_mid: 625_000,
+        selected_valuation_method: 'adjusted_nav',
+      },
+    }
+
+    expect(extractValuationResultsMap(payload)).toBeNull()
+  })
+
+  it('synthesizes adjusted_nav only when explicit asset-based evidence exists', () => {
+    const payload = {
+      valuation_results: {},
+      report_context: {
+        equity_value_mid: 625_000,
+        selected_valuation_method: 'adjusted_nav',
+      },
+      asset_based_details: {
+        asset_based_evidence: true,
+        net_asset_value: 625_000,
+        total_assets_adjusted: 900_000,
+        total_liabilities_adjusted: 275_000,
+      },
+    }
+
+    expect(extractValuationResultsMap(payload)).toMatchObject({
+      adjusted_nav: {
+        available: true,
+        value: 625_000,
+        details: {
+          asset_based_evidence: true,
+          net_asset_value: 625_000,
+        },
+      },
+    })
+  })
+
   it('does not synthesize from multiple alone', () => {
     expect(
       extractValuationResultsMap({

@@ -20,7 +20,7 @@ import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { ValidationError } from '../../../types/errors'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
-import { getLastFullFiscalYear } from '../../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
@@ -190,7 +190,7 @@ export const useValuationFormSubmission = (
         // NOTE: We use fire-and-forget to avoid blocking calculation if backend is slow
         if (reportId) {
           try {
-            const lastFullYear = getLastFullFiscalYear()
+            const lastFullYear = getCurrentFilingYear()
             // Convert formData to session format
             const sessionUpdate: Partial<any> = {
               company_name: formData.company_name,
@@ -219,7 +219,7 @@ export const useValuationFormSubmission = (
               comparables: formData.comparables,
               business_type_id: formData.business_type_id,
               business_type: formData.business_type,
-              shares_for_sale: formData.shares_for_sale,
+              shares_for_sale: 100,
               business_context: formData.business_context,
             }
 
