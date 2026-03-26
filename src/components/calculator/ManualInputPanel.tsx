@@ -80,6 +80,7 @@ import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import { CurrencyInput } from './CurrencyInput'
+import { FilingYearPrompt } from './FilingYearPrompt'
 import { ProvenanceDot } from './ProvenanceDot'
 import { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
 import { SpotlightBanner } from './SpotlightBanner'
@@ -271,6 +272,40 @@ const generateDefaultYearlyFinancials = (
     ebitda: 0,
   }))
 
+const hasMeaningfulYearlyFinancials = (yearlyFinancials?: YearlyFinancials[]): boolean =>
+  Array.isArray(yearlyFinancials) &&
+  yearlyFinancials.some(
+    (year) =>
+      !!year.isForecast || (Number(year.revenue) || 0) > 0 || hasExplicitFinancialValue(year.ebitda)
+  )
+
+const getSeedBaseFilingYear = (initialData: Partial<ValuationFormData>): number => {
+  const explicitYear = Number(initialData.current_year_data?.year)
+  if (Number.isFinite(explicitYear) && explicitYear >= 2000 && explicitYear <= 2100) {
+    return explicitYear
+  }
+  return getCurrentFilingYear()
+}
+
+const getSeedYearlyFinancials = (initialData: Partial<ValuationFormData>): YearlyFinancials[] => {
+  const initialYearlyFinancials = initialData.yearlyFinancials
+  if (
+    Array.isArray(initialYearlyFinancials) &&
+    initialYearlyFinancials.length > 0 &&
+    (initialYearlyFinancials.length > 1 || hasMeaningfulYearlyFinancials(initialYearlyFinancials))
+  ) {
+    return initialYearlyFinancials
+  }
+  return generateDefaultYearlyFinancials(getSeedBaseFilingYear(initialData))
+}
+
+const getLatestHistoricalYearlyFinancial = (
+  yearlyFinancials: YearlyFinancials[]
+): YearlyFinancials | undefined =>
+  [...yearlyFinancials]
+    .filter((year) => !year.isForecast)
+    .sort((a, b) => Number(b.year) - Number(a.year))[0]
+
 export function ManualInputPanel({
   onSubmit,
   onCSVImportComplete,
@@ -326,7 +361,15 @@ export function ManualInputPanel({
     businessStructure: initialData.businessStructure || '',
     ownerManagers: initialData.ownerManagers || 1,
     fteEmployees: initialData.fteEmployees ?? 5,
-    yearlyFinancials: initialData.yearlyFinancials || generateDefaultYearlyFinancials(),
+    yearlyFinancials: getSeedYearlyFinancials(initialData),
+  })
+  const currentFilingYear = getCurrentFilingYear()
+  const [filingYearConfirmed, setFilingYearConfirmed] = useState<boolean>(() => {
+    const explicitInitialYear = Number(initialData.current_year_data?.year)
+    return (
+      hasMeaningfulYearlyFinancials(initialData.yearlyFinancials) ||
+      (Number.isFinite(explicitInitialYear) && explicitInitialYear > currentFilingYear)
+    )
   })
   const activityCodeTerm = getFinancialTerm(
     'activityCode',
@@ -349,10 +392,15 @@ export function ManualInputPanel({
   // that need latest data without effect delay — eliminates race when opening modal immediately
   if (formDataRef && formDataRef.current != null) {
     const current = getLatestCompleteYearlyFinancial(formData.yearlyFinancials)
+    const latestHistorical = getLatestHistoricalYearlyFinancial(formData.yearlyFinancials)
     Object.assign(formDataRef.current, {
       yearlyFinancials: formData.yearlyFinancials,
-      current_year_data: current
-        ? { year: parseInt(current.year, 10), revenue: current.revenue, ebitda: current.ebitda }
+      current_year_data: latestHistorical
+        ? {
+            year: parseInt(latestHistorical.year, 10),
+            revenue: latestHistorical.revenue,
+            ebitda: latestHistorical.ebitda,
+          }
         : undefined,
       ebitda: current?.ebitda,
     })
@@ -380,6 +428,16 @@ export function ManualInputPanel({
 
   // Sync prefill from bootstrap/session when initialData arrives after mount
   // Dependencies on key fields ensure we re-run when prefill arrives late (e.g. async store hydration)
+  useEffect(() => {
+    const explicitInitialYear = Number(initialData.current_year_data?.year)
+    if (
+      hasMeaningfulYearlyFinancials(initialData.yearlyFinancials) ||
+      (Number.isFinite(explicitInitialYear) && explicitInitialYear > currentFilingYear)
+    ) {
+      setFilingYearConfirmed(true)
+    }
+  }, [currentFilingYear, initialData.current_year_data?.year, initialData.yearlyFinancials])
+
   useEffect(() => {
     const prefill = initialData
     if (!prefill || typeof prefill !== 'object') return
@@ -898,6 +956,19 @@ export function ManualInputPanel({
     )
     updateField('yearlyFinancials', updated)
   }
+
+  const handleSelectFilingYear = useCallback((selectedYear: number) => {
+    setFilingYearConfirmed(true)
+    setFormData((prev) => ({
+      ...prev,
+      yearlyFinancials: generateDefaultYearlyFinancials(selectedYear),
+      current_year_data: {
+        year: selectedYear,
+        revenue: prev.current_year_data?.revenue ?? 0,
+        ebitda: prev.current_year_data?.ebitda ?? 0,
+      },
+    }))
+  }, [])
 
   // DCF auto-injection: add forecast years when DCF is selected, prompt removal on switch-away.
   // Also handles initial mount (e.g. page reload with DCF pre-selected).
@@ -1618,6 +1689,12 @@ export function ManualInputPanel({
                 {importAccountingError && (
                   <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
                 )}
+
+                <FilingYearPrompt
+                  defaultYear={currentFilingYear}
+                  dismissed={filingYearConfirmed || hasMeaningfulYearlyFinancials(formData.yearlyFinancials)}
+                  onSelect={handleSelectFilingYear}
+                />
 
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
                 {hasEbitdaValue && hasFinancials && totalYearsWithEbitda > 0 && (

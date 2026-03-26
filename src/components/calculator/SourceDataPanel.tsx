@@ -24,8 +24,12 @@ import {
   X,
 } from 'lucide-react'
 import { useLocale } from 'next-intl'
-import { useState } from 'react'
-import { useSpotlightStore, type SpotlightFieldProvenance } from '../../store/useSpotlightStore'
+import { useEffect, useState } from 'react'
+import {
+  parseSpotlightDomId,
+  useSpotlightStore,
+  type SpotlightFieldProvenance,
+} from '../../store/useSpotlightStore'
 
 const FIELD_LABELS: Record<string, { en: string; nl: string }> = {
   revenue: { en: 'Revenue', nl: 'Omzet' },
@@ -82,8 +86,30 @@ function formatCurrency(value: number | null): string {
 
 export function SourceDataPanel() {
   const locale = useLocale()
-  const { showSourcePanel, toggleSourcePanel, importQuality } = useSpotlightStore()
+  const { showSourcePanel, toggleSourcePanel, importQuality, activeDomId } = useSpotlightStore()
   const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!showSourcePanel || !activeDomId || !importQuality) return
+    const { field, yearKey } = parseSpotlightDomId(activeDomId)
+    const resolvedYearKey =
+      yearKey ??
+      Object.keys(importQuality)
+        .sort((a, b) => Number(b) - Number(a))
+        .find((candidateYear) =>
+          (importQuality[candidateYear]?.field_provenance ?? []).some(
+            (prov) => prov.field === field
+          )
+        )
+
+    if (!resolvedYearKey) return
+
+    setExpandedFields((prev) => {
+      const next = new Set(prev)
+      next.add(`${resolvedYearKey}::${field}`)
+      return next
+    })
+  }, [activeDomId, importQuality, showSourcePanel])
 
   if (!showSourcePanel || !importQuality) return null
 

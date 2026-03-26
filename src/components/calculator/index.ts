@@ -57,6 +57,7 @@ export type {
 } from './DataCompletenessRing'
 export { DataCompletenessRing } from './DataCompletenessRing'
 export { FieldHelpTrigger } from './FieldHelpTrigger'
+export { FilingYearPrompt } from './FilingYearPrompt'
 export type { FullscreenReportModalProps } from './FullscreenReportModal'
 export { FullscreenReportModal } from './FullscreenReportModal'
 export type { InviteClientModalProps } from './InviteClientModal'

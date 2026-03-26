@@ -139,7 +139,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         const explicitCurrentYear = Number(data.current_year_data?.year ?? data.year)
         const normalizedCurrentYear =
           Number.isFinite(explicitCurrentYear) && explicitCurrentYear >= 2000
-            ? Math.min(explicitCurrentYear, lastFullYear)
+            ? Math.min(explicitCurrentYear, 2100)
             : lastFullYear
 
         const sessionUpdate: Partial<any> = {
@@ -156,7 +156,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           revenue: data.revenue,
           ebitda: data.ebitda,
           current_year_data: {
-            // Session payloads should always use the last closed fiscal year.
+            // Respect the explicitly selected base year when the accountant confirms a newer filing year.
             year: normalizedCurrentYear,
             revenue: data.revenue ?? data.current_year_data?.revenue ?? 0,
             ebitda: data.ebitda ?? data.current_year_data?.ebitda ?? 0,

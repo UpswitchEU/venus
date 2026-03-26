@@ -132,11 +132,16 @@ export function buildValuationRequest(
     formData = source
   }
 
-  // Normalize last full year (2000-2100)
-  const lastFullYear = getCurrentFilingYear()
+  // Respect an explicitly selected filing year when the accountant confirms a newer year.
+  const defaultFilingYear = getCurrentFilingYear()
+  const explicitCurrentYear = Number(formData.current_year_data?.year)
+  const currentFiscalYear =
+    Number.isFinite(explicitCurrentYear) && explicitCurrentYear >= 2000 && explicitCurrentYear <= 2100
+      ? explicitCurrentYear
+      : defaultFilingYear
 
   // Normalize founding year (1900-2100)
-  const foundingYear = Math.min(Math.max(formData.founding_year || lastFullYear - 5, 1900), 2100)
+  const foundingYear = Math.min(Math.max(formData.founding_year || currentFiscalYear - 5, 1900), 2100)
 
   // Normalize company name
   const companyName = formData.company_name?.trim() || 'Unknown Company'
@@ -209,10 +214,10 @@ export function buildValuationRequest(
   const historicalYears = actualHistoricalData
     .filter((y) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
     .map((y) => y.year)
-  const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
+  const allDataYears = Array.from(new Set([currentFiscalYear, ...historicalYears]))
 
   const yearEbitdaMap: Record<number, number> = {}
-  yearEbitdaMap[lastFullYear] = ebitda
+  yearEbitdaMap[currentFiscalYear] = ebitda
   actualHistoricalData.forEach((y) => {
     if (y.ebitda != null) yearEbitdaMap[y.year] = Number(y.ebitda)
   })
@@ -264,21 +269,21 @@ export function buildValuationRequest(
     }
   }
 
-  // Check if last full year EBITDA is normalized
-  const lastFullYearNormalization = normByYear[lastFullYear]
+  // Check if the selected current year EBITDA is normalized
+  const currentYearNormalization = normByYear[currentFiscalYear]
 
   // Build current_year_data with normalization support
   const currentYearData: any = {
-    year: lastFullYear,
+    year: currentFiscalYear,
     revenue: revenue,
-    ebitda: lastFullYearNormalization ? ebitda + lastFullYearNormalization.totalAdjustment : ebitda,
-    ...(lastFullYearNormalization && {
+    ebitda: currentYearNormalization ? ebitda + currentYearNormalization.totalAdjustment : ebitda,
+    ...(currentYearNormalization && {
       ebitda_normalized: true,
       ebitda_normalization_metadata: {
         reported_ebitda: ebitda,
-        total_adjustments: lastFullYearNormalization.totalAdjustment,
-        adjustment_count: lastFullYearNormalization.count,
-        confidence_score: lastFullYearNormalization.confidence,
+        total_adjustments: currentYearNormalization.totalAdjustment,
+        adjustment_count: currentYearNormalization.count,
+        confidence_score: currentYearNormalization.confidence,
         has_custom_adjustments: false,
       },
     }),
@@ -373,9 +378,9 @@ export function buildValuationRequest(
       )
     }
 
-    if (year.year >= lastFullYear) {
+    if (year.year >= currentFiscalYear) {
       throw new ValidationError(
-        `Historical year ${year.year} must be earlier than the current fiscal year ${lastFullYear}.`,
+        `Historical year ${year.year} must be earlier than the current fiscal year ${currentFiscalYear}.`,
         'historical_years_data',
         year.year
       )
@@ -402,9 +407,9 @@ export function buildValuationRequest(
       )
     }
 
-    if (year.year <= lastFullYear) {
+    if (year.year <= currentFiscalYear) {
       throw new ValidationError(
-        `Forecast year ${year.year} must be later than the current fiscal year ${lastFullYear}.`,
+        `Forecast year ${year.year} must be later than the current fiscal year ${currentFiscalYear}.`,
         'forecast_years_data',
         year.year
       )

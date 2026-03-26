@@ -106,7 +106,7 @@ import {
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
-import { spotlightDomId, useSpotlightStore } from '../../../store/useSpotlightStore'
+import { parseSpotlightDomId, spotlightDomId, useSpotlightStore } from '../../../store/useSpotlightStore'
 import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
@@ -371,6 +371,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
   }>
 
   const historicalRows = yearlyFinancials.filter((yf) => !yf.isForecast)
+  const latestHistorical = [...historicalRows].sort((a, b) => Number(b.year) - Number(a.year))[0]
   const forecastRows = yearlyFinancials.filter((yf) => yf.isForecast)
 
   const completeHistorical = getCompleteYearlyFinancialsDesc(historicalRows)
@@ -406,11 +407,11 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     business_type: data.businessStructure || 'company',
     revenue: current?.revenue,
     ebitda: current?.ebitda,
-    current_year_data: current
+    current_year_data: latestHistorical
       ? {
-          year: parseInt(current.year),
-          revenue: current.revenue,
-          ebitda: current.ebitda,
+          year: parseInt(latestHistorical.year),
+          revenue: latestHistorical.revenue,
+          ebitda: latestHistorical.ebitda,
         }
       : undefined,
     historical_years_data: historical.map((h: any) => ({
@@ -4193,6 +4194,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       yearFounded: collectedData.yearFounded,
       ownerManagers: collectedData.ownerManagers,
       fteEmployees: formStoreData.number_of_employees ?? collectedData.fteEmployees,
+      current_year_data: formStoreData.current_year_data ?? collectedData.current_year_data,
       yearlyFinancials: restoredYearlyFinancials,
     },
   }
@@ -4254,6 +4256,32 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       focusField: guidedResolutionUrl.focusField,
       flagYear: guidedResolutionUrl.flagYear,
     })
+
+    const spotlightState = useSpotlightStore.getState()
+    const mappingHeavyFlagCodes = new Set([
+      'FALLBACK_MAPPING',
+      'AI_MAPPING_REVIEW',
+      'AI_MAPPING_MANUAL',
+      'LOW_CONFIDENCE',
+      'REVIEW_METADATA_MISSING',
+    ])
+    const activeTargetDomId = spotlightState.activeDomId
+    if (activeTargetDomId) {
+      const flags = spotlightState.getFlagsForDomId(activeTargetDomId)
+      const { field, yearKey } = parseSpotlightDomId(activeTargetDomId)
+      const mappingMethod = spotlightState.getFieldMappingMethod(field, yearKey)
+      const shouldOpenSourcePanel =
+        mappingMethod === 'fallback' ||
+        mappingMethod === 'manual' ||
+        flags.some(
+          (flag) =>
+            mappingHeavyFlagCodes.has(flag.code) ||
+            (flag.source_accounts?.length ?? 0) > 0
+        )
+      if (shouldOpenSourcePanel && !spotlightState.showSourcePanel) {
+        spotlightState.openSourcePanel()
+      }
+    }
 
     const ff = guidedResolutionUrl.focusField
     if (!ff) return
