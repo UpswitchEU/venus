@@ -50,6 +50,7 @@ import {
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '../../constants/grootboek'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 
 // Types for normalization data
 export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute'
@@ -135,7 +136,7 @@ export function NormalizationEditor({
   ledgerAccounts = [],
   existingNormalizations = [],
   onSave,
-  currentYear = new Date().getFullYear(),
+  currentYear = getCurrentFilingYear(),
   hasUploadedData = false,
   companyName,
 }: NormalizationEditorProps) {

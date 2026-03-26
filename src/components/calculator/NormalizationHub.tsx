@@ -32,6 +32,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { cn } from '@/design-system/utils'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import {
   getReportedEbitdaBaseline,
   summarizeAcceptedNormalizationsAcrossYears,
@@ -95,7 +96,7 @@ export function NormalizationHub({
   companyName,
   originalEbitda,
   originalEBITDAByYear,
-  currentYear = new Date().getFullYear(),
+  currentYear = getCurrentFilingYear(),
   sourceIntegration = 'manual',
   normalizations,
   onNormalizationsChange,

@@ -68,10 +68,14 @@ import {
 } from '../../services/api/accounting'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-import { getCurrentFilingYear, getLastFullFiscalYear } from '../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
-import { getLatestCompleteYearlyFinancial, hasExplicitNumericValue as hasExplicitFinancialValue } from '../../utils/yearlyFinancials'
+import {
+  getHistoricalYearRange,
+  getLatestCompleteYearlyFinancial,
+  hasExplicitNumericValue as hasExplicitFinancialValue,
+} from '../../utils/yearlyFinancials'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
@@ -258,15 +262,14 @@ function FieldHelpTrigger({
   )
 }
 
-const baseFilingYear = getCurrentFilingYear()
-
-const generateDefaultYearlyFinancials = (): YearlyFinancials[] => {
-  return [
-    { year: String(baseFilingYear), revenue: 0, ebitda: 0 },
-    { year: String(baseFilingYear - 1), revenue: 0, ebitda: 0 },
-    { year: String(baseFilingYear - 2), revenue: 0, ebitda: 0 },
-  ]
-}
+const generateDefaultYearlyFinancials = (
+  baseFilingYear: number = getCurrentFilingYear()
+): YearlyFinancials[] =>
+  getHistoricalYearRange(baseFilingYear, 3).map((year) => ({
+    year: String(year),
+    revenue: 0,
+    ebitda: 0,
+  }))
 
 export function ManualInputPanel({
   onSubmit,
@@ -998,10 +1001,10 @@ export function ManualInputPanel({
         return
       }
 
-      const fiscalYear = getLastFullFiscalYear()
+      const fiscalYear = getCurrentFilingYear()
       const res = await accountingAPI.getProviderFinancialData(provider, fiscalYear)
       const d = res.data
-      const year = String(d.fiscal_year ?? new Date().getFullYear())
+      const year = String(d.fiscal_year ?? fiscalYear)
       const revenue = Number(d.revenue) || 0
       const ebitda = d.ebitda != null ? Number(d.ebitda) : 0
 

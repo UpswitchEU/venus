@@ -2954,6 +2954,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const handleNormalisationSuggestions = useCallback(
     (suggestions: any[] | undefined) => {
       if (!suggestions?.length) return
+      const filingYear = getCurrentFilingYear()
       const newItems: NormalizationItem[] = suggestions.map((s: any) => ({
         id: crypto.randomUUID(),
         ledgerCode: s.ledgerCode || '',
@@ -2967,7 +2968,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         sourceRef: 'Claude AI',
         status: 'pending' as any,
         applyAllYears: false,
-        year: new Date().getFullYear() - 1,
+        year: filingYear,
       }))
       normalizationActions.addItems(newItems)
       const idForApi = resolvedReportId || reportId
@@ -4089,6 +4090,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           suggestions = generateDefaultNormalizationSuggestions(source, nh)
         }
 
+        const filingYear = getCurrentFilingYear()
         const unifiedItems: NormalizationItem[] = suggestions.map((s: any, idx: number) => ({
           id: s.id || `${source}-${idx + 1}`,
           ledgerCode: s.code || s.ledgerCode || '',
@@ -4102,7 +4104,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           sourceRef: s.sourceRef || `${labels[source]}`,
           status: (s.status || 'pending') as any,
           applyAllYears: false, // Default single year; user can change in modal
-          year: new Date().getFullYear() - 1,
+          year: filingYear,
         }))
 
         setSuggestedNormalisations(suggestions)

@@ -1,3 +1,5 @@
+import { getCurrentFilingYear } from './fiscalYear'
+
 export interface YearlyFinancialLike {
   year?: string | number | null
   revenue?: number | null
@@ -11,6 +13,15 @@ export function hasExplicitNumericValue(value: unknown): boolean {
 function parseYear(value: string | number | null | undefined): number {
   const year = Number.parseInt(String(value ?? ''), 10)
   return Number.isFinite(year) ? year : 0
+}
+
+export function getHistoricalYearRange(
+  baseYear: number = getCurrentFilingYear(),
+  count: number = 3,
+  startOffset: number = 0
+): number[] {
+  const safeCount = Math.max(0, count)
+  return Array.from({ length: safeCount }, (_, index) => baseYear - startOffset - index)
 }
 
 export function isCompleteYearlyFinancial<T extends YearlyFinancialLike>(year: T): boolean {

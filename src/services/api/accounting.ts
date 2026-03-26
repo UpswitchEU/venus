@@ -7,7 +7,7 @@
 
 import axios from 'axios'
 
-import { getLastFullFiscalYear } from '../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { HttpClient } from './HttpClient'
 
 export interface AccountingFinancialPayload {
@@ -87,7 +87,7 @@ class AccountingAPI extends HttpClient {
     provider: AccountingImportProvider,
     fiscalYear?: number
   ): Promise<AccountingFinancialPayload> {
-    const year = fiscalYear ?? getLastFullFiscalYear()
+    const year = fiscalYear ?? getCurrentFilingYear()
     const response = await this.client.get<AccountingFinancialPayload>(
       `/integrations/accounting/${provider}/financial-data`,
       { params: { fiscal_year: year } }

@@ -15,6 +15,7 @@
 
 import { create } from 'zustand'
 import type { ValuationFormData } from '../../types/valuation'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { storeLogger } from '../../utils/logger'
 
 // ✅ FIX: Guard to prevent multiple simultaneous calls to prefillFromBusinessCard
@@ -51,10 +52,9 @@ interface ManualFormStore {
   markClean: () => void
 }
 
-// Helper to get safe last full year (last completed fiscal year, max 2100 per backend validation)
-// Valuations use the most recent completed fiscal year, not the current calendar year
-const getSafeCurrentYear = () => {
-  return Math.min(new Date().getFullYear() - 1, 2100)
+// Valuations should default to the latest realistically filed year, not the calendar year.
+const getSafeCurrentFilingYear = () => {
+  return Math.min(getCurrentFilingYear(), 2100)
 }
 
 const defaultFormData: ValuationFormData = {
@@ -62,14 +62,14 @@ const defaultFormData: ValuationFormData = {
   country_code: 'BE',
   industry: 'services', // Default to valid industry code
   business_model: 'services', // Default business model (matches Python enum)
-  founding_year: getSafeCurrentYear() - 5, // Default to 5 years ago
+  founding_year: getSafeCurrentFilingYear() - 5, // Default to 5 years before filing year
   business_type: 'company',
   shares_for_sale: 100,
   number_of_owners: 1, // Default to 1 owner
   revenue: undefined,
   ebitda: undefined,
   current_year_data: {
-    year: getSafeCurrentYear(),
+    year: getSafeCurrentFilingYear(),
     revenue: 0,
     ebitda: 0,
   },

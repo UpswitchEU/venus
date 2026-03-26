@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getCompleteYearlyFinancialsDesc,
+  getHistoricalYearRange,
   getLatestCompleteYearlyFinancial,
   isCompleteYearlyFinancial,
 } from '../yearlyFinancials'
@@ -28,5 +29,15 @@ describe('yearlyFinancials helpers', () => {
       { year: '2024', revenue: 1_500_000, ebitda: 250_000 },
       { year: '2023', revenue: 1_000_000, ebitda: 100_000 },
     ])
+  })
+
+  it('builds default historical years from the filing-year base', () => {
+    expect(getHistoricalYearRange(2024, 3)).toEqual([2024, 2023, 2022])
+    expect(getHistoricalYearRange(2025, 3)).toEqual([2025, 2024, 2023])
+  })
+
+  it('supports offset ranges for prior historical inputs', () => {
+    expect(getHistoricalYearRange(2024, 2, 1)).toEqual([2023, 2022])
+    expect(getHistoricalYearRange(2025, 2, 1)).toEqual([2024, 2023])
   })
 })

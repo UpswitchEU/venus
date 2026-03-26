@@ -1,6 +1,8 @@
 import React from 'react'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
+import { getHistoricalYearRange } from '../../utils/yearlyFinancials'
 import { NormalizedEBITDAField } from '../normalization/NormalizedEBITDAField'
 import { CustomInputField, CustomNumberInputField } from './index'
 
@@ -32,22 +34,10 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
   // Returns years in descending order (most recent first) for better UX
   // Example: If current year is 2025, returns [2024, 2023] (most recent first)
   const calculateHistoricalYears = (): number[] => {
-    const now = currentYear || new Date().getFullYear()
-    const historicalYears: number[] = []
-
-    // Show up to 2 years before current year
-    // Loop from 1 to 2 to get years in order: now-1 (most recent), now-2 (older)
-    for (let i = 1; i <= 2; i++) {
-      const year = now - i
-      // Only include years >= founding year
-      if (!foundingYear || year >= foundingYear) {
-        historicalYears.push(year)
-      }
-    }
-
-    // Array is already in descending order (most recent first): [2024, 2023]
-    // Return as-is - no need to reverse
-    return historicalYears
+    const filingYear = currentYear ?? getCurrentFilingYear()
+    return getHistoricalYearRange(filingYear, 2, 1).filter(
+      (year) => !foundingYear || year >= foundingYear
+    )
   }
 
   const yearsToShow = calculateHistoricalYears()

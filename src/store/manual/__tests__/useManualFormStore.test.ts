@@ -8,6 +8,7 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { useManualFormStore } from '../useManualFormStore'
 
 describe('useManualFormStore', () => {
@@ -28,6 +29,7 @@ describe('useManualFormStore', () => {
       expect(result.current.formData.business_type).toBe('company')
       expect(result.current.formData.shares_for_sale).toBe(100)
       expect(result.current.formData.number_of_owners).toBe(1)
+      expect(result.current.formData.current_year_data?.year).toBe(getCurrentFilingYear())
     })
 
     it('should not be dirty initially', () => {
