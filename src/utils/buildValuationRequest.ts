@@ -74,15 +74,16 @@ const NON_NEGATIVE_YEAR_FIELDS = new Set<string>([
   'total_debt',
 ])
 
-function pickOptionalYearDataFields(source: Record<string, unknown> | undefined): Record<string, number> {
-  if (!source) {
+function pickOptionalYearDataFields(source: unknown): Record<string, number> {
+  if (source === undefined || source === null || typeof source !== 'object') {
     return {}
   }
 
+  const record = source as Record<string, unknown>
   const result: Record<string, number> = {}
 
   for (const field of YEAR_DATA_OPTIONAL_FIELDS) {
-    const numeric = toFiniteNumber(source[field])
+    const numeric = toFiniteNumber(record[field])
     if (numeric === null) {
       continue
     }
@@ -281,7 +282,7 @@ export function buildValuationRequest(
         has_custom_adjustments: false,
       },
     }),
-    ...pickOptionalYearDataFields(formData.current_year_data as Record<string, unknown> | undefined),
+    ...pickOptionalYearDataFields(formData.current_year_data),
   }
 
   // Normalize historical data (filter and sort) with normalization support
@@ -309,7 +310,7 @@ export function buildValuationRequest(
             year: clampedYear,
             revenue: normalizedRevenue,
             ebitda: reportedEbitda + normalization.totalAdjustment,
-            ...pickOptionalYearDataFields(year as Record<string, unknown>),
+            ...pickOptionalYearDataFields(year),
             ebitda_normalized: true,
             ebitda_normalization_metadata: {
               reported_ebitda: reportedEbitda,
@@ -330,7 +331,7 @@ export function buildValuationRequest(
           year: clampedYear,
           revenue: normalizedRevenue,
           ebitda: Number(year.ebitda),
-          ...pickOptionalYearDataFields(year as Record<string, unknown>),
+          ...pickOptionalYearDataFields(year),
           ebitda_normalized: false,
         }
       })
@@ -356,7 +357,7 @@ export function buildValuationRequest(
           year: clampedYear,
           revenue,
           ebitda: normalizedEbitda,
-          ...pickOptionalYearDataFields(year as Record<string, unknown>),
+          ...pickOptionalYearDataFields(year),
           is_forecast: true,
         }
       })

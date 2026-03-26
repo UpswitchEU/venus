@@ -34,6 +34,7 @@ import {
   MoreVertical,
   Pencil,
   Send,
+  Settings,
   Trash2,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
