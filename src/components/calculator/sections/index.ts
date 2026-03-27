@@ -1,5 +1,6 @@
 export { DcfProjectionsSection } from './DcfProjectionsSection'
 export { DcfForecastProjectionTable } from './DcfForecastProjectionTable'
+export { DcfSensitivityMatrix } from './DcfSensitivityMatrix'
 export { NavAssetScheduleSection } from './NavAssetScheduleSection'
 export { SaasMetricsSection } from './SaasMetricsSection'
 export { RevenueQualitySection } from './RevenueQualitySection'

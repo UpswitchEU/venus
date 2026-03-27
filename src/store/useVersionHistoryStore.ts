@@ -878,7 +878,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             return {
               ...version,
               formData: {
-                country_code: fd?.country_code || 'BE',
+                country_code: fd?.country_code || '',
                 company_name: fd?.company_name,
                 current_year_data: fd?.current_year_data
                   ? buildCurrentYearData({

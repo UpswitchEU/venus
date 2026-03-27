@@ -23,6 +23,7 @@ import {
   ModalTitle,
 } from '@/design-system/components/Modal'
 import type {
+  HistoricalFcfReadiness,
   MultiplePipelineStage,
   ValuationMethodResult,
   ValuationResponse,
@@ -34,6 +35,7 @@ import {
   clientShouldWarnExtremeMultiple,
   usePreparerMultipleStore,
 } from '../../store/manual/usePreparerMultipleStore'
+import { DcfSensitivityMatrix } from './sections/DcfSensitivityMatrix'
 import { OmniMethodPanorama } from './omni/OmniMethodPanorama'
 
 const METHOD_OVERRIDE_REASON_KEYS = [
@@ -67,6 +69,18 @@ const toNumberOrNull = (value: unknown): number | null => {
   if (value == null || value === '') return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+function isHistoricalFcfReadiness(value: unknown): value is HistoricalFcfReadiness {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.status === 'string' &&
+    typeof candidate.historical_years_count === 'number' &&
+    typeof candidate.actual_capex_years === 'number' &&
+    typeof candidate.actual_tax_years === 'number' &&
+    typeof candidate.actual_nwc_years === 'number'
+  )
 }
 
 const sumAdjustmentValues = (value: unknown): number | null => {
@@ -171,6 +185,7 @@ function MethodBreakdownSection({
   previewEquity: number | null
 }) {
   const tBreakdown = useTranslations('methodBreakdown')
+  const tFcfReadiness = useTranslations('calculator.fcfReadiness')
 
   if (!method?.available) {
     return (
@@ -222,6 +237,23 @@ function MethodBreakdownSection({
   const equityValue = toNumberOrNull(method.value)
   const wacc = toNumberOrNull(method.wacc ?? details.wacc)
   const terminalValue = toNumberOrNull(details.terminal_value)
+  const dcfReadiness = isHistoricalFcfReadiness(details.historical_fcf_readiness)
+    ? details.historical_fcf_readiness
+    : isHistoricalFcfReadiness(result?.dcf_valuation?.historical_fcf_readiness)
+      ? result.dcf_valuation.historical_fcf_readiness
+      : null
+  const sensitivityMatrix =
+    details.sensitivity_matrix_2d &&
+    typeof details.sensitivity_matrix_2d === 'object' &&
+    Array.isArray((details.sensitivity_matrix_2d as Record<string, unknown>).wacc_values) &&
+    Array.isArray((details.sensitivity_matrix_2d as Record<string, unknown>).growth_values) &&
+    Array.isArray((details.sensitivity_matrix_2d as Record<string, unknown>).ev_matrix)
+      ? (details.sensitivity_matrix_2d as {
+          wacc_values: number[]
+          growth_values: number[]
+          ev_matrix: number[][]
+        })
+      : null
   const ownerSalaryEstimate = toNumberOrNull(details.owner_salary_estimate)
   const sdeValue = toNumberOrNull(details.sde)
   const saasMetrics =
@@ -259,6 +291,22 @@ function MethodBreakdownSection({
     toNumberOrNull(result?.multiple_pipeline?.final_multiple_mid) ??
     toNumberOrNull(result?.multiple_pipeline?.final_multiple)
 
+  const missingReadinessFields =
+    dcfReadiness == null
+      ? []
+      : [
+          ...(dcfReadiness.actual_capex_years < dcfReadiness.historical_years_count
+            ? [tFcfReadiness('fields.capex')]
+            : []),
+          ...(dcfReadiness.actual_tax_years < dcfReadiness.historical_years_count
+            ? [tFcfReadiness('fields.taxes')]
+            : []),
+          ...(dcfReadiness.actual_nwc_years <
+          Math.max(0, dcfReadiness.historical_years_count - 1)
+            ? [tFcfReadiness('fields.working_capital')]
+            : []),
+        ]
+
   return (
     <div className="rounded-lg border border-primary/15 bg-primary/[0.03] px-4 py-4 space-y-3">
       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-primary/75">
@@ -270,32 +318,61 @@ function MethodBreakdownSection({
       </p>
 
       {methodKey === 'dcf' ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {wacc != null && (
-            <BreakdownMetricCard
-              label={tBreakdown('wacc')}
-              value={formatPercent(wacc, 100) || '—'}
-            />
+        <div className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {wacc != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('wacc')}
+                value={formatPercent(wacc, 100) || '—'}
+              />
+            )}
+            {terminalValue != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('terminalValue')}
+                value={formatCurrency(terminalValue)}
+              />
+            )}
+            {enterpriseValue != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('enterpriseValue')}
+                value={formatCurrency(enterpriseValue)}
+              />
+            )}
+            {equityValue != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('equityValue')}
+                value={formatCurrency(equityValue)}
+                accent
+              />
+            )}
+          </div>
+          {dcfReadiness && (
+            <div className="rounded-lg border border-primary/15 bg-background/70 px-3 py-3 space-y-2">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-primary/75">
+                <Calculator className="w-3.5 h-3.5" />
+                {tBreakdown('historicalFcfReadiness')}
+              </div>
+              <p className="text-[11px] font-medium leading-snug text-foreground/80">
+                {tFcfReadiness(`${dcfReadiness.status}.title`)}
+              </p>
+              <p className="text-[11px] leading-snug text-foreground/55">
+                {tFcfReadiness(`${dcfReadiness.status}.description`, {
+                  years: dcfReadiness.historical_years_count,
+                  capex: dcfReadiness.actual_capex_years,
+                  taxes: dcfReadiness.actual_tax_years,
+                  workingCapital: dcfReadiness.actual_nwc_years,
+                })}
+              </p>
+              {missingReadinessFields.length > 0 && (
+                <p className="text-[11px] leading-snug text-foreground/50">
+                  {tFcfReadiness('missing', {
+                    fields: missingReadinessFields.join(', '),
+                  })}
+                </p>
+              )}
+            </div>
           )}
-          {terminalValue != null && (
-            <BreakdownMetricCard
-              label={tBreakdown('terminalValue')}
-              value={formatCurrency(terminalValue)}
-            />
-          )}
-          {enterpriseValue != null && (
-            <BreakdownMetricCard
-              label={tBreakdown('enterpriseValue')}
-              value={formatCurrency(enterpriseValue)}
-            />
-          )}
-          {equityValue != null && (
-            <BreakdownMetricCard
-              label={tBreakdown('equityValue')}
-              value={formatCurrency(equityValue)}
-              accent
-            />
-          )}
+          <DcfSensitivityMatrix sensitivityData={sensitivityMatrix} />
         </div>
       ) : methodKey === 'sde_multiple' ? (
         <div className="grid gap-2 sm:grid-cols-2">

@@ -41,6 +41,31 @@ function getCanonicalReportContext(
   return null
 }
 
+function getCanonicalDcfValuation(
+  valuationResult: Record<string, any>
+): Record<string, any> | null {
+  const vr = valuationResult.valuation_result
+  const nested = vr && typeof vr === 'object' ? (vr as Record<string, any>) : null
+  const candidates = [
+    valuationResult.dcf_valuation,
+    valuationResult.details?.dcf_valuation,
+    nested?.dcf_valuation,
+    nested?.details?.dcf_valuation,
+    valuationResult.report_context?.dcf_valuation,
+    valuationResult.details?.report_context?.dcf_valuation,
+    nested?.report_context?.dcf_valuation,
+    nested?.details?.report_context?.dcf_valuation,
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+      return candidate as Record<string, any>
+    }
+  }
+
+  return null
+}
+
 function normalizeAdaptiveMethod(
   map: Record<string, any>,
   valuationResult: Record<string, any>
@@ -73,6 +98,54 @@ function normalizeAdaptiveMethod(
     upswitch_adaptive: {
       ...adaptive,
       ...(canonicalMultiple != null ? { multiple_used: canonicalMultiple } : {}),
+      details,
+    },
+  }
+}
+
+function enrichDcfMethod(
+  map: Record<string, any>,
+  valuationResult: Record<string, any>
+): Record<string, any> {
+  const dcf = map.dcf
+  if (!dcf || typeof dcf !== 'object' || Array.isArray(dcf)) return map
+
+  const dcfValuation = getCanonicalDcfValuation(valuationResult)
+  if (!dcfValuation) return map
+
+  const details =
+    dcf.details && typeof dcf.details === 'object' && !Array.isArray(dcf.details)
+      ? { ...dcf.details }
+      : {}
+
+  const enterpriseValue = toFiniteNumber(dcfValuation.enterprise_value)
+  const wacc = toFiniteNumber(dcfValuation.wacc)
+  const terminalValue = toFiniteNumber(dcfValuation.terminal_value)
+  const readiness =
+    dcfValuation.historical_fcf_readiness &&
+    typeof dcfValuation.historical_fcf_readiness === 'object' &&
+    !Array.isArray(dcfValuation.historical_fcf_readiness)
+      ? dcfValuation.historical_fcf_readiness
+      : null
+
+  if (details.enterprise_value == null && enterpriseValue != null) {
+    details.enterprise_value = enterpriseValue
+  }
+  if (details.wacc == null && wacc != null) {
+    details.wacc = wacc
+  }
+  if (details.terminal_value == null && terminalValue != null) {
+    details.terminal_value = terminalValue
+  }
+  if (details.historical_fcf_readiness == null && readiness) {
+    details.historical_fcf_readiness = readiness
+  }
+
+  return {
+    ...map,
+    dcf: {
+      ...dcf,
+      ...(dcf.wacc == null && wacc != null ? { wacc } : {}),
       details,
     },
   }
@@ -273,6 +346,21 @@ function synthesizeMinimalValuationResultsMap(
     Object.assign(details, assetDetails)
   }
 
+  if (methodKey === 'dcf') {
+    const dcfValuation = getCanonicalDcfValuation(valuationResult)
+    const dcfWacc = toFiniteNumber(dcfValuation?.wacc)
+    const dcfTerminalValue = toFiniteNumber(dcfValuation?.terminal_value)
+    const readiness =
+      dcfValuation?.historical_fcf_readiness &&
+      typeof dcfValuation.historical_fcf_readiness === 'object' &&
+      !Array.isArray(dcfValuation.historical_fcf_readiness)
+        ? dcfValuation.historical_fcf_readiness
+        : null
+    if (dcfWacc != null) details.wacc = dcfWacc
+    if (dcfTerminalValue != null) details.terminal_value = dcfTerminalValue
+    if (readiness) details.historical_fcf_readiness = readiness
+  }
+
   const value = equityMid ?? enterpriseMid ?? 0
 
   if (REVENUE_METHOD_KEYS.has(methodKey) && currentRevenue != null && currentRevenue <= 0) {
@@ -292,6 +380,7 @@ function synthesizeMinimalValuationResultsMap(
     available: true,
     value,
     multiple_used: multiple,
+    ...(methodKey === 'dcf' && details.wacc != null ? { wacc: Number(details.wacc) } : {}),
     label: getFallbackMethodLabel(methodKey),
     details,
   }
@@ -334,7 +423,10 @@ export function extractValuationResultsMap(
       !Array.isArray(candidate) &&
       Object.keys(candidate).length > 0
     ) {
-      return normalizeAdaptiveMethod(candidate as Record<string, any>, valuationResult)
+      return enrichDcfMethod(
+        normalizeAdaptiveMethod(candidate as Record<string, any>, valuationResult),
+        valuationResult
+      )
     }
   }
 

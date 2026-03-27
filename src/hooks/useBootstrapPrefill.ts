@@ -515,7 +515,7 @@ function buildBusinessCard(
     industry: businessType?.industry || 'services',
     business_model: businessType?.id || 'other',
     founding_year: companyInfo.foundingYear || new Date().getFullYear() - 5,
-    country_code: resolvedCountryCode || 'BE',
+    country_code: resolvedCountryCode || '',
     employee_count: financials?.employeeCount,
     // KBO registry fields
     kbo_number: companyInfo.kboNumber,

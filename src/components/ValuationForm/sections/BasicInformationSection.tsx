@@ -60,6 +60,11 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   // LinkedIn pattern: Form owns selected company state
   const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null)
   const [isVerifyingCompany, setIsVerifyingCompany] = useState(false)
+  const effectiveCountryCode =
+    selectedCompany?.country_code ||
+    formData.country_code ||
+    ((formData.business_context as any)?.country_code as string | undefined) ||
+    'BE'
 
   // Construct initial selected company from stored KBO data if available
   // This allows the company summary card to show when restoring a previously verified company
@@ -100,17 +105,18 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
     // If we have KBO registration data (from either source), construct a CompanySearchResult
     if (kboRegistration && formData.company_name) {
+      const countryCode = formData.country_code || 'BE'
       return {
         company_id: companyId || kboRegistration, // Use stored company_id or fallback to registration number
         company_name: formData.company_name,
         result_type: 'COMPANY',
         registration_number: kboRegistration,
-        country_code: formData.country_code || 'BE',
+        country_code: countryCode,
         legal_form: legalForm || '',
         address: companyAddress,
         status: companyStatus,
         confidence_score: 1.0,
-        registry_name: 'KBO',
+        registry_name: countryCode === 'NL' ? 'KVK' : 'KBO',
         registry_url: '',
       }
     }
@@ -147,7 +153,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           const { registryService } = await import('../../../services/registry/registryService')
           const response = await registryService.searchCompanies(
             initialSelectedCompany.company_name,
-            formData.country_code || 'BE',
+            effectiveCountryCode,
             1,
             controller.signal
           )
@@ -200,7 +206,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
       controller.abort()
       setIsVerifyingCompany(false)
     }
-  }, [initialSelectedCompany, selectedCompany, formData.country_code])
+  }, [effectiveCountryCode, initialSelectedCompany, selectedCompany])
 
   // Save company data when selectedCompany changes
   useEffect(() => {
@@ -235,7 +241,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           const { registryService } = await import('../../../services/registry/registryService')
           const financialData = await registryService.getCompanyFinancials(
             selectedCompany.company_id,
-            currentFormData.country_code || 'BE'
+            currentFormData.country_code || selectedCompany.country_code || 'BE'
           )
 
           // Auto-fill founding_year if available and not already set
@@ -384,7 +390,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           onChange={(value) => updateFormData({ company_name: value })}
           onBlur={() => {}}
           placeholder={t('forms.fields.companyNamePlaceholder')}
-          countryCode={formData.country_code || 'BE'}
+          countryCode={effectiveCountryCode}
           selectedCompany={selectedCompany}
           onCompanyChange={(company) => {
             setSelectedCompany(company)

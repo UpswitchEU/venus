@@ -154,8 +154,9 @@ export function buildValuationRequest(
   // Normalize company name
   const companyName = formData.company_name?.trim() || 'Unknown Company'
 
-  // Normalize country code (2-letter uppercase)
-  const countryCode = (formData.country_code || 'BE').toUpperCase().substring(0, 2)
+  // Normalize country code (2-letter uppercase).
+  // Only fall back to Belgium when no authoritative country was hydrated.
+  const countryCode = (formData.country_code?.trim() || 'BE').toUpperCase().substring(0, 2)
 
   // Normalize industry and business model
   // Priority: formData.industry > business_type metadata > default
@@ -459,6 +460,15 @@ export function buildValuationRequest(
   if (fd.dcf_nwc_pct != null) adaptiveFields.dcf_nwc_pct = fd.dcf_nwc_pct
   if (fd.dcf_wacc_pct != null) adaptiveFields.dcf_wacc_pct = fd.dcf_wacc_pct
   if (fd.dcf_terminal_growth_pct != null) adaptiveFields.dcf_terminal_growth_pct = fd.dcf_terminal_growth_pct
+  if (fd.dcf_exit_multiple != null) adaptiveFields.dcf_exit_multiple = fd.dcf_exit_multiple
+  if (fd.dcf_risk_free_rate_pct != null) adaptiveFields.dcf_risk_free_rate_pct = fd.dcf_risk_free_rate_pct
+  if (fd.dcf_equity_risk_premium_pct != null) {
+    adaptiveFields.dcf_equity_risk_premium_pct = fd.dcf_equity_risk_premium_pct
+  }
+  if (fd.dcf_beta != null) adaptiveFields.dcf_beta = fd.dcf_beta
+  if (fd.dcf_cost_of_debt_pct != null) adaptiveFields.dcf_cost_of_debt_pct = fd.dcf_cost_of_debt_pct
+  if (fd.dcf_debt_equity_pct != null) adaptiveFields.dcf_debt_equity_pct = fd.dcf_debt_equity_pct
+  if (fd.dcf_tax_shield_pct != null) adaptiveFields.dcf_tax_shield_pct = fd.dcf_tax_shield_pct
   if (fd.nav_real_estate_adjustment != null) adaptiveFields.nav_real_estate_adjustment = fd.nav_real_estate_adjustment
   if (fd.nav_inventory_adjustment != null) adaptiveFields.nav_inventory_adjustment = fd.nav_inventory_adjustment
   if (fd.nav_hidden_reserves != null) adaptiveFields.nav_hidden_reserves = fd.nav_hidden_reserves

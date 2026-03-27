@@ -53,6 +53,45 @@ describe('extractValuationResultsMap', () => {
     expect(out?.upswitch_adaptive?.details?.p75_multiple).toBe(4.6);
   })
 
+  it('enriches dcf method data with historical FCF readiness from dcf_valuation', () => {
+    const payload = {
+      valuation_results: {
+        dcf: {
+          available: true,
+          value: 410000,
+          label: 'DCF',
+          details: {},
+        },
+      },
+      dcf_valuation: {
+        enterprise_value: 525000,
+        wacc: 0.113,
+        terminal_value: 310000,
+        historical_fcf_readiness: {
+          status: 'partial',
+          historical_years_count: 3,
+          actual_capex_years: 2,
+          actual_tax_years: 3,
+          actual_nwc_years: 1,
+        },
+      },
+    }
+
+    expect(extractValuationResultsMap(payload)).toMatchObject({
+      dcf: {
+        wacc: 0.113,
+        details: {
+          enterprise_value: 525000,
+          terminal_value: 310000,
+          historical_fcf_readiness: {
+            status: 'partial',
+            actual_capex_years: 2,
+          },
+        },
+      },
+    })
+  })
+
   it('synthesizes from report_context when valuation_results paths are empty', () => {
     const payload = {
       valuation_results: {},

@@ -172,6 +172,13 @@ export interface ValuationFormData {
   dcf_nwc_pct?: number
   dcf_wacc_pct?: number
   dcf_terminal_growth_pct?: number
+  dcf_exit_multiple?: number
+  dcf_risk_free_rate_pct?: number
+  dcf_equity_risk_premium_pct?: number
+  dcf_beta?: number
+  dcf_cost_of_debt_pct?: number
+  dcf_debt_equity_pct?: number
+  dcf_tax_shield_pct?: number
   nav_real_estate_adjustment?: number
   nav_inventory_adjustment?: number
   nav_hidden_reserves?: number
@@ -395,7 +402,7 @@ export function ManualInputPanel({
     businessType: initialData.businessType || '',
     businessTypeCode: initialData.businessTypeCode || '',
     industry: initialData.industry || '',
-    country: initialData.country || 'BE',
+    country: initialData.country || '',
     yearFounded: initialData.yearFounded || '',
     businessStructure: initialData.businessStructure || '',
     ownerManagers: initialData.ownerManagers || 1,
@@ -454,7 +461,7 @@ export function ManualInputPanel({
 
   // Drop registry selection when operating country changes (e.g. firm NL prefill after BE default)
   useEffect(() => {
-    const c = (formData.country || 'BE').toUpperCase()
+    const c = (formData.country || initialData.country || 'BE').toUpperCase()
     setSelectedCompany((prev) => {
       if (!prev) return prev
       const pc = prev.countryCode?.toUpperCase()
@@ -507,9 +514,9 @@ export function ManualInputPanel({
         if (value === undefined || value === null) return
         const v = String(value).trim().toUpperCase()
         if (!v) return
-        const cur = (String(prev.country || '').trim().toUpperCase() || 'BE') as string
-        // Default BE is a placeholder until parent/store sends NL from firm/session (not "user chose Belgium")
-        if (cur === 'BE' && v !== cur) {
+        const cur = String(prev.country || '').trim().toUpperCase()
+        // Empty country is a placeholder until bootstrap/business-card context resolves.
+        if ((!cur || cur === 'BE') && v !== cur) {
           ;(updates as Record<string, unknown>)[key] = v
         }
         return
@@ -836,7 +843,7 @@ export function ManualInputPanel({
     }
   }, [formData.yearlyFinancials, hasExplicitNumericValue, normalizationItems])
 
-  const searchCountry = formData.country || 'BE'
+  const searchCountry = formData.country || initialData.country || 'BE'
 
   // Registry search: routes to KBO (BE) or KVK (NL) based on form country
   const kboSearchFn = useCallback(
@@ -1504,10 +1511,10 @@ export function ManualInputPanel({
                   { value: 'BE', label: mi('countryOptionBE') },
                   { value: 'NL', label: mi('countryOptionNL') },
                 ]}
-                value={formData.country || 'BE'}
+                value={formData.country || initialData.country || 'BE'}
                 onChange={(val) => {
                   countryUserOverrideRef.current = true
-                  const prev = formData.country || 'BE'
+                  const prev = formData.country || initialData.country || 'BE'
                   updateField('country', val)
                   if (val !== prev) {
                     setSelectedCompany(null)
@@ -2340,6 +2347,13 @@ export function AdaptiveSections({
           dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
           dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
           dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
+          dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
+          dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
+          dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
+          dcfBeta={formData.dcf_beta as number | undefined}
+          dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
+          dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
+          dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
           onFieldChange={onFieldChange}
           disabled={disabled}
           smartDefaults={dcfSmartDefaults}

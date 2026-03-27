@@ -11,6 +11,7 @@ export interface DcfSmartDefaults {
   capexPct: number
   waccPct: number
   terminalGrowthPct: number
+  exitMultiple: number
   historicalYearsUsed: number
 }
 
@@ -87,6 +88,7 @@ export function deriveDcfSmartDefaults(args: {
     capexPct,
     waccPct,
     terminalGrowthPct,
+    exitMultiple: 6,
     historicalYearsUsed: historical.length,
   }
 }

@@ -223,6 +223,13 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   dcf_nwc_pct?: number
   dcf_wacc_pct?: number
   dcf_terminal_growth_pct?: number
+  dcf_exit_multiple?: number
+  dcf_risk_free_rate_pct?: number
+  dcf_equity_risk_premium_pct?: number
+  dcf_beta?: number
+  dcf_cost_of_debt_pct?: number
+  dcf_debt_equity_pct?: number
+  dcf_tax_shield_pct?: number
   // Adjusted NAV
   nav_real_estate_adjustment?: number
   nav_inventory_adjustment?: number
@@ -763,6 +770,14 @@ export interface ValuationMethodResult {
   details?: Record<string, unknown> | null
 }
 
+export interface HistoricalFcfReadiness {
+  status: 'imported_ready' | 'partial' | 'manual_fallback'
+  historical_years_count: number
+  actual_capex_years: number
+  actual_tax_years: number
+  actual_nwc_years: number
+}
+
 export interface ValuationResponse {
   valuation_id: string
   company_name: string
@@ -883,6 +898,7 @@ export interface ValuationResponse {
     confidence: string
     confidence_score: number
     confidence_factors: Record<string, string>
+    historical_fcf_readiness?: HistoricalFcfReadiness | null
   }
 
   // Market Multiples (detailed breakdown from API)

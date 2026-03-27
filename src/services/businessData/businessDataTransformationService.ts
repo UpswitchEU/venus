@@ -101,7 +101,7 @@ export class BusinessDataTransformationService {
         company_name: businessData.company_name,
         industry: businessData.industry,
         business_model: businessData.business_type,
-        country_code: businessData.country || 'BE',
+        country_code: businessData.country || '',
         founding_year: businessData.founded_year,
         business_type_id: businessData.business_type_id,
       },

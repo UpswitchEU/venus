@@ -451,7 +451,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
 
   return {
     company_name: data.companyName || '',
-    country_code: (data.country || 'BE').toUpperCase(),
+    country_code: (data.country || '').toUpperCase(),
     industry: data.industry || 'services',
     business_model: data.businessType || 'services',
     founding_year: parseInt(data.yearFounded) || new Date().getFullYear() - 5,
@@ -524,6 +524,15 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.dcf_nwc_pct != null && { dcf_nwc_pct: data.dcf_nwc_pct }),
     ...(data.dcf_wacc_pct != null && { dcf_wacc_pct: data.dcf_wacc_pct }),
     ...(data.dcf_terminal_growth_pct != null && { dcf_terminal_growth_pct: data.dcf_terminal_growth_pct }),
+    ...(data.dcf_exit_multiple != null && { dcf_exit_multiple: data.dcf_exit_multiple }),
+    ...(data.dcf_risk_free_rate_pct != null && { dcf_risk_free_rate_pct: data.dcf_risk_free_rate_pct }),
+    ...(data.dcf_equity_risk_premium_pct != null && {
+      dcf_equity_risk_premium_pct: data.dcf_equity_risk_premium_pct,
+    }),
+    ...(data.dcf_beta != null && { dcf_beta: data.dcf_beta }),
+    ...(data.dcf_cost_of_debt_pct != null && { dcf_cost_of_debt_pct: data.dcf_cost_of_debt_pct }),
+    ...(data.dcf_debt_equity_pct != null && { dcf_debt_equity_pct: data.dcf_debt_equity_pct }),
+    ...(data.dcf_tax_shield_pct != null && { dcf_tax_shield_pct: data.dcf_tax_shield_pct }),
     ...(data.nav_real_estate_adjustment != null && { nav_real_estate_adjustment: data.nav_real_estate_adjustment }),
     ...(data.nav_inventory_adjustment != null && { nav_inventory_adjustment: data.nav_inventory_adjustment }),
     ...(data.nav_hidden_reserves != null && { nav_hidden_reserves: data.nav_hidden_reserves }),

@@ -58,7 +58,7 @@ describe('useBootstrapPrefill', () => {
     })
   })
 
-  it('keeps BE as the last fallback when no explicit client country exists', async () => {
+  it('leaves country empty when no explicit client country exists', async () => {
     mockUseBootstrapSafe.mockReturnValue({
       isBootstrapping: false,
       bootstrapError: null,
@@ -85,7 +85,7 @@ describe('useBootstrapPrefill', () => {
     renderHook(() => useBootstrapPrefill())
 
     await waitFor(() => {
-      expect(useManualFormStore.getState().formData.country_code).toBe('BE')
+      expect(useManualFormStore.getState().formData.country_code).toBe('')
       expect(useManualFormStore.getState().formData.company_name).toBe('Fallback Client')
     })
   })

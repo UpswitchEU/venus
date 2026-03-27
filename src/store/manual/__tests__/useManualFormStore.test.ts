@@ -23,7 +23,7 @@ describe('useManualFormStore', () => {
       const { result } = renderHook(() => useManualFormStore())
 
       expect(result.current.formData).toBeDefined()
-      expect(result.current.formData.country_code).toBe('BE')
+      expect(result.current.formData.country_code).toBe('')
       expect(result.current.formData.industry).toBe('services')
       expect(result.current.formData.business_model).toBe('services')
       expect(result.current.formData.business_type).toBe('company')

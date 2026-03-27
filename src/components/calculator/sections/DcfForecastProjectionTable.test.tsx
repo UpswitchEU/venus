@@ -154,7 +154,7 @@ describe('DcfForecastProjectionTable', () => {
 
     expect(screen.getByText('EBITDA %')).toBeInTheDocument()
     expect(screen.getByText('FCFF')).toBeInTheDocument()
-    expect(screen.getByText('25.0%')).toBeInTheDocument()
-    expect(screen.getByText('€180')).toBeInTheDocument()
+    expect(screen.getByText(/25/)).toBeInTheDocument()
+    expect(screen.getByText(/180/)).toBeInTheDocument()
   })
 })

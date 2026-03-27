@@ -9,6 +9,9 @@ interface AdaptivePercentInputProps {
   onChange: (value: number | undefined) => void
   placeholder?: string
   disabled?: boolean
+  readOnly?: boolean
+  description?: string
+  step?: string
 }
 
 export function AdaptivePercentInput({
@@ -17,6 +20,9 @@ export function AdaptivePercentInput({
   onChange,
   placeholder,
   disabled,
+  readOnly,
+  description,
+  step,
 }: AdaptivePercentInputProps) {
   return (
     <AuroraInput
@@ -25,6 +31,7 @@ export function AdaptivePercentInput({
       size="sm"
       value={value != null ? String(value) : ''}
       onChange={(e) => {
+        if (readOnly) return
         const raw = e.target.value
         if (raw === '') {
           onChange(undefined)
@@ -35,8 +42,12 @@ export function AdaptivePercentInput({
       }}
       placeholder={placeholder}
       disabled={disabled}
+      readOnly={readOnly}
+      description={description}
+      step={step}
       className={cn(
         'tabular-nums',
+        readOnly && 'cursor-default',
         '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
       )}
     />

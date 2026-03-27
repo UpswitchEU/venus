@@ -9,6 +9,7 @@ import { AdaptivePercentInput } from './AdaptivePercentInput'
 import type { DcfReadinessInsight } from './dcfReadiness'
 import type { DcfRiskInsight } from './dcfRiskInsight'
 import type { DcfSmartDefaults } from './dcfSmartDefaults'
+import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 
 interface DcfProjectionsSectionProps {
   dcfRevenueGrowthPct?: number
@@ -17,6 +18,13 @@ interface DcfProjectionsSectionProps {
   dcfNwcPct?: number
   dcfWaccPct?: number
   dcfTerminalGrowthPct?: number
+  dcfExitMultiple?: number
+  dcfRiskFreeRatePct?: number
+  dcfEquityRiskPremiumPct?: number
+  dcfBeta?: number
+  dcfCostOfDebtPct?: number
+  dcfDebtEquityPct?: number
+  dcfTaxShieldPct?: number
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
   smartDefaults?: DcfSmartDefaults | null
@@ -32,6 +40,13 @@ export function DcfProjectionsSection({
   dcfNwcPct,
   dcfWaccPct,
   dcfTerminalGrowthPct,
+  dcfExitMultiple,
+  dcfRiskFreeRatePct,
+  dcfEquityRiskPremiumPct,
+  dcfBeta,
+  dcfCostOfDebtPct,
+  dcfDebtEquityPct,
+  dcfTaxShieldPct,
   onFieldChange,
   disabled,
   smartDefaults,
@@ -57,6 +72,7 @@ export function DcfProjectionsSection({
     onFieldChange('dcf_capex_pct', smartDefaults.capexPct)
     onFieldChange('dcf_wacc_pct', smartDefaults.waccPct)
     onFieldChange('dcf_terminal_growth_pct', smartDefaults.terminalGrowthPct)
+    onFieldChange('dcf_exit_multiple', smartDefaults.exitMultiple)
   }
 
   const handleApplyRiskAdjustment = () => {
@@ -122,6 +138,12 @@ export function DcfProjectionsSection({
                     label: t('fields.dcfTerminalGrowthPct'),
                     value: smartDefaults.terminalGrowthPct,
                   },
+                  {
+                    key: 'exitMultiple',
+                    label: t('fields.dcfExitMultiple'),
+                    value: smartDefaults.exitMultiple,
+                    suffix: 'x',
+                  },
                 ].map((item) => (
                   <div
                     key={item.key}
@@ -130,7 +152,10 @@ export function DcfProjectionsSection({
                     )}
                   >
                     <span className="text-foreground/50">{item.label}:</span>{' '}
-                    <span className="font-medium text-foreground">{item.value}%</span>
+                    <span className="font-medium text-foreground">
+                      {item.value}
+                      {'suffix' in item ? item.suffix : '%'}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -316,11 +341,15 @@ export function DcfProjectionsSection({
           placeholder="2"
           disabled={disabled}
         />
-        <AdaptivePercentInput
-          label={t('fields.dcfWaccPct')}
-          value={dcfWaccPct}
-          onChange={(v) => onFieldChange('dcf_wacc_pct', v)}
-          placeholder="10"
+        <WaccBreakdownPanel
+          currentWaccPct={dcfWaccPct}
+          riskFreeRatePct={dcfRiskFreeRatePct}
+          equityRiskPremiumPct={dcfEquityRiskPremiumPct}
+          beta={dcfBeta}
+          costOfDebtPct={dcfCostOfDebtPct}
+          debtEquityPct={dcfDebtEquityPct}
+          taxShieldPct={dcfTaxShieldPct}
+          onFieldChange={onFieldChange}
           disabled={disabled}
         />
         <AdaptivePercentInput
@@ -329,6 +358,15 @@ export function DcfProjectionsSection({
           onChange={(v) => onFieldChange('dcf_terminal_growth_pct', v)}
           placeholder="2"
           disabled={disabled}
+        />
+        <AdaptivePercentInput
+          label={t('fields.dcfExitMultiple')}
+          value={dcfExitMultiple}
+          onChange={(v) => onFieldChange('dcf_exit_multiple', v)}
+          placeholder="6.0"
+          disabled={disabled}
+          description={t('fields.dcfExitMultipleDescription')}
+          step="0.1"
         />
       </div>
     </motion.section>
