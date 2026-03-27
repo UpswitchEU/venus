@@ -24,7 +24,11 @@ import { useNormalizationStore } from '../store/useNormalizationStore'
 import { useSpotlightStore } from '../store/useSpotlightStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
-import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../utils/fiscalYear'
+import {
+  getCurrentFilingYear,
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from '../utils/fiscalYear'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
 import { createContextLogger } from '../utils/logger'
@@ -328,6 +332,12 @@ export function useBootstrapPrefill(): {
                 ebitda: cyd.ebitda == null && mapped.ebitda != null ? mapped.ebitda : cyd.ebitda,
               }
             }
+            if (Array.isArray(fdBefore.historical_years_data)) {
+              financialPatch.historical_years_data = normalizeHistoricalYearsForFiling(
+                fdBefore.historical_years_data,
+                Boolean(fdBefore.filing_year_confirmed)
+              )
+            }
             updateFormData(financialPatch)
             const ctx = bootstrapRef.current
             const prevSources = ctx?.prefillData.sources ?? []
@@ -624,17 +634,18 @@ function applyPrefillToForm(
     }
     if (historicalYears.length > 0) {
       historicalYears.sort((a, b) => b.year - a.year) // Most recent first
-      const maxCurrentYear = normalizeCurrentYearForFiling(
-        historicalYears[0].year,
+      const safeHistoricalYears = normalizeHistoricalYearsForFiling(
+        historicalYears,
         Boolean(allData.filing_year_confirmed)
       )
-      const safeHistoricalYears = historicalYears.filter((year) => year.year <= maxCurrentYear)
-      const currentYearRow = safeHistoricalYears[0] ?? historicalYears[0]
-      allData.historical_years_data = historicalYears
-      allData.current_year_data = {
-        year: currentYearRow.year,
-        revenue: currentYearRow.revenue,
-        ebitda: currentYearRow.ebitda,
+      if (safeHistoricalYears.length > 0) {
+        const currentYearRow = safeHistoricalYears[0]
+        allData.historical_years_data = safeHistoricalYears
+        allData.current_year_data = {
+          year: currentYearRow.year,
+          revenue: currentYearRow.revenue,
+          ebitda: currentYearRow.ebitda,
+        }
       }
     }
   }

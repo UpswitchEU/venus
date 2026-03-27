@@ -38,7 +38,10 @@ import {
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
-import { normalizeCurrentYearForFiling } from '../../utils/fiscalYear'
+import {
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from '../../utils/fiscalYear'
 
 /**
  * Bank-grade retry utility with exponential backoff
@@ -853,6 +856,13 @@ class SessionRestorationServiceImpl {
                 Boolean(mapped.filing_year_confirmed)
               ),
             }
+          }
+
+          if (Array.isArray(mapped.historical_years_data)) {
+            mapped.historical_years_data = normalizeHistoricalYearsForFiling(
+              mapped.historical_years_data as Array<{ year: number; revenue?: number; ebitda?: number }>,
+              Boolean(mapped.filing_year_confirmed)
+            )
           }
 
           updateFormData(mapped as any)

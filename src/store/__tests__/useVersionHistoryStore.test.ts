@@ -126,6 +126,7 @@ describe('useVersionHistoryStore', () => {
       const version = await createVersion({
         reportId: 'val_test_123',
         formData: {
+          filing_year_confirmed: true,
           current_year_data: { year: 2025, revenue: 500000, ebitda: 100000 },
           historical_years_data: [{ year: 2024, revenue: 450000, ebitda: 50000 }],
         } as any,
@@ -136,6 +137,33 @@ describe('useVersionHistoryStore', () => {
       expect(version.normalization_data?.['2024']?.reported_ebitda).toBe(50000)
       expect(version.normalization_data?.['2024']?.total_adjustments).toBe(-5000)
       expect(version.tax_latency_data).toHaveLength(1)
+    })
+
+    it('normalizes string current-year values when building version metadata', async () => {
+      const { createVersion } = useVersionHistoryStore.getState()
+
+      useNormalizationStore.setState({
+        items: [
+          {
+            id: 'norm-string-year',
+            year: 2025,
+            status: 'accepted',
+            adjustment: -10000,
+            confidence: 'high',
+          } as any,
+        ],
+      })
+
+      const version = await createVersion({
+        reportId: 'val_test_123',
+        formData: {
+          filing_year_confirmed: true,
+          current_year_data: { year: '2025', revenue: 500000, ebitda: 100000 },
+          historical_years_data: [{ year: 2024, revenue: 450000, ebitda: 50000 }],
+        } as any,
+      })
+
+      expect(version.normalization_data?.['2025']?.reported_ebitda).toBe(100000)
     })
   })
 

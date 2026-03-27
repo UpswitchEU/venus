@@ -22,7 +22,7 @@ import { useCallback, useEffect } from 'react'
 import { backendAPI } from '../services/backendApi'
 import { useSessionStore } from '../store/useSessionStore'
 import { debounceWithFlush } from '../utils/debounce'
-import { normalizeCurrentYearForFiling } from '../utils/fiscalYear'
+import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from '../utils/fiscalYear'
 import { generalLogger } from '../utils/logger'
 import { NameGenerator } from '../utils/nameGenerator'
 import { buildCurrentYearData, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
@@ -151,6 +151,10 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           data.current_year_data?.year ?? data.year,
           Boolean(data.filing_year_confirmed)
         )
+        const normalizedHistoricalYears = normalizeHistoricalYearsForFiling(
+          data.historical_years_data,
+          Boolean(data.filing_year_confirmed)
+        )
 
         const sessionUpdate: Partial<any> = {
           company_name: data.company_name,
@@ -173,7 +177,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
             ebitda: data.ebitda ?? data.current_year_data?.ebitda ?? 0,
             currentYearData: data.current_year_data,
           }),
-          historical_years_data: data.historical_years_data,
+          historical_years_data: normalizedHistoricalYears,
           ...(data.forecast_years_data !== undefined && {
             forecast_years_data: data.forecast_years_data,
           }),

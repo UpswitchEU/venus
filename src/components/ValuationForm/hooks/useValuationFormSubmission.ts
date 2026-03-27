@@ -20,7 +20,10 @@ import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { ValidationError } from '../../../types/errors'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
-import { normalizeCurrentYearForFiling } from '../../../utils/fiscalYear'
+import {
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from '../../../utils/fiscalYear'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
@@ -194,6 +197,10 @@ export const useValuationFormSubmission = (
               formData.current_year_data?.year,
               Boolean(formData.filing_year_confirmed)
             )
+            const normalizedHistoricalYears = normalizeHistoricalYearsForFiling(
+              formData.historical_years_data,
+              Boolean(formData.filing_year_confirmed)
+            )
             // Convert formData to session format
             const sessionUpdate: Partial<any> = {
               company_name: formData.company_name,
@@ -215,7 +222,7 @@ export const useValuationFormSubmission = (
                   cash: formData.current_year_data.cash,
                 }),
               },
-              historical_years_data: formData.historical_years_data,
+              historical_years_data: normalizedHistoricalYears,
               number_of_employees: formData.number_of_employees,
               number_of_owners: formData.number_of_owners,
               recurring_revenue_percentage: formData.recurring_revenue_percentage,

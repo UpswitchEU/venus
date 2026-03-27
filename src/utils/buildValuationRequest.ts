@@ -15,7 +15,11 @@ import type { DataResponse } from '../types/data-collection'
 import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
-import { getCurrentFilingYear, normalizeCurrentYearForFiling } from './fiscalYear'
+import {
+  getCurrentFilingYear,
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from './fiscalYear'
 import { generalLogger } from './logger'
 import { deriveNwcChangesForActualYears } from './yearData'
 
@@ -211,7 +215,11 @@ export function buildValuationRequest(
   const legacyNormalizations = useEbitdaNormalizationStore.getState().normalizations
 
   // Separate historical actuals from explicit forecast projections.
-  const actualHistoricalData = formData.historical_years_data?.filter((y) => !y.is_forecast) ?? []
+  const normalizedHistoricalData = normalizeHistoricalYearsForFiling(
+    formData.historical_years_data?.filter((y) => !y.is_forecast),
+    Boolean(formData.filing_year_confirmed)
+  )
+  const actualHistoricalData = normalizedHistoricalData
   const rawForecastData =
     formData.forecast_years_data && formData.forecast_years_data.length > 0
       ? formData.forecast_years_data

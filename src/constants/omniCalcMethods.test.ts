@@ -12,7 +12,7 @@ describe('PRIMARY_OMNI_METHOD_KEYS', () => {
     expect(PRIMARY_OMNI_METHOD_KEYS.has('sde_multiple')).toBe(true)
   })
 
-  it('includes revenue-style multiples and Adaptive', () => {
+  it('includes revenue-style multiples and upswitch_adaptive', () => {
     expect(PRIMARY_OMNI_METHOD_KEYS.has('upswitch_adaptive')).toBe(true)
     expect(PRIMARY_OMNI_METHOD_KEYS.has('arr_multiple')).toBe(true)
     expect(PRIMARY_OMNI_METHOD_KEYS.has('omzet_multiple')).toBe(true)

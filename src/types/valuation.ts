@@ -123,6 +123,8 @@ export interface ValuationRequest {
 
   // Financial data (required)
   current_year_data: YearDataInput
+  /** User confirmed filing year alignment (manual flow; used for normalization / version snapshots). */
+  filing_year_confirmed?: boolean
   historical_years_data?: YearDataInput[]
   forecast_years_data?: YearDataInput[]
   official_financials?: OfficialFinancialsPayload

@@ -17,7 +17,11 @@ import type {
   VersionChanges,
   VersionComparison,
 } from '../types/ValuationVersion'
-import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../utils/fiscalYear'
+import {
+  getCurrentFilingYear,
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { buildCurrentYearData } from '../utils/yearData'
@@ -365,8 +369,13 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             // CRITICAL: Respect applyAllYears and applyYears — put each item under every year it applies to
             const accepted = normStore.items.filter((n) => n.status === 'accepted')
             const lastFullYear = getCurrentFilingYear()
+            const filingYearConfirmed = Boolean(enrichedRequest.formData?.filing_year_confirmed)
+            const normalizedHistoricalYearData = normalizeHistoricalYearsForFiling(
+              enrichedRequest.formData?.historical_years_data,
+              filingYearConfirmed
+            )
             const historicalYears =
-              enrichedRequest.formData?.historical_years_data
+              normalizedHistoricalYearData
                 ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
                 .map((y: any) => y.year) ?? []
             const currentYearData = enrichedRequest.formData?.current_year_data as
@@ -376,13 +385,9 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                   ebitda_normalization_metadata?: { reported_ebitda?: number }
                 }
               | undefined
-            const currentYear =
-              typeof currentYearData?.year === 'number' &&
-              Number.isFinite(currentYearData.year) &&
-              currentYearData.year >= 2000 &&
-              currentYearData.year <= 2100
-                ? currentYearData.year
-                : lastFullYear
+            const currentYear = currentYearData?.year
+              ? normalizeCurrentYearForFiling(currentYearData.year, filingYearConfirmed)
+              : lastFullYear
             const allDataYears = Array.from(new Set([currentYear, ...historicalYears]))
             const yearEbitdaMap: Record<number, number> = {
               [currentYear]:
@@ -392,7 +397,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                     0
                 ) || 0,
             }
-            enrichedRequest.formData?.historical_years_data?.forEach((y: any) => {
+            normalizedHistoricalYearData?.forEach((y: any) => {
               const yearMeta = y?.ebitda_normalization_metadata
               if (y?.ebitda != null && y?.year != null) {
                 yearEbitdaMap[Number(y.year)] =

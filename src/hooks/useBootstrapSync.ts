@@ -22,6 +22,10 @@ import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
 import { createContextLogger } from '../utils/logger'
+import {
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from '../utils/fiscalYear'
 
 const logger = createContextLogger('BootstrapSync')
 
@@ -356,6 +360,28 @@ function syncSession(state: SessionBootstrapState): void {
                 if (v !== undefined && v !== null && typeof v !== 'function' && typeof v !== 'symbol') {
                   sanitized[k] = v
                 }
+              }
+              const filingYearConfirmed = Boolean(
+                sanitized.filing_year_confirmed ?? sanitized.filingYearConfirmed
+              )
+              const currentYearData = sanitized.current_year_data as
+                | { year?: number; revenue?: number; ebitda?: number }
+                | undefined
+              if (currentYearData && typeof currentYearData === 'object') {
+                sanitized.current_year_data = {
+                  ...currentYearData,
+                  year: normalizeCurrentYearForFiling(currentYearData.year, filingYearConfirmed),
+                }
+              }
+              if (Array.isArray(sanitized.historical_years_data)) {
+                sanitized.historical_years_data = normalizeHistoricalYearsForFiling(
+                  sanitized.historical_years_data as Array<{
+                    year: number
+                    revenue?: number
+                    ebitda?: number
+                  }>,
+                  filingYearConfirmed
+                )
               }
               if (Object.keys(sanitized).length > 0) {
                 const formStore = useManualFormStore.getState()

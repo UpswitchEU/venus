@@ -70,6 +70,27 @@ describe('normalizeSessionData', () => {
     ])
   })
 
+  it('filters unconfirmed future historical rows from year_data during H1 restore', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
+
+    const normalized = normalizeSessionData({
+      session_key: 'val_year_data_h1',
+      session_data: {
+        year_data: {
+          2025: { revenue: 1050000, ebitda: 105000 },
+          2024: { revenue: 950000, ebitda: 95000 },
+          2023: { revenue: 850000, ebitda: 85000 },
+        },
+      },
+    })
+
+    expect(normalized.formData.historical_years_data).toEqual([
+      { year: 2023, revenue: 850000, ebitda: 85000 },
+      { year: 2024, revenue: 950000, ebitda: 95000 },
+    ])
+  })
+
   it('merges activity_* with canonical NACE and prefers activity_label for description', () => {
     const normalized = normalizeSessionData({
       session_key: 'val_act',

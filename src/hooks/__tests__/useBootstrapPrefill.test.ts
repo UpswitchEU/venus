@@ -1,5 +1,5 @@
-import { renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSpotlightStore } from '../../store/useSpotlightStore'
@@ -34,6 +34,10 @@ describe('useBootstrapPrefill', () => {
       callback(0)
       return 0
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('hydrates NL client country into the manual form store', async () => {
@@ -383,5 +387,96 @@ describe('useBootstrapPrefill', () => {
 
       expect(useSpotlightStore.getState().importQuality).toEqual(importQuality)
     })
+  })
+
+  it('filters unconfirmed future yearData rows during H1 bootstrap prefill', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
+
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
+      report: { mode: 'new', reportId: 'val_h1_year_data', hasExistingData: false },
+      prefillData: {
+        sources: ['session'],
+        companyInfo: {
+          companyName: 'History Co',
+          countryCode: 'BE',
+        },
+        financials: {
+          yearData: {
+            2025: { revenue: 1_050_000, ebitda: 105_000 },
+            2024: { revenue: 950_000, ebitda: 95_000 },
+            2023: { revenue: 850_000, ebitda: 85_000 },
+          },
+        },
+        confidence: 0.7,
+        fieldsPopulated: ['company_name', 'current_year_data'],
+        fieldsRemaining: [],
+        readOnlyKbo: false,
+        autoAdvancePastPrefilledSteps: false,
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+
+    const formData = useManualFormStore.getState().formData as any
+    expect(formData.current_year_data).toMatchObject({
+      year: 2024,
+      revenue: 950000,
+      ebitda: 95000,
+    })
+    expect(formData.historical_years_data).toEqual([
+      { year: 2024, revenue: 950000, ebitda: 95000 },
+      { year: 2023, revenue: 850000, ebitda: 85000 },
+    ])
+  })
+
+  it('drops prefill current-year data entirely when only future yearData rows exist in H1', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
+
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
+      report: { mode: 'new', reportId: 'val_h1_future_only', hasExistingData: false },
+      prefillData: {
+        sources: ['session'],
+        companyInfo: {
+          companyName: 'Future Only Co',
+          countryCode: 'BE',
+        },
+        financials: {
+          yearData: {
+            2025: { revenue: 1_050_000, ebitda: 105_000 },
+          },
+        },
+        confidence: 0.7,
+        fieldsPopulated: ['company_name', 'current_year_data'],
+        fieldsRemaining: [],
+        readOnlyKbo: false,
+        autoAdvancePastPrefilledSteps: false,
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+
+    const formData = useManualFormStore.getState().formData as any
+    expect(formData.current_year_data).toMatchObject({
+      year: 2024,
+      revenue: 0,
+      ebitda: 0,
+    })
+    expect(formData.historical_years_data).toBeUndefined()
   })
 })

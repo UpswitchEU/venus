@@ -13,26 +13,27 @@ const translations: Record<string, Record<string, string>> = {
     unavailableBlurbReportPending: 'Wacht even.',
     transientLoadTitle: 'Methodedata tijdelijk niet geladen',
     transientLoadBlurb: 'De server was te druk. Wacht even of vernieuw de pagina.',
-    currentMethodAdaptive: 'UpSwitch Adaptive',
+    currentMethodAdaptive: 'Upswitch marktbenadering',
     subtitle: 'Kies methode',
     methodsReadyBadge: '{available}/{total} klaar',
     currentMethodLabel: 'Huidig: {method}',
-    modeAi: 'Adaptive',
+    modeAi: 'Upswitch bepaalt',
     modeManual: 'Handmatig',
     modeLabel: 'Modus',
     stepChooseMethod: 'Kies een methode',
-    stepAiActive: 'Adaptive actief',
+    stepAiActive: 'Marktbenadering actief',
     methodsListHeading: 'Methoden',
     methodsPanoramaTitle: 'Alle methoden in één oogopslag',
     columnEquity: 'Waarde',
     columnMultiple: 'Multiple',
-    columnDelta: 't.o.v. Adaptive',
-    columnHintMobile: 'Elke methoderegel toont de waardering, de gebruikte multiple en het verschil ten opzichte van UpSwitch Adaptive.',
+    columnDelta: 't.o.v. marktbenadering',
+    columnHintMobile:
+      'Elke methoderegel toont de waardering, de gebruikte multiple en het verschil ten opzichte van de Upswitch marktbenadering.',
     adaptiveBaselineLabel: 'Referentie',
     selected: 'Geselecteerd',
     rangeModel: 'model',
     rangeIllustrative: 'illustratief',
-    'methodDescriptions.upswitch_adaptive': 'Adaptive beschrijving',
+    'methodDescriptions.upswitch_adaptive': 'Marktbenadering beschrijving',
     'methodDescriptions.ebitda_multiple': 'EBITDA beschrijving',
     'methodDescriptions.dcf': 'DCF beschrijving',
     fiscalAnchor: 'Fiscaal',
@@ -169,7 +170,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 257_000,
-            label: 'UpSwitch Adaptive',
+            label: 'Upswitch marktbenadering',
           },
           ebitda_multiple: {
             available: true,
@@ -186,7 +187,7 @@ describe('ValuationEditModal', () => {
     expect(screen.getByText('Alle methoden in één oogopslag')).toBeInTheDocument()
     expect(screen.getByText('Waarde')).toBeInTheDocument()
     expect(screen.getAllByText('Multiple').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('t.o.v. Adaptive')).toBeInTheDocument()
+    expect(screen.getByText('t.o.v. marktbenadering')).toBeInTheDocument()
     expect(screen.getByText('Referentie')).toBeInTheDocument()
   })
 
@@ -198,7 +199,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 100_000,
-            label: 'UpSwitch Adaptive',
+            label: 'Upswitch marktbenadering',
           },
           ebitda_multiple: {
             available: true,
@@ -229,7 +230,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 357_000,
-            label: 'UpSwitch Adaptive',
+            label: 'Upswitch marktbenadering',
           },
         }}
         result={
@@ -265,7 +266,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 100_000,
-            label: 'UpSwitch Adaptive',
+            label: 'Upswitch marktbenadering',
           },
           ebitda_multiple: {
             available: true,
@@ -287,7 +288,7 @@ describe('ValuationEditModal', () => {
     expect(screen.queryByText(/Toon alle/)).not.toBeInTheDocument()
   })
 
-  it('returns to Adaptive segment after Handmatig when selectedMethod is still upswitch_adaptive', () => {
+  it('returns to Upswitch segment after Handmatig when selectedMethod is still upswitch_adaptive', () => {
     const onSelectMethod = vi.fn()
     render(
       <ValuationEditModal
@@ -298,7 +299,7 @@ describe('ValuationEditModal', () => {
           upswitch_adaptive: {
             available: true,
             value: 100_000,
-            label: 'UpSwitch Adaptive',
+            label: 'Upswitch marktbenadering',
           },
           ebitda_multiple: {
             available: true,
@@ -310,7 +311,7 @@ describe('ValuationEditModal', () => {
       />,
     )
 
-    const aiRadio = screen.getByRole('radio', { name: /Adaptive/i })
+    const aiRadio = screen.getByRole('radio', { name: /Upswitch bepaalt/i })
     const manualRadio = screen.getByRole('radio', { name: /Handmatig/i })
 
     expect(aiRadio).toHaveAttribute('aria-checked', 'true')
@@ -322,7 +323,7 @@ describe('ValuationEditModal', () => {
     fireEvent.click(aiRadio)
     expect(onSelectMethod).toHaveBeenCalledWith('upswitch_adaptive')
     expect(
-      screen.getByRole('radio', { name: /Adaptive/i }),
+      screen.getByRole('radio', { name: /Upswitch bepaalt/i }),
     ).toHaveAttribute('aria-checked', 'true')
   })
 

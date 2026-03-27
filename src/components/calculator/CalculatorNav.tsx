@@ -219,11 +219,31 @@ const formatTimeAgo = (date: Date, t: (key: string, values?: Record<string, numb
   return t('common.time.daysAgo', { count: days })
 }
 
+/** Formats EV-style amounts for the nav; safe for any API/method (NaN, ±Inf, missing coerced to 0). */
 const formatPrice = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return '—'
+  }
   if (value >= 1000000) {
     return `€${(value / 1000000).toFixed(1)}M`
   }
   return `€${Math.round(value / 1000)}K`
+}
+
+const valuationNavAmountClass = 'text-sm font-semibold text-foreground tracking-tight'
+
+function confidenceDotClassName(confidence: 'high' | 'medium' | 'low') {
+  const base = 'w-1.5 h-1.5 rounded-full shrink-0'
+  switch (confidence) {
+    case 'high':
+      return cn(base, 'bg-success')
+    case 'medium':
+      return cn(base, 'bg-warning')
+    case 'low':
+      return cn(base, 'bg-destructive')
+    default:
+      return cn(base, 'bg-foreground/40')
+  }
 }
 
 // ─────────────────────────────────────────
@@ -642,18 +662,11 @@ export function CalculatorNav({
                           'group cursor-pointer'
                         )}
                       >
-                        <span
-                          className={cn(
-                            'w-1.5 h-1.5 rounded-full shrink-0',
-                            displaySummary.confidence === 'high' && 'bg-success',
-                            displaySummary.confidence === 'medium' && 'bg-warning',
-                            displaySummary.confidence === 'low' && 'bg-destructive'
-                          )}
-                        />
-                        <span className="text-sm font-semibold text-foreground tracking-tight">
+                        <span className={confidenceDotClassName(displaySummary.confidence)} aria-hidden />
+                        <span className={valuationNavAmountClass}>
                           {formatPrice(displaySummary.askPrice)}
                         </span>
-                        <span className="text-xs text-foreground/40 font-medium">
+                        <span className={valuationNavAmountClass}>
                           {formatPrice(displaySummary.priceRange.min)}–
                           {formatPrice(displaySummary.priceRange.max)}
                         </span>
@@ -699,7 +712,7 @@ export function CalculatorNav({
                               >
                                 {version.label}
                               </p>
-                              <p className="text-xs text-foreground/40">
+                              <p className={valuationNavAmountClass}>
                                 {formatPrice(version.priceRange.min)}–
                                 {formatPrice(version.priceRange.max)} ·{' '}
                                 {formatPrice(version.askPrice)}
@@ -1016,7 +1029,7 @@ export function CalculatorNav({
                     'min-h-[44px]'
                   )}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+                  <span className={confidenceDotClassName(displaySummary.confidence)} aria-hidden />
                   <span className="truncate max-w-[72px]">
                     {formatPrice(displaySummary.askPrice)}
                   </span>

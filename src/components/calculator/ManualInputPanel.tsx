@@ -90,7 +90,7 @@ import type {
   OfficialVerificationBadge,
   YearDataInput,
 } from '../../types/valuation'
-import { getCurrentFilingYear } from '../../utils/fiscalYear'
+import { getCurrentFilingYear, normalizeHistoricalYearsForFiling } from '../../utils/fiscalYear'
 import {
   appendManualForecastYear,
   canAppendForecastYear,
@@ -705,7 +705,10 @@ export function ManualInputPanel({
     fteEmployees: initialData.fteEmployees ?? 5,
     yearlyFinancials: getSeedYearlyFinancials(initialData),
     current_year_data: getSeedCurrentYearData(initialData),
-    historical_years_data: initialData.historical_years_data,
+    historical_years_data: normalizeHistoricalYearsForFiling(
+      initialData.historical_years_data,
+      Boolean(initialData.filingYearConfirmed)
+    ),
     forecast_years_data: initialData.forecast_years_data,
     filingYearConfirmed: initialData.filingYearConfirmed ?? false,
   })

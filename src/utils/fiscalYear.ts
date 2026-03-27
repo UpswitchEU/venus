@@ -35,3 +35,24 @@ export function normalizeCurrentYearForFiling(
 
   return Math.min(parsedYear, filingYearConfirmed ? maxConfirmedYear : filingYear)
 }
+
+export function normalizeHistoricalYearsForFiling<
+  T extends { year: number | string | null | undefined }
+>(
+  rows: T[] | null | undefined,
+  filingYearConfirmed: boolean = false,
+  now: Date = new Date()
+): T[] {
+  if (!Array.isArray(rows)) {
+    return []
+  }
+
+  const maxHistoricalYear = filingYearConfirmed
+    ? Math.min(Math.max(now.getFullYear() - 1, 2000), 2100)
+    : getCurrentFilingYear(now)
+
+  return rows.filter((row) => {
+    const year = Number(row?.year)
+    return Number.isFinite(year) && year >= 2000 && year <= maxHistoricalYear
+  })
+}

@@ -117,6 +117,28 @@ describe('buildValuationRequest', () => {
     expect(result.current_year_data.year).toBe(getCurrentFilingYear())
   })
 
+  it('drops unconfirmed historical rows that are ahead of the filing year in H1', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: getCurrentFilingYear() + 1,
+          revenue: 1_500_000,
+          ebitda: 250_000,
+        },
+        historical_years_data: [
+          { year: getCurrentFilingYear() + 1, revenue: 1_200_000, ebitda: 200_000 },
+          { year: getCurrentFilingYear() - 1, revenue: 900_000, ebitda: 150_000 },
+        ],
+      }),
+      []
+    )
+
+    expect(result.current_year_data.year).toBe(getCurrentFilingYear())
+    expect(result.historical_years_data.map((year) => year.year)).toEqual([
+      getCurrentFilingYear() - 1,
+    ])
+  })
+
   it('preserves an explicitly confirmed newer year for current_year_data', () => {
     const result = buildValuationRequest(
       makeFormData({

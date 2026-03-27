@@ -9,7 +9,10 @@
 
 import type { DataResponse } from '../../../types/data-collection'
 import type { ValuationFormData } from '../../../types/valuation'
-import { normalizeCurrentYearForFiling } from '../../../utils/fiscalYear'
+import {
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from '../../../utils/fiscalYear'
 
 /**
  * Convert ValuationFormData to DataResponse[] format
@@ -77,8 +80,12 @@ export function convertFormDataToDataResponses(formData: ValuationFormData): Dat
   addResponse('shares_for_sale', 100)
 
   // Historical Data
-  if (formData.historical_years_data && formData.historical_years_data.length > 0) {
-    formData.historical_years_data.forEach((yearData, index) => {
+  const normalizedHistoricalYears = normalizeHistoricalYearsForFiling(
+    formData.historical_years_data,
+    Boolean(formData.filing_year_confirmed)
+  )
+  if (normalizedHistoricalYears.length > 0) {
+    normalizedHistoricalYears.forEach((yearData, index) => {
       addResponse(`historical_year_${yearData.year}`, yearData.year, {
         revenue: yearData.revenue,
         ebitda: yearData.ebitda,

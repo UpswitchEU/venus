@@ -15,7 +15,10 @@
  */
 
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
-import { normalizeCurrentYearForFiling } from '../../utils/fiscalYear'
+import {
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from '../../utils/fiscalYear'
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { generalLogger } from '../../utils/logger'
 
@@ -193,6 +196,13 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
           }
         })
     }
+  }
+
+  if (Array.isArray(fd.historical_years_data)) {
+    fd.historical_years_data = normalizeHistoricalYearsForFiling(
+      fd.historical_years_data as Array<{ year: number; revenue?: number; ebitda?: number }>,
+      Boolean(fd.filing_year_confirmed)
+    )
   }
 
   // Fallback: populate revenue/ebitda from current_year_data when not at top-level
