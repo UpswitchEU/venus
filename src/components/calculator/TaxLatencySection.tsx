@@ -22,8 +22,12 @@ import {
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { DEFAULT_LEDGER_ACCOUNTS, type LedgerAccount } from '@/constants/grootboek'
+import { forwardRef, useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  DEFAULT_LEDGER_ACCOUNTS,
+  applyGrootboekCountryOverrides,
+  type LedgerAccount,
+} from '@/constants/grootboek'
 import { Badge } from '@/design-system/components/Badge'
 import {
   TooltipContent,
@@ -41,6 +45,7 @@ import {
   type TaxLatencyType,
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
+import { useManualFormStore } from '../../store/manual/useManualFormStore'
 
 // ─────────────────────────────────────────
 // HELPERS
@@ -108,11 +113,15 @@ interface TaxLatencyRowProps {
   t: ReturnType<typeof useTranslations<'taxLatency'>>
 }
 
-function TaxLatencyRow({ item, currencyLocale, onEdit, onRemove, t }: TaxLatencyRowProps) {
+const TaxLatencyRow = forwardRef<HTMLDivElement, TaxLatencyRowProps>(function TaxLatencyRow(
+  { item, currencyLocale, onEdit, onRemove, t },
+  ref
+) {
   const amount = calculateLatencyAmount(item)
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -195,7 +204,7 @@ function TaxLatencyRow({ item, currencyLocale, onEdit, onRemove, t }: TaxLatency
       </div>
     </motion.div>
   )
-}
+})
 
 interface TaxLatencyCandidateCardProps {
   candidate: TaxLatencyCandidate
@@ -284,6 +293,7 @@ export function TaxLatencySection({
   const t = useTranslations('taxLatency')
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const countryCode = useManualFormStore((s) => s.formData.country_code)
 
   const items = useTaxLatencyStore((s) => s.items)
   const candidates = useTaxLatencyStore((s) => s.candidates)
@@ -297,6 +307,7 @@ export function TaxLatencySection({
 
   const [draftType, setDraftType] = useState<TaxLatencyType>('passive')
   const [draftAccountCode, setDraftAccountCode] = useState('')
+  const [draftAccountName, setDraftAccountName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
   const [draftAmount, setDraftAmount] = useState('')
   const [draftRate, setDraftRate] = useState(String(defaultTaxRate))
@@ -334,10 +345,10 @@ export function TaxLatencySection({
     }
   }, [])
 
-  const availableLedgers = useMemo(
-    () => (fetchedLedgers.length > 0 ? fetchedLedgers : DEFAULT_LEDGER_ACCOUNTS),
-    [fetchedLedgers]
-  )
+  const availableLedgers = useMemo(() => {
+    const base = fetchedLedgers.length > 0 ? fetchedLedgers : DEFAULT_LEDGER_ACCOUNTS
+    return applyGrootboekCountryOverrides(base, countryCode)
+  }, [countryCode, fetchedLedgers])
 
   const selectedLedger = useMemo(
     () => availableLedgers.find((ledger) => ledger.code === draftAccountCode) ?? null,
@@ -380,6 +391,7 @@ export function TaxLatencySection({
   const resetDraft = useCallback(() => {
     setDraftType('passive')
     setDraftAccountCode('')
+    setDraftAccountName('')
     setDraftDescription('')
     setDraftAmount('')
     setDraftRate(String(defaultTaxRate))
@@ -396,7 +408,11 @@ export function TaxLatencySection({
       updateItem(editingId, {
         type: draftType,
         accountCode: draftAccountCode,
-        accountName: selectedLedger?.name || items.find((item) => item.id === editingId)?.accountName || '',
+        accountName:
+          selectedLedger?.name ||
+          draftAccountName ||
+          items.find((item) => item.id === editingId)?.accountName ||
+          '',
         description: draftDescription,
         temporaryDifference: Math.abs(parsedAmount),
         taxRate: parsedRate,
@@ -406,7 +422,7 @@ export function TaxLatencySection({
         id: generateId(),
         type: draftType,
         accountCode: draftAccountCode,
-        accountName: selectedLedger?.name || '',
+        accountName: selectedLedger?.name || draftAccountName || '',
         description: draftDescription,
         temporaryDifference: Math.abs(parsedAmount),
         taxRate: parsedRate,
@@ -420,6 +436,7 @@ export function TaxLatencySection({
     addItem,
     canSubmit,
     draftAccountCode,
+    draftAccountName,
     draftCandidateId,
     draftDescription,
     draftType,
@@ -436,6 +453,7 @@ export function TaxLatencySection({
   const handleEdit = useCallback((item: TaxLatencyItem) => {
     setDraftType(item.type)
     setDraftAccountCode(item.accountCode || '')
+    setDraftAccountName(item.accountName || '')
     setLedgerQuery(getLedgerDisplayLabel(item.accountCode, item.accountName))
     setShowLedgerDropdown(false)
     setDraftDescription(item.description)
@@ -461,6 +479,7 @@ export function TaxLatencySection({
     (candidate: TaxLatencyCandidate) => {
       setDraftType(candidate.type)
       setDraftAccountCode(candidate.accountCode)
+      setDraftAccountName(candidate.accountName)
       setLedgerQuery(getLedgerDisplayLabel(candidate.accountCode, candidate.accountName))
       setShowLedgerDropdown(false)
       setDraftDescription(candidate.description)
@@ -496,6 +515,7 @@ export function TaxLatencySection({
 
   const handleSelectLedger = useCallback((ledger: LedgerAccount) => {
     setDraftAccountCode(ledger.code)
+    setDraftAccountName(ledger.name)
     setLedgerQuery(getLedgerDisplayLabel(ledger.code, ledger.name))
     setShowLedgerDropdown(false)
   }, [])
@@ -603,6 +623,7 @@ export function TaxLatencySection({
                   setShowLedgerDropdown(query.trim().length > 0)
                   if (query !== getLedgerDisplayLabel(selectedLedger?.code, selectedLedger?.name)) {
                     setDraftAccountCode('')
+                    setDraftAccountName('')
                   }
                 }}
                 onKeyDown={(event) => {

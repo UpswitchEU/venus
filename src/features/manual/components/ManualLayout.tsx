@@ -143,6 +143,7 @@ import {
   persistOrDeleteNormalizationsForYears,
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
+import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -4330,6 +4331,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           useTaxLatencyStore.getState().setItems(version.tax_latency_data)
         } else {
           useTaxLatencyStore.getState().clear()
+        }
+
+        const versionBusinessContext =
+          version.formData &&
+          typeof version.formData === 'object' &&
+          'business_context' in version.formData
+            ? (version.formData.business_context as Record<string, unknown> | undefined)
+            : undefined
+        const importedLedgerAnalysis = versionBusinessContext?._imported_ledger_analysis
+        if (importedLedgerAnalysis && typeof importedLedgerAnalysis === 'object') {
+          useTaxLatencyStore.getState().setCandidates(
+            buildTaxLatencyCandidatesFromImportedLedgerAnalysis(importedLedgerAnalysis as any)
+          )
+        } else {
+          useTaxLatencyStore.getState().setCandidates([])
         }
 
         // 6. Update version history active version and re-fetch from backend

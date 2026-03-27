@@ -575,17 +575,35 @@ export function buildValuationRequest(
 
   // Tax latencies (belastinglatenties) now flow as balance-sheet adjustments
   // to keep PDF/report output ledger-linked and avoid double-counting in Step 7.
+  const existingBalanceSheetAdjustments = Array.isArray(formData.balance_sheet_adjustments)
+    ? formData.balance_sheet_adjustments
+    : []
   const taxLatencyItems = useTaxLatencyStore.getState().items
-  if (taxLatencyItems.length > 0) {
-    request.balance_sheet_adjustments = taxLatencyItems.map((item) => ({
+  const taxLatencyAdjustments: ValuationRequest['balance_sheet_adjustments'] =
+    taxLatencyItems.length > 0
+      ? taxLatencyItems.map((item) => ({
       id: item.id,
       label: item.description || item.accountName || 'Belastinglatentie',
       amount: Math.abs(calculateLatencyAmount(item)),
-      type: item.type === 'active' ? 'add' : 'subtract',
+          type: item.type === 'active' ? ('add' as const) : ('subtract' as const),
       category: 'tax_latency',
       description: item.description,
       ...(item.accountCode ? { account_code: item.accountCode } : {}),
-    }))
+      }))
+      : []
+
+  const mergedBalanceSheetAdjustments =
+    taxLatencyItems.length > 0
+      ? [
+          ...existingBalanceSheetAdjustments.filter(
+            (adjustment) => adjustment.category !== 'tax_latency'
+          ),
+          ...taxLatencyAdjustments,
+        ]
+      : existingBalanceSheetAdjustments
+
+  if (mergedBalanceSheetAdjustments.length > 0) {
+    request.balance_sheet_adjustments = mergedBalanceSheetAdjustments
   }
 
   // BANK-GRADE: Log request structure for diagnostics (only in development)

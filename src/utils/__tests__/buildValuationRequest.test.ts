@@ -163,6 +163,79 @@ describe('buildValuationRequest', () => {
     useTaxLatencyStore.getState().clear()
   })
 
+  it('merges tax latency adjustments with existing non-tax balance sheet adjustments', () => {
+    useTaxLatencyStore.getState().setItems([
+      {
+        id: 'tl-1',
+        type: 'passive',
+        accountCode: '222000',
+        accountName: 'Gebouwen',
+        description: 'Belastinglatentie op meerwaarde gebouw',
+        temporaryDifference: 150_000,
+        taxRate: 25,
+      },
+    ])
+
+    const result = buildValuationRequest(
+      makeFormData({
+        balance_sheet_adjustments: [
+          {
+            id: 'cash-1',
+            label: 'Excess cash',
+            amount: 20_000,
+            type: 'add',
+            category: 'excess_cash',
+            description: 'Surplus cash position',
+          },
+        ],
+      }),
+      []
+    )
+
+    expect(result.balance_sheet_adjustments).toEqual([
+      expect.objectContaining({
+        id: 'cash-1',
+        category: 'excess_cash',
+      }),
+      expect.objectContaining({
+        id: 'tl-1',
+        category: 'tax_latency',
+        account_code: '222000',
+      }),
+    ])
+
+    useTaxLatencyStore.getState().clear()
+  })
+
+  it('preserves existing tax latency adjustments when the tax latency store is empty', () => {
+    useTaxLatencyStore.getState().clear()
+
+    const result = buildValuationRequest(
+      makeFormData({
+        balance_sheet_adjustments: [
+          {
+            id: 'tl-existing',
+            label: 'Persisted tax latency',
+            amount: 12_500,
+            type: 'subtract',
+            category: 'tax_latency',
+            description: 'Restored from persisted request',
+            account_code: '160000',
+          },
+        ],
+      }),
+      []
+    )
+
+    expect(result.balance_sheet_adjustments).toEqual([
+      expect.objectContaining({
+        id: 'tl-existing',
+        category: 'tax_latency',
+        account_code: '160000',
+      }),
+    ])
+  })
+
   it('keeps zero EBITDA as the reported baseline for normalization math', () => {
     const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(

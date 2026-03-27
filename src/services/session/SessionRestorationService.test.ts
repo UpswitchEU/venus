@@ -4,11 +4,13 @@ import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
+import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 
 describe('SessionRestorationService', () => {
   beforeEach(() => {
     SessionRestorationService.clearRestorationState()
     useNormalizationStore.getState().clear()
+    useTaxLatencyStore.getState().clear()
     vi.spyOn(useNormalizationStore.getState(), 'loadFromTitan').mockResolvedValue(undefined)
     useManualFormStore.getState().resetForm()
     useManualResultsStore.setState({
@@ -108,6 +110,7 @@ describe('SessionRestorationService', () => {
 
   it('hydrateFromPackage seeds normalization drafts from business_context._imported_ledger_analysis', () => {
     useNormalizationStore.getState().clear()
+    useTaxLatencyStore.getState().clear()
 
     SessionRestorationService.hydrateFromPackage(
       'val_pkg_ledger',
@@ -142,11 +145,54 @@ describe('SessionRestorationService', () => {
     expect(items.length).toBe(1)
     expect(items[0].ledgerCode).toBe('610')
     expect(items[0].status).toBe('pending')
+    expect(useTaxLatencyStore.getState().candidates).toEqual([])
+  })
+
+  it('hydrateFromPackage seeds tax latency candidates from business_context._imported_ledger_analysis', () => {
+    useTaxLatencyStore.getState().clear()
+
+    SessionRestorationService.hydrateFromPackage(
+      'val_pkg_tax_latency',
+      {
+        htmlReport: null,
+        pricingRange: null,
+        versions: { current: 1, total: 1, history: [] },
+        pdf: { url: null, status: 'none' },
+        formData: {
+          company_name: 'Pkg Latency Co',
+          business_context: {
+            _imported_ledger_analysis: {
+              tax_latency_candidates: [
+                {
+                  account_code: '222000',
+                  account_name: 'Gebouwen',
+                  description: 'Vastgoed op de balans',
+                  suggested_question:
+                    'Opgelet: MAR 222000 bevat vastgoed. Wilt u hier een belastinglatentie op toepassen?',
+                  tax_rate: 25,
+                  fiscal_year: 2024,
+                },
+              ],
+            },
+          },
+        },
+      },
+      'manual'
+    )
+
+    expect(useTaxLatencyStore.getState().candidates).toEqual([
+      expect.objectContaining({
+        accountCode: '222000',
+        accountName: 'Gebouwen',
+        year: 2024,
+      }),
+    ])
   })
 
   it('restore seeds SDE drafts from persisted imported ledger when Titan has no normalizations', async () => {
     SessionRestorationService.clearRestorationState('val_restore_ledger')
     useNormalizationStore.getState().clear()
+    useTaxLatencyStore.getState().clear()
 
     await SessionRestorationService.restore('val_restore_ledger', {
       reportId: 'val_restore_ledger',
@@ -172,6 +218,94 @@ describe('SessionRestorationService', () => {
 
     const items = useNormalizationStore.getState().items
     expect(items.some((i) => i.ledgerCode === '620')).toBe(true)
+    expect(useTaxLatencyStore.getState().candidates).toEqual([])
+  })
+
+  it('restore seeds tax latency candidates from persisted imported ledger analysis', async () => {
+    SessionRestorationService.clearRestorationState('val_restore_tax_latency')
+    useTaxLatencyStore.getState().clear()
+
+    await SessionRestorationService.restore('val_restore_tax_latency', {
+      reportId: 'val_restore_tax_latency',
+      sessionData: {
+        company_name: 'Restore Latency Co',
+        business_context: {
+          _imported_ledger_analysis: {
+            tax_latency_candidates: [
+              {
+                account_code: '160000',
+                account_name: 'Voorzieningen',
+                description: 'Voorziening mogelijk tijdelijk fiscaal verschil',
+                suggested_question:
+                  'Opgelet: MAR 160000 bevat voorzieningen. Wilt u hier een belastinglatentie op toepassen?',
+                tax_rate: 25,
+                fiscal_year: 2023,
+              },
+            ],
+          },
+        },
+      },
+    } as any)
+
+    expect(useTaxLatencyStore.getState().candidates).toEqual([
+      expect.objectContaining({
+        accountCode: '160000',
+        accountName: 'Voorzieningen',
+        year: 2023,
+      }),
+    ])
+  })
+
+  it('restore seeds tax latency candidates even when normalization items already exist', async () => {
+    SessionRestorationService.clearRestorationState('val_restore_tax_latency_with_norms')
+    useNormalizationStore.getState().setItems([
+      {
+        id: 'norm-1',
+        ledgerCode: '610',
+        ledgerName: 'Discretionary',
+        category: 'other',
+        type: 'add',
+        value: 5000,
+        adjustment: 5000,
+        reason: 'Existing normalization',
+        source: 'manual',
+        status: 'accepted',
+        year: 2024,
+        applyAllYears: false,
+        createdAt: new Date().toISOString(),
+      } as any,
+    ])
+    useTaxLatencyStore.getState().clear()
+
+    await SessionRestorationService.restore('val_restore_tax_latency_with_norms', {
+      reportId: 'val_restore_tax_latency_with_norms',
+      sessionData: {
+        company_name: 'Restore Latency With Norms Co',
+        business_context: {
+          _imported_ledger_analysis: {
+            tax_latency_candidates: [
+              {
+                account_code: '222000',
+                account_name: 'Gebouwen',
+                description: 'Vastgoed op de balans',
+                suggested_question:
+                  'Opgelet: MAR 222000 bevat vastgoed. Wilt u hier een belastinglatentie op toepassen?',
+                tax_rate: 25,
+                fiscal_year: 2024,
+              },
+            ],
+          },
+        },
+      },
+    } as any)
+
+    expect(useTaxLatencyStore.getState().candidates).toEqual([
+      expect.objectContaining({
+        accountCode: '222000',
+        accountName: 'Gebouwen',
+        year: 2024,
+      }),
+    ])
   })
 
   it('normalizes restored partial shares_for_sale back to 100', async () => {

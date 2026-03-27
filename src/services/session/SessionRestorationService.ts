@@ -616,13 +616,14 @@ class SessionRestorationServiceImpl {
       })
     }
 
-    // 7. Imported ledger analysis — seed SDE normalization drafts when no items restored yet
+    // 7. Imported ledger analysis — seed review prompts from persisted import analysis
     try {
       const normStore = useNormalizationStore.getState()
-      if (normStore.items.length === 0) {
-        const bc = (data.formData as any)?.business_context
-        const analysis = bc?._imported_ledger_analysis
-        if (analysis && typeof analysis === 'object') {
+      useTaxLatencyStore.getState().setCandidates([])
+      const bc = (data.formData as any)?.business_context
+      const analysis = bc?._imported_ledger_analysis
+      if (analysis && typeof analysis === 'object') {
+        if (normStore.items.length === 0) {
           const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis)
           if (items.length > 0) {
             normStore.addItems(items)
@@ -632,11 +633,9 @@ class SessionRestorationServiceImpl {
               { count: items.length }
             )
           }
-          const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
-            analysis as any
-          )
-          useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
         }
+        const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(analysis as any)
+        useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
       }
     } catch (error) {
       generalLogger.warn('[SessionRestoration] Imported ledger normalization seed failed (non-blocking)', {
@@ -883,21 +882,22 @@ class SessionRestorationServiceImpl {
           }
           try {
             const ns = useNormalizationStore.getState()
-            if (ns.items.length === 0) {
-              const bc = (raw.business_context ?? raw.businessContext) as
-                | Record<string, unknown>
-                | undefined
-              const analysis = bc?._imported_ledger_analysis
-              if (analysis && typeof analysis === 'object') {
+            useTaxLatencyStore.getState().setCandidates([])
+            const bc = (raw.business_context ?? raw.businessContext) as
+              | Record<string, unknown>
+              | undefined
+            const analysis = bc?._imported_ledger_analysis
+            if (analysis && typeof analysis === 'object') {
+              if (ns.items.length === 0) {
                 const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis as any)
                 if (items.length > 0) {
                   ns.addItems(items)
                 }
-                const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
-                  analysis as any
-                )
-                useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
               }
+              const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
+                analysis as any
+              )
+              useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
             }
           } catch {
             // Non-critical
