@@ -100,29 +100,8 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
 // Mock fetch
 global.fetch = vi.fn()
 
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-}
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-})
-
-// Mock sessionStorage
-const sessionStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-}
-Object.defineProperty(window, 'sessionStorage', {
-  value: sessionStorageMock,
-  writable: true,
-})
+// Use jsdom's built-in localStorage/sessionStorage so setItem/getItem persist.
+// (A prior vi.fn() mock broke any code that wrote then read storage in tests.)
 
 // Suppress console errors in tests (optional - comment out if you want to see them)
 // Note: This is commented out by default to help with debugging

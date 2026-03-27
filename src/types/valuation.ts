@@ -193,6 +193,11 @@ export interface ValuationRequest {
   // Tax latencies (belastinglatenties) — equity bridge adjustments
   tax_latencies?: TaxLatencyInput[]
 
+  // Real estate carve-out for share deals where the property remains with the seller
+  exclude_real_estate?: boolean
+  real_estate_book_value?: number
+  estimated_market_rent?: number
+
   /** Accountant-tier: override EV/EBITDA median vs Upswitch benchmark (see preparer_ev_ebitda_override) */
   preparer_ev_ebitda_median?: number
   preparer_ev_ebitda_override?: {
@@ -274,6 +279,10 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   nav_inventory_adjustment?: number
   nav_hidden_reserves?: number
   nav_goodwill_writeoff?: number
+  // M&A transaction structure
+  exclude_real_estate?: boolean
+  real_estate_book_value?: number
+  estimated_market_rent?: number
   // SaaS metrics
   saas_arr?: number
   saas_mrr?: number
@@ -635,6 +644,7 @@ export interface Step7EVToEquityResult {
   excess_cash?: number
   operating_cash_pct?: number
   net_debt: number
+  nwc_surplus_deficit?: number
   debt_to_ev_ratio?: number
   cash_to_ev_ratio?: number
   net_debt_to_ev_ratio?: number
@@ -817,6 +827,24 @@ export interface HistoricalFcfReadiness {
   actual_nwc_years: number
 }
 
+export interface DcfWaccBuildup {
+  formula?: string
+  cost_of_equity_formula?: string
+  risk_free_rate?: number
+  beta?: number
+  equity_risk_premium?: number
+  size_premium?: number
+  company_specific_risk?: number
+  cost_of_equity?: number
+  cost_of_debt?: number
+  equity_weight?: number
+  debt_weight?: number
+  tax_rate?: number
+  debt_yield?: number
+  tax_shield?: number
+  wacc?: number
+}
+
 export interface ValuationResponse {
   valuation_id: string
   company_name: string
@@ -927,6 +955,9 @@ export interface ValuationResponse {
     terminal_value_methodology?: 'gordon_growth' | 'exit_multiple' | string | null
     terminal_exit_multiple?: number | null
     pv_terminal_value: number
+    wacc_buildup?: DcfWaccBuildup | null
+    terminal_value_pct_of_total?: number | null
+    explicit_forecast_pct_of_total?: number | null
     fcf_projections_5y: number[]
     pv_fcf_projections_5y: number[]
     sensitivity_wacc: Record<string, number>

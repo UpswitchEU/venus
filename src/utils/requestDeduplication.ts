@@ -51,7 +51,7 @@ export class RequestDeduplicator {
    * @param fn - Function to execute (should return Promise)
    * @returns Result from function or cached promise
    */
-  async deduplicate<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  deduplicate<T>(key: string, fn: () => Promise<T>): Promise<T> {
     this.stats.total++
 
     // Check if request already in-flight

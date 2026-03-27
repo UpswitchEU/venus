@@ -1245,6 +1245,7 @@
       "sections": {
         "dcfProjections": "DCF Prognoses",
         "navAssetSchedule": "Activa-aanpassingen",
+        "realEstateCarveOut": "Vastgoed carve-out",
         "saasMetrics": "SaaS Metrics",
         "saasDerivedMetrics": "Berekende SaaS-signalen",
         "revenueQuality": "Omzetkwaliteit"
@@ -1267,6 +1268,9 @@
         "navInventoryAdjustment": "Voorraadcorrectie",
         "navHiddenReserves": "Stille reserves",
         "navGoodwillWriteoff": "Goodwill-afschrijving",
+        "excludeRealEstate": "Vastgoed uitsluiten uit transactie?",
+        "realEstateBookValue": "Boekwaarde vastgoed",
+        "estimatedMarketRent": "Fictieve huur",
         "saasArr": "ARR",
         "saasMrr": "MRR",
         "saasArrGrowthPct": "ARR-groei (%)",
@@ -1288,10 +1292,15 @@
         "revTopClientConcentrationPct": "Topklant-concentratie (%)",
         "revContractBacklog": "Contractuele orderportefeuille"
       },
+      "realEstateCarveOutHint": "Wanneer de koper het vastgoed niet overneemt, wordt de boekwaarde uit de transactie gehaald en wordt de fictieve huur in mindering gebracht op de EBITDA-basis.",
       "saasProjectionPreview": {
         "title": "5-jaars ARR-projectie",
         "description": "Voor SaaS-DCF werk projecteert deze preview de huidige ARR- of MRR-basis door met de gekozen groei- en retentie-aannames.",
         "arr": "Geprojecteerde ARR"
+      },
+      "saasImported": {
+        "title": "Geimporteerde SaaS-snapshot",
+        "description": "Vooraf ingevuld vanuit {provider} voor boekjaar {year} met {confidence}% betrouwbaarheid. U kunt elke waarde nog manueel aanpassen voor de waardering."
       },
       "waccBreakdown": {
         "expand": "Toon aannames",
@@ -1378,6 +1387,21 @@
     "company": "Bedrijf",
     "reportPreview": "Rapport Voorbeeld",
     "reportPreviewDesc": "De volledige rapport sjabloon wordt hier getoond.",
+    "equityBridge": {
+      "title": "Bridge van ondernemingswaarde naar aandelenwaarde",
+      "blurb": "Toont hoe de ondernemingswaarde doorloopt naar de aandelenwaarde op basis van de laatste kas-, schuld- en werkkapitaaldata uit de waarderingspayload.",
+      "dataSourceHint": "Kas en schuld gebruiken, waar beschikbaar, de gesynchroniseerde balanswaarden uit de API-integraties.",
+      "enterpriseValue": "Ondernemingswaarde",
+      "enterpriseShort": "EV",
+      "cash": "Kas & kasequivalenten",
+      "cashShort": "Kas",
+      "debt": "Rentedragende schuld",
+      "debtShort": "Schuld",
+      "nwc": "Aanpassing netto werkkapitaal",
+      "nwcShort": "NWC",
+      "equityValue": "Aandelenwaarde",
+      "equityShort": "Equity"
+    },
     "currentVersion": "Huidige versie",
     "guest": "Gast",
     "retry": "Opnieuw proberen",
@@ -1552,6 +1576,8 @@
     "suggestedNormalizations": "Voorgestelde Normalisaties",
     "normalizationsToReview": "{count} normalisaties te beoordelen",
     "normalizationsAccepted": "{count} normalisaties geaccepteerd",
+    "noLedgerSuggestionsCaption": "Geen automatische suggesties uit deze import",
+    "noLedgerSuggestionsBody": "We hebben geen eigenaarsgerelateerde kosten boven de reviewdrempel gevonden in uw gemapte rekeningen. Ga door naar de schatting of voeg later normalisaties toe in de calculator.",
     "acceptAll": "Alles accepteren",
     "accepted": "✓ Geaccepteerd",
     "rejected": "✕ Afgewezen",
@@ -1952,12 +1978,6 @@
     "continueToEstimate": "Doorgaan naar schatting",
     "accountsImported": "{accounts} rekeningen geïmporteerd — {years, plural, one {# boekjaar} other {# boekjaren}} geanalyseerd",
     "skipAndStart": "Sla over en begin direct →",
-    "defaultSuggestion1Category": "Eigenaarssalaris",
-    "defaultSuggestion1Description": "Marktconforme correctie",
-    "defaultSuggestion1Reason": "Verschil tussen huidig en marktconform salaris voor vergelijkbare functie",
-    "defaultSuggestion2Category": "Huurkosten",
-    "defaultSuggestion2Description": "Onder-marktwaarde huur",
-    "defaultSuggestion2Reason": "Huur € 700/maand onder marktwaarde voor vergelijkbaar pand",
     "potentialNormalisation": "Potentiële normalisatie",
     "privateUseDetected": "Privégebruik component gedetecteerd op basis van sectorvergelijking"
   },

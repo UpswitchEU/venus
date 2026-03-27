@@ -53,7 +53,8 @@ import { storeLogger } from './logger'
  */
 export function generateIdempotencyKey(reportId: string, operation: string): string {
   const timestamp = Date.now()
-  return `${reportId}-${operation}-${timestamp}`
+  const nonce = Math.random().toString(36).slice(2, 10)
+  return `${reportId}-${operation}-${timestamp}-${nonce}`
 }
 
 /**
@@ -79,12 +80,31 @@ export function parseIdempotencyKey(key: string): {
     return null
   }
 
-  const timestamp = parseInt(parts[parts.length - 1], 10)
+  const last = parts[parts.length - 1] ?? ''
+  const secondLast = parts[parts.length - 2] ?? ''
+
+  // New format: {reportId}-{operation}-{timestamp}-{nonce} — last segment is a non-numeric nonce
+  if (parts.length >= 4 && !/^\d+$/.test(last)) {
+    const timestamp = parseInt(secondLast, 10)
+    if (isNaN(timestamp)) {
+      return null
+    }
+    const operation = parts[parts.length - 3] ?? ''
+    const reportId = parts.slice(0, -3).join('-')
+    return {
+      reportId,
+      operation,
+      timestamp,
+    }
+  }
+
+  // Legacy: {reportId}-{operation}-{timestamp} — last segment is numeric millis
+  const timestamp = parseInt(last, 10)
   if (isNaN(timestamp)) {
     return null
   }
 
-  const operation = parts[parts.length - 2]
+  const operation = parts[parts.length - 2] ?? ''
   const reportId = parts.slice(0, -2).join('-')
 
   return {

@@ -121,6 +121,8 @@ function enrichDcfMethod(
   const enterpriseValue = toFiniteNumber(dcfValuation.enterprise_value)
   const wacc = toFiniteNumber(dcfValuation.wacc)
   const terminalValue = toFiniteNumber(dcfValuation.terminal_value)
+  const terminalValuePct = toFiniteNumber(dcfValuation.terminal_value_pct_of_total)
+  const explicitForecastPct = toFiniteNumber(dcfValuation.explicit_forecast_pct_of_total)
   const readiness =
     dcfValuation.historical_fcf_readiness &&
     typeof dcfValuation.historical_fcf_readiness === 'object' &&
@@ -136,6 +138,15 @@ function enrichDcfMethod(
   }
   if (details.terminal_value == null && terminalValue != null) {
     details.terminal_value = terminalValue
+  }
+  if (details.terminal_value_pct_of_total == null && terminalValuePct != null) {
+    details.terminal_value_pct_of_total = terminalValuePct
+  }
+  if (details.explicit_forecast_pct_of_total == null && explicitForecastPct != null) {
+    details.explicit_forecast_pct_of_total = explicitForecastPct
+  }
+  if (details.wacc_buildup == null && dcfValuation.wacc_buildup && typeof dcfValuation.wacc_buildup === 'object') {
+    details.wacc_buildup = dcfValuation.wacc_buildup
   }
   if (details.historical_fcf_readiness == null && readiness) {
     details.historical_fcf_readiness = readiness

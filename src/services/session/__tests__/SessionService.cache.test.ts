@@ -13,6 +13,16 @@ import { globalSessionCache } from '../../../utils/sessionCacheManager'
 import { backendAPI } from '../../backendApi'
 import { SessionService } from '../SessionService'
 
+const sessionApiMocks = vi.hoisted(() => ({
+  saveValuationResult: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../../api/session/SessionAPI', () => ({
+  SessionAPI: class {
+    saveValuationResult = sessionApiMocks.saveValuationResult
+  },
+}))
+
 // Mock dependencies
 vi.mock('../../backendApi', () => ({
   backendAPI: {
@@ -64,14 +74,6 @@ describe('SessionService - Cache Update Strategy', () => {
 
   describe('saveCompleteSession - Cache Update (Phase 1)', () => {
     it('should UPDATE cache with fresh data after save (not invalidate)', async () => {
-      // Mock SessionAPI.saveValuationResult
-      const mockSessionAPI = {
-        saveValuationResult: vi.fn().mockResolvedValue(undefined),
-      }
-      vi.doMock('../../api/session/SessionAPI', () => ({
-        SessionAPI: vi.fn(() => mockSessionAPI),
-      }))
-
       // Mock backend response with complete session
       vi.mocked(backendAPI.getValuationSession).mockResolvedValue({
         success: true,
@@ -100,14 +102,6 @@ describe('SessionService - Cache Update Strategy', () => {
     })
 
     it('should handle cache update failure gracefully', async () => {
-      // Mock SessionAPI
-      const mockSessionAPI = {
-        saveValuationResult: vi.fn().mockResolvedValue(undefined),
-      }
-      vi.doMock('../../api/session/SessionAPI', () => ({
-        SessionAPI: vi.fn(() => mockSessionAPI),
-      }))
-
       // Mock backend error
       vi.mocked(backendAPI.getValuationSession).mockRejectedValue(new Error('Backend unavailable'))
 

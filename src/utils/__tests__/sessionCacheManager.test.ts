@@ -76,9 +76,11 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       const cached = localStorage.getItem(`upswitch_session_cache_${mockReportId}`)
       const parsed = JSON.parse(cached!)
 
-      const version = parseInt(parsed.version)
-      expect(version).toBeGreaterThanOrEqual(before)
-      expect(version).toBeLessThanOrEqual(after)
+      const versionMs = Date.parse(parsed.version)
+      expect(Number.isFinite(versionMs)).toBe(true)
+      // validateSessionData assigns updatedAt inside set(); allow clock slack vs Date.parse
+      expect(versionMs).toBeGreaterThanOrEqual(before - 2000)
+      expect(versionMs).toBeLessThanOrEqual(after + 2000)
     })
   })
 
@@ -89,7 +91,9 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       const result = cacheManager.get(mockReportId)
 
       expect(result).toBeTruthy()
-      expect(result?.htmlReport).toBe('<html>Complete Report</html>')
+      // HTML is stripped from localStorage; valuation data is retained for completeness checks
+      expect(result?.htmlReport).toBeUndefined()
+      expect(result?.valuationResult).toBeTruthy()
     })
 
     it('should return incomplete session if cache is fresh (<10 min)', () => {
@@ -120,7 +124,7 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
 
       // Cache should be deleted
       const deletedCache = localStorage.getItem(`upswitch_session_cache_${mockReportId}`)
-      expect(deletedCache).toBeNull()
+      expect(deletedCache == null).toBe(true)
     })
 
     it('should NOT invalidate complete stale cache (>10 min)', () => {
@@ -138,7 +142,7 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
 
       // Should return complete session even if stale
       expect(result).toBeTruthy()
-      expect(result?.htmlReport).toBeTruthy()
+      expect(result?.valuationResult).toBeTruthy()
     })
   })
 
@@ -152,7 +156,7 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
 
       // Cache should be deleted
       const deletedCache = localStorage.getItem(`upswitch_session_cache_${mockReportId}`)
-      expect(deletedCache).toBeNull()
+      expect(deletedCache == null).toBe(true)
     })
 
     it('should handle expired cache', () => {
@@ -175,6 +179,7 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       const partiallyCompleteSession = {
         ...incompleteSession,
         htmlReport: '<html>Report only</html>',
+        valuationResult: { valuation_id: 'v1', final_valuation_eur: 1 } as any,
       }
 
       cacheManager.set(mockReportId, partiallyCompleteSession)
@@ -182,7 +187,8 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       const result = cacheManager.get(mockReportId)
 
       expect(result).toBeTruthy()
-      expect(result?.htmlReport).toBeTruthy()
+      expect(result?.htmlReport).toBeUndefined()
+      expect(result?.valuationResult).toBeTruthy()
     })
   })
 

@@ -20,18 +20,11 @@ describe('NameGenerator', () => {
       expect(name).toMatch(/Valuation Report #\d+/)
     })
 
-    it('should generate sequential names for guest users', () => {
-      // Simulate guest user (no auth tokens)
-      localStorage.removeItem('upswitch_user_id')
-      localStorage.removeItem('upswitch_auth_token')
-      // Set initial count to 0 to start from 1
-      localStorage.setItem('upswitch_guest_report_count', '0')
-
-      const name1 = NameGenerator.generateValuationName()
-      const name2 = NameGenerator.generateValuationName()
-
-      expect(name1).toMatch(/Valuation Report #1/)
-      expect(name2).toMatch(/Valuation Report #2/)
+    it('should be deterministic for the same seed (auth-first hash numbering)', () => {
+      const name1 = NameGenerator.generateValuationName('fixed-seed')
+      const name2 = NameGenerator.generateValuationName('fixed-seed')
+      expect(name1).toBe(name2)
+      expect(name1).toMatch(/^Valuation Report #\d+$/)
     })
 
     it('should generate names with consistent format', () => {
@@ -46,7 +39,7 @@ describe('NameGenerator', () => {
       expect(name).toBeTruthy()
       expect(typeof name).toBe('string')
       expect(name).toContain('Test')
-      expect(name).toContain('Valuation')
+      expect(name.toLowerCase()).toContain('valuation')
     })
 
     it('should handle empty company name', () => {

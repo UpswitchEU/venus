@@ -9,18 +9,23 @@
  * @module hooks/useBootstrapPrefill
  */
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { getCurrentFilingYear } from '../utils/fiscalYear'
 import { useBootstrapSafe } from '../lib/bootstrap'
 import type {
   BusinessTypeInfo,
   CompanyInfo,
   PartialFinancials,
   PrefillData,
+  PrefillSource,
 } from '../lib/bootstrap/types'
+import type { ValuationFormData } from '../types/valuation'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { buildBusinessTypeFormData } from '../components/ValuationForm/utils/businessTypeFormData'
-import { getCurrentFilingYear } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
+import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
+import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
+import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
 
 const logger = createContextLogger('BootstrapPrefill')
 
@@ -58,8 +63,12 @@ export function useBootstrapPrefill(): {
   prefillConfidence: number
   readOnlyKbo: boolean
   autoAdvancePastPrefilledSteps: boolean
+  /** True while Titan async BE official enrichment job is in flight (poll merges when done). */
+  isOfficialFilingPending: boolean
 } {
   const bootstrap = useBootstrapSafe()
+  const bootstrapRef = useRef(bootstrap)
+  bootstrapRef.current = bootstrap
   const hasPrefilledRef = useRef(false)
   const [hasPrefilled, setHasPrefilled] = useState(false)
 
@@ -212,11 +221,162 @@ export function useBootstrapPrefill(): {
     })
   }, [bootstrap, formStore])
 
+  // Async Belgian official enrichment: poll Titan job and merge into form + prefill when ready.
+  useEffect(() => {
+    const b = bootstrapRef.current
+    if (!b) return
+    const jobId = b.prefillData.officialEnrichmentJobId
+    if (!jobId || b.isBootstrapping) return
+
+    let cancelled = false
+    let attempts = 0
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const maxAttempts = 90
+
+    const schedule = (fn: () => void, ms: number) => {
+      timeoutId = setTimeout(fn, ms)
+    }
+
+    const clearOfficialJob = (reason: string) => {
+      logger.warn('Async Belgian official enrichment poll stopped', {
+        jobId: jobId.substring(0, 8),
+        reason,
+      })
+      bootstrapRef.current?.updatePrefillData({ officialEnrichmentJobId: undefined })
+    }
+
+    const poll = async () => {
+      if (cancelled || attempts >= maxAttempts) {
+        if (attempts >= maxAttempts) {
+          clearOfficialJob(`max_attempts_${maxAttempts}`)
+        }
+        return
+      }
+      attempts += 1
+      try {
+        const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, {
+          credentials: 'include',
+        })
+
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            clearOfficialJob(`http_${res.status}`)
+            return
+          }
+          if (!cancelled) {
+            schedule(() => {
+              void poll()
+            }, 2000)
+          }
+          return
+        }
+
+        const data = (await res.json()) as {
+          status?: string
+          result?: Record<string, unknown> | null
+        }
+        if (cancelled) return
+
+        const status = data.status
+        if (status === 'completed') {
+          if (!data.result || typeof data.result !== 'object') {
+            clearOfficialJob('completed_empty_result')
+            return
+          }
+          const fdBefore = formStore.getState().formData
+          let mapped = mapBelgianOfficialRegistryResponseToOfficialFinancials(data.result)
+          const { updateFormData } = formStore.getState()
+          if (mapped) {
+            const { revenue: userRevenue, ebitda: userEbitda } = resolveTrustComparisonUserFigures(
+              fdBefore,
+              mapped.filingYear
+            )
+            mapped = applyUserVsOfficialVariance(
+              mapped,
+              userRevenue,
+              userEbitda,
+              10,
+              fdBefore.official_variance_analysis
+            )
+            const financialPatch: Partial<ValuationFormData> = {
+              official_financials: mapped,
+              ...(mapped.varianceAnalysis && {
+                official_variance_analysis: mapped.varianceAnalysis,
+              }),
+              ...(mapped.verificationBadge && {
+                official_verification_badge: mapped.verificationBadge,
+              }),
+            }
+            // Mirror Titan bootstrap: non-destructive fill from official filing when user fields are still empty.
+            if (fdBefore.revenue == null && mapped.revenue != null) {
+              financialPatch.revenue = mapped.revenue
+            }
+            if (fdBefore.ebitda == null && mapped.ebitda != null) {
+              financialPatch.ebitda = mapped.ebitda
+            }
+            const cyd = fdBefore.current_year_data
+            if (cyd && (cyd.revenue == null || cyd.ebitda == null)) {
+              financialPatch.current_year_data = {
+                ...cyd,
+                year: cyd.year ?? getCurrentFilingYear(),
+                revenue:
+                  cyd.revenue == null && mapped.revenue != null ? mapped.revenue : cyd.revenue,
+                ebitda: cyd.ebitda == null && mapped.ebitda != null ? mapped.ebitda : cyd.ebitda,
+              }
+            }
+            updateFormData(financialPatch)
+            const ctx = bootstrapRef.current
+            const prevSources = ctx?.prefillData.sources ?? []
+            const withoutPending = prevSources.filter((s) => s !== 'official_belgian_filing_pending')
+            const sources: PrefillSource[] = withoutPending.includes('official_belgian_filing')
+              ? withoutPending
+              : [...withoutPending, 'official_belgian_filing']
+            ctx?.updatePrefillData({
+              officialFinancials: mapped,
+              officialEnrichmentJobId: undefined,
+              sources,
+            })
+            logger.info('Merged async Belgian official enrichment into form', {
+              jobId: jobId.substring(0, 8),
+            })
+          } else {
+            clearOfficialJob('completed_unmappable_registry_payload')
+          }
+          return
+        }
+
+        if (status === 'failed') {
+          clearOfficialJob('job_failed')
+          return
+        }
+
+        schedule(() => {
+          void poll()
+        }, 2000)
+      } catch {
+        if (!cancelled) {
+          schedule(() => {
+            void poll()
+          }, 2000)
+        }
+      }
+    }
+
+    void poll()
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [bootstrap?.prefillData.officialEnrichmentJobId, bootstrap?.isBootstrapping, formStore])
+
+  const isOfficialFilingPending = Boolean(bootstrap?.prefillData.officialEnrichmentJobId)
+
   return {
     hasPrefilled: hasPrefilled || hasPrefilledRef.current,
     prefillConfidence: bootstrap?.prefillData.confidence || 0,
     readOnlyKbo: bootstrap?.prefillData.readOnlyKbo ?? false,
     autoAdvancePastPrefilledSteps: bootstrap?.prefillData.autoAdvancePastPrefilledSteps ?? false,
+    isOfficialFilingPending,
   }
 }
 

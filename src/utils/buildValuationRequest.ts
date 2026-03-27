@@ -540,6 +540,13 @@ export function buildValuationRequest(
     business_type: formData.business_type,
     shares_for_sale: 100,
     business_context: businessContext,
+    ...(fd.exclude_real_estate != null && { exclude_real_estate: Boolean(fd.exclude_real_estate) }),
+    ...(fd.real_estate_book_value != null && {
+      real_estate_book_value: Number(fd.real_estate_book_value),
+    }),
+    ...(fd.estimated_market_rent != null && {
+      estimated_market_rent: Number(fd.estimated_market_rent),
+    }),
     ...((formData as any).official_financials && {
       official_financials: (formData as any).official_financials,
     }),

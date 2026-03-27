@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { AdaptiveSections, OfficialFilingTrustPanel } from './ManualInputPanel'
 
@@ -146,15 +145,14 @@ describe('OfficialFilingTrustPanel', () => {
       />
     )
 
-    expect(screen.getByText('Officiele filing cross-check')).toBeInTheDocument()
+    expect(screen.getByText('Officiële filing cross-check')).toBeInTheDocument()
     expect(screen.getByText('Verified by NBB')).toBeInTheDocument()
     expect(screen.getByText(/Boekjaar 2024/)).toBeInTheDocument()
     expect(screen.getByText(/EUR 1.250.000/)).toBeInTheDocument()
     expect(screen.getByText(/EUR 150.000/)).toBeInTheDocument()
   })
 
-  it('renders an explanation field only when variance explanation is required', async () => {
-    const user = userEvent.setup()
+  it('renders an explanation field only when variance explanation is required', () => {
     const onExplanationChange = vi.fn()
 
     render(
@@ -182,8 +180,8 @@ describe('OfficialFilingTrustPanel', () => {
     )
     expect(explanation).toBeInTheDocument()
 
-    await user.type(explanation, 'Seasonal slowdown in Q4')
-    expect(onExplanationChange).toHaveBeenCalled()
+    fireEvent.change(explanation, { target: { value: 'Seasonal slowdown in Q4' } })
+    expect(onExplanationChange).toHaveBeenCalledTimes(1)
     expect(onExplanationChange).toHaveBeenLastCalledWith('Seasonal slowdown in Q4')
   })
 

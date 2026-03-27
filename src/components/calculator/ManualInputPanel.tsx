@@ -59,6 +59,7 @@ import {
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import { useAuth } from '../../hooks/useAuth'
+import { useSyncOfficialVarianceFromForm } from '../../hooks/useSyncOfficialVarianceFromForm'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useCanSave } from '../../hooks/useCanSave'
 import { looksLikeNaceCode, naceBusinessTypeService } from '../../services/naceBusinessTypeService'
@@ -66,6 +67,8 @@ import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import {
   accountingAPI,
+  type AccountingBatchPayload,
+  type AccountingSdeFlag,
   accountingProviderDisplayName,
   isAccountingImportProvider,
   parseAccountingApiError,
@@ -99,9 +102,12 @@ import {
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
+import { YukiConnectModal } from '@/components/integrations/YukiConnectModal'
 import { CurrencyInput } from './CurrencyInput'
+import { EVEquityWaterfallChart } from './EVEquityWaterfallChart'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import { ProvenanceDot } from './ProvenanceDot'
+import { SDENormalizationWizard } from './SDENormalizationWizard'
 import { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
 import { SpotlightBanner } from './SpotlightBanner'
 import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
@@ -111,6 +117,7 @@ import {
   DcfForecastProjectionTable,
   DcfProjectionsSection,
   NavAssetScheduleSection,
+  RealEstateCarveOutSection,
   SaasMetricsSection,
   RevenueQualitySection,
 } from './sections'
@@ -121,6 +128,7 @@ import type {
   OfficialVerificationBadge,
   YearDataInput,
 } from '../../types/valuation'
+import type { NormalizationItem } from './UnifiedNormalizationModal'
 
 // Types
 export interface YearlyFinancials {
@@ -189,6 +197,9 @@ export interface ValuationFormData {
   nav_inventory_adjustment?: number
   nav_hidden_reserves?: number
   nav_goodwill_writeoff?: number
+  exclude_real_estate?: boolean
+  real_estate_book_value?: number
+  estimated_market_rent?: number
   saas_arr?: number
   saas_mrr?: number
   saas_arr_growth_pct?: number
@@ -203,6 +214,12 @@ export interface ValuationFormData {
   rev_recurring_pct?: number
   rev_top_client_concentration_pct?: number
   rev_contract_backlog?: number
+  /** Optional import/session metadata (e.g. SaaS provenance from accounting import). */
+  business_context?: Record<string, unknown>
+  /** Belgian official filing trust (merged from Zustand on submit for ManualLayout → store bridge). */
+  official_financials?: OfficialFinancialsPayload
+  official_variance_analysis?: OfficialVarianceAnalysis
+  official_verification_badge?: OfficialVerificationBadge
 }
 
 // Field help context for AI assistant integration
@@ -253,6 +270,8 @@ interface ManualInputPanelProps {
   autoAdvancePastPrefilledSteps?: boolean
   /** When true, lead the user into import/connect before manual entry. */
   preferIntegrationEntry?: boolean
+  /** Async Belgian official filing job in flight — show loading row in trust panel. */
+  isOfficialFilingPending?: boolean
 }
 
 interface OfficialFilingTrustPanelProps {
@@ -262,6 +281,8 @@ interface OfficialFilingTrustPanelProps {
   officialVarianceAnalysis?: OfficialVarianceAnalysis
   officialVerificationBadge?: OfficialVerificationBadge
   onExplanationChange: (value: string) => void
+  /** NBB/Staatsblad data is loading after async bootstrap enrichment. */
+  isLoadingOfficialFiling?: boolean
 }
 
 export function OfficialFilingTrustPanel({
@@ -271,6 +292,7 @@ export function OfficialFilingTrustPanel({
   officialVarianceAnalysis,
   officialVerificationBadge,
   onExplanationChange,
+  isLoadingOfficialFiling = false,
 }: OfficialFilingTrustPanelProps) {
   const isEnglish = locale === 'en'
   const hasOfficialData = Boolean(
@@ -285,7 +307,12 @@ export function OfficialFilingTrustPanel({
   )
   const dataHealthMessage = officialFinancials?.dataHealth?.message
 
-  if (!hasOfficialData && !dataHealthMessage && !officialVerificationBadge) {
+  if (
+    !hasOfficialData &&
+    !dataHealthMessage &&
+    !officialVerificationBadge &&
+    !isLoadingOfficialFiling
+  ) {
     return null
   }
 
@@ -317,10 +344,20 @@ export function OfficialFilingTrustPanel({
 
   return (
     <div className="ml-8 rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
+      {isLoadingOfficialFiling && !hasOfficialData && (
+        <div className="mb-3 flex items-center gap-2 text-xs text-foreground/65">
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+          <span>
+            {isEnglish
+              ? 'Loading official NBB filing data…'
+              : 'Officiële NBB-gegevens worden geladen…'}
+          </span>
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/70">
-            {isEnglish ? 'Official filing cross-check' : 'Officiele filing cross-check'}
+            {isEnglish ? 'Official filing cross-check' : 'Officiële filing cross-check'}
           </p>
           <p className="text-xs text-foreground/55">
             {officialFinancials?.sourceLabel ||
@@ -417,7 +454,7 @@ export function OfficialFilingTrustPanel({
             placeholder={
               isEnglish
                 ? 'Explain why your input differs from the official filing.'
-                : 'Licht kort toe waarom jouw input afwijkt van de officiele filing.'
+                : 'Licht kort toe waarom jouw input afwijkt van de officiële filing.'
             }
             rows={3}
             className="text-sm"
@@ -533,6 +570,41 @@ const getLatestHistoricalYearlyFinancial = (
     .filter((year) => !year.isForecast)
     .sort((a, b) => Number(b.year) - Number(a.year))[0]
 
+const buildSdeFlagKey = (flag: AccountingSdeFlag) =>
+  `${flag.year ?? 'latest'}:${flag.ledger_code}:${flag.ledger_name}`
+
+const mapFlagCategory = (flag: AccountingSdeFlag): NormalizationItem['category'] => {
+  switch (flag.category) {
+    case 'owner_compensation':
+      return 'salary'
+    case 'related_party_rent':
+      return 'rent'
+    case 'discretionary_expense':
+      return 'vehicle'
+    default:
+      return 'other'
+  }
+}
+
+const createNormalizationFromFlag = (flag: AccountingSdeFlag): NormalizationItem => ({
+  id: `yuki-sde-${buildSdeFlagKey(flag)}`,
+  ledgerCode: flag.ledger_code,
+  ledgerName: flag.ledger_name,
+  category: mapFlagCategory(flag),
+  type: 'add',
+  value: Number(flag.amount) || 0,
+  adjustment: Number(flag.amount) || 0,
+  reason: flag.rationale || flag.suggested_question,
+  source: 'yuki',
+  sourceRef: buildSdeFlagKey(flag),
+  status: 'accepted',
+  applyAllYears: false,
+  applyYears: flag.year ? [flag.year] : undefined,
+  year: flag.year || getCurrentFilingYear(),
+  confidence:
+    (flag.confidence ?? 0) >= 0.8 ? 'high' : (flag.confidence ?? 0) >= 0.6 ? 'medium' : 'low',
+})
+
 export function ManualInputPanel({
   onSubmit,
   onCSVImportComplete,
@@ -549,6 +621,7 @@ export function ManualInputPanel({
   readOnlyKbo = false,
   autoAdvancePastPrefilledSteps = false,
   preferIntegrationEntry = false,
+  isOfficialFilingPending = false,
 }: ManualInputPanelProps) {
   const { user } = useAuth()
   const t = useTranslations()
@@ -559,6 +632,8 @@ export function ManualInputPanel({
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const normalizationItems = useNormalizationStore((s) => s.items)
+  const addNormalizationItems = useNormalizationStore((s) => s.addItems)
+  const removeNormalizationItem = useNormalizationStore((s) => s.removeItem)
   const hasExplicitNumericValue = useCallback((value: unknown) => hasExplicitFinancialValue(value), [])
   const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
   const formatCurrency = useCallback(
@@ -596,6 +671,11 @@ export function ManualInputPanel({
     forecast_years_data: initialData.forecast_years_data,
     filingYearConfirmed: initialData.filingYearConfirmed ?? false,
   })
+  const [showYukiConnectModal, setShowYukiConnectModal] = useState(false)
+  const [yukiBatchData, setYukiBatchData] = useState<AccountingBatchPayload | null>(null)
+  const [sdeWizardDecisions, setSdeWizardDecisions] = useState<
+    Record<string, 'accepted' | 'rejected' | undefined>
+  >({})
   const currentFilingYear = getCurrentFilingYear()
   const activityCodeTerm = getFinancialTerm(
     'activityCode',
@@ -640,17 +720,17 @@ export function ManualInputPanel({
   const officialVarianceAnalysis = useManualFormStore((s) => s.formData.official_variance_analysis)
   const officialVerificationBadge = useManualFormStore((s) => s.formData.official_verification_badge)
   const updateFormData = useManualFormStore((s) => s.updateFormData)
+  useSyncOfficialVarianceFromForm()
 
   const handleOfficialVarianceExplanationChange = useCallback(
     (explanation: string) => {
-      const nextState = explanation.trim() ? 'explained' : 'pending'
-      const nextVariance = {
+      const nextVariance: OfficialVarianceAnalysis = {
         ...(officialVarianceAnalysis ?? {
-          state: 'pending' as const,
+          state: 'pending',
           explanationRequired: true,
         }),
         explanation,
-        state: nextState,
+        state: explanation.trim() ? 'explained' : 'pending',
       }
 
       updateFormData({
@@ -1357,47 +1437,124 @@ export function ManualInputPanel({
         return
       }
 
-      const fiscalYear = getCurrentFilingYear()
-      const res = await accountingAPI.getProviderFinancialData(provider, fiscalYear)
-      const d = res.data
-      const year = String(d.fiscal_year ?? fiscalYear)
-      const revenue = Number(d.revenue) || 0
-      const ebitda = d.ebitda != null ? Number(d.ebitda) : 0
-
-      setFormData((prev) => {
-        const existing = prev.yearlyFinancials.find((yf) => yf.year === year)
-        let updated: typeof prev.yearlyFinancials
-        if (existing) {
-          updated = prev.yearlyFinancials.map((yf) =>
-            yf.year === year ? { ...yf, revenue, ebitda } : yf
-          )
-        } else {
-          updated = [{ year, revenue, ebitda }, ...prev.yearlyFinancials]
-        }
-        return { ...prev, yearlyFinancials: updated }
-      })
-      const label = accountingProviderDisplayName(provider)
-      import('sonner').then(({ toast }) => {
-        const fyDescription =
-          mi('importFromAccountingSuccessDescription', { year }) || `Fiscal year ${year}`
-        if (revenue === 0 && ebitda === 0) {
-          toast.warning(
-            mi('importFromAccountingEmpty', { provider: label, year }) ||
-              `No figures returned for ${year} from ${label}`,
-            {
-              description:
-                mi('importFromAccountingEmptyDescription') ||
-                'Revenue and EBITDA are zero. Check the fiscal year in your accounting tool or enter values manually.',
+      if (provider === 'yuki') {
+        const endYear = getCurrentFilingYear()
+        const startYear = endYear - 4
+        const batch = await accountingAPI.getProviderFinancialDataBatch('yuki', startYear, endYear)
+        setYukiBatchData(batch)
+        setFormData((prev) => {
+          const merged = [...prev.yearlyFinancials]
+          for (const yearPayload of batch.years) {
+            const year = String(yearPayload.data.fiscal_year ?? endYear)
+            const revenue = Number(yearPayload.data.revenue) || 0
+            const ebitda = yearPayload.data.ebitda != null ? Number(yearPayload.data.ebitda) : 0
+            const depreciation =
+              yearPayload.data.depreciation != null ? Number(yearPayload.data.depreciation) : undefined
+            const currentAssets =
+              yearPayload.data.current_assets != null
+                ? Number(yearPayload.data.current_assets)
+                : undefined
+            const currentLiabilities =
+              yearPayload.data.current_liabilities != null
+                ? Number(yearPayload.data.current_liabilities)
+                : undefined
+            const cash =
+              yearPayload.data.cash_and_equivalents != null
+                ? Number(yearPayload.data.cash_and_equivalents)
+                : undefined
+            const shortTermDebt =
+              yearPayload.data.short_term_financial_debt != null
+                ? Number(yearPayload.data.short_term_financial_debt)
+                : undefined
+            const totalDebt =
+              (Number(yearPayload.data.long_term_debt) || 0) +
+              (Number(yearPayload.data.short_term_financial_debt) || 0)
+            const existingIndex = merged.findIndex((entry) => entry.year === year)
+            const nextYear = {
+              year,
+              revenue,
+              ebitda,
+              depreciation,
+              capex: depreciation,
+              current_assets: currentAssets,
+              current_liabilities: currentLiabilities,
+              cash,
+              short_term_debt: shortTermDebt,
+              total_debt: totalDebt || undefined,
+              accounts_receivable:
+                yearPayload.data.accounts_receivable != null
+                  ? Number(yearPayload.data.accounts_receivable)
+                  : undefined,
+              inventory:
+                yearPayload.data.inventory != null ? Number(yearPayload.data.inventory) : undefined,
             }
-          )
-        } else {
-          toast.success(
-            mi('importFromAccountingSuccess', { provider: label }) ||
-              `Financial data imported from ${label}`,
-            { description: fyDescription }
-          )
-        }
-      })
+            if (existingIndex >= 0) {
+              merged[existingIndex] = { ...merged[existingIndex], ...nextYear }
+            } else {
+              merged.push(nextYear)
+            }
+          }
+          merged.sort((a, b) => Number(b.year) - Number(a.year))
+          return { ...prev, yearlyFinancials: merged }
+        })
+
+        import('sonner').then(({ toast }) => {
+          const mappedYears = batch.years.length
+          const qualityScore =
+            batch.years.length > 0
+              ? Math.round(
+                  (batch.years.reduce((sum, year) => sum + (year.quality_score ?? 0), 0) /
+                    batch.years.length) *
+                    100
+                )
+              : 0
+          toast.success(`Imported ${mappedYears} fiscal years from Yuki`, {
+            description: `Trial balance mapped: ${qualityScore}% match with Belgian MAR`,
+          })
+        })
+      } else {
+        const fiscalYear = getCurrentFilingYear()
+        const res = await accountingAPI.getProviderFinancialData(provider, fiscalYear)
+        const d = res.data
+        const year = String(d.fiscal_year ?? fiscalYear)
+        const revenue = Number(d.revenue) || 0
+        const ebitda = d.ebitda != null ? Number(d.ebitda) : 0
+
+        setFormData((prev) => {
+          const existing = prev.yearlyFinancials.find((yf) => yf.year === year)
+          let updated: typeof prev.yearlyFinancials
+          if (existing) {
+            updated = prev.yearlyFinancials.map((yf) =>
+              yf.year === year ? { ...yf, revenue, ebitda } : yf
+            )
+          } else {
+            updated = [{ year, revenue, ebitda }, ...prev.yearlyFinancials]
+          }
+          return { ...prev, yearlyFinancials: updated }
+        })
+        const label = accountingProviderDisplayName(provider)
+        import('sonner').then(({ toast }) => {
+          const fyDescription =
+            mi('importFromAccountingSuccessDescription', { year }) || `Fiscal year ${year}`
+          if (revenue === 0 && ebitda === 0) {
+            toast.warning(
+              mi('importFromAccountingEmpty', { provider: label, year }) ||
+                `No figures returned for ${year} from ${label}`,
+              {
+                description:
+                  mi('importFromAccountingEmptyDescription') ||
+                  'Revenue and EBITDA are zero. Check the fiscal year in your accounting tool or enter values manually.',
+              }
+            )
+          } else {
+            toast.success(
+              mi('importFromAccountingSuccess', { provider: label }) ||
+                `Financial data imported from ${label}`,
+              { description: fyDescription }
+            )
+          }
+        })
+      }
     } catch (err) {
       const msg = parseAccountingApiError(err)
       setImportAccountingError(msg)
@@ -1409,10 +1566,76 @@ export function ManualInputPanel({
     }
   }, [accountingConnectedStatus, mi])
 
+  const handleDirectYukiImported = useCallback((batch: AccountingBatchPayload) => {
+    setYukiBatchData(batch)
+    setIntegrationEntryDismissed(true)
+    setImportAccountingError(null)
+    setFormData((prev) => {
+      const merged = [...prev.yearlyFinancials]
+      for (const yearPayload of batch.years) {
+        const year = String(yearPayload.data.fiscal_year)
+        const nextYear: YearlyFinancials = {
+          year,
+          revenue: Number(yearPayload.data.revenue) || 0,
+          ebitda: Number(yearPayload.data.ebitda) || 0,
+          depreciation:
+            yearPayload.data.depreciation != null ? Number(yearPayload.data.depreciation) : undefined,
+          capex:
+            yearPayload.data.depreciation != null ? Number(yearPayload.data.depreciation) : undefined,
+          cash:
+            yearPayload.data.cash_and_equivalents != null
+              ? Number(yearPayload.data.cash_and_equivalents)
+              : undefined,
+          current_assets:
+            yearPayload.data.current_assets != null ? Number(yearPayload.data.current_assets) : undefined,
+          current_liabilities:
+            yearPayload.data.current_liabilities != null
+              ? Number(yearPayload.data.current_liabilities)
+              : undefined,
+          accounts_receivable:
+            yearPayload.data.accounts_receivable != null
+              ? Number(yearPayload.data.accounts_receivable)
+              : undefined,
+          inventory:
+            yearPayload.data.inventory != null ? Number(yearPayload.data.inventory) : undefined,
+          short_term_debt:
+            yearPayload.data.short_term_financial_debt != null
+              ? Number(yearPayload.data.short_term_financial_debt)
+              : undefined,
+          total_debt:
+            (Number(yearPayload.data.long_term_debt) || 0) +
+              (Number(yearPayload.data.short_term_financial_debt) || 0) || undefined,
+        }
+        const index = merged.findIndex((entry) => entry.year === year)
+        if (index >= 0) merged[index] = { ...merged[index], ...nextYear }
+        else merged.push(nextYear)
+      }
+      merged.sort((a, b) => Number(b.year) - Number(a.year))
+      return { ...prev, yearlyFinancials: merged }
+    })
+  }, [])
+
+  const handleSdeWizardDecision = useCallback(
+    (flag: AccountingSdeFlag, decision: 'accepted' | 'rejected') => {
+      const key = buildSdeFlagKey(flag)
+      setSdeWizardDecisions((prev) => ({ ...prev, [key]: decision }))
+      const normalizationId = `yuki-sde-${key}`
+      const exists = normalizationItems.some((item) => item.id === normalizationId)
+      if (decision === 'accepted') {
+        const nextItem = createNormalizationFromFlag(flag)
+        if (!exists) {
+          addNormalizationItems([nextItem])
+        }
+      } else if (exists) {
+        removeNormalizationItem(normalizationId)
+      }
+    },
+    [addNormalizationItems, normalizationItems, removeNormalizationItem]
+  )
+
   const handleOpenMercuryIntegrations = useCallback(() => {
-    const mercuryUrl = `${getMercuryUrl()}/${locale}/accountant/settings?tab=integrations`
-    window.open(mercuryUrl, '_blank', 'noopener,noreferrer')
-  }, [locale])
+    setShowYukiConnectModal(true)
+  }, [])
 
 
   // ─── Field-level Validation ───
@@ -1485,6 +1708,22 @@ export function ManualInputPanel({
     [effectiveMethod, sortedYearlyFinancials]
   )
 
+  useEffect(() => {
+    const suggestedCapex = yukiBatchData?.dcf_defaults?.suggested_capex
+    if (effectiveMethod !== 'dcf' || !suggestedCapex || dcfForecastRows.length === 0) {
+      return
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      yearlyFinancials: prev.yearlyFinancials.map((row) =>
+        row.isForecast && (row.capex == null || row.capex === 0)
+          ? { ...row, capex: suggestedCapex }
+          : row
+      ),
+    }))
+  }, [dcfForecastRows.length, effectiveMethod, yukiBatchData?.dcf_defaults?.suggested_capex])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (fieldValidation.hasErrors) {
@@ -1495,9 +1734,17 @@ export function ManualInputPanel({
       )
       return
     }
+    const trust = useManualFormStore.getState().formData
     onSubmit({
       ...formData,
       averageNormalizedEbitda: normalizedData.averageNormalizedEbitda,
+      ...(trust.official_financials != null && { official_financials: trust.official_financials }),
+      ...(trust.official_variance_analysis != null && {
+        official_variance_analysis: trust.official_variance_analysis,
+      }),
+      ...(trust.official_verification_badge != null && {
+        official_verification_badge: trust.official_verification_badge,
+      }),
     })
   }
 
@@ -1683,6 +1930,16 @@ export function ManualInputPanel({
     preferIntegrationEntry &&
     !integrationEntryDismissed &&
     !hasMeaningfulYearlyFinancials(formData.yearlyFinancials)
+  const shouldShowImportedYukiSummary = !!yukiBatchData
+  const yukiImportQualityScore = useMemo(() => {
+    if (!yukiBatchData || yukiBatchData.years.length === 0) return null
+    return Math.round(
+      (yukiBatchData.years.reduce((sum, year) => sum + (year.quality_score ?? 0), 0) /
+        yukiBatchData.years.length) *
+        100
+    )
+  }, [yukiBatchData])
+  const yukiImportedYearCount = yukiBatchData?.years.length ?? 0
 
   return (
     <>
@@ -1717,7 +1974,7 @@ export function ManualInputPanel({
             <SpotlightBanner />
             <GuidedResolutionOrphanFields />
 
-            {shouldShowIntegrationEntry && (
+            {(shouldShowIntegrationEntry || shouldShowImportedYukiSummary) && (
               <section className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
@@ -1726,14 +1983,18 @@ export function ManualInputPanel({
                       {mi('integrationEntry.eyebrow')}
                     </div>
                     <h3 className="mt-3 text-base font-semibold text-foreground">
-                      {accountingConnectedStatus?.is_connected
+                      {shouldShowImportedYukiSummary
+                        ? 'Yuki zero-draft import complete'
+                        : accountingConnectedStatus?.is_connected
                         ? mi('integrationEntry.connectedTitle', {
                             provider: accountingProviderDisplayName(accountingConnectedStatus.provider),
                           })
                         : mi('integrationEntry.connectTitle')}
                     </h3>
                     <p className="mt-1 text-sm text-foreground/70">
-                      {accountingConnectedStatus?.is_connected
+                      {shouldShowImportedYukiSummary
+                        ? `Imported ${yukiImportedYearCount} fiscal years. Review the data quality score, SDE prompts, and EV-to-equity bridge before calculating.`
+                        : accountingConnectedStatus?.is_connected
                         ? mi('integrationEntry.connectedDescription', {
                             provider: accountingProviderDisplayName(accountingConnectedStatus.provider),
                           })
@@ -1751,7 +2012,16 @@ export function ManualInputPanel({
                     </div>
                   </div>
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[220px]">
-                    {accountingConnectedStatus?.is_connected ? (
+                    {shouldShowImportedYukiSummary ? (
+                      <AuroraButton
+                        type="button"
+                        onClick={() => setShowYukiConnectModal(true)}
+                        variant="secondary"
+                        className="w-full"
+                      >
+                        Reconnect Yuki
+                      </AuroraButton>
+                    ) : accountingConnectedStatus?.is_connected ? (
                       <AuroraButton
                         type="button"
                         onClick={handleImportFromAccounting}
@@ -1780,13 +2050,65 @@ export function ManualInputPanel({
                     <AuroraButton
                       type="button"
                       variant="secondary"
-                      onClick={() => setIntegrationEntryDismissed(true)}
+                      onClick={() => {
+                        setIntegrationEntryDismissed(true)
+                        setShowYukiConnectModal(false)
+                      }}
                       className="w-full"
                     >
-                      {mi('integrationEntry.manualCta')}
+                      {shouldShowImportedYukiSummary ? 'Manual override' : mi('integrationEntry.manualCta')}
                     </AuroraButton>
                   </div>
                 </div>
+                {shouldShowImportedYukiSummary && (
+                  <div className="mt-4 space-y-4">
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
+                        <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
+                          Data quality score
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold text-foreground">
+                          {yukiImportQualityScore != null ? `${yukiImportQualityScore}%` : 'n/a'}
+                        </div>
+                        <p className="mt-1 text-xs text-foreground/55">
+                          Trial balance mapped against Belgian MAR classes.
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
+                        <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
+                          Historical years
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold text-foreground">
+                          {yukiImportedYearCount}
+                        </div>
+                        <p className="mt-1 text-xs text-foreground/55">Revenue, EBITDA, cash, debt, and MAR 63 imported.</p>
+                      </div>
+                      <div className="rounded-2xl border border-foreground/10 bg-background/70 px-4 py-3">
+                        <div className="text-xs uppercase tracking-[0.12em] text-foreground/45">
+                          DCF CapEx default
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold text-foreground">
+                          {yukiBatchData?.dcf_defaults?.suggested_capex
+                            ? formatCurrency(yukiBatchData.dcf_defaults.suggested_capex)
+                            : 'n/a'}
+                        </div>
+                        <p className="mt-1 text-xs text-foreground/55">
+                          Auto-filled from historical depreciation (MAR 63 average).
+                        </p>
+                      </div>
+                    </div>
+
+                    {yukiBatchData?.ev_equity_bridge ? (
+                      <EVEquityWaterfallChart bridge={yukiBatchData.ev_equity_bridge} />
+                    ) : null}
+
+                    <SDENormalizationWizard
+                      flags={yukiBatchData?.sde_flags ?? []}
+                      decisions={sdeWizardDecisions}
+                      onDecision={handleSdeWizardDecision}
+                    />
+                  </div>
+                )}
                 {importAccountingError && (
                   <div className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/15 bg-destructive/[0.04] px-3 py-2 text-xs text-destructive">
                     <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -2101,6 +2423,7 @@ export function ManualInputPanel({
                   officialVarianceAnalysis={officialVarianceAnalysis}
                   officialVerificationBadge={officialVerificationBadge}
                   onExplanationChange={handleOfficialVarianceExplanationChange}
+                  isLoadingOfficialFiling={isOfficialFilingPending}
                 />
 
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
@@ -2472,6 +2795,24 @@ export function ManualInputPanel({
               </motion.section>
             )}
             {/* Adaptive Input Sections — driven by effective method + business type */}
+            <RealEstateCarveOutSection
+              excludeRealEstate={formData.exclude_real_estate}
+              realEstateBookValue={formData.real_estate_book_value}
+              estimatedMarketRent={formData.estimated_market_rent}
+              onToggleChange={(checked) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  exclude_real_estate: checked,
+                  real_estate_book_value: checked ? prev.real_estate_book_value : undefined,
+                  estimated_market_rent: checked ? prev.estimated_market_rent : undefined,
+                }))
+              }}
+              onFieldChange={(field, value) => {
+                setFormData((prev) => ({ ...prev, [field]: value }))
+              }}
+              disabled={isCalculating}
+            />
+
             <AdaptiveSections
               effectiveMethod={effectiveMethod}
               businessCategory={selectedBusinessType?.category}
@@ -2572,6 +2913,13 @@ export function ManualInputPanel({
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      <YukiConnectModal
+        open={showYukiConnectModal}
+        onOpenChange={setShowYukiConnectModal}
+        onImported={handleDirectYukiImported}
+        onManualOverride={() => setIntegrationEntryDismissed(true)}
+      />
 
     </>
   )

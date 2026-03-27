@@ -73,7 +73,8 @@ describe('reportIdGenerator', () => {
 
     it('should reject invalid formats', () => {
       expect(isValidReportId('invalid')).toBe(false)
-      expect(isValidReportId('val_abc_123')).toBe(false)
+      // Permissive rule: any val_* session key with length > 8 (Mercury compatibility)
+      expect(isValidReportId('val_abc_123')).toBe(true)
       expect(isValidReportId('report_123_abc')).toBe(false)
       expect(isValidReportId('')).toBe(false)
     })
@@ -255,9 +256,9 @@ describe('reportIdGenerator', () => {
     })
 
     it('should handle malformed IDs gracefully', () => {
-      const malformed = ['val_', 'val_123_', 'val__abc', '_123_abc', 'val_abc_123']
+      const invalid = ['val_', 'val_123_', 'val__abc', '_123_abc']
 
-      malformed.forEach((id) => {
+      invalid.forEach((id) => {
         expect(isValidReportId(id)).toBe(false)
       })
     })

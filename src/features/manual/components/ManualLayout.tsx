@@ -49,6 +49,7 @@ import {
   ChatAssistantDrawer,
   type ChatMessage,
   ContextBar,
+  EquityBridgeWaterfall,
   type FieldContext,
   FullscreenReportModal,
   HistoryPanel,
@@ -106,7 +107,11 @@ import {
   useNormalizationStore,
 } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
-import { parseSpotlightDomId, spotlightDomId, useSpotlightStore } from '../../../store/useSpotlightStore'
+import {
+  parseSpotlightDomId,
+  spotlightDomId,
+  useSpotlightStore,
+} from '../../../store/useSpotlightStore'
 import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
@@ -121,6 +126,7 @@ import {
 import type {
   ValuationResponse,
   ValuationFormData as VenusFormData,
+  YearDataInput,
 } from '../../../types/valuation'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
@@ -138,8 +144,6 @@ import {
   persistOrDeleteNormalizationsForYears,
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
-import { buildCurrentYearData, mergeYearDataRows } from '../../../utils/yearData'
-import type { YearDataInput } from '../../../types/valuation'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -149,6 +153,7 @@ import {
   detectVersionChanges,
   generateAutoLabel,
 } from '../../../utils/versionDiffDetection'
+import { buildCurrentYearData, mergeYearDataRows } from '../../../utils/yearData'
 import {
   getCompleteYearlyFinancialsDesc,
   getLatestCompleteYearlyFinancial,
@@ -250,7 +255,10 @@ function getUserInitials(user: { name?: string; email?: string } | null): string
 
 function getHydratedValuationResults(
   result:
-    | Pick<ValuationResponse, 'valuation_results' | 'valuation_result' | 'selected_valuation_method'>
+    | Pick<
+        ValuationResponse,
+        'valuation_results' | 'valuation_result' | 'selected_valuation_method'
+      >
     | null
     | undefined
 ) {
@@ -330,77 +338,6 @@ function useIsMobile() {
 }
 
 // ─────────────────────────────────────────
-// DEFAULT NORMALIZATION SUGGESTIONS
-// Used as fallback when AI analysis is unavailable.
-// These represent the most common normalization categories for Belgian SMEs.
-// ─────────────────────────────────────────
-
-function generateDefaultNormalizationSuggestions(
-  source: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'accountable',
-  nh: (key: string) => string
-) {
-  const labels = {
-    yuki: 'Yuki',
-    exact: 'Exact Online',
-    odoo: 'Odoo',
-    octopus: 'Octopus',
-    accountable: 'Accountable',
-  }
-  return [
-    {
-      id: `${source}-1`,
-      code: '620',
-      description: nh('defaultSuggestions.ownerSalaryAboveMarket'),
-      category: 'salary',
-      amount: 60000,
-      reason: nh('defaultSuggestions.salaryDiffReason'),
-      sourceRef: `${labels[source]} 620xxx`,
-      status: 'pending',
-    },
-    {
-      id: `${source}-2`,
-      code: '610',
-      description: nh('defaultSuggestions.officeRent'),
-      category: 'rent',
-      amount: 24000,
-      reason: nh('defaultSuggestions.rentAboveMarketReason'),
-      sourceRef: `${labels[source]} 610xxx`,
-      status: 'pending',
-    },
-    {
-      id: `${source}-3`,
-      code: '614',
-      description: nh('defaultSuggestions.directorVehicle'),
-      category: 'vehicle',
-      amount: 18000,
-      reason: nh('defaultSuggestions.vehicleReason'),
-      sourceRef: nh('sources.manual'),
-      status: 'pending',
-    },
-    {
-      id: `${source}-4`,
-      code: '647',
-      description: nh('defaultSuggestions.oneTimeLegal'),
-      category: 'one-time',
-      amount: 35000,
-      reason: nh('defaultSuggestions.acquisitionDispute'),
-      sourceRef: `${labels[source]}`,
-      status: 'pending',
-    },
-    {
-      id: `${source}-5`,
-      code: '650',
-      description: nh('defaultSuggestions.familyOnPayroll'),
-      category: 'personal',
-      amount: 45000,
-      reason: nh('defaultSuggestions.partnerNoRole'),
-      sourceRef: nh('sources.manual'),
-      status: 'pending',
-    },
-  ]
-}
-
-// ─────────────────────────────────────────
 // FORM DATA BRIDGE
 // Maps ManualInputPanel's ValuationFormData (camelCase, multi-year)
 // to Venus store's ValuationFormData (snake_case, API format)
@@ -430,7 +367,9 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
   const existingHistoricalYears = Array.isArray(data.historical_years_data)
     ? data.historical_years_data
     : []
-  const existingForecastYears = Array.isArray(data.forecast_years_data) ? data.forecast_years_data : []
+  const existingForecastYears = Array.isArray(data.forecast_years_data)
+    ? data.forecast_years_data
+    : []
 
   const canonicalNace =
     (typeof data.canonicalNaceCode === 'string' && data.canonicalNaceCode.trim()) ||
@@ -475,7 +414,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
             ebitda: existingCurrentYearData.ebitda,
             currentYearData: existingCurrentYearData,
           })
-      : undefined,
+        : undefined,
     historical_years_data:
       historical.length > 0
         ? mergeYearDataRows(
@@ -518,14 +457,22 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
       business_type_id: data.businessType || data.businessTypeCode,
     }),
     // Adaptive Input Studio bonus fields (camelCase panel → snake_case store)
-    ...(data.dcf_revenue_growth_pct != null && { dcf_revenue_growth_pct: data.dcf_revenue_growth_pct }),
-    ...(data.dcf_ebitda_margin_pct != null && { dcf_ebitda_margin_pct: data.dcf_ebitda_margin_pct }),
+    ...(data.dcf_revenue_growth_pct != null && {
+      dcf_revenue_growth_pct: data.dcf_revenue_growth_pct,
+    }),
+    ...(data.dcf_ebitda_margin_pct != null && {
+      dcf_ebitda_margin_pct: data.dcf_ebitda_margin_pct,
+    }),
     ...(data.dcf_capex_pct != null && { dcf_capex_pct: data.dcf_capex_pct }),
     ...(data.dcf_nwc_pct != null && { dcf_nwc_pct: data.dcf_nwc_pct }),
     ...(data.dcf_wacc_pct != null && { dcf_wacc_pct: data.dcf_wacc_pct }),
-    ...(data.dcf_terminal_growth_pct != null && { dcf_terminal_growth_pct: data.dcf_terminal_growth_pct }),
+    ...(data.dcf_terminal_growth_pct != null && {
+      dcf_terminal_growth_pct: data.dcf_terminal_growth_pct,
+    }),
     ...(data.dcf_exit_multiple != null && { dcf_exit_multiple: data.dcf_exit_multiple }),
-    ...(data.dcf_risk_free_rate_pct != null && { dcf_risk_free_rate_pct: data.dcf_risk_free_rate_pct }),
+    ...(data.dcf_risk_free_rate_pct != null && {
+      dcf_risk_free_rate_pct: data.dcf_risk_free_rate_pct,
+    }),
     ...(data.dcf_equity_risk_premium_pct != null && {
       dcf_equity_risk_premium_pct: data.dcf_equity_risk_premium_pct,
     }),
@@ -533,24 +480,48 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.dcf_cost_of_debt_pct != null && { dcf_cost_of_debt_pct: data.dcf_cost_of_debt_pct }),
     ...(data.dcf_debt_equity_pct != null && { dcf_debt_equity_pct: data.dcf_debt_equity_pct }),
     ...(data.dcf_tax_shield_pct != null && { dcf_tax_shield_pct: data.dcf_tax_shield_pct }),
-    ...(data.nav_real_estate_adjustment != null && { nav_real_estate_adjustment: data.nav_real_estate_adjustment }),
-    ...(data.nav_inventory_adjustment != null && { nav_inventory_adjustment: data.nav_inventory_adjustment }),
+    ...(data.nav_real_estate_adjustment != null && {
+      nav_real_estate_adjustment: data.nav_real_estate_adjustment,
+    }),
+    ...(data.nav_inventory_adjustment != null && {
+      nav_inventory_adjustment: data.nav_inventory_adjustment,
+    }),
     ...(data.nav_hidden_reserves != null && { nav_hidden_reserves: data.nav_hidden_reserves }),
-    ...(data.nav_goodwill_writeoff != null && { nav_goodwill_writeoff: data.nav_goodwill_writeoff }),
+    ...(data.nav_goodwill_writeoff != null && {
+      nav_goodwill_writeoff: data.nav_goodwill_writeoff,
+    }),
     ...(data.saas_arr != null && { saas_arr: data.saas_arr }),
     ...(data.saas_mrr != null && { saas_mrr: data.saas_mrr }),
     ...(data.saas_arr_growth_pct != null && { saas_arr_growth_pct: data.saas_arr_growth_pct }),
     ...(data.saas_churn_pct != null && { saas_churn_pct: data.saas_churn_pct }),
-    ...(data.saas_customer_churn_pct != null && { saas_customer_churn_pct: data.saas_customer_churn_pct }),
+    ...(data.saas_customer_churn_pct != null && {
+      saas_customer_churn_pct: data.saas_customer_churn_pct,
+    }),
     ...(data.saas_nrr_pct != null && { saas_nrr_pct: data.saas_nrr_pct }),
-    ...(data.saas_gross_margin_pct != null && { saas_gross_margin_pct: data.saas_gross_margin_pct }),
+    ...(data.saas_gross_margin_pct != null && {
+      saas_gross_margin_pct: data.saas_gross_margin_pct,
+    }),
     ...(data.saas_cac != null && { saas_cac: data.saas_cac }),
-    ...(data.saas_customer_concentration_pct != null && { saas_customer_concentration_pct: data.saas_customer_concentration_pct }),
-    ...(data.saas_expansion_revenue_pct != null && { saas_expansion_revenue_pct: data.saas_expansion_revenue_pct }),
+    ...(data.saas_customer_concentration_pct != null && {
+      saas_customer_concentration_pct: data.saas_customer_concentration_pct,
+    }),
+    ...(data.saas_expansion_revenue_pct != null && {
+      saas_expansion_revenue_pct: data.saas_expansion_revenue_pct,
+    }),
     ...(data.saas_sm_spend != null && { saas_sm_spend: data.saas_sm_spend }),
     ...(data.rev_recurring_pct != null && { rev_recurring_pct: data.rev_recurring_pct }),
-    ...(data.rev_top_client_concentration_pct != null && { rev_top_client_concentration_pct: data.rev_top_client_concentration_pct }),
+    ...(data.rev_top_client_concentration_pct != null && {
+      rev_top_client_concentration_pct: data.rev_top_client_concentration_pct,
+    }),
     ...(data.rev_contract_backlog != null && { rev_contract_backlog: data.rev_contract_backlog }),
+    // Belgian official filing trust (optional; also merged via getState() after updateFormData)
+    ...(data.official_financials != null && { official_financials: data.official_financials }),
+    ...(data.official_variance_analysis != null && {
+      official_variance_analysis: data.official_variance_analysis,
+    }),
+    ...(data.official_verification_badge != null && {
+      official_verification_badge: data.official_verification_badge,
+    }),
   }
 }
 
@@ -594,7 +565,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const tReport = useTranslations('report')
   const tHistory = useTranslations('historyPanel')
   const tErrors = useTranslations('errors')
-  const nh = useTranslations('normalizationHub')
   const tPreparer = useTranslations('preparerMultiple')
   const isMobile = useIsMobile()
 
@@ -630,7 +600,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const { user } = useAuth()
   const { identity, isAccountantFlow } = useBootstrap()
   useBootstrapSync()
-  const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
+  const { readOnlyKbo, autoAdvancePastPrefilledSteps, isOfficialFilingPending } =
+    useBootstrapPrefill()
 
   const {
     isCalculating,
@@ -1126,7 +1097,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useEffect(() => {
     latestFormDataRef.current = {
       ...latestFormDataRef.current,
-      current_year_data: formStoreData.current_year_data ?? latestFormDataRef.current.current_year_data,
+      current_year_data:
+        formStoreData.current_year_data ?? latestFormDataRef.current.current_year_data,
       historical_years_data:
         formStoreData.historical_years_data ?? latestFormDataRef.current.historical_years_data,
       forecast_years_data:
@@ -1218,8 +1190,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         accounts_payable:
           typeof cyd.accounts_payable === 'number' ? cyd.accounts_payable : undefined,
         inventory: typeof cyd.inventory === 'number' ? cyd.inventory : undefined,
-        short_term_debt:
-          typeof cyd.short_term_debt === 'number' ? cyd.short_term_debt : undefined,
+        short_term_debt: typeof cyd.short_term_debt === 'number' ? cyd.short_term_debt : undefined,
         nwc_change: typeof cyd.nwc_change === 'number' ? cyd.nwc_change : undefined,
       })
     }
@@ -1247,8 +1218,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             accounts_payable:
               typeof y.accounts_payable === 'number' ? y.accounts_payable : undefined,
             inventory: typeof y.inventory === 'number' ? y.inventory : undefined,
-            short_term_debt:
-              typeof y.short_term_debt === 'number' ? y.short_term_debt : undefined,
+            short_term_debt: typeof y.short_term_debt === 'number' ? y.short_term_debt : undefined,
             nwc_change: typeof y.nwc_change === 'number' ? y.nwc_change : undefined,
           })
         }
@@ -1280,8 +1250,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             accounts_payable:
               typeof y.accounts_payable === 'number' ? y.accounts_payable : undefined,
             inventory: typeof y.inventory === 'number' ? y.inventory : undefined,
-            short_term_debt:
-              typeof y.short_term_debt === 'number' ? y.short_term_debt : undefined,
+            short_term_debt: typeof y.short_term_debt === 'number' ? y.short_term_debt : undefined,
             nwc_change: typeof y.nwc_change === 'number' ? y.nwc_change : undefined,
             isForecast: true,
           })
@@ -1473,8 +1442,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           nwc_change?: number
           isForecast?: boolean
         }>
-      ) =>
-        [...arr].sort((a, b) => parseInt(b.year) - parseInt(a.year))
+      ) => [...arr].sort((a, b) => parseInt(b.year) - parseInt(a.year))
       const norm = (y: {
         year: string
         revenue: number
@@ -1529,7 +1497,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const hasFinancials =
       (cyd && ((cyd.revenue ?? 0) > 0 || (cyd.ebitda ?? 0) !== 0)) ||
       hy.some((h) => (h.revenue ?? 0) > 0 || (h.ebitda ?? 0) !== 0) ||
-      fy.some((f) => (f.revenue ?? 0) > 0 || (f.ebitda ?? 0) !== 0 || f.capex != null || f.nwc_change != null)
+      fy.some(
+        (f) =>
+          (f.revenue ?? 0) > 0 || (f.ebitda ?? 0) !== 0 || f.capex != null || f.nwc_change != null
+      )
     if (!hasFinancials) return
     const allYf = [
       ...(cyd
@@ -2436,8 +2407,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const venusFormData = mapClarityFormToVenusStore(data)
         updateFormData(venusFormData)
 
-        // Step 2: Build API request from store
-        const storeSnapshot = { ...formStoreData, ...venusFormData }
+        // Step 2: Build API request from store (single source of truth).
+        // Trust fields (official_financials, variance explanation) live only in Zustand; using
+        // React `formStoreData` here can be one frame stale vs. the synchronous store update.
+        const storeSnapshot = useManualFormStore.getState().formData
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
         const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
@@ -2869,7 +2842,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           return
         }
         const venusFormData = mapClarityFormToVenusStore(data)
-        const storeSnapshot = { ...formStoreData, ...venusFormData }
+        updateFormData(venusFormData)
+        const storeSnapshot = useManualFormStore.getState().formData
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
         const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
@@ -3014,9 +2988,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         t('fieldUpdated', {
           field,
           value:
-            typeof value === 'number'
-              ? `€${value.toLocaleString(currencyLocale)}`
-              : String(value),
+            typeof value === 'number' ? `€${value.toLocaleString(currencyLocale)}` : String(value),
         })
       )
       setChatMessages((prev) => [
@@ -3954,7 +3926,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Normalization Handlers (unified store) - Clarity parity: open modal, do not replace left panel ───
   const openUnifiedNormalizationModal = useCallback(
-    (opts?: { prefill?: GuidedNormalizationPrefill | null; closeChat?: boolean; track?: boolean }) => {
+    (opts?: {
+      prefill?: GuidedNormalizationPrefill | null
+      closeChat?: boolean
+      track?: boolean
+    }) => {
       setGuidedNormalizationPrefill(opts?.prefill ?? null)
       if (opts?.track !== false) {
         trackNormalizationOpen()
@@ -4413,11 +4389,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           suggestions = data.suggestions || []
         }
 
-        // If AI returns no suggestions, generate sensible defaults based on source
-        if (suggestions.length === 0) {
-          suggestions = generateDefaultNormalizationSuggestions(source, nh)
-        }
-
         const filingYear = getCurrentFilingYear()
         const unifiedItems: NormalizationItem[] = suggestions.map((s: any, idx: number) => ({
           id: s.id || `${source}-${idx + 1}`,
@@ -4462,7 +4433,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         toast.error(t('importAnalysisFailed'), { description: t('importAnalysisFailedDesc') })
       }
     },
-    [reportId, resolvedReportId, collectedData, normalizationActions, nh, t]
+    [reportId, resolvedReportId, collectedData, normalizationActions, t]
   )
 
   // ─── Normalisation Suggestion Modal ───
@@ -4508,6 +4479,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       isAccountantFlow ||
       hasImportQuality ||
       Boolean(identity.clientContext?.clientCompanyName?.trim()),
+    isOfficialFilingPending,
     initialData: {
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,
@@ -4606,9 +4578,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         mappingMethod === 'fallback' ||
         mappingMethod === 'manual' ||
         flags.some(
-          (flag) =>
-            mappingHeavyFlagCodes.has(flag.code) ||
-            (flag.source_accounts?.length ?? 0) > 0
+          (flag) => mappingHeavyFlagCodes.has(flag.code) || (flag.source_accounts?.length ?? 0) > 0
         )
       if (shouldOpenSourcePanel && !spotlightState.showSourcePanel) {
         spotlightState.openSourcePanel()
@@ -5026,6 +4996,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               </div>
                             </div>
                           )}
+                          <EquityBridgeWaterfall result={result as Record<string, any> | null} locale={currentLocale} />
                           <div className="valuation-report">
                             <div
                               dangerouslySetInnerHTML={{
@@ -5108,6 +5079,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           </div>
                         </div>
                       )}
+                      <EquityBridgeWaterfall result={result as Record<string, any> | null} locale={currentLocale} />
                       <div className="valuation-report">
                         <div
                           dangerouslySetInnerHTML={{

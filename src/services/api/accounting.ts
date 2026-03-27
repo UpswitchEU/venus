@@ -16,11 +16,75 @@ export interface AccountingFinancialPayload {
     ebitda?: number
     cost_of_goods_sold?: number
     operating_expenses?: number
+    depreciation?: number
+    cash_and_equivalents?: number
+    long_term_debt?: number
+    short_term_financial_debt?: number
+    sde_flags?: AccountingSdeFlag[]
+    ev_equity_bridge?: EvEquityBridge
     fiscal_year: number
     [key: string]: unknown
   }
   source: string
   synced_at?: string
+  quality_score?: number
+  import_quality?: AccountingImportQuality
+}
+
+export interface AccountingImportQuality {
+  confidence_score: number
+  audit_flags: Array<{
+    field: string
+    code: string
+    severity: 'error' | 'warning' | 'info'
+    message: string
+    source_accounts: string[]
+    fiscal_year?: number | null
+  }>
+}
+
+export interface AccountingSdeFlag {
+  ledger_code: string
+  ledger_name: string
+  amount: number
+  deviation_pct: number
+  benchmark_median_pct: number
+  benchmark_std_pct?: number
+  actual_pct_of_revenue?: number
+  z_score?: number
+  confidence?: number
+  year?: number
+  potential_sde_addback: boolean
+  suggested_question: string
+  rationale?: string
+  category?: string
+}
+
+export interface EvEquityBridge {
+  enterprise_value: number
+  cash_and_equivalents: number
+  long_term_debt: number
+  short_term_financial_debt: number
+  interest_bearing_debt: number
+  net_debt: number
+  equity_value: number
+}
+
+export interface AccountingBatchPayload {
+  years: AccountingFinancialPayload[]
+  latest_fiscal_year?: number
+  sde_flags?: AccountingSdeFlag[]
+  ev_equity_bridge?: EvEquityBridge
+  dcf_defaults?: {
+    average_depreciation: number
+    suggested_capex: number
+  }
+}
+
+export interface AccountingConnectResponse {
+  success: boolean
+  message: string
+  connection_id?: string
 }
 
 export interface IntegrationStatus {
@@ -78,6 +142,17 @@ export function accountingProviderDisplayName(provider: string): string {
 }
 
 class AccountingAPI extends HttpClient {
+  async connectYuki(apiKey: string, administrationId?: string): Promise<AccountingConnectResponse> {
+    const response = await this.client.post<AccountingConnectResponse>(
+      '/integrations/accounting/yuki/connect',
+      {
+        api_key: apiKey,
+        administration_id: administrationId || undefined,
+      }
+    )
+    return response.data
+  }
+
   async getAllIntegrationStatus(): Promise<IntegrationStatus[]> {
     const response = await this.client.get<IntegrationStatus[]>('/integrations/accounting/status')
     return response.data
@@ -91,6 +166,23 @@ class AccountingAPI extends HttpClient {
     const response = await this.client.get<AccountingFinancialPayload>(
       `/integrations/accounting/${provider}/financial-data`,
       { params: { fiscal_year: year } }
+    )
+    return response.data
+  }
+
+  async getProviderFinancialDataBatch(
+    provider: Extract<AccountingImportProvider, 'yuki'>,
+    startYear: number,
+    endYear: number
+  ): Promise<AccountingBatchPayload> {
+    const response = await this.client.get<AccountingBatchPayload>(
+      `/integrations/accounting/${provider}/financial-data/batch`,
+      {
+        params: {
+          start_year: startYear,
+          end_year: endYear,
+        },
+      }
     )
     return response.data
   }

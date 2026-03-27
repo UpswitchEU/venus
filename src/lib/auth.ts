@@ -60,7 +60,7 @@ function setAuthCache(user: User | null): void {
   }
 }
 
-function clearAuthCache(): void {
+export function clearAuthCache(): void {
   authCache = null
 }
 

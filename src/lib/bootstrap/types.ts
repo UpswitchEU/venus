@@ -90,8 +90,10 @@ export type PrefillSource =
   | 'user_profile'
   | 'session'
   | 'mercury'
+  | 'accounting_integration'
   | 'url_params'
   | 'official_belgian_filing'
+  | 'official_belgian_filing_pending'
 
 export interface CompanyInfo {
   companyName?: string
@@ -157,6 +159,7 @@ export interface OfficialFinancials {
   varianceAnalysis?: {
     state: 'not_started' | 'pending' | 'explained' | 'not_required'
     explanationRequired: boolean
+    explanation?: string
   }
   verificationBadge?: {
     state: 'verified' | 'partial' | 'unavailable'
@@ -200,6 +203,8 @@ export interface PrefillData {
   companyInfo?: CompanyInfo
   financials?: PartialFinancials
   officialFinancials?: OfficialFinancials
+  /** Poll GET /api/jobs/:id until enrichment completes; then merge into officialFinancials. */
+  officialEnrichmentJobId?: string
   businessType?: BusinessTypeInfo
   kboData?: KBOCompanyEntity
   confidence: number // 0-1 how complete the prefill is

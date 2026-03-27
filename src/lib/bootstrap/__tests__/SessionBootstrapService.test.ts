@@ -45,22 +45,28 @@ describe('SessionBootstrapService', () => {
       }
 
       mockAuthResolver.resolve.mockResolvedValue({
-        type: 'authenticated',
-        userId: 'user-new-123',
+        data: {
+          type: 'authenticated',
+          userId: 'user-new-123',
+        },
       })
 
       mockSessionResolver.resolve.mockResolvedValue({
-        mode: 'new',
-        reportId: context.reportId,
-        hasExistingData: false,
-        status: 'draft',
+        data: {
+          mode: 'new',
+          reportId: context.reportId,
+          hasExistingData: false,
+          status: 'draft',
+        },
       })
 
       mockPrefillResolver.resolve.mockResolvedValue({
-        sources: [],
-        confidence: 0,
-        fieldsPopulated: [],
-        fieldsRemaining: ['company_name', 'revenue'],
+        data: {
+          sources: [],
+          confidence: 0,
+          fieldsPopulated: [],
+          fieldsRemaining: ['company_name', 'revenue'],
+        },
       })
 
       const result = await service.bootstrap(context)
@@ -77,24 +83,30 @@ describe('SessionBootstrapService', () => {
       }
 
       mockAuthResolver.resolve.mockResolvedValue({
-        type: 'authenticated',
-        userId: 'user-123',
-        email: 'test@example.com',
+        data: {
+          type: 'authenticated',
+          userId: 'user-123',
+          email: 'test@example.com',
+        },
       })
 
       mockSessionResolver.resolve.mockResolvedValue({
-        mode: 'new',
-        reportId: context.reportId,
-        hasExistingData: false,
-        status: 'draft',
+        data: {
+          mode: 'new',
+          reportId: context.reportId,
+          hasExistingData: false,
+          status: 'draft',
+        },
       })
 
       mockPrefillResolver.resolve.mockResolvedValue({
-        sources: ['user_profile'],
-        companyInfo: { companyName: 'Test Corp' },
-        confidence: 0.5,
-        fieldsPopulated: ['company_name'],
-        fieldsRemaining: ['revenue'],
+        data: {
+          sources: ['user_profile'],
+          companyInfo: { companyName: 'Test Corp' },
+          confidence: 0.5,
+          fieldsPopulated: ['company_name'],
+          fieldsRemaining: ['revenue'],
+        },
       })
 
       const result = await service.bootstrap(context)
@@ -112,33 +124,39 @@ describe('SessionBootstrapService', () => {
       }
 
       mockAuthResolver.resolve.mockResolvedValue({
-        type: 'accountant_for_client',
-        userId: 'client-456',
-        clientContext: {
-          clientUserId: 'client-456',
-          accountantUserId: 'accountant-789',
-          relationshipId: 'rel-123',
-          permissions: {
-            canCreateValuations: true,
-            canViewReports: true,
-            canEditReports: true,
+        data: {
+          type: 'accountant_for_client',
+          userId: 'client-456',
+          clientContext: {
+            clientUserId: 'client-456',
+            accountantUserId: 'accountant-789',
+            relationshipId: 'rel-123',
+            permissions: {
+              canCreateValuations: true,
+              canViewReports: true,
+              canEditReports: true,
+            },
           },
         },
       })
 
       mockSessionResolver.resolve.mockResolvedValue({
-        mode: 'new',
-        reportId: context.reportId,
-        hasExistingData: false,
-        status: 'draft',
+        data: {
+          mode: 'new',
+          reportId: context.reportId,
+          hasExistingData: false,
+          status: 'draft',
+        },
       })
 
       mockPrefillResolver.resolve.mockResolvedValue({
-        sources: ['user_profile', 'kbo'],
-        companyInfo: { companyName: 'Client Corp', kboNumber: '0123456789' },
-        confidence: 0.8,
-        fieldsPopulated: ['company_name', 'kbo_number'],
-        fieldsRemaining: ['revenue'],
+        data: {
+          sources: ['user_profile', 'kbo'],
+          companyInfo: { companyName: 'Client Corp', kboNumber: '0123456789' },
+          confidence: 0.8,
+          fieldsPopulated: ['company_name', 'kbo_number'],
+          fieldsRemaining: ['revenue'],
+        },
       })
 
       const result = await service.bootstrap(context)
@@ -156,24 +174,30 @@ describe('SessionBootstrapService', () => {
       }
 
       mockAuthResolver.resolve.mockResolvedValue({
-        type: 'authenticated',
-        userId: 'user-123',
+        data: {
+          type: 'authenticated',
+          userId: 'user-123',
+        },
       })
 
       mockSessionResolver.resolve.mockResolvedValue({
-        mode: 'existing',
-        reportId: context.reportId,
-        hasExistingData: true,
-        status: 'active',
-        currentStep: 3,
+        data: {
+          mode: 'existing',
+          reportId: context.reportId,
+          hasExistingData: true,
+          status: 'active',
+          currentStep: 3,
+        },
       })
 
       mockPrefillResolver.resolve.mockResolvedValue({
-        sources: ['session'],
-        companyInfo: { companyName: 'Existing Corp' },
-        confidence: 0.9,
-        fieldsPopulated: ['company_name', 'revenue', 'ebitda'],
-        fieldsRemaining: [],
+        data: {
+          sources: ['session'],
+          companyInfo: { companyName: 'Existing Corp' },
+          confidence: 0.9,
+          fieldsPopulated: ['company_name', 'revenue', 'ebitda'],
+          fieldsRemaining: [],
+        },
       })
 
       const result = await service.bootstrap(context)
@@ -190,22 +214,28 @@ describe('SessionBootstrapService', () => {
       }
 
       mockAuthResolver.resolve.mockResolvedValue({
-        type: 'authenticated',
-        userId: 'user-low-confidence',
+        data: {
+          type: 'authenticated',
+          userId: 'user-low-confidence',
+        },
       })
 
       mockSessionResolver.resolve.mockResolvedValue({
-        mode: 'new',
-        reportId: 'val_new_123',
-        hasExistingData: false,
-        status: 'draft',
+        data: {
+          mode: 'new',
+          reportId: 'val_new_123',
+          hasExistingData: false,
+          status: 'draft',
+        },
       })
 
       mockPrefillResolver.resolve.mockResolvedValue({
-        sources: [],
-        confidence: 0.1, // Very low confidence
-        fieldsPopulated: [],
-        fieldsRemaining: ['company_name', 'revenue', 'ebitda'],
+        data: {
+          sources: [],
+          confidence: 0.1, // Very low confidence
+          fieldsPopulated: [],
+          fieldsRemaining: ['company_name', 'revenue', 'ebitda'],
+        },
       })
 
       const result = await service.bootstrap(context)
@@ -220,33 +250,39 @@ describe('SessionBootstrapService', () => {
       }
 
       mockAuthResolver.resolve.mockResolvedValue({
-        type: 'authenticated',
-        userId: 'user-kbo-lookup',
+        data: {
+          type: 'authenticated',
+          userId: 'user-kbo-lookup',
+        },
       })
 
       mockSessionResolver.resolve.mockResolvedValue({
-        mode: 'new',
-        reportId: 'val_new_123',
-        hasExistingData: false,
-        status: 'draft',
+        data: {
+          mode: 'new',
+          reportId: 'val_new_123',
+          hasExistingData: false,
+          status: 'draft',
+        },
       })
 
       mockPrefillResolver.resolve.mockResolvedValue({
-        sources: ['kbo'],
-        companyInfo: {
-          companyName: 'Test Company BV',
-          kboNumber: '0123456789',
-          vatNumber: 'BE0123456789',
-          city: 'Brussels',
+        data: {
+          sources: ['kbo'],
+          companyInfo: {
+            companyName: 'Test Company BV',
+            kboNumber: '0123456789',
+            vatNumber: 'BE0123456789',
+            city: 'Brussels',
+          },
+          kboData: {
+            kboNumber: '0123456789',
+            companyName: 'Test Company BV',
+            isActive: true,
+          },
+          confidence: 0.6,
+          fieldsPopulated: ['company_name', 'kbo_number', 'vat_number', 'city'],
+          fieldsRemaining: ['revenue', 'ebitda'],
         },
-        kboData: {
-          kboNumber: '0123456789',
-          companyName: 'Test Company BV',
-          isActive: true,
-        },
-        confidence: 0.6,
-        fieldsPopulated: ['company_name', 'kbo_number', 'vat_number', 'city'],
-        fieldsRemaining: ['revenue', 'ebitda'],
       })
 
       const result = await service.bootstrap(context)
@@ -265,22 +301,32 @@ describe('SessionBootstrapService', () => {
       mockAuthResolver.resolve.mockImplementation(
         () =>
           new Promise((resolve) =>
-            setTimeout(() => resolve({ type: 'authenticated', userId: 'user-dedup' }), 100)
+            setTimeout(
+              () =>
+                resolve({
+                  data: { type: 'authenticated', userId: 'user-dedup' },
+                }),
+              100
+            )
           )
       )
 
       mockSessionResolver.resolve.mockResolvedValue({
-        mode: 'new',
-        reportId: context.reportId,
-        hasExistingData: false,
-        status: 'draft',
+        data: {
+          mode: 'new',
+          reportId: context.reportId,
+          hasExistingData: false,
+          status: 'draft',
+        },
       })
 
       mockPrefillResolver.resolve.mockResolvedValue({
-        sources: [],
-        confidence: 0,
-        fieldsPopulated: [],
-        fieldsRemaining: [],
+        data: {
+          sources: [],
+          confidence: 0,
+          fieldsPopulated: [],
+          fieldsRemaining: [],
+        },
       })
 
       // Fire multiple parallel requests
@@ -303,18 +349,24 @@ describe('SessionBootstrapService', () => {
         locale: 'en',
       }
 
-      mockAuthResolver.resolve.mockResolvedValue({ type: 'authenticated', userId: 'user-timing' })
+      mockAuthResolver.resolve.mockResolvedValue({
+        data: { type: 'authenticated', userId: 'user-timing' },
+      })
       mockSessionResolver.resolve.mockResolvedValue({
-        mode: 'new',
-        reportId: 'val_timing_123',
-        hasExistingData: false,
-        status: 'draft',
+        data: {
+          mode: 'new',
+          reportId: 'val_timing_123',
+          hasExistingData: false,
+          status: 'draft',
+        },
       })
       mockPrefillResolver.resolve.mockResolvedValue({
-        sources: [],
-        confidence: 0,
-        fieldsPopulated: [],
-        fieldsRemaining: [],
+        data: {
+          sources: [],
+          confidence: 0,
+          fieldsPopulated: [],
+          fieldsRemaining: [],
+        },
       })
 
       const result = await service.bootstrap(context)
@@ -330,16 +382,20 @@ describe('SessionBootstrapService', () => {
 
       mockAuthResolver.resolve.mockRejectedValue(new Error('Auth failed'))
       mockSessionResolver.resolve.mockResolvedValue({
-        mode: 'new',
-        reportId: 'val_fallback_123',
-        hasExistingData: false,
-        status: 'draft',
+        data: {
+          mode: 'new',
+          reportId: 'val_fallback_123',
+          hasExistingData: false,
+          status: 'draft',
+        },
       })
       mockPrefillResolver.resolve.mockResolvedValue({
-        sources: [],
-        confidence: 0,
-        fieldsPopulated: [],
-        fieldsRemaining: [],
+        data: {
+          sources: [],
+          confidence: 0,
+          fieldsPopulated: [],
+          fieldsRemaining: [],
+        },
       })
 
       // Should not throw, but return fallback state

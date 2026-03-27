@@ -270,6 +270,37 @@ describe('buildValuationRequest', () => {
     expect((result as any).canonical_nace_code).toBe('64.20')
   })
 
+  it('preserves imported SaaS provenance while letting explicit SaaS form fields win', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        saas_arr: 700_000,
+        saas_mrr: 58_333,
+        business_context: {
+          _imported_saas_metrics: {
+            saas_arr: 650_000,
+            saas_mrr: 54_166,
+          },
+          _imported_saas_provenance: {
+            source: 'exact',
+            confidence: 0.82,
+          },
+        },
+      }),
+      []
+    )
+
+    expect((result.business_context as any).saas_arr).toBe(700_000)
+    expect((result.business_context as any).saas_mrr).toBe(58_333)
+    expect((result.business_context as any)._imported_saas_metrics).toEqual({
+      saas_arr: 650_000,
+      saas_mrr: 54_166,
+    })
+    expect((result.business_context as any)._imported_saas_provenance).toEqual({
+      source: 'exact',
+      confidence: 0.82,
+    })
+  })
+
   it('rejects historical revenue only when negative', () => {
     const lastFullYear = getCurrentFilingYear()
 

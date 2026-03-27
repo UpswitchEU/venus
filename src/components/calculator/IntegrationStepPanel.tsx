@@ -21,12 +21,14 @@ import {
   type ParsedCSVData,
   type SuggestedNormalisation,
 } from '@/components/integrations'
+import { YukiConnectModal } from '@/components/integrations/YukiConnectModal'
 import { trackNormalizationAcceptAll } from '@/lib/analytics'
 import { Badge } from '@/design-system/components/Badge'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
 import { Body, Caption, Heading } from '@/design-system/components/Typography'
 import { cn } from '@/design-system/utils'
+import type { AccountingBatchPayload } from '@/services/api/accounting'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -36,12 +38,13 @@ type IntegrationStep = 'select' | 'upload' | 'mapping' | 'review' | 'complete'
 
 export interface IntegrationStepPanelProps {
   onComplete: (method: 'csv' | 'manual', data?: MappedAccount[]) => void
+  onYukiImported?: (payload: AccountingBatchPayload) => void
   onSkip?: () => void
   className?: string
 }
 
 // ─────────────────────────────────────────
-// MOCK NORMALISATION SUGGESTIONS
+// CSV-derived normalisation suggestions (no fabricated defaults)
 // ─────────────────────────────────────────
 
 type TranslateFn = (key: string) => string
@@ -74,28 +77,8 @@ const generateNormalisations = (
     }
   })
 
-  // Add default suggestions if none found
-  if (suggestions.length === 0) {
-    suggestions.push(
-      {
-        id: 'n1',
-        category: t('defaultSuggestion1Category'),
-        description: t('defaultSuggestion1Description'),
-        amount: 25000,
-        reason: t('defaultSuggestion1Reason'),
-        status: 'pending',
-      },
-      {
-        id: 'n2',
-        category: t('defaultSuggestion2Category'),
-        description: t('defaultSuggestion2Description'),
-        amount: 8400,
-        reason: t('defaultSuggestion2Reason'),
-        status: 'pending',
-      }
-    )
-  }
-
+  // No fabricated defaults: ledger-driven suggestions only (imported CSV mapping).
+  // Full normalisation review remains in the main calculator (UnifiedNormalizationModal).
   return suggestions.slice(0, 5) // Max 5 suggestions
 }
 
@@ -103,12 +86,18 @@ const generateNormalisations = (
 // COMPONENT
 // ─────────────────────────────────────────
 
-export function IntegrationStepPanel({ onComplete, onSkip, className }: IntegrationStepPanelProps) {
+export function IntegrationStepPanel({
+  onComplete,
+  onYukiImported,
+  onSkip,
+  className,
+}: IntegrationStepPanelProps) {
   const t = useTranslations('integrationStep')
   const [step, setStep] = useState<IntegrationStep>('select')
   const [parsedCSV, setParsedCSV] = useState<ParsedCSVData | null>(null)
   const [mappedAccounts, setMappedAccounts] = useState<MappedAccount[]>([])
   const [suggestions, setSuggestions] = useState<SuggestedNormalisation[]>([])
+  const [showYukiModal, setShowYukiModal] = useState(false)
 
   // Handlers
   const handleCSVSelected = (file: File, data: ParsedCSVData) => {
@@ -159,14 +148,15 @@ export function IntegrationStepPanel({ onComplete, onSkip, className }: Integrat
 
   // Render based on step
   return (
-    <div className={cn('space-y-6', className)}>
-      {/* Step: Select Integration Method */}
-      {step === 'select' && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
+    <>
+      <div className={cn('space-y-6', className)}>
+        {/* Step: Select Integration Method */}
+        {step === 'select' && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
           {/* Header */}
           <div className="text-center mb-8">
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
@@ -204,9 +194,12 @@ export function IntegrationStepPanel({ onComplete, onSkip, className }: Integrat
               </div>
             </GlassCard>
 
-            {/* Directe Koppelingen — Coming Q2 2026 */}
+            {/* Native Yuki connection */}
             <div className="relative">
-              <GlassCard className="p-5">
+              <GlassCard
+                className="p-5 cursor-pointer hover:bg-foreground/[0.02] transition-colors"
+                onClick={() => setShowYukiModal(true)}
+              >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
                     <FileSpreadsheet className="w-6 h-6 text-foreground/40" />
@@ -216,14 +209,15 @@ export function IntegrationStepPanel({ onComplete, onSkip, className }: Integrat
                       <Heading level={3} className="text-base text-foreground/70">
                         {t('directIntegration')}
                       </Heading>
-                      <Badge variant="neutral" size="sm">
-                        Q2 2026
+                      <Badge variant="primary" size="sm">
+                        Yuki
                       </Badge>
                     </div>
                     <Caption className="text-foreground/50">
-                      {t('directIntegrationCaption')}
+                      Connect Yuki directly, pull 3-5 fiscal years, and continue with a prefilled normalization flow.
                     </Caption>
                   </div>
+                  <ChevronRight className="w-5 h-5 text-foreground/30" />
                 </div>
               </GlassCard>
             </div>
@@ -259,44 +253,44 @@ export function IntegrationStepPanel({ onComplete, onSkip, className }: Integrat
               </button>
             </div>
           )}
-        </motion.div>
-      )}
+          </motion.div>
+        )}
 
       {/* Step: CSV Upload */}
-      {step === 'upload' && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-2xl mx-auto"
-        >
-          <CSVUploadCard onFileSelected={handleCSVSelected} onSkip={handleManualInput} />
+        {step === 'upload' && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-2xl mx-auto"
+          >
+            <CSVUploadCard onFileSelected={handleCSVSelected} onSkip={handleManualInput} />
 
-          <div className="mt-4">
-            <Button variant="ghost" onClick={() => setStep('select')}>
-              {t('backToOptions')}
-            </Button>
-          </div>
-        </motion.div>
-      )}
+            <div className="mt-4">
+              <Button variant="ghost" onClick={() => setStep('select')}>
+                {t('backToOptions')}
+              </Button>
+            </div>
+          </motion.div>
+        )}
 
       {/* Step: Mapping Preview */}
-      {step === 'mapping' && parsedCSV && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <CSVMappingPreview
-            parsedData={parsedCSV}
-            onConfirm={handleMappingConfirmed}
-            onBack={handleBackToUpload}
-          />
-        </motion.div>
-      )}
+        {step === 'mapping' && parsedCSV && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+            <CSVMappingPreview
+              parsedData={parsedCSV}
+              onConfirm={handleMappingConfirmed}
+              onBack={handleBackToUpload}
+            />
+          </motion.div>
+        )}
 
       {/* Step: Review Normalisations */}
-      {step === 'review' && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
+        {step === 'review' && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
           {/* Success Banner */}
           <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
             <Check className="w-5 h-5 text-primary" />
@@ -316,19 +310,28 @@ export function IntegrationStepPanel({ onComplete, onSkip, className }: Integrat
             onAcceptAll={handleAcceptAll}
           />
 
-          {/* Navigation */}
-          <div className="flex justify-between">
-            <Button variant="ghost" onClick={handleBackToMapping}>
-              {t('backToMapping')}
-            </Button>
-            <Button variant="primary" onClick={handleContinue}>
-              {t('continueToEstimate')}
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        </motion.div>
-      )}
-    </div>
+            {/* Navigation */}
+            <div className="flex justify-between">
+              <Button variant="ghost" onClick={handleBackToMapping}>
+                {t('backToMapping')}
+              </Button>
+              <Button variant="primary" onClick={handleContinue}>
+                {t('continueToEstimate')}
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </div>
+      <YukiConnectModal
+        open={showYukiModal}
+        onOpenChange={setShowYukiModal}
+        onImported={(payload) => {
+          onYukiImported?.(payload)
+          onComplete('manual')
+        }}
+      />
+    </>
   )
 }
 

@@ -355,6 +355,7 @@ export function NormalisationReviewPanel({
   const ca = useTranslations('chatAssistant')
   const pendingCount = suggestions.filter((s) => s.status === 'pending').length
   const acceptedCount = suggestions.filter((s) => s.status === 'accepted').length
+  const isEmpty = suggestions.length === 0
 
   return (
     <GlassCard className={cn('p-6', className)}>
@@ -365,13 +366,15 @@ export function NormalisationReviewPanel({
             {ca('suggestedNormalizations')}
           </Heading>
           <Caption className="text-foreground/50">
-            {pendingCount > 0
-              ? ca('normalizationsToReview', { count: pendingCount })
-              : ca('normalizationsAccepted', { count: acceptedCount })}
+            {isEmpty
+              ? ca('noLedgerSuggestionsCaption')
+              : pendingCount > 0
+                ? ca('normalizationsToReview', { count: pendingCount })
+                : ca('normalizationsAccepted', { count: acceptedCount })}
           </Caption>
         </div>
 
-        {pendingCount > 0 && (
+        {!isEmpty && pendingCount > 0 && (
           <Button variant="primary" size="sm" onClick={onAcceptAll}>
             {ca('acceptAll')}
           </Button>
@@ -380,6 +383,11 @@ export function NormalisationReviewPanel({
 
       {/* Suggestions List */}
       <div className="space-y-3">
+        {isEmpty ? (
+          <Body size="sm" className="text-foreground/60 leading-relaxed">
+            {ca('noLedgerSuggestionsBody')}
+          </Body>
+        ) : null}
         <AnimatePresence mode="popLayout">
           {suggestions.map((suggestion) => (
             <motion.div

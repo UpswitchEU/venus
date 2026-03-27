@@ -5,19 +5,25 @@
  * Verifies cookie auth, token exchange, and guest flows
  */
 
+import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAuthStore } from '../auth'
-
-// Mock fetch globally
-global.fetch = vi.fn()
+import { clearAuthCache, useAuthStore } from '../auth'
 
 describe('Authentication Module', () => {
   beforeEach(() => {
+    clearAuthCache()
     // Reset store state
-    useAuthStore.setState({ user: null, loading: false, error: null })
+    useAuthStore.setState({
+      user: null,
+      loading: false,
+      error: null,
+      isInitializing: false,
+      isRefreshing: false,
+    })
 
-    // Clear mock calls
     vi.clearAllMocks()
+    // vitest clearAllMocks can strip fetch; re-bind a fresh mock every test
+    global.fetch = vi.fn() as typeof fetch
 
     // Reset document.cookie
     Object.defineProperty(document, 'cookie', {
@@ -239,7 +245,8 @@ describe('Authentication Module', () => {
   describe('useAuth Hook', () => {
     it('should provide backward compatible API', async () => {
       const { useAuth } = await import('../auth')
-      const auth = useAuth()
+      const { result } = renderHook(() => useAuth())
+      const auth = result.current
 
       // Verify all expected properties exist
       expect(auth).toHaveProperty('user')
@@ -273,15 +280,15 @@ describe('Authentication Module', () => {
         employee_count_range: '10-50',
       })
 
-      const auth = useAuth()
+      const { result } = renderHook(() => useAuth())
 
       // Verify businessCard computed
-      expect(auth.businessCard).toBeDefined()
-      expect(auth.businessCard?.company_name).toBe('Test Company')
-      expect(auth.businessCard?.industry).toBe('technology')
-      expect(auth.businessCard?.business_model).toBe('saas')
-      expect(auth.businessCard?.founding_year).toBe(2020)
-      expect(auth.businessCard?.country_code).toBe('BE')
+      expect(result.current.businessCard).toBeDefined()
+      expect(result.current.businessCard?.company_name).toBe('Test Company')
+      expect(result.current.businessCard?.industry).toBe('technology')
+      expect(result.current.businessCard?.business_model).toBe('saas')
+      expect(result.current.businessCard?.founding_year).toBe(2020)
+      expect(result.current.businessCard?.country_code).toBe('BE')
     })
 
     it('should return null businessCard when no business data', async () => {
@@ -296,10 +303,10 @@ describe('Authentication Module', () => {
         role: 'user',
       })
 
-      const auth = useAuth()
+      const { result } = renderHook(() => useAuth())
 
       // Verify businessCard is null
-      expect(auth.businessCard).toBeNull()
+      expect(result.current.businessCard).toBeNull()
     })
   })
 })

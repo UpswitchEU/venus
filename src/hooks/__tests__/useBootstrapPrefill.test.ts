@@ -28,6 +28,7 @@ describe('useBootstrapPrefill', () => {
       isBootstrapping: false,
       bootstrapError: null,
       hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
       report: { mode: 'new', reportId: 'val_nl_prefill', hasExistingData: false },
       prefillData: {
         sources: ['session'],
@@ -63,6 +64,7 @@ describe('useBootstrapPrefill', () => {
       isBootstrapping: false,
       bootstrapError: null,
       hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
       report: { mode: 'new', reportId: 'val_be_fallback', hasExistingData: false },
       prefillData: {
         sources: ['session'],
@@ -95,6 +97,7 @@ describe('useBootstrapPrefill', () => {
       isBootstrapping: false,
       bootstrapError: null,
       hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
       report: { mode: 'new', reportId: 'val_be_official', hasExistingData: false },
       prefillData: {
         sources: ['official_belgian_filing'],
@@ -142,6 +145,61 @@ describe('useBootstrapPrefill', () => {
       expect(formData.official_verification_badge).toEqual({
         state: 'verified',
         label: 'Verified by NBB',
+      })
+    })
+  })
+
+  it('hydrates imported SaaS metrics and provenance into the manual form store', async () => {
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
+      report: { mode: 'new', reportId: 'val_saas_import', hasExistingData: false },
+      prefillData: {
+        sources: ['accounting_integration'],
+        companyInfo: {
+          companyName: 'Recurring Co',
+          countryCode: 'BE',
+        },
+        financials: {
+          revenue: 900000,
+          ebitda: 180000,
+          saasMetrics: {
+            saas_arr: 720000,
+            saas_mrr: 60000,
+            saas_gross_margin_pct: 78,
+          },
+          saasMetricsProvenance: {
+            source: 'yuki',
+            confidence: 0.8,
+            fiscal_year: 2024,
+          },
+        },
+        confidence: 0.7,
+        fieldsPopulated: ['company_name', 'revenue'],
+        fieldsRemaining: [],
+        readOnlyKbo: false,
+        autoAdvancePastPrefilledSteps: false,
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+
+    await waitFor(() => {
+      const formData = useManualFormStore.getState().formData as any
+      expect(formData.saas_arr).toBe(720000)
+      expect(formData.saas_mrr).toBe(60000)
+      expect(formData.saas_gross_margin_pct).toBe(78)
+      expect(formData.business_context._imported_saas_metrics).toEqual({
+        saas_arr: 720000,
+        saas_mrr: 60000,
+        saas_gross_margin_pct: 78,
+      })
+      expect(formData.business_context._imported_saas_provenance).toEqual({
+        source: 'yuki',
+        confidence: 0.8,
+        fiscal_year: 2024,
       })
     })
   })
