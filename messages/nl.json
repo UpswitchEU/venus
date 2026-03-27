@@ -1204,7 +1204,7 @@
       "connectDescription": "Verbind Silverfin, Yuki of Exact en haal daarna de laatste cijfers in deze waardering op. Manuele invoer blijft beschikbaar als je liever zonder koppeling verdergaat.",
       "connectedTitle": "{provider} is verbonden",
       "connectedDescription": "Haal eerst de laatste boekhoudcijfers uit {provider} op en review daarna de normalisaties en waarderingsaannames, met manuele override nog steeds beschikbaar.",
-      "supportedProviders": "Nu live: Silverfin, Yuki en Exact Online",
+      "supportedProviders": "Yuki en Exact Online zijn live voor sync; Silverfin wanneer je werkruimte het inschakelt",
       "overrideNote": "Manuele override blijft één klik verwijderd",
       "connectCta": "Verbind Silverfin",
       "pullDataCta": "Ophalen uit {provider}",
@@ -1361,8 +1361,8 @@
         "arr": "Geprojecteerde ARR"
       },
       "saasImported": {
-        "title": "Geimporteerde SaaS-snapshot",
-        "description": "Vooraf ingevuld vanuit {provider} voor boekjaar {year} met {confidence}% betrouwbaarheid. U kunt elke waarde nog manueel aanpassen voor de waardering."
+        "title": "Geïmporteerde SaaS-snapshot",
+        "description": "Vooraf ingevuld vanuit {provider} voor boekjaar {year} met {confidence}% betrouwbaarheid. Waarden zijn afgeleid uit terugkerende omzet in je geïmporteerde grootboek—niet uit live subscription-analytics. Je kunt elk veld nog handmatig aanpassen vóór de waardering."
       },
       "waccBreakdown": {
         "expand": "Toon aannames",

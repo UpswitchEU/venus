@@ -1204,7 +1204,7 @@
       "connectDescription": "Connect Silverfin, Yuki, or Exact and pull the latest figures into this valuation. Manual entry remains available if you prefer to continue without a connection.",
       "connectedTitle": "{provider} is connected",
       "connectedDescription": "Pull the latest accounting figures from {provider} first, then review normalizations and valuation assumptions with manual override still available.",
-      "supportedProviders": "Live now: Silverfin, Yuki, and Exact Online",
+      "supportedProviders": "Yuki and Exact Online are live for sync; Silverfin when enabled for your workspace",
       "overrideNote": "Manual override stays one click away",
       "connectCta": "Connect Silverfin",
       "pullDataCta": "Pull from {provider}",
@@ -1362,7 +1362,7 @@
       },
       "saasImported": {
         "title": "Imported SaaS snapshot",
-        "description": "Pre-filled from {provider} for fiscal year {year} with {confidence}% confidence. You can still adjust any value manually before running the valuation."
+        "description": "Pre-filled from {provider} for fiscal year {year} with {confidence}% confidence. Values are derived from recurring-looking revenue in your imported ledger—not subscription-system analytics. You can still adjust any field manually before running the valuation."
       },
       "waccBreakdown": {
         "expand": "Show inputs",
