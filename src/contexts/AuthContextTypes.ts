@@ -22,6 +22,7 @@ export interface User {
   name: string
   role: string
   email_verified?: boolean
+  firm_country_code?: string
 
   // Profile fields
   avatar_url?: string

@@ -19,7 +19,7 @@ describe('SourceDataPanel', () => {
     });
   });
 
-  it('renders separate provenance rows for the same field across fiscal years', () => {
+  it('renders separate provenance rows for the same field across fiscal years', async () => {
     act(() => {
       useSpotlightStore.setState({
         showSourcePanel: true,
@@ -60,7 +60,7 @@ describe('SourceDataPanel', () => {
       });
     });
 
-    act(() => {
+    await act(async () => {
       render(<SourceDataPanel />);
     });
 
@@ -69,7 +69,7 @@ describe('SourceDataPanel', () => {
     expect(screen.getAllByText('Revenue')).toHaveLength(2);
   });
 
-  it('auto-expands the active spotlight field row when the source panel opens', () => {
+  it('auto-expands the active spotlight field row when the source panel opens', async () => {
     act(() => {
       useSpotlightStore.setState({
         showSourcePanel: true,
@@ -111,7 +111,7 @@ describe('SourceDataPanel', () => {
       });
     });
 
-    act(() => {
+    await act(async () => {
       render(<SourceDataPanel />);
     });
 

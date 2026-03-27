@@ -131,4 +131,23 @@ describe('normalizeSessionData', () => {
     expect(normalizedSnake.formData.shares_for_sale).toBe(100)
     expect(normalizedCamel.formData.shares_for_sale).toBe(100)
   })
+
+  it('restores filing year confirmation from snake_case and camelCase payloads', () => {
+    const normalizedSnake = normalizeSessionData({
+      session_key: 'val_filing_snake',
+      session_data: {
+        filing_year_confirmed: true,
+      },
+    })
+
+    const normalizedCamel = normalizeSessionData({
+      session_key: 'val_filing_camel',
+      session_data: {
+        filingYearConfirmed: true,
+      },
+    })
+
+    expect((normalizedSnake.formData as any).filing_year_confirmed).toBe(true)
+    expect((normalizedCamel.formData as any).filing_year_confirmed).toBe(true)
+  })
 })

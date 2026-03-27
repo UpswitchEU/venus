@@ -56,15 +56,18 @@ export interface YearDataInput {
   interest_expense?: number
   tax_expense?: number
   net_income?: number
+  capex?: number
 
   // Balance sheet
   total_assets?: number
   current_assets?: number
   cash?: number
   accounts_receivable?: number
+  accounts_payable?: number
   inventory?: number
   total_liabilities?: number
   current_liabilities?: number
+  short_term_debt?: number
   total_debt?: number
   total_equity?: number
 
@@ -192,6 +195,7 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   // Legacy fields for backward compatibility
   revenue?: number
   ebitda?: number
+  filing_year_confirmed?: boolean
   business_type?: 'sole-trader' | 'company'
   shares_for_sale?: number
   employee_count?: number
@@ -216,6 +220,7 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   dcf_revenue_growth_pct?: number
   dcf_ebitda_margin_pct?: number
   dcf_capex_pct?: number
+  dcf_nwc_pct?: number
   dcf_wacc_pct?: number
   dcf_terminal_growth_pct?: number
   // Adjusted NAV
@@ -870,6 +875,11 @@ export interface ValuationResponse {
     pv_fcf_projections_5y: number[]
     sensitivity_wacc: Record<string, number>
     sensitivity_growth: Record<string, number>
+    sensitivity_matrix_2d?: {
+      wacc_values: number[]
+      growth_values: number[]
+      ev_matrix: number[][]
+    }
     confidence: string
     confidence_score: number
     confidence_factors: Record<string, string>
@@ -1044,6 +1054,7 @@ export interface ValuationResponse {
   htmlReport?: string
   current_year_data?: YearDataInput // For accessing revenue, ebitda, etc.
   historical_years_data?: YearDataInput[] // Historical financial data for trend analysis
+  filing_year_confirmed?: boolean
 
   // Omni-Calc: all methods calculated simultaneously
   valuation_results?: Record<string, ValuationMethodResult>

@@ -47,6 +47,7 @@ import { PRE_SELECTABLE_METHODS } from '@/constants/methodFieldConfig'
 
 const METHOD_LABEL_KEYS: Record<string, string> = {
   upswitch_adaptive: 'manualInput.methodSelector.adaptiveRecommended',
+  arr_multiple: 'manualInput.methodSelector.arrMultiple',
   ebitda_multiple: 'manualInput.methodSelector.ebitdaMultiple',
   dcf: 'manualInput.methodSelector.dcf',
   adjusted_nav: 'manualInput.methodSelector.adjustedNav',

@@ -12,6 +12,10 @@ describe('methodFieldConfig', () => {
     ).toBe(true)
   })
 
+  it('keeps ARR multiple pre-selectable for SaaS workflows', () => {
+    expect(PRE_SELECTABLE_METHODS).toContain('arr_multiple')
+  })
+
   it('merges method and business-type sections without duplicates', () => {
     expect(getBonusSections('dcf', 'saas_software')).toEqual([
       'dcf_projections',
@@ -25,5 +29,9 @@ describe('methodFieldConfig', () => {
 
   it('supports arr_multiple as a result-only SaaS method', () => {
     expect(getBonusSections('arr_multiple', 'saas_software')).toEqual(['saas_metrics'])
+  })
+
+  it('supports Titan SaaS business type ids even when the category is generic', () => {
+    expect(getBonusSections('upswitch_adaptive', 'tech-digital', 'saas')).toEqual(['saas_metrics'])
   })
 })

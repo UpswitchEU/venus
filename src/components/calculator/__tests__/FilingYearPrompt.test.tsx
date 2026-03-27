@@ -1,6 +1,6 @@
 import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FilingYearPrompt } from '../FilingYearPrompt'
 
 const translations: Record<string, Record<string, string>> = {
@@ -8,6 +8,11 @@ const translations: Record<string, Record<string, string>> = {
     filingYearPromptTitle: 'Meest recente afgesloten boekjaar?',
     filingYearPromptDescription:
       'Selecteer het jaar waarvoor de jaarrekening is neergelegd of intern afgerond.',
+    filingYearLabelSafeDefault: 'Veilige standaard',
+    filingYearLabelBooksClosed: 'Boeken al gesloten',
+    filingYearAriaSafeDefault: 'Kies {year}, aanbevolen wanneer de jaarrekening nog niet definitief is',
+    filingYearAriaBooksClosed:
+      'Kies {year}, wanneer de jaarrekening al is neergelegd of afgerond',
     filingYearOther: 'Ander jaar...',
   },
   'common.actions': {
@@ -15,22 +20,38 @@ const translations: Record<string, Record<string, string>> = {
   },
 }
 
+function interpolate(template: string, values?: Record<string, unknown>) {
+  if (!values) return template
+  return template.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? `{${k}}`))
+}
+
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
-  useTranslations: (namespace: string) => (key: string) => translations[namespace]?.[key] ?? key,
+  useTranslations: (namespace: string) => (key: string, values?: Record<string, unknown>) =>
+    interpolate(translations[namespace]?.[key] ?? key, values),
 }))
 
 describe('FilingYearPrompt', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('renders the prompt with the default filing year and next year options', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
     render(<FilingYearPrompt defaultYear={2024} onSelect={vi.fn()} />)
 
     expect(screen.getByText('Meest recente afgesloten boekjaar?')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '2024' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '2025' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /2024/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /2025/ })).toBeInTheDocument()
+    expect(screen.getByText('Veilige standaard')).toBeInTheDocument()
+    expect(screen.getByText('Boeken al gesloten')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ander jaar...' })).toBeInTheDocument()
   })
 
   it('calls onSelect with the suggested default year and disappears when parent dismisses it', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
     const handleSelect = vi.fn()
 
     function Wrapper() {
@@ -48,17 +69,19 @@ describe('FilingYearPrompt', () => {
     }
 
     render(<Wrapper />)
-    fireEvent.click(screen.getByRole('button', { name: '2024' }))
+    fireEvent.click(screen.getByRole('button', { name: /2024/ }))
 
     expect(handleSelect).toHaveBeenCalledWith(2024)
     expect(screen.queryByText('Meest recente afgesloten boekjaar?')).not.toBeInTheDocument()
   })
 
   it('calls onSelect with the next year option', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
     const handleSelect = vi.fn()
 
     render(<FilingYearPrompt defaultYear={2024} onSelect={handleSelect} />)
-    fireEvent.click(screen.getByRole('button', { name: '2025' }))
+    fireEvent.click(screen.getByRole('button', { name: /2025/ }))
 
     expect(handleSelect).toHaveBeenCalledWith(2025)
   })
@@ -67,5 +90,15 @@ describe('FilingYearPrompt', () => {
     render(<FilingYearPrompt defaultYear={2024} dismissed onSelect={vi.fn()} />)
 
     expect(screen.queryByText('Meest recente afgesloten boekjaar?')).not.toBeInTheDocument()
+  })
+
+  it('does not offer the in-progress current calendar year in H2', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-15T12:00:00Z'))
+
+    render(<FilingYearPrompt defaultYear={2025} onSelect={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: /2025/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /2026/ })).not.toBeInTheDocument()
   })
 })

@@ -1138,6 +1138,8 @@
       "totalFte": "Totaal FTE",
       "revenue": "Omzet",
       "ebitda": "EBITDA",
+      "capex": "CapEx",
+      "nwcChange": "ΔNWC",
       "normalizedEbitda": "Genormaliseerde EBITDA",
       "normalizedEbitdaLabel": "Genormaliseerde EBITDA:",
       "adjustmentSuffix": "aanpassing"
@@ -1154,11 +1156,25 @@
     "fillBothFields": "Vul zowel omzet als EBITDA in voor dit jaar",
     "filingYearPromptTitle": "Meest recente afgesloten boekjaar?",
     "filingYearPromptDescription": "Selecteer het jaar waarvoor de jaarrekening is neergelegd of intern afgerond.",
+    "filingYearLabelSafeDefault": "Veilige standaard",
+    "filingYearLabelBooksClosed": "Boeken al gesloten",
+    "filingYearAriaSafeDefault": "Kies {year}, aanbevolen wanneer de jaarrekening nog niet definitief is",
+    "filingYearAriaBooksClosed": "Kies {year}, wanneer de jaarrekening al is neergelegd of afgerond",
     "filingYearOther": "Ander jaar...",
     "addYear": "Jaar toevoegen",
     "addForecastYear": "Voeg prognosejaar toe",
     "forecastLabel": "Prognose",
+    "dcfProjectionTable": {
+      "title": "DCF-projectietabel",
+      "description": "Bewerk de expliciete prognosejaren die in de DCF-berekening worden gebruikt.",
+      "columns": {
+        "year": "Jaar",
+        "ebitdaMarginPct": "EBITDA %",
+        "fcff": "FCFF"
+      }
+    },
     "dcfForecastAdded": "DCF vereist prognosejaren — {count, plural, one {# prognosejaar} other {# prognosejaren}} toegevoegd",
+    "forecastYearOutOfRange": "Kan geen prognosejaar toevoegen buiten het ondersteunde bereik (2000–2100).",
     "removeForecastPrompt": "Prognosejaren verwijderen?",
     "removeForecastDescription": "De prognosejaren en hun ingevulde gegevens worden verwijderd uit uw waardering.",
     "calculating": "Berekenen...",
@@ -1199,6 +1215,7 @@
       "label": "Methode",
       "adaptive": "AI Adaptive",
       "adaptiveRecommended": "AI Adaptive (aanbevolen)",
+      "arrMultiple": "SaaS-marktbenadering (ARR)",
       "ebitdaMultiple": "Marktbenadering (EV/EBITDA)",
       "dcf": "Discounted Cash Flow (DCF)",
       "adjustedNav": "Gecorrigeerde Netto Actiefwaarde",
@@ -1219,6 +1236,7 @@
         "dcfRevenueGrowthPct": "Omzetgroei (%)",
         "dcfEbitdaMarginPct": "EBITDA-marge (%)",
         "dcfCapexPct": "CapEx (% van omzet)",
+        "dcfNwcPct": "ΔNWC (% van omzet)",
         "dcfWaccPct": "WACC (%)",
         "dcfTerminalGrowthPct": "Terminale groei (%)",
         "navRealEstateAdjustment": "Herwaardering vastgoed",
@@ -1245,6 +1263,44 @@
         "revRecurringPct": "Terugkerende omzet (%)",
         "revTopClientConcentrationPct": "Topklant-concentratie (%)",
         "revContractBacklog": "Contractuele orderportefeuille"
+      },
+      "smartDefaults": {
+        "title": "Slimme defaults uit historiek",
+        "description": "Opgebouwd uit uw laatste {count} historische boekjaar(en) en conservatieve Belgische SME-aannames. Controleer dit voordat u de DCF afrondt.",
+        "apply": "Slimme defaults toepassen"
+      },
+      "projectionPreview": {
+        "title": "Preview van geprojecteerde jaren",
+        "description": "Deze volgende drie jaren volgen de huidige groei- en marge-aannames voordat de waardering opnieuw wordt berekend.",
+        "revenue": "Omzet",
+        "ebitda": "EBITDA"
+      },
+      "fcfReadiness": {
+        "imported_ready": {
+          "title": "De geimporteerde cashflowhistoriek is klaar voor een echte FCF-DCF",
+          "description": "{years} werkelijke boekjaar(en) bevatten bruikbare CapEx-, belasting- en werkkapitaalinputs, zodat de DCF sterker op geimporteerde historiek kan steunen in plaats van op brede fallback-aannames."
+        },
+        "partial": {
+          "title": "De DCF gebruikt al een deel van de geimporteerde cashflowinputs, maar steunt nog deels op aannames",
+          "description": "{years} werkelijke boekjaar(en) zijn beschikbaar, met CapEx in {capex}, belastingen in {taxes}, en werkkapitaaldekking in {workingCapital}. Ontbrekende signalen vallen nog terug op conservatieve aannames."
+        },
+        "manual_fallback": {
+          "title": "De DCF draait nog in een EBITDA-gedreven fallbackmodus",
+          "description": "De huidige historiek bevat nog niet genoeg geimporteerde cashflowdetails. De DCF kan nog steeds draaien, maar steunt dan vooral op marge- en benchmarkaannames in plaats van op echte FCF-componenten."
+        },
+        "missing": "Nog ontbrekend voor een volledig data-gedragen DCF: {fields}.",
+        "fields": {
+          "capex": "CapEx",
+          "taxes": "belastingkost",
+          "working_capital": "werkkapitaalbeweging"
+        }
+      },
+      "riskInsight": {
+        "highTitle": "Sleutelpersoon-afhankelijkheid kan een hogere disconteringsvoet rechtvaardigen",
+        "criticalTitle": "Eigenaarsafhankelijkheid is ernstig en hoort in de WACC terug te komen",
+        "description": "Een eigenaar-ratio van {ratio}% wijst op materieel sleutelpersoonrisico. Overweeg een WACC-opslag van +{uplift} procentpunt, tenzij u sterk bewijs heeft dat de onderneming zelfstandig kan draaien.",
+        "suggestedWacc": "Voorgestelde risico-gecorrigeerde WACC: {value}%",
+        "apply": "Risico-gecorrigeerde WACC toepassen"
       }
     },
     "importModal": {

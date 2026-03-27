@@ -28,6 +28,10 @@ import {
 import { useLocale, useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   type BusinessType,
   BusinessTypeSearchInput,
   categoryIcons,
@@ -69,8 +73,20 @@ import {
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
+import {
+  appendManualForecastYear,
+  canAppendForecastYear,
+  canAppendHistoricalYear,
+  getNextForecastYear,
+  getNextHistoricalYear,
+  dcfInjectionAddedRowCount,
+  injectDefaultDcfForecastYears,
+  removeForecastYear,
+  removeForecastYears,
+} from '../../utils/forecastYears'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
+import { buildCurrentYearData } from '../../utils/yearData'
 import {
   getHistoricalYearRange,
   getLatestCompleteYearlyFinancial,
@@ -88,17 +104,35 @@ import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 import {} from '../../utils/shareholding'
 import { getBonusSections } from '../../constants/methodFieldConfig'
 import {
+  DcfForecastProjectionTable,
   DcfProjectionsSection,
   NavAssetScheduleSection,
   SaasMetricsSection,
   RevenueQualitySection,
 } from './sections'
+import { deriveDcfReadinessInsight } from './sections/dcfReadiness'
+import { deriveDcfProjectionPreview } from './sections/dcfProjectionPreview'
+import { deriveDcfRiskInsight } from './sections/dcfRiskInsight'
+import { deriveDcfSmartDefaults } from './sections/dcfSmartDefaults'
+import type { YearDataInput } from '../../types/valuation'
 
 // Types
 export interface YearlyFinancials {
   year: string
   revenue: number
   ebitda: number
+  capex?: number
+  depreciation?: number
+  tax_expense?: number
+  cash?: number
+  total_debt?: number
+  current_assets?: number
+  current_liabilities?: number
+  accounts_receivable?: number
+  accounts_payable?: number
+  inventory?: number
+  short_term_debt?: number
+  nwc_change?: number
   normalizedEbitda?: number
   isForecast?: boolean
 }
@@ -127,11 +161,15 @@ export interface ValuationFormData {
   // Convenience fields for AI context (derived from the latest complete financial year)
   revenue?: number
   ebitda?: number
-  current_year_data?: { year: number; revenue: number; ebitda: number }
+  current_year_data?: YearDataInput
+  historical_years_data?: YearDataInput[]
+  forecast_years_data?: YearDataInput[]
+  filingYearConfirmed?: boolean
   // Adaptive Input Studio: method-specific bonus fields
   dcf_revenue_growth_pct?: number
   dcf_ebitda_margin_pct?: number
   dcf_capex_pct?: number
+  dcf_nwc_pct?: number
   dcf_wacc_pct?: number
   dcf_terminal_growth_pct?: number
   nav_real_estate_adjustment?: number
@@ -280,8 +318,9 @@ const hasMeaningfulYearlyFinancials = (yearlyFinancials?: YearlyFinancials[]): b
   )
 
 const getSeedBaseFilingYear = (initialData: Partial<ValuationFormData>): number => {
+  const maxSelectableYear = new Date().getFullYear() - 1
   const explicitYear = Number(initialData.current_year_data?.year)
-  if (Number.isFinite(explicitYear) && explicitYear >= 2000 && explicitYear <= 2100) {
+  if (Number.isFinite(explicitYear) && explicitYear >= 2000 && explicitYear <= maxSelectableYear) {
     return explicitYear
   }
   return getCurrentFilingYear()
@@ -362,15 +401,12 @@ export function ManualInputPanel({
     ownerManagers: initialData.ownerManagers || 1,
     fteEmployees: initialData.fteEmployees ?? 5,
     yearlyFinancials: getSeedYearlyFinancials(initialData),
+    current_year_data: initialData.current_year_data,
+    historical_years_data: initialData.historical_years_data,
+    forecast_years_data: initialData.forecast_years_data,
+    filingYearConfirmed: initialData.filingYearConfirmed ?? false,
   })
   const currentFilingYear = getCurrentFilingYear()
-  const [filingYearConfirmed, setFilingYearConfirmed] = useState<boolean>(() => {
-    const explicitInitialYear = Number(initialData.current_year_data?.year)
-    return (
-      hasMeaningfulYearlyFinancials(initialData.yearlyFinancials) ||
-      (Number.isFinite(explicitInitialYear) && explicitInitialYear > currentFilingYear)
-    )
-  })
   const activityCodeTerm = getFinancialTerm(
     'activityCode',
     formData.country,
@@ -396,12 +432,13 @@ export function ManualInputPanel({
     Object.assign(formDataRef.current, {
       yearlyFinancials: formData.yearlyFinancials,
       current_year_data: latestHistorical
-        ? {
+        ? buildCurrentYearData({
             year: parseInt(latestHistorical.year, 10),
             revenue: latestHistorical.revenue,
             ebitda: latestHistorical.ebitda,
-          }
-        : undefined,
+            currentYearData: formData.current_year_data,
+          })
+        : formData.current_year_data,
       ebitda: current?.ebitda,
     })
   }
@@ -429,14 +466,27 @@ export function ManualInputPanel({
   // Sync prefill from bootstrap/session when initialData arrives after mount
   // Dependencies on key fields ensure we re-run when prefill arrives late (e.g. async store hydration)
   useEffect(() => {
+    const maxSelectableYear = new Date().getFullYear() - 1
     const explicitInitialYear = Number(initialData.current_year_data?.year)
     if (
       hasMeaningfulYearlyFinancials(initialData.yearlyFinancials) ||
-      (Number.isFinite(explicitInitialYear) && explicitInitialYear > currentFilingYear)
+      initialData.filingYearConfirmed === true ||
+      (
+        Number.isFinite(explicitInitialYear) &&
+        explicitInitialYear > currentFilingYear &&
+        explicitInitialYear <= maxSelectableYear
+      )
     ) {
-      setFilingYearConfirmed(true)
+      setFormData((prev) =>
+        prev.filingYearConfirmed ? prev : { ...prev, filingYearConfirmed: true }
+      )
     }
-  }, [currentFilingYear, initialData.current_year_data?.year, initialData.yearlyFinancials])
+  }, [
+    currentFilingYear,
+    initialData.current_year_data?.year,
+    initialData.filingYearConfirmed,
+    initialData.yearlyFinancials,
+  ])
 
   useEffect(() => {
     const prefill = initialData
@@ -635,9 +685,16 @@ export function ManualInputPanel({
       revenue: current?.revenue,
       ebitda: current?.ebitda,
       yearlyFinancials: formData.yearlyFinancials,
+      historical_years_data: formData.historical_years_data,
+      forecast_years_data: formData.forecast_years_data,
       current_year_data: current
-        ? { year: parseInt(current.year, 10), revenue: current.revenue, ebitda: current.ebitda }
-        : undefined,
+        ? buildCurrentYearData({
+            year: parseInt(current.year, 10),
+            revenue: current.revenue,
+            ebitda: current.ebitda,
+            currentYearData: formData.current_year_data,
+          })
+        : formData.current_year_data,
     })
   }, [
     formData.companyName,
@@ -654,6 +711,9 @@ export function ManualInputPanel({
     formData.fteEmployees,
     formData.businessType,
     formData.yearlyFinancials,
+    formData.historical_years_data,
+    formData.forecast_years_data,
+    formData.current_year_data,
   ])
   useEffect(() => {
     syncFormData()
@@ -950,23 +1010,32 @@ export function ManualInputPanel({
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const updateYearlyFinancials = (year: string, isForecast: boolean, field: 'revenue' | 'ebitda', value: number) => {
-    const updated = formData.yearlyFinancials.map((yf) =>
-      yf.year === year && !!yf.isForecast === isForecast ? { ...yf, [field]: value } : yf
-    )
-    updateField('yearlyFinancials', updated)
+  const updateYearlyFinancials = (
+    year: string,
+    isForecast: boolean,
+    field: 'revenue' | 'ebitda' | 'capex' | 'nwc_change',
+    value: number
+  ) => {
+    const yearKey = String(year)
+    setFormData((prev) => ({
+      ...prev,
+      yearlyFinancials: prev.yearlyFinancials.map((yf) =>
+        String(yf.year) === yearKey && !!yf.isForecast === isForecast ? { ...yf, [field]: value } : yf
+      ),
+    }))
   }
 
   const handleSelectFilingYear = useCallback((selectedYear: number) => {
-    setFilingYearConfirmed(true)
     setFormData((prev) => ({
       ...prev,
       yearlyFinancials: generateDefaultYearlyFinancials(selectedYear),
-      current_year_data: {
+      filingYearConfirmed: true,
+      current_year_data: buildCurrentYearData({
         year: selectedYear,
         revenue: prev.current_year_data?.revenue ?? 0,
         ebitda: prev.current_year_data?.ebitda ?? 0,
-      },
+        currentYearData: prev.current_year_data,
+      }),
     }))
   }, [])
 
@@ -986,31 +1055,22 @@ export function ManualInputPanel({
     if (effectiveMethod === 'dcf') {
       setShowForecastRemovalConfirm(false)
       setFormData((current) => {
-        const hasForecast = current.yearlyFinancials.some((yf) => yf.isForecast)
-        if (hasForecast) return current
-        const existingYears = current.yearlyFinancials.map((yf) => Number(yf.year))
-        const maxYear =
-          existingYears.length > 0
-            ? Math.max(...existingYears)
-            : getCurrentFilingYear()
-        const forecastYears: YearlyFinancials[] = [1, 2, 3].map((offset) => ({
-          year: String(maxYear + offset),
-          revenue: 0,
-          ebitda: 0,
-          isForecast: true,
-        }))
-        if (!isMount) {
+        const before = current.yearlyFinancials
+        const nextFinancials = injectDefaultDcfForecastYears(before)
+        if (nextFinancials === current.yearlyFinancials) return current
+        const addedCount = dcfInjectionAddedRowCount(before, nextFinancials)
+        if (!isMount && addedCount > 0) {
           import('sonner').then(({ toast }) =>
-            toast.info(mi('dcfForecastAdded', { count: 3 }))
+            toast.info(mi('dcfForecastAdded', { count: addedCount }))
           )
         }
-        return { ...current, yearlyFinancials: [...current.yearlyFinancials, ...forecastYears] }
+        return { ...current, yearlyFinancials: nextFinancials as YearlyFinancials[] }
       })
     } else if (!isMount && prev === 'dcf') {
       setFormData((current) => {
-        const forecastEntries = current.yearlyFinancials.filter((yf) => yf.isForecast)
-        if (forecastEntries.length > 0) {
-          setShowForecastRemovalConfirm(true)
+        const hasForecast = current.yearlyFinancials.some((yf) => yf.isForecast)
+        if (hasForecast) {
+          queueMicrotask(() => setShowForecastRemovalConfirm(true))
         }
         return current
       })
@@ -1173,6 +1233,27 @@ export function ManualInputPanel({
 
     return { warnings, errors, hasErrors: Object.keys(errors).length > 0 }
   }, [formData])
+
+  const sortedYearlyFinancials = useMemo(
+    () => [...formData.yearlyFinancials].sort((a, b) => Number(b.year) - Number(a.year)),
+    [formData.yearlyFinancials]
+  )
+  const historicalCardRows = useMemo(
+    () =>
+      effectiveMethod === 'dcf'
+        ? sortedYearlyFinancials.filter((year) => !year.isForecast)
+        : sortedYearlyFinancials,
+    [effectiveMethod, sortedYearlyFinancials]
+  )
+  const dcfForecastRows = useMemo(
+    () =>
+      effectiveMethod === 'dcf'
+        ? [...sortedYearlyFinancials.filter((year) => year.isForecast)].sort(
+            (a, b) => Number(a.year) - Number(b.year)
+          )
+        : [],
+    [effectiveMethod, sortedYearlyFinancials]
+  )
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -1692,7 +1773,10 @@ export function ManualInputPanel({
 
                 <FilingYearPrompt
                   defaultYear={currentFilingYear}
-                  dismissed={filingYearConfirmed || hasMeaningfulYearlyFinancials(formData.yearlyFinancials)}
+                  dismissed={
+                    formData.filingYearConfirmed === true ||
+                    hasMeaningfulYearlyFinancials(formData.yearlyFinancials)
+                  }
                   onSelect={handleSelectFilingYear}
                 />
 
@@ -1812,9 +1896,7 @@ export function ManualInputPanel({
 
                 {/* Year-by-year financial input */}
                 <div className="space-y-3">
-                  {[...formData.yearlyFinancials]
-                    .sort((a, b) => Number(b.year) - Number(a.year))
-                    .map((yearData, index) => {
+                  {historicalCardRows.map((yearData, index) => {
                     const normalizedYear = normalizedData.years.find(
                       (y) =>
                         y.year === yearData.year &&
@@ -1845,18 +1927,45 @@ export function ManualInputPanel({
                               </span>
                             )}
                           </span>
-                          {normCount > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => onViewAllNormalizations?.()}
-                              className="text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
-                            >
-                              {normCount} {mi('normalizations', { count: normCount as number })}
-                            </button>
+                          {(normCount > 0 || yearData.isForecast) && (
+                            <div className="flex items-center gap-2">
+                              {normCount > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => onViewAllNormalizations?.()}
+                                  className="text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                                >
+                                  {normCount} {mi('normalizations', { count: normCount as number })}
+                                </button>
+                              )}
+                              {yearData.isForecast && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      yearlyFinancials: removeForecastYear(
+                                        prev.yearlyFinancials,
+                                        yearData.year
+                                      ),
+                                    }))
+                                  }
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/15 text-primary/60 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                                  aria-label={`${t('common.actions.delete')} ${mi('forecastLabel').toLowerCase()} ${yearData.year}`}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div
+                          className={cn(
+                            'grid gap-3',
+                            'grid-cols-2'
+                          )}
+                        >
                           <SpotlightFieldWrapper fieldName="revenue" fiscalYear={yearData.year}>
                             <div>
                               <div className="flex items-center gap-1.5">
@@ -1967,43 +2076,73 @@ export function ManualInputPanel({
                     )
                   })}
 
+                  {effectiveMethod === 'dcf' && dcfForecastRows.length > 0 && (
+                    <DcfForecastProjectionTable
+                      rows={dcfForecastRows}
+                      disabled={isCalculating}
+                      fieldValidation={fieldValidation}
+                      onChange={(year, field, value) =>
+                        updateYearlyFinancials(year, true, field, value)
+                      }
+                      onRemoveYear={(year) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          yearlyFinancials: removeForecastYear(prev.yearlyFinancials, year),
+                        }))
+                      }
+                    />
+                  )}
+
                   {/* Add Forecast Year Button */}
-                  {formData.yearlyFinancials.filter((yf) => yf.isForecast).length < 5 && (
+                  {canAppendForecastYear(formData.yearlyFinancials) && (
                     <button
                       type="button"
                       onClick={() => {
-                        const existingYears = formData.yearlyFinancials.map((yf) => Number(yf.year))
-                        const nextForecastYear = Math.max(...existingYears) + 1
-                        updateField('yearlyFinancials', [
-                          ...formData.yearlyFinancials,
-                          { year: String(nextForecastYear), revenue: 0, ebitda: 0, isForecast: true },
-                        ])
+                        setFormData((prev) => {
+                          const result = appendManualForecastYear(prev.yearlyFinancials)
+                          if (!result.ok) {
+                            if (result.reason === 'year_out_of_range') {
+                              import('sonner').then(({ toast }) =>
+                                toast.error(mi('forecastYearOutOfRange') || 'Forecast year out of range')
+                              )
+                            }
+                            return prev
+                          }
+                          return { ...prev, yearlyFinancials: result.yearlyFinancials as YearlyFinancials[] }
+                        })
                       }}
                       className="w-full p-3 rounded-xl border border-dashed border-primary/20 text-sm text-primary/50 hover:text-primary/70 hover:border-primary/30 hover:bg-primary/[0.03] transition-colors flex items-center justify-center gap-2"
+                      aria-label={`${mi('addForecastYear')} ${getNextForecastYear(formData.yearlyFinancials)}`}
                     >
-                      <TrendingUp className="w-4 h-4" />
+                      <TrendingUp className="w-4 h-4" aria-hidden />
                       {mi('addForecastYear')} (
-                      {Math.max(...formData.yearlyFinancials.map((yf) => Number(yf.year))) + 1})
+                      {getNextForecastYear(formData.yearlyFinancials)})
                     </button>
                   )}
 
                   {/* Add Historical Year Button */}
-                  {formData.yearlyFinancials.filter((yf) => !yf.isForecast).length < 5 && (
+                  {canAppendHistoricalYear(formData.yearlyFinancials) && (
                     <button
                       type="button"
                       onClick={() => {
-                        const existingYears = formData.yearlyFinancials.map((yf) => Number(yf.year))
-                        const nextYear = Math.min(...existingYears) - 1
-                        updateField('yearlyFinancials', [
-                          ...formData.yearlyFinancials,
-                          { year: String(nextYear), revenue: 0, ebitda: 0 },
-                        ])
+                        setFormData((prev) => ({
+                          ...prev,
+                          yearlyFinancials: [
+                            ...prev.yearlyFinancials,
+                            {
+                              year: String(getNextHistoricalYear(prev.yearlyFinancials)),
+                              revenue: 0,
+                              ebitda: 0,
+                            },
+                          ],
+                        }))
                       }}
                       className="w-full p-3 rounded-xl border border-dashed border-foreground/[0.08] text-sm text-foreground/40 hover:text-foreground/60 hover:border-foreground/[0.15] hover:bg-foreground/[0.02] transition-colors flex items-center justify-center gap-2"
+                      aria-label={`${mi('addYear')} ${getNextHistoricalYear(formData.yearlyFinancials)}`}
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-4 h-4" aria-hidden />
                       {mi('addYear')} (
-                      {Math.min(...formData.yearlyFinancials.map((yf) => Number(yf.year))) - 1})
+                      {getNextHistoricalYear(formData.yearlyFinancials)})
                     </button>
                   )}
                 </div>
@@ -2013,6 +2152,7 @@ export function ManualInputPanel({
             <AdaptiveSections
               effectiveMethod={effectiveMethod}
               businessCategory={selectedBusinessType?.category}
+              businessTypeId={selectedBusinessType?.id}
               formData={formData}
               onFieldChange={(field, value) => {
                 setFormData((prev) => ({ ...prev, [field]: value }))
@@ -2097,7 +2237,7 @@ export function ManualInputPanel({
               onClick={() => {
                 setFormData((current) => ({
                   ...current,
-                  yearlyFinancials: current.yearlyFinancials.filter((yf) => !yf.isForecast),
+                  yearlyFinancials: removeForecastYears(current.yearlyFinancials),
                 }))
                 setShowForecastRemovalConfirm(false)
               }}
@@ -2116,17 +2256,77 @@ export function ManualInputPanel({
 export function AdaptiveSections({
   effectiveMethod,
   businessCategory,
+  businessTypeId,
   formData,
   onFieldChange,
   disabled,
 }: {
   effectiveMethod: string
   businessCategory?: string
+  businessTypeId?: string
   formData: ValuationFormData
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
 }) {
-  const sections = getBonusSections(effectiveMethod, businessCategory)
+  const t = useTranslations('manualInput.methodSelector')
+  const businessProfileKey = [businessTypeId, businessCategory].filter(Boolean).join(' ')
+  const sections = getBonusSections(effectiveMethod, businessCategory, businessTypeId)
+  const dcfSmartDefaults = useMemo(
+    () =>
+      sections.includes('dcf_projections')
+        ? deriveDcfSmartDefaults({
+            yearlyFinancials: formData.yearlyFinancials,
+            businessCategory: businessProfileKey,
+          })
+        : null,
+    [sections, formData.yearlyFinancials, businessProfileKey]
+  )
+  const dcfProjectionPreview = useMemo(
+    () =>
+      sections.includes('dcf_projections')
+        ? deriveDcfProjectionPreview({
+            yearlyFinancials: formData.yearlyFinancials,
+            smartDefaults: dcfSmartDefaults,
+            revenueGrowthPct: formData.dcf_revenue_growth_pct as number | undefined,
+            ebitdaMarginPct: formData.dcf_ebitda_margin_pct as number | undefined,
+          })
+        : [],
+    [
+      sections,
+      formData.yearlyFinancials,
+      formData.dcf_revenue_growth_pct,
+      formData.dcf_ebitda_margin_pct,
+      dcfSmartDefaults,
+    ]
+  )
+  const dcfReadinessInsight = useMemo(
+    () =>
+      sections.includes('dcf_projections')
+        ? deriveDcfReadinessInsight({
+            currentYearData: formData.current_year_data,
+            historicalYearsData: formData.historical_years_data,
+          })
+        : null,
+    [sections, formData.current_year_data, formData.historical_years_data]
+  )
+  const dcfRiskInsight = useMemo(
+    () =>
+      sections.includes('dcf_projections')
+        ? deriveDcfRiskInsight({
+            ownerManagers: formData.ownerManagers,
+            fteEmployees: formData.fteEmployees,
+            currentWaccPct: formData.dcf_wacc_pct as number | undefined,
+            smartDefaultWaccPct: dcfSmartDefaults?.waccPct,
+          })
+        : null,
+    [
+      sections,
+      formData.ownerManagers,
+      formData.fteEmployees,
+      formData.dcf_wacc_pct,
+      dcfSmartDefaults,
+    ]
+  )
   if (sections.length === 0) return null
 
   return (
@@ -2137,10 +2337,15 @@ export function AdaptiveSections({
           dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
           dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
           dcfCapexPct={formData.dcf_capex_pct as number | undefined}
+          dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
           dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
           dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
           onFieldChange={onFieldChange}
           disabled={disabled}
+          smartDefaults={dcfSmartDefaults}
+          projectionPreview={dcfProjectionPreview}
+          readinessInsight={dcfReadinessInsight}
+          riskInsight={dcfRiskInsight}
         />
       )}
       {sections.includes('nav_asset_schedule') && (
@@ -2155,22 +2360,38 @@ export function AdaptiveSections({
         />
       )}
       {sections.includes('saas_metrics') && (
-        <SaasMetricsSection
+        <Accordion
           key="saas_metrics"
-          saasArr={formData.saas_arr as number | undefined}
-          saasMrr={formData.saas_mrr as number | undefined}
-          saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
-          saasChurnPct={formData.saas_churn_pct as number | undefined}
-          saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
-          saasNrrPct={formData.saas_nrr_pct as number | undefined}
-          saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
-          saasCac={formData.saas_cac as number | undefined}
-          saasCustomerConcentrationPct={formData.saas_customer_concentration_pct as number | undefined}
-          saasExpansionRevenuePct={formData.saas_expansion_revenue_pct as number | undefined}
-          saasSmSpend={formData.saas_sm_spend as number | undefined}
-          onFieldChange={onFieldChange}
-          disabled={disabled}
-        />
+          type="single"
+          defaultValue="saas_metrics"
+          collapsible
+          variant="separated"
+          className="pt-2"
+        >
+          <AccordionItem value="saas_metrics">
+            <AccordionTrigger size="sm">
+              {t('sections.saasMetrics')}
+            </AccordionTrigger>
+            <AccordionContent className="pt-2">
+              <SaasMetricsSection
+                saasArr={formData.saas_arr as number | undefined}
+                saasMrr={formData.saas_mrr as number | undefined}
+                saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
+                saasChurnPct={formData.saas_churn_pct as number | undefined}
+                saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
+                saasNrrPct={formData.saas_nrr_pct as number | undefined}
+                saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
+                saasCac={formData.saas_cac as number | undefined}
+                saasCustomerConcentrationPct={formData.saas_customer_concentration_pct as number | undefined}
+                saasExpansionRevenuePct={formData.saas_expansion_revenue_pct as number | undefined}
+                saasSmSpend={formData.saas_sm_spend as number | undefined}
+                onFieldChange={onFieldChange}
+                disabled={disabled}
+                showHeader={false}
+              />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
       {sections.includes('revenue_quality') && (
         <RevenueQualitySection

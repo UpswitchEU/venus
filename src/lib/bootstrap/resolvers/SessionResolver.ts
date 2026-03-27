@@ -303,6 +303,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       'revenue',
       'ebitda',
       'industry',
+      'filing_year_confirmed',
       'valuation_result',
     ]
 

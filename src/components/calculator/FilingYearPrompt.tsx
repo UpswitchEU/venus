@@ -21,15 +21,22 @@ export function FilingYearPrompt({
   const actions = useTranslations('common.actions')
   const [showCustomYear, setShowCustomYear] = useState(false)
   const [customYear, setCustomYear] = useState('')
+  const maxSelectableYear = new Date().getFullYear() - 1
 
-  const suggestedYears = useMemo(() => [defaultYear, defaultYear + 1], [defaultYear])
+  const suggestedYears = useMemo(() => {
+    const years = [defaultYear]
+    if (defaultYear + 1 <= maxSelectableYear) {
+      years.push(defaultYear + 1)
+    }
+    return years
+  }, [defaultYear, maxSelectableYear])
 
   if (dismissed) return null
 
   const submitCustomYear = (e: FormEvent) => {
     e.preventDefault()
     const parsedYear = Number.parseInt(customYear, 10)
-    if (Number.isFinite(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100) {
+    if (Number.isFinite(parsedYear) && parsedYear >= 2000 && parsedYear <= maxSelectableYear) {
       onSelect(parsedYear)
     }
   }
@@ -45,26 +52,42 @@ export function FilingYearPrompt({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {suggestedYears.map((year, index) => (
-          <button
-            key={year}
-            type="button"
-            onClick={() => onSelect(year)}
-            className={cn(
-              'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
-              index === 0
-                ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
-                : 'border-amber-500/20 bg-background/80 text-foreground/80 hover:bg-background'
-            )}
-          >
-            {year}
-          </button>
-        ))}
+        {suggestedYears.map((year, index) => {
+          const isPrimary = index === 0
+          const label = isPrimary ? mi('filingYearLabelSafeDefault') : mi('filingYearLabelBooksClosed')
+          const ariaLabel = isPrimary
+            ? mi('filingYearAriaSafeDefault', { year })
+            : mi('filingYearAriaBooksClosed', { year })
+          return (
+            <button
+              key={year}
+              type="button"
+              onClick={() => onSelect(year)}
+              aria-label={ariaLabel}
+              className={cn(
+                'flex min-w-[7.5rem] flex-col items-stretch rounded-lg border px-3 py-2 text-left transition-colors',
+                isPrimary
+                  ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+                  : 'border-amber-500/20 bg-background/80 text-foreground/80 hover:bg-background'
+              )}
+            >
+              <span className="text-base font-semibold tabular-nums leading-tight">{year}</span>
+              <span
+                className={cn(
+                  'mt-0.5 text-[11px] font-medium leading-snug',
+                  isPrimary ? 'text-primary/90' : 'text-foreground/70'
+                )}
+              >
+                {label}
+              </span>
+            </button>
+          )
+        })}
         <button
           type="button"
           onClick={() => setShowCustomYear((current) => !current)}
           className={cn(
-            'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+            'flex min-h-[3.25rem] items-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
             showCustomYear
               ? 'border-primary/30 bg-primary/10 text-primary'
               : 'border-amber-500/20 bg-background/80 text-foreground/80 hover:bg-background'
@@ -79,7 +102,7 @@ export function FilingYearPrompt({
           <input
             type="number"
             min={2000}
-            max={2100}
+            max={maxSelectableYear}
             inputMode="numeric"
             placeholder="YYYY"
             value={customYear}

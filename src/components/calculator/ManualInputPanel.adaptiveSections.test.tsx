@@ -24,7 +24,8 @@ describe('AdaptiveSections', () => {
       <AdaptiveSections
         {...baseProps}
         effectiveMethod="dcf"
-        businessCategory="saas_software"
+        businessCategory="tech-digital"
+        businessTypeId="saas"
       />
     )
 
@@ -41,7 +42,8 @@ describe('AdaptiveSections', () => {
       <AdaptiveSections
         {...baseProps}
         effectiveMethod="dcf"
-        businessCategory="saas_software"
+        businessCategory="tech-digital"
+        businessTypeId="saas"
       />
     )
 
@@ -51,7 +53,8 @@ describe('AdaptiveSections', () => {
       <AdaptiveSections
         {...baseProps}
         effectiveMethod="upswitch_adaptive"
-        businessCategory="saas_software"
+        businessCategory="tech-digital"
+        businessTypeId="saas"
       />
     )
 
@@ -64,7 +67,8 @@ describe('AdaptiveSections', () => {
       <AdaptiveSections
         {...baseProps}
         effectiveMethod="dcf"
-        businessCategory="saas_software"
+        businessCategory="tech-digital"
+        businessTypeId="saas"
       />
     )
 

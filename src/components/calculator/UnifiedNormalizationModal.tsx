@@ -136,6 +136,7 @@ export interface UnifiedNormalizationModalProps {
   hasUploadedData?: boolean
   onUploadClick?: () => void
   initialSearchQuery?: string
+  initialYearFilter?: number | null
   /** Financial years entered by the user (e.g. [2022, 2023, 2024, 2025]) */
   financialYears?: number[]
   /** Fallback form data ref (from ManualInputPanel) — read when originalEBITDA is 0. Modal renders after panel, so ref has latest. */
@@ -391,6 +392,7 @@ export function UnifiedNormalizationModal({
   countryCode,
   onUploadClick,
   initialSearchQuery = '',
+  initialYearFilter = null,
   financialYears,
   fallbackFormDataRef,
 }: UnifiedNormalizationModalProps) {
@@ -434,6 +436,8 @@ export function UnifiedNormalizationModal({
       setPrimaryTab('ebitda')
       setSelectedIds(new Set())
       setShowLedgerDropdown(false)
+      setSearchQuery(initialSearchQuery)
+      setYearFilter(initialYearFilter)
     } else {
       setShowAddForm(false)
       setSearchQuery(initialSearchQuery)
@@ -448,7 +452,7 @@ export function UnifiedNormalizationModal({
       setNewType('add')
       setNewReason('')
     }
-  }, [open, currentYear, initialSearchQuery])
+  }, [open, currentYear, initialSearchQuery, initialYearFilter])
 
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
   const [showAddForm, setShowAddForm] = useState(false)

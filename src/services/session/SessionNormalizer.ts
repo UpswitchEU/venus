@@ -103,6 +103,7 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['current_year_data', 'currentYearData'],
     ['historical_years_data', 'historicalYearsData'],
     ['forecast_years_data', 'forecastYearsData'],
+    ['filing_year_confirmed', 'filingYearConfirmed'],
     ['number_of_employees', 'numberOfEmployees', 'employee_count', 'employeeCount'],
     ['number_of_owners', 'numberOfOwners'],
     ['recurring_revenue_percentage', 'recurringRevenuePercentage'],

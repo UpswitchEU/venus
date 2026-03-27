@@ -25,6 +25,7 @@ import { debounceWithFlush } from '../utils/debounce'
 import { getCurrentFilingYear } from '../utils/fiscalYear'
 import { generalLogger } from '../utils/logger'
 import { NameGenerator } from '../utils/nameGenerator'
+import { buildCurrentYearData, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
 
 interface UseFormSessionSyncOptions {
   reportId: string | null | undefined
@@ -60,12 +61,23 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       }
     }
 
-    // Compare current_year_data
-    if (
-      formData.current_year_data?.revenue !== sessionData.current_year_data?.revenue ||
-      formData.current_year_data?.ebitda !== sessionData.current_year_data?.ebitda
-    ) {
+    if (formData.filing_year_confirmed !== sessionData.filing_year_confirmed) {
       return false
+    }
+
+    // Compare current_year_data
+    const formCurrentYear = formData.current_year_data
+    const sessionCurrentYear = sessionData.current_year_data
+    if (!!formCurrentYear !== !!sessionCurrentYear) {
+      return false
+    }
+    if (formCurrentYear || sessionCurrentYear) {
+      const fieldsToCompare = ['year', 'revenue', 'ebitda', ...OPTIONAL_YEAR_DATA_FIELDS]
+      for (const field of fieldsToCompare) {
+        if (formCurrentYear?.[field] !== sessionCurrentYear?.[field]) {
+          return false
+        }
+      }
     }
 
     // Compare historical_years_data (prevents skipping sync when only historical data changed)
@@ -136,10 +148,13 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         // Convert ValuationFormData to Partial<ValuationRequest> for session
         // ✅ FIX: Include ALL form fields for complete persistence
         const lastFullYear = getCurrentFilingYear()
+        const currentCalendarYear = new Date().getFullYear()
         const explicitCurrentYear = Number(data.current_year_data?.year ?? data.year)
         const normalizedCurrentYear =
-          Number.isFinite(explicitCurrentYear) && explicitCurrentYear >= 2000
-            ? Math.min(explicitCurrentYear, 2100)
+          Number.isFinite(explicitCurrentYear) &&
+          explicitCurrentYear >= 2000 &&
+          explicitCurrentYear <= currentCalendarYear
+            ? explicitCurrentYear
             : lastFullYear
 
         const sessionUpdate: Partial<any> = {
@@ -155,19 +170,14 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           city: data.city,
           revenue: data.revenue,
           ebitda: data.ebitda,
-          current_year_data: {
+          filing_year_confirmed: data.filing_year_confirmed,
+          current_year_data: buildCurrentYearData({
             // Respect the explicitly selected base year when the accountant confirms a newer filing year.
             year: normalizedCurrentYear,
             revenue: data.revenue ?? data.current_year_data?.revenue ?? 0,
             ebitda: data.ebitda ?? data.current_year_data?.ebitda ?? 0,
-            ...(data.current_year_data?.total_assets && {
-              total_assets: data.current_year_data.total_assets,
-            }),
-            ...(data.current_year_data?.total_debt && {
-              total_debt: data.current_year_data.total_debt,
-            }),
-            ...(data.current_year_data?.cash && { cash: data.current_year_data.cash }),
-          },
+            currentYearData: data.current_year_data,
+          }),
           historical_years_data: data.historical_years_data,
           ...(data.forecast_years_data !== undefined && {
             forecast_years_data: data.forecast_years_data,

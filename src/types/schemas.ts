@@ -19,8 +19,26 @@ export const FinancialDataSchema = z
     net_income: z.number().optional(),
     gross_profit: z.number().min(0).optional(),
     operating_expenses: z.number().min(0).optional(),
+    ebit: z.number().optional(),
+    depreciation: z.number().min(0).optional(),
+    amortization: z.number().min(0).optional(),
+    interest_expense: z.number().optional(),
+    tax_expense: z.number().min(0).optional(),
+    capex: z.number().min(0).optional(),
+    total_assets: z.number().min(0).optional(),
+    current_assets: z.number().min(0).optional(),
+    cash: z.number().min(0).optional(),
+    accounts_receivable: z.number().min(0).optional(),
+    accounts_payable: z.number().min(0).optional(),
+    inventory: z.number().min(0).optional(),
+    total_liabilities: z.number().min(0).optional(),
+    current_liabilities: z.number().min(0).optional(),
+    short_term_debt: z.number().min(0).optional(),
+    total_debt: z.number().min(0).optional(),
+    total_equity: z.number().optional(),
+    nwc_change: z.number().optional(),
   })
-  .strict()
+  .passthrough()
 
 export const YearFinancialDataSchema = z
   .object({

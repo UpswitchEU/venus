@@ -290,6 +290,7 @@ describe('buildValuationRequest', () => {
             year: lastFullYear + 1,
             revenue: 100_000,
             ebitda: 10_000,
+            capex: 7_500,
             depreciation: 2_000,
             cash: 8_000,
             nwc_change: -1_000,
@@ -307,6 +308,7 @@ describe('buildValuationRequest', () => {
         year: lastFullYear + 1,
         revenue: 100_000,
         ebitda: 10_000,
+        capex: 7_500,
         depreciation: 2_000,
         cash: 8_000,
         nwc_change: -1_000,
@@ -314,6 +316,87 @@ describe('buildValuationRequest', () => {
       },
       { year: lastFullYear + 2, revenue: 110_000, ebitda: 11_000, is_forecast: true },
     ])
+  })
+
+  it('preserves imported DCF detail fields on actual years', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+          capex: 45_000,
+          tax_expense: 22_000,
+          current_assets: 300_000,
+          current_liabilities: 140_000,
+          cash: 40_000,
+          accounts_receivable: 120_000,
+          accounts_payable: 60_000,
+          short_term_debt: 15_000,
+        },
+        historical_years_data: [
+          {
+            year: lastFullYear - 1,
+            revenue: 900_000,
+            ebitda: 90_000,
+            capex: 40_000,
+            tax_expense: 20_000,
+            current_assets: 260_000,
+            current_liabilities: 120_000,
+            cash: 30_000,
+            accounts_receivable: 100_000,
+            accounts_payable: 55_000,
+            short_term_debt: 10_000,
+          },
+        ],
+      }),
+      []
+    )
+
+    expect(result.current_year_data).toMatchObject({
+      capex: 45_000,
+      tax_expense: 22_000,
+      accounts_payable: 60_000,
+      short_term_debt: 15_000,
+    })
+    expect(result.historical_years_data[0]).toMatchObject({
+      capex: 40_000,
+      tax_expense: 20_000,
+      accounts_payable: 55_000,
+      short_term_debt: 10_000,
+    })
+  })
+
+  it('derives current-year nwc_change from imported balance-sheet detail when missing', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+          current_assets: 320_000,
+          cash: 50_000,
+          current_liabilities: 170_000,
+          short_term_debt: 20_000,
+        },
+        historical_years_data: [
+          {
+            year: lastFullYear - 1,
+            revenue: 900_000,
+            ebitda: 90_000,
+            current_assets: 280_000,
+            cash: 40_000,
+            current_liabilities: 150_000,
+            short_term_debt: 10_000,
+          },
+        ],
+      }),
+      []
+    )
+
+    expect(result.current_year_data.nwc_change).toBe(20_000)
   })
 
   it('uses revenue-quality fallback for recurring revenue when the base field is absent', () => {
@@ -333,6 +416,7 @@ describe('buildValuationRequest', () => {
       makeFormData({
         business_type_id: 'saas',
         dcf_revenue_growth_pct: 12,
+        dcf_nwc_pct: 4,
         dcf_wacc_pct: 9,
         nav_real_estate_adjustment: 150_000,
         saas_arr_growth_pct: 32,
@@ -347,6 +431,7 @@ describe('buildValuationRequest', () => {
 
     expect(result.business_context).toMatchObject({
       dcf_revenue_growth_pct: 12,
+      dcf_nwc_pct: 4,
       dcf_wacc_pct: 9,
       nav_real_estate_adjustment: 150_000,
       saas_arr_growth_pct: 32,
@@ -356,5 +441,28 @@ describe('buildValuationRequest', () => {
       saas_sm_spend: 120_000,
       rev_top_client_concentration_pct: 18,
     })
+  })
+
+  it('defaults DCF projection_years to 5 and expands with explicit forecast rows', () => {
+    const baseResult = buildValuationRequest(makeFormData({}), [])
+    expect(baseResult.projection_years).toBe(5)
+
+    const lastFullYear = getCurrentFilingYear()
+    const expandedResult = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [
+          { year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000 },
+          { year: lastFullYear + 1, revenue: 100_000, ebitda: 10_000, is_forecast: true },
+          { year: lastFullYear + 2, revenue: 110_000, ebitda: 11_000, is_forecast: true },
+          { year: lastFullYear + 3, revenue: 120_000, ebitda: 12_000, is_forecast: true },
+          { year: lastFullYear + 4, revenue: 130_000, ebitda: 13_000, is_forecast: true },
+          { year: lastFullYear + 5, revenue: 140_000, ebitda: 14_000, is_forecast: true },
+          { year: lastFullYear + 6, revenue: 150_000, ebitda: 15_000, is_forecast: true },
+        ],
+      }),
+      []
+    )
+
+    expect(expandedResult.projection_years).toBe(6)
   })
 })

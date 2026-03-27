@@ -17,6 +17,7 @@ import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import { getCurrentFilingYear } from './fiscalYear'
 import { generalLogger } from './logger'
+import { deriveNwcChangesForActualYears } from './yearData'
 
 function toFiniteNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === '') {
@@ -42,6 +43,7 @@ const YEAR_DATA_OPTIONAL_FIELDS = [
   'gross_profit',
   'operating_expenses',
   'ebit',
+  'capex',
   'depreciation',
   'amortization',
   'interest_expense',
@@ -51,9 +53,11 @@ const YEAR_DATA_OPTIONAL_FIELDS = [
   'current_assets',
   'cash',
   'accounts_receivable',
+  'accounts_payable',
   'inventory',
   'total_liabilities',
   'current_liabilities',
+  'short_term_debt',
   'total_debt',
   'total_equity',
   'nwc_change',
@@ -62,6 +66,7 @@ const YEAR_DATA_OPTIONAL_FIELDS = [
 const NON_NEGATIVE_YEAR_FIELDS = new Set<string>([
   'cogs',
   'operating_expenses',
+  'capex',
   'depreciation',
   'amortization',
   'total_assets',
@@ -134,9 +139,12 @@ export function buildValuationRequest(
 
   // Respect an explicitly selected filing year when the accountant confirms a newer year.
   const defaultFilingYear = getCurrentFilingYear()
+  const currentCalendarYear = new Date().getFullYear()
   const explicitCurrentYear = Number(formData.current_year_data?.year)
   const currentFiscalYear =
-    Number.isFinite(explicitCurrentYear) && explicitCurrentYear >= 2000 && explicitCurrentYear <= 2100
+    Number.isFinite(explicitCurrentYear) &&
+    explicitCurrentYear >= 2000 &&
+    explicitCurrentYear <= currentCalendarYear
       ? explicitCurrentYear
       : defaultFilingYear
 
@@ -291,7 +299,7 @@ export function buildValuationRequest(
   }
 
   // Normalize historical data (filter and sort) with normalization support
-  const historicalYearsData =
+  const historicalYearsData = deriveNwcChangesForActualYears(
     actualHistoricalData
       .filter(
         (year) =>
@@ -341,6 +349,13 @@ export function buildValuationRequest(
         }
       })
       .sort((a, b) => a.year - b.year) || []
+  )
+
+  const derivedActualYears = deriveNwcChangesForActualYears([...historicalYearsData, currentYearData])
+  const derivedCurrentYearData = derivedActualYears[derivedActualYears.length - 1]
+  if (derivedCurrentYearData) {
+    Object.assign(currentYearData, derivedCurrentYearData)
+  }
 
   const forecastYearsData =
     rawForecastData
@@ -418,6 +433,11 @@ export function buildValuationRequest(
     forecastYearSet.add(year.year)
   }
 
+  const projectionYears = Math.max(
+    5,
+    forecastYearsData.length > 0 ? forecastYearsData.length : 5
+  )
+
   // Normalize recurring revenue percentage (0.0-1.0)
   const recurringRevenueInput =
     formData.recurring_revenue_percentage ??
@@ -436,6 +456,7 @@ export function buildValuationRequest(
   if (fd.dcf_revenue_growth_pct != null) adaptiveFields.dcf_revenue_growth_pct = fd.dcf_revenue_growth_pct
   if (fd.dcf_ebitda_margin_pct != null) adaptiveFields.dcf_ebitda_margin_pct = fd.dcf_ebitda_margin_pct
   if (fd.dcf_capex_pct != null) adaptiveFields.dcf_capex_pct = fd.dcf_capex_pct
+  if (fd.dcf_nwc_pct != null) adaptiveFields.dcf_nwc_pct = fd.dcf_nwc_pct
   if (fd.dcf_wacc_pct != null) adaptiveFields.dcf_wacc_pct = fd.dcf_wacc_pct
   if (fd.dcf_terminal_growth_pct != null) adaptiveFields.dcf_terminal_growth_pct = fd.dcf_terminal_growth_pct
   if (fd.nav_real_estate_adjustment != null) adaptiveFields.nav_real_estate_adjustment = fd.nav_real_estate_adjustment
@@ -486,7 +507,7 @@ export function buildValuationRequest(
     recurring_revenue_percentage: recurringRevenuePercentage,
     use_dcf: true,
     use_multiples: true,
-    projection_years: 10,
+    projection_years: projectionYears,
     comparables: formData.comparables || [],
     business_type_id: formData.business_type_id,
     business_type: formData.business_type,

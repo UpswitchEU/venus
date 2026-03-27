@@ -33,7 +33,29 @@ export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
 }
 
 export const BUSINESS_TYPE_SECTIONS: Record<string, InputSectionKey[]> = {
+  saas: ['saas_metrics'],
+  b2b_saas: ['saas_metrics'],
+  b2c_saas: ['saas_metrics'],
   saas_software: ['saas_metrics'],
+}
+
+function normalizeBusinessSectionKey(value?: string | null): string | null {
+  if (!value) return null
+  return value.trim().toLowerCase().replace(/[\s-]+/g, '_')
+}
+
+function getBusinessSectionCandidates(
+  businessCategory?: string | null,
+  businessTypeId?: string | null
+): string[] {
+  const candidates = [
+    normalizeBusinessSectionKey(businessTypeId),
+    normalizeBusinessSectionKey(businessCategory),
+    businessTypeId?.trim().toLowerCase() ?? null,
+    businessCategory?.trim().toLowerCase() ?? null,
+  ].filter((value): value is string => Boolean(value))
+
+  return [...new Set(candidates)]
 }
 
 /**
@@ -43,6 +65,7 @@ export const BUSINESS_TYPE_SECTIONS: Record<string, InputSectionKey[]> = {
  */
 export const PRE_SELECTABLE_METHODS = [
   'upswitch_adaptive',
+  'arr_multiple',
   'ebitda_multiple',
   'dcf',
   'adjusted_nav',
@@ -64,13 +87,16 @@ if (process.env.NODE_ENV !== 'production') {
 
 export function getBonusSections(
   method: string,
-  businessCategory?: string | null
+  businessCategory?: string | null,
+  businessTypeId?: string | null
 ): InputSectionKey[] {
   const methodSections = METHOD_FIELD_CONFIG[method]?.bonusSections ?? []
-  const businessSections = businessCategory ? (BUSINESS_TYPE_SECTIONS[businessCategory] ?? []) : []
   const combined = [...methodSections]
-  for (const s of businessSections) {
-    if (!combined.includes(s)) combined.push(s)
+
+  for (const candidate of getBusinessSectionCandidates(businessCategory, businessTypeId)) {
+    for (const section of BUSINESS_TYPE_SECTIONS[candidate] ?? []) {
+      if (!combined.includes(section)) combined.push(section)
+    }
   }
   return combined
 }

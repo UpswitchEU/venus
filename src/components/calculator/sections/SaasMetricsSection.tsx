@@ -21,6 +21,7 @@ interface SaasMetricsSectionProps {
   saasSmSpend?: number
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
+  showHeader?: boolean
 }
 
 function ratioFromPercent(value?: number): number | null {
@@ -70,6 +71,7 @@ export function SaasMetricsSection({
   saasSmSpend,
   onFieldChange,
   disabled,
+  showHeader = true,
 }: SaasMetricsSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
   const locale = useLocale()
@@ -153,19 +155,21 @@ export function SaasMetricsSection({
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="space-y-4 pt-2"
     >
-      <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-          <Zap className="w-3 h-3 text-primary" />
+      {showHeader && (
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+            <Zap className="w-3 h-3 text-primary" />
+          </div>
+          <h3 className="text-sm font-medium text-foreground">
+            {t('sections.saasMetrics')}
+          </h3>
+          <span className="text-[10px] font-medium text-primary/70 bg-primary/8 px-1.5 py-0.5 rounded-full">
+            {t('shownForBusinessType', {
+              businessType: t('businessTypes.saasSoftware'),
+            })}
+          </span>
         </div>
-        <h3 className="text-sm font-medium text-foreground">
-          {t('sections.saasMetrics')}
-        </h3>
-        <span className="text-[10px] font-medium text-primary/70 bg-primary/8 px-1.5 py-0.5 rounded-full">
-          {t('shownForBusinessType', {
-            businessType: t('businessTypes.saasSoftware'),
-          })}
-        </span>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <CurrencyInput

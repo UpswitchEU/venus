@@ -288,7 +288,7 @@ export const transformRegistryDataToValuationRequest = (
     // Valuation preferences
     use_dcf: options?.useDcf ?? true,
     use_multiples: options?.useMultiples ?? true,
-    projection_years: options?.projectionYears ?? 10,
+    projection_years: options?.projectionYears ?? 5,
   }
 
   return valuationRequest

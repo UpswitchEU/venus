@@ -278,7 +278,11 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // Convert historicalInputs to formData.historical_years_data
   // Backend requires chronological order (oldest first), but UI shows most recent first
   useEffect(() => {
-    const currentYear = new Date().getFullYear()
+    const explicitCurrentYear = Number(formData.current_year_data?.year)
+    const maxHistoricalYear =
+      Number.isFinite(explicitCurrentYear) && explicitCurrentYear >= 2000
+        ? explicitCurrentYear
+        : getCurrentFilingYear()
     const historicalYears: { year: number; revenue: number; ebitda: number }[] = []
 
     // Extract all years from historicalInputs
@@ -287,7 +291,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       const match = key.match(/^(\d{4})_(revenue|ebitda)$/)
       if (match) {
         const year = parseInt(match[1])
-        if (year >= 2000 && year <= currentYear) {
+        if (year >= 2000 && year <= maxHistoricalYear) {
           yearSet.add(year)
         }
       }
@@ -342,7 +346,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         historical_years_data: undefined,
       })
     }
-  }, [historicalInputs, updateFormData])
+  }, [formData.current_year_data?.year, historicalInputs, updateFormData])
 
   // Clear owner concentration fields when switching to sole-trader
   // Set defaults when switching to company

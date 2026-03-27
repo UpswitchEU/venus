@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { getCurrentFilingYear } from '../fiscalYear'
-
-/**
- * These helpers mirror the forecast logic in ManualInputPanel.
- * They are extracted here to test the algorithm independently of React state,
- * matching the exact logic used in the onClick and useEffect handlers.
- */
+import {
+  appendManualForecastYear,
+  buildEmptyForecastYears,
+  canAppendForecastYear,
+  canAppendHistoricalYear,
+  dcfInjectionAddedRowCount,
+  DEFAULT_DCF_FORECAST_YEAR_COUNT,
+  injectDefaultDcfForecastYears,
+  MAX_FISCAL_YEAR,
+  MAX_FORECAST_YEAR_COUNT,
+  MIN_FISCAL_YEAR,
+  removeForecastYear,
+  removeForecastYears,
+} from '../forecastYears'
 
 interface YearlyFinancials {
   year: string
@@ -15,33 +23,9 @@ interface YearlyFinancials {
 }
 
 function addForecastYear(yearlyFinancials: YearlyFinancials[]): YearlyFinancials[] {
-  const existingYears = yearlyFinancials.map((yf) => Number(yf.year))
-  const nextForecastYear = Math.max(...existingYears) + 1
-  return [
-    ...yearlyFinancials,
-    { year: String(nextForecastYear), revenue: 0, ebitda: 0, isForecast: true },
-  ]
-}
-
-function injectDcfForecastYears(
-  yearlyFinancials: YearlyFinancials[],
-  count = 3
-): YearlyFinancials[] {
-  const hasForecast = yearlyFinancials.some((yf) => yf.isForecast)
-  if (hasForecast) return yearlyFinancials
-
-  const maxYear = Math.max(...yearlyFinancials.map((yf) => Number(yf.year)))
-  const forecastYears = Array.from({ length: count }, (_, i) => ({
-    year: String(maxYear + i + 1),
-    revenue: 0,
-    ebitda: 0,
-    isForecast: true as const,
-  }))
-  return [...yearlyFinancials, ...forecastYears]
-}
-
-function removeForecastYears(yearlyFinancials: YearlyFinancials[]): YearlyFinancials[] {
-  return yearlyFinancials.filter((yf) => !yf.isForecast)
+  const result = appendManualForecastYear(yearlyFinancials)
+  if (!result.ok) return yearlyFinancials
+  return result.yearlyFinancials as YearlyFinancials[]
 }
 
 describe('forecast year helpers', () => {
@@ -82,42 +66,42 @@ describe('forecast year helpers', () => {
   })
 
   describe('injectDcfForecastYears', () => {
-    it('injects 3 forecast years for DCF', () => {
-      const result = injectDcfForecastYears(baseFinancials)
-      expect(result).toHaveLength(6)
+    it('injects the shared default forecast horizon for DCF', () => {
+      const result = injectDefaultDcfForecastYears(baseFinancials)
+      expect(result).toHaveLength(baseFinancials.length + DEFAULT_DCF_FORECAST_YEAR_COUNT)
       const forecastYears = result.filter((yf) => yf.isForecast)
-      expect(forecastYears).toHaveLength(3)
+      expect(forecastYears).toHaveLength(DEFAULT_DCF_FORECAST_YEAR_COUNT)
       expect(forecastYears.map((yf) => yf.year)).toEqual([
         String(baseYear + 1),
         String(baseYear + 2),
         String(baseYear + 3),
+        String(baseYear + 4),
+        String(baseYear + 5),
       ])
     })
 
     it('does not double-inject forecast years if they already exist', () => {
-      const withForecast = injectDcfForecastYears(baseFinancials)
-      const result = injectDcfForecastYears(withForecast)
-      expect(result).toHaveLength(6)
+      const withForecast = injectDefaultDcfForecastYears(baseFinancials)
+      const result = injectDefaultDcfForecastYears(withForecast)
+      expect(result).toHaveLength(baseFinancials.length + DEFAULT_DCF_FORECAST_YEAR_COUNT)
       expect(result).toBe(withForecast)
     })
 
-    it('supports configurable count', () => {
-      const result = injectDcfForecastYears(baseFinancials, 5)
-      const forecastYears = result.filter((yf) => yf.isForecast)
-      expect(forecastYears).toHaveLength(5)
+    it('uses the same five-year horizon as the valuation engine default', () => {
+      expect(DEFAULT_DCF_FORECAST_YEAR_COUNT).toBe(5)
     })
   })
 
   describe('removeForecastYears', () => {
     it('removes all forecast years when switching away from DCF', () => {
-      const withForecast = injectDcfForecastYears(baseFinancials)
+      const withForecast = injectDefaultDcfForecastYears(baseFinancials)
       const result = removeForecastYears(withForecast)
       expect(result).toHaveLength(3)
       expect(result.every((yf) => !yf.isForecast)).toBe(true)
     })
 
     it('preserves historical years unchanged', () => {
-      const withForecast = injectDcfForecastYears(baseFinancials)
+      const withForecast = injectDefaultDcfForecastYears(baseFinancials)
       const result = removeForecastYears(withForecast)
       expect(result).toEqual(baseFinancials)
     })
@@ -125,6 +109,129 @@ describe('forecast year helpers', () => {
     it('is a no-op when no forecast years exist', () => {
       const result = removeForecastYears(baseFinancials)
       expect(result).toEqual(baseFinancials)
+    })
+  })
+
+  describe('removeForecastYear', () => {
+    it('removes only the selected forecast year and keeps the remaining horizon intact', () => {
+      const withForecasts = injectDefaultDcfForecastYears(baseFinancials)
+      const result = removeForecastYear(withForecasts, String(baseYear + 2))
+
+      expect(result.filter((yf) => yf.isForecast).map((yf) => yf.year)).toEqual([
+        String(baseYear + 1),
+        String(baseYear + 3),
+        String(baseYear + 4),
+        String(baseYear + 5),
+      ])
+      expect(result.filter((yf) => !yf.isForecast)).toEqual(baseFinancials)
+    })
+
+    it('matches year with String coercion for stable removal', () => {
+      const rows: YearlyFinancials[] = [
+        { year: '2026', revenue: 1, ebitda: 1, isForecast: true },
+      ]
+      expect(removeForecastYear(rows, '2026')).toHaveLength(0)
+      const numericYear = [{ ...rows[0], year: 2026 as unknown as string }]
+      expect(removeForecastYear(numericYear, '2026')).toHaveLength(0)
+    })
+  })
+
+  describe('appendManualForecastYear', () => {
+    it('rejects when forecast year would exceed fiscal max', () => {
+      const atMax: YearlyFinancials[] = [
+        { year: String(MAX_FISCAL_YEAR), revenue: 0, ebitda: 0, isForecast: true },
+      ]
+      const result = appendManualForecastYear(atMax)
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.reason).toBe('year_out_of_range')
+    })
+
+    it('allows adding up to the last valid fiscal year', () => {
+      const result = appendManualForecastYear([
+        { year: String(MAX_FISCAL_YEAR - 1), revenue: 1, ebitda: 1, isForecast: true },
+      ])
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.yearlyFinancials[result.yearlyFinancials.length - 1].year).toBe(
+          String(MAX_FISCAL_YEAR)
+        )
+      }
+    })
+  })
+
+  describe('buildEmptyForecastYears', () => {
+    it('stops at MAX_FISCAL_YEAR when requested horizon spans past it', () => {
+      const rows = buildEmptyForecastYears(MAX_FISCAL_YEAR - 1, DEFAULT_DCF_FORECAST_YEAR_COUNT)
+      expect(rows.map((r) => r.year)).toEqual([String(MAX_FISCAL_YEAR - 1), String(MAX_FISCAL_YEAR)])
+    })
+  })
+
+  describe('injectDefaultDcfForecastYears near fiscal max', () => {
+    it('injects only years that fit before MAX_FISCAL_YEAR', () => {
+      const historicalOnly: YearlyFinancials[] = [
+        { year: String(MAX_FISCAL_YEAR - 3), revenue: 1, ebitda: 1 },
+      ]
+      const result = injectDefaultDcfForecastYears(historicalOnly)
+      const forecast = result.filter((yf) => yf.isForecast)
+      expect(forecast.map((yf) => yf.year)).toEqual([
+        String(MAX_FISCAL_YEAR - 2),
+        String(MAX_FISCAL_YEAR - 1),
+        String(MAX_FISCAL_YEAR),
+      ])
+    })
+
+    it('array length delta equals forecast rows added (matches DCF toast count)', () => {
+      const historicalOnly: YearlyFinancials[] = [
+        { year: String(MAX_FISCAL_YEAR - 3), revenue: 1, ebitda: 1 },
+      ]
+      const result = injectDefaultDcfForecastYears(historicalOnly)
+      const added = dcfInjectionAddedRowCount(historicalOnly, result)
+      const forecastCount = result.filter((yf) => yf.isForecast).length
+      expect(added).toBe(forecastCount)
+      expect(added).toBe(3)
+    })
+
+    it('returns the same reference when next forecast year is past MAX_FISCAL_YEAR', () => {
+      const onlyMaxYear: YearlyFinancials[] = [
+        { year: String(MAX_FISCAL_YEAR), revenue: 1, ebitda: 1 },
+      ]
+      const result = injectDefaultDcfForecastYears(onlyMaxYear)
+      expect(result).toBe(onlyMaxYear)
+      expect(dcfInjectionAddedRowCount(onlyMaxYear, result)).toBe(0)
+    })
+  })
+
+  describe('dcfInjectionAddedRowCount', () => {
+    it('is zero when injection returns the same array reference', () => {
+      const rows: YearlyFinancials[] = [{ year: '2024', revenue: 1, ebitda: 1 }]
+      expect(dcfInjectionAddedRowCount(rows, rows)).toBe(0)
+    })
+  })
+
+  describe('canAppendForecastYear', () => {
+    it('is false at max forecast rows', () => {
+      const five: YearlyFinancials[] = Array.from({ length: MAX_FORECAST_YEAR_COUNT }, (_, i) => ({
+        year: String(2020 + i),
+        revenue: 0,
+        ebitda: 0,
+        isForecast: true,
+      }))
+      expect(canAppendForecastYear(five)).toBe(false)
+    })
+  })
+
+  describe('canAppendHistoricalYear', () => {
+    it('is false when the next older year would be before MIN_FISCAL_YEAR', () => {
+      const oldestAtFloor: YearlyFinancials[] = [
+        { year: String(MIN_FISCAL_YEAR), revenue: 1, ebitda: 1 },
+        { year: String(MIN_FISCAL_YEAR + 1), revenue: 1, ebitda: 1 },
+      ]
+      expect(canAppendHistoricalYear(oldestAtFloor)).toBe(false)
+    })
+
+    it('is true when an older year within bounds can be added', () => {
+      const rows: YearlyFinancials[] = [{ year: String(MIN_FISCAL_YEAR + 1), revenue: 1, ebitda: 1 }]
+      expect(canAppendHistoricalYear(rows)).toBe(true)
     })
   })
 

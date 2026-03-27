@@ -1138,6 +1138,8 @@
       "totalFte": "Total FTE",
       "revenue": "Revenue",
       "ebitda": "EBITDA",
+      "capex": "CapEx",
+      "nwcChange": "ΔNWC",
       "normalizedEbitda": "Normalized EBITDA",
       "normalizedEbitdaLabel": "Normalized EBITDA:",
       "adjustmentSuffix": "adjustment"
@@ -1154,11 +1156,25 @@
     "fillBothFields": "Enter both revenue and EBITDA for this year",
     "filingYearPromptTitle": "Most recent closed financial year?",
     "filingYearPromptDescription": "Select the year for which the annual accounts have been filed or internally finalized.",
+    "filingYearLabelSafeDefault": "Safe default",
+    "filingYearLabelBooksClosed": "Books already closed",
+    "filingYearAriaSafeDefault": "Select {year}, safe default when accounts are not yet finalized",
+    "filingYearAriaBooksClosed": "Select {year}, use when annual accounts are already filed or finalized",
     "filingYearOther": "Other year...",
     "addYear": "Add year",
     "addForecastYear": "Add forecast year",
     "forecastLabel": "Forecast",
+    "dcfProjectionTable": {
+      "title": "DCF projection table",
+      "description": "Edit the explicit forecast years used for the DCF calculation.",
+      "columns": {
+        "year": "Year",
+        "ebitdaMarginPct": "EBITDA %",
+        "fcff": "FCFF"
+      }
+    },
     "dcfForecastAdded": "DCF requires forecast years — {count, plural, one {# forecast year} other {# forecast years}} added",
+    "forecastYearOutOfRange": "Cannot add a forecast year outside the supported range (2000–2100).",
     "removeForecastPrompt": "Remove forecast years?",
     "removeForecastDescription": "The forecast years and any data you entered will be removed from your valuation.",
     "calculating": "Calculating...",
@@ -1199,6 +1215,7 @@
       "label": "Method",
       "adaptive": "AI Adaptive",
       "adaptiveRecommended": "AI Adaptive (recommended)",
+      "arrMultiple": "SaaS Market Approach (ARR)",
       "ebitdaMultiple": "Market Approach (EV/EBITDA)",
       "dcf": "Discounted Cash Flow (DCF)",
       "adjustedNav": "Adjusted Net Asset Value",
@@ -1219,6 +1236,7 @@
         "dcfRevenueGrowthPct": "Revenue growth (%)",
         "dcfEbitdaMarginPct": "EBITDA margin (%)",
         "dcfCapexPct": "CapEx (% of revenue)",
+        "dcfNwcPct": "ΔNWC (% of revenue)",
         "dcfWaccPct": "WACC (%)",
         "dcfTerminalGrowthPct": "Terminal growth (%)",
         "navRealEstateAdjustment": "Real estate revaluation",
@@ -1245,6 +1263,44 @@
         "revRecurringPct": "Recurring revenue (%)",
         "revTopClientConcentrationPct": "Top-customer concentration (%)",
         "revContractBacklog": "Contracted backlog"
+      },
+      "smartDefaults": {
+        "title": "Smart defaults from history",
+        "description": "Built from your last {count} historical year(s) and conservative Belgian SME assumptions. Review before finalising the DCF.",
+        "apply": "Apply smart defaults"
+      },
+      "projectionPreview": {
+        "title": "Preview of projected years",
+        "description": "These next three years reflect the current growth and margin assumptions before valuation recalculation.",
+        "revenue": "Revenue",
+        "ebitda": "EBITDA"
+      },
+      "fcfReadiness": {
+        "imported_ready": {
+          "title": "Imported cash-flow history is ready for an actual-FCF DCF",
+          "description": "{years} actual year(s) contain usable CapEx, tax, and working-capital inputs, so the DCF can lean on imported history instead of broad fallback assumptions."
+        },
+        "partial": {
+          "title": "DCF can use some imported cash-flow inputs, but still relies on assumptions",
+          "description": "{years} actual year(s) are available, with CapEx in {capex}, taxes in {taxes}, and working-capital coverage in {workingCapital}. Missing signals will still fall back to conservative assumptions."
+        },
+        "manual_fallback": {
+          "title": "DCF is still running in EBITDA-led fallback mode",
+          "description": "The current history does not yet include enough imported cash-flow detail. The DCF can still run, but it will rely mainly on margin and benchmark assumptions rather than actual FCF components."
+        },
+        "missing": "Still missing for a fully data-backed DCF: {fields}.",
+        "fields": {
+          "capex": "CapEx",
+          "taxes": "tax expense",
+          "working_capital": "working-capital movement"
+        }
+      },
+      "riskInsight": {
+        "highTitle": "Key-person dependency may justify a higher discount rate",
+        "criticalTitle": "Owner dependency is severe and should be reflected in WACC",
+        "description": "Owner ratio of {ratio}% suggests material key-person risk. Consider a +{uplift} percentage-point WACC uplift unless you have strong evidence the business can operate independently.",
+        "suggestedWacc": "Suggested risk-adjusted WACC: {value}%",
+        "apply": "Apply risk-adjusted WACC"
       }
     },
     "importModal": {

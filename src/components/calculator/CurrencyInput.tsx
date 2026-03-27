@@ -17,6 +17,13 @@ function parseRawDigits(str: string): number | undefined {
   return parseInt(digits, 10)
 }
 
+function parseSignedRawDigits(str: string): number | undefined {
+  const sign = str.trim().startsWith('-') ? -1 : 1
+  const digits = str.replace(/\D/g, '')
+  if (!digits) return undefined
+  return sign * parseInt(digits, 10)
+}
+
 export interface CurrencyInputProps {
   value?: number
   onChange: (value: number | undefined) => void
@@ -26,6 +33,8 @@ export interface CurrencyInputProps {
   className?: string
   disabled?: boolean
   rightIcon?: React.ReactNode
+  allowNegative?: boolean
+  ariaLabel?: string
   id?: string
   name?: string
 }
@@ -39,6 +48,8 @@ export function CurrencyInput({
   className,
   disabled,
   rightIcon,
+  allowNegative = false,
+  ariaLabel,
   id,
   name,
 }: CurrencyInputProps) {
@@ -55,7 +66,7 @@ export function CurrencyInput({
   )
   const formatValue = useCallback(
     (n?: number): string => {
-      if (!n || n <= 0) return ''
+      if (!n) return ''
       return formatter.format(n)
     },
     [formatter]
@@ -70,11 +81,17 @@ export function CurrencyInput({
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value
-      const num = parseRawDigits(raw)
-      setDisplay(num ? formatter.format(num) : raw.replace(/\D/g, '') === '' ? '' : '')
+      const num = allowNegative ? parseSignedRawDigits(raw) : parseRawDigits(raw)
+      setDisplay(
+        num !== undefined
+          ? formatter.format(num)
+          : raw.replace(/\D/g, '') === '' || (allowNegative && raw.trim() === '-')
+            ? raw.trim() === '-' ? '-' : ''
+            : ''
+      )
       onChange(num)
     },
-    [formatter, onChange]
+    [allowNegative, formatter, onChange]
   )
 
   const handleFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
@@ -82,19 +99,19 @@ export function CurrencyInput({
   }, [])
 
   const handleBlur = useCallback(() => {
-    const num = parseRawDigits(display)
+    const num = allowNegative ? parseSignedRawDigits(display) : parseRawDigits(display)
     setDisplay(formatValue(num))
-  }, [display, formatValue])
+  }, [allowNegative, display, formatValue])
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLInputElement>) => {
       e.preventDefault()
       const pasted = e.clipboardData.getData('text')
-      const num = parseRawDigits(pasted)
+      const num = allowNegative ? parseSignedRawDigits(pasted) : parseRawDigits(pasted)
       setDisplay(num ? formatter.format(num) : '')
       onChange(num)
     },
-    [formatter, onChange]
+    [allowNegative, formatter, onChange]
   )
 
   return (
@@ -104,7 +121,7 @@ export function CurrencyInput({
         id={resolvedId}
         name={name}
         type="text"
-        inputMode="numeric"
+        inputMode={allowNegative ? 'text' : 'numeric'}
         label={label}
         value={display}
         onChange={handleChange}
@@ -114,6 +131,7 @@ export function CurrencyInput({
         placeholder={placeholder}
         size={size}
         disabled={disabled}
+        aria-label={ariaLabel}
         leftIcon={<span className="text-foreground/40 text-xs font-medium select-none">€</span>}
         rightIcon={rightIcon}
       />

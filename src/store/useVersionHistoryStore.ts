@@ -20,6 +20,7 @@ import type {
 import { getCurrentFilingYear } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
+import { buildCurrentYearData } from '../utils/yearData'
 import { useNormalizationStore } from './useNormalizationStore'
 import { useTaxLatencyStore } from './useTaxLatencyStore'
 
@@ -368,12 +369,23 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
               enrichedRequest.formData?.historical_years_data
                 ?.filter((y: any) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
                 .map((y: any) => y.year) ?? []
-            const allDataYears = Array.from(new Set([lastFullYear, ...historicalYears]))
             const currentYearData = enrichedRequest.formData?.current_year_data as
-              | { ebitda?: number; ebitda_normalization_metadata?: { reported_ebitda?: number } }
+              | {
+                  year?: number
+                  ebitda?: number
+                  ebitda_normalization_metadata?: { reported_ebitda?: number }
+                }
               | undefined
+            const currentYear =
+              typeof currentYearData?.year === 'number' &&
+              Number.isFinite(currentYearData.year) &&
+              currentYearData.year >= 2000 &&
+              currentYearData.year <= 2100
+                ? currentYearData.year
+                : lastFullYear
+            const allDataYears = Array.from(new Set([currentYear, ...historicalYears]))
             const yearEbitdaMap: Record<number, number> = {
-              [lastFullYear]:
+              [currentYear]:
                 Number(
                   currentYearData?.ebitda_normalization_metadata?.reported_ebitda ??
                     currentYearData?.ebitda ??
@@ -869,10 +881,16 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 country_code: fd?.country_code || 'BE',
                 company_name: fd?.company_name,
                 current_year_data: fd?.current_year_data
-                  ? {
+                  ? buildCurrentYearData({
+                      year:
+                        typeof fd.current_year_data.year === 'number' &&
+                        Number.isFinite(fd.current_year_data.year)
+                          ? fd.current_year_data.year
+                          : getCurrentFilingYear(),
                       revenue: fd.current_year_data.revenue,
                       ebitda: fd.current_year_data.ebitda,
-                    }
+                      currentYearData: fd.current_year_data,
+                    })
                   : undefined,
                 number_of_employees: fd?.number_of_employees,
                 number_of_owners: fd?.number_of_owners,

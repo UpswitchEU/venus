@@ -138,6 +138,8 @@ import {
   persistOrDeleteNormalizationsForYears,
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
+import { buildCurrentYearData, mergeYearDataRows } from '../../../utils/yearData'
+import type { YearDataInput } from '../../../types/valuation'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -152,6 +154,10 @@ import {
   getLatestCompleteYearlyFinancial,
 } from '../../../utils/yearlyFinancials'
 import { deleteValuationEntry } from '../utils/deleteValuationEntry'
+import {
+  deriveGuidedNormalizationPrefill,
+  type GuidedNormalizationPrefill,
+} from '../utils/guidedNormalizationPrefill'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import { deriveManualReportPresentation } from './manualReportPresentation'
 
@@ -195,8 +201,43 @@ interface CollectedData {
   /** Financial data from ManualInputPanel (for AI context before submit) */
   revenue?: number
   ebitda?: number
-  yearlyFinancials?: Array<{ year: string; revenue: number; ebitda: number }>
-  current_year_data?: { year: number; revenue: number; ebitda: number }
+  yearlyFinancials?: Array<{
+    year: string
+    revenue: number
+    ebitda: number
+    capex?: number
+    depreciation?: number
+    tax_expense?: number
+    cash?: number
+    total_debt?: number
+    current_assets?: number
+    current_liabilities?: number
+    accounts_receivable?: number
+    accounts_payable?: number
+    inventory?: number
+    short_term_debt?: number
+    nwc_change?: number
+    isForecast?: boolean
+  }>
+  current_year_data?: {
+    year: number
+    revenue: number
+    ebitda: number
+    capex?: number
+    depreciation?: number
+    tax_expense?: number
+    cash?: number
+    total_debt?: number
+    current_assets?: number
+    current_liabilities?: number
+    accounts_receivable?: number
+    accounts_payable?: number
+    inventory?: number
+    short_term_debt?: number
+    nwc_change?: number
+  }
+  historical_years_data?: YearDataInput[]
+  forecast_years_data?: YearDataInput[]
 }
 
 /** Compute display initials from user name (Titan/Mercury profile) */
@@ -367,7 +408,12 @@ function generateDefaultNormalizationSuggestions(
 
 function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
   const yearlyFinancials = (data.yearlyFinancials || []) as Array<{
-    year: string; revenue: number; ebitda: number; isForecast?: boolean
+    year: string
+    revenue: number
+    ebitda: number
+    capex?: number
+    nwc_change?: number
+    isForecast?: boolean
   }>
 
   const historicalRows = yearlyFinancials.filter((yf) => !yf.isForecast)
@@ -377,6 +423,14 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
   const completeHistorical = getCompleteYearlyFinancialsDesc(historicalRows)
   const current = completeHistorical[0]
   const historical = completeHistorical.slice(1)
+  const existingCurrentYearData =
+    data.current_year_data && typeof data.current_year_data === 'object'
+      ? data.current_year_data
+      : undefined
+  const existingHistoricalYears = Array.isArray(data.historical_years_data)
+    ? data.historical_years_data
+    : []
+  const existingForecastYears = Array.isArray(data.forecast_years_data) ? data.forecast_years_data : []
 
   const canonicalNace =
     (typeof data.canonicalNaceCode === 'string' && data.canonicalNaceCode.trim()) ||
@@ -408,22 +462,48 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     revenue: current?.revenue,
     ebitda: current?.ebitda,
     current_year_data: latestHistorical
-      ? {
+      ? buildCurrentYearData({
           year: parseInt(latestHistorical.year),
           revenue: latestHistorical.revenue,
           ebitda: latestHistorical.ebitda,
-        }
+          currentYearData: existingCurrentYearData,
+        })
+      : existingCurrentYearData
+        ? buildCurrentYearData({
+            year: Number(existingCurrentYearData.year) || getCurrentFilingYear(),
+            revenue: existingCurrentYearData.revenue,
+            ebitda: existingCurrentYearData.ebitda,
+            currentYearData: existingCurrentYearData,
+          })
       : undefined,
-    historical_years_data: historical.map((h: any) => ({
-      year: parseInt(h.year),
-      revenue: h.revenue,
-      ebitda: h.ebitda,
-    })),
-    forecast_years_data: forecastRows.map((f) => ({
-      year: parseInt(f.year),
-      revenue: f.revenue,
-      ebitda: f.ebitda,
-    })),
+    historical_years_data:
+      historical.length > 0
+        ? mergeYearDataRows(
+            historical.map((h: any) => ({
+              year: parseInt(h.year),
+              revenue: h.revenue,
+              ebitda: h.ebitda,
+            })),
+            existingHistoricalYears
+          )
+        : existingHistoricalYears,
+    forecast_years_data:
+      forecastRows.length > 0
+        ? mergeYearDataRows(
+            forecastRows.map((f) => ({
+              year: parseInt(f.year),
+              revenue: f.revenue,
+              ebitda: f.ebitda,
+              capex: f.capex,
+              nwc_change: f.nwc_change,
+              isForecast: true,
+            })),
+            existingForecastYears
+          )
+        : existingForecastYears,
+    ...(data.filingYearConfirmed !== undefined && {
+      filing_year_confirmed: Boolean(data.filingYearConfirmed),
+    }),
     ...(companySectionActive
       ? {
           kbo_number: data.kboNumber || '',
@@ -441,6 +521,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.dcf_revenue_growth_pct != null && { dcf_revenue_growth_pct: data.dcf_revenue_growth_pct }),
     ...(data.dcf_ebitda_margin_pct != null && { dcf_ebitda_margin_pct: data.dcf_ebitda_margin_pct }),
     ...(data.dcf_capex_pct != null && { dcf_capex_pct: data.dcf_capex_pct }),
+    ...(data.dcf_nwc_pct != null && { dcf_nwc_pct: data.dcf_nwc_pct }),
     ...(data.dcf_wacc_pct != null && { dcf_wacc_pct: data.dcf_wacc_pct }),
     ...(data.dcf_terminal_growth_pct != null && { dcf_terminal_growth_pct: data.dcf_terminal_growth_pct }),
     ...(data.nav_real_estate_adjustment != null && { nav_real_estate_adjustment: data.nav_real_estate_adjustment }),
@@ -1026,12 +1107,39 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   /** Latest financial data from ManualInputPanel (for AI context before submit) */
   const latestFormDataRef = useRef<Partial<CollectedData>>({})
 
+  useEffect(() => {
+    latestFormDataRef.current = {
+      ...latestFormDataRef.current,
+      current_year_data: formStoreData.current_year_data ?? latestFormDataRef.current.current_year_data,
+      historical_years_data:
+        formStoreData.historical_years_data ?? latestFormDataRef.current.historical_years_data,
+      forecast_years_data:
+        formStoreData.forecast_years_data ?? latestFormDataRef.current.forecast_years_data,
+    }
+  }, [
+    formStoreData.current_year_data,
+    formStoreData.historical_years_data,
+    formStoreData.forecast_years_data,
+  ])
+
   const getLiveYearlyFinancials = useCallback(() => {
     const latestYearlyFinancials = Array.isArray(latestFormDataRef.current?.yearlyFinancials)
       ? (latestFormDataRef.current?.yearlyFinancials as Array<{
           year: string
           revenue: number
           ebitda: number
+          capex?: number
+          depreciation?: number
+          tax_expense?: number
+          cash?: number
+          total_debt?: number
+          current_assets?: number
+          current_liabilities?: number
+          accounts_receivable?: number
+          accounts_payable?: number
+          inventory?: number
+          short_term_debt?: number
+          nwc_change?: number
           isForecast?: boolean
         }>)
       : []
@@ -1039,16 +1147,64 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return [...latestYearlyFinancials].sort((a, b) => Number(b.year) - Number(a.year))
     }
 
-    const allYears: Array<{ year: string; revenue: number; ebitda: number; isForecast?: boolean }> =
-      []
+    const allYears: Array<{
+      year: string
+      revenue: number
+      ebitda: number
+      capex?: number
+      depreciation?: number
+      tax_expense?: number
+      cash?: number
+      total_debt?: number
+      current_assets?: number
+      current_liabilities?: number
+      accounts_receivable?: number
+      accounts_payable?: number
+      inventory?: number
+      short_term_debt?: number
+      nwc_change?: number
+      isForecast?: boolean
+    }> = []
     const cyd = formStoreData.current_year_data as
-      | { year?: number; revenue?: number; ebitda?: number }
+      | {
+          year?: number
+          revenue?: number
+          ebitda?: number
+          capex?: number
+          depreciation?: number
+          tax_expense?: number
+          cash?: number
+          total_debt?: number
+          current_assets?: number
+          current_liabilities?: number
+          accounts_receivable?: number
+          accounts_payable?: number
+          inventory?: number
+          short_term_debt?: number
+          nwc_change?: number
+        }
       | undefined
     if (cyd?.year && cyd.year >= 2000 && cyd.year <= 2100) {
       allYears.push({
         year: String(cyd.year),
         revenue: Number(cyd.revenue) || 0,
         ebitda: Number(cyd.ebitda) || 0,
+        capex: typeof cyd.capex === 'number' ? cyd.capex : undefined,
+        depreciation: typeof cyd.depreciation === 'number' ? cyd.depreciation : undefined,
+        tax_expense: typeof cyd.tax_expense === 'number' ? cyd.tax_expense : undefined,
+        cash: typeof cyd.cash === 'number' ? cyd.cash : undefined,
+        total_debt: typeof cyd.total_debt === 'number' ? cyd.total_debt : undefined,
+        current_assets: typeof cyd.current_assets === 'number' ? cyd.current_assets : undefined,
+        current_liabilities:
+          typeof cyd.current_liabilities === 'number' ? cyd.current_liabilities : undefined,
+        accounts_receivable:
+          typeof cyd.accounts_receivable === 'number' ? cyd.accounts_receivable : undefined,
+        accounts_payable:
+          typeof cyd.accounts_payable === 'number' ? cyd.accounts_payable : undefined,
+        inventory: typeof cyd.inventory === 'number' ? cyd.inventory : undefined,
+        short_term_debt:
+          typeof cyd.short_term_debt === 'number' ? cyd.short_term_debt : undefined,
+        nwc_change: typeof cyd.nwc_change === 'number' ? cyd.nwc_change : undefined,
       })
     }
     if (formStoreData.historical_years_data?.length) {
@@ -1062,6 +1218,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             year: String(y.year),
             revenue: Number(y.revenue) || 0,
             ebitda: Number(y.ebitda) || 0,
+            capex: typeof y.capex === 'number' ? y.capex : undefined,
+            depreciation: typeof y.depreciation === 'number' ? y.depreciation : undefined,
+            tax_expense: typeof y.tax_expense === 'number' ? y.tax_expense : undefined,
+            cash: typeof y.cash === 'number' ? y.cash : undefined,
+            total_debt: typeof y.total_debt === 'number' ? y.total_debt : undefined,
+            current_assets: typeof y.current_assets === 'number' ? y.current_assets : undefined,
+            current_liabilities:
+              typeof y.current_liabilities === 'number' ? y.current_liabilities : undefined,
+            accounts_receivable:
+              typeof y.accounts_receivable === 'number' ? y.accounts_receivable : undefined,
+            accounts_payable:
+              typeof y.accounts_payable === 'number' ? y.accounts_payable : undefined,
+            inventory: typeof y.inventory === 'number' ? y.inventory : undefined,
+            short_term_debt:
+              typeof y.short_term_debt === 'number' ? y.short_term_debt : undefined,
+            nwc_change: typeof y.nwc_change === 'number' ? y.nwc_change : undefined,
           })
         }
       }
@@ -1079,6 +1251,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             year: String(y.year),
             revenue: Number(y.revenue) || 0,
             ebitda: Number(y.ebitda) || 0,
+            capex: typeof y.capex === 'number' ? y.capex : undefined,
+            depreciation: typeof y.depreciation === 'number' ? y.depreciation : undefined,
+            tax_expense: typeof y.tax_expense === 'number' ? y.tax_expense : undefined,
+            cash: typeof y.cash === 'number' ? y.cash : undefined,
+            total_debt: typeof y.total_debt === 'number' ? y.total_debt : undefined,
+            current_assets: typeof y.current_assets === 'number' ? y.current_assets : undefined,
+            current_liabilities:
+              typeof y.current_liabilities === 'number' ? y.current_liabilities : undefined,
+            accounts_receivable:
+              typeof y.accounts_receivable === 'number' ? y.accounts_receivable : undefined,
+            accounts_payable:
+              typeof y.accounts_payable === 'number' ? y.accounts_payable : undefined,
+            inventory: typeof y.inventory === 'number' ? y.inventory : undefined,
+            short_term_debt:
+              typeof y.short_term_debt === 'number' ? y.short_term_debt : undefined,
+            nwc_change: typeof y.nwc_change === 'number' ? y.nwc_change : undefined,
             isForecast: true,
           })
         }
@@ -1168,6 +1356,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [showValuationEditModal, setShowValuationEditModal] = useState(false)
   const [showNormalisationModal, setShowNormalisationModal] = useState(false)
   const [showUnifiedNormalizationModal, setShowUnifiedNormalizationModal] = useState(false)
+  const [guidedNormalizationPrefill, setGuidedNormalizationPrefill] =
+    useState<GuidedNormalizationPrefill | null>(null)
   const [currentNormalisationSuggestion, setCurrentNormalisationSuggestion] =
     useState<NormalisationSuggestion | null>(null)
 
@@ -1216,7 +1406,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const lastSubmittedFinancialSnapshotRef = useRef<{
     revenue?: number
     ebitda?: number
-    yearlyFinancials?: Array<{ year: string; revenue: number; ebitda: number }>
+    yearlyFinancials?: Array<{
+      year: string
+      revenue: number
+      ebitda: number
+      capex?: number
+      nwc_change?: number
+      isForecast?: boolean
+    }>
   } | null>(null)
 
   const handleFormDataChange = useCallback(
@@ -1226,13 +1423,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ...(data as Partial<CollectedData>),
       }
       // Keep form store in sync for session autosave (demo resilience, automation-ready)
-      updateFormData(mapClarityFormToVenusStore(data as any))
+      updateFormData(mapClarityFormToVenusStore(latestFormDataRef.current as any))
       // Mark dirty when report exists and user changed financial inputs
       if (!result) return
       const yf = (data.yearlyFinancials || []) as Array<{
         year: string
         revenue: number
         ebitda: number
+        capex?: number
+        nwc_change?: number
+        isForecast?: boolean
       }>
       const current = getLatestCompleteYearlyFinancial(yf)
       const revenue = current?.revenue ?? (data.revenue as number)
@@ -1248,12 +1448,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const revMatch = revNum === undefined || snapRev === undefined || revNum === snapRev
       const ebitdaMatch =
         ebitdaNum === undefined || snapEbitda === undefined || ebitdaNum === snapEbitda
-      const sortYf = (arr: Array<{ year: string; revenue: number; ebitda: number }>) =>
+      const sortYf = (
+        arr: Array<{
+          year: string
+          revenue: number
+          ebitda: number
+          capex?: number
+          nwc_change?: number
+          isForecast?: boolean
+        }>
+      ) =>
         [...arr].sort((a, b) => parseInt(b.year) - parseInt(a.year))
-      const norm = (y: { year: string; revenue: number; ebitda: number }) => ({
+      const norm = (y: {
+        year: string
+        revenue: number
+        ebitda: number
+        capex?: number
+        nwc_change?: number
+        isForecast?: boolean
+      }) => ({
         y: y.year,
         r: Number(y.revenue),
         e: Number(y.ebitda),
+        c: y.capex != null ? Number(y.capex) : null,
+        n: y.nwc_change != null ? Number(y.nwc_change) : null,
+        f: Boolean(y.isForecast),
       })
       const yfNormalized = sortYf(yf).map(norm)
       const snapNormalized = sortYf(snapshot.yearlyFinancials || []).map(norm)
@@ -1277,22 +1496,52 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useEffect(() => {
     if (!result || lastSubmittedFinancialSnapshotRef.current) return
     const cyd = formStoreData.current_year_data as
-      | { year?: number; revenue?: number; ebitda?: number }
+      | { year?: number; revenue?: number; ebitda?: number; capex?: number; nwc_change?: number }
       | undefined
     const hy = (formStoreData.historical_years_data || []) as Array<{
       year: number
       revenue: number
       ebitda: number
     }>
+    const fy = (formStoreData.forecast_years_data || []) as Array<{
+      year: number
+      revenue: number
+      ebitda: number
+      capex?: number
+      nwc_change?: number
+    }>
     const hasFinancials =
       (cyd && ((cyd.revenue ?? 0) > 0 || (cyd.ebitda ?? 0) !== 0)) ||
-      hy.some((h) => (h.revenue ?? 0) > 0 || (h.ebitda ?? 0) !== 0)
+      hy.some((h) => (h.revenue ?? 0) > 0 || (h.ebitda ?? 0) !== 0) ||
+      fy.some((f) => (f.revenue ?? 0) > 0 || (f.ebitda ?? 0) !== 0 || f.capex != null || f.nwc_change != null)
     if (!hasFinancials) return
     const allYf = [
       ...(cyd
-        ? [{ year: String(cyd.year), revenue: cyd.revenue ?? 0, ebitda: cyd.ebitda ?? 0 }]
+        ? [
+            {
+              year: String(cyd.year),
+              revenue: cyd.revenue ?? 0,
+              ebitda: cyd.ebitda ?? 0,
+              capex: cyd.capex,
+              nwc_change: cyd.nwc_change,
+            },
+          ]
         : []),
-      ...hy.map((h) => ({ year: String(h.year), revenue: h.revenue, ebitda: h.ebitda })),
+      ...hy.map((h) => ({
+        year: String(h.year),
+        revenue: h.revenue,
+        ebitda: h.ebitda,
+        capex: (h as any).capex,
+        nwc_change: (h as any).nwc_change,
+      })),
+      ...fy.map((f) => ({
+        year: String(f.year),
+        revenue: f.revenue,
+        ebitda: f.ebitda,
+        capex: f.capex,
+        nwc_change: f.nwc_change,
+        isForecast: true,
+      })),
     ].sort((a, b) => parseInt(b.year) - parseInt(a.year))
     lastSubmittedFinancialSnapshotRef.current = {
       revenue: cyd?.revenue ?? formStoreData.revenue,
@@ -1306,6 +1555,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formStoreData.historical_years_data,
     formStoreData.revenue,
     formStoreData.ebitda,
+    formStoreData.forecast_years_data,
   ])
 
   // Reset dirty state when switching reports
@@ -2269,9 +2519,34 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setIsDirty(false)
         const cyd = (request as any).current_year_data
         const hy = (request as any).historical_years_data || []
+        const fy = (request as any).forecast_years_data || []
         const allYf = [
-          ...(cyd ? [{ year: String(cyd.year), revenue: cyd.revenue, ebitda: cyd.ebitda }] : []),
-          ...hy.map((h: any) => ({ year: String(h.year), revenue: h.revenue, ebitda: h.ebitda })),
+          ...(cyd
+            ? [
+                {
+                  year: String(cyd.year),
+                  revenue: cyd.revenue,
+                  ebitda: cyd.ebitda,
+                  capex: cyd.capex,
+                  nwc_change: cyd.nwc_change,
+                },
+              ]
+            : []),
+          ...hy.map((h: any) => ({
+            year: String(h.year),
+            revenue: h.revenue,
+            ebitda: h.ebitda,
+            capex: h.capex,
+            nwc_change: h.nwc_change,
+          })),
+          ...fy.map((f: any) => ({
+            year: String(f.year),
+            revenue: f.revenue,
+            ebitda: f.ebitda,
+            capex: f.capex,
+            nwc_change: f.nwc_change,
+            isForecast: true,
+          })),
         ]
           .filter((y: any) => y.revenue > 0 || y.ebitda !== 0)
           .sort((a: any, b: any) => parseInt(b.year) - parseInt(a.year))
@@ -3646,10 +3921,30 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   )
 
   // ─── Normalization Handlers (unified store) - Clarity parity: open modal, do not replace left panel ───
-  const handleShowNormalisationReview = useCallback(() => {
-    trackNormalizationOpen()
-    setShowUnifiedNormalizationModal(true)
+  const openUnifiedNormalizationModal = useCallback(
+    (opts?: { prefill?: GuidedNormalizationPrefill | null; closeChat?: boolean; track?: boolean }) => {
+      setGuidedNormalizationPrefill(opts?.prefill ?? null)
+      if (opts?.track !== false) {
+        trackNormalizationOpen()
+      }
+      setShowUnifiedNormalizationModal(true)
+      if (opts?.closeChat) {
+        setChatDrawerOpen(false)
+      }
+    },
+    []
+  )
+
+  const handleUnifiedNormalizationModalOpenChange = useCallback((open: boolean) => {
+    setShowUnifiedNormalizationModal(open)
+    if (!open) {
+      setGuidedNormalizationPrefill(null)
+    }
   }, [])
+
+  const handleShowNormalisationReview = useCallback(() => {
+    openUnifiedNormalizationModal()
+  }, [openUnifiedNormalizationModal])
 
   const getYearsToPersist = useCallback(
     (item: NormalizationItem): number[] => {
@@ -4110,7 +4405,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         setSuggestedNormalisations(suggestions)
         normalizationActions.setItems(unifiedItems)
-        setShowUnifiedNormalizationModal(true)
+        openUnifiedNormalizationModal({ track: false })
         setChatDrawerOpen(true)
 
         // Save normalizations to session (draft state). Titan persist happens on accept/reject
@@ -4195,6 +4490,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       ownerManagers: collectedData.ownerManagers,
       fteEmployees: formStoreData.number_of_employees ?? collectedData.fteEmployees,
       current_year_data: formStoreData.current_year_data ?? collectedData.current_year_data,
+      historical_years_data: formStoreData.historical_years_data,
+      forecast_years_data: formStoreData.forecast_years_data,
+      filingYearConfirmed: formStoreData.filing_year_confirmed,
       yearlyFinancials: restoredYearlyFinancials,
     },
   }
@@ -4223,9 +4521,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     hasUploadedData: suggestedNormalisations.length > 0,
     toolInProgress: conversationStore.toolInProgress,
     onOpenNormalizationHub: () => {
-      trackNormalizationOpen()
-      setShowUnifiedNormalizationModal(true)
-      setChatDrawerOpen(false)
+      openUnifiedNormalizationModal({ closeChat: true })
     },
     onRetry: handleRetry,
     onNewConversation: handleNewConversation,
@@ -4281,6 +4577,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (shouldOpenSourcePanel && !spotlightState.showSourcePanel) {
         spotlightState.openSourcePanel()
       }
+
+      const normalizationPrefill = deriveGuidedNormalizationPrefill({
+        activeDomId: activeTargetDomId,
+        importQuality: importQualityMap,
+      })
+      if (!shouldOpenSourcePanel && normalizationPrefill) {
+        openUnifiedNormalizationModal({
+          prefill: normalizationPrefill,
+          track: false,
+        })
+      }
     }
 
     const ff = guidedResolutionUrl.focusField
@@ -4302,7 +4609,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       }
     }
     requestAnimationFrame(() => requestAnimationFrame(scrollToFlag))
-  }, [restorationComplete, guidedResolutionUrl, importQualityMap])
+  }, [restorationComplete, guidedResolutionUrl, importQualityMap, openUnifiedNormalizationModal])
 
   // ═══════════════════════════════════════
   // MOBILE LAYOUT
@@ -4332,8 +4639,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
           onOpenNormalization={() => {
-            trackNormalizationOpen()
-            setShowUnifiedNormalizationModal(true)
+            openUnifiedNormalizationModal()
           }}
           normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
           openTasksCount={
@@ -4460,7 +4766,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         <UnifiedNormalizationModal
           open={showUnifiedNormalizationModal}
-          onOpenChange={setShowUnifiedNormalizationModal}
+          onOpenChange={handleUnifiedNormalizationModalOpenChange}
           companyName={collectedData.companyName || t('company')}
           currentYear={lastFullYear}
           originalEBITDA={getOriginalEbitdaForDisplay()}
@@ -4470,6 +4776,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           countryCode={formCountry || 'BE'}
           onUploadClick={() => {}}
           financialYears={financialYears}
+          initialSearchQuery={guidedNormalizationPrefill?.initialSearchQuery ?? ''}
+          initialYearFilter={guidedNormalizationPrefill?.initialYearFilter ?? null}
           fallbackFormDataRef={
             latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>
           }
@@ -4504,7 +4812,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture}
         onOpenAssistant={handleOpenAssistant}
         isAssistantOpen={chatDrawerOpen}
-        onOpenNormalization={() => setShowUnifiedNormalizationModal(true)}
+        onOpenNormalization={() => openUnifiedNormalizationModal()}
         normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
         openTasksCount={
           suggestedNormalisations.filter((n: any) => n.status === 'pending').length +
@@ -4867,7 +5175,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       {/* Unified Normalization Modal — single source of truth for all normalization entry points */}
       <UnifiedNormalizationModal
         open={showUnifiedNormalizationModal}
-        onOpenChange={setShowUnifiedNormalizationModal}
+        onOpenChange={handleUnifiedNormalizationModalOpenChange}
         companyName={collectedData.companyName || t('company')}
         currentYear={lastFullYear}
         originalEBITDA={getOriginalEbitdaForDisplay()}
@@ -4877,6 +5185,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         countryCode={formCountry || 'BE'}
         onUploadClick={() => {}}
         financialYears={financialYears}
+        initialSearchQuery={guidedNormalizationPrefill?.initialSearchQuery ?? ''}
+        initialYearFilter={guidedNormalizationPrefill?.initialYearFilter ?? null}
         fallbackFormDataRef={
           latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>
         }

@@ -57,6 +57,7 @@ export function hasMeaningfulSessionData(sessionData: any, session?: any): boole
       'ebitda',
       'current_year_data',
       'historical_years_data',
+      'filing_year_confirmed',
 
       // Business identification
       'business_type',
