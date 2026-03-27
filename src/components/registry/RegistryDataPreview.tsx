@@ -11,6 +11,14 @@ import {
 import React, { useState } from 'react'
 import { useManualFormStore } from '../../store/manual'
 import type { CompanyFinancialData, FinancialFilingYear } from '../../types/registry'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
+
+const createDefaultFilingYear = (): FinancialFilingYear => ({
+  year: getCurrentFilingYear(),
+  revenue: 0,
+  ebitda: 0,
+  filing_date: new Date().toISOString(),
+})
 
 interface RegistryDataPreviewProps {
   companyData: CompanyFinancialData
@@ -24,12 +32,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
   const { updateFormData } = useManualFormStore()
   const [isEditing, setIsEditing] = useState(false)
   const [editedData, setEditedData] = useState<FinancialFilingYear>(
-    companyData.filing_history[0] || {
-      year: new Date().getFullYear(),
-      revenue: 0,
-      ebitda: 0,
-      filing_date: new Date().toISOString(),
-    }
+    companyData.filing_history[0] || createDefaultFilingYear()
   )
 
   const formatCurrency = (amount: number): string => {
@@ -56,7 +59,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
 
   const handleSaveEdit = () => {
     // Update the form data with edited values
-    const currentYear = editedData.year || new Date().getFullYear()
+    const currentYear = editedData.year || getCurrentFilingYear()
 
     updateFormData({
       company_name: companyData.company_name,
@@ -90,13 +93,13 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
   }
 
   const handleCancelEdit = () => {
-    setEditedData(companyData.filing_history[0])
+    setEditedData(companyData.filing_history[0] || createDefaultFilingYear())
     setIsEditing(false)
   }
 
   const handleCalculate = () => {
     // Ensure data is synced to store - SIMPLIFIED to match /manual
-    const currentYear = editedData.year || new Date().getFullYear()
+    const currentYear = editedData.year || getCurrentFilingYear()
 
     // Get industry from inferred data or fallback
     const industry =

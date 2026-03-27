@@ -7,6 +7,7 @@
  */
 
 import type { IndustryCode, ValuationRequest, YearDataInput } from '../../types/valuation'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 
@@ -140,7 +141,7 @@ class BusinessCardServiceImpl implements BusinessCardService {
 
     // Revenue goes into current_year_data
     if (businessCard.revenue && businessCard.revenue > 0) {
-      const currentYear = new Date().getFullYear()
+      const currentYear = getCurrentFilingYear()
 
       valuationRequest.current_year_data = {
         year: currentYear,

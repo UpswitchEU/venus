@@ -15,6 +15,8 @@ interface OmniMethodPanoramaProps {
   methodSelectionLocked?: boolean
   onMethodClick: (key: string) => void
   className?: string
+  /** When set to NL, Belgian-only fiscal reference method is hidden (matches Titan/PDF gating). */
+  firmCountryCode?: string | null
 }
 
 const formatCurrency = (amount: number) => {
@@ -46,14 +48,21 @@ export function OmniMethodPanorama({
   methodSelectionLocked = false,
   onMethodClick,
   className,
+  firmCountryCode,
 }: OmniMethodPanoramaProps) {
   const t = useTranslations('omniCalc')
   const tBreakdown = useTranslations('methodBreakdown')
 
-  const sortedMethodEntries = useMemo(
-    () => Object.entries(valuationResults).sort(([a], [b]) => compareOmniMethodKeys(a, b)),
-    [valuationResults],
-  )
+  const hideFiscalForNl =
+    firmCountryCode?.trim().toUpperCase().substring(0, 2) === 'NL'
+
+  const sortedMethodEntries = useMemo(() => {
+    const entries = Object.entries(valuationResults)
+    const filtered = hideFiscalForNl
+      ? entries.filter(([key]) => key !== 'fiscal_4x')
+      : entries
+    return filtered.sort(([a], [b]) => compareOmniMethodKeys(a, b))
+  }, [valuationResults, hideFiscalForNl])
 
   const adaptiveValue =
     valuationResults['upswitch_adaptive']?.value != null

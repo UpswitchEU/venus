@@ -15,6 +15,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertCircle,
+  AlertTriangle,
   Building2,
   Check,
   CloudDownload,
@@ -56,6 +57,7 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
+import { useAuth } from '../../hooks/useAuth'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useCanSave } from '../../hooks/useCanSave'
 import { looksLikeNaceCode, naceBusinessTypeService } from '../../services/naceBusinessTypeService'
@@ -113,6 +115,7 @@ import {
 import { deriveDcfReadinessInsight } from './sections/dcfReadiness'
 import { deriveDcfProjectionPreview } from './sections/dcfProjectionPreview'
 import { deriveDcfRiskInsight } from './sections/dcfRiskInsight'
+import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
 import { deriveDcfSmartDefaults } from './sections/dcfSmartDefaults'
 import type { YearDataInput } from '../../types/valuation'
 
@@ -368,6 +371,7 @@ export function ManualInputPanel({
   readOnlyKbo = false,
   autoAdvancePastPrefilledSteps = false,
 }: ManualInputPanelProps) {
+  const { user } = useAuth()
   const t = useTranslations()
   const mi = useTranslations('manualInput')
   const tTax = useTranslations('taxLatency')
@@ -1020,7 +1024,7 @@ export function ManualInputPanel({
   const updateYearlyFinancials = (
     year: string,
     isForecast: boolean,
-    field: 'revenue' | 'ebitda' | 'capex' | 'nwc_change',
+    field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change',
     value: number
   ) => {
     const yearKey = String(year)
@@ -2161,6 +2165,7 @@ export function ManualInputPanel({
               businessCategory={selectedBusinessType?.category}
               businessTypeId={selectedBusinessType?.id}
               formData={formData}
+              firmCountryCode={user?.firm_country_code}
               onFieldChange={(field, value) => {
                 setFormData((prev) => ({ ...prev, [field]: value }))
               }}
@@ -2265,6 +2270,7 @@ export function AdaptiveSections({
   businessCategory,
   businessTypeId,
   formData,
+  firmCountryCode,
   onFieldChange,
   disabled,
 }: {
@@ -2272,6 +2278,8 @@ export function AdaptiveSections({
   businessCategory?: string
   businessTypeId?: string
   formData: ValuationFormData
+  /** When NL, hide Belgian fiscal (4× EBITDA) notices — matches Titan/PDF gating */
+  firmCountryCode?: string
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
 }) {
@@ -2306,6 +2314,31 @@ export function AdaptiveSections({
       dcfSmartDefaults,
     ]
   )
+  const saasArrProjectionPreview = useMemo(
+    () =>
+      sections.includes('saas_metrics') && effectiveMethod === 'dcf'
+        ? deriveSaasArrProjectionPreview({
+            yearlyFinancials: formData.yearlyFinancials,
+            saasArr: formData.saas_arr as number | undefined,
+            saasMrr: formData.saas_mrr as number | undefined,
+            saasArrGrowthPct: formData.saas_arr_growth_pct as number | undefined,
+            saasNrrPct: formData.saas_nrr_pct as number | undefined,
+            saasChurnPct: formData.saas_churn_pct as number | undefined,
+            saasExpansionRevenuePct: formData.saas_expansion_revenue_pct as number | undefined,
+          })
+        : [],
+    [
+      sections,
+      effectiveMethod,
+      formData.yearlyFinancials,
+      formData.saas_arr,
+      formData.saas_mrr,
+      formData.saas_arr_growth_pct,
+      formData.saas_nrr_pct,
+      formData.saas_churn_pct,
+      formData.saas_expansion_revenue_pct,
+    ]
+  )
   const dcfReadinessInsight = useMemo(
     () =>
       sections.includes('dcf_projections')
@@ -2334,10 +2367,58 @@ export function AdaptiveSections({
       dcfSmartDefaults,
     ]
   )
-  if (sections.length === 0) return null
+  const firmCode = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
+  const showRevenueNotice = effectiveMethod === 'omzet_multiple'
+  const showFiscalNotice =
+    effectiveMethod === 'fiscal_4x' && firmCode !== 'NL'
+  if (sections.length === 0 && !showRevenueNotice && !showFiscalNotice) return null
 
   return (
     <AnimatePresence mode="sync">
+      {showRevenueNotice && (
+        <motion.div
+          key="omzet_multiple_notice"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3"
+        >
+          <div className="flex items-start gap-2">
+            <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                {t('revenueDriverTitle')}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {t('revenueDriverText')}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+      {showFiscalNotice && (
+        <motion.div
+          key="fiscal_4x_notice"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3"
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                {t('fiscalDisclaimerTitle')}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {t('fiscalDisclaimerText')}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
       {sections.includes('dcf_projections') && (
         <DcfProjectionsSection
           key="dcf_projections"
@@ -2402,6 +2483,7 @@ export function AdaptiveSections({
                 onFieldChange={onFieldChange}
                 disabled={disabled}
                 showHeader={false}
+                arrProjectionPreview={saasArrProjectionPreview}
               />
             </AccordionContent>
           </AccordionItem>

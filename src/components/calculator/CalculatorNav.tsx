@@ -39,14 +39,15 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
 import { useSessionStore } from '@/store/useSessionStore'
-import { PRE_SELECTABLE_METHODS } from '@/constants/methodFieldConfig'
+import { getPreSelectableMethodsForFirm } from '@/constants/methodFieldConfig'
 
 const METHOD_LABEL_KEYS: Record<string, string> = {
   upswitch_adaptive: 'manualInput.methodSelector.adaptiveRecommended',
+  omzet_multiple: 'manualInput.methodSelector.revenueMultiple',
   arr_multiple: 'manualInput.methodSelector.arrMultiple',
   ebitda_multiple: 'manualInput.methodSelector.ebitdaMultiple',
   dcf: 'manualInput.methodSelector.dcf',
@@ -57,10 +58,13 @@ const METHOD_LABEL_KEYS: Record<string, string> = {
 function MethodSelectorMenu({
   preSelectedMethod,
   onPreSelectMethod,
+  methods,
   t,
 }: {
   preSelectedMethod?: string
   onPreSelectMethod: (method: string) => void
+  /** Subset of PRE_SELECTABLE_METHODS (e.g. NL firms omit fiscal_4x) */
+  methods: readonly string[]
   t: (key: string, values?: Record<string, string>) => string
 }) {
   return (
@@ -68,7 +72,7 @@ function MethodSelectorMenu({
       <div className="text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
         {t('manualInput.methodSelector.label')}
       </div>
-      {PRE_SELECTABLE_METHODS.map((key) => {
+      {methods.map((key) => {
         const isActive = (preSelectedMethod ?? 'upswitch_adaptive') === key
         return (
           <button
@@ -199,6 +203,8 @@ export interface CalculatorNavProps {
   // Upfront method pre-selection
   preSelectedMethod?: string
   onPreSelectMethod?: (method: string) => void
+  /** Accountant firm country — hides BE-only fiscal method for NL */
+  firmCountryCode?: string
 }
 
 // ─────────────────────────────────────────
@@ -364,6 +370,7 @@ export function CalculatorNav({
   onOpenValuationEdit,
   preSelectedMethod,
   onPreSelectMethod,
+  firmCountryCode,
 }: CalculatorNavProps) {
   const t = useTranslations()
   const navLocale = useLocale()
@@ -382,6 +389,17 @@ export function CalculatorNav({
           confidence: 'high' as const,
         }
       : null)
+
+  const preSelectableMethods = useMemo(
+    () => getPreSelectableMethodsForFirm(firmCountryCode),
+    [firmCountryCode]
+  )
+
+  const displayPreSelectedMethod = useMemo(() => {
+    const raw = preSelectedMethod ?? 'upswitch_adaptive'
+    if (preSelectableMethods.includes(raw)) return raw
+    return 'upswitch_adaptive'
+  }, [preSelectedMethod, preSelectableMethods])
 
   const handleBack = () => {
     if (isAccountantMode && onExitClientView) {
@@ -562,15 +580,16 @@ export function CalculatorNav({
                   >
                     <span className="text-foreground/70 font-medium">{t('manualInput.methodSelector.label')}:</span>
                     <span className="text-foreground truncate max-w-[180px]">
-                      {t(METHOD_LABEL_KEYS[preSelectedMethod ?? 'upswitch_adaptive'] ?? 'manualInput.methodSelector.adaptiveRecommended')}
+                      {t(METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended')}
                     </span>
                     <ChevronDown className="w-3 h-3 text-foreground/40 group-hover:text-foreground/60 shrink-0" />
                   </button>
                 }
               >
                 <MethodSelectorMenu
-                  preSelectedMethod={preSelectedMethod}
+                  preSelectedMethod={displayPreSelectedMethod}
                   onPreSelectMethod={onPreSelectMethod}
+                  methods={preSelectableMethods}
                   t={t}
                 />
               </Dropdown>
@@ -963,8 +982,9 @@ export function CalculatorNav({
                 }
               >
                 <MethodSelectorMenu
-                  preSelectedMethod={preSelectedMethod}
+                  preSelectedMethod={displayPreSelectedMethod}
                   onPreSelectMethod={onPreSelectMethod}
+                  methods={preSelectableMethods}
                   t={t}
                 />
               </Dropdown>

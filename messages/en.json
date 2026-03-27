@@ -1215,11 +1215,16 @@
       "label": "Method",
       "adaptive": "AI Adaptive",
       "adaptiveRecommended": "AI Adaptive (recommended)",
+      "revenueMultiple": "Market Approach (Revenue)",
       "arrMultiple": "SaaS Market Approach (ARR)",
       "ebitdaMultiple": "Market Approach (EV/EBITDA)",
       "dcf": "Discounted Cash Flow (DCF)",
       "adjustedNav": "Adjusted Net Asset Value",
       "fiscal4x": "Fiscal Reference Value",
+      "fiscalDisclaimerTitle": "Attention",
+      "fiscalDisclaimerText": "For internal transfers, succession planning, or tax rulings only. Not intended for external M&A transactions.",
+      "revenueDriverTitle": "Revenue is the primary driver",
+      "revenueDriverText": "For this method, top-line revenue is the main anchor. EBITDA normalizations remain available, but only as secondary context here.",
       "recommendedForMethod": "Recommended for {method}",
       "shownForBusinessType": "Shown for {businessType}",
       "businessTypes": {
@@ -1241,6 +1246,7 @@
         "dcfTerminalGrowthPct": "Terminal growth (%)",
         "dcfExitMultiple": "Exit multiple (x)",
         "dcfExitMultipleDescription": "Optional fallback when you want to anchor terminal value to a market multiple instead of Gordon Growth only.",
+        "dcfDepreciationGuidance": "Depreciation / D&A is captured per forecast year in the projection table below.",
         "dcfRiskFreeRatePct": "Risk-free rate (%)",
         "dcfEquityRiskPremiumPct": "Equity risk premium (%)",
         "dcfBeta": "Beta",
@@ -1282,6 +1288,11 @@
         "description": "These next three years reflect the current growth and margin assumptions before valuation recalculation.",
         "revenue": "Revenue",
         "ebitda": "EBITDA"
+      },
+      "saasProjectionPreview": {
+        "title": "5-year ARR projection",
+        "description": "For SaaS DCF work, this preview compounds the current ARR or MRR baseline with the selected growth and retention assumptions.",
+        "arr": "Projected ARR"
       },
       "fcfReadiness": {
         "imported_ready": {
@@ -2251,7 +2262,7 @@
     "methodsListHeading": "Pick a method",
     "methodsPanoramaTitle": "All methods at a glance",
     "columnEquity": "Equity",
-    "columnMultiple": "Multiple",
+    "columnMultiple": "Metric",
     "columnDelta": "vs Adaptive",
     "columnHintMobile": "Each method row shows equity value, benchmark multiple, and difference versus UpSwitch Adaptive.",
     "adaptiveBaselineLabel": "Baseline",
@@ -2388,9 +2399,11 @@
     "deltaToHeadline": "Delta vs headline",
     "wacc": "WACC",
     "terminalValue": "Terminal value",
+    "exitMultiple": "Exit multiple",
     "historicalFcfReadiness": "Historical FCF readiness",
     "ownerSalaryEstimate": "Owner salary estimate",
     "estimatedSde": "Adjusted SDE",
+    "bookEquity": "Book equity",
     "arr": "ARR",
     "ruleOf40": "Rule of 40",
     "netRevenueRetention": "Net Revenue Retention",
@@ -2403,7 +2416,9 @@
     "comparablesQuality": "Comparable quality",
     "sensitivityTitle": "DCF sensitivity matrix",
     "sensitivityDescription": "Enterprise value under +/-1 point changes in WACC and terminal growth.",
+    "sensitivityDescriptionExitMultiple": "Enterprise value under +/-1 point changes in WACC and exit multiple.",
     "sensitivityWaccHeader": "WACC / g",
+    "sensitivityWaccExitHeader": "WACC / exit",
     "comparablesQualityValues": {
       "high": "High",
       "medium": "Moderate",

@@ -60,12 +60,19 @@ const translations: Record<string, Record<string, string>> = {
     appliedMultiple: 'Toegepaste multiple',
     enterpriseValue: 'Ondernemingswaarde',
     equityValue: 'Aandelenwaarde',
+    exitMultiple: 'Exit multiple',
     formulaHeading: 'Formule',
     formulaMultiple: 'Formule multiple',
     multiplePipeline: 'Multiple-pijplijn',
     comparablesCount: 'Vergelijkbare bedrijven',
     comparablesQuality: 'Kwaliteit vergelijkbaren',
     'comparablesQualityValues.medium': 'Gemiddeld',
+    sensitivityTitle: 'DCF-gevoeligheidsmatrix',
+    sensitivityDescription: 'Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en terminale groei.',
+    sensitivityDescriptionExitMultiple:
+      'Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.',
+    sensitivityWaccHeader: 'WACC / g',
+    sensitivityWaccExitHeader: 'WACC / exit',
   },
 }
 
@@ -317,5 +324,47 @@ describe('ValuationEditModal', () => {
     expect(
       screen.getByRole('radio', { name: /Adaptive/i }),
     ).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('renders exit multiple DCF semantics truthfully in the breakdown', () => {
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        selectedMethod="dcf"
+        valuationResults={{
+          dcf: {
+            available: true,
+            value: 410_000,
+            label: 'Discounted Cash Flow (DCF)',
+            wacc: 0.1,
+            details: {
+              enterprise_value: 500_000,
+              terminal_value: 300_000,
+              terminal_value_methodology: 'exit_multiple',
+              terminal_exit_multiple: 6,
+              sensitivity_matrix_2d: {
+                wacc_values: [0.09, 0.1, 0.11],
+                secondary_values: [5, 6, 7],
+                secondary_axis_key: 'exit_multiple',
+                secondary_axis_format: 'multiple',
+                ev_matrix: [
+                  [480_000, 500_000, 520_000],
+                  [390_000, 410_000, 430_000],
+                  [320_000, 340_000, 360_000],
+                ],
+              },
+            },
+          },
+        }}
+        result={{} as import('@/types/valuation').ValuationResponse}
+      />,
+    )
+
+    expect(screen.getAllByText('Exit multiple').length).toBeGreaterThan(0)
+    expect(screen.getByText('WACC / exit')).toBeInTheDocument()
+    expect(
+      screen.getByText('Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('6,0x')).toBeInTheDocument()
   })
 })

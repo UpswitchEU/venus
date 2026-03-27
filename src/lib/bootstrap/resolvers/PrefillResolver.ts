@@ -11,6 +11,7 @@
  */
 
 import { getApiUrl } from '../../../utils/getMercuryUrl'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -548,7 +549,12 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
             ])
           )
         : cyd?.revenue != null || cyd?.ebitda != null
-          ? { [cyd!.year ?? new Date().getFullYear()]: { revenue: cyd!.revenue ?? undefined, ebitda: cyd!.ebitda ?? undefined } }
+          ? {
+              [cyd!.year ?? getCurrentFilingYear()]: {
+                revenue: cyd!.revenue ?? undefined,
+                ebitda: cyd!.ebitda ?? undefined,
+              },
+            }
           : undefined)
 
     const financials: PartialFinancials = {

@@ -28,11 +28,11 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(numeric) ? numeric : null
 }
 
-function requirePositiveRevenue(value: unknown, field: string): number {
+function requireNonNegativeRevenue(value: unknown, field: string): number {
   const revenue = toFiniteNumber(value)
 
-  if (revenue === null || revenue <= 0) {
-    throw new ValidationError('Revenue is required and must be greater than 0.', field, value)
+  if (revenue === null || revenue < 0) {
+    throw new ValidationError('Revenue is required and cannot be negative.', field, value)
   }
 
   return revenue
@@ -189,7 +189,7 @@ export function buildValuationRequest(
       : formData.current_year_data?.revenue != null
         ? Number(formData.current_year_data.revenue)
         : null
-  const revenue = requirePositiveRevenue(rawRevenue, 'current_year_data.revenue')
+  const revenue = requireNonNegativeRevenue(rawRevenue, 'current_year_data.revenue')
 
   // EBITDA: accept 0 as a legitimate break-even value; only warn if truly absent.
   const rawEbitda =
@@ -316,7 +316,7 @@ export function buildValuationRequest(
 
         if (normalization) {
           const reportedEbitda = Number(year.ebitda)
-          const normalizedRevenue = requirePositiveRevenue(
+          const normalizedRevenue = requireNonNegativeRevenue(
             year.revenue,
             `historical_years_data.${year.year}.revenue`
           )
@@ -336,7 +336,7 @@ export function buildValuationRequest(
           }
         }
 
-        const normalizedRevenue = requirePositiveRevenue(
+        const normalizedRevenue = requireNonNegativeRevenue(
           year.revenue,
           `historical_years_data.${year.year}.revenue`
         )
@@ -509,6 +509,12 @@ export function buildValuationRequest(
     industry: industry,
     business_model: businessModel,
     founding_year: foundingYear,
+    ...(formData.nace_code && { nace_code: formData.nace_code }),
+    ...(formData.nace_description && { nace_description: formData.nace_description }),
+    ...((formData as any).activity_code && { activity_code: (formData as any).activity_code }),
+    ...((formData as any).canonical_nace_code && {
+      canonical_nace_code: (formData as any).canonical_nace_code,
+    }),
     current_year_data: currentYearData,
     historical_years_data: historicalYearsData,
     forecast_years_data: forecastYearsData,
@@ -523,6 +529,15 @@ export function buildValuationRequest(
     business_type: formData.business_type,
     shares_for_sale: 100,
     business_context: businessContext,
+    ...((formData as any).official_financials && {
+      official_financials: (formData as any).official_financials,
+    }),
+    ...((formData as any).official_variance_analysis && {
+      official_variance_analysis: (formData as any).official_variance_analysis,
+    }),
+    ...((formData as any).official_verification_badge && {
+      official_verification_badge: (formData as any).official_verification_badge,
+    }),
     ...(locale && { locale }),
   }
 

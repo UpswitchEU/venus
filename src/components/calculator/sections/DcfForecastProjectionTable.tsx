@@ -22,6 +22,7 @@ export interface DcfForecastProjectionRow {
   revenue: number
   ebitda: number
   capex?: number
+  depreciation?: number
   nwc_change?: number
   isForecast?: boolean
 }
@@ -36,7 +37,7 @@ interface DcfForecastProjectionTableProps {
   onRemoveYear?: (year: string) => void
   onChange: (
     year: string,
-    field: 'revenue' | 'ebitda' | 'capex' | 'nwc_change',
+    field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change',
     value: number
   ) => void
 }
@@ -101,7 +102,7 @@ export function DcfForecastProjectionTable({
       </div>
 
       <div className="overflow-hidden rounded-xl border border-primary/15 bg-primary/[0.02]">
-        <TableRoot size="sm" className="min-w-[820px] w-full border-collapse">
+        <TableRoot size="sm" className="min-w-[980px] w-full border-collapse">
           <TableCaption className="sr-only">{captionText}</TableCaption>
           <TableHeader className="border-b border-primary/10 bg-primary/[0.03] [&_th]:border-primary/10">
             <TableRow className="border-foreground/10 hover:bg-transparent">
@@ -136,6 +137,14 @@ export function DcfForecastProjectionTable({
                 )}
               >
                 {t('fields.capex')}
+              </TableHead>
+              <TableHead
+                scope="col"
+                className={cn(
+                  'h-auto px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-foreground/55'
+                )}
+              >
+                {t('fields.depreciation')}
               </TableHead>
               <TableHead
                 scope="col"
@@ -279,6 +288,21 @@ export function DcfForecastProjectionTable({
                           placeholder="45.000"
                           disabled={disabled}
                           ariaLabel={`${t('fields.capex')} ${row.year}`}
+                        />
+                      </div>
+                    </SpotlightFieldWrapper>
+                  </TableCell>
+                  <TableCell className="px-3 py-3 align-top">
+                    <SpotlightFieldWrapper fieldName="depreciation" fiscalYear={row.year}>
+                      <div className="flex items-center gap-1.5">
+                        <ProvenanceDot fieldName="depreciation" fiscalYear={row.year} />
+                        <CurrencyInput
+                          value={row.depreciation}
+                          onChange={(value) => onChange(row.year, 'depreciation', value ?? 0)}
+                          size="sm"
+                          placeholder="15.000"
+                          disabled={disabled}
+                          ariaLabel={`${t('fields.depreciation')} ${row.year}`}
                         />
                       </div>
                     </SpotlightFieldWrapper>

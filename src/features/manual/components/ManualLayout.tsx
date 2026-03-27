@@ -1042,6 +1042,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
   }, [reportHydrationLookupId, reportHydrationRetryNonce, setResult])
 
+  useEffect(() => {
+    const firm = user?.firm_country_code?.trim().toUpperCase().substring(0, 2)
+    if (firm === 'NL') {
+      setShowFiscalReferenceForOmni(false)
+    }
+  }, [user?.firm_country_code])
+
   // ─── Chat Co-pilot State ───
   const [chatDrawerOpen, setChatDrawerOpen] = useState(initialDrawerOpen)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -1865,6 +1872,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       const askingPrice =
         Number(r.recommended_asking_price ?? r.details?.recommended_asking_price) || 0
       const htmlReport = r.html_report ?? r.details?.html_report
+      const dcfHistoricalFcfReadiness =
+        r.dcf_valuation?.historical_fcf_readiness ??
+        r.details?.dcf_valuation?.historical_fcf_readiness ??
+        null
 
       setReport({
         id: reportId || r.valuation_id || r.id || 'draft',
@@ -1881,6 +1892,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         generatedAt: new Date(),
         confidenceLevel: confidence || 'medium',
         htmlReport: htmlReport || undefined,
+        dcfHistoricalFcfReadiness,
         recommendedAskingPrice: askingPrice || undefined,
         metrics: [
           { label: tReport('metrics.avgRevenue'), value: `€${(revenue / 1_000_000).toFixed(2)}M` },
@@ -2353,10 +2365,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handlePreSelectMethod = useCallback(
     (method: string) => {
+      const firm = user?.firm_country_code?.trim().toUpperCase().substring(0, 2)
+      if (firm === 'NL' && method === 'fiscal_4x') return
       setPreSelectedMethod(method === 'upswitch_adaptive' ? null : method)
     },
-    [setPreSelectedMethod]
+    [setPreSelectedMethod, user?.firm_country_code]
   )
+
+  useEffect(() => {
+    const firm = user?.firm_country_code?.trim().toUpperCase().substring(0, 2)
+    if (firm !== 'NL') return
+    const effective = preSelectedMethod ?? selectedMethod
+    if (effective === 'fiscal_4x') {
+      setPreSelectedMethod(null)
+    }
+  }, [user?.firm_country_code, preSelectedMethod, selectedMethod, setPreSelectedMethod])
 
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
@@ -4678,6 +4701,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onOpenValuationEdit={() => setShowValuationEditModal(true)}
           preSelectedMethod={preSelectedMethod ?? undefined}
           onPreSelectMethod={handlePreSelectMethod}
+          firmCountryCode={user?.firm_country_code}
         />
 
         {pdfStaleBannerEl}
@@ -4892,6 +4916,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onOpenValuationEdit={() => setShowValuationEditModal(true)}
         preSelectedMethod={preSelectedMethod ?? undefined}
         onPreSelectMethod={handlePreSelectMethod}
+        firmCountryCode={user?.firm_country_code}
       />
 
       {pdfStaleBannerEl}
@@ -5231,6 +5256,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         }
         showPreparerMultiple={showPreparerMultiplePanel}
         isMethodPersisting={isMethodSwitchRendering}
+        firmCountryCode={user?.firm_country_code}
       />
     </div>
   )

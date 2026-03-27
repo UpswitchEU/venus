@@ -171,20 +171,36 @@ describe('buildValuationRequest', () => {
     expect(result.current_year_data.ebitda_normalization_metadata?.total_adjustments).toBe(10_000)
   })
 
-  it('rejects missing or non-positive current-year revenue', () => {
+  it('accepts zero current-year revenue for holdings and asset-based cases', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        revenue: 0,
+        current_year_data: {
+          year: getCurrentFilingYear(),
+          revenue: 0,
+          ebitda: 100_000,
+        },
+      }),
+      []
+    )
+
+    expect(result.current_year_data.revenue).toBe(0)
+  })
+
+  it('rejects missing or negative current-year revenue', () => {
     expect(() =>
       buildValuationRequest(
         makeFormData({
-          revenue: 0,
+          revenue: -1,
           current_year_data: {
             year: getCurrentFilingYear(),
-            revenue: 0,
+            revenue: -1,
             ebitda: 100_000,
           },
         }),
         []
       )
-    ).toThrow('Revenue is required and must be greater than 0.')
+    ).toThrow('Revenue is required and cannot be negative.')
   })
 
   it('accepts the latest complete year when newer placeholder years are empty', () => {
@@ -221,17 +237,50 @@ describe('buildValuationRequest', () => {
     ])
   })
 
-  it('rejects historical revenue that Python would refuse', () => {
+  it('accepts zero historical revenue when the year is a genuine zero-revenue period', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [{ year: lastFullYear - 1, revenue: 0, ebitda: 90_000 }],
+      }),
+      []
+    )
+
+    expect(result.historical_years_data[0]).toMatchObject({
+      year: lastFullYear - 1,
+      revenue: 0,
+      ebitda: 90_000,
+    })
+  })
+
+  it('serializes NACE routing fields when available', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        nace_code: '64.20',
+        nace_description: 'Activiteiten van holdings',
+        activity_code: '64.20',
+        canonical_nace_code: '64.20',
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.nace_code).toBe('64.20')
+    expect(result.nace_description).toBe('Activiteiten van holdings')
+    expect((result as any).activity_code).toBe('64.20')
+    expect((result as any).canonical_nace_code).toBe('64.20')
+  })
+
+  it('rejects historical revenue only when negative', () => {
     const lastFullYear = getCurrentFilingYear()
 
     expect(() =>
       buildValuationRequest(
         makeFormData({
-          historical_years_data: [{ year: lastFullYear - 1, revenue: 0, ebitda: 90_000 }],
+          historical_years_data: [{ year: lastFullYear - 1, revenue: -1, ebitda: 90_000 }],
         }),
         []
       )
-    ).toThrow('Revenue is required and must be greater than 0.')
+    ).toThrow('Revenue is required and cannot be negative.')
   })
 
   it('rejects historical years that duplicate the current fiscal year', () => {
@@ -478,5 +527,52 @@ describe('buildValuationRequest', () => {
     )
 
     expect(expandedResult.projection_years).toBe(6)
+  })
+
+  it('forwards official Belgian filing trust context into the valuation request', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        official_financials: {
+          source: 'staatsbladmonitor',
+          sourceLabel: 'NBB filing via Staatsbladmonitor',
+          filingYear: 2024,
+          revenue: 1_100_000,
+          ebitda: 120_000,
+          verificationBadge: {
+            state: 'verified',
+            label: 'Verified by NBB',
+          },
+          varianceAnalysis: {
+            state: 'pending',
+            explanationRequired: true,
+          },
+        },
+        official_variance_analysis: {
+          state: 'pending',
+          explanationRequired: true,
+        },
+        official_verification_badge: {
+          state: 'verified',
+          label: 'Verified by NBB',
+        },
+      }),
+      []
+    )
+
+    expect(result.official_financials).toMatchObject({
+      source: 'staatsbladmonitor',
+      sourceLabel: 'NBB filing via Staatsbladmonitor',
+      filingYear: 2024,
+      revenue: 1_100_000,
+      ebitda: 120_000,
+    })
+    expect(result.official_variance_analysis).toEqual({
+      state: 'pending',
+      explanationRequired: true,
+    })
+    expect(result.official_verification_badge).toEqual({
+      state: 'verified',
+      label: 'Verified by NBB',
+    })
   })
 })

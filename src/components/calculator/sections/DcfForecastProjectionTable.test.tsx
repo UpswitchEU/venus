@@ -10,6 +10,7 @@ const translations: Record<string, Record<string, string>> = {
     'fields.revenue': 'Revenue',
     'fields.ebitda': 'EBITDA',
     'fields.capex': 'CapEx',
+    'fields.depreciation': 'Depreciation',
     'fields.nwcChange': 'ΔNWC',
     'dcfProjectionTable.title': 'DCF projection table',
     'dcfProjectionTable.description': 'Edit the explicit forecast years used for the DCF calculation.',
@@ -78,10 +79,11 @@ describe('DcfForecastProjectionTable', () => {
       .map((button) => button.getAttribute('aria-label'))
       .filter((label): label is string => Boolean(label))
 
-    expect(labels.slice(0, 4)).toEqual([
+    expect(labels.slice(0, 5)).toEqual([
       'Revenue 2026',
       'EBITDA 2026',
       'CapEx 2026',
+      'Depreciation 2026',
       'ΔNWC 2026',
     ])
   })
@@ -99,6 +101,23 @@ describe('DcfForecastProjectionTable', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ΔNWC 2026' }))
 
     expect(handleChange).toHaveBeenCalledWith('2026', 'nwc_change', -10)
+  })
+
+  it('supports editing depreciation on a forecast row', () => {
+    const handleChange = vi.fn()
+
+    render(
+      <DcfForecastProjectionTable
+        rows={[
+          { year: '2026', revenue: 100, ebitda: 10, capex: 5, depreciation: 3, nwc_change: 2, isForecast: true },
+        ]}
+        onChange={handleChange}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Depreciation 2026' }))
+
+    expect(handleChange).toHaveBeenCalledWith('2026', 'depreciation', 10)
   })
 
   it('supports removing an individual forecast row', () => {

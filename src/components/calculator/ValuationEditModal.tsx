@@ -237,6 +237,11 @@ function MethodBreakdownSection({
   const equityValue = toNumberOrNull(method.value)
   const wacc = toNumberOrNull(method.wacc ?? details.wacc)
   const terminalValue = toNumberOrNull(details.terminal_value)
+  const terminalValueMethodology =
+    typeof details.terminal_value_methodology === 'string'
+      ? details.terminal_value_methodology
+      : null
+  const terminalExitMultiple = toNumberOrNull(details.terminal_exit_multiple)
   const dcfReadiness = isHistoricalFcfReadiness(details.historical_fcf_readiness)
     ? details.historical_fcf_readiness
     : isHistoricalFcfReadiness(result?.dcf_valuation?.historical_fcf_readiness)
@@ -246,16 +251,27 @@ function MethodBreakdownSection({
     details.sensitivity_matrix_2d &&
     typeof details.sensitivity_matrix_2d === 'object' &&
     Array.isArray((details.sensitivity_matrix_2d as Record<string, unknown>).wacc_values) &&
-    Array.isArray((details.sensitivity_matrix_2d as Record<string, unknown>).growth_values) &&
     Array.isArray((details.sensitivity_matrix_2d as Record<string, unknown>).ev_matrix)
       ? (details.sensitivity_matrix_2d as {
           wacc_values: number[]
-          growth_values: number[]
+          growth_values?: number[]
+          secondary_values?: number[]
+          secondary_axis_key?: 'terminal_growth' | 'exit_multiple' | string
+          secondary_axis_format?: 'percent' | 'multiple' | string
           ev_matrix: number[][]
         })
       : null
   const ownerSalaryEstimate = toNumberOrNull(details.owner_salary_estimate)
   const sdeValue = toNumberOrNull(details.sde)
+  const bookEquity =
+    toNumberOrNull(details.book_equity) ??
+    toNumberOrNull((details as Record<string, unknown>).fiscal_book_equity)
+  const methodologyJustification =
+    typeof details.methodology_justification === 'string'
+      ? details.methodology_justification
+      : typeof details.description === 'string'
+        ? details.description
+        : null
   const saasMetrics =
     details.saas_metrics && typeof details.saas_metrics === 'object'
       ? (details.saas_metrics as Record<string, unknown>)
@@ -316,6 +332,11 @@ function MethodBreakdownSection({
       <p className="text-[11px] leading-snug text-foreground/55">
         {tBreakdown('subtitle', { method: method.label })}
       </p>
+      {methodologyJustification && (
+        <div className="rounded-lg border border-primary/15 bg-background/70 px-3 py-3">
+          <p className="text-[11px] leading-snug text-foreground/65">{methodologyJustification}</p>
+        </div>
+      )}
 
       {methodKey === 'dcf' ? (
         <div className="space-y-3">
@@ -330,6 +351,12 @@ function MethodBreakdownSection({
               <BreakdownMetricCard
                 label={tBreakdown('terminalValue')}
                 value={formatCurrency(terminalValue)}
+              />
+            )}
+            {terminalValueMethodology === 'exit_multiple' && terminalExitMultiple != null && (
+              <BreakdownMetricCard
+                label={tBreakdown('exitMultiple')}
+                value={formatMultiple(terminalExitMultiple) || '—'}
               />
             )}
             {enterpriseValue != null && (
@@ -416,6 +443,12 @@ function MethodBreakdownSection({
         </div>
       ) : methodKey === 'fiscal_4x' ? (
         <div className="grid gap-2 sm:grid-cols-2">
+          {bookEquity != null && (
+            <BreakdownMetricCard
+              label={tBreakdown('bookEquity')}
+              value={formatCurrency(bookEquity)}
+            />
+          )}
           {normalizedEbitda != null && (
             <BreakdownMetricCard
               label={tBreakdown('normalizedEbitda')}
@@ -751,6 +784,8 @@ export interface ValuationEditModalProps {
   showPreparerMultiple?: boolean
   /** True while PATCH + getReport merge runs after a method change (parent drives) */
   isMethodPersisting?: boolean
+  /** Accountant firm country — hides BE-only fiscal method in method panorama */
+  firmCountryCode?: string
 }
 
 export function ValuationEditModal({
@@ -776,6 +811,7 @@ export function ValuationEditModal({
   zeroDraftCreatedAt,
   showPreparerMultiple = false,
   isMethodPersisting = false,
+  firmCountryCode,
 }: ValuationEditModalProps) {
   const t = useTranslations('omniCalc')
   const tPrep = useTranslations('preparerMultiple')
@@ -1120,6 +1156,7 @@ export function ValuationEditModal({
               pendingMethod={pendingMethod}
               methodSelectionLocked={methodSelectionLocked}
               onMethodClick={handleMethodClick}
+              firmCountryCode={firmCountryCode}
             />
           )}
 

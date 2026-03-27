@@ -85,7 +85,13 @@ export interface ReportState {
 // Prefill Data Types
 // ============================================================================
 
-export type PrefillSource = 'kbo' | 'user_profile' | 'session' | 'mercury' | 'url_params'
+export type PrefillSource =
+  | 'kbo'
+  | 'user_profile'
+  | 'session'
+  | 'mercury'
+  | 'url_params'
+  | 'official_belgian_filing'
 
 export interface CompanyInfo {
   companyName?: string
@@ -126,6 +132,36 @@ export interface PartialFinancials {
   }
 }
 
+export interface OfficialFinancials {
+  source?: string
+  sourceLabel?: string
+  filingYear?: number
+  revenue?: number
+  ebitda?: number
+  totalAssets?: number
+  equity?: number
+  pdfUrl?: string
+  sourceLinks?: string[]
+  cache?: Record<string, unknown>
+  quota?: Record<string, unknown>
+  dataHealth?: {
+    state?: string
+    message?: string
+  }
+  variancePolicy?: {
+    softThresholdPercent: number
+    hardThresholdPercent: number
+  }
+  varianceAnalysis?: {
+    state: 'not_started' | 'pending' | 'explained' | 'not_required'
+    explanationRequired: boolean
+  }
+  verificationBadge?: {
+    state: 'verified' | 'partial' | 'unavailable'
+    label: string
+  }
+}
+
 export interface BusinessTypeInfo {
   id: string
   code?: string
@@ -161,6 +197,7 @@ export interface PrefillData {
   sources: PrefillSource[]
   companyInfo?: CompanyInfo
   financials?: PartialFinancials
+  officialFinancials?: OfficialFinancials
   businessType?: BusinessTypeInfo
   kboData?: KBOCompanyEntity
   confidence: number // 0-1 how complete the prefill is

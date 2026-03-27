@@ -99,6 +99,9 @@ export function DcfProjectionsSection({
           {t('recommendedForMethod', { method: 'DCF' })}
         </span>
       </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        {t('fields.dcfDepreciationGuidance')}
+      </p>
 
       {smartDefaults && (
         <div className="rounded-xl border border-primary/15 bg-primary/[0.04] p-3">

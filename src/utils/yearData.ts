@@ -76,6 +76,7 @@ export function mergeYearDataRows(
     revenue?: number | null
     ebitda?: number | null
     capex?: number | null
+    depreciation?: number | null
     nwc_change?: number | null
     isForecast?: boolean
     is_forecast?: boolean
@@ -119,6 +120,9 @@ export function mergeYearDataRows(
               : 0,
         ...pickDefinedYearDataFields(existing),
         ...(typeof row.capex === 'number' && Number.isFinite(row.capex) ? { capex: row.capex } : {}),
+        ...(typeof row.depreciation === 'number' && Number.isFinite(row.depreciation)
+          ? { depreciation: row.depreciation }
+          : {}),
         ...(typeof row.nwc_change === 'number' && Number.isFinite(row.nwc_change)
           ? { nwc_change: row.nwc_change }
           : {}),

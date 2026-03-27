@@ -117,6 +117,13 @@ export interface ValuationReportData {
 
   // Recommended asking price (premium over equity mid)
   recommendedAskingPrice?: number
+  dcfHistoricalFcfReadiness?: {
+    status: 'imported_ready' | 'partial' | 'manual_fallback'
+    historical_years_count: number
+    actual_capex_years: number
+    actual_tax_years: number
+    actual_nwc_years: number
+  }
 }
 
 /**
@@ -224,5 +231,8 @@ export function convertApiResponseToReportData(
       apiResponse.recommended_asking_price != null
         ? Number(apiResponse.recommended_asking_price)
         : undefined,
+    dcfHistoricalFcfReadiness:
+      (apiResponse.dcf_valuation as Record<string, unknown> | undefined)
+        ?.historical_fcf_readiness as ValuationReportData['dcfHistoricalFcfReadiness'],
   } as ValuationReportData
 }

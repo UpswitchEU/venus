@@ -16,7 +16,10 @@ import { useLocale, useTranslations } from 'next-intl'
 interface DcfSensitivityMatrixProps {
   sensitivityData?: {
     wacc_values: number[]
-    growth_values: number[]
+    growth_values?: number[]
+    secondary_values?: number[]
+    secondary_axis_key?: 'terminal_growth' | 'exit_multiple' | string
+    secondary_axis_format?: 'percent' | 'multiple' | string
     ev_matrix: number[][]
   } | null
 }
@@ -28,11 +31,18 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
   if (
     !sensitivityData ||
     sensitivityData.wacc_values.length === 0 ||
-    sensitivityData.growth_values.length === 0 ||
     sensitivityData.ev_matrix.length === 0
   ) {
     return null
   }
+
+  const secondaryValues = sensitivityData.secondary_values ?? sensitivityData.growth_values ?? []
+  if (secondaryValues.length === 0) {
+    return null
+  }
+  const secondaryAxisKey = sensitivityData.secondary_axis_key ?? 'terminal_growth'
+  const secondaryAxisFormat =
+    sensitivityData.secondary_axis_format ?? (secondaryAxisKey === 'exit_multiple' ? 'multiple' : 'percent')
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
@@ -47,9 +57,16 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
     }).format(value * 100)}%`
+  const formatSecondaryValue = (value: number) =>
+    secondaryAxisFormat === 'multiple'
+      ? `${new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        }).format(value)}x`
+      : formatPercent(value)
 
   const centerRowIndex = Math.floor(sensitivityData.wacc_values.length / 2)
-  const centerColumnIndex = Math.floor(sensitivityData.growth_values.length / 2)
+  const centerColumnIndex = Math.floor(secondaryValues.length / 2)
 
   return (
     <div className="rounded-lg border border-primary/15 bg-primary/[0.03] px-4 py-4 space-y-3">
@@ -57,7 +74,13 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
         <Grid3X3 className="w-3.5 h-3.5" />
         {t('sensitivityTitle')}
       </div>
-      <p className="text-[11px] leading-snug text-foreground/55">{t('sensitivityDescription')}</p>
+      <p className="text-[11px] leading-snug text-foreground/55">
+        {t(
+          secondaryAxisKey === 'exit_multiple'
+            ? 'sensitivityDescriptionExitMultiple'
+            : 'sensitivityDescription'
+        )}
+      </p>
 
       <div className="overflow-hidden rounded-lg border border-primary/10 bg-background/70">
         <TableRoot size="sm" className="min-w-[420px] w-full">
@@ -65,17 +88,21 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
           <TableHeader className="border-b border-primary/10 bg-primary/[0.04]">
             <TableRow className="hover:bg-transparent">
               <TableHead className="h-auto px-3 py-2 text-left text-[11px] font-semibold text-foreground/60">
-                {t('sensitivityWaccHeader')}
+                {t(
+                  secondaryAxisKey === 'exit_multiple'
+                    ? 'sensitivityWaccExitHeader'
+                    : 'sensitivityWaccHeader'
+                )}
               </TableHead>
-              {sensitivityData.growth_values.map((value, index) => (
+              {secondaryValues.map((value, index) => (
                 <TableHead
-                  key={`growth-${index}`}
+                  key={`secondary-${index}`}
                   className={cn(
                     'h-auto px-3 py-2 text-right text-[11px] font-semibold text-foreground/60',
                     index === centerColumnIndex && 'text-primary'
                   )}
                 >
-                  {formatPercent(value)}
+                  {formatSecondaryValue(value)}
                 </TableHead>
               ))}
             </TableRow>
@@ -91,7 +118,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
                 >
                   {formatPercent(waccValue)}
                 </TableCell>
-                {sensitivityData.growth_values.map((_, columnIndex) => (
+                {secondaryValues.map((_, columnIndex) => (
                   <TableCell
                     key={`cell-${rowIndex}-${columnIndex}`}
                     className={cn(

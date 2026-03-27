@@ -26,6 +26,7 @@ export interface MethodFieldEntry {
 export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
   upswitch_adaptive: { bonusSections: [] },
   ebitda_multiple: { bonusSections: ['revenue_quality'] },
+  omzet_multiple: { bonusSections: ['revenue_quality'] },
   arr_multiple: { bonusSections: ['saas_metrics'] },
   dcf: { bonusSections: ['dcf_projections'] },
   adjusted_nav: { bonusSections: ['nav_asset_schedule'] },
@@ -72,6 +73,7 @@ function getBusinessSectionCandidates(
  */
 export const PRE_SELECTABLE_METHODS = [
   'upswitch_adaptive',
+  'omzet_multiple',
   'arr_multiple',
   'ebitda_multiple',
   'dcf',
@@ -82,6 +84,20 @@ export const PRE_SELECTABLE_METHODS = [
 export type PreSelectableMethod = (typeof PRE_SELECTABLE_METHODS)[number]
 
 export const PRE_SELECTABLE_METHOD_SET = new Set<string>(PRE_SELECTABLE_METHODS)
+
+/**
+ * Belgian fiscal reference (4× EBITDA) is not offered for Dutch accountant firms.
+ * Keeps the nav dropdown aligned with Titan/PDF fiscal gating.
+ */
+export function getPreSelectableMethodsForFirm(
+  firmCountryCode?: string | null
+): readonly string[] {
+  const code = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
+  if (code === 'NL') {
+    return PRE_SELECTABLE_METHODS.filter((m) => m !== 'fiscal_4x')
+  }
+  return PRE_SELECTABLE_METHODS
+}
 
 if (process.env.NODE_ENV !== 'production') {
   const missingConfig = PRE_SELECTABLE_METHODS.filter((method) => !(method in METHOD_FIELD_CONFIG))

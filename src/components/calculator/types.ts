@@ -36,4 +36,11 @@ export interface ValuationReportData {
   reportUpdatedAt?: Date
   pdfGeneratedAt?: Date | null
   pdfUrl?: string | null
+  dcfHistoricalFcfReadiness?: {
+    status: 'imported_ready' | 'partial' | 'manual_fallback'
+    historical_years_count: number
+    actual_capex_years: number
+    actual_tax_years: number
+    actual_nwc_years: number
+  } | null
 }

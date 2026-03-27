@@ -78,6 +78,41 @@ export interface YearDataInput {
   is_forecast?: boolean
 }
 
+export interface OfficialVerificationBadge {
+  state: 'verified' | 'partial' | 'unavailable'
+  label: string
+}
+
+export interface OfficialVarianceAnalysis {
+  state: 'not_started' | 'pending' | 'explained' | 'not_required'
+  explanationRequired: boolean
+  explanation?: string
+}
+
+export interface OfficialFinancialsPayload {
+  source?: string
+  sourceLabel?: string
+  filingYear?: number
+  revenue?: number
+  ebitda?: number
+  totalAssets?: number
+  equity?: number
+  pdfUrl?: string
+  sourceLinks?: string[]
+  cache?: Record<string, unknown>
+  quota?: Record<string, unknown>
+  dataHealth?: {
+    state?: string
+    message?: string
+  }
+  variancePolicy?: {
+    softThresholdPercent: number
+    hardThresholdPercent: number
+  }
+  varianceAnalysis?: OfficialVarianceAnalysis
+  verificationBadge?: OfficialVerificationBadge
+}
+
 export interface ValuationRequest {
   // Company information (all required)
   company_name: string
@@ -90,6 +125,9 @@ export interface ValuationRequest {
   current_year_data: YearDataInput
   historical_years_data?: YearDataInput[]
   forecast_years_data?: YearDataInput[]
+  official_financials?: OfficialFinancialsPayload
+  official_variance_analysis?: OfficialVarianceAnalysis
+  official_verification_badge?: OfficialVerificationBadge
 
   // Optional company details
   number_of_employees?: number
@@ -885,6 +923,8 @@ export interface ValuationResponse {
     cost_of_debt: number
     terminal_growth_rate: number
     terminal_value: number
+    terminal_value_methodology?: 'gordon_growth' | 'exit_multiple' | string | null
+    terminal_exit_multiple?: number | null
     pv_terminal_value: number
     fcf_projections_5y: number[]
     pv_fcf_projections_5y: number[]
@@ -892,7 +932,10 @@ export interface ValuationResponse {
     sensitivity_growth: Record<string, number>
     sensitivity_matrix_2d?: {
       wacc_values: number[]
-      growth_values: number[]
+      growth_values?: number[]
+      secondary_values?: number[]
+      secondary_axis_key?: 'terminal_growth' | 'exit_multiple' | string
+      secondary_axis_format?: 'percent' | 'multiple' | string
       ev_matrix: number[][]
     }
     confidence: string

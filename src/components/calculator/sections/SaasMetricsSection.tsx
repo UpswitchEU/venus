@@ -22,6 +22,7 @@ interface SaasMetricsSectionProps {
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
   showHeader?: boolean
+  arrProjectionPreview?: Array<{ year: number; arr: number }>
 }
 
 function ratioFromPercent(value?: number): number | null {
@@ -72,6 +73,7 @@ export function SaasMetricsSection({
   onFieldChange,
   disabled,
   showHeader = true,
+  arrProjectionPreview = [],
 }: SaasMetricsSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
   const locale = useLocale()
@@ -289,6 +291,41 @@ export function SaasMetricsSection({
           />
         </div>
       </div>
+
+      {arrProjectionPreview.length > 0 && (
+        <div className="rounded-xl border border-foreground/10 bg-background/70 p-3">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-primary" />
+            <p className="text-sm font-medium text-foreground">
+              {t('saasProjectionPreview.title')}
+            </p>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            {t('saasProjectionPreview.description')}
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            {arrProjectionPreview.map((row) => (
+              <div
+                key={row.year}
+                className="rounded-lg border border-foreground/8 bg-foreground/[0.02] px-3 py-2"
+              >
+                <p className="text-xs font-semibold text-foreground">{row.year}</p>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {t('saasProjectionPreview.arr')}
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  {new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+                    style: 'currency',
+                    currency: 'EUR',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }).format(row.arr)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.section>
   )
 }

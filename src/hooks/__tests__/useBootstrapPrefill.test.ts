@@ -89,4 +89,60 @@ describe('useBootstrapPrefill', () => {
       expect(useManualFormStore.getState().formData.company_name).toBe('Fallback Client')
     })
   })
+
+  it('persists official Belgian filing trust context into the manual form store', async () => {
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: true,
+      report: { mode: 'new', reportId: 'val_be_official', hasExistingData: false },
+      prefillData: {
+        sources: ['official_belgian_filing'],
+        companyInfo: {
+          companyName: 'Verified Belgian BV',
+          countryCode: 'BE',
+        },
+        officialFinancials: {
+          source: 'staatsbladmonitor',
+          sourceLabel: 'NBB filing via Staatsbladmonitor',
+          filingYear: 2024,
+          revenue: 880000,
+          ebitda: 95000,
+          varianceAnalysis: {
+            state: 'pending',
+            explanationRequired: true,
+          },
+          verificationBadge: {
+            state: 'verified',
+            label: 'Verified by NBB',
+          },
+        },
+        confidence: 0.8,
+        fieldsPopulated: ['company_name', 'official_financials'],
+        fieldsRemaining: [],
+        readOnlyKbo: false,
+        autoAdvancePastPrefilledSteps: false,
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+
+    await waitFor(() => {
+      const formData = useManualFormStore.getState().formData as any
+      expect(formData.official_financials).toMatchObject({
+        source: 'staatsbladmonitor',
+        filingYear: 2024,
+        revenue: 880000,
+        ebitda: 95000,
+      })
+      expect(formData.official_variance_analysis).toEqual({
+        state: 'pending',
+        explanationRequired: true,
+      })
+      expect(formData.official_verification_badge).toEqual({
+        state: 'verified',
+        label: 'Verified by NBB',
+      })
+    })
+  })
 })

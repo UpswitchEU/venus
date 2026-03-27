@@ -74,4 +74,47 @@ describe('AdaptiveSections', () => {
 
     expect(screen.getByText('sections.dcfProjections')).toBeInTheDocument()
   })
+
+  it('renders revenue-led guidance when omzet multiple is pre-selected', () => {
+    render(
+      <AdaptiveSections
+        {...baseProps}
+        effectiveMethod="omzet_multiple"
+        businessCategory="professional-services"
+        businessTypeId="accountancy"
+      />
+    )
+
+    expect(screen.getByText('revenueDriverTitle')).toBeInTheDocument()
+    expect(screen.getByText('revenueDriverText')).toBeInTheDocument()
+    expect(screen.getByText('sections.revenueQuality')).toBeInTheDocument()
+  })
+
+  it('renders the fiscal disclaimer when fiscal 4x is selected', () => {
+    render(
+      <AdaptiveSections
+        {...baseProps}
+        effectiveMethod="fiscal_4x"
+        businessCategory="holding"
+        businessTypeId="family-holdco"
+      />
+    )
+
+    expect(screen.getByText('fiscalDisclaimerTitle')).toBeInTheDocument()
+    expect(screen.getByText('fiscalDisclaimerText')).toBeInTheDocument()
+  })
+
+  it('hides the fiscal disclaimer for NL accountant firms even if fiscal 4x is selected', () => {
+    render(
+      <AdaptiveSections
+        {...baseProps}
+        effectiveMethod="fiscal_4x"
+        firmCountryCode="NL"
+        businessCategory="holding"
+        businessTypeId="family-holdco"
+      />
+    )
+
+    expect(screen.queryByText('fiscalDisclaimerTitle')).not.toBeInTheDocument()
+  })
 })

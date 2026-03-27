@@ -240,7 +240,7 @@ function applyPrefillToForm(
   updateFormData: (data: Partial<any>) => void,
   prefillFromBusinessCard: (card: any) => void
 ): void {
-  const { companyInfo, financials, businessType, kboData } = prefillData
+  const { companyInfo, financials, businessType, kboData, officialFinancials } = prefillData
 
   // CRITICAL LOGGING: Log what we received from bootstrap
   logger.debug('applyPrefillToForm called', {
@@ -399,6 +399,16 @@ function applyPrefillToForm(
         revenue: historicalYears[0].revenue,
         ebitda: historicalYears[0].ebitda,
       }
+    }
+  }
+
+  if (officialFinancials) {
+    allData.official_financials = officialFinancials
+    if (officialFinancials.varianceAnalysis) {
+      allData.official_variance_analysis = officialFinancials.varianceAnalysis
+    }
+    if (officialFinancials.verificationBadge) {
+      allData.official_verification_badge = officialFinancials.verificationBadge
     }
   }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getBonusSections,
+  getPreSelectableMethodsForFirm,
   METHOD_FIELD_CONFIG,
   PRE_SELECTABLE_METHODS,
 } from './methodFieldConfig'
@@ -14,6 +15,11 @@ describe('methodFieldConfig', () => {
 
   it('keeps ARR multiple pre-selectable for SaaS workflows', () => {
     expect(PRE_SELECTABLE_METHODS).toContain('arr_multiple')
+  })
+
+  it('surfaces omzet multiple for upfront revenue-led selections', () => {
+    expect(PRE_SELECTABLE_METHODS).toContain('omzet_multiple')
+    expect(getBonusSections('omzet_multiple')).toEqual(['revenue_quality'])
   })
 
   it('merges method and business-type sections without duplicates', () => {
@@ -39,5 +45,13 @@ describe('methodFieldConfig', () => {
     expect(getBonusSections('upswitch_adaptive', 'tech-digital', 'vertical-saas-fintech')).toEqual([
       'saas_metrics',
     ])
+  })
+
+  it('excludes Belgian fiscal reference method for NL accountant firms', () => {
+    const nl = getPreSelectableMethodsForFirm('NL')
+    expect(nl).not.toContain('fiscal_4x')
+    expect(nl.length).toBe(PRE_SELECTABLE_METHODS.length - 1)
+    expect(getPreSelectableMethodsForFirm('BE')).toEqual(PRE_SELECTABLE_METHODS)
+    expect(getPreSelectableMethodsForFirm('nl')).not.toContain('fiscal_4x')
   })
 })

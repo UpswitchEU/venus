@@ -1215,11 +1215,16 @@
       "label": "Methode",
       "adaptive": "AI Adaptive",
       "adaptiveRecommended": "AI Adaptive (aanbevolen)",
+      "revenueMultiple": "Marktbenadering (Omzet)",
       "arrMultiple": "SaaS-marktbenadering (ARR)",
       "ebitdaMultiple": "Marktbenadering (EV/EBITDA)",
       "dcf": "Discounted Cash Flow (DCF)",
       "adjustedNav": "Gecorrigeerde Netto Actiefwaarde",
       "fiscal4x": "Fiscale Referentiewaarde",
+      "fiscalDisclaimerTitle": "Let op",
+      "fiscalDisclaimerText": "Uitsluitend voor interne overdrachten, successieplanning of fiscale rulings. Niet bestemd voor externe M&A-transacties.",
+      "revenueDriverTitle": "Omzet is de primaire driver",
+      "revenueDriverText": "Voor deze methode staat topline omzet centraal. EBITDA-normalisaties blijven beschikbaar, maar dienen hier alleen als secundaire context.",
       "recommendedForMethod": "Aanbevolen voor {method}",
       "shownForBusinessType": "Getoond voor {businessType}",
       "businessTypes": {
@@ -1241,6 +1246,7 @@
         "dcfTerminalGrowthPct": "Terminale groei (%)",
         "dcfExitMultiple": "Exit multiple (x)",
         "dcfExitMultipleDescription": "Optionele fallback wanneer u de terminal value liever verankert aan een markt-multiple dan uitsluitend aan Gordon Growth.",
+        "dcfDepreciationGuidance": "Afschrijvingen/D&A worden ingevoerd per prognosejaar in de forecast-tabel hieronder.",
         "dcfRiskFreeRatePct": "Risicovrije rente (%)",
         "dcfEquityRiskPremiumPct": "Equity risk premium (%)",
         "dcfBeta": "Beta",
@@ -1282,6 +1288,11 @@
         "description": "Deze volgende drie jaren volgen de huidige groei- en marge-aannames voordat de waardering opnieuw wordt berekend.",
         "revenue": "Omzet",
         "ebitda": "EBITDA"
+      },
+      "saasProjectionPreview": {
+        "title": "5-jaars ARR-projectie",
+        "description": "Voor SaaS-DCF werk projecteert deze preview de huidige ARR- of MRR-basis door met de gekozen groei- en retentie-aannames.",
+        "arr": "Geprojecteerde ARR"
       },
       "fcfReadiness": {
         "imported_ready": {
@@ -2251,7 +2262,7 @@
     "methodsListHeading": "Kies een methode",
     "methodsPanoramaTitle": "Alle methoden in één oogopslag",
     "columnEquity": "Waarde",
-    "columnMultiple": "Multiple",
+    "columnMultiple": "Kengetal",
     "columnDelta": "t.o.v. Adaptive",
     "columnHintMobile": "Elke methoderegel toont de waardering, de gebruikte multiple en het verschil ten opzichte van UpSwitch Adaptive.",
     "adaptiveBaselineLabel": "Referentie",
@@ -2388,9 +2399,11 @@
     "deltaToHeadline": "Afwijking t.o.v. hoofdwaarde",
     "wacc": "WACC",
     "terminalValue": "Terminale waarde",
+    "exitMultiple": "Exit multiple",
     "historicalFcfReadiness": "Historische FCF-gereedheid",
     "ownerSalaryEstimate": "Inschatting eigenaarsloon",
     "estimatedSde": "Aangepaste SDE",
+    "bookEquity": "Boekhoudkundig eigen vermogen",
     "arr": "ARR",
     "ruleOf40": "Rule of 40",
     "netRevenueRetention": "Net Revenue Retention",
@@ -2403,7 +2416,9 @@
     "comparablesQuality": "Kwaliteit vergelijkbaren",
     "sensitivityTitle": "DCF-gevoeligheidsmatrix",
     "sensitivityDescription": "Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en terminale groei.",
+    "sensitivityDescriptionExitMultiple": "Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.",
     "sensitivityWaccHeader": "WACC / g",
+    "sensitivityWaccExitHeader": "WACC / exit",
     "comparablesQualityValues": {
       "high": "Hoog",
       "medium": "Gemiddeld",

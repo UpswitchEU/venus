@@ -80,6 +80,39 @@ describe('yearData helpers', () => {
     ])
   })
 
+  it('lets explicit forecast depreciation override imported defaults', () => {
+    const result = mergeYearDataRows(
+      [
+        {
+          year: 2026,
+          revenue: 1_100_000,
+          ebitda: 140_000,
+          depreciation: 22_000,
+          isForecast: true,
+        },
+      ],
+      [
+        {
+          year: 2026,
+          revenue: 1_050_000,
+          ebitda: 130_000,
+          depreciation: 18_000,
+          is_forecast: true,
+        },
+      ]
+    )
+
+    expect(result).toEqual([
+      {
+        year: 2026,
+        revenue: 1_100_000,
+        ebitda: 140_000,
+        depreciation: 22_000,
+        is_forecast: true,
+      },
+    ])
+  })
+
   it('omits non-finite optional values', () => {
     expect(
       pickDefinedYearDataFields({

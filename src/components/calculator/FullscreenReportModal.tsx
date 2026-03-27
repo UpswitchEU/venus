@@ -171,6 +171,29 @@ export function FullscreenReportModal({
             transformOrigin: 'top center',
           }}
         >
+          {report?.dcfHistoricalFcfReadiness && (
+            <div className="mx-auto mb-3 max-w-5xl rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
+                {t('methodBreakdown.historicalFcfReadiness') || 'Historical FCF readiness'}
+              </div>
+              <p className="mt-1 text-sm text-foreground/80">
+                {t(
+                  `calculator.fcfReadiness.${report.dcfHistoricalFcfReadiness.status}.title`
+                )}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-foreground/55">
+                {t(
+                  `calculator.fcfReadiness.${report.dcfHistoricalFcfReadiness.status}.description`,
+                  {
+                    years: report.dcfHistoricalFcfReadiness.historical_years_count,
+                    capex: report.dcfHistoricalFcfReadiness.actual_capex_years,
+                    taxes: report.dcfHistoricalFcfReadiness.actual_tax_years,
+                    workingCapital: report.dcfHistoricalFcfReadiness.actual_nwc_years,
+                  }
+                )}
+              </p>
+            </div>
+          )}
           {report?.htmlReport ? (
             <div className="valuation-report">
               <div

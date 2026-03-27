@@ -6,6 +6,7 @@ import { cn } from '@/design-system/utils'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useAuth } from '../../hooks/useAuth'
 import type { ValuationResponse } from '../../types/valuation'
 import {
   PREPARER_EBITDA_REASON_KEYS,
@@ -36,9 +37,11 @@ export function PreparerMultiplePanel({
   countryCode,
   selectedOmniMethod,
 }: PreparerMultiplePanelProps) {
+  const { user } = useAuth()
   const t = useTranslations('preparerMultiple')
   const locale = useLocale()
   const [open, setOpen] = useState(true)
+  const firmCountry = user?.firm_country_code?.trim().toUpperCase().substring(0, 2) ?? 'BE'
 
   const benchmarkMedian = usePreparerMultipleStore((s) => s.benchmarkMedian)
   const appliedMedian = usePreparerMultipleStore((s) => s.appliedMedian)
@@ -150,7 +153,7 @@ export function PreparerMultiplePanel({
           {nonEbitdaMethodSelected && (
             <div className="mt-2 rounded-md border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2">
               <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
-                {selectedOmniMethod === 'fiscal_4x'
+                {selectedOmniMethod === 'fiscal_4x' && firmCountry !== 'NL'
                   ? t('hintFiscalMethod')
                   : t('hintOtherMethod')}
               </p>
