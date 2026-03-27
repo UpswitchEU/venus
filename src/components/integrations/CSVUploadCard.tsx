@@ -26,6 +26,7 @@ import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
 import { Body, Caption, Heading, Mono } from '@/design-system/components/Typography'
 import { cn } from '@/design-system/utils'
+import { getHistoricalYearRange } from '@/utils/yearlyFinancials'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -49,21 +50,32 @@ export interface CSVUploadCardProps {
 // TEMPLATE DATA
 // ─────────────────────────────────────────
 
-const CSV_TEMPLATE = `Rekening;Omschrijving;Type;2022;2023;2024
-8000;Omzet verkopen;Opbrengsten;450000;520000;580000
-8100;Omzet diensten;Opbrengsten;125000;140000;165000
-6000;Loonkosten;Kosten;180000;195000;210000
-6100;Sociale lasten;Kosten;45000;48000;52000
-6200;Pensioenlasten;Kosten;18000;19000;21000
-6300;Huur bedrijfspand;Kosten;36000;36000;38000
-6400;Afschrijvingen;Kosten;25000;28000;30000
-6500;Autokosten;Kosten;18000;19000;20000
-6600;Kantoorkosten;Kosten;8000;8500;9000
-6700;Accountantskosten;Kosten;12000;13000;14000
-6800;Overige bedrijfskosten;Kosten;24000;26000;28000`
+const buildCsvTemplate = (): string => {
+  const years = [...getHistoricalYearRange()].reverse()
+  const templateRows = [
+    ['8000', 'Omzet verkopen', 'Opbrengsten', ['450000', '520000', '580000']],
+    ['8100', 'Omzet diensten', 'Opbrengsten', ['125000', '140000', '165000']],
+    ['6000', 'Loonkosten', 'Kosten', ['180000', '195000', '210000']],
+    ['6100', 'Sociale lasten', 'Kosten', ['45000', '48000', '52000']],
+    ['6200', 'Pensioenlasten', 'Kosten', ['18000', '19000', '21000']],
+    ['6300', 'Huur bedrijfspand', 'Kosten', ['36000', '36000', '38000']],
+    ['6400', 'Afschrijvingen', 'Kosten', ['25000', '28000', '30000']],
+    ['6500', 'Autokosten', 'Kosten', ['18000', '19000', '20000']],
+    ['6600', 'Kantoorkosten', 'Kosten', ['8000', '8500', '9000']],
+    ['6700', 'Accountantskosten', 'Kosten', ['12000', '13000', '14000']],
+    ['6800', 'Overige bedrijfskosten', 'Kosten', ['24000', '26000', '28000']],
+  ] as const
+
+  return [
+    ['Rekening', 'Omschrijving', 'Type', ...years].join(';'),
+    ...templateRows.map(([account, description, type, values]) =>
+      [account, description, type, ...values].join(';')
+    ),
+  ].join('\n')
+}
 
 const downloadTemplate = () => {
-  const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob([buildCsvTemplate()], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url

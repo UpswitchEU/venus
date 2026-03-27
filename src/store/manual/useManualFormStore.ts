@@ -59,7 +59,7 @@ const getSafeCurrentFilingYear = () => {
 
 const defaultFormData: ValuationFormData = {
   company_name: '', // Empty by default - user must enter company name
-  country_code: 'BE',
+  country_code: '',
   industry: 'services', // Default to valid industry code
   business_model: 'services', // Default business model (matches Python enum)
   founding_year: getSafeCurrentFilingYear() - 5, // Default to 5 years before filing year

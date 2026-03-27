@@ -1353,6 +1353,18 @@ function getIndustry(user: User): string {
   return businessTypeToIndustry[user.business_type?.toLowerCase() || ''] || 'services'
 }
 
+function resolveBusinessCardCountry(user: User): string {
+  const candidates = [user.firm_country_code, user.country]
+  for (const candidate of candidates) {
+    const normalized = candidate?.trim().toUpperCase()
+    if (normalized === 'BE' || normalized === 'NL') {
+      return normalized
+    }
+  }
+
+  return 'BE'
+}
+
 /**
  * Infer employee count from range string
  * Phase 1.3: Enhanced inference using typical midpoints
@@ -1430,7 +1442,7 @@ export function useAuth() {
           business_model: user.business_type || 'other',
           founding_year:
             user.founded_year || new Date().getFullYear() - (user.years_in_operation || 5),
-          country_code: user.country || 'BE',
+          country_code: resolveBusinessCardCountry(user),
           employee_count: parseEmployeeCount(user.employee_count_range),
           // Phase 1.1: Enhanced KBO registry fields
           kbo_number: user.kbo_number,

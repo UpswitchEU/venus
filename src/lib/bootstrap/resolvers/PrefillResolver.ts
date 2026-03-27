@@ -248,7 +248,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
   /**
    * Fetch KBO registry data by company name search
    */
-  private async fetchKBO(query: string, countryCode: string = 'BE'): Promise<{
+  private async fetchKBO(query: string, countryCode: string): Promise<{
     companyInfo?: CompanyInfo
     kboData?: KBOCompanyEntity
   } | null> {
@@ -293,7 +293,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         address: kbo.address,
         postalCode: kbo.postal_code,
         city: kbo.city,
-        countryCode: resolveCountryCode(kbo.country_code, countryCode, 'BE'),
+        countryCode: resolveCountryCode(kbo.country_code, countryCode) || 'BE',
         naceCode: kbo.nace_code,
         naceDescription: kbo.nace_description,
         foundationDate: kbo.foundation_date,
@@ -308,7 +308,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         address: kbo.address,
         postalCode: kbo.postal_code,
         city: kbo.city,
-        countryCode: resolveCountryCode(kbo.country_code, countryCode, 'BE'),
+        countryCode: resolveCountryCode(kbo.country_code, countryCode) || 'BE',
         naceCode: kbo.nace_code,
         naceDescription: kbo.nace_description,
         foundingYear: kbo.foundation_date ? new Date(kbo.foundation_date).getFullYear() : undefined,

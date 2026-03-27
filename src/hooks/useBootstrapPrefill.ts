@@ -505,12 +505,17 @@ function buildBusinessCard(
   businessType?: BusinessTypeInfo,
   fallbackCountryCode?: string
 ): any {
+  const resolvedCountryCode = resolveCountryCode(
+    companyInfo.countryCode,
+    fallbackCountryCode
+  )
+
   return {
     company_name: companyInfo.companyName,
     industry: businessType?.industry || 'services',
     business_model: businessType?.id || 'other',
     founding_year: companyInfo.foundingYear || new Date().getFullYear() - 5,
-    country_code: resolveCountryCode(companyInfo.countryCode, fallbackCountryCode, 'BE') || 'BE',
+    country_code: resolvedCountryCode || 'BE',
     employee_count: financials?.employeeCount,
     // KBO registry fields
     kbo_number: companyInfo.kboNumber,
