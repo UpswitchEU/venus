@@ -1280,7 +1280,7 @@
       },
       "smartDefaults": {
         "title": "Slimme defaults uit historiek",
-        "description": "Opgebouwd uit uw laatste {count} historische boekjaar(en) en conservatieve Belgische SME-aannames. Controleer dit voordat u de DCF afrondt.",
+        "description": "Opgebouwd uit uw laatste {count} historische boekjaar(en) en conservatieve SME-aannames voor deze markt. Controleer dit voordat u de DCF afrondt.",
         "apply": "Slimme defaults toepassen"
       },
       "projectionPreview": {
@@ -1328,7 +1328,7 @@
         "expandedDescription": "Deze aannames berekenen de headline WACC automatisch voor een verdedigbare DCF.",
         "aggregateHint": "Stel de totale disconteringsvoet rechtstreeks in wanneer u de volledige CAPM-opbouw niet nodig heeft.",
         "computedHint": "Automatisch berekend op basis van de aannames hieronder en gesynchroniseerd met de DCF-aanvraag.",
-        "riskFreeDescription": "Standaard anker: actuele Belgische 10-jaarsrente.",
+        "riskFreeDescription": "Standaard anker: actuele 10-jaars staatsrente voor de geselecteerde markt.",
         "equityRiskPremiumDescription": "Standaard Europese SME equity risk premium.",
         "betaDescription": "Sectorrisico versus de markt. Gebruik 1,0 als neutraal, >1,0 voor hogere volatiliteit.",
         "costOfDebtDescription": "Gemiddelde financieringskost vóór tax shield.",
@@ -2083,7 +2083,7 @@
     "indicativeCalculation": "Indicatieve Berekening",
     "whyThisMultiple": "Waarom deze Multiple?",
     "sectorRange": "Sector: Industrial Manufacturing • 5.0× – 6.0× bereik",
-    "methodologyIntro": "Manufacturing bedrijven in België met €1-5M omzet worden typisch gewaardeerd tegen 5.0×-6.0× EBITDA. De 5.5× is gebaseerd op recente transacties en houdt rekening met:",
+    "methodologyIntro": "Manufacturing bedrijven met €1-5M omzet worden typisch gewaardeerd tegen 5.0×-6.0× EBITDA. De 5.5× is gebaseerd op recente transacties en houdt rekening met:",
     "sizePremium": "Omvangpremie: Kleinere bedrijven (<€5M omzet) krijgen lagere multiples vanwege concentratierisico",
     "ownerDependency": "Eigenaar-afhankelijkheid: 2 eigenaar-managers betekent beperkte afhankelijkheid (-0.2×)",
     "sectorStability": "Sector stabiliteit: Manufacturing is minder volatiel dan tech (+0.3×)",

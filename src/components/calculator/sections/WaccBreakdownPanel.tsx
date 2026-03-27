@@ -1,9 +1,8 @@
 'use client'
 
-import { AuroraButton } from '@/design-system/components/Button'
 import { cn } from '@/design-system/utils'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown, ChevronUp, Sigma } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
@@ -92,30 +91,7 @@ export function WaccBreakdownPanel({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-primary/15 bg-primary/[0.03] p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Sigma className="h-4 w-4 text-primary" />
-            <span>{t('fields.dcfWaccPct')}</span>
-          </div>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {expanded ? t('waccBreakdown.expandedDescription') : t('waccBreakdown.collapsedDescription')}
-          </p>
-        </div>
-        <AuroraButton
-          type="button"
-          size="sm"
-          variant="outline"
-          className="min-h-[36px] shrink-0 gap-2"
-          onClick={handleToggleExpanded}
-          disabled={disabled}
-        >
-          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          {expanded ? t('waccBreakdown.collapse') : t('waccBreakdown.expand')}
-        </AuroraButton>
-      </div>
-
+    <div className={cn(expanded && 'sm:col-span-2')}>
       <AdaptivePercentInput
         label={t('fields.dcfWaccPct')}
         value={expanded ? computedWaccPct : currentWaccPct}
@@ -123,8 +99,16 @@ export function WaccBreakdownPanel({
         placeholder="10"
         disabled={disabled}
         readOnly={expanded}
-        description={expanded ? t('waccBreakdown.computedHint') : t('waccBreakdown.aggregateHint')}
       />
+      <button
+        type="button"
+        onClick={handleToggleExpanded}
+        disabled={disabled}
+        className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+      >
+        <ChevronDown className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')} />
+        {expanded ? t('waccBreakdown.collapse') : t('waccBreakdown.expand')}
+      </button>
 
       <AnimatePresence initial={false}>
         {expanded && (
@@ -135,14 +119,13 @@ export function WaccBreakdownPanel({
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className="overflow-hidden"
           >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <AdaptivePercentInput
                 label={t('fields.dcfRiskFreeRatePct')}
                 value={riskFreeRatePct}
                 onChange={(value) => onFieldChange('dcf_risk_free_rate_pct', value)}
                 placeholder={String(DEFAULT_RISK_FREE_RATE_PCT)}
                 disabled={disabled}
-                description={t('waccBreakdown.riskFreeDescription')}
               />
               <AdaptivePercentInput
                 label={t('fields.dcfEquityRiskPremiumPct')}
@@ -150,7 +133,6 @@ export function WaccBreakdownPanel({
                 onChange={(value) => onFieldChange('dcf_equity_risk_premium_pct', value)}
                 placeholder={String(DEFAULT_EQUITY_RISK_PREMIUM_PCT)}
                 disabled={disabled}
-                description={t('waccBreakdown.equityRiskPremiumDescription')}
               />
               <AdaptivePercentInput
                 label={t('fields.dcfBeta')}
@@ -158,7 +140,6 @@ export function WaccBreakdownPanel({
                 onChange={(value) => onFieldChange('dcf_beta', value)}
                 placeholder={String(DEFAULT_BETA)}
                 disabled={disabled}
-                description={t('waccBreakdown.betaDescription')}
                 step="0.1"
               />
               <AdaptivePercentInput
@@ -167,7 +148,6 @@ export function WaccBreakdownPanel({
                 onChange={(value) => onFieldChange('dcf_cost_of_debt_pct', value)}
                 placeholder={String(DEFAULT_COST_OF_DEBT_PCT)}
                 disabled={disabled}
-                description={t('waccBreakdown.costOfDebtDescription')}
               />
               <AdaptivePercentInput
                 label={t('fields.dcfDebtEquityPct')}
@@ -175,7 +155,6 @@ export function WaccBreakdownPanel({
                 onChange={(value) => onFieldChange('dcf_debt_equity_pct', value)}
                 placeholder={String(DEFAULT_DEBT_EQUITY_PCT)}
                 disabled={disabled}
-                description={t('waccBreakdown.debtEquityDescription')}
               />
               <AdaptivePercentInput
                 label={t('fields.dcfTaxShieldPct')}
@@ -183,15 +162,7 @@ export function WaccBreakdownPanel({
                 onChange={(value) => onFieldChange('dcf_tax_shield_pct', value)}
                 placeholder={String(DEFAULT_TAX_SHIELD_PCT)}
                 disabled={disabled}
-                description={t('waccBreakdown.taxShieldDescription')}
               />
-            </div>
-
-            <div className={cn('mt-3 rounded-lg border border-primary/10 bg-background/70 px-3 py-2')}>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-primary/75">
-                {t('waccBreakdown.formulaLabel')}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">{t('waccBreakdown.formulaBody')}</p>
             </div>
           </motion.div>
         )}

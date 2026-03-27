@@ -13,18 +13,6 @@ const translations: Record<string, string> = {
   'fields.dcfTaxShieldPct': 'Tax shield (%)',
   'waccBreakdown.expand': 'Show inputs',
   'waccBreakdown.collapse': 'Hide inputs',
-  'waccBreakdown.collapsedDescription': 'collapsed',
-  'waccBreakdown.expandedDescription': 'expanded',
-  'waccBreakdown.aggregateHint': 'aggregate',
-  'waccBreakdown.computedHint': 'computed',
-  'waccBreakdown.riskFreeDescription': 'risk free',
-  'waccBreakdown.equityRiskPremiumDescription': 'erp',
-  'waccBreakdown.betaDescription': 'beta',
-  'waccBreakdown.costOfDebtDescription': 'debt',
-  'waccBreakdown.debtEquityDescription': 'capital structure',
-  'waccBreakdown.taxShieldDescription': 'tax shield',
-  'waccBreakdown.formulaLabel': 'Formula',
-  'waccBreakdown.formulaBody': 'formula body',
 }
 
 vi.mock('next-intl', () => ({
@@ -60,7 +48,7 @@ describe('WaccBreakdownPanel', () => {
     render(<WaccBreakdownPanel currentWaccPct={9.8} onFieldChange={vi.fn()} />)
 
     expect(screen.getByLabelText('WACC (%)')).toHaveValue('9.8')
-    fireEvent.click(screen.getByRole('button', { name: 'Show inputs' }))
+    fireEvent.click(screen.getByRole('button', { name: /Show inputs/ }))
 
     expect(screen.getByLabelText('Risk-free rate (%)')).toBeInTheDocument()
     expect(screen.getByLabelText('Equity risk premium (%)')).toBeInTheDocument()
@@ -81,10 +69,18 @@ describe('WaccBreakdownPanel', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show inputs' }))
+    fireEvent.click(screen.getByRole('button', { name: /Show inputs/ }))
 
     expect(handleFieldChange).toHaveBeenCalledWith('dcf_wacc_pct', 7.3)
     expect(screen.getByLabelText('WACC (%)')).toHaveValue('7.3')
     expect(screen.getByLabelText('WACC (%)')).toHaveAttribute('readonly')
+  })
+
+  it('toggle button text switches between expand and collapse', () => {
+    render(<WaccBreakdownPanel currentWaccPct={10} onFieldChange={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: /Show inputs/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Show inputs/ }))
+    expect(screen.getByRole('button', { name: /Hide inputs/ })).toBeInTheDocument()
   })
 })

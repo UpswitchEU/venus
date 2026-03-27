@@ -1280,7 +1280,7 @@
       },
       "smartDefaults": {
         "title": "Smart defaults from history",
-        "description": "Built from your last {count} historical year(s) and conservative Belgian SME assumptions. Review before finalising the DCF.",
+        "description": "Built from your last {count} historical year(s) and conservative SME assumptions for this market. Review before finalising the DCF.",
         "apply": "Apply smart defaults"
       },
       "projectionPreview": {
@@ -1328,7 +1328,7 @@
         "expandedDescription": "These assumptions compute the headline WACC automatically for client-facing DCF work.",
         "aggregateHint": "Set the total discount rate directly when you do not need the full CAPM-style breakdown.",
         "computedHint": "Computed from the assumptions below and kept in sync with the DCF request.",
-        "riskFreeDescription": "Default anchor: current Belgian 10-year government bond yield.",
+        "riskFreeDescription": "Default anchor: current 10-year government bond yield for the selected market.",
         "equityRiskPremiumDescription": "Default European SME equity risk premium.",
         "betaDescription": "Sector risk versus the market. Use 1.0 as neutral, >1.0 for higher volatility.",
         "costOfDebtDescription": "Blended borrowing cost before tax shield.",
@@ -2083,7 +2083,7 @@
     "indicativeCalculation": "Indicative Calculation",
     "whyThisMultiple": "Why this multiple?",
     "sectorRange": "Sector: Industrial Manufacturing • 5.0× – 6.0× range",
-    "methodologyIntro": "Manufacturing companies in Belgium with €1-5M revenue are typically valued at 5.0×-6.0× EBITDA. The 5.5× is based on recent transactions and accounts for:",
+    "methodologyIntro": "Manufacturing companies with €1-5M revenue are typically valued at 5.0×-6.0× EBITDA. The 5.5× is based on recent transactions and accounts for:",
     "sizePremium": "Size premium: Smaller companies (<€5M revenue) receive lower multiples due to concentration risk",
     "ownerDependency": "Owner dependency: 2 owner-managers means limited dependency (-0.2×)",
     "sectorStability": "Sector stability: Manufacturing is less volatile than tech (+0.3×)",

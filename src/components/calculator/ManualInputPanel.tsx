@@ -19,6 +19,7 @@ import {
   Building2,
   Check,
   CloudDownload,
+  ExternalLink,
   FileSpreadsheet,
   HelpCircle,
   Loader2,
@@ -40,7 +41,7 @@ import {
   KBOSearchInput,
 } from '@/design-system'
 import { AuroraButton } from '@/design-system/components/Button'
-import { AuroraInput } from '@/design-system/components/Input'
+import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import {
   Modal,
   ModalContent,
@@ -112,12 +113,13 @@ import {
   SaasMetricsSection,
   RevenueQualitySection,
 } from './sections'
-import { deriveDcfReadinessInsight } from './sections/dcfReadiness'
-import { deriveDcfProjectionPreview } from './sections/dcfProjectionPreview'
-import { deriveDcfRiskInsight } from './sections/dcfRiskInsight'
 import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
-import { deriveDcfSmartDefaults } from './sections/dcfSmartDefaults'
-import type { YearDataInput } from '../../types/valuation'
+import type {
+  OfficialFinancialsPayload,
+  OfficialVarianceAnalysis,
+  OfficialVerificationBadge,
+  YearDataInput,
+} from '../../types/valuation'
 
 // Types
 export interface YearlyFinancials {
@@ -248,6 +250,179 @@ interface ManualInputPanelProps {
   readOnlyKbo?: boolean
   /** STP: When true, auto-advance past steps that are fully pre-filled */
   autoAdvancePastPrefilledSteps?: boolean
+}
+
+interface OfficialFilingTrustPanelProps {
+  locale: string
+  formatCurrency: (amount: number) => string
+  officialFinancials?: OfficialFinancialsPayload
+  officialVarianceAnalysis?: OfficialVarianceAnalysis
+  officialVerificationBadge?: OfficialVerificationBadge
+  onExplanationChange: (value: string) => void
+}
+
+export function OfficialFilingTrustPanel({
+  locale,
+  formatCurrency,
+  officialFinancials,
+  officialVarianceAnalysis,
+  officialVerificationBadge,
+  onExplanationChange,
+}: OfficialFilingTrustPanelProps) {
+  const isEnglish = locale === 'en'
+  const hasOfficialData = Boolean(
+    officialFinancials &&
+      (
+        officialFinancials.filingYear != null ||
+        officialFinancials.revenue != null ||
+        officialFinancials.ebitda != null ||
+        officialFinancials.totalAssets != null ||
+        officialFinancials.equity != null
+      )
+  )
+  const dataHealthMessage = officialFinancials?.dataHealth?.message
+
+  if (!hasOfficialData && !dataHealthMessage && !officialVerificationBadge) {
+    return null
+  }
+
+  const badgeTone =
+    officialVerificationBadge?.state === 'verified'
+      ? 'bg-success/10 text-success border-success/20'
+      : officialVerificationBadge?.state === 'partial'
+        ? 'bg-warning/10 text-warning border-warning/20'
+        : 'bg-foreground/5 text-foreground/60 border-foreground/10'
+
+  const varianceStateLabel =
+    officialVarianceAnalysis?.state === 'explained'
+      ? isEnglish
+        ? 'Explained'
+        : 'Toegelicht'
+      : officialVarianceAnalysis?.state === 'pending'
+        ? isEnglish
+          ? 'Pending'
+          : 'Openstaand'
+        : officialVarianceAnalysis?.state === 'not_required'
+          ? isEnglish
+            ? 'Not required'
+            : 'Niet vereist'
+          : officialVarianceAnalysis?.state === 'not_started'
+            ? isEnglish
+              ? 'Not started'
+              : 'Niet gestart'
+            : undefined
+
+  return (
+    <div className="ml-8 rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/70">
+            {isEnglish ? 'Official filing cross-check' : 'Officiele filing cross-check'}
+          </p>
+          <p className="text-xs text-foreground/55">
+            {officialFinancials?.sourceLabel ||
+              (isEnglish ? 'NBB filing via Staatsbladmonitor' : 'NBB filing via Staatsbladmonitor')}
+            {officialFinancials?.filingYear != null &&
+              ` • ${isEnglish ? 'Filing year' : 'Boekjaar'} ${officialFinancials.filingYear}`}
+          </p>
+        </div>
+        {officialVerificationBadge && (
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium',
+              badgeTone
+            )}
+          >
+            {officialVerificationBadge.label}
+          </span>
+        )}
+      </div>
+
+      {hasOfficialData && (
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-foreground/80">
+          {officialFinancials?.revenue != null && (
+            <span>
+              <strong>{isEnglish ? 'Revenue' : 'Omzet'}:</strong>{' '}
+              {formatCurrency(officialFinancials.revenue)}
+            </span>
+          )}
+          {officialFinancials?.ebitda != null && (
+            <span>
+              <strong>EBITDA:</strong> {formatCurrency(officialFinancials.ebitda)}
+            </span>
+          )}
+          {officialFinancials?.totalAssets != null && (
+            <span>
+              <strong>{isEnglish ? 'Total assets' : 'Totale activa'}:</strong>{' '}
+              {formatCurrency(officialFinancials.totalAssets)}
+            </span>
+          )}
+          {officialFinancials?.equity != null && (
+            <span>
+              <strong>{isEnglish ? 'Equity' : 'Eigen vermogen'}:</strong>{' '}
+              {formatCurrency(officialFinancials.equity)}
+            </span>
+          )}
+        </div>
+      )}
+
+      {(officialFinancials?.pdfUrl || officialFinancials?.sourceLinks?.length) && (
+        <div className="mt-3 flex flex-wrap gap-3 text-xs">
+          {officialFinancials?.pdfUrl && (
+            <a
+              href={officialFinancials.pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {isEnglish ? 'Open filing PDF' : 'Open filing-pdf'}
+            </a>
+          )}
+          {officialFinancials?.sourceLinks?.[0] && (
+            <a
+              href={officialFinancials.sourceLinks[0]}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {isEnglish ? 'Open source' : 'Open bron'}
+            </a>
+          )}
+        </div>
+      )}
+
+      {dataHealthMessage && (
+        <p className="mt-3 text-xs text-foreground/55">{dataHealthMessage}</p>
+      )}
+
+      {officialVarianceAnalysis?.explanationRequired && (
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center gap-2 text-xs text-foreground/70">
+            <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+            <span>
+              <strong>{isEnglish ? 'Variance analysis' : 'Verschilanalyse'}:</strong>{' '}
+              {varianceStateLabel || (isEnglish ? 'Pending' : 'Openstaand')}
+              {officialVarianceAnalysis.explanationRequired &&
+                ` • ${isEnglish ? 'Explanation required' : 'Toelichting vereist'}`}
+            </span>
+          </div>
+          <AuroraTextarea
+            value={officialVarianceAnalysis.explanation || ''}
+            onChange={(event) => onExplanationChange(event.target.value)}
+            placeholder={
+              isEnglish
+                ? 'Explain why your input differs from the official filing.'
+                : 'Licht kort toe waarom jouw input afwijkt van de officiele filing.'
+            }
+            rows={3}
+            className="text-sm"
+          />
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Options
@@ -457,7 +632,35 @@ export function ManualInputPanel({
   // KBO verification state
   const [selectedCompany, setSelectedCompany] = useState<KBOCompany | null>(null)
   const [companySearchValue, setCompanySearchValue] = useState(formData.companyName || '')
+  const officialFinancials = useManualFormStore((s) => s.formData.official_financials)
+  const officialVarianceAnalysis = useManualFormStore((s) => s.formData.official_variance_analysis)
+  const officialVerificationBadge = useManualFormStore((s) => s.formData.official_verification_badge)
   const updateFormData = useManualFormStore((s) => s.updateFormData)
+
+  const handleOfficialVarianceExplanationChange = useCallback(
+    (explanation: string) => {
+      const nextState = explanation.trim() ? 'explained' : 'pending'
+      const nextVariance = {
+        ...(officialVarianceAnalysis ?? {
+          state: 'pending' as const,
+          explanationRequired: true,
+        }),
+        explanation,
+        state: nextState,
+      }
+
+      updateFormData({
+        official_variance_analysis: nextVariance,
+        ...(officialFinancials && {
+          official_financials: {
+            ...officialFinancials,
+            varianceAnalysis: nextVariance,
+          },
+        }),
+      })
+    },
+    [officialFinancials, officialVarianceAnalysis, updateFormData]
+  )
 
   const prefillAbortRef = useRef<boolean>(false)
   /** After user picks a country, do not overwrite from late prefill/session (panel remount resets). */
@@ -1791,6 +1994,15 @@ export function ManualInputPanel({
                   onSelect={handleSelectFilingYear}
                 />
 
+                <OfficialFilingTrustPanel
+                  locale={locale}
+                  formatCurrency={formatCurrency}
+                  officialFinancials={officialFinancials}
+                  officialVarianceAnalysis={officialVarianceAnalysis}
+                  officialVerificationBadge={officialVerificationBadge}
+                  onExplanationChange={handleOfficialVarianceExplanationChange}
+                />
+
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}
                 {hasEbitdaValue && hasFinancials && totalYearsWithEbitda > 0 && (
                   <motion.div
@@ -2284,36 +2496,7 @@ export function AdaptiveSections({
   disabled?: boolean
 }) {
   const t = useTranslations('manualInput.methodSelector')
-  const businessProfileKey = [businessTypeId, businessCategory].filter(Boolean).join(' ')
   const sections = getBonusSections(effectiveMethod, businessCategory, businessTypeId)
-  const dcfSmartDefaults = useMemo(
-    () =>
-      sections.includes('dcf_projections')
-        ? deriveDcfSmartDefaults({
-            yearlyFinancials: formData.yearlyFinancials,
-            businessCategory: businessProfileKey,
-          })
-        : null,
-    [sections, formData.yearlyFinancials, businessProfileKey]
-  )
-  const dcfProjectionPreview = useMemo(
-    () =>
-      sections.includes('dcf_projections')
-        ? deriveDcfProjectionPreview({
-            yearlyFinancials: formData.yearlyFinancials,
-            smartDefaults: dcfSmartDefaults,
-            revenueGrowthPct: formData.dcf_revenue_growth_pct as number | undefined,
-            ebitdaMarginPct: formData.dcf_ebitda_margin_pct as number | undefined,
-          })
-        : [],
-    [
-      sections,
-      formData.yearlyFinancials,
-      formData.dcf_revenue_growth_pct,
-      formData.dcf_ebitda_margin_pct,
-      dcfSmartDefaults,
-    ]
-  )
   const saasArrProjectionPreview = useMemo(
     () =>
       sections.includes('saas_metrics') && effectiveMethod === 'dcf'
@@ -2337,34 +2520,6 @@ export function AdaptiveSections({
       formData.saas_nrr_pct,
       formData.saas_churn_pct,
       formData.saas_expansion_revenue_pct,
-    ]
-  )
-  const dcfReadinessInsight = useMemo(
-    () =>
-      sections.includes('dcf_projections')
-        ? deriveDcfReadinessInsight({
-            currentYearData: formData.current_year_data,
-            historicalYearsData: formData.historical_years_data,
-          })
-        : null,
-    [sections, formData.current_year_data, formData.historical_years_data]
-  )
-  const dcfRiskInsight = useMemo(
-    () =>
-      sections.includes('dcf_projections')
-        ? deriveDcfRiskInsight({
-            ownerManagers: formData.ownerManagers,
-            fteEmployees: formData.fteEmployees,
-            currentWaccPct: formData.dcf_wacc_pct as number | undefined,
-            smartDefaultWaccPct: dcfSmartDefaults?.waccPct,
-          })
-        : null,
-    [
-      sections,
-      formData.ownerManagers,
-      formData.fteEmployees,
-      formData.dcf_wacc_pct,
-      dcfSmartDefaults,
     ]
   )
   const firmCode = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
@@ -2437,10 +2592,6 @@ export function AdaptiveSections({
           dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
           onFieldChange={onFieldChange}
           disabled={disabled}
-          smartDefaults={dcfSmartDefaults}
-          projectionPreview={dcfProjectionPreview}
-          readinessInsight={dcfReadinessInsight}
-          riskInsight={dcfRiskInsight}
         />
       )}
       {sections.includes('nav_asset_schedule') && (
