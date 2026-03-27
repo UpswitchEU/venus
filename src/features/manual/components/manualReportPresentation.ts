@@ -36,7 +36,8 @@ export function deriveManualReportPresentation(
   if (!r) return { valuation: 0 }
 
   const valuationResult = r.valuation_result ?? {}
-  const reportContext = r.report_context ?? valuationResult?.report_context ?? r.details?.report_context ?? {}
+  const reportContext =
+    r.report_context ?? valuationResult?.report_context ?? r.details?.report_context ?? {}
   const hydrated =
     extractValuationResultsMap(r as Record<string, any> | null | undefined, {
       selectedValuationMethod: r.selected_valuation_method,
@@ -51,11 +52,19 @@ export function deriveManualReportPresentation(
     methodData?.details && typeof methodData.details === 'object' ? methodData.details : {}
 
   const valuation =
-    Number(methodData?.value ?? r.equity_value_mid ?? r.valuation_midpoint ?? r.details?.equity_value_mid) || 0
+    Number(
+      methodData?.value ?? r.equity_value_mid ?? r.valuation_midpoint ?? r.details?.equity_value_mid
+    ) || 0
   const valuationLowRaw =
-    methodDetails.equity_range_low ?? r.equity_value_low ?? r.valuation_min ?? r.details?.equity_value_low
+    methodDetails.equity_range_low ??
+    r.equity_value_low ??
+    r.valuation_min ??
+    r.details?.equity_value_low
   const valuationHighRaw =
-    methodDetails.equity_range_high ?? r.equity_value_high ?? r.valuation_max ?? r.details?.equity_value_high
+    methodDetails.equity_range_high ??
+    r.equity_value_high ??
+    r.valuation_max ??
+    r.details?.equity_value_high
   const multipleRaw =
     methodData?.multiple_used ??
     valuationResult?.multiple ??
@@ -64,14 +73,24 @@ export function deriveManualReportPresentation(
   const multipleLowRaw =
     methodDetails.p25_multiple ?? valuationResult?.multipleRange?.low ?? reportContext?.multiple_low
   const multipleHighRaw =
-    methodDetails.p75_multiple ?? valuationResult?.multipleRange?.high ?? reportContext?.multiple_high
+    methodDetails.p75_multiple ??
+    valuationResult?.multipleRange?.high ??
+    reportContext?.multiple_high
 
   return {
     valuation,
     valuationLow:
-      valuationLowRaw != null ? Number(valuationLowRaw) || 0 : valuation ? Math.round(valuation * 0.8) : undefined,
+      valuationLowRaw != null
+        ? Number(valuationLowRaw) || 0
+        : valuation
+          ? Math.round(valuation * 0.8)
+          : undefined,
     valuationHigh:
-      valuationHighRaw != null ? Number(valuationHighRaw) || 0 : valuation ? Math.round(valuation * 1.2) : undefined,
+      valuationHighRaw != null
+        ? Number(valuationHighRaw) || 0
+        : valuation
+          ? Math.round(valuation * 1.2)
+          : undefined,
     multiple: multipleRaw != null ? Number(multipleRaw) || 0 : undefined,
     multipleRange:
       multipleLowRaw != null && multipleHighRaw != null
@@ -80,5 +99,32 @@ export function deriveManualReportPresentation(
             high: Number(multipleHighRaw) || 0,
           }
         : undefined,
+  }
+}
+
+/** Price range + ask for CalculatorNav version dropdown — mirrors `valuationSummary` / `setReport` bridge. */
+export type NavVersionPrices = {
+  priceRange: { min: number; max: number }
+  askPrice: number
+}
+
+export function deriveNavPricesForVersionNav(
+  result: ValuationResponse | null | undefined,
+  selectedMethod?: string | null
+): NavVersionPrices {
+  const r = result as any
+  const presentation = deriveManualReportPresentation(result, selectedMethod)
+  const valuationLow = presentation.valuationLow || undefined
+  const valuationHigh = presentation.valuationHigh || undefined
+  const valuation = presentation.valuation
+  const askingPrice =
+    Number(r?.recommended_asking_price ?? r?.details?.recommended_asking_price) || 0
+  const askPrice = askingPrice || valuation
+  return {
+    priceRange: {
+      min: valuationLow ?? Math.round(valuation * 0.85),
+      max: valuationHigh ?? Math.round(valuation * 1.15),
+    },
+    askPrice,
   }
 }

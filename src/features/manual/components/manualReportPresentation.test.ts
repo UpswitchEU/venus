@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { deriveManualReportPresentation } from './manualReportPresentation'
+import {
+  deriveManualReportPresentation,
+  deriveNavPricesForVersionNav,
+} from './manualReportPresentation'
 
 describe('deriveManualReportPresentation', () => {
   it('prefers selected method multiple over raw multiples valuation', () => {
@@ -54,5 +57,48 @@ describe('deriveManualReportPresentation', () => {
     expect(presentation.multiple).toBe(4.2)
     expect(presentation.valuationLow).toBe(340000)
     expect(presentation.valuationHigh).toBe(500000)
+  })
+})
+
+describe('deriveNavPricesForVersionNav', () => {
+  it('resolves range/ask from valuation_results details when top-level equity fields are absent (nav parity)', () => {
+    const result: any = {
+      selected_valuation_method: 'upswitch_adaptive',
+      valuation_results: {
+        upswitch_adaptive: {
+          available: true,
+          value: 357000,
+          details: {
+            equity_range_low: 261000,
+            equity_range_high: 423000,
+          },
+        },
+      },
+    }
+
+    const nav = deriveNavPricesForVersionNav(result, 'upswitch_adaptive')
+
+    expect(nav.priceRange.min).toBe(261000)
+    expect(nav.priceRange.max).toBe(423000)
+    expect(nav.askPrice).toBe(357000)
+  })
+
+  it('uses recommended_asking_price when present', () => {
+    const result: any = {
+      selected_valuation_method: 'upswitch_adaptive',
+      recommended_asking_price: 400000,
+      valuation_results: {
+        upswitch_adaptive: {
+          available: true,
+          value: 357000,
+          details: {
+            equity_range_low: 261000,
+            equity_range_high: 423000,
+          },
+        },
+      },
+    }
+
+    expect(deriveNavPricesForVersionNav(result, 'upswitch_adaptive').askPrice).toBe(400000)
   })
 })

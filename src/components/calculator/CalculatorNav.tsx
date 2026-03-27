@@ -94,7 +94,14 @@ function MethodSelectorMenu({
             ) : (
               <div className="w-5 h-5 rounded-full bg-foreground/[0.06] shrink-0" />
             )}
-            <span>{t(METHOD_LABEL_KEYS[key] ?? 'manualInput.methodSelector.adaptiveRecommended')}</span>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+              <span>{t(METHOD_LABEL_KEYS[key] ?? 'manualInput.methodSelector.adaptiveRecommended')}</span>
+              {key === 'arr_multiple' && (
+                <span className="text-[10px] font-normal leading-snug text-foreground/45">
+                  {t('manualInput.methodSelector.arrMultipleDescription')}
+                </span>
+              )}
+            </div>
           </button>
         )
       })}

@@ -134,6 +134,7 @@ import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../../ut
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
+import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
@@ -142,7 +143,6 @@ import {
   persistOrDeleteNormalizationsForYears,
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
-import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -163,7 +163,10 @@ import {
   type GuidedNormalizationPrefill,
 } from '../utils/guidedNormalizationPrefill'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
-import { deriveManualReportPresentation } from './manualReportPresentation'
+import {
+  deriveManualReportPresentation,
+  deriveNavPricesForVersionNav,
+} from './manualReportPresentation'
 
 function getHttpStatusFromError(err: unknown): number | undefined {
   if (err instanceof APIError) return err.statusCode
@@ -1763,51 +1766,28 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           id: 'current',
           label: t('currentVersion'),
           priceRange: {
-            min: Math.round(report.valuation * 0.85),
-            max: Math.round(report.valuation * 1.15),
+            min: report.valuationLow ?? Math.round(report.valuation * 0.85),
+            max: report.valuationHigh ?? Math.round(report.valuation * 1.15),
           },
-          askPrice: report.valuation,
+          askPrice: report.recommendedAskingPrice ?? report.valuation,
           timestamp: report.generatedAt,
           isActive: true,
         },
       ]
     }
     return versions.map((v) => {
-      const vr = v.valuationResult as any
-      const mid = Number(
-        vr?.valuation_midpoint ||
-          vr?.equity_value_mid ||
-          vr?.details?.valuation_midpoint ||
-          vr?.details?.equity_value_mid ||
-          0
-      )
-      const low = Number(
-        vr?.valuation_min ||
-          vr?.equity_value_low ||
-          vr?.details?.valuation_min ||
-          vr?.details?.equity_value_low ||
-          0
-      )
-      const high = Number(
-        vr?.valuation_max ||
-          vr?.equity_value_high ||
-          vr?.details?.valuation_max ||
-          vr?.details?.equity_value_high ||
-          0
-      )
-      const ask = Number(
-        vr?.recommended_asking_price || vr?.details?.recommended_asking_price || mid || 0
-      )
+      const method = v.formData?.selected_valuation_method ?? selectedMethod
+      const { priceRange, askPrice } = deriveNavPricesForVersionNav(v.valuationResult, method)
       return {
         id: v.id,
         label: v.versionLabel,
-        priceRange: { min: low, max: high },
-        askPrice: ask,
+        priceRange,
+        askPrice,
         timestamp: v.createdAt,
         isActive: v.isActive,
       }
     })
-  }, [versions, report])
+  }, [versions, report, selectedMethod, t])
 
   const handleSelectVersion = useCallback(
     (id: string) => {
@@ -4351,9 +4331,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             : undefined
         const importedLedgerAnalysis = versionBusinessContext?._imported_ledger_analysis
         if (importedLedgerAnalysis && typeof importedLedgerAnalysis === 'object') {
-          useTaxLatencyStore.getState().setCandidates(
-            buildTaxLatencyCandidatesFromImportedLedgerAnalysis(importedLedgerAnalysis as any)
-          )
+          useTaxLatencyStore
+            .getState()
+            .setCandidates(
+              buildTaxLatencyCandidatesFromImportedLedgerAnalysis(importedLedgerAnalysis as any)
+            )
         } else {
           useTaxLatencyStore.getState().setCandidates([])
         }

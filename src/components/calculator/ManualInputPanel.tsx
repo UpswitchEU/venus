@@ -2493,9 +2493,12 @@ export function ManualInputPanel({
                       </div>
                     )}
                     {selectedBusinessType && (
-                      <p className="text-[11px] text-foreground/40 -mt-1">
-                        {mi('businessTypeHint')}
-                      </p>
+                      <div className="-mt-1 space-y-1">
+                        <p className="text-[11px] text-foreground/40">{mi('businessTypeHint')}</p>
+                        {effectiveMethod === 'arr_multiple' ? (
+                          <p className="text-[11px] text-foreground/40">{mi('businessTypeArrMethodNote')}</p>
+                        ) : null}
+                      </div>
                     )}
 
                     <AuroraSelect
@@ -2975,6 +2978,31 @@ export function ManualInputPanel({
                     )
                   })}
 
+                  {/* Add Historical Year — directly under historical rows, before DCF forecast workspace */}
+                  {canAppendHistoricalYear(formData.yearlyFinancials) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          yearlyFinancials: [
+                            ...prev.yearlyFinancials,
+                            {
+                              year: String(getNextHistoricalYear(prev.yearlyFinancials)),
+                              revenue: 0,
+                              ebitda: 0,
+                            },
+                          ],
+                        }))
+                      }}
+                      className="w-full p-3 rounded-xl border border-dashed border-foreground/[0.08] text-sm text-foreground/40 hover:text-foreground/60 hover:border-foreground/[0.15] hover:bg-foreground/[0.02] transition-colors flex items-center justify-center gap-2"
+                      aria-label={`${mi('addYear')} ${getNextHistoricalYear(formData.yearlyFinancials)}`}
+                    >
+                      <Plus className="w-4 h-4" aria-hidden />
+                      {mi('addYear')} ({getNextHistoricalYear(formData.yearlyFinancials)})
+                    </button>
+                  )}
+
                   {effectiveMethod === 'dcf' && dcfForecastRows.length > 0 && (
                     <DcfForecastWorkspace
                       step={4}
@@ -3015,31 +3043,6 @@ export function ManualInputPanel({
                         })
                       }}
                     />
-                  )}
-
-                  {/* Add Historical Year Button */}
-                  {canAppendHistoricalYear(formData.yearlyFinancials) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          yearlyFinancials: [
-                            ...prev.yearlyFinancials,
-                            {
-                              year: String(getNextHistoricalYear(prev.yearlyFinancials)),
-                              revenue: 0,
-                              ebitda: 0,
-                            },
-                          ],
-                        }))
-                      }}
-                      className="w-full p-3 rounded-xl border border-dashed border-foreground/[0.08] text-sm text-foreground/40 hover:text-foreground/60 hover:border-foreground/[0.15] hover:bg-foreground/[0.02] transition-colors flex items-center justify-center gap-2"
-                      aria-label={`${mi('addYear')} ${getNextHistoricalYear(formData.yearlyFinancials)}`}
-                    >
-                      <Plus className="w-4 h-4" aria-hidden />
-                      {mi('addYear')} ({getNextHistoricalYear(formData.yearlyFinancials)})
-                    </button>
                   )}
                 </div>
               </motion.section>

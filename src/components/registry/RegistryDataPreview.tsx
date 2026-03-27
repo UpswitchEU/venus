@@ -8,7 +8,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useManualFormStore } from '../../store/manual'
 import type { CompanyFinancialData, FinancialFilingYear } from '../../types/registry'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
@@ -30,9 +30,14 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
   onCalculateValuation,
 }) => {
   const { updateFormData } = useManualFormStore()
+  const filingYear = getCurrentFilingYear()
+  const safeFilingHistory = useMemo(
+    () => companyData.filing_history.filter((year) => year.year <= filingYear),
+    [companyData.filing_history, filingYear]
+  )
   const [isEditing, setIsEditing] = useState(false)
   const [editedData, setEditedData] = useState<FinancialFilingYear>(
-    companyData.filing_history[0] || createDefaultFilingYear()
+    safeFilingHistory[0] || createDefaultFilingYear()
   )
 
   const formatCurrency = (amount: number): string => {
@@ -59,7 +64,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
 
   const handleSaveEdit = () => {
     // Update the form data with edited values
-    const currentYear = editedData.year || getCurrentFilingYear()
+    const currentYear = editedData.year && editedData.year <= filingYear ? editedData.year : filingYear
 
     updateFormData({
       company_name: companyData.company_name,
@@ -79,7 +84,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
         ...(editedData.cash !== undefined && { cash: editedData.cash }),
       } as any,
       // Add historical data if available (excluding the current year)
-      historical_years_data: companyData.filing_history.slice(1).map((year) => ({
+      historical_years_data: safeFilingHistory.slice(1).map((year) => ({
         year: year.year,
         revenue: year.revenue || 0,
         ebitda: year.ebitda !== undefined && year.ebitda !== null ? year.ebitda : 0, // Preserve negative values
@@ -93,13 +98,13 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
   }
 
   const handleCancelEdit = () => {
-    setEditedData(companyData.filing_history[0] || createDefaultFilingYear())
+    setEditedData(safeFilingHistory[0] || createDefaultFilingYear())
     setIsEditing(false)
   }
 
   const handleCalculate = () => {
     // Ensure data is synced to store - SIMPLIFIED to match /manual
-    const currentYear = editedData.year || getCurrentFilingYear()
+    const currentYear = editedData.year && editedData.year <= filingYear ? editedData.year : filingYear
 
     // Get industry from inferred data or fallback
     const industry =
@@ -129,8 +134,8 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
       },
       // Add historical data if available (only revenue & EBITDA like /manual)
       historical_years_data:
-        companyData.filing_history.length > 1
-          ? companyData.filing_history
+        safeFilingHistory.length > 1
+          ? safeFilingHistory
               .slice(1)
               .filter((year) => year.ebitda !== undefined && year.ebitda !== null) // Only include years with EBITDA values
               .map((year) => ({
@@ -143,8 +148,8 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
     onCalculateValuation()
   }
 
-  const latestYear = companyData.filing_history[0]
-  const hasFinancialData = companyData.filing_history.length > 0
+  const latestYear = safeFilingHistory[0]
+  const hasFinancialData = safeFilingHistory.length > 0
 
   return (
     <div className="bg-card rounded-2xl shadow-xl border border-foreground/10 overflow-hidden">
@@ -187,7 +192,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
             <span className="font-medium">Data Source:</span>
             <span>{companyData.data_source}</span>
             <span className="text-primary">•</span>
-            <span>{companyData.filing_history.length} years of history</span>
+            <span>{safeFilingHistory.length} years of history</span>
             <span className="text-primary">•</span>
             <span className="font-semibold">
               {Math.round(companyData.completeness_score * 100)}% complete
@@ -362,7 +367,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
           </div>
 
           {/* Historical Data */}
-          {companyData.filing_history.length > 1 && (
+          {safeFilingHistory.length > 1 && (
             <div className="mt-8">
               <h4 className="text-base font-semibold text-foreground mb-3">Historical Data</h4>
               <div className="overflow-x-auto">
@@ -379,7 +384,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {companyData.filing_history.slice(1).map((year, idx) => (
+                    {safeFilingHistory.slice(1).map((year, idx) => (
                       <tr key={idx} className="border-b border-foreground/10 hover:bg-muted">
                         <td className="px-4 py-3 font-medium">{year.year}</td>
                         <td className="px-4 py-3 text-right">

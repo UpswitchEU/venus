@@ -6,6 +6,7 @@
  */
 
 import type { CompanyFinancialData, FinancialFilingYear } from '../types/registry'
+import { getCurrentFilingYear } from '../utils/fiscalYear'
 import { serviceLogger } from '../utils/logger'
 
 /**
@@ -229,15 +230,17 @@ export const transformRegistryDataToValuationRequest = (
 
   // Sort filing history by year (most recent first)
   const sortedHistory = [...registryData.filing_history].sort((a, b) => b.year - a.year)
+  const filingYear = getCurrentFilingYear()
+  const safeHistory = sortedHistory.filter((year) => year.year <= filingYear)
 
   // Guard clause for empty filing history
-  if (sortedHistory.length === 0) {
-    throw new Error('No financial data available for transformation. Please use manual entry.')
+  if (safeHistory.length === 0) {
+    throw new Error('No filing-safe financial data available for transformation. Please use manual entry.')
   }
 
   // Extract current year and historical years
-  const currentYear = sortedHistory[0]
-  const historicalYears = sortedHistory.slice(1)
+  const currentYear = safeHistory[0]
+  const historicalYears = safeHistory.slice(1)
 
   // Validate current year has minimum required data
   if (!currentYear.revenue || currentYear.revenue <= 0) {
@@ -265,7 +268,7 @@ export const transformRegistryDataToValuationRequest = (
     industry,
     businessModel,
     dataQuality: `${(dataQuality * 100).toFixed(0)}%`,
-    yearsOfData: sortedHistory.length,
+    yearsOfData: safeHistory.length,
   })
 
   // Build valuation request

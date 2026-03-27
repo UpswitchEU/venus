@@ -252,7 +252,6 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   // Legacy fields for backward compatibility
   revenue?: number
   ebitda?: number
-  filing_year_confirmed?: boolean
   business_type?: 'sole-trader' | 'company'
   shares_for_sale?: number
   employee_count?: number
