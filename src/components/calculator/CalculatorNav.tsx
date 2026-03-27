@@ -33,7 +33,6 @@ import {
   MessageCircle,
   MoreVertical,
   Pencil,
-  Send,
   Settings,
   SlidersHorizontal,
   Trash2,
@@ -43,7 +42,6 @@ import { useTransitionRouter } from 'next-view-transitions'
 import React, { useMemo, useState } from 'react'
 import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
-import { useSessionStore } from '@/store/useSessionStore'
 import { getPreSelectableMethodsForFirm } from '@/constants/methodFieldConfig'
 
 const METHOD_LABEL_KEYS: Record<string, string> = {
@@ -85,7 +83,7 @@ function MethodSelectorMenu({
             className={cn(
               'w-full min-h-[44px] flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left',
               isActive
-                ? 'bg-primary/8 text-foreground font-medium'
+                ? 'bg-primary/[0.08] text-foreground font-medium'
                 : 'text-foreground/80 hover:bg-foreground/[0.04]'
             )}
           >
@@ -194,8 +192,6 @@ export interface CalculatorNavProps {
   // Accountant mode — back button exits client view
   isAccountantMode?: boolean
   onExitClientView?: () => void
-  // Invite client (accountant mode)
-  onInviteClient?: () => void
   /** STP: import-quality provenance panel (trust but verify) */
   showSourceDataToggle?: boolean
   sourceDataOpen?: boolean
@@ -364,7 +360,6 @@ export function CalculatorNav({
   onRedownload,
   isAccountantMode = false,
   onExitClientView,
-  onInviteClient,
   showSourceDataToggle = false,
   sourceDataOpen = false,
   onToggleSourceData,
@@ -437,6 +432,7 @@ export function CalculatorNav({
             content={isAccountantMode ? t('clientContext.exitClientView') : t('common.actions.back')}
           >
             <button
+              type="button"
               onClick={handleBack}
               className="p-2 -ml-1 sm:-ml-2 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
@@ -447,7 +443,10 @@ export function CalculatorNav({
           {/* Title with Recent Valuations Dropdown */}
           <Dropdown
             trigger={
-              <button className="flex items-center gap-1 sm:gap-1.5 font-medium text-foreground hover:text-primary transition-colors group min-w-0 flex-1 max-w-[180px] sm:max-w-[260px] lg:max-w-[320px] min-h-[44px] rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
+              <button
+                type="button"
+                className="flex items-center gap-1 sm:gap-1.5 font-medium text-foreground hover:text-primary transition-colors group min-w-0 flex-1 max-w-[180px] sm:max-w-[260px] lg:max-w-[320px] min-h-[44px] rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              >
                 <span className="truncate text-sm sm:text-base">
                   {companyName || t('toast.newEstimation')}
                 </span>
@@ -471,6 +470,7 @@ export function CalculatorNav({
                     )}
                   >
                     <button
+                      type="button"
                       onClick={() => onSelectValuation?.(val.id)}
                       className="flex-1 flex items-center gap-3 px-2 py-2 min-w-0 text-left"
                     >
@@ -581,7 +581,7 @@ export function CalculatorNav({
           {/* Method Pre-Selector — compact pill next to company name */}
           {onPreSelectMethod && (
             <div className="hidden sm:flex min-w-0 items-center">
-              <div className="h-5 w-px bg-foreground/[0.08] mx-1.5 shrink-0" />
+              <div className="h-5 w-px bg-foreground/[0.08] ml-1.5 mr-3 shrink-0" aria-hidden />
               <Dropdown
                 trigger={
                   <button
@@ -633,6 +633,7 @@ export function CalculatorNav({
                   <Dropdown
                     trigger={
                       <button
+                        type="button"
                         title={t('valuation.listingPriceTooltip')}
                         className={cn(
                           'flex items-center gap-2.5 pl-3 pr-2.5 py-1.5 rounded-full',
@@ -669,11 +670,12 @@ export function CalculatorNav({
                         valuationVersions.map((version) => (
                           <button
                             key={version.id}
+                            type="button"
                             onClick={() => onSelectVersion?.(version.id)}
                             className={cn(
                               'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors',
                               version.id === selectedVersionId
-                                ? 'bg-primary/8'
+                                ? 'bg-primary/[0.08]'
                                 : 'hover:bg-foreground/[0.04]'
                             )}
                           >
@@ -728,20 +730,22 @@ export function CalculatorNav({
                     </div>
                   </Dropdown>
 
-                  {/* Continue button */}
-                  <button
-                    onClick={onContinueToListing}
-                    className={cn(
-                      'flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full',
-                      'bg-primary text-primary-foreground',
-                      'hover:bg-primary/90 active:bg-primary/80',
-                      'transition-colors font-medium text-sm',
-                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2'
-                    )}
-                  >
-                    <span>{t('common.continue')}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  {onContinueToListing && (
+                    <button
+                      type="button"
+                      onClick={onContinueToListing}
+                      className={cn(
+                        'flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full',
+                        'bg-primary text-primary-foreground',
+                        'hover:bg-primary/90 active:bg-primary/95',
+                        'transition-colors font-medium text-sm',
+                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2'
+                      )}
+                    >
+                      <span>{t('common.continue')}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -831,6 +835,7 @@ export function CalculatorNav({
 
             <Tooltip content={hasReport ? t('report.preview') : t('report.noReport')}>
               <button
+                type="button"
                 onClick={onPreview}
                 disabled={!hasReport}
                 className={cn(
@@ -844,12 +849,13 @@ export function CalculatorNav({
                 aria-label={t('report.preview')}
                 aria-pressed={rightPanelView === 'preview'}
               >
-                <Eye className="w-4 h-4" />
+                <Eye className="w-4 h-4" aria-hidden />
               </button>
             </Tooltip>
 
             <Tooltip content={hasReport ? t('report.history') : t('report.noReport')}>
               <button
+                type="button"
                 onClick={onShowHistory}
                 disabled={!hasReport}
                 className={cn(
@@ -863,25 +869,9 @@ export function CalculatorNav({
                 aria-label={t('report.history')}
                 aria-pressed={rightPanelView === 'history'}
               >
-                <History className="w-4 h-4" />
+                <History className="w-4 h-4" aria-hidden />
               </button>
             </Tooltip>
-
-            {/* Invite Client — Accountant mode only */}
-            {isAccountantMode && onInviteClient && (
-              <Tooltip content={hasReport ? t('invite.buttonTooltip') : t('invite.buttonDisabled')}>
-                <AuroraButton
-                  variant="primary"
-                  size="sm"
-                  onClick={onInviteClient}
-                  disabled={!hasReport}
-                  className="gap-1.5"
-                >
-                  <Send className="w-4 h-4" />
-                  <span className="hidden lg:inline">{t('invite.buttonLabel')}</span>
-                </AuroraButton>
-              </Tooltip>
-            )}
 
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
 
@@ -889,6 +879,7 @@ export function CalculatorNav({
             <Dropdown
               trigger={
                 <button
+                  type="button"
                   disabled={!hasReport}
                   className={cn(
                     'flex items-center gap-1 p-2 rounded-lg transition-colors',
@@ -910,6 +901,7 @@ export function CalculatorNav({
               <div className="p-2 w-64">
                 {/* Download Action */}
                 <button
+                  type="button"
                   onClick={onDownload}
                   disabled={isExporting}
                   className={cn(
@@ -940,6 +932,7 @@ export function CalculatorNav({
                     {downloadHistory.slice(0, 5).map((item) => (
                       <button
                         key={item.id}
+                        type="button"
                         onClick={() => onRedownload?.(item)}
                         className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
                       >
@@ -964,8 +957,10 @@ export function CalculatorNav({
 
             <Tooltip content={hasReport ? t('report.fullscreen') : t('report.noReport')}>
               <button
+                type="button"
                 onClick={onFullscreen}
                 disabled={!hasReport}
+                aria-label={t('report.fullscreen')}
                 className={cn(
                   'p-2 rounded-lg transition-colors',
                   hasReport
@@ -973,7 +968,7 @@ export function CalculatorNav({
                     : 'text-foreground/20 cursor-not-allowed'
                 )}
               >
-                <Maximize2 className="w-4 h-4" />
+                <Maximize2 className="w-4 h-4" aria-hidden />
               </button>
             </Tooltip>
           </div>
@@ -1006,8 +1001,9 @@ export function CalculatorNav({
               </Dropdown>
             )}
             <AnimatePresence>
-              {displaySummary && hasReport && (
+              {displaySummary && hasReport && onContinueToListing && (
                 <motion.button
+                  type="button"
                   title={t('valuation.listingPriceTooltip')}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -1029,24 +1025,9 @@ export function CalculatorNav({
               )}
             </AnimatePresence>
 
-            {isAccountantMode && onInviteClient && (
-              <Tooltip content={t('invite.buttonTooltip')}>
-                <button
-                  onClick={onInviteClient}
-                  disabled={!hasReport}
-                  className={cn(
-                    'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
-                    hasReport
-                      ? 'text-primary bg-primary/10'
-                      : 'text-foreground/20 cursor-not-allowed'
-                  )}
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </Tooltip>
-            )}
             <Tooltip content={t('assistant.title')}>
               <button
+                type="button"
                 onClick={onOpenAssistant}
                 className={cn(
                   'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
@@ -1067,7 +1048,7 @@ export function CalculatorNav({
                 }
               >
                 <button
-                  type='button'
+                  type="button"
                   onClick={onToggleSourceData}
                   className={cn(
                     'p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center',
@@ -1091,6 +1072,7 @@ export function CalculatorNav({
               }
             >
               <button
+                type="button"
                 onClick={onDownload}
                 disabled={!hasReport || isExporting}
                 className={cn(

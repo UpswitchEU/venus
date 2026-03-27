@@ -1174,7 +1174,9 @@
     "dcfYearDetail": {
       "title": "Forecast {year} — Details",
       "modalDescription": "Edit cash flow drivers for forecast year {year}.",
+      "summaryStrip": "Summary",
       "toplineSection": "Revenue & EBITDA",
+      "capex": "CapEx (investments)",
       "cashFlowDrivers": "Cash Flow Drivers",
       "depreciation": "Depreciation (D&A)",
       "nwcChange": "Working capital change (ΔNWC)",

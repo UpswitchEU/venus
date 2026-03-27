@@ -1,11 +1,11 @@
 'use client'
-
-import { useMemo } from 'react'
+import { motion } from 'framer-motion'
 import { Zap } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { motion } from 'framer-motion'
+import { useMemo } from 'react'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
+import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface SaasMetricsSectionProps {
   saasArr?: number
@@ -30,16 +30,13 @@ interface SaasMetricsSectionProps {
     fiscal_year?: number
   } | null
 }
-
 function ratioFromPercent(value?: number): number | null {
   if (value == null || !Number.isFinite(value)) return null
   return value / 100
 }
-
 function round(value: number): number {
   return Math.round(value * 10) / 10
 }
-
 function formatMetricValue(
   value: number | null,
   formatter: Intl.NumberFormat,
@@ -48,14 +45,7 @@ function formatMetricValue(
   if (value == null || !Number.isFinite(value)) return '—'
   return `${formatter.format(round(value))}${suffix}`
 }
-
-function MetricCard({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
+function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-3 py-2.5">
       <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">{label}</p>
@@ -63,7 +53,6 @@ function MetricCard({
     </div>
   )
 }
-
 export function SaasMetricsSection({
   saasArr,
   saasMrr,
@@ -92,21 +81,17 @@ export function SaasMetricsSection({
       }),
     [locale]
   )
-
   const importedProviderLabel = importedSaasProvenance?.source
     ? importedSaasProvenance.source.charAt(0).toUpperCase() + importedSaasProvenance.source.slice(1)
     : null
-
   const derivedMetrics = useMemo(() => {
     const grossMarginRatio = ratioFromPercent(saasGrossMarginPct)
     const revenueChurnRatio = ratioFromPercent(saasChurnPct)
     const customerChurnRatio = ratioFromPercent(saasCustomerChurnPct)
-
     const ruleOf40 =
       saasArrGrowthPct != null && saasGrossMarginPct != null
         ? saasArrGrowthPct + saasGrossMarginPct
         : null
-
     const ltvCac =
       saasArr != null &&
       saasCac != null &&
@@ -114,9 +99,8 @@ export function SaasMetricsSection({
       grossMarginRatio != null &&
       customerChurnRatio != null &&
       customerChurnRatio > 0
-        ? ((saasArr * grossMarginRatio) / customerChurnRatio) / saasCac
+        ? (saasArr * grossMarginRatio) / customerChurnRatio / saasCac
         : null
-
     const cacPaybackMonths =
       saasCac != null &&
       saasCac > 0 &&
@@ -126,7 +110,6 @@ export function SaasMetricsSection({
       grossMarginRatio > 0
         ? saasCac / (saasMrr * grossMarginRatio)
         : null
-
     const magicNumber =
       saasArr != null &&
       saasArr > 0 &&
@@ -135,7 +118,6 @@ export function SaasMetricsSection({
       saasSmSpend > 0
         ? ((saasArr * (saasArrGrowthPct / 100)) / saasSmSpend) * 4
         : null
-
     return {
       ruleOf40,
       ltvCac,
@@ -159,7 +141,14 @@ export function SaasMetricsSection({
     saasNrrPct,
     saasSmSpend,
   ])
-
+  const saasSectionComplete = useMemo(
+    () =>
+      (saasArr != null && saasArr > 0) ||
+      (saasMrr != null && saasMrr > 0) ||
+      saasArrGrowthPct != null ||
+      saasGrossMarginPct != null,
+    [saasArr, saasMrr, saasArrGrowthPct, saasGrossMarginPct]
+  )
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -169,21 +158,18 @@ export function SaasMetricsSection({
       className="space-y-4 pt-2"
     >
       {showHeader && (
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-            <Zap className="w-3 h-3 text-primary" />
-          </div>
-          <h3 className="text-sm font-medium text-foreground">
-            {t('sections.saasMetrics')}
-          </h3>
-          <span className="text-[10px] font-medium text-primary/70 bg-primary/8 px-1.5 py-0.5 rounded-full">
-            {t('shownForBusinessType', {
-              businessType: t('businessTypes.saasSoftware'),
-            })}
-          </span>
-        </div>
+        <ValuationSectionHeader
+          complete={saasSectionComplete}
+          title={t('sections.saasMetrics')}
+          badge={
+            <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
+              {t('shownForBusinessType', {
+                businessType: t('businessTypes.saasSoftware'),
+              })}
+            </span>
+          }
+        />
       )}
-
       {importedSaasProvenance && importedProviderLabel && (
         <div className="rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2.5">
           <p className="text-xs font-medium text-foreground">{t('saasImported.title')}</p>
@@ -196,7 +182,6 @@ export function SaasMetricsSection({
           </p>
         </div>
       )}
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <CurrencyInput
           label={t('fields.saasArr')}
@@ -280,7 +265,6 @@ export function SaasMetricsSection({
           disabled={disabled}
         />
       </div>
-
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/55">
@@ -315,7 +299,6 @@ export function SaasMetricsSection({
           />
         </div>
       </div>
-
       {arrProjectionPreview.length > 0 && (
         <div className="rounded-xl border border-foreground/10 bg-background/70 p-3">
           <div className="flex items-center gap-2">

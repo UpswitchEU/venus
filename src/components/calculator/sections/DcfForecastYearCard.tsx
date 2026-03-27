@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import { AlertCircle, Pencil, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { cn } from '@/design-system/utils'
 
 export interface DcfForecastYearCardRow {
   year: string
@@ -67,14 +68,30 @@ export function DcfForecastYearCard({
 
   const isIncomplete = row.revenue <= 0 && row.ebitda === 0
 
+  const metricRows = [
+    { label: t('fields.revenue'), value: row.revenue > 0 ? fmt(row.revenue) : '--' },
+    {
+      label: t('dcfForecastCard.revenueGrowth'),
+      value: revenueGrowthPct != null ? `${fmtPct(revenueGrowthPct)}%` : '--',
+    },
+    { label: t('fields.ebitda'), value: row.ebitda !== 0 ? fmt(row.ebitda) : '--' },
+    {
+      label: t('dcfForecastCard.ebitdaMargin'),
+      value: ebitdaMarginPct != null ? `${fmtPct(ebitdaMarginPct)}%` : '--',
+    },
+  ]
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="group relative flex flex-col rounded-xl border border-primary/15 bg-card/90 p-4 backdrop-blur-sm transition-colors hover:border-primary/25"
+      className={cn(
+        'group relative rounded-xl border p-3 transition-colors',
+        'border-dashed border-primary/20 bg-primary/[0.02]'
+      )}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">{row.year}</span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary/70">
@@ -86,58 +103,32 @@ export function DcfForecastYearCard({
             type="button"
             onClick={() => onRemoveYear(row.year)}
             disabled={disabled}
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary/15 text-primary/50 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/15 text-primary/60 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`${t('dcfForecastCard.removeYear')} ${row.year}`}
           >
-            <X className="h-3 w-3" />
+            <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-            {t('fields.revenue')}
-          </p>
-          <p className="text-sm font-semibold tabular-nums text-foreground">
-            {row.revenue > 0 ? fmt(row.revenue) : '--'}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-            {t('dcfForecastCard.revenueGrowth')}
-          </p>
-          <p className="text-sm font-semibold tabular-nums text-foreground">
-            {revenueGrowthPct != null ? `${fmtPct(revenueGrowthPct)}%` : '--'}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-            {t('fields.ebitda')}
-          </p>
-          <p className="text-sm font-semibold tabular-nums text-foreground">
-            {row.ebitda !== 0 ? fmt(row.ebitda) : '--'}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-            {t('dcfForecastCard.ebitdaMargin')}
-          </p>
-          <p className="text-sm font-semibold tabular-nums text-foreground">
-            {ebitdaMarginPct != null ? `${fmtPct(ebitdaMarginPct)}%` : '--'}
-          </p>
-        </div>
+      <div className="space-y-3">
+        {metricRows.map((m) => (
+          <div key={m.label}>
+            <p className="text-xs text-foreground/50">{m.label}</p>
+            <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">{m.value}</p>
+          </div>
+        ))}
       </div>
 
       {hasDetailFields && (
-        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-primary/60">
-          <span>{t('dcfForecastCard.detailsConfigured')}</span>
+        <div className="mt-3 text-[10px] text-primary/60">
+          {t('dcfForecastCard.detailsConfigured')}
         </div>
       )}
 
       {(hasWarning || isIncomplete) && (
-        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-warning">
-          <AlertCircle className="h-3 w-3 shrink-0" />
+        <div className="mt-3 flex items-center gap-1.5 text-xs text-warning">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           <span>{warningMessage || t('fillBothFields')}</span>
         </div>
       )}

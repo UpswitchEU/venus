@@ -52,7 +52,6 @@ import {
   type FieldContext,
   FullscreenReportModal,
   HistoryPanel,
-  InviteClientModal,
   ManualInputPanel,
   type NormalisationSuggestion,
   NormalisationSuggestionModal,
@@ -1340,7 +1339,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
-  const [showInviteClientModal, setShowInviteClientModal] = useState(false)
   const [showValuationEditModal, setShowValuationEditModal] = useState(false)
   const [showNormalisationModal, setShowNormalisationModal] = useState(false)
   const [showUnifiedNormalizationModal, setShowUnifiedNormalizationModal] = useState(false)
@@ -3854,6 +3852,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/help`
   }, [mercuryLocale])
 
+  /** Client invite / share: Mercury client detail (SendInvitationModal), not Venus nav CTA */
+  const handleOpenMercuryClientForInvite = useCallback(() => {
+    if (!clientContextId) return
+    window.location.href = `${getMercuryUrl()}/${mercuryLocale}/accountant/clients/${clientContextId}`
+  }, [clientContextId, mercuryLocale])
+
   // ─── Field Help (opens Chat with context) - Clarity parity: full getContextualQuestion ───
   const handleFieldHelpRequest = useCallback(
     (context: any) => {
@@ -4688,7 +4692,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onNavigateToHelp={handleNavigateToHelp}
           isAccountantMode={isAccountantMode}
           onExitClientView={handleExitClientView}
-          onInviteClient={isAccountantMode ? () => setShowInviteClientModal(true) : undefined}
           showSourceDataToggle={hasImportQuality}
           sourceDataOpen={showSourceDataPanel}
           onToggleSourceData={toggleSourceDataPanel}
@@ -4745,20 +4748,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             isAccountantMode && clientContextId
               ? () => {
                   setShowFullscreenModal(false)
-                  setShowInviteClientModal(true)
+                  handleOpenMercuryClientForInvite()
                 }
               : undefined
           }
-        />
-
-        <InviteClientModal
-          open={showInviteClientModal}
-          onOpenChange={setShowInviteClientModal}
-          clientId={clientContextId}
-          clientEmail={useClientContext.getState()?.client?.email}
-          clientName={clientContextName}
-          companyName={collectedData.companyName}
-          reportId={resolvedReportId || reportId}
         />
 
         <RecalculateConfirmationPopup
@@ -4901,7 +4894,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onSwitchWorkspace={handleSwitchWorkspace}
         isAccountantMode={isAccountantMode}
         onExitClientView={handleExitClientView}
-        onInviteClient={isAccountantMode ? () => setShowInviteClientModal(true) : undefined}
         showSourceDataToggle={hasImportQuality}
         sourceDataOpen={showSourceDataPanel}
         onToggleSourceData={toggleSourceDataPanel}
@@ -5149,21 +5141,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           isAccountantMode && clientContextId
             ? () => {
                 setShowFullscreenModal(false)
-                setShowInviteClientModal(true)
+                handleOpenMercuryClientForInvite()
               }
             : undefined
         }
-      />
-
-      {/* Invite Client Modal */}
-      <InviteClientModal
-        open={showInviteClientModal}
-        onOpenChange={setShowInviteClientModal}
-        clientId={clientContextId}
-        clientEmail={useClientContext.getState()?.client?.email}
-        clientName={clientContextName}
-        companyName={collectedData.companyName}
-        reportId={resolvedReportId || reportId}
       />
 
       {/* Recalculation Confirmation (when user changes EBITDA/form and clicks recalculate) */}

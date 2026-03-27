@@ -1,10 +1,11 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { Settings2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useMemo } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
+import { ValuationSectionHeader } from './ValuationSectionHeader'
 import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 
 export type TerminalValueMethod = 'perpetual_growth' | 'exit_multiple'
@@ -66,6 +67,15 @@ export function DcfGlobalAssumptions({
     label: t(`terminalMethod.${opt.value}` as const),
   }))
 
+  const globalAssumptionsComplete = useMemo(() => {
+    const waccOk = dcfWaccPct != null && Number.isFinite(dcfWaccPct) && dcfWaccPct > 0
+    const terminalOk =
+      terminalValueMethod === 'perpetual_growth'
+        ? dcfTerminalGrowthPct != null && Number.isFinite(dcfTerminalGrowthPct)
+        : dcfExitMultiple != null && Number.isFinite(dcfExitMultiple) && dcfExitMultiple > 0
+    return waccOk && terminalOk
+  }, [dcfWaccPct, terminalValueMethod, dcfTerminalGrowthPct, dcfExitMultiple])
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -75,14 +85,11 @@ export function DcfGlobalAssumptions({
       className="space-y-5 pt-2"
       aria-label={t('sections.dcfGlobalAssumptions')}
     >
-      <div className="flex items-center gap-2">
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
-          <Settings2 className="h-3 w-3 text-primary" />
-        </div>
-        <h3 className="text-sm font-medium text-foreground">
-          {t('sections.dcfGlobalAssumptions')}
-        </h3>
-      </div>
+      <ValuationSectionHeader
+        complete={globalAssumptionsComplete}
+        stepNumber={5}
+        title={t('sections.dcfGlobalAssumptions')}
+      />
 
       {/* Forecast autofill: revenue growth + EBITDA margin */}
       <div className="space-y-3">

@@ -125,6 +125,7 @@ import {
   SaasMetricsSection,
   RevenueQualitySection,
 } from './sections'
+import { SectionStatusCircle } from './sections/ValuationSectionHeader'
 import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
 import {
   applyDcfProjectionPreviewToForecastRows,
@@ -3176,6 +3177,16 @@ export function AdaptiveSections({
             }
           | null)
       : null
+  const saasSectionComplete = useMemo(
+    () =>
+      ((formData.saas_arr as number | undefined) ?? 0) > 0 ||
+      ((formData.saas_mrr as number | undefined) ?? 0) > 0 ||
+      formData.saas_arr_growth_pct != null ||
+      formData.saas_gross_margin_pct != null,
+    [formData.saas_arr, formData.saas_mrr, formData.saas_arr_growth_pct, formData.saas_gross_margin_pct]
+  )
+
+
   const firmCode = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
   const showRevenueNotice = effectiveMethod === 'omzet_multiple'
   const showFiscalNotice =
@@ -3274,8 +3285,18 @@ export function AdaptiveSections({
           className="pt-2"
         >
           <AccordionItem value="saas_metrics">
-            <AccordionTrigger size="sm">
-              {t('sections.saasMetrics')}
+            <AccordionTrigger size="sm" className="gap-2 !py-3">
+              <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                <SectionStatusCircle complete={saasSectionComplete} />
+                <span className="text-sm font-medium text-foreground">
+                  {t('sections.saasMetrics')}
+                </span>
+                <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
+                  {t('shownForBusinessType', {
+                    businessType: t('businessTypes.saasSoftware'),
+                  })}
+                </span>
+              </span>
             </AccordionTrigger>
             <AccordionContent className="pt-2">
               <SaasMetricsSection

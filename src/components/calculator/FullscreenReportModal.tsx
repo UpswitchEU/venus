@@ -126,8 +126,13 @@ export function FullscreenReportModal({
           </button>
 
           {onShare && (
-            <AuroraButton variant="ghost" size="sm" onClick={onShare}>
-              <Share2 className="w-4 h-4" />
+            <AuroraButton
+              variant="ghost"
+              size="sm"
+              onClick={onShare}
+              aria-label={t('reports.actions.share')}
+            >
+              <Share2 className="w-4 h-4" aria-hidden />
             </AuroraButton>
           )}
 

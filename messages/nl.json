@@ -1174,7 +1174,9 @@
     "dcfYearDetail": {
       "title": "Prognose {year} — Details",
       "modalDescription": "Pas de cashflowfactoren aan voor prognosejaar {year}.",
+      "summaryStrip": "Samenvatting",
       "toplineSection": "Omzet & EBITDA",
+      "capex": "CapEx (investeringen)",
       "cashFlowDrivers": "Cashflowfactoren",
       "depreciation": "Afschrijvingen (D&A)",
       "nwcChange": "Mutatie werkkapitaal (ΔNWC)",

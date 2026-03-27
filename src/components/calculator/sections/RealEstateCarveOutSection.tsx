@@ -1,10 +1,11 @@
 'use client'
 
-import { Building2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
+import { useMemo } from 'react'
 import { Switch } from '../../../design-system/components/Switch'
 import { CurrencyInput } from '../CurrencyInput'
+import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface RealEstateCarveOutSectionProps {
   excludeRealEstate?: boolean
@@ -25,6 +26,16 @@ export function RealEstateCarveOutSection({
 }: RealEstateCarveOutSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
 
+  const sectionComplete = useMemo(() => {
+    if (!excludeRealEstate) return true
+    return (
+      realEstateBookValue !== undefined &&
+      realEstateBookValue !== null &&
+      estimatedMarketRent !== undefined &&
+      estimatedMarketRent !== null
+    )
+  }, [excludeRealEstate, realEstateBookValue, estimatedMarketRent])
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -33,14 +44,11 @@ export function RealEstateCarveOutSection({
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="space-y-4 pt-2"
     >
-      <div className="flex items-center gap-2">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
-          <Building2 className="h-3 w-3 text-primary" />
-        </div>
-        <h3 className="text-sm font-medium text-foreground">
-          {t('sections.realEstateCarveOut')}
-        </h3>
-      </div>
+      <ValuationSectionHeader
+        complete={sectionComplete}
+        stepNumber={6}
+        title={t('sections.realEstateCarveOut')}
+      />
 
       <div className="rounded-xl border border-primary/15 bg-primary/[0.03] p-4">
         <div className="space-y-3">

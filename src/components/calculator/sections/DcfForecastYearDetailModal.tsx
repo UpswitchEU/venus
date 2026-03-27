@@ -5,9 +5,9 @@ import { useCallback } from 'react'
 import {
   Modal,
   ModalContent,
+  ModalFooter,
   ModalHeader,
   ModalTitle,
-  ModalFooter,
 } from '@/design-system/components/Modal'
 import { CurrencyInput } from '../CurrencyInput'
 
@@ -44,7 +44,6 @@ export function DcfForecastYearDetailModal({
   disabled,
 }: DcfForecastYearDetailModalProps) {
   const t = useTranslations('manualInput')
-  const tMethod = useTranslations('manualInput.methodSelector')
   const locale = useLocale()
 
   const fmt = useCallback(
@@ -67,17 +66,17 @@ export function DcfForecastYearDetailModal({
     [locale]
   )
 
-  const effectiveCapex = yearDetail.capex ?? (
-    globalCapexPct != null && yearDetail.revenue > 0
+  const effectiveCapex =
+    yearDetail.capex ??
+    (globalCapexPct != null && yearDetail.revenue > 0
       ? Math.round(yearDetail.revenue * (globalCapexPct / 100))
-      : 0
-  )
+      : 0)
 
-  const effectiveNwcChange = yearDetail.nwc_change ?? (
-    globalNwcPct != null && yearDetail.revenue > 0
+  const effectiveNwcChange =
+    yearDetail.nwc_change ??
+    (globalNwcPct != null && yearDetail.revenue > 0
       ? Math.round(yearDetail.revenue * (globalNwcPct / 100))
-      : 0
-  )
+      : 0)
 
   const ebitdaMarginPct =
     yearDetail.revenue > 0 && Number.isFinite(yearDetail.ebitda / yearDetail.revenue)
@@ -87,71 +86,65 @@ export function DcfForecastYearDetailModal({
   const fcff = yearDetail.ebitda - effectiveCapex - effectiveNwcChange
 
   const handleFieldChange = useCallback(
-    (field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change', value: number | undefined) => {
+    (
+      field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change',
+      value: number | undefined
+    ) => {
       onChange(yearDetail.year, field, value ?? 0)
     },
     [onChange, yearDetail.year]
   )
 
+  const summaryRows = [
+    { label: t('fields.revenue'), value: yearDetail.revenue > 0 ? fmt(yearDetail.revenue) : '—' },
+    { label: t('fields.ebitda'), value: yearDetail.ebitda !== 0 ? fmt(yearDetail.ebitda) : '—' },
+    {
+      label: t('dcfForecastCard.ebitdaMargin'),
+      value: ebitdaMarginPct != null ? `${fmtPct(ebitdaMarginPct)}%` : '—',
+    },
+    { label: t('dcfYearDetail.fcff'), value: fmt(fcff) },
+  ]
+
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent size="lg" description={t('dcfYearDetail.modalDescription', { year: yearDetail.year })}>
+      <ModalContent
+        size="lg"
+        description={t('dcfYearDetail.modalDescription', { year: yearDetail.year })}
+      >
         <ModalHeader>
-          <ModalTitle>
-            {t('dcfYearDetail.title', { year: yearDetail.year })}
-          </ModalTitle>
+          <ModalTitle>{t('dcfYearDetail.title', { year: yearDetail.year })}</ModalTitle>
         </ModalHeader>
 
-        <div className="space-y-5">
-          {/* Topline summary */}
-          <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-4">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-                  {t('fields.revenue')}
-                </p>
-                <p className="text-sm font-semibold tabular-nums text-foreground">
-                  {yearDetail.revenue > 0 ? fmt(yearDetail.revenue) : '--'}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-                  {t('fields.ebitda')}
-                </p>
-                <p className="text-sm font-semibold tabular-nums text-foreground">
-                  {yearDetail.ebitda !== 0 ? fmt(yearDetail.ebitda) : '--'}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-                  {t('dcfForecastCard.ebitdaMargin')}
-                </p>
-                <p className="text-sm font-semibold tabular-nums text-foreground">
-                  {ebitdaMarginPct != null ? `${fmtPct(ebitdaMarginPct)}%` : '--'}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-                  {t('dcfYearDetail.fcff')}
-                </p>
-                <p className="text-sm font-semibold tabular-nums text-foreground">
-                  {fmt(fcff)}
-                </p>
-              </div>
+        <div className="space-y-8">
+          <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-5">
+            <p className="mb-4 text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+              {t('dcfYearDetail.summaryStrip')}
+            </p>
+            <div className="space-y-4">
+              {summaryRows.map((row) => (
+                <div
+                  key={row.label}
+                  className="flex flex-col gap-1 border-b border-foreground/[0.06] pb-4 last:border-0 last:pb-0"
+                >
+                  <p className="text-xs text-foreground/55">{row.label}</p>
+                  <p className="text-base font-semibold tabular-nums text-foreground">
+                    {row.value}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Editable revenue & EBITDA */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/55">
+          <div className="space-y-4">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
               {t('dcfYearDetail.toplineSection')}
             </h4>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <CurrencyInput
                 label={t('fields.revenue')}
                 value={yearDetail.revenue}
                 onChange={(v) => handleFieldChange('revenue', v)}
-                size="sm"
+                size="md"
                 placeholder="1.500.000"
                 disabled={disabled}
               />
@@ -159,7 +152,7 @@ export function DcfForecastYearDetailModal({
                 label={t('fields.ebitda')}
                 value={yearDetail.ebitda}
                 onChange={(v) => handleFieldChange('ebitda', v)}
-                size="sm"
+                size="md"
                 placeholder="250.000"
                 disabled={disabled}
                 allowNegative
@@ -167,25 +160,24 @@ export function DcfForecastYearDetailModal({
             </div>
           </div>
 
-          {/* Cash flow drivers */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/55">
+          <div className="space-y-4">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
               {t('dcfYearDetail.cashFlowDrivers')}
             </h4>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5">
               <CurrencyInput
-                label={tMethod('fields.dcfCapexPct').replace(/ \(.*\)/, '') || 'CapEx'}
+                label={t('dcfYearDetail.capex')}
                 value={yearDetail.capex}
                 onChange={(v) => handleFieldChange('capex', v)}
-                size="sm"
-                placeholder={effectiveCapex > 0 ? String(effectiveCapex) : '45.000'}
+                size="md"
+                placeholder={effectiveCapex > 0 ? String(effectiveCapex) : undefined}
                 disabled={disabled}
               />
               <CurrencyInput
                 label={t('dcfYearDetail.depreciation')}
                 value={yearDetail.depreciation}
                 onChange={(v) => handleFieldChange('depreciation', v)}
-                size="sm"
+                size="md"
                 placeholder="15.000"
                 disabled={disabled}
               />
@@ -193,25 +185,27 @@ export function DcfForecastYearDetailModal({
                 label={t('dcfYearDetail.nwcChange')}
                 value={yearDetail.nwc_change}
                 onChange={(v) => handleFieldChange('nwc_change', v)}
-                size="sm"
-                placeholder={effectiveNwcChange !== 0 ? String(Math.abs(effectiveNwcChange)) : '20.000'}
+                size="md"
+                placeholder={
+                  effectiveNwcChange !== 0 ? String(Math.abs(effectiveNwcChange)) : undefined
+                }
                 disabled={disabled}
                 allowNegative
               />
             </div>
             {(globalCapexPct != null || globalNwcPct != null) && (
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 {t('dcfYearDetail.prefillHint')}
               </p>
             )}
           </div>
         </div>
 
-        <ModalFooter className="mt-6">
+        <ModalFooter className="mt-8 border-t border-foreground/[0.06] pt-6">
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="inline-flex items-center justify-center rounded-lg border border-primary/20 bg-background px-4 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/35 hover:bg-primary/5"
+            className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-primary/25 bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
             {t('dcfYearDetail.done')}
           </button>

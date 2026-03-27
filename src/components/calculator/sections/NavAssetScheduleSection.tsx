@@ -1,9 +1,10 @@
 'use client'
 
-import { Building2 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
+import { useTranslations } from 'next-intl'
+import { useMemo } from 'react'
 import { CurrencyInput } from '../CurrencyInput'
+import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface NavAssetScheduleSectionProps {
   navRealEstateAdjustment?: number
@@ -24,6 +25,17 @@ export function NavAssetScheduleSection({
 }: NavAssetScheduleSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
 
+  const sectionComplete = useMemo(
+    () =>
+      [
+        navRealEstateAdjustment,
+        navInventoryAdjustment,
+        navHiddenReserves,
+        navGoodwillWriteoff,
+      ].some((v) => v != null && Number.isFinite(v)),
+    [navRealEstateAdjustment, navInventoryAdjustment, navHiddenReserves, navGoodwillWriteoff]
+  )
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -32,19 +44,17 @@ export function NavAssetScheduleSection({
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="space-y-4 pt-2"
     >
-      <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-          <Building2 className="w-3 h-3 text-primary" />
-        </div>
-        <h3 className="text-sm font-medium text-foreground">
-          {t('sections.navAssetSchedule')}
-        </h3>
-        <span className="text-[10px] font-medium text-primary/70 bg-primary/8 px-1.5 py-0.5 rounded-full">
-          {t('recommendedForMethod', { method: 'NAV' })}
-        </span>
-      </div>
+      <ValuationSectionHeader
+        complete={sectionComplete}
+        title={t('sections.navAssetSchedule')}
+        badge={
+          <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
+            {t('recommendedForMethod', { method: 'NAV' })}
+          </span>
+        }
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <CurrencyInput
           label={t('fields.navRealEstateAdjustment')}
           value={navRealEstateAdjustment}
