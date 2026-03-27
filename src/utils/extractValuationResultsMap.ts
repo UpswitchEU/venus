@@ -432,3 +432,28 @@ export function extractValuationResultsMap(
 
   return synthesizeMinimalValuationResultsMap(valuationResult, context)
 }
+
+function hasNonEmptyValuationResults(value: Record<string, any>): boolean {
+  const vr = value.valuation_results
+  return !!(vr && typeof vr === 'object' && !Array.isArray(vr) && Object.keys(vr).length > 0)
+}
+
+/**
+ * Hoists a non-empty method map to top-level `valuation_results` when missing or empty.
+ * Fixes legacy session rows where `{}` was stored at the top level but real data lived under
+ * `details` / `report_context`. Parity with Titan `normalizeValuationResultWithMethodMap`.
+ */
+export function normalizeValuationResultWithMethodMap(
+  value: Record<string, any> | null,
+): Record<string, any> | null {
+  if (!value || typeof value !== 'object') return null
+
+  const map = extractValuationResultsMap(value, null)
+  if (!map) return value
+
+  if (hasNonEmptyValuationResults(value)) {
+    return value
+  }
+
+  return { ...value, valuation_results: map }
+}

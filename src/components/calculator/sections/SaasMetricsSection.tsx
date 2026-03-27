@@ -23,6 +23,12 @@ interface SaasMetricsSectionProps {
   disabled?: boolean
   showHeader?: boolean
   arrProjectionPreview?: Array<{ year: number; arr: number }>
+  importedSaasProvenance?: {
+    source?: string
+    confidence?: number
+    derivation_method?: string
+    fiscal_year?: number
+  } | null
 }
 
 function ratioFromPercent(value?: number): number | null {
@@ -74,6 +80,7 @@ export function SaasMetricsSection({
   disabled,
   showHeader = true,
   arrProjectionPreview = [],
+  importedSaasProvenance,
 }: SaasMetricsSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
   const locale = useLocale()
@@ -85,6 +92,10 @@ export function SaasMetricsSection({
       }),
     [locale]
   )
+
+  const importedProviderLabel = importedSaasProvenance?.source
+    ? importedSaasProvenance.source.charAt(0).toUpperCase() + importedSaasProvenance.source.slice(1)
+    : null
 
   const derivedMetrics = useMemo(() => {
     const grossMarginRatio = ratioFromPercent(saasGrossMarginPct)
@@ -170,6 +181,19 @@ export function SaasMetricsSection({
               businessType: t('businessTypes.saasSoftware'),
             })}
           </span>
+        </div>
+      )}
+
+      {importedSaasProvenance && importedProviderLabel && (
+        <div className="rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2.5">
+          <p className="text-xs font-medium text-foreground">{t('saasImported.title')}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {t('saasImported.description', {
+              provider: importedProviderLabel,
+              confidence: Math.round((importedSaasProvenance.confidence ?? 0) * 100),
+              year: importedSaasProvenance.fiscal_year ?? '—',
+            })}
+          </p>
         </div>
       )}
 

@@ -361,6 +361,40 @@ function applyPrefillToForm(
     if (financials.employeeCount !== undefined)
       allData.number_of_employees = financials.employeeCount
     if (financials.yearData) allData.year_data = financials.yearData
+    if (financials.saasMetrics) {
+      const importedSaasMetrics = financials.saasMetrics
+      if (importedSaasMetrics.saas_arr !== undefined) allData.saas_arr = importedSaasMetrics.saas_arr
+      if (importedSaasMetrics.saas_mrr !== undefined) allData.saas_mrr = importedSaasMetrics.saas_mrr
+      if (importedSaasMetrics.saas_arr_growth_pct !== undefined)
+        allData.saas_arr_growth_pct = importedSaasMetrics.saas_arr_growth_pct
+      if (importedSaasMetrics.saas_nrr_pct !== undefined) allData.saas_nrr_pct = importedSaasMetrics.saas_nrr_pct
+      if (importedSaasMetrics.saas_churn_pct !== undefined)
+        allData.saas_churn_pct = importedSaasMetrics.saas_churn_pct
+      if (importedSaasMetrics.saas_gross_margin_pct !== undefined)
+        allData.saas_gross_margin_pct = importedSaasMetrics.saas_gross_margin_pct
+      if (importedSaasMetrics.saas_customer_churn_pct !== undefined) {
+        allData.saas_customer_churn_pct = importedSaasMetrics.saas_customer_churn_pct
+      }
+      if (importedSaasMetrics.saas_customer_concentration_pct !== undefined) {
+        allData.saas_customer_concentration_pct =
+          importedSaasMetrics.saas_customer_concentration_pct
+      }
+      if (importedSaasMetrics.saas_expansion_revenue_pct !== undefined) {
+        allData.saas_expansion_revenue_pct = importedSaasMetrics.saas_expansion_revenue_pct
+      }
+      if (importedSaasMetrics.saas_cac !== undefined) allData.saas_cac = importedSaasMetrics.saas_cac
+      if (importedSaasMetrics.saas_sm_spend !== undefined) {
+        allData.saas_sm_spend = importedSaasMetrics.saas_sm_spend
+      }
+
+      allData.business_context = {
+        ...(allData.business_context || {}),
+        _imported_saas_metrics: importedSaasMetrics,
+        ...(financials.saasMetricsProvenance && {
+          _imported_saas_provenance: financials.saasMetricsProvenance,
+        }),
+      }
+    }
 
     // Convert yearData or revenue+ebitda to historical_years_data for form display
     // Form expects array of { year, revenue, ebitda } for year-by-year inputs

@@ -89,6 +89,7 @@ import {
 } from '../../utils/forecastYears'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
+import { getMercuryUrl } from '../../utils/getMercuryUrl'
 import { buildCurrentYearData } from '../../utils/yearData'
 import {
   getHistoricalYearRange,
@@ -250,6 +251,8 @@ interface ManualInputPanelProps {
   readOnlyKbo?: boolean
   /** STP: When true, auto-advance past steps that are fully pre-filled */
   autoAdvancePastPrefilledSteps?: boolean
+  /** When true, lead the user into import/connect before manual entry. */
+  preferIntegrationEntry?: boolean
 }
 
 interface OfficialFilingTrustPanelProps {
@@ -545,6 +548,7 @@ export function ManualInputPanel({
   hasReport = false,
   readOnlyKbo = false,
   autoAdvancePastPrefilledSteps = false,
+  preferIntegrationEntry = false,
 }: ManualInputPanelProps) {
   const { user } = useAuth()
   const t = useTranslations()
@@ -1296,6 +1300,7 @@ export function ManualInputPanel({
     useState<IntegrationStatus | null>(null)
   const [importingFromAccounting, setImportingFromAccounting] = useState(false)
   const [importAccountingError, setImportAccountingError] = useState<string | null>(null)
+  const [integrationEntryDismissed, setIntegrationEntryDismissed] = useState(false)
   const accountingRefetchThrottle = useRef(0)
 
   const loadAccountingIntegrationStatus = useCallback(async () => {
@@ -1310,6 +1315,12 @@ export function ManualInputPanel({
   useEffect(() => {
     void loadAccountingIntegrationStatus()
   }, [loadAccountingIntegrationStatus])
+
+  useEffect(() => {
+    if (accountingConnectedStatus?.is_connected) {
+      setIntegrationEntryDismissed(false)
+    }
+  }, [accountingConnectedStatus?.is_connected])
 
   /** After connecting in Mercury (new tab), refresh status when user returns. */
   useEffect(() => {
@@ -1397,6 +1408,11 @@ export function ManualInputPanel({
       setImportingFromAccounting(false)
     }
   }, [accountingConnectedStatus, mi])
+
+  const handleOpenMercuryIntegrations = useCallback(() => {
+    const mercuryUrl = `${getMercuryUrl()}/${locale}/accountant/settings?tab=integrations`
+    window.open(mercuryUrl, '_blank', 'noopener,noreferrer')
+  }, [locale])
 
 
   // ─── Field-level Validation ───
@@ -1663,6 +1679,11 @@ export function ManualInputPanel({
     normalizedData.years.some((y) => y.normalizationCount > 0), // Step 4: Normalizations
   ].filter(Boolean).length
 
+  const shouldShowIntegrationEntry =
+    preferIntegrationEntry &&
+    !integrationEntryDismissed &&
+    !hasMeaningfulYearlyFinancials(formData.yearlyFinancials)
+
   return (
     <>
       <div className="h-full flex flex-col bg-background overflow-hidden">
@@ -1695,6 +1716,85 @@ export function ManualInputPanel({
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 flex flex-col">
             <SpotlightBanner />
             <GuidedResolutionOrphanFields />
+
+            {shouldShowIntegrationEntry && (
+              <section className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4 sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-background/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                      <CloudDownload className="h-3.5 w-3.5" />
+                      {mi('integrationEntry.eyebrow')}
+                    </div>
+                    <h3 className="mt-3 text-base font-semibold text-foreground">
+                      {accountingConnectedStatus?.is_connected
+                        ? mi('integrationEntry.connectedTitle', {
+                            provider: accountingProviderDisplayName(accountingConnectedStatus.provider),
+                          })
+                        : mi('integrationEntry.connectTitle')}
+                    </h3>
+                    <p className="mt-1 text-sm text-foreground/70">
+                      {accountingConnectedStatus?.is_connected
+                        ? mi('integrationEntry.connectedDescription', {
+                            provider: accountingProviderDisplayName(accountingConnectedStatus.provider),
+                          })
+                        : mi('integrationEntry.connectDescription')}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-foreground/55">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-background/80 px-2.5 py-1">
+                        <Building2 className="h-3.5 w-3.5" />
+                        {mi('integrationEntry.supportedProviders')}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-background/80 px-2.5 py-1">
+                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                        {mi('integrationEntry.overrideNote')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[220px]">
+                    {accountingConnectedStatus?.is_connected ? (
+                      <AuroraButton
+                        type="button"
+                        onClick={handleImportFromAccounting}
+                        disabled={importingFromAccounting}
+                        className="w-full"
+                      >
+                        {importingFromAccounting ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CloudDownload className="mr-2 h-4 w-4" />
+                        )}
+                        {mi('integrationEntry.pullDataCta', {
+                          provider: accountingProviderDisplayName(accountingConnectedStatus.provider),
+                        })}
+                      </AuroraButton>
+                    ) : (
+                      <AuroraButton
+                        type="button"
+                        onClick={handleOpenMercuryIntegrations}
+                        className="w-full"
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        {mi('integrationEntry.connectCta')}
+                      </AuroraButton>
+                    )}
+                    <AuroraButton
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setIntegrationEntryDismissed(true)}
+                      className="w-full"
+                    >
+                      {mi('integrationEntry.manualCta')}
+                    </AuroraButton>
+                  </div>
+                </div>
+                {importAccountingError && (
+                  <div className="mt-3 flex items-start gap-2 rounded-xl border border-destructive/15 bg-destructive/[0.04] px-3 py-2 text-xs text-destructive">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{importAccountingError}</span>
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* Step 1: Company Identification */}
             <section className="space-y-4">
@@ -2522,6 +2622,19 @@ export function AdaptiveSections({
       formData.saas_expansion_revenue_pct,
     ]
   )
+  const importedSaasProvenance =
+    typeof formData.business_context === 'object' &&
+    formData.business_context &&
+    '_imported_saas_provenance' in formData.business_context
+      ? ((formData.business_context as Record<string, unknown>)._imported_saas_provenance as
+          | {
+              source?: string
+              confidence?: number
+              derivation_method?: string
+              fiscal_year?: number
+            }
+          | null)
+      : null
   const firmCode = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
   const showRevenueNotice = effectiveMethod === 'omzet_multiple'
   const showFiscalNotice =
@@ -2635,6 +2748,7 @@ export function AdaptiveSections({
                 disabled={disabled}
                 showHeader={false}
                 arrProjectionPreview={saasArrProjectionPreview}
+                importedSaasProvenance={importedSaasProvenance}
               />
             </AccordionContent>
           </AccordionItem>

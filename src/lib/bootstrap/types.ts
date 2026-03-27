@@ -122,6 +122,8 @@ export interface PartialFinancials {
   employeeCount?: number
   revenueGrowth?: number
   ebitdaMargin?: number
+  saasMetrics?: Record<string, number>
+  saasMetricsProvenance?: Record<string, unknown>
   // Year data for historical financials
   yearData?: {
     [year: number]: {

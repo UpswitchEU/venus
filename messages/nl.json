@@ -1180,6 +1180,18 @@
     "calculating": "Berekenen...",
     "calculateEstimate": "Bereken Schatting",
     "financialInstruction": "Vul omzet en EBITDA in → pas normalisaties toe → bekijk gewogen resultaat",
+    "integrationEntry": {
+      "eyebrow": "Connect & pull",
+      "connectTitle": "Start vanuit je boekhouddata",
+      "connectDescription": "Verbind eerst Yuki of Exact in Mercury en haal daarna de laatste cijfers in deze waardering op. Manuele invoer blijft beschikbaar als je liever zonder koppeling verdergaat.",
+      "connectedTitle": "{provider} is verbonden",
+      "connectedDescription": "Haal eerst de laatste boekhoudcijfers uit {provider} op en review daarna de normalisaties en waarderingsaannames, met manuele override nog steeds beschikbaar.",
+      "supportedProviders": "Nu live: Yuki en Exact Online",
+      "overrideNote": "Manuele override blijft één klik verwijderd",
+      "connectCta": "Open integraties",
+      "pullDataCta": "Ophalen uit {provider}",
+      "manualCta": "Ga handmatig verder"
+    },
     "importFromAccounting": "Importeren uit {provider}",
     "importFromAccountingAria": "Importeer omzet en EBITDA uit {provider}",
     "importFromAccountingSuccess": "Financiële gegevens geïmporteerd uit {provider}",
@@ -1245,8 +1257,6 @@
         "dcfWaccPct": "WACC (%)",
         "dcfTerminalGrowthPct": "Terminale groei (%)",
         "dcfExitMultiple": "Exit multiple (x)",
-        "dcfExitMultipleDescription": "Optionele fallback wanneer u de terminal value liever verankert aan een markt-multiple dan uitsluitend aan Gordon Growth.",
-        "dcfDepreciationGuidance": "Afschrijvingen/D&A worden ingevoerd per prognosejaar in de forecast-tabel hieronder.",
         "dcfRiskFreeRatePct": "Risicovrije rente (%)",
         "dcfEquityRiskPremiumPct": "Equity risk premium (%)",
         "dcfBeta": "Beta",
@@ -1278,64 +1288,14 @@
         "revTopClientConcentrationPct": "Topklant-concentratie (%)",
         "revContractBacklog": "Contractuele orderportefeuille"
       },
-      "smartDefaults": {
-        "title": "Slimme defaults uit historiek",
-        "description": "Opgebouwd uit uw laatste {count} historische boekjaar(en) en conservatieve SME-aannames voor deze markt. Controleer dit voordat u de DCF afrondt.",
-        "apply": "Slimme defaults toepassen"
-      },
-      "projectionPreview": {
-        "title": "Preview van geprojecteerde jaren",
-        "description": "Deze volgende drie jaren volgen de huidige groei- en marge-aannames voordat de waardering opnieuw wordt berekend.",
-        "revenue": "Omzet",
-        "ebitda": "EBITDA"
-      },
       "saasProjectionPreview": {
         "title": "5-jaars ARR-projectie",
         "description": "Voor SaaS-DCF werk projecteert deze preview de huidige ARR- of MRR-basis door met de gekozen groei- en retentie-aannames.",
         "arr": "Geprojecteerde ARR"
       },
-      "fcfReadiness": {
-        "imported_ready": {
-          "title": "De geimporteerde cashflowhistoriek is klaar voor een echte FCF-DCF",
-          "description": "{years} werkelijke boekjaar(en) bevatten bruikbare CapEx-, belasting- en werkkapitaalinputs, zodat de DCF sterker op geimporteerde historiek kan steunen in plaats van op brede fallback-aannames."
-        },
-        "partial": {
-          "title": "De DCF gebruikt al een deel van de geimporteerde cashflowinputs, maar steunt nog deels op aannames",
-          "description": "{years} werkelijke boekjaar(en) zijn beschikbaar, met CapEx in {capex}, belastingen in {taxes}, en werkkapitaaldekking in {workingCapital}. Ontbrekende signalen vallen nog terug op conservatieve aannames."
-        },
-        "manual_fallback": {
-          "title": "De DCF draait nog in een EBITDA-gedreven fallbackmodus",
-          "description": "De huidige historiek bevat nog niet genoeg geimporteerde cashflowdetails. De DCF kan nog steeds draaien, maar steunt dan vooral op marge- en benchmarkaannames in plaats van op echte FCF-componenten."
-        },
-        "missing": "Nog ontbrekend voor een volledig data-gedragen DCF: {fields}.",
-        "fields": {
-          "capex": "CapEx",
-          "taxes": "belastingkost",
-          "working_capital": "werkkapitaalbeweging"
-        }
-      },
-      "riskInsight": {
-        "highTitle": "Sleutelpersoon-afhankelijkheid kan een hogere disconteringsvoet rechtvaardigen",
-        "criticalTitle": "Eigenaarsafhankelijkheid is ernstig en hoort in de WACC terug te komen",
-        "description": "Een eigenaar-ratio van {ratio}% wijst op materieel sleutelpersoonrisico. Overweeg een WACC-opslag van +{uplift} procentpunt, tenzij u sterk bewijs heeft dat de onderneming zelfstandig kan draaien.",
-        "suggestedWacc": "Voorgestelde risico-gecorrigeerde WACC: {value}%",
-        "apply": "Risico-gecorrigeerde WACC toepassen"
-      },
       "waccBreakdown": {
         "expand": "Toon aannames",
-        "collapse": "Verberg aannames",
-        "collapsedDescription": "Gebruik één headline disconteringsvoet, of open de onderliggende aannames voor extra transparantie.",
-        "expandedDescription": "Deze aannames berekenen de headline WACC automatisch voor een verdedigbare DCF.",
-        "aggregateHint": "Stel de totale disconteringsvoet rechtstreeks in wanneer u de volledige CAPM-opbouw niet nodig heeft.",
-        "computedHint": "Automatisch berekend op basis van de aannames hieronder en gesynchroniseerd met de DCF-aanvraag.",
-        "riskFreeDescription": "Standaard anker: actuele 10-jaars staatsrente voor de geselecteerde markt.",
-        "equityRiskPremiumDescription": "Standaard Europese SME equity risk premium.",
-        "betaDescription": "Sectorrisico versus de markt. Gebruik 1,0 als neutraal, >1,0 voor hogere volatiliteit.",
-        "costOfDebtDescription": "Gemiddelde financieringskost vóór tax shield.",
-        "debtEquityDescription": "Schuldgewicht in de doelkapitaalstructuur.",
-        "taxShieldDescription": "Belastingvoordeel toegepast op het schuldaandeel in de WACC.",
-        "formulaLabel": "Formule",
-        "formulaBody": "WACC = (E / (D + E)) × cost of equity + (D / (D + E)) × cost of debt × (1 - tax shield). Cost of equity = risicovrije rente + beta × equity risk premium."
+        "collapse": "Verberg aannames"
       }
     },
     "importModal": {

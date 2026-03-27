@@ -4504,6 +4504,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     hasReport: !!report,
     readOnlyKbo,
     autoAdvancePastPrefilledSteps,
+    preferIntegrationEntry:
+      isAccountantFlow ||
+      hasImportQuality ||
+      Boolean(identity.clientContext?.clientCompanyName?.trim()),
     initialData: {
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,

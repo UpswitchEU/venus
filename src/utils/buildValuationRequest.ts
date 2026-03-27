@@ -488,8 +488,14 @@ export function buildValuationRequest(
   if (fd.rev_top_client_concentration_pct != null) adaptiveFields.rev_top_client_concentration_pct = fd.rev_top_client_concentration_pct
   if (fd.rev_contract_backlog != null) adaptiveFields.rev_contract_backlog = fd.rev_contract_backlog
 
+  const existingBusinessContext =
+    formData.business_context && typeof formData.business_context === 'object'
+      ? formData.business_context
+      : undefined
+
   const businessContext = formData.business_type_id
     ? {
+        ...existingBusinessContext,
         dcfPreference: fd._internal_dcf_preference,
         multiplesPreference: fd._internal_multiples_preference,
         ownerDependencyImpact: fd._internal_owner_dependency_impact,
@@ -499,7 +505,12 @@ export function buildValuationRequest(
         ...adaptiveFields,
       }
     : Object.keys(adaptiveFields).length > 0
-      ? adaptiveFields
+      ? {
+          ...existingBusinessContext,
+          ...adaptiveFields,
+        }
+      : existingBusinessContext
+      ? existingBusinessContext
       : undefined
 
   // Build ValuationRequest

@@ -167,6 +167,7 @@ export interface ValuationRequest {
     keyMetrics?: string[] // Industry-specific metrics
     typicalEmployeeRange?: { min: number; max: number }
     typicalRevenueRange?: { min: number; max: number }
+    [key: string]: unknown
   }
 
   // Optional market context overrides

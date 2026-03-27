@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { extractValuationResultsMap } from './extractValuationResultsMap'
+import {
+  extractValuationResultsMap,
+  normalizeValuationResultWithMethodMap,
+} from './extractValuationResultsMap'
 
 describe('extractValuationResultsMap', () => {
   it('normalizes adaptive multiple from canonical report context', () => {
@@ -174,5 +177,37 @@ describe('extractValuationResultsMap', () => {
         report_context: { applied_multiple: 4.5 },
       }),
     ).toBeNull()
+  })
+})
+
+describe('normalizeValuationResultWithMethodMap', () => {
+  it('hoists from nested paths when top-level valuation_results is empty', () => {
+    const input = {
+      valuation_results: {},
+      details: {
+        valuation_results: {
+          upswitch_adaptive: { available: true, value: 300 },
+        },
+      },
+    }
+    const out = normalizeValuationResultWithMethodMap(input)
+    expect(out?.valuation_results).toMatchObject({
+      upswitch_adaptive: { available: true, value: 300 },
+    })
+  })
+
+  it('does not overwrite non-empty top-level valuation_results', () => {
+    const input = {
+      valuation_results: {
+        upswitch_adaptive: { available: true, value: 1 },
+      },
+      details: {
+        valuation_results: {
+          upswitch_adaptive: { available: true, value: 999 },
+        },
+      },
+    }
+    const out = normalizeValuationResultWithMethodMap(input)
+    expect(out?.valuation_results?.upswitch_adaptive?.value).toBe(1)
   })
 })
