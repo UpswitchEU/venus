@@ -9,6 +9,25 @@ type ManualPresentation = {
   multipleRange?: { low: number; high: number }
 }
 
+function resolvePreferredMethodKey(
+  valuationResults: Record<string, any>,
+  requestedMethod?: string | null
+): string | null {
+  const isUsable = (method: any) =>
+    !!(method && typeof method === 'object' && method.available && method.value != null)
+
+  if (requestedMethod && isUsable(valuationResults[requestedMethod])) {
+    return requestedMethod
+  }
+
+  if (isUsable(valuationResults.upswitch_adaptive)) {
+    return 'upswitch_adaptive'
+  }
+
+  const firstAvailable = Object.entries(valuationResults).find(([, method]) => isUsable(method))
+  return firstAvailable?.[0] ?? null
+}
+
 export function deriveManualReportPresentation(
   result: ValuationResponse | null | undefined,
   selectedMethod?: string | null
@@ -23,7 +42,10 @@ export function deriveManualReportPresentation(
       selectedValuationMethod: r.selected_valuation_method,
     }) ?? {}
   const methodKey =
-    selectedMethod ?? r.selected_valuation_method ?? r.selectedMethod ?? 'upswitch_adaptive'
+    resolvePreferredMethodKey(
+      hydrated,
+      selectedMethod ?? r.selected_valuation_method ?? r.selectedMethod ?? 'upswitch_adaptive'
+    ) ?? 'upswitch_adaptive'
   const methodData = hydrated[methodKey]
   const methodDetails =
     methodData?.details && typeof methodData.details === 'object' ? methodData.details : {}
