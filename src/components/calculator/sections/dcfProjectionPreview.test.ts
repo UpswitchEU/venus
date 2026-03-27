@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { deriveDcfProjectionPreview } from './dcfProjectionPreview'
+import {
+  applyDcfProjectionPreviewToForecastRows,
+  deriveDcfProjectionPreview,
+} from './dcfProjectionPreview'
 
 describe('deriveDcfProjectionPreview', () => {
   it('projects three years from the latest actual year', () => {
@@ -34,6 +37,44 @@ describe('deriveDcfProjectionPreview', () => {
 
     expect(rows[0]).toEqual({ year: 2025, revenue: 945_000, ebitda: 113_400 })
     expect(rows).toHaveLength(3)
+  })
+
+  it('compounds to the exact forecast years that exist in the table', () => {
+    const rows = deriveDcfProjectionPreview({
+      yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 150_000 }],
+      revenueGrowthPct: 10,
+      ebitdaMarginPct: 20,
+      forecastYears: [2027, 2028],
+    })
+
+    expect(rows).toEqual([
+      { year: 2027, revenue: 1_210_000, ebitda: 242_000 },
+      { year: 2028, revenue: 1_331_000, ebitda: 266_200 },
+    ])
+  })
+
+  it('applies projected revenue and EBITDA onto forecast rows only', () => {
+    const projectedRows = deriveDcfProjectionPreview({
+      yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 150_000 }],
+      revenueGrowthPct: 10,
+      ebitdaMarginPct: 20,
+      forecastYears: [2026, 2027],
+    })
+
+    expect(
+      applyDcfProjectionPreviewToForecastRows(
+        [
+          { year: '2025', revenue: 1_000_000, ebitda: 150_000 },
+          { year: '2026', revenue: 0, ebitda: 0, capex: 40_000, isForecast: true },
+          { year: '2027', revenue: 0, ebitda: 0, capex: 45_000, isForecast: true },
+        ],
+        projectedRows
+      )
+    ).toEqual([
+      { year: '2025', revenue: 1_000_000, ebitda: 150_000 },
+      { year: '2026', revenue: 1_100_000, ebitda: 220_000, capex: 40_000, isForecast: true },
+      { year: '2027', revenue: 1_210_000, ebitda: 242_000, capex: 45_000, isForecast: true },
+    ])
   })
 
   it('returns empty when there is no usable actual base year', () => {

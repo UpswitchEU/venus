@@ -1164,16 +1164,32 @@
     "addYear": "Add year",
     "addForecastYear": "Add forecast year",
     "forecastLabel": "Forecast",
-    "dcfProjectionTable": {
-      "title": "DCF projection table",
-      "description": "Edit the explicit forecast years used for the DCF calculation.",
-      "columns": {
-        "year": "Year",
-        "ebitdaMarginPct": "EBITDA %",
-        "fcff": "FCFF"
-      }
+    "dcfForecastCard": {
+      "revenueGrowth": "Growth %",
+      "ebitdaMargin": "Margin %",
+      "editDetails": "Edit details",
+      "removeYear": "Remove",
+      "detailsConfigured": "Cash flow drivers configured"
+    },
+    "dcfYearDetail": {
+      "title": "Forecast {year} — Details",
+      "modalDescription": "Edit cash flow drivers for forecast year {year}.",
+      "toplineSection": "Revenue & EBITDA",
+      "cashFlowDrivers": "Cash Flow Drivers",
+      "depreciation": "Depreciation (D&A)",
+      "nwcChange": "Working capital change (ΔNWC)",
+      "fcff": "Free Cash Flow",
+      "prefillHint": "Fields without a value are pre-filled from the global CapEx / NWC assumptions.",
+      "done": "Done"
+    },
+    "dcfForecastWorkspace": {
+      "sectionLabel": "DCF forecast years",
+      "title": "Forecast Years",
+      "yearCount": "{count, plural, one {# year} other {# years}}",
+      "description": "Each card represents a forecast year. Click Edit details to set cash flow drivers."
     },
     "dcfForecastAdded": "DCF requires forecast years — {count, plural, one {# forecast year} other {# forecast years}} added",
+    "dcfProjectionAutofillApplied": "Updated {count, plural, one {# forecast year} other {# forecast years}} from DCF percentages.",
     "forecastYearOutOfRange": "Cannot add a forecast year outside the supported range (2000–2100).",
     "removeForecastPrompt": "Remove forecast years?",
     "removeForecastDescription": "The forecast years and any data you entered will be removed from your valuation.",
@@ -1275,12 +1291,25 @@
       },
       "sections": {
         "dcfProjections": "DCF Projections",
+        "dcfGlobalAssumptions": "Global DCF Assumptions",
         "navAssetSchedule": "Asset Adjustments",
         "realEstateCarveOut": "Real estate carve-out",
         "saasMetrics": "SaaS Metrics",
         "saasDerivedMetrics": "Calculated SaaS Signals",
         "revenueQuality": "Revenue Quality"
       },
+      "globalAssumptionGroups": {
+        "forecastDefaults": "Forecast Defaults",
+        "discountRate": "Discount Rate",
+        "terminalValue": "Terminal Value"
+      },
+      "terminalMethod": {
+        "perpetual_growth": "Perpetual Growth",
+        "exit_multiple": "Exit Multiple"
+      },
+      "terminalMethodAriaLabel": "Terminal value method",
+      "applyForecastYears": "Apply to forecast years",
+      "applyForecastYearsDescription": "Fill {count, plural, one {# forecast year} other {# forecast years}} from revenue growth and EBITDA margin.",
       "fields": {
         "dcfRevenueGrowthPct": "Revenue growth (%)",
         "dcfEbitdaMarginPct": "EBITDA margin (%)",

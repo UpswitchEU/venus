@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../../types/valuation'
+import {
+  applyDcfProjectionPreviewToForecastRows,
+  deriveDcfProjectionPreview,
+} from '../../components/calculator/sections/dcfProjectionPreview'
 import { buildValuationRequest } from '../buildValuationRequest'
 import { getCurrentFilingYear } from '../fiscalYear'
 import { getCompleteYearlyFinancialsDesc } from '../yearlyFinancials'
@@ -662,6 +666,99 @@ describe('buildValuationRequest', () => {
     )
 
     expect(expandedResult.projection_years).toBe(6)
+  })
+
+  it('serializes DCF autofill output as explicit forecast_years_data', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const yearlyFinancials = applyDcfProjectionPreviewToForecastRows(
+      [
+        { year: String(lastFullYear - 1), revenue: 900_000, ebitda: 135_000 },
+        { year: String(lastFullYear), revenue: 1_000_000, ebitda: 150_000 },
+        { year: String(lastFullYear + 1), revenue: 0, ebitda: 0, isForecast: true },
+        { year: String(lastFullYear + 2), revenue: 0, ebitda: 0, isForecast: true },
+      ],
+      deriveDcfProjectionPreview({
+        yearlyFinancials: [
+          { year: String(lastFullYear - 1), revenue: 900_000, ebitda: 135_000 },
+          { year: String(lastFullYear), revenue: 1_000_000, ebitda: 150_000 },
+        ],
+        revenueGrowthPct: 10,
+        ebitdaMarginPct: 20,
+        forecastYears: [lastFullYear + 1, lastFullYear + 2],
+      })
+    )
+
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_000_000,
+          ebitda: 150_000,
+        },
+        historical_years_data: yearlyFinancials
+          .filter((row) => !row.isForecast && Number(row.year) < lastFullYear)
+          .map((row) => ({
+            year: Number(row.year),
+            revenue: row.revenue,
+            ebitda: row.ebitda,
+          })),
+        forecast_years_data: yearlyFinancials.filter((row) => row.isForecast).map((row) => ({
+          year: Number(row.year),
+          revenue: row.revenue,
+          ebitda: row.ebitda,
+        })),
+        dcf_revenue_growth_pct: 10,
+        dcf_ebitda_margin_pct: 20,
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.forecast_years_data).toEqual([
+      { year: lastFullYear + 1, revenue: 1_100_000, ebitda: 220_000, is_forecast: true },
+      { year: lastFullYear + 2, revenue: 1_210_000, ebitda: 242_000, is_forecast: true },
+    ])
+  })
+
+  it('preserves manual forecast edits after DCF autofill when building the request', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const autofilledForecasts = applyDcfProjectionPreviewToForecastRows(
+      [
+        { year: String(lastFullYear), revenue: 1_000_000, ebitda: 150_000 },
+        { year: String(lastFullYear + 1), revenue: 0, ebitda: 0, isForecast: true },
+        { year: String(lastFullYear + 2), revenue: 0, ebitda: 0, isForecast: true },
+      ],
+      deriveDcfProjectionPreview({
+        yearlyFinancials: [{ year: String(lastFullYear), revenue: 1_000_000, ebitda: 150_000 }],
+        revenueGrowthPct: 10,
+        ebitdaMarginPct: 20,
+        forecastYears: [lastFullYear + 1, lastFullYear + 2],
+      })
+    )
+      .filter((row) => row.isForecast)
+      .map((row) =>
+        Number(row.year) === lastFullYear + 2 ? { ...row, ebitda: 250_000 } : row
+      )
+
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_000_000,
+          ebitda: 150_000,
+        },
+        forecast_years_data: autofilledForecasts.map((row) => ({
+          year: Number(row.year),
+          revenue: row.revenue,
+          ebitda: row.ebitda,
+        })),
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.forecast_years_data).toEqual([
+      { year: lastFullYear + 1, revenue: 1_100_000, ebitda: 220_000, is_forecast: true },
+      { year: lastFullYear + 2, revenue: 1_210_000, ebitda: 250_000, is_forecast: true },
+    ])
   })
 
   it('forwards official Belgian filing trust context into the valuation request', () => {

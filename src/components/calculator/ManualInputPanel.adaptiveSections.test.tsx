@@ -16,6 +16,8 @@ describe('AdaptiveSections', () => {
   const baseProps = {
     formData: {} as any,
     onFieldChange: vi.fn(),
+    terminalValueMethod: 'perpetual_growth' as const,
+    onTerminalValueMethodChange: vi.fn(),
     disabled: false,
   }
 
@@ -29,7 +31,7 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('sections.dcfProjections')).toBeInTheDocument()
+    expect(screen.getByText('sections.dcfGlobalAssumptions')).toBeInTheDocument()
     expect(screen.getByText('sections.saasMetrics')).toBeInTheDocument()
     expect(screen.getByText('fields.saasArrGrowthPct')).toBeInTheDocument()
     expect(screen.getByText('fields.saasGrossMarginPct')).toBeInTheDocument()
@@ -47,7 +49,7 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('sections.dcfProjections')).toBeInTheDocument()
+    expect(screen.getByText('sections.dcfGlobalAssumptions')).toBeInTheDocument()
 
     rerender(
       <AdaptiveSections
@@ -59,7 +61,7 @@ describe('AdaptiveSections', () => {
     )
 
     await waitFor(() => {
-      expect(screen.queryByText('sections.dcfProjections')).not.toBeInTheDocument()
+      expect(screen.queryByText('sections.dcfGlobalAssumptions')).not.toBeInTheDocument()
     })
     expect(screen.getByText('sections.saasMetrics')).toBeInTheDocument()
 
@@ -72,7 +74,7 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('sections.dcfProjections')).toBeInTheDocument()
+    expect(screen.getByText('sections.dcfGlobalAssumptions')).toBeInTheDocument()
   })
 
   it('renders revenue-led guidance when omzet multiple is pre-selected', () => {
@@ -116,6 +118,37 @@ describe('AdaptiveSections', () => {
     )
 
     expect(screen.queryByText('fiscalDisclaimerTitle')).not.toBeInTheDocument()
+  })
+
+  it('surfaces the DCF autofill action and forwards clicks', () => {
+    const handleApply = vi.fn()
+
+    render(
+      <AdaptiveSections
+        {...baseProps}
+        effectiveMethod="dcf"
+        businessCategory="professional-services"
+        businessTypeId="accountancy"
+        formData={{
+          yearlyFinancials: [
+            { year: '2024', revenue: 1_000_000, ebitda: 150_000 },
+            { year: '2025', revenue: 0, ebitda: 0, isForecast: true },
+            { year: '2026', revenue: 0, ebitda: 0, isForecast: true },
+          ],
+        } as any}
+        onApplyDcfPercentAutofill={handleApply}
+        canApplyDcfPercentAutofill
+        terminalValueMethod="perpetual_growth"
+        onTerminalValueMethodChange={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'applyForecastYears' })).toBeEnabled()
+    expect(screen.getByText('applyForecastYearsDescription:count=2')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'applyForecastYears' }))
+
+    expect(handleApply).toHaveBeenCalledTimes(1)
   })
 })
 

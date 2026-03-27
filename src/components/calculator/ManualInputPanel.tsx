@@ -83,6 +83,7 @@ import {
   appendManualForecastYear,
   canAppendForecastYear,
   canAppendHistoricalYear,
+  countForecastYears,
   getNextForecastYear,
   getNextHistoricalYear,
   dcfInjectionAddedRowCount,
@@ -117,13 +118,18 @@ import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 import {} from '../../utils/shareholding'
 import { getBonusSections } from '../../constants/methodFieldConfig'
 import {
-  DcfForecastProjectionTable,
-  DcfProjectionsSection,
+  DcfForecastWorkspace,
+  DcfGlobalAssumptions,
   NavAssetScheduleSection,
   RealEstateCarveOutSection,
   SaasMetricsSection,
   RevenueQualitySection,
 } from './sections'
+import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
+import {
+  applyDcfProjectionPreviewToForecastRows,
+  deriveDcfProjectionPreview,
+} from './sections/dcfProjectionPreview'
 import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
 import type {
   OfficialFinancialsPayload,
@@ -195,6 +201,7 @@ export interface ValuationFormData {
   dcf_cost_of_debt_pct?: number
   dcf_debt_equity_pct?: number
   dcf_tax_shield_pct?: number
+  dcf_terminal_value_method?: 'perpetual_growth' | 'exit_multiple'
   nav_real_estate_adjustment?: number
   nav_inventory_adjustment?: number
   nav_hidden_reserves?: number
@@ -1746,6 +1753,69 @@ export function ManualInputPanel({
         : [],
     [effectiveMethod, sortedYearlyFinancials]
   )
+  const latestHistoricalRevenue = useMemo(() => {
+    const historical = sortedYearlyFinancials.filter((y) => !y.isForecast && y.revenue > 0)
+    return historical.length > 0 ? historical[0].revenue : undefined
+  }, [sortedYearlyFinancials])
+
+  const [terminalValueMethod, setTerminalValueMethod] = useState<TerminalValueMethod>(() => {
+    if (formData.dcf_terminal_value_method) return formData.dcf_terminal_value_method
+    if (formData.dcf_exit_multiple != null && formData.dcf_terminal_growth_pct == null)
+      return 'exit_multiple'
+    return 'perpetual_growth'
+  })
+
+  const handleTerminalValueMethodChange = useCallback(
+    (method: TerminalValueMethod) => {
+      setTerminalValueMethod(method)
+      setFormData((prev) => ({ ...prev, dcf_terminal_value_method: method }))
+    },
+    []
+  )
+
+  const dcfProjectionAutofillRows = useMemo(
+    () =>
+      effectiveMethod === 'dcf'
+        ? deriveDcfProjectionPreview({
+            yearlyFinancials: formData.yearlyFinancials,
+            revenueGrowthPct: formData.dcf_revenue_growth_pct,
+            ebitdaMarginPct: formData.dcf_ebitda_margin_pct,
+            forecastYears: dcfForecastRows.map((row) => Number(row.year)),
+          })
+        : [],
+    [
+      dcfForecastRows,
+      effectiveMethod,
+      formData.dcf_ebitda_margin_pct,
+      formData.dcf_revenue_growth_pct,
+      formData.yearlyFinancials,
+    ]
+  )
+  const canApplyDcfProjectionAutofill =
+    dcfForecastRows.length > 0 && dcfProjectionAutofillRows.length === dcfForecastRows.length
+
+  const handleApplyDcfProjectionAutofill = useCallback(() => {
+    if (!canApplyDcfProjectionAutofill) return
+
+    setFormData((prev) => ({
+      ...prev,
+      yearlyFinancials: applyDcfProjectionPreviewToForecastRows(
+        prev.yearlyFinancials,
+        deriveDcfProjectionPreview({
+          yearlyFinancials: prev.yearlyFinancials,
+          revenueGrowthPct: prev.dcf_revenue_growth_pct,
+          ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
+          forecastYears: prev.yearlyFinancials
+            .filter((row) => row.isForecast)
+            .map((row) => Number(row.year)),
+        })
+      ) as YearlyFinancials[],
+    }))
+
+    import('sonner').then(({ toast }) =>
+      toast.success(mi('dcfProjectionAutofillApplied', { count: dcfForecastRows.length }))
+    )
+  }, [canApplyDcfProjectionAutofill, dcfForecastRows.length, mi])
 
   useEffect(() => {
     const persistedAnalysis = formData.business_context?._imported_ledger_analysis as
@@ -2830,10 +2900,15 @@ export function ManualInputPanel({
                   })}
 
                   {effectiveMethod === 'dcf' && dcfForecastRows.length > 0 && (
-                    <DcfForecastProjectionTable
-                      rows={dcfForecastRows}
-                      disabled={isCalculating}
+                    <DcfForecastWorkspace
+                      forecastRows={dcfForecastRows}
+                      latestHistoricalRevenue={latestHistoricalRevenue}
                       fieldValidation={fieldValidation}
+                      globalCapexPct={formData.dcf_capex_pct}
+                      globalNwcPct={formData.dcf_nwc_pct}
+                      disabled={isCalculating}
+                      canAddYear={canAppendForecastYear(formData.yearlyFinancials)}
+                      nextForecastYear={getNextForecastYear(formData.yearlyFinancials)}
                       onChange={(year, field, value) =>
                         updateYearlyFinancials(year, true, field, value)
                       }
@@ -2843,14 +2918,7 @@ export function ManualInputPanel({
                           yearlyFinancials: removeForecastYear(prev.yearlyFinancials, year),
                         }))
                       }
-                    />
-                  )}
-
-                  {/* Add Forecast Year Button */}
-                  {canAppendForecastYear(formData.yearlyFinancials) && (
-                    <button
-                      type="button"
-                      onClick={() => {
+                      onAddYear={() => {
                         setFormData((prev) => {
                           const result = appendManualForecastYear(prev.yearlyFinancials)
                           if (!result.ok) {
@@ -2864,13 +2932,7 @@ export function ManualInputPanel({
                           return { ...prev, yearlyFinancials: result.yearlyFinancials as YearlyFinancials[] }
                         })
                       }}
-                      className="w-full p-3 rounded-xl border border-dashed border-primary/20 text-sm text-primary/50 hover:text-primary/70 hover:border-primary/30 hover:bg-primary/[0.03] transition-colors flex items-center justify-center gap-2"
-                      aria-label={`${mi('addForecastYear')} ${getNextForecastYear(formData.yearlyFinancials)}`}
-                    >
-                      <TrendingUp className="w-4 h-4" aria-hidden />
-                      {mi('addForecastYear')} (
-                      {getNextForecastYear(formData.yearlyFinancials)})
-                    </button>
+                    />
                   )}
 
                   {/* Add Historical Year Button */}
@@ -2902,6 +2964,22 @@ export function ManualInputPanel({
               </motion.section>
             )}
             {/* Adaptive Input Sections — driven by effective method + business type */}
+            <AdaptiveSections
+              effectiveMethod={effectiveMethod}
+              businessCategory={selectedBusinessType?.category}
+              businessTypeId={selectedBusinessType?.id}
+              formData={formData}
+              firmCountryCode={user?.firm_country_code}
+              onFieldChange={(field, value) => {
+                setFormData((prev) => ({ ...prev, [field]: value }))
+              }}
+              onApplyDcfPercentAutofill={handleApplyDcfProjectionAutofill}
+              canApplyDcfPercentAutofill={canApplyDcfProjectionAutofill}
+              terminalValueMethod={terminalValueMethod}
+              onTerminalValueMethodChange={handleTerminalValueMethodChange}
+              disabled={isCalculating}
+            />
+
             <RealEstateCarveOutSection
               excludeRealEstate={formData.exclude_real_estate}
               realEstateBookValue={formData.real_estate_book_value}
@@ -2914,18 +2992,6 @@ export function ManualInputPanel({
                   estimated_market_rent: checked ? prev.estimated_market_rent : undefined,
                 }))
               }}
-              onFieldChange={(field, value) => {
-                setFormData((prev) => ({ ...prev, [field]: value }))
-              }}
-              disabled={isCalculating}
-            />
-
-            <AdaptiveSections
-              effectiveMethod={effectiveMethod}
-              businessCategory={selectedBusinessType?.category}
-              businessTypeId={selectedBusinessType?.id}
-              formData={formData}
-              firmCountryCode={user?.firm_country_code}
               onFieldChange={(field, value) => {
                 setFormData((prev) => ({ ...prev, [field]: value }))
               }}
@@ -3051,6 +3117,10 @@ export function AdaptiveSections({
   formData,
   firmCountryCode,
   onFieldChange,
+  onApplyDcfPercentAutofill,
+  canApplyDcfPercentAutofill,
+  terminalValueMethod,
+  onTerminalValueMethodChange,
   disabled,
 }: {
   effectiveMethod: string
@@ -3060,6 +3130,10 @@ export function AdaptiveSections({
   /** When NL, hide Belgian fiscal (4× EBITDA) notices — matches Titan/PDF gating */
   firmCountryCode?: string
   onFieldChange: (field: string, value: number | undefined) => void
+  onApplyDcfPercentAutofill?: () => void
+  canApplyDcfPercentAutofill?: boolean
+  terminalValueMethod?: TerminalValueMethod
+  onTerminalValueMethodChange?: (method: TerminalValueMethod) => void
   disabled?: boolean
 }) {
   const t = useTranslations('manualInput.methodSelector')
@@ -3154,9 +3228,9 @@ export function AdaptiveSections({
           </div>
         </motion.div>
       )}
-      {sections.includes('dcf_projections') && (
-        <DcfProjectionsSection
-          key="dcf_projections"
+      {sections.includes('dcf_projections') && terminalValueMethod && onTerminalValueMethodChange && (
+        <DcfGlobalAssumptions
+          key="dcf_global_assumptions"
           dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
           dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
           dcfCapexPct={formData.dcf_capex_pct as number | undefined}
@@ -3170,7 +3244,12 @@ export function AdaptiveSections({
           dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
           dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
           dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
+          terminalValueMethod={terminalValueMethod}
+          onTerminalValueMethodChange={onTerminalValueMethodChange}
           onFieldChange={onFieldChange}
+          onApplyToForecastYears={onApplyDcfPercentAutofill}
+          canApplyToForecastYears={!!canApplyDcfPercentAutofill}
+          forecastYearCount={countForecastYears(formData.yearlyFinancials ?? [])}
           disabled={disabled}
         />
       )}

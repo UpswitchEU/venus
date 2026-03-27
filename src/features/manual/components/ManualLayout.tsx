@@ -480,6 +480,9 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.dcf_cost_of_debt_pct != null && { dcf_cost_of_debt_pct: data.dcf_cost_of_debt_pct }),
     ...(data.dcf_debt_equity_pct != null && { dcf_debt_equity_pct: data.dcf_debt_equity_pct }),
     ...(data.dcf_tax_shield_pct != null && { dcf_tax_shield_pct: data.dcf_tax_shield_pct }),
+    ...(data.dcf_terminal_value_method != null && {
+      dcf_terminal_value_method: data.dcf_terminal_value_method,
+    }),
     ...(data.nav_real_estate_adjustment != null && {
       nav_real_estate_adjustment: data.nav_real_estate_adjustment,
     }),

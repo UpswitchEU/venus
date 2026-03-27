@@ -1164,16 +1164,32 @@
     "addYear": "Jaar toevoegen",
     "addForecastYear": "Voeg prognosejaar toe",
     "forecastLabel": "Prognose",
-    "dcfProjectionTable": {
-      "title": "DCF-projectietabel",
-      "description": "Bewerk de expliciete prognosejaren die in de DCF-berekening worden gebruikt.",
-      "columns": {
-        "year": "Jaar",
-        "ebitdaMarginPct": "EBITDA %",
-        "fcff": "FCFF"
-      }
+    "dcfForecastCard": {
+      "revenueGrowth": "Groei %",
+      "ebitdaMargin": "Marge %",
+      "editDetails": "Bewerk details",
+      "removeYear": "Verwijder",
+      "detailsConfigured": "Cashflowfactoren ingesteld"
+    },
+    "dcfYearDetail": {
+      "title": "Prognose {year} — Details",
+      "modalDescription": "Pas de cashflowfactoren aan voor prognosejaar {year}.",
+      "toplineSection": "Omzet & EBITDA",
+      "cashFlowDrivers": "Cashflowfactoren",
+      "depreciation": "Afschrijvingen (D&A)",
+      "nwcChange": "Mutatie werkkapitaal (ΔNWC)",
+      "fcff": "Vrije Kasstroom",
+      "prefillHint": "Lege velden worden ingevuld op basis van de globale CapEx- / NWC-aannames.",
+      "done": "Klaar"
+    },
+    "dcfForecastWorkspace": {
+      "sectionLabel": "DCF prognosejaren",
+      "title": "Prognosejaren",
+      "yearCount": "{count, plural, one {# jaar} other {# jaren}}",
+      "description": "Elke kaart toont een prognosejaar. Klik op Bewerk details om cashflowfactoren in te stellen."
     },
     "dcfForecastAdded": "DCF vereist prognosejaren — {count, plural, one {# prognosejaar} other {# prognosejaren}} toegevoegd",
+    "dcfProjectionAutofillApplied": "{count, plural, one {# prognosejaar bijgewerkt} other {# prognosejaren bijgewerkt}} op basis van DCF-percentages.",
     "forecastYearOutOfRange": "Kan geen prognosejaar toevoegen buiten het ondersteunde bereik (2000–2100).",
     "removeForecastPrompt": "Prognosejaren verwijderen?",
     "removeForecastDescription": "De prognosejaren en hun ingevulde gegevens worden verwijderd uit uw waardering.",
@@ -1275,12 +1291,25 @@
       },
       "sections": {
         "dcfProjections": "DCF Prognoses",
+        "dcfGlobalAssumptions": "Globale DCF-aannames",
         "navAssetSchedule": "Activa-aanpassingen",
         "realEstateCarveOut": "Vastgoed carve-out",
         "saasMetrics": "SaaS Metrics",
         "saasDerivedMetrics": "Berekende SaaS-signalen",
         "revenueQuality": "Omzetkwaliteit"
       },
+      "globalAssumptionGroups": {
+        "forecastDefaults": "Prognose-standaarden",
+        "discountRate": "Discontovoet",
+        "terminalValue": "Restwaarde"
+      },
+      "terminalMethod": {
+        "perpetual_growth": "Eeuwigdurende groei",
+        "exit_multiple": "Exit Multiple"
+      },
+      "terminalMethodAriaLabel": "Restwaarde-methode",
+      "applyForecastYears": "Pas toe op prognosejaren",
+      "applyForecastYearsDescription": "Vul {count, plural, one {# prognosejaar} other {# prognosejaren}} in op basis van omzetgroei en EBITDA-marge.",
       "fields": {
         "dcfRevenueGrowthPct": "Omzetgroei (%)",
         "dcfEbitdaMarginPct": "EBITDA-marge (%)",

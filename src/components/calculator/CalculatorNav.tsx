@@ -35,6 +35,7 @@ import {
   Pencil,
   Send,
   Settings,
+  SlidersHorizontal,
   Trash2,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -401,6 +402,15 @@ export function CalculatorNav({
     return 'upswitch_adaptive'
   }, [preSelectedMethod, preSelectableMethods])
 
+  const selectedMethodLabel = t(
+    METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended'
+  )
+  const compactMethodLabel =
+    displayPreSelectedMethod === 'upswitch_adaptive'
+      ? t('manualInput.methodSelector.adaptive')
+      : selectedMethodLabel
+  const methodTriggerLabel = `${t('manualInput.methodSelector.label')} — ${selectedMethodLabel}`
+
   const handleBack = () => {
     if (isAccountantMode && onExitClientView) {
       onExitClientView()
@@ -415,13 +425,14 @@ export function CalculatorNav({
     <TooltipProvider>
       <nav
         className={cn(
-          'relative h-14 w-full shrink-0 flex items-center gap-2 sm:gap-4 px-3 sm:px-4',
+          'relative h-14 w-full shrink-0 grid items-center gap-x-2 sm:gap-x-4 px-3 sm:px-4',
+          'grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]',
           'border-b border-foreground/[0.06] bg-background',
           'pt-[env(safe-area-inset-top)]'
         )}
       >
         {/* Left: Back + New Valuation + Title with Recent Valuations Dropdown */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Tooltip
             content={isAccountantMode ? t('clientContext.exitClientView') : t('common.actions.back')}
           >
@@ -436,7 +447,7 @@ export function CalculatorNav({
           {/* Title with Recent Valuations Dropdown */}
           <Dropdown
             trigger={
-              <button className="flex items-center gap-1 sm:gap-1.5 font-medium text-foreground hover:text-primary transition-colors group min-w-0 flex-1 max-w-[200px] sm:max-w-[320px] min-h-[44px]">
+              <button className="flex items-center gap-1 sm:gap-1.5 font-medium text-foreground hover:text-primary transition-colors group min-w-0 flex-1 max-w-[180px] sm:max-w-[260px] lg:max-w-[320px] min-h-[44px] rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
                 <span className="truncate text-sm sm:text-base">
                   {companyName || t('toast.newEstimation')}
                 </span>
@@ -569,18 +580,20 @@ export function CalculatorNav({
 
           {/* Method Pre-Selector — compact pill next to company name */}
           {onPreSelectMethod && (
-            <div className="hidden sm:flex items-center">
-              <div className="h-5 w-px bg-foreground/[0.08] mx-1.5" />
+            <div className="hidden sm:flex min-w-0 items-center">
+              <div className="h-5 w-px bg-foreground/[0.08] mx-1.5 shrink-0" />
               <Dropdown
                 trigger={
                   <button
                     type="button"
                     aria-haspopup="listbox"
-                    className="flex items-center gap-1.5 rounded-full min-h-[44px] border border-foreground/[0.06] bg-foreground/[0.03] px-3 py-1 text-sm font-semibold hover:bg-foreground/[0.06] transition-colors group"
+                    title={methodTriggerLabel}
+                    aria-label={methodTriggerLabel}
+                    className="group flex min-w-0 max-w-[126px] lg:max-w-[160px] items-center gap-2 rounded-full min-h-[40px] border border-foreground/[0.06] bg-foreground/[0.03] px-2.5 py-1.5 text-sm font-medium text-foreground/80 hover:bg-foreground/[0.06] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
-                    <span className="text-foreground/70 font-medium">{t('manualInput.methodSelector.label')}:</span>
-                    <span className="text-foreground truncate max-w-[180px]">
-                      {t(METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended')}
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-foreground/55 group-hover:text-foreground/70 shrink-0" />
+                    <span className="truncate min-w-0 flex-1 text-left">
+                      {compactMethodLabel}
                     </span>
                     <ChevronDown className="w-3 h-3 text-foreground/40 group-hover:text-foreground/60 shrink-0" />
                   </button>
@@ -598,7 +611,7 @@ export function CalculatorNav({
         </div>
 
         {/* Center: Valuation Summary */}
-        <div className="flex-1 flex items-center justify-center gap-4">
+        <div className="hidden md:flex min-w-0 items-center justify-center px-2 lg:px-4">
           {/* Valuation Summary Pill */}
           <AnimatePresence mode="wait">
             {displaySummary && hasReport && (
@@ -607,7 +620,7 @@ export function CalculatorNav({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
-                className="hidden md:flex items-center"
+                className="flex items-center shrink-0"
               >
                 <div
                   className={cn(
@@ -736,7 +749,7 @@ export function CalculatorNav({
         </div>
 
         {/* Right: Assistant Button + Report Actions + User Avatar */}
-        <div className="flex items-center">
+        <div className="flex min-w-0 items-center justify-self-end">
           {/* Action buttons - grouped with Assistant */}
           <div className="hidden sm:flex items-center gap-0.5">
             {/* Assistant Button - Primary action (Clarity parity) */}
@@ -966,7 +979,7 @@ export function CalculatorNav({
           </div>
 
           {/* Mobile actions */}
-          <div className="flex sm:hidden items-center gap-1">
+          <div className="flex min-w-0 sm:hidden items-center gap-1">
             {/* Mobile method selector — compact labeled trigger */}
             {onPreSelectMethod && (
               <Dropdown
@@ -974,8 +987,11 @@ export function CalculatorNav({
                   <button
                     type="button"
                     aria-haspopup="listbox"
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg min-h-[44px] border border-foreground/[0.06] bg-foreground/[0.03] text-xs font-medium text-foreground hover:bg-foreground/[0.05] transition-colors"
+                    title={methodTriggerLabel}
+                    aria-label={methodTriggerLabel}
+                    className="flex shrink-0 items-center gap-1.5 px-2 py-1.5 rounded-lg min-h-[44px] border border-foreground/[0.06] bg-foreground/[0.03] text-xs font-medium text-foreground hover:bg-foreground/[0.05] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-foreground/55 shrink-0" />
                     <span className="text-foreground/60">{t('manualInput.methodSelector.label')}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-foreground/40 shrink-0" />
                   </button>
@@ -998,14 +1014,14 @@ export function CalculatorNav({
                   exit={{ opacity: 0, scale: 0.9 }}
                   onClick={onContinueToListing}
                   className={cn(
-                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg',
+                    'flex min-w-0 items-center gap-1.5 px-2 py-1.5 rounded-lg',
                     'bg-primary/15 border border-primary/25',
                     'text-primary text-xs font-medium',
                     'min-h-[44px]'
                   )}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-                  <span className="truncate max-w-[80px]">
+                  <span className="truncate max-w-[72px]">
                     {formatPrice(displaySummary.askPrice)}
                   </span>
                   <ArrowRight className="w-3 h-3 shrink-0" />
