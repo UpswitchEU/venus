@@ -33,11 +33,10 @@ const modalVariants = cva(
       size: {
         sm: 'max-w-sm p-5',
         md: 'max-w-md p-6',
-        lg: 'max-w-lg p-8',
+        lg: 'w-full max-w-[min(32rem,calc(100vw-2rem))] p-8',
         xl: 'max-w-xl p-8',
         /** Wide dialogs: valuation editor, dense forms */
-        '2xl':
-          'max-w-5xl w-[calc(100vw-1.5rem)] sm:w-full p-6 sm:p-8',
+        '2xl': 'max-w-5xl w-[calc(100vw-1.5rem)] sm:w-full p-6 sm:p-8',
         full: 'max-w-[90vw] max-h-[90vh] p-8',
       },
     },
@@ -110,53 +109,68 @@ ModalOverlay.displayName = 'ModalOverlay'
 const ModalContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   ModalContentProps
->(({ className, children, variant, size, showClose = true, closeDisabled = false, description, 'aria-describedby': ariaDescById, ...props }, ref) => {
-  const descId = React.useId()
-  const hasValidExternalDesc = ariaDescById != null && ariaDescById !== ''
-  return (
-    <DialogPrimitive.Portal>
-      <ModalOverlay />
-      <DialogPrimitive.Content
-        ref={ref}
-        aria-describedby={hasValidExternalDesc ? ariaDescById : descId}
-        className={cn(
-          'fixed left-1/2 top-1/2 z-[9999]',
-          '-translate-x-1/2 -translate-y-1/2',
-          'data-[state=open]:animate-in data-[state=closed]:animate-out',
-          'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-          'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-          'duration-200',
-          modalVariants({ variant, size }),
-          className
-        )}
-        {...props}
-      >
-        {!hasValidExternalDesc && (
-          <DialogPrimitive.Description id={descId} className="sr-only">
-            {description ?? 'Dialog content'}
-          </DialogPrimitive.Description>
-        )}
-        {children}
-        {showClose && (
-          <DialogPrimitive.Close
-            disabled={closeDisabled}
-            className={cn(
-              'absolute right-4 top-4 rounded-full p-1.5',
-              'text-foreground/50 hover:text-foreground',
-              'bg-foreground/5 hover:bg-foreground/10',
-              'transition-colors duration-200',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background',
-              'disabled:pointer-events-none disabled:opacity-40'
-            )}
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Content>
-    </DialogPrimitive.Portal>
-  )
-})
+>(
+  (
+    {
+      className,
+      children,
+      variant,
+      size,
+      showClose = true,
+      closeDisabled = false,
+      description,
+      'aria-describedby': ariaDescById,
+      ...props
+    },
+    ref
+  ) => {
+    const descId = React.useId()
+    const hasValidExternalDesc = ariaDescById != null && ariaDescById !== ''
+    return (
+      <DialogPrimitive.Portal>
+        <ModalOverlay />
+        <DialogPrimitive.Content
+          ref={ref}
+          aria-describedby={hasValidExternalDesc ? ariaDescById : descId}
+          className={cn(
+            'fixed left-1/2 top-1/2 z-[9999]',
+            '-translate-x-1/2 -translate-y-1/2',
+            'data-[state=open]:animate-in data-[state=closed]:animate-out',
+            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+            'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+            'duration-200',
+            modalVariants({ variant, size }),
+            className
+          )}
+          {...props}
+        >
+          {!hasValidExternalDesc && (
+            <DialogPrimitive.Description id={descId} className="sr-only">
+              {description ?? 'Dialog content'}
+            </DialogPrimitive.Description>
+          )}
+          {children}
+          {showClose && (
+            <DialogPrimitive.Close
+              disabled={closeDisabled}
+              className={cn(
+                'absolute right-4 top-4 rounded-full p-1.5',
+                'text-foreground/50 hover:text-foreground',
+                'bg-foreground/5 hover:bg-foreground/10',
+                'transition-colors duration-200',
+                'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background',
+                'disabled:pointer-events-none disabled:opacity-40'
+              )}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    )
+  }
+)
 ModalContent.displayName = 'ModalContent'
 
 // ─────────────────────────────────────────
@@ -165,7 +179,11 @@ ModalContent.displayName = 'ModalContent'
 
 const ModalHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex flex-col space-y-2 mb-6', className)} {...props} />
+    <div
+      ref={ref}
+      className={cn('mb-6 flex min-w-0 flex-col space-y-2 pr-10 sm:pr-12', className)}
+      {...props}
+    />
   )
 )
 ModalHeader.displayName = 'ModalHeader'
@@ -199,7 +217,7 @@ const ModalTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      'text-xl font-semibold leading-none tracking-tight text-foreground/90',
+      'break-words text-xl font-semibold leading-snug tracking-tight text-foreground/90',
       className
     )}
     {...props}

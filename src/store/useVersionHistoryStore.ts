@@ -17,7 +17,7 @@ import type {
   VersionChanges,
   VersionComparison,
 } from '../types/ValuationVersion'
-import { getCurrentFilingYear } from '../utils/fiscalYear'
+import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { buildCurrentYearData } from '../utils/yearData'
@@ -882,11 +882,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 company_name: fd?.company_name,
                 current_year_data: fd?.current_year_data
                   ? buildCurrentYearData({
-                      year:
-                        typeof fd.current_year_data.year === 'number' &&
-                        Number.isFinite(fd.current_year_data.year)
-                          ? fd.current_year_data.year
-                          : getCurrentFilingYear(),
+                      year: normalizeCurrentYearForFiling(
+                        fd.current_year_data.year,
+                        Boolean(fd?.filing_year_confirmed)
+                      ),
                       revenue: fd.current_year_data.revenue,
                       ebitda: fd.current_year_data.ebitda,
                       currentYearData: fd.current_year_data,

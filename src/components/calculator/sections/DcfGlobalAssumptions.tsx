@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
+import { cn } from '@/design-system/utils'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 import { WaccBreakdownPanel } from './WaccBreakdownPanel'
@@ -11,6 +12,7 @@ import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 export type TerminalValueMethod = 'perpetual_growth' | 'exit_multiple'
 
 interface DcfGlobalAssumptionsProps {
+  step: number
   dcfRevenueGrowthPct?: number
   dcfEbitdaMarginPct?: number
   dcfCapexPct?: number
@@ -31,6 +33,7 @@ interface DcfGlobalAssumptionsProps {
   canApplyToForecastYears?: boolean
   forecastYearCount?: number
   disabled?: boolean
+  className?: string
 }
 
 const terminalMethodOptions: { value: TerminalValueMethod; label: string }[] = [
@@ -39,6 +42,7 @@ const terminalMethodOptions: { value: TerminalValueMethod; label: string }[] = [
 ]
 
 export function DcfGlobalAssumptions({
+  step,
   dcfRevenueGrowthPct,
   dcfEbitdaMarginPct,
   dcfCapexPct,
@@ -59,6 +63,7 @@ export function DcfGlobalAssumptions({
   canApplyToForecastYears = false,
   forecastYearCount = 0,
   disabled,
+  className,
 }: DcfGlobalAssumptionsProps) {
   const t = useTranslations('manualInput.methodSelector')
 
@@ -82,12 +87,12 @@ export function DcfGlobalAssumptions({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="space-y-5 pt-2"
+      className={cn('space-y-5 pt-2', className)}
       aria-label={t('sections.dcfGlobalAssumptions')}
     >
       <ValuationSectionHeader
         complete={globalAssumptionsComplete}
-        stepNumber={5}
+        step={step}
         title={t('sections.dcfGlobalAssumptions')}
       />
 

@@ -15,3 +15,23 @@ export function getCurrentFilingYear(now: Date = new Date()): number {
   const year = now.getFullYear()
   return month <= 6 ? year - 2 : year - 1
 }
+
+/**
+ * Normalizes a current-year value to the filing-safe year unless the user
+ * explicitly confirmed a newer year selection.
+ */
+export function normalizeCurrentYearForFiling(
+  explicitYear: unknown,
+  filingYearConfirmed: boolean = false,
+  now: Date = new Date()
+): number {
+  const filingYear = getCurrentFilingYear(now)
+  const maxConfirmedYear = Math.min(Math.max(now.getFullYear() - 1, 2000), 2100)
+  const parsedYear = Number(explicitYear)
+
+  if (!Number.isFinite(parsedYear) || parsedYear < 2000) {
+    return filingYear
+  }
+
+  return Math.min(parsedYear, filingYearConfirmed ? maxConfirmedYear : filingYear)
+}

@@ -1,4 +1,8 @@
-import { getCurrentFilingYear, getLastFullFiscalYear } from '../fiscalYear'
+import {
+  getCurrentFilingYear,
+  getLastFullFiscalYear,
+  normalizeCurrentYearForFiling,
+} from '../fiscalYear'
 
 describe('getCurrentFilingYear', () => {
   it.each([
@@ -36,5 +40,15 @@ describe('getLastFullFiscalYear (deprecated)', () => {
   it('returns currentYear - 1 regardless of month', () => {
     const expected = new Date().getFullYear() - 1
     expect(getLastFullFiscalYear()).toBe(expected)
+  })
+})
+
+describe('normalizeCurrentYearForFiling', () => {
+  it('clamps unconfirmed years to the filing year in H1', () => {
+    expect(normalizeCurrentYearForFiling(2025, false, new Date('2026-03-27'))).toBe(2024)
+  })
+
+  it('preserves confirmed years up to the last calendar year', () => {
+    expect(normalizeCurrentYearForFiling(2025, true, new Date('2026-03-27'))).toBe(2025)
   })
 })

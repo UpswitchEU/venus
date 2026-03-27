@@ -26,7 +26,7 @@ import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
-import { getCurrentFilingYear } from '../../utils/fiscalYear'
+import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
 import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../utils/versionConfirmation'
 import { RecalculateConfirmationPopup } from '../normalization/RecalculateConfirmationPopup'
@@ -278,11 +278,10 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // Convert historicalInputs to formData.historical_years_data
   // Backend requires chronological order (oldest first), but UI shows most recent first
   useEffect(() => {
-    const explicitCurrentYear = Number(formData.current_year_data?.year)
-    const maxHistoricalYear =
-      Number.isFinite(explicitCurrentYear) && explicitCurrentYear >= 2000
-        ? explicitCurrentYear
-        : getCurrentFilingYear()
+    const maxHistoricalYear = normalizeCurrentYearForFiling(
+      formData.current_year_data?.year,
+      Boolean(formData.filing_year_confirmed)
+    )
     const historicalYears: { year: number; revenue: number; ebitda: number }[] = []
 
     // Extract all years from historicalInputs

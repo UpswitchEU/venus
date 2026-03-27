@@ -20,7 +20,7 @@ import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { ValidationError } from '../../../types/errors'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
-import { getCurrentFilingYear } from '../../../utils/fiscalYear'
+import { normalizeCurrentYearForFiling } from '../../../utils/fiscalYear'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
@@ -190,7 +190,10 @@ export const useValuationFormSubmission = (
         // NOTE: We use fire-and-forget to avoid blocking calculation if backend is slow
         if (reportId) {
           try {
-            const lastFullYear = getCurrentFilingYear()
+            const currentYear = normalizeCurrentYearForFiling(
+              formData.current_year_data?.year,
+              Boolean(formData.filing_year_confirmed)
+            )
             // Convert formData to session format
             const sessionUpdate: Partial<any> = {
               company_name: formData.company_name,
@@ -199,7 +202,7 @@ export const useValuationFormSubmission = (
               business_model: formData.business_model,
               founding_year: formData.founding_year,
               current_year_data: {
-                year: formData.current_year_data?.year || lastFullYear,
+                year: currentYear,
                 revenue: formData.revenue ?? formData.current_year_data?.revenue ?? 0,
                 ebitda: formData.ebitda ?? formData.current_year_data?.ebitda ?? 0,
                 ...(formData.current_year_data?.total_assets != null && {

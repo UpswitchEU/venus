@@ -7,6 +7,7 @@ import { CurrencyInput } from '../CurrencyInput'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface NavAssetScheduleSectionProps {
+  step: number
   navRealEstateAdjustment?: number
   navInventoryAdjustment?: number
   navHiddenReserves?: number
@@ -16,6 +17,7 @@ interface NavAssetScheduleSectionProps {
 }
 
 export function NavAssetScheduleSection({
+  step,
   navRealEstateAdjustment,
   navInventoryAdjustment,
   navHiddenReserves,
@@ -42,9 +44,10 @@ export function NavAssetScheduleSection({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="space-y-4 pt-2"
+      className="mt-6 space-y-4 pt-2"
     >
       <ValuationSectionHeader
+        step={step}
         complete={sectionComplete}
         title={t('sections.navAssetSchedule')}
         badge={

@@ -8,6 +8,7 @@ import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface RevenueQualitySectionProps {
+  step: number
   revRecurringPct?: number
   revTopClientConcentrationPct?: number
   revContractBacklog?: number
@@ -16,6 +17,7 @@ interface RevenueQualitySectionProps {
 }
 
 export function RevenueQualitySection({
+  step,
   revRecurringPct,
   revTopClientConcentrationPct,
   revContractBacklog,
@@ -38,9 +40,10 @@ export function RevenueQualitySection({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="space-y-4 pt-2"
+      className="mt-6 space-y-4 pt-2"
     >
       <ValuationSectionHeader
+        step={step}
         complete={sectionComplete}
         title={t('sections.revenueQuality')}
         badge={

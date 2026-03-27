@@ -22,7 +22,7 @@ import { useCallback, useEffect } from 'react'
 import { backendAPI } from '../services/backendApi'
 import { useSessionStore } from '../store/useSessionStore'
 import { debounceWithFlush } from '../utils/debounce'
-import { getCurrentFilingYear } from '../utils/fiscalYear'
+import { normalizeCurrentYearForFiling } from '../utils/fiscalYear'
 import { generalLogger } from '../utils/logger'
 import { NameGenerator } from '../utils/nameGenerator'
 import { buildCurrentYearData, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
@@ -147,15 +147,10 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       try {
         // Convert ValuationFormData to Partial<ValuationRequest> for session
         // ✅ FIX: Include ALL form fields for complete persistence
-        const lastFullYear = getCurrentFilingYear()
-        const currentCalendarYear = new Date().getFullYear()
-        const explicitCurrentYear = Number(data.current_year_data?.year ?? data.year)
-        const normalizedCurrentYear =
-          Number.isFinite(explicitCurrentYear) &&
-          explicitCurrentYear >= 2000 &&
-          explicitCurrentYear <= currentCalendarYear
-            ? explicitCurrentYear
-            : lastFullYear
+        const normalizedCurrentYear = normalizeCurrentYearForFiling(
+          data.current_year_data?.year ?? data.year,
+          Boolean(data.filing_year_confirmed)
+        )
 
         const sessionUpdate: Partial<any> = {
           company_name: data.company_name,

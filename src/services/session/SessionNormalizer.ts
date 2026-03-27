@@ -15,6 +15,7 @@
  */
 
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
+import { normalizeCurrentYearForFiling } from '../../utils/fiscalYear'
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { generalLogger } from '../../utils/logger'
 
@@ -199,6 +200,9 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
   const cyd = fd.current_year_data as
     | { year?: number; revenue?: number | null; ebitda?: number | null }
     | undefined
+  if (cyd) {
+    cyd.year = normalizeCurrentYearForFiling(cyd.year, Boolean(fd.filing_year_confirmed))
+  }
   if (cyd && (fd.revenue === undefined || fd.ebitda === undefined)) {
     if (fd.revenue === undefined && cyd.revenue != null) (fd as any).revenue = Number(cyd.revenue)
     if (fd.ebitda === undefined && cyd.ebitda != null) (fd as any).ebitda = Number(cyd.ebitda)

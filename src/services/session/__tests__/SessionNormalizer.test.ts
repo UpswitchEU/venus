@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { normalizeSessionData } from '../SessionNormalizer'
 
 describe('normalizeSessionData', () => {
-  it('does not fabricate historical years from current year data', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('does not fabricate historical years from current year data and keeps the year filing-safe', () => {
     const normalized = normalizeSessionData({
       session_key: 'val_123',
       session_data: {
@@ -16,13 +20,35 @@ describe('normalizeSessionData', () => {
     })
 
     expect(normalized.formData.current_year_data).toEqual({
-      year: 2025,
+      year: 2024,
       revenue: 1000000,
       ebitda: 100000,
     })
     expect(normalized.formData.historical_years_data).toBeUndefined()
     expect(normalized.formData.revenue).toBe(1000000)
     expect(normalized.formData.ebitda).toBe(100000)
+  })
+
+  it('clamps an unconfirmed future current year on restore during H1', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
+
+    const normalized = normalizeSessionData({
+      session_key: 'val_h1',
+      session_data: {
+        current_year_data: {
+          year: 2025,
+          revenue: 1000000,
+          ebitda: 100000,
+        },
+      },
+    })
+
+    expect(normalized.formData.current_year_data).toEqual({
+      year: 2024,
+      revenue: 1000000,
+      ebitda: 100000,
+    })
   })
 
   it('normalizes year_data into oldest-to-newest historical years', () => {

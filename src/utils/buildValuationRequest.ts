@@ -15,7 +15,7 @@ import type { DataResponse } from '../types/data-collection'
 import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
-import { getCurrentFilingYear } from './fiscalYear'
+import { getCurrentFilingYear, normalizeCurrentYearForFiling } from './fiscalYear'
 import { generalLogger } from './logger'
 import { deriveNwcChangesForActualYears } from './yearData'
 
@@ -138,15 +138,10 @@ export function buildValuationRequest(
   }
 
   // Respect an explicitly selected filing year when the accountant confirms a newer year.
-  const defaultFilingYear = getCurrentFilingYear()
-  const currentCalendarYear = new Date().getFullYear()
-  const explicitCurrentYear = Number(formData.current_year_data?.year)
-  const currentFiscalYear =
-    Number.isFinite(explicitCurrentYear) &&
-    explicitCurrentYear >= 2000 &&
-    explicitCurrentYear <= currentCalendarYear
-      ? explicitCurrentYear
-      : defaultFilingYear
+  const currentFiscalYear = normalizeCurrentYearForFiling(
+    formData.current_year_data?.year,
+    Boolean(formData.filing_year_confirmed)
+  )
 
   // Normalize founding year (1900-2100)
   const foundingYear = Math.min(

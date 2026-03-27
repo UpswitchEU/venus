@@ -130,7 +130,7 @@ import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
-import { getCurrentFilingYear } from '../../../utils/fiscalYear'
+import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../../utils/fiscalYear'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
@@ -408,7 +408,10 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
         })
       : existingCurrentYearData
         ? buildCurrentYearData({
-            year: Number(existingCurrentYearData.year) || getCurrentFilingYear(),
+            year: normalizeCurrentYearForFiling(
+              existingCurrentYearData.year,
+              Boolean(data.filingYearConfirmed)
+            ),
             revenue: existingCurrentYearData.revenue,
             ebitda: existingCurrentYearData.ebitda,
             currentYearData: existingCurrentYearData,

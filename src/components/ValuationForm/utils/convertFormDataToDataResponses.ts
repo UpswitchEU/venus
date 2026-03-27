@@ -9,6 +9,7 @@
 
 import type { DataResponse } from '../../../types/data-collection'
 import type { ValuationFormData } from '../../../types/valuation'
+import { normalizeCurrentYearForFiling } from '../../../utils/fiscalYear'
 
 /**
  * Convert ValuationFormData to DataResponse[] format
@@ -54,7 +55,13 @@ export function convertFormDataToDataResponses(formData: ValuationFormData): Dat
 
   // Current Year Data (if structured)
   if (formData.current_year_data) {
-    addResponse('current_year', formData.current_year_data.year)
+    addResponse(
+      'current_year',
+      normalizeCurrentYearForFiling(
+        formData.current_year_data.year,
+        Boolean(formData.filing_year_confirmed)
+      )
+    )
     if (formData.current_year_data.revenue !== undefined) {
       addResponse('revenue', formData.current_year_data.revenue)
     }

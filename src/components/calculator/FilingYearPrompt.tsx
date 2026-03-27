@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { FormEvent, useMemo, useState } from 'react'
 import { cn } from '@/design-system/utils'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 
 interface FilingYearPromptProps {
   defaultYear: number
@@ -21,14 +22,10 @@ export function FilingYearPrompt({
   const actions = useTranslations('common.actions')
   const [showCustomYear, setShowCustomYear] = useState(false)
   const [customYear, setCustomYear] = useState('')
-  const maxSelectableYear = new Date().getFullYear() - 1
+  const maxSelectableYear = getCurrentFilingYear()
 
   const suggestedYears = useMemo(() => {
-    const years = [defaultYear]
-    if (defaultYear + 1 <= maxSelectableYear) {
-      years.push(defaultYear + 1)
-    }
-    return years
+    return [Math.min(defaultYear, maxSelectableYear)]
   }, [defaultYear, maxSelectableYear])
 
   if (dismissed) return null

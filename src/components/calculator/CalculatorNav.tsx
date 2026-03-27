@@ -581,7 +581,7 @@ export function CalculatorNav({
           {/* Method Pre-Selector — compact pill next to company name */}
           {onPreSelectMethod && (
             <div className="hidden sm:flex min-w-0 items-center">
-              <div className="h-5 w-px bg-foreground/[0.08] ml-1.5 mr-3 shrink-0" aria-hidden />
+              <div className="h-5 w-px bg-foreground/[0.08] ml-1.5 mr-4 shrink-0" aria-hidden />
               <Dropdown
                 trigger={
                   <button

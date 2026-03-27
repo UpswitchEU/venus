@@ -39,4 +39,24 @@ describe('generateConversationFromFormData', () => {
     expect(messages.some((message) => message.content === 'What was your revenue in 2022?')).toBe(true)
     expect(messages.some((message) => message.content === 'What was your EBITDA in 2022?')).toBe(true)
   })
+
+  it('clamps an unconfirmed future year back to the filing year in H1', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
+
+    const messages = generateConversationFromFormData(
+      {
+        company_name: 'Acme BV',
+        current_year_data: {
+          year: 2025,
+          revenue: 1_500_000,
+          ebitda: 250_000,
+        },
+      } as any,
+      'report-789'
+    )
+
+    expect(messages.some((message) => message.content === 'What was your revenue in 2024?')).toBe(true)
+    expect(messages.some((message) => message.content === 'What was your EBITDA in 2024?')).toBe(true)
+  })
 })

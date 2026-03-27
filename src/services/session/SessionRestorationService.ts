@@ -38,6 +38,7 @@ import {
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
+import { normalizeCurrentYearForFiling } from '../../utils/fiscalYear'
 
 /**
  * Bank-grade retry utility with exponential backoff
@@ -839,6 +840,19 @@ class SessionRestorationServiceImpl {
             if (value === undefined) continue
             const snakeKey = camelToSnake[key] ?? key
             mapped[snakeKey] = value
+          }
+
+          const mappedCurrentYearData = mapped.current_year_data as
+            | { year?: number; revenue?: number; ebitda?: number }
+            | undefined
+          if (mappedCurrentYearData && typeof mappedCurrentYearData === 'object') {
+            mapped.current_year_data = {
+              ...mappedCurrentYearData,
+              year: normalizeCurrentYearForFiling(
+                mappedCurrentYearData.year,
+                Boolean(mapped.filing_year_confirmed)
+              ),
+            }
           }
 
           updateFormData(mapped as any)

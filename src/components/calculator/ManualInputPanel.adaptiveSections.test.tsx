@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-import { AdaptiveSections, OfficialFilingTrustPanel } from './ManualInputPanel'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  AdaptiveSections,
+  OfficialFilingTrustPanel,
+  getSeedYearlyFinancials,
+  shouldAutoConfirmPrefilledFilingYear,
+} from './ManualInputPanel'
+import { FilingYearPrompt } from './FilingYearPrompt'
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
@@ -12,6 +18,53 @@ vi.mock('next-intl', () => ({
       : key,
 }))
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+describe('Manual filing year defaults', () => {
+  it('seeds the yearly grid from the filing year in March even when current_year_data carries 2025', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
+
+    const seededYears = getSeedYearlyFinancials({
+      current_year_data: {
+        year: 2025,
+        revenue: 1_000_000,
+        ebitda: 100_000,
+      },
+    } as any)
+
+    expect(seededYears.map((row) => row.year)).toEqual(['2024', '2023', '2022'])
+  })
+
+  it('does not auto-confirm a prefilled year that is ahead of the filing year in H1', () => {
+    expect(
+      shouldAutoConfirmPrefilledFilingYear(
+        {
+          current_year_data: {
+            year: 2025,
+          },
+        } as any,
+        2024
+      )
+    ).toBe(false)
+  })
+
+  it('caps the filing-year prompt to the filing year in H1', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
+
+    render(<FilingYearPrompt defaultYear={2024} onSelect={vi.fn()} />)
+
+    expect(screen.getByText('2024')).toBeInTheDocument()
+    expect(screen.queryByText('2025')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'filingYearOther' }))
+    expect(screen.getByLabelText('Aangepast boekjaar')).toHaveAttribute('max', '2024')
+  })
+})
+
 describe('AdaptiveSections', () => {
   const baseProps = {
     formData: {} as any,
@@ -19,6 +72,12 @@ describe('AdaptiveSections', () => {
     terminalValueMethod: 'perpetual_growth' as const,
     onTerminalValueMethodChange: vi.fn(),
     disabled: false,
+    sectionHeaderSteps: {
+      dcfGlobal: 5,
+      nav: 6,
+      saas: 7,
+      revenue: 8,
+    },
   }
 
   it('renders the DCF and SaaS sections together when both rules apply', () => {

@@ -7,7 +7,7 @@
 
 import type { Message } from '../types/message'
 import type { ValuationFormData } from '../types/valuation'
-import { getCurrentFilingYear } from './fiscalYear'
+import { normalizeCurrentYearForFiling } from './fiscalYear'
 
 /**
  * Generate conversation messages that represent manual form data
@@ -19,7 +19,6 @@ export function generateConversationFromFormData(
 ): Message[] {
   const messages: Message[] = []
   const baseTimestamp = new Date()
-  const filingYear = getCurrentFilingYear()
 
   // Helper to add message pair (AI question + User answer)
   const addMessagePair = (
@@ -136,7 +135,10 @@ export function generateConversationFromFormData(
   // Revenue
   if (formData.revenue || formData.current_year_data?.revenue) {
     const revenue = formData.revenue || formData.current_year_data?.revenue || 0
-    const year = formData.current_year_data?.year || filingYear
+    const year = normalizeCurrentYearForFiling(
+      formData.current_year_data?.year,
+      Boolean(formData.filing_year_confirmed)
+    )
     addMessagePair(`What was your revenue in ${year}?`, `€${revenue.toLocaleString()}`, 'revenue', {
       revenue,
       year,
@@ -146,7 +148,10 @@ export function generateConversationFromFormData(
   // EBITDA
   if (formData.ebitda !== undefined || formData.current_year_data?.ebitda !== undefined) {
     const ebitda = formData.ebitda ?? formData.current_year_data?.ebitda ?? 0
-    const year = formData.current_year_data?.year || filingYear
+    const year = normalizeCurrentYearForFiling(
+      formData.current_year_data?.year,
+      Boolean(formData.filing_year_confirmed)
+    )
     addMessagePair(`What was your EBITDA in ${year}?`, `€${ebitda.toLocaleString()}`, 'ebitda', {
       ebitda,
       year,

@@ -9,6 +9,8 @@ import { DcfForecastYearDetailModal, type DcfYearDetail } from './DcfForecastYea
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface DcfForecastWorkspaceProps {
+  /** Step index after financial history (default 4). */
+  step?: number
   forecastRows: DcfForecastYearCardRow[]
   latestHistoricalRevenue?: number
   fieldValidation?: {
@@ -30,6 +32,7 @@ interface DcfForecastWorkspaceProps {
 }
 
 export function DcfForecastWorkspace({
+  step = 4,
   forecastRows,
   latestHistoricalRevenue,
   fieldValidation,
@@ -85,12 +88,12 @@ export function DcfForecastWorkspace({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
-        className="mt-8 space-y-3 pt-2"
+        className="mt-6 space-y-3 pt-2"
         aria-label={t('dcfForecastWorkspace.sectionLabel')}
       >
         <ValuationSectionHeader
           complete={forecastSectionComplete}
-          stepNumber={4}
+          step={step}
           title={
             <span className="inline-flex flex-wrap items-center gap-2">
               <span>{t('dcfForecastWorkspace.title')}</span>

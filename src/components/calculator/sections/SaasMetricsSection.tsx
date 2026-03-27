@@ -5,7 +5,6 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useMemo } from 'react'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
-import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface SaasMetricsSectionProps {
   saasArr?: number
@@ -21,7 +20,6 @@ interface SaasMetricsSectionProps {
   saasSmSpend?: number
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
-  showHeader?: boolean
   arrProjectionPreview?: Array<{ year: number; arr: number }>
   importedSaasProvenance?: {
     source?: string
@@ -67,7 +65,6 @@ export function SaasMetricsSection({
   saasSmSpend,
   onFieldChange,
   disabled,
-  showHeader = true,
   arrProjectionPreview = [],
   importedSaasProvenance,
 }: SaasMetricsSectionProps) {
@@ -141,14 +138,6 @@ export function SaasMetricsSection({
     saasNrrPct,
     saasSmSpend,
   ])
-  const saasSectionComplete = useMemo(
-    () =>
-      (saasArr != null && saasArr > 0) ||
-      (saasMrr != null && saasMrr > 0) ||
-      saasArrGrowthPct != null ||
-      saasGrossMarginPct != null,
-    [saasArr, saasMrr, saasArrGrowthPct, saasGrossMarginPct]
-  )
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -157,19 +146,6 @@ export function SaasMetricsSection({
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="space-y-4 pt-2"
     >
-      {showHeader && (
-        <ValuationSectionHeader
-          complete={saasSectionComplete}
-          title={t('sections.saasMetrics')}
-          badge={
-            <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
-              {t('shownForBusinessType', {
-                businessType: t('businessTypes.saasSoftware'),
-              })}
-            </span>
-          }
-        />
-      )}
       {importedSaasProvenance && importedProviderLabel && (
         <div className="rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2.5">
           <p className="text-xs font-medium text-foreground">{t('saasImported.title')}</p>

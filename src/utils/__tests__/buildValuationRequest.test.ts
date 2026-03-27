@@ -102,9 +102,25 @@ describe('buildValuationRequest', () => {
     expect(result.current_year_data.year).toBe(getCurrentFilingYear())
   })
 
-  it('preserves an explicitly selected filing year for current_year_data', () => {
+  it('clamps an unconfirmed explicit year to the filing year in H1', () => {
     const result = buildValuationRequest(
       makeFormData({
+        current_year_data: {
+          year: getCurrentFilingYear() + 1,
+          revenue: 1_500_000,
+          ebitda: 250_000,
+        },
+      }),
+      []
+    )
+
+    expect(result.current_year_data.year).toBe(getCurrentFilingYear())
+  })
+
+  it('preserves an explicitly confirmed newer year for current_year_data', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        filing_year_confirmed: true,
         current_year_data: {
           year: getCurrentFilingYear() + 1,
           revenue: 1_500_000,

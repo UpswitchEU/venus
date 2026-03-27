@@ -8,6 +8,7 @@ import { CurrencyInput } from '../CurrencyInput'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface RealEstateCarveOutSectionProps {
+  step: number
   excludeRealEstate?: boolean
   realEstateBookValue?: number
   estimatedMarketRent?: number
@@ -17,6 +18,7 @@ interface RealEstateCarveOutSectionProps {
 }
 
 export function RealEstateCarveOutSection({
+  step,
   excludeRealEstate,
   realEstateBookValue,
   estimatedMarketRent,
@@ -46,7 +48,7 @@ export function RealEstateCarveOutSection({
     >
       <ValuationSectionHeader
         complete={sectionComplete}
-        stepNumber={6}
+        step={step}
         title={t('sections.realEstateCarveOut')}
       />
 

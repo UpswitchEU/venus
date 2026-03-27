@@ -9,6 +9,7 @@ import {
   ModalHeader,
   ModalTitle,
 } from '@/design-system/components/Modal'
+import { cn } from '@/design-system/utils'
 import { CurrencyInput } from '../CurrencyInput'
 
 export interface DcfYearDetail {
@@ -110,102 +111,105 @@ export function DcfForecastYearDetailModal({
       <ModalContent
         size="lg"
         description={t('dcfYearDetail.modalDescription', { year: yearDetail.year })}
+        className={cn('flex max-h-[min(90vh,calc(100dvh-2rem))] flex-col overflow-hidden')}
       >
-        <ModalHeader>
+        <ModalHeader className="mb-4 shrink-0 sm:mb-6">
           <ModalTitle>{t('dcfYearDetail.title', { year: yearDetail.year })}</ModalTitle>
         </ModalHeader>
 
-        <div className="space-y-8">
-          <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-5">
-            <p className="mb-4 text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
-              {t('dcfYearDetail.summaryStrip')}
-            </p>
-            <div className="space-y-4">
-              {summaryRows.map((row) => (
-                <div
-                  key={row.label}
-                  className="flex flex-col gap-1 border-b border-foreground/[0.06] pb-4 last:border-0 last:pb-0"
-                >
-                  <p className="text-xs text-foreground/55">{row.label}</p>
-                  <p className="text-base font-semibold tabular-nums text-foreground">
-                    {row.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
-              {t('dcfYearDetail.toplineSection')}
-            </h4>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <CurrencyInput
-                label={t('fields.revenue')}
-                value={yearDetail.revenue}
-                onChange={(v) => handleFieldChange('revenue', v)}
-                size="md"
-                placeholder="1.500.000"
-                disabled={disabled}
-              />
-              <CurrencyInput
-                label={t('fields.ebitda')}
-                value={yearDetail.ebitda}
-                onChange={(v) => handleFieldChange('ebitda', v)}
-                size="md"
-                placeholder="250.000"
-                disabled={disabled}
-                allowNegative
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
-              {t('dcfYearDetail.cashFlowDrivers')}
-            </h4>
-            <div className="grid grid-cols-1 gap-5">
-              <CurrencyInput
-                label={t('dcfYearDetail.capex')}
-                value={yearDetail.capex}
-                onChange={(v) => handleFieldChange('capex', v)}
-                size="md"
-                placeholder={effectiveCapex > 0 ? String(effectiveCapex) : undefined}
-                disabled={disabled}
-              />
-              <CurrencyInput
-                label={t('dcfYearDetail.depreciation')}
-                value={yearDetail.depreciation}
-                onChange={(v) => handleFieldChange('depreciation', v)}
-                size="md"
-                placeholder="15.000"
-                disabled={disabled}
-              />
-              <CurrencyInput
-                label={t('dcfYearDetail.nwcChange')}
-                value={yearDetail.nwc_change}
-                onChange={(v) => handleFieldChange('nwc_change', v)}
-                size="md"
-                placeholder={
-                  effectiveNwcChange !== 0 ? String(Math.abs(effectiveNwcChange)) : undefined
-                }
-                disabled={disabled}
-                allowNegative
-              />
-            </div>
-            {(globalCapexPct != null || globalNwcPct != null) && (
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {t('dcfYearDetail.prefillHint')}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]">
+          <div className="space-y-8 pr-0.5">
+            <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-5">
+              <p className="mb-4 text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                {t('dcfYearDetail.summaryStrip')}
               </p>
-            )}
+              <div className="space-y-4">
+                {summaryRows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex flex-col gap-1 border-b border-foreground/[0.06] pb-4 last:border-0 last:pb-0"
+                  >
+                    <p className="text-xs text-foreground/55">{row.label}</p>
+                    <p className="text-base font-semibold tabular-nums text-foreground">
+                      {row.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                {t('dcfYearDetail.toplineSection')}
+              </h4>
+              <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-2">
+                <CurrencyInput
+                  label={t('fields.revenue')}
+                  value={yearDetail.revenue}
+                  onChange={(v) => handleFieldChange('revenue', v)}
+                  size="md"
+                  placeholder="1.500.000"
+                  disabled={disabled}
+                />
+                <CurrencyInput
+                  label={t('fields.ebitda')}
+                  value={yearDetail.ebitda}
+                  onChange={(v) => handleFieldChange('ebitda', v)}
+                  size="md"
+                  placeholder="250.000"
+                  disabled={disabled}
+                  allowNegative
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                {t('dcfYearDetail.cashFlowDrivers')}
+              </h4>
+              <div className="grid min-w-0 grid-cols-1 gap-5">
+                <CurrencyInput
+                  label={t('dcfYearDetail.capex')}
+                  value={yearDetail.capex}
+                  onChange={(v) => handleFieldChange('capex', v)}
+                  size="md"
+                  placeholder={effectiveCapex > 0 ? String(effectiveCapex) : undefined}
+                  disabled={disabled}
+                />
+                <CurrencyInput
+                  label={t('dcfYearDetail.depreciation')}
+                  value={yearDetail.depreciation}
+                  onChange={(v) => handleFieldChange('depreciation', v)}
+                  size="md"
+                  placeholder="15.000"
+                  disabled={disabled}
+                />
+                <CurrencyInput
+                  label={t('dcfYearDetail.nwcChange')}
+                  value={yearDetail.nwc_change}
+                  onChange={(v) => handleFieldChange('nwc_change', v)}
+                  size="md"
+                  placeholder={
+                    effectiveNwcChange !== 0 ? String(Math.abs(effectiveNwcChange)) : undefined
+                  }
+                  disabled={disabled}
+                  allowNegative
+                />
+              </div>
+              {(globalCapexPct != null || globalNwcPct != null) && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {t('dcfYearDetail.prefillHint')}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
-        <ModalFooter className="mt-8 border-t border-foreground/[0.06] pt-6">
+        <ModalFooter className="mt-0 shrink-0 border-t border-foreground/[0.06] pt-6">
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="inline-flex min-w-[160px] items-center justify-center rounded-xl border border-primary/25 bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+            className="inline-flex min-w-[160px] max-w-full items-center justify-center rounded-xl border border-primary/25 bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
             {t('dcfYearDetail.done')}
           </button>

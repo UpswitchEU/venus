@@ -24,7 +24,7 @@ import { useNormalizationStore } from '../store/useNormalizationStore'
 import { useSpotlightStore } from '../store/useSpotlightStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
-import { getCurrentFilingYear } from '../utils/fiscalYear'
+import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../utils/fiscalYear'
 import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
 import { createContextLogger } from '../utils/logger'
@@ -319,7 +319,10 @@ export function useBootstrapPrefill(): {
             if (cyd && (cyd.revenue == null || cyd.ebitda == null)) {
               financialPatch.current_year_data = {
                 ...cyd,
-                year: cyd.year ?? getCurrentFilingYear(),
+                year: normalizeCurrentYearForFiling(
+                  cyd.year,
+                  Boolean(fdBefore.filing_year_confirmed)
+                ),
                 revenue:
                   cyd.revenue == null && mapped.revenue != null ? mapped.revenue : cyd.revenue,
                 ebitda: cyd.ebitda == null && mapped.ebitda != null ? mapped.ebitda : cyd.ebitda,
@@ -621,11 +624,17 @@ function applyPrefillToForm(
     }
     if (historicalYears.length > 0) {
       historicalYears.sort((a, b) => b.year - a.year) // Most recent first
+      const maxCurrentYear = normalizeCurrentYearForFiling(
+        historicalYears[0].year,
+        Boolean(allData.filing_year_confirmed)
+      )
+      const safeHistoricalYears = historicalYears.filter((year) => year.year <= maxCurrentYear)
+      const currentYearRow = safeHistoricalYears[0] ?? historicalYears[0]
       allData.historical_years_data = historicalYears
       allData.current_year_data = {
-        year: historicalYears[0].year,
-        revenue: historicalYears[0].revenue,
-        ebitda: historicalYears[0].ebitda,
+        year: currentYearRow.year,
+        revenue: currentYearRow.revenue,
+        ebitda: currentYearRow.ebitda,
       }
     }
   }

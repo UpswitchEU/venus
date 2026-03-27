@@ -9,4 +9,8 @@ export { RealEstateCarveOutSection } from './RealEstateCarveOutSection'
 export { RevenueQualitySection } from './RevenueQualitySection'
 export { SaasMetricsSection } from './SaasMetricsSection'
 
-export { SectionStatusCircle, ValuationSectionHeader } from './ValuationSectionHeader'
+export {
+  SECTION_HEADER_ROW_CLASS,
+  SectionStatusCircle,
+  ValuationSectionHeader,
+} from './ValuationSectionHeader'

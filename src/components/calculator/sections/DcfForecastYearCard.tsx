@@ -87,12 +87,12 @@ export function DcfForecastYearCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className={cn(
-        'group relative rounded-xl border p-3 transition-colors',
+        'group relative min-w-0 max-w-full overflow-hidden rounded-xl border p-3 transition-colors',
         'border-dashed border-primary/20 bg-primary/[0.02]'
       )}
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="text-sm font-semibold text-foreground">{row.year}</span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary/70">
             {t('forecastLabel')}
