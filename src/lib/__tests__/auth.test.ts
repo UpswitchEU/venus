@@ -6,7 +6,7 @@
  */
 
 import { renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearAuthCache, useAuthStore } from '../auth'
 
 describe('Authentication Module', () => {
@@ -30,6 +30,10 @@ describe('Authentication Module', () => {
       writable: true,
       value: '',
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   describe('Cookie Authentication', () => {
@@ -68,27 +72,43 @@ describe('Authentication Module', () => {
     })
 
     it('should handle no active session gracefully', async () => {
-      // Mock cookie
+      vi.useFakeTimers()
+
       Object.defineProperty(document, 'cookie', {
         writable: true,
         value: 'upswitch_session=valid_token',
       })
 
-      // Mock 401 response (no active session)
-      ;(global.fetch as any).mockResolvedValueOnce({
+      const unauthorized = {
         ok: false,
         status: 401,
         json: async () => ({ success: false }),
+      }
+
+      // 401 path: auth/me (twice for cookie-propagation retry), then refresh, then me again if refresh succeeded
+      ;(global.fetch as any).mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : String((input as Request).url)
+        if (url.includes('/api/auth/refresh')) {
+          return Promise.resolve({
+            ok: false,
+            status: 401,
+            json: async () => ({}),
+          })
+        }
+        if (url.includes('/api/auth/me')) {
+          return Promise.resolve(unauthorized)
+        }
+        return Promise.resolve(unauthorized)
       })
 
-      // Call checkSession
       const { checkSession } = useAuthStore.getState()
-      const user = await checkSession()
+      const sessionPromise = checkSession()
+      await vi.advanceTimersByTimeAsync(700)
+      const user = await sessionPromise
 
-      // Verify guest mode
       expect(user).toBeNull()
       expect(useAuthStore.getState().user).toBeNull()
-      expect(useAuthStore.getState().error).toBeNull() // Not an error, just guest
+      expect(useAuthStore.getState().error).toBeNull()
     })
 
     it('should continue as guest when no cookie', async () => {

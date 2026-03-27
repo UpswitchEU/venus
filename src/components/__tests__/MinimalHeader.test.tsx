@@ -4,8 +4,24 @@
 
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { AuthProvider } from '../../contexts/AuthContext'
 import { MinimalHeader } from '../MinimalHeader'
+
+vi.mock('../../hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: null,
+    logout: vi.fn().mockResolvedValue(undefined),
+  }),
+}))
+
+vi.mock('../UserDropdown', () => ({
+  UserDropdown: () => null,
+}))
+
+vi.mock('next-view-transitions', () => ({
+  Link: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}))
 
 // Mock Next.js Link (already mocked in setup.ts, but can override here if needed)
 vi.mock('next/link', () => ({
@@ -16,7 +32,7 @@ vi.mock('next/link', () => ({
 
 describe('MinimalHeader', () => {
   const renderWithAuth = (component: React.ReactElement) => {
-    return render(<AuthProvider>{component}</AuthProvider>)
+    return render(component)
   }
 
   it('should render without crashing', () => {

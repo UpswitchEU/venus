@@ -49,7 +49,6 @@ import {
   ChatAssistantDrawer,
   type ChatMessage,
   ContextBar,
-  EquityBridgeWaterfall,
   type FieldContext,
   FullscreenReportModal,
   HistoryPanel,
@@ -4996,7 +4995,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               </div>
                             </div>
                           )}
-                          <EquityBridgeWaterfall result={result as Record<string, any> | null} locale={currentLocale} />
                           <div className="valuation-report">
                             <div
                               dangerouslySetInnerHTML={{
@@ -5079,7 +5077,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                           </div>
                         </div>
                       )}
-                      <EquityBridgeWaterfall result={result as Record<string, any> | null} locale={currentLocale} />
                       <div className="valuation-report">
                         <div
                           dangerouslySetInnerHTML={{

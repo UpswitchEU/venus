@@ -87,6 +87,16 @@ export interface AccountingConnectResponse {
   connection_id?: string
 }
 
+export interface AccountingAdministration {
+  administration_id: string
+  name: string
+}
+
+export interface AccountingAdministrationListResponse {
+  administrations: AccountingAdministration[]
+  connection_id: string
+}
+
 export interface IntegrationStatus {
   provider: string
   is_connected: boolean
@@ -158,6 +168,48 @@ class AccountingAPI extends HttpClient {
     return response.data
   }
 
+  async getExactAuthorizeUrl(redirectUri: string): Promise<{ authorization_url: string }> {
+    const response = await fetch(
+      `/api/integrations/accounting/exact/authorize?redirect_uri=${encodeURIComponent(redirectUri)}`,
+      {
+        credentials: 'include',
+      }
+    )
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(
+        (data as { message?: string }).message || 'Failed to get Exact authorize URL'
+      )
+    }
+    return data as { authorization_url: string }
+  }
+
+  async connectExact(code: string, redirectUri: string): Promise<AccountingConnectResponse> {
+    const response = await fetch('/api/integrations/accounting/exact/callback', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        code,
+        redirect_uri: redirectUri,
+      }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error((data as { message?: string }).message || 'Failed to connect Exact Online')
+    }
+    return data as AccountingConnectResponse
+  }
+
+  async getExactAdministrations(): Promise<AccountingAdministrationListResponse> {
+    const response = await this.client.get<AccountingAdministrationListResponse>(
+      '/integrations/accounting/exact/administrations'
+    )
+    return response.data
+  }
+
   async getProviderFinancialData(
     provider: AccountingImportProvider,
     fiscalYear?: number
@@ -171,18 +223,23 @@ class AccountingAPI extends HttpClient {
   }
 
   async getProviderFinancialDataBatch(
-    provider: Extract<AccountingImportProvider, 'yuki'>,
+    provider: AccountingImportProvider,
     startYear: number,
-    endYear: number
+    endYear: number,
+    options?: {
+      administrationId?: string
+    }
   ): Promise<AccountingBatchPayload> {
+    const params: Record<string, string | number> = {
+      start_year: startYear,
+      end_year: endYear,
+    }
+    if (provider === 'exact' && options?.administrationId) {
+      params.administration_id = options.administrationId
+    }
     const response = await this.client.get<AccountingBatchPayload>(
       `/integrations/accounting/${provider}/financial-data/batch`,
-      {
-        params: {
-          start_year: startYear,
-          end_year: endYear,
-        },
-      }
+      { params }
     )
     return response.data
   }

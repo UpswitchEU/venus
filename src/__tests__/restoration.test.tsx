@@ -11,23 +11,42 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
+import { storeLogger } from '../utils/logger'
+
+vi.mock('../services/session/SessionRestorationService', () => ({
+  SessionRestorationService: {
+    restore: vi.fn().mockResolvedValue({
+      success: true,
+      restoredFormFields: [],
+      restoredValuationResult: true,
+      restoredHtmlReport: true,
+      restoredVersionHistory: false,
+      restoredEbitdaNormalizations: false,
+    }),
+    clearRestorationState: vi.fn(),
+  },
+}))
 
 describe('Valuation Restoration', () => {
   beforeEach(() => {
-    // Clear stores before each test
     useSessionStore.setState({
       session: null,
-      isLoading: false,
-      error: null,
+      status: 'idle',
+      errorMessage: null,
       isSaving: false,
       lastSaved: null,
       hasUnsavedChanges: false,
+      restorationProgress: null,
+      restorationComplete: false,
+      paywallData: null,
+      engine: null,
     })
 
     useManualResultsStore.setState({
       result: null,
       htmlReport: null,
-      infoTabHtml: null,
+      selectedMethod: 'upswitch_adaptive',
+      preSelectedMethod: null,
       isCalculating: false,
       error: null,
       calculationProgress: 0,
@@ -98,11 +117,11 @@ describe('Valuation Restoration', () => {
         calculatedAt: new Date('2024-12-17T10:05:00Z'),
       }
 
-      // Mock sessionService.loadSession
       const { sessionService } = await import('../services/session/SessionService')
       vi.spyOn(sessionService, 'loadSession').mockResolvedValue(mockSession)
 
-      // Load session
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'test-user' })
+
       const { loadSession } = useSessionStore.getState()
       await loadSession('val_test_123', 'manual', null)
 
@@ -162,7 +181,7 @@ describe('Valuation Restoration', () => {
       const state = useManualResultsStore.getState()
       expect(state.result).toBeTruthy()
       expect(state.htmlReport).toBe('<html><body>Report</body></html>')
-      expect(state.infoTabHtml).toBe('<html><body>Info</body></html>')
+      expect(state.result?.info_tab_html).toBe('<html><body>Info</body></html>')
       expect(state.result?.html_report).toBe('<html><body>Report</body></html>')
     })
 
@@ -203,16 +222,14 @@ describe('Valuation Restoration', () => {
         // Missing html_report!
       }
 
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(storeLogger, 'error').mockImplementation(() => {})
 
       const { setResult } = useManualResultsStore.getState()
       setResult(mockResult)
 
-      // Verify error was logged (checking if error logging was called)
-      // Note: The actual logger implementation may vary
-      expect(consoleErrorSpy).toHaveBeenCalled()
+      expect(errorSpy).toHaveBeenCalled()
 
-      consoleErrorSpy.mockRestore()
+      errorSpy.mockRestore()
     })
   })
 
@@ -304,7 +321,6 @@ describe('Valuation Restoration', () => {
       expect(resultsState.result?.html_report).toBeTruthy()
       expect(resultsState.result?.info_tab_html).toBeTruthy()
       expect(resultsState.htmlReport).toBeTruthy()
-      expect(resultsState.infoTabHtml).toBeTruthy()
 
       // Verify HTML content is correct
       expect(resultsState.result?.html_report).toContain('Integration Test Report')
@@ -469,6 +485,8 @@ describe('Valuation Restoration', () => {
 
       const { sessionService } = await import('../services/session/SessionService')
       vi.spyOn(sessionService, 'loadSession').mockResolvedValue(mockSession)
+
+      useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'test-user' })
 
       const startTime = performance.now()
 

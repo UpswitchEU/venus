@@ -1,7 +1,7 @@
 'use client'
 
 import { Building2 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { Switch } from '../../../design-system/components/Switch'
 import { CurrencyInput } from '../CurrencyInput'
@@ -52,26 +52,36 @@ export function RealEstateCarveOutSection({
             disabled={disabled}
           />
 
-          {excludeRealEstate && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <CurrencyInput
-                label={t('fields.realEstateBookValue')}
-                value={realEstateBookValue}
-                onChange={(value) => onFieldChange('real_estate_book_value', value)}
-                size="sm"
-                placeholder="0"
-                disabled={disabled}
-              />
-              <CurrencyInput
-                label={t('fields.estimatedMarketRent')}
-                value={estimatedMarketRent}
-                onChange={(value) => onFieldChange('estimated_market_rent', value)}
-                size="sm"
-                placeholder="0"
-                disabled={disabled}
-              />
-            </div>
-          )}
+          <AnimatePresence initial={false}>
+            {excludeRealEstate && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="overflow-hidden"
+              >
+                <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
+                  <CurrencyInput
+                    label={t('fields.realEstateBookValue')}
+                    value={realEstateBookValue}
+                    onChange={(value) => onFieldChange('real_estate_book_value', value)}
+                    size="sm"
+                    placeholder="0"
+                    disabled={disabled}
+                  />
+                  <CurrencyInput
+                    label={t('fields.estimatedMarketRent')}
+                    value={estimatedMarketRent}
+                    onChange={(value) => onFieldChange('estimated_market_rent', value)}
+                    size="sm"
+                    placeholder="0"
+                    disabled={disabled}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </motion.section>

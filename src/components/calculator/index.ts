@@ -85,7 +85,6 @@ export type {
 export { ManualInputPanel } from './ManualInputPanel'
 export { ProvenanceDot } from './ProvenanceDot'
 export { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
-export { EquityBridgeWaterfall } from './EquityBridgeWaterfall'
 export { SourceDataPanel } from './SourceDataPanel'
 export { SpotlightBanner } from './SpotlightBanner'
 export { SpotlightFieldWrapper } from './SpotlightFieldWrapper'

@@ -572,8 +572,9 @@ export const useAuthStore = create<AuthState>()(
             trackAuthFailure(errorMessage, { method: 'cookie' })
             authMetrics.recordFailure()
 
-            get().setError(errorMessage)
+            // setUser(null) clears error — set error after so network/session failures surface
             get().setUser(null)
+            get().setError(errorMessage)
             clearAuthCache() // Clear cache on error
             return null
           } finally {
@@ -615,8 +616,9 @@ export const useAuthStore = create<AuthState>()(
           trackAuthFailure(errorMessage, { method: 'token' })
           authMetrics.recordFailure()
 
-          get().setError('Invalid authentication token')
+          // setUser(null) clears error — set error after so token failures surface
           get().setUser(null)
+          get().setError('Invalid authentication token')
           return null
         }
       },

@@ -67,6 +67,7 @@ import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import {
   accountingAPI,
+  type AccountingAdministration,
   type AccountingBatchPayload,
   type AccountingSdeFlag,
   accountingProviderDisplayName,
@@ -586,8 +587,11 @@ const mapFlagCategory = (flag: AccountingSdeFlag): NormalizationItem['category']
   }
 }
 
-const createNormalizationFromFlag = (flag: AccountingSdeFlag): NormalizationItem => ({
-  id: `yuki-sde-${buildSdeFlagKey(flag)}`,
+const createNormalizationFromFlag = (
+  flag: AccountingSdeFlag,
+  provider: Extract<AccountingImportProvider, 'yuki' | 'exact'>
+): NormalizationItem => ({
+  id: `${provider}-sde-${buildSdeFlagKey(flag)}`,
   ledgerCode: flag.ledger_code,
   ledgerName: flag.ledger_name,
   category: mapFlagCategory(flag),
@@ -595,7 +599,7 @@ const createNormalizationFromFlag = (flag: AccountingSdeFlag): NormalizationItem
   value: Number(flag.amount) || 0,
   adjustment: Number(flag.amount) || 0,
   reason: flag.rationale || flag.suggested_question,
-  source: 'yuki',
+  source: provider,
   sourceRef: buildSdeFlagKey(flag),
   status: 'accepted',
   applyAllYears: false,
@@ -672,10 +676,21 @@ export function ManualInputPanel({
     filingYearConfirmed: initialData.filingYearConfirmed ?? false,
   })
   const [showYukiConnectModal, setShowYukiConnectModal] = useState(false)
-  const [yukiBatchData, setYukiBatchData] = useState<AccountingBatchPayload | null>(null)
+  const [showExactConnectModal, setShowExactConnectModal] = useState(false)
+  const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)
+  const [importBatchProvider, setImportBatchProvider] = useState<
+    Extract<AccountingImportProvider, 'yuki' | 'exact'> | null
+  >(null)
   const [sdeWizardDecisions, setSdeWizardDecisions] = useState<
     Record<string, 'accepted' | 'rejected' | undefined>
   >({})
+  const [accountingStatuses, setAccountingStatuses] = useState<IntegrationStatus[]>([])
+  const [exactDivisions, setExactDivisions] = useState<AccountingAdministration[]>([])
+  const [selectedExactDivisionId, setSelectedExactDivisionId] = useState('')
+  const [exactHistoryRange, setExactHistoryRange] = useState<'3' | '5'>('5')
+  const [loadingExactDivisions, setLoadingExactDivisions] = useState(false)
+  const [exactConnecting, setExactConnecting] = useState(false)
+  const [exactError, setExactError] = useState<string | null>(null)
   const currentFilingYear = getCurrentFilingYear()
   const activityCodeTerm = getFinancialTerm(
     'activityCode',
@@ -1386,11 +1401,17 @@ export function ManualInputPanel({
   const loadAccountingIntegrationStatus = useCallback(async () => {
     try {
       const statuses = await accountingAPI.getAllIntegrationStatus()
+      setAccountingStatuses(statuses)
       setAccountingConnectedStatus(pickConnectedImportStatus(statuses))
     } catch {
       // Fail silently — if we can't reach Titan the import button simply won't appear
     }
   }, [])
+
+  const exactIntegrationStatus = useMemo(
+    () => accountingStatuses.find((status) => status.provider === 'exact') ?? null,
+    [accountingStatuses]
+  )
 
   useEffect(() => {
     void loadAccountingIntegrationStatus()
@@ -1415,6 +1436,101 @@ export function ManualInputPanel({
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [loadAccountingIntegrationStatus])
 
+  const loadExactDivisions = useCallback(async () => {
+    setExactError(null)
+    setLoadingExactDivisions(true)
+    try {
+      const response = await accountingAPI.getExactAdministrations()
+      setExactDivisions(response.administrations)
+      setSelectedExactDivisionId((current) => current || response.administrations[0]?.administration_id || '')
+    } catch (error) {
+      const message = parseAccountingApiError(error)
+      setExactError(message)
+      throw error
+    } finally {
+      setLoadingExactDivisions(false)
+    }
+  }, [])
+
+  const applyImportedBatch = useCallback(
+    (
+      provider: Extract<AccountingImportProvider, 'yuki' | 'exact'>,
+      batch: AccountingBatchPayload
+    ) => {
+      setImportBatchData(batch)
+      setImportBatchProvider(provider)
+      setIntegrationEntryDismissed(true)
+      setImportAccountingError(null)
+      setShowExactConnectModal(false)
+      setSdeWizardDecisions({})
+      setFormData((prev) => {
+        const merged = [...prev.yearlyFinancials]
+        for (const yearPayload of batch.years) {
+          const year = String(yearPayload.data.fiscal_year ?? getCurrentFilingYear())
+          const nextYear: YearlyFinancials = {
+            year,
+            revenue: Number(yearPayload.data.revenue) || 0,
+            ebitda: Number(yearPayload.data.ebitda) || 0,
+            depreciation:
+              yearPayload.data.depreciation != null
+                ? Number(yearPayload.data.depreciation)
+                : undefined,
+            capex:
+              yearPayload.data.depreciation != null
+                ? Number(yearPayload.data.depreciation)
+                : undefined,
+            cash:
+              yearPayload.data.cash_and_equivalents != null
+                ? Number(yearPayload.data.cash_and_equivalents)
+                : undefined,
+            current_assets:
+              yearPayload.data.current_assets != null
+                ? Number(yearPayload.data.current_assets)
+                : undefined,
+            current_liabilities:
+              yearPayload.data.current_liabilities != null
+                ? Number(yearPayload.data.current_liabilities)
+                : undefined,
+            accounts_receivable:
+              yearPayload.data.accounts_receivable != null
+                ? Number(yearPayload.data.accounts_receivable)
+                : undefined,
+            inventory:
+              yearPayload.data.inventory != null ? Number(yearPayload.data.inventory) : undefined,
+            short_term_debt:
+              yearPayload.data.short_term_financial_debt != null
+                ? Number(yearPayload.data.short_term_financial_debt)
+                : undefined,
+            total_debt:
+              (Number(yearPayload.data.long_term_debt) || 0) +
+                (Number(yearPayload.data.short_term_financial_debt) || 0) || undefined,
+          }
+          const index = merged.findIndex((entry) => entry.year === year)
+          if (index >= 0) merged[index] = { ...merged[index], ...nextYear }
+          else merged.push(nextYear)
+        }
+        merged.sort((a, b) => Number(b.year) - Number(a.year))
+        return { ...prev, yearlyFinancials: merged }
+      })
+
+      import('sonner').then(({ toast }) => {
+        const mappedYears = batch.years.length
+        const qualityScore =
+          batch.years.length > 0
+            ? Math.round(
+                (batch.years.reduce((sum, year) => sum + (year.quality_score ?? 0), 0) /
+                  batch.years.length) *
+                  100
+              )
+            : 0
+        toast.success(`Imported ${mappedYears} fiscal years from ${accountingProviderDisplayName(provider)}`, {
+          description: `Trial balance mapped: ${qualityScore}% match with Belgian MAR`,
+        })
+      })
+    },
+    []
+  )
+
   const handleImportFromAccounting = useCallback(async () => {
     setImportAccountingError(null)
     setImportingFromAccounting(true)
@@ -1422,6 +1538,7 @@ export function ManualInputPanel({
       let row = accountingConnectedStatus
       if (!row?.is_connected) {
         const statuses = await accountingAPI.getAllIntegrationStatus()
+        setAccountingStatuses(statuses)
         row = pickConnectedImportStatus(statuses) ?? null
         setAccountingConnectedStatus(row)
       }
@@ -1437,124 +1554,16 @@ export function ManualInputPanel({
         return
       }
 
-      if (provider === 'yuki') {
-        const endYear = getCurrentFilingYear()
-        const startYear = endYear - 4
-        const batch = await accountingAPI.getProviderFinancialDataBatch('yuki', startYear, endYear)
-        setYukiBatchData(batch)
-        setFormData((prev) => {
-          const merged = [...prev.yearlyFinancials]
-          for (const yearPayload of batch.years) {
-            const year = String(yearPayload.data.fiscal_year ?? endYear)
-            const revenue = Number(yearPayload.data.revenue) || 0
-            const ebitda = yearPayload.data.ebitda != null ? Number(yearPayload.data.ebitda) : 0
-            const depreciation =
-              yearPayload.data.depreciation != null ? Number(yearPayload.data.depreciation) : undefined
-            const currentAssets =
-              yearPayload.data.current_assets != null
-                ? Number(yearPayload.data.current_assets)
-                : undefined
-            const currentLiabilities =
-              yearPayload.data.current_liabilities != null
-                ? Number(yearPayload.data.current_liabilities)
-                : undefined
-            const cash =
-              yearPayload.data.cash_and_equivalents != null
-                ? Number(yearPayload.data.cash_and_equivalents)
-                : undefined
-            const shortTermDebt =
-              yearPayload.data.short_term_financial_debt != null
-                ? Number(yearPayload.data.short_term_financial_debt)
-                : undefined
-            const totalDebt =
-              (Number(yearPayload.data.long_term_debt) || 0) +
-              (Number(yearPayload.data.short_term_financial_debt) || 0)
-            const existingIndex = merged.findIndex((entry) => entry.year === year)
-            const nextYear = {
-              year,
-              revenue,
-              ebitda,
-              depreciation,
-              capex: depreciation,
-              current_assets: currentAssets,
-              current_liabilities: currentLiabilities,
-              cash,
-              short_term_debt: shortTermDebt,
-              total_debt: totalDebt || undefined,
-              accounts_receivable:
-                yearPayload.data.accounts_receivable != null
-                  ? Number(yearPayload.data.accounts_receivable)
-                  : undefined,
-              inventory:
-                yearPayload.data.inventory != null ? Number(yearPayload.data.inventory) : undefined,
-            }
-            if (existingIndex >= 0) {
-              merged[existingIndex] = { ...merged[existingIndex], ...nextYear }
-            } else {
-              merged.push(nextYear)
-            }
-          }
-          merged.sort((a, b) => Number(b.year) - Number(a.year))
-          return { ...prev, yearlyFinancials: merged }
-        })
-
-        import('sonner').then(({ toast }) => {
-          const mappedYears = batch.years.length
-          const qualityScore =
-            batch.years.length > 0
-              ? Math.round(
-                  (batch.years.reduce((sum, year) => sum + (year.quality_score ?? 0), 0) /
-                    batch.years.length) *
-                    100
-                )
-              : 0
-          toast.success(`Imported ${mappedYears} fiscal years from Yuki`, {
-            description: `Trial balance mapped: ${qualityScore}% match with Belgian MAR`,
-          })
-        })
-      } else {
-        const fiscalYear = getCurrentFilingYear()
-        const res = await accountingAPI.getProviderFinancialData(provider, fiscalYear)
-        const d = res.data
-        const year = String(d.fiscal_year ?? fiscalYear)
-        const revenue = Number(d.revenue) || 0
-        const ebitda = d.ebitda != null ? Number(d.ebitda) : 0
-
-        setFormData((prev) => {
-          const existing = prev.yearlyFinancials.find((yf) => yf.year === year)
-          let updated: typeof prev.yearlyFinancials
-          if (existing) {
-            updated = prev.yearlyFinancials.map((yf) =>
-              yf.year === year ? { ...yf, revenue, ebitda } : yf
-            )
-          } else {
-            updated = [{ year, revenue, ebitda }, ...prev.yearlyFinancials]
-          }
-          return { ...prev, yearlyFinancials: updated }
-        })
-        const label = accountingProviderDisplayName(provider)
-        import('sonner').then(({ toast }) => {
-          const fyDescription =
-            mi('importFromAccountingSuccessDescription', { year }) || `Fiscal year ${year}`
-          if (revenue === 0 && ebitda === 0) {
-            toast.warning(
-              mi('importFromAccountingEmpty', { provider: label, year }) ||
-                `No figures returned for ${year} from ${label}`,
-              {
-                description:
-                  mi('importFromAccountingEmptyDescription') ||
-                  'Revenue and EBITDA are zero. Check the fiscal year in your accounting tool or enter values manually.',
-              }
-            )
-          } else {
-            toast.success(
-              mi('importFromAccountingSuccess', { provider: label }) ||
-                `Financial data imported from ${label}`,
-              { description: fyDescription }
-            )
-          }
-        })
+      if (provider === 'exact') {
+        setShowExactConnectModal(true)
+        await loadExactDivisions()
+        return
       }
+
+      const endYear = getCurrentFilingYear()
+      const startYear = endYear - 4
+      const batch = await accountingAPI.getProviderFinancialDataBatch('yuki', startYear, endYear)
+      applyImportedBatch('yuki', batch)
     } catch (err) {
       const msg = parseAccountingApiError(err)
       setImportAccountingError(msg)
@@ -1564,65 +1573,125 @@ export function ManualInputPanel({
     } finally {
       setImportingFromAccounting(false)
     }
-  }, [accountingConnectedStatus, mi])
+  }, [accountingConnectedStatus, applyImportedBatch, loadExactDivisions, mi])
 
-  const handleDirectYukiImported = useCallback((batch: AccountingBatchPayload) => {
-    setYukiBatchData(batch)
-    setIntegrationEntryDismissed(true)
-    setImportAccountingError(null)
-    setFormData((prev) => {
-      const merged = [...prev.yearlyFinancials]
-      for (const yearPayload of batch.years) {
-        const year = String(yearPayload.data.fiscal_year)
-        const nextYear: YearlyFinancials = {
-          year,
-          revenue: Number(yearPayload.data.revenue) || 0,
-          ebitda: Number(yearPayload.data.ebitda) || 0,
-          depreciation:
-            yearPayload.data.depreciation != null ? Number(yearPayload.data.depreciation) : undefined,
-          capex:
-            yearPayload.data.depreciation != null ? Number(yearPayload.data.depreciation) : undefined,
-          cash:
-            yearPayload.data.cash_and_equivalents != null
-              ? Number(yearPayload.data.cash_and_equivalents)
-              : undefined,
-          current_assets:
-            yearPayload.data.current_assets != null ? Number(yearPayload.data.current_assets) : undefined,
-          current_liabilities:
-            yearPayload.data.current_liabilities != null
-              ? Number(yearPayload.data.current_liabilities)
-              : undefined,
-          accounts_receivable:
-            yearPayload.data.accounts_receivable != null
-              ? Number(yearPayload.data.accounts_receivable)
-              : undefined,
-          inventory:
-            yearPayload.data.inventory != null ? Number(yearPayload.data.inventory) : undefined,
-          short_term_debt:
-            yearPayload.data.short_term_financial_debt != null
-              ? Number(yearPayload.data.short_term_financial_debt)
-              : undefined,
-          total_debt:
-            (Number(yearPayload.data.long_term_debt) || 0) +
-              (Number(yearPayload.data.short_term_financial_debt) || 0) || undefined,
-        }
-        const index = merged.findIndex((entry) => entry.year === year)
-        if (index >= 0) merged[index] = { ...merged[index], ...nextYear }
-        else merged.push(nextYear)
-      }
-      merged.sort((a, b) => Number(b.year) - Number(a.year))
-      return { ...prev, yearlyFinancials: merged }
-    })
+  const handleDirectYukiImported = useCallback(
+    (batch: AccountingBatchPayload) => {
+      applyImportedBatch('yuki', batch)
+    },
+    [applyImportedBatch]
+  )
+
+  const handleOpenExactConnect = useCallback(() => {
+    setShowExactConnectModal(true)
+    if (exactIntegrationStatus?.is_connected) {
+      void loadExactDivisions().catch(() => {})
+    }
+  }, [exactIntegrationStatus?.is_connected, loadExactDivisions])
+
+  const handleOpenYukiConnect = useCallback(() => {
+    setShowYukiConnectModal(true)
   }, [])
+
+  const handleStartExactOAuth = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    setExactConnecting(true)
+    setExactError(null)
+    setShowExactConnectModal(true)
+    try {
+      const redirectUrl = new URL(window.location.href)
+      redirectUrl.searchParams.delete('code')
+      redirectUrl.searchParams.delete('state')
+      redirectUrl.searchParams.set('exact_connect', '1')
+      window.sessionStorage.setItem('upswitch_exact_oauth_in_progress', '1')
+      const { authorization_url } = await accountingAPI.getExactAuthorizeUrl(redirectUrl.toString())
+      window.location.href = authorization_url
+    } catch (error) {
+      setExactConnecting(false)
+      setExactError(parseAccountingApiError(error))
+    }
+  }, [])
+
+  const handleImportExactDivision = useCallback(async () => {
+    if (!selectedExactDivisionId) {
+      setExactError('Select an Exact division before importing.')
+      return
+    }
+    setImportAccountingError(null)
+    setExactError(null)
+    setImportingFromAccounting(true)
+    try {
+      const rangeYears = Number(exactHistoryRange)
+      const endYear = getCurrentFilingYear()
+      const startYear = endYear - (rangeYears - 1)
+      const batch = await accountingAPI.getProviderFinancialDataBatch('exact', startYear, endYear, {
+        administrationId: selectedExactDivisionId,
+      })
+      applyImportedBatch('exact', batch)
+    } catch (error) {
+      const message = parseAccountingApiError(error)
+      setExactError(message)
+      setImportAccountingError(message)
+    } finally {
+      setImportingFromAccounting(false)
+    }
+  }, [applyImportedBatch, exactHistoryRange, selectedExactDivisionId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    const exactConnectRequested =
+      params.get('exact_connect') === '1' ||
+      window.sessionStorage.getItem('upswitch_exact_oauth_in_progress') === '1'
+    if (!code || !exactConnectRequested) return
+
+    const oauthLockKey = `exact_oauth_${code}`
+    if (window.sessionStorage.getItem(oauthLockKey)) {
+      params.delete('code')
+      params.delete('state')
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
+      return
+    }
+    window.sessionStorage.setItem(oauthLockKey, '1')
+
+    const redirectUrl = new URL(window.location.href)
+    redirectUrl.searchParams.delete('code')
+    redirectUrl.searchParams.delete('state')
+
+    setExactConnecting(true)
+    setExactError(null)
+    setShowExactConnectModal(true)
+
+    accountingAPI
+      .connectExact(code, redirectUrl.toString())
+      .then(async () => {
+        window.sessionStorage.removeItem('upswitch_exact_oauth_in_progress')
+        await loadAccountingIntegrationStatus()
+        await loadExactDivisions()
+      })
+      .catch((error) => {
+        setExactError(parseAccountingApiError(error))
+        window.sessionStorage.removeItem(oauthLockKey)
+      })
+      .finally(() => {
+        setExactConnecting(false)
+        const cleanedUrl = new URL(window.location.href)
+        cleanedUrl.searchParams.delete('code')
+        cleanedUrl.searchParams.delete('state')
+        window.history.replaceState({}, '', cleanedUrl.toString())
+      })
+  }, [loadAccountingIntegrationStatus, loadExactDivisions])
 
   const handleSdeWizardDecision = useCallback(
     (flag: AccountingSdeFlag, decision: 'accepted' | 'rejected') => {
       const key = buildSdeFlagKey(flag)
       setSdeWizardDecisions((prev) => ({ ...prev, [key]: decision }))
-      const normalizationId = `yuki-sde-${key}`
+      const provider = importBatchProvider ?? 'yuki'
+      const normalizationId = `${provider}-sde-${key}`
       const exists = normalizationItems.some((item) => item.id === normalizationId)
       if (decision === 'accepted') {
-        const nextItem = createNormalizationFromFlag(flag)
+        const nextItem = createNormalizationFromFlag(flag, provider)
         if (!exists) {
           addNormalizationItems([nextItem])
         }
@@ -1630,11 +1699,11 @@ export function ManualInputPanel({
         removeNormalizationItem(normalizationId)
       }
     },
-    [addNormalizationItems, normalizationItems, removeNormalizationItem]
+    [addNormalizationItems, importBatchProvider, normalizationItems, removeNormalizationItem]
   )
 
   const handleOpenMercuryIntegrations = useCallback(() => {
-    setShowYukiConnectModal(true)
+    handleOpenExactConnect()
   }, [])
 
 
