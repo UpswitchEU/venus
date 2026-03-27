@@ -28,6 +28,8 @@ interface ValuationFlowProps {
     focusField?: string
     flagYear?: string
   }
+  /** Query param `selected_method` — seed top-bar method when no session preference yet */
+  initialSelectedMethodFromUrl?: string
 }
 
 const ManualLayout = lazy(() =>
@@ -45,6 +47,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   urlAction,
   initialDrawerOpen = false,
   guidedResolution,
+  initialSelectedMethodFromUrl,
 }) => {
   return (
     <ManualLayout
@@ -56,6 +59,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
       urlAction={urlAction}
       initialDrawerOpen={initialDrawerOpen}
       guidedResolutionUrl={guidedResolution}
+      initialSelectedMethodFromUrl={initialSelectedMethodFromUrl}
     />
   )
 }

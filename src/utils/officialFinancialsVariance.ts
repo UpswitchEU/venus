@@ -1,6 +1,6 @@
 /**
- * User vs official filing variance — mirrors Titan bootstrap buildPrefill logic
- * (calculateVariancePercent + soft threshold default 10%).
+ * User vs official filing variance — mirrors Titan bootstrap `computeOfficialVarianceAnalysis`
+ * (soft threshold default 10%, hard 25%).
  */
 
 import type { OfficialFinancials } from '../lib/bootstrap/types'
@@ -32,9 +32,11 @@ export function applyUserVsOfficialVariance(
   official: OfficialFinancials,
   userRevenue: number | undefined | null,
   userEbitda: number | undefined | null,
-  softThresholdPercent = 10,
   previousVariance?: OfficialVarianceAnalysis | null
 ): OfficialFinancials {
+  const soft = official.variancePolicy?.softThresholdPercent ?? 10
+  const hard = official.variancePolicy?.hardThresholdPercent ?? 25
+
   const ur = userRevenue == null ? undefined : Number(userRevenue)
   const ue = userEbitda == null ? undefined : Number(userEbitda)
 
@@ -44,7 +46,13 @@ export function applyUserVsOfficialVariance(
     .filter((value): value is number => value != null)
     .sort((a, b) => b - a)[0]
 
-  const explanationRequired = (maxVariance ?? 0) >= softThresholdPercent
+  const explanationRequired = (maxVariance ?? 0) >= soft
+
+  let severity: 'none' | 'soft' | 'hard' = 'none'
+  if (maxVariance != null) {
+    if (maxVariance >= hard) severity = 'hard'
+    else if (maxVariance >= soft) severity = 'soft'
+  }
 
   let state:
     | 'not_started'
@@ -65,12 +73,18 @@ export function applyUserVsOfficialVariance(
     state = 'explained'
   }
 
+  const varianceAnalysis: OfficialVarianceAnalysis = {
+    state,
+    explanationRequired,
+    severity,
+    ...(revenueVariance != null ? { revenueVariancePercent: revenueVariance } : {}),
+    ...(ebitdaVariance != null ? { ebitdaVariancePercent: ebitdaVariance } : {}),
+    ...(maxVariance != null ? { maxVariancePercent: maxVariance } : {}),
+    ...(preserveDraft ? { explanation: previousVariance!.explanation } : {}),
+  }
+
   return {
     ...official,
-    varianceAnalysis: {
-      state,
-      explanationRequired,
-      ...(preserveDraft ? { explanation: previousVariance!.explanation } : {}),
-    },
+    varianceAnalysis,
   }
 }

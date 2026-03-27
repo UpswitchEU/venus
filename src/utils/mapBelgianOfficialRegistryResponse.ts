@@ -71,6 +71,7 @@ export function mapBelgianOfficialRegistryResponseToOfficialFinancials(
     varianceAnalysis: {
       state: 'not_started',
       explanationRequired: false,
+      severity: 'none',
     },
     verificationBadge: {
       state:

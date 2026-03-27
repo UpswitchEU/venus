@@ -95,6 +95,37 @@ describe('extractValuationResultsMap', () => {
     })
   })
 
+  it('enriches dcf with mid-year and academic disclosure from dcf_valuation', () => {
+    const payload = {
+      valuation_results: {
+        dcf: {
+          available: true,
+          value: 410000,
+          label: 'DCF',
+          details: {},
+        },
+      },
+      dcf_valuation: {
+        enterprise_value: 525000,
+        wacc: 0.113,
+        terminal_value: 310000,
+        mid_year_discounting: true,
+        discount_periods_note: 't = 0.5, 1.5',
+        academic_cost_of_equity_formula: 'Re = Rf + β × ERP',
+      },
+    }
+
+    expect(extractValuationResultsMap(payload)).toMatchObject({
+      dcf: {
+        details: {
+          mid_year_discounting: true,
+          discount_periods_note: 't = 0.5, 1.5',
+          academic_cost_of_equity_formula: 'Re = Rf + β × ERP',
+        },
+      },
+    })
+  })
+
   it('synthesizes from report_context when valuation_results paths are empty', () => {
     const payload = {
       valuation_results: {},

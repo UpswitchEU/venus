@@ -585,14 +585,17 @@ export function buildValuationRequest(
   const taxLatencyAdjustments: ValuationRequest['balance_sheet_adjustments'] =
     taxLatencyItems.length > 0
       ? taxLatencyItems.map((item) => ({
-      id: item.id,
-      label: item.description || item.accountName || 'Belastinglatentie',
-      amount: Math.abs(calculateLatencyAmount(item)),
+          id: item.id,
+          label: item.description || item.accountName || 'Belastinglatentie',
+          amount: Math.abs(calculateLatencyAmount(item)),
           type: item.type === 'active' ? ('add' as const) : ('subtract' as const),
-      category: 'tax_latency',
-      description: item.description,
-      ...(item.accountCode ? { account_code: item.accountCode } : {}),
-      }))
+          category: 'tax_latency' as const,
+          description: item.description,
+          ...(item.accountCode ? { account_code: item.accountCode } : {}),
+          temporary_difference: Math.abs(item.temporaryDifference),
+          tax_rate: item.taxRate,
+          tax_latency_type: item.type,
+        }))
       : []
 
   const mergedBalanceSheetAdjustments =

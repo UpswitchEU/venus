@@ -1128,6 +1128,7 @@
       "ownershipStructure": "Ownership & Structure",
       "financialHistory": "Financial History"
     },
+    "balanceSheetAndTransaction": "Assets & balance sheet (transaction structure)",
     "fields": {
       "operatingCountry": "Operating country",
       "operatingCountryHelp": "Chooses KBO (Belgium) or KVK (Netherlands) company search and terminology.",
@@ -1144,6 +1145,8 @@
       "normalizedEbitdaLabel": "Normalized EBITDA:",
       "adjustmentSuffix": "adjustment"
     },
+    "registryNlSearchHint": "Search by company name or KVK number, or enter details manually. Live KVK autocomplete may be unavailable until a commercial registry feed is configured for your workspace.",
+    "registryNlNoResults": "No registry match found. You can continue with the company name you typed.",
     "normalized": "Normalized",
     "year": "year",
     "years": "years",
@@ -1160,6 +1163,8 @@
     "filingYearLabelBooksClosed": "Books already closed",
     "filingYearAriaSafeDefault": "Select {year}, safe default when accounts are not yet finalized",
     "filingYearAriaBooksClosed": "Select {year}, use when annual accounts are already filed or finalized",
+    "filingYearColumnBase": "Base",
+    "filingYearColumnBaseMinus": "Base − {n}",
     "filingYearOther": "Other year...",
     "addYear": "Add year",
     "addForecastYear": "Add forecast year",
@@ -1202,6 +1207,8 @@
       "eyebrow": "Connect & pull",
       "connectTitle": "Start from your accounting data",
       "connectDescription": "Connect Silverfin, Yuki, or Exact and pull the latest figures into this valuation. Manual entry remains available if you prefer to continue without a connection.",
+      "mercuryCanonicalHint": "Yuki and Exact Online connections are managed in Mercury (Settings → Integrations). Connect there, sync clients, then return here to import into this valuation.",
+      "importedBatchSummaryDescription": "Imported {years, plural, one {# fiscal year} other {# fiscal years}} from {provider}. Review the data quality score and continue with manual follow-up.",
       "connectedTitle": "{provider} is connected",
       "connectedDescription": "Pull the latest accounting figures from {provider} first, then review normalizations and valuation assumptions with manual override still available.",
       "supportedProviders": "Yuki and Exact Online are live for sync; Silverfin when enabled for your workspace",
@@ -2262,7 +2269,12 @@
     "keyMetrics": "Key Metrics",
     "methodology": "Methodology",
     "methodologyDesc": "This indicative business estimate is based on comparable transaction analysis with sector-specific EBITDA multiples (Damodaran). The range accounts for current market conditions, company-specific risk factors and growth trajectory.",
-    "disclaimer": "Disclaimer: This document is an indicative business estimate and does not constitute a formal valuation in accordance with international standards. For formal transactions, a certified valuation by an accredited expert must be performed."
+    "disclaimer": "Disclaimer: This document is an indicative business estimate and does not constitute a formal valuation in accordance with international standards. For formal transactions, a certified valuation by an accredited expert must be performed.",
+    "waterfall": {
+      "title": "Enterprise value → equity bridge",
+      "subtitle": "Cash, debt, and working capital adjustments use the same balance-sheet inputs as your accounting import or manual entry.",
+      "ariaLabel": "Enterprise value to equity waterfall chart"
+    }
   },
   "invite": {
     "title": "Invite Client",

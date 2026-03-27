@@ -27,12 +27,15 @@ export function useSyncOfficialVarianceFromForm(): void {
     if (!of) return
 
     const { revenue: userR, ebitda: userE } = resolveTrustComparisonUserFigures(fd, of.filingYear)
-    const next = applyUserVsOfficialVariance(of, userR, userE, 10, fd.official_variance_analysis)
+    const next = applyUserVsOfficialVariance(of, userR, userE, fd.official_variance_analysis)
     const va = fd.official_variance_analysis
+    const nv = next.varianceAnalysis
     if (
-      va?.state === next.varianceAnalysis?.state &&
-      va?.explanationRequired === next.varianceAnalysis?.explanationRequired &&
-      (va?.explanation ?? '') === (next.varianceAnalysis?.explanation ?? '')
+      va?.state === nv?.state &&
+      va?.explanationRequired === nv?.explanationRequired &&
+      va?.severity === nv?.severity &&
+      va?.maxVariancePercent === nv?.maxVariancePercent &&
+      (va?.explanation ?? '') === (nv?.explanation ?? '')
     ) {
       return
     }

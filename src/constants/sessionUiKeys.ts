@@ -1,0 +1,55 @@
+/**
+ * Session JSONB keys for Venus-only UI state (not sent to ValuationIQ).
+ */
+
+import {
+  getPreSelectableMethodsForFirmAndRevenue,
+  isUpfrontMethodAllowedForNav,
+} from './methodFieldConfig'
+
+export const SESSION_PRE_SELECTED_VALUATION_METHOD_KEY = '_pre_selected_valuation_method' as const
+
+/** Legacy / alternate key (matches SessionNormalizer). */
+export const SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY = 'pre_selected_valuation_method' as const
+
+/**
+ * True if session JSONB already carries an upfront method preference (any key variant).
+ */
+export function sessionHasStoredPreSelectedMethod(sessionData: unknown): boolean {
+  if (!sessionData || typeof sessionData !== 'object') return false
+  const o = sessionData as Record<string, unknown>
+  return (
+    SESSION_PRE_SELECTED_VALUATION_METHOD_KEY in o ||
+    SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY in o
+  )
+}
+
+/**
+ * Normalize a persisted or URL-provided method key to a valid pre-selectable method, or null.
+ * Uses the same rules as the calculator nav ({@link getPreSelectableMethodsForFirmAndRevenue}).
+ */
+export function sanitizePreSelectedValuationMethod(
+  raw: string | null | undefined,
+  firmCountryCode?: string | null,
+  /** When set (e.g. from form), omzet is rejected at ≤0 turnover. Omit when unknown (firm-only rules). */
+  currentYearRevenue?: number | null
+): string | null {
+  if (raw == null || typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const lower = trimmed.toLowerCase()
+  const allowed = getPreSelectableMethodsForFirmAndRevenue(firmCountryCode, currentYearRevenue)
+  if (!isUpfrontMethodAllowedForNav(lower, allowed)) return null
+  return lower === 'upswitch_adaptive' ? null : lower
+}
+
+/**
+ * JSONB payload for `_pre_selected_valuation_method`: `null` means AI adaptive.
+ */
+export function toSessionPreSelectedFieldValue(
+  preSelectedMethod: string | null,
+  selectedMethod: string
+): string | null {
+  const effective = preSelectedMethod ?? selectedMethod
+  return effective === 'upswitch_adaptive' ? null : effective
+}

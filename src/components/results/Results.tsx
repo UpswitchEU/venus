@@ -2,9 +2,11 @@ import { useTranslations } from 'next-intl'
 import React, { memo, useEffect } from 'react'
 import { useSessionStore } from '../../store/useSessionStore'
 import type { ValuationResponse } from '../../types/valuation'
+import { extractEvEquityWaterfallSteps } from '../../utils/extractEvEquityWaterfallSteps'
 import { HTMLProcessor } from '../../utils/htmlProcessor'
 import { generalLogger } from '../../utils/logger'
 import { ErrorState } from '../ErrorState'
+import { EnterpriseEquityWaterfallChart } from './EnterpriseEquityWaterfallChart'
 import { ReportSkeleton } from '../skeletons/ReportSkeleton'
 
 interface ResultsComponentProps {
@@ -29,9 +31,14 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   // BANK-GRADE FIX: Subscribe to session htmlReport to update when session loads
   // Previous approach used getState() which doesn't trigger re-renders
   const sessionHtmlReport = useSessionStore((state) => state.session?.htmlReport)
+  const sessionWaterfall = useSessionStore((state) =>
+    extractEvEquityWaterfallSteps(state.session?.valuationResult as ValuationResponse | undefined)
+  )
 
   // Use session htmlReport if available, fallback to result prop
   const htmlReport = sessionHtmlReport || result?.html_report
+  const evEquitySteps =
+    sessionWaterfall ?? extractEvEquityWaterfallSteps(result ?? undefined)
 
   // Verification logging: Track when result changes
   useEffect(() => {
@@ -73,8 +80,23 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     return null
   }
 
-  // If html_report is not available, show placeholder
+  // No HTML but we may still have EV→equity steps (e.g. report_context from Titan)
   if (!htmlReport) {
+    if (evEquitySteps && evEquitySteps.length > 0) {
+      return (
+        <div className="valuation-report-container h-full overflow-y-auto bg-background">
+          <div className="px-4 pt-4 max-w-4xl mx-auto">
+            <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
+          </div>
+          <div className="flex items-center justify-center min-h-[200px] px-4 pb-8">
+            <div className="text-center text-foreground/50">
+              <p className="font-medium">{t('reportNotAvailable')}</p>
+              <p className="text-sm text-foreground/40 mt-1">{t('reportNotAvailableDesc')}</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center text-foreground/50">
@@ -104,6 +126,11 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
 
   return (
     <div className="valuation-report-container h-full overflow-y-auto bg-background">
+      {evEquitySteps && evEquitySteps.length > 0 && (
+        <div className="px-4 pt-4 max-w-4xl mx-auto">
+          <EnterpriseEquityWaterfallChart steps={evEquitySteps} />
+        </div>
+      )}
       <div className="valuation-report">
         <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
       </div>

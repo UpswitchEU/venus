@@ -42,6 +42,16 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../../utils/fiscalYear'
+import {
+  SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
+  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
+  sanitizePreSelectedValuationMethod,
+  sessionHasStoredPreSelectedMethod,
+} from '../../constants/sessionUiKeys'
+import {
+  type FormSnapshotForRevenueNav,
+  parseCurrentYearRevenueForMethodNav,
+} from '../../utils/currentYearRevenueForMethodNav'
 
 /**
  * Bank-grade retry utility with exponential backoff
@@ -459,6 +469,39 @@ class SessionRestorationServiceImpl {
         })
       } catch (error) {
         generalLogger.error('[SessionRestoration] Form hydration failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
+    // 1b. Upfront valuation method (draft / pre-calculate only — result payload overrides later).
+    // Firm may be unknown (null); revenue from restored form aligns omzet with nav/session rules.
+    if (!isConversational && !data.valuationResult && data.preSelectedValuationMethod !== undefined) {
+      try {
+        if (data.preSelectedValuationMethod === null) {
+          useManualResultsStore.getState().setPreSelectedMethod(null)
+        } else {
+          const revFromForm =
+            data.formData && typeof data.formData === 'object'
+              ? parseCurrentYearRevenueForMethodNav(data.formData as FormSnapshotForRevenueNav)
+              : undefined
+          const parsed = sanitizePreSelectedValuationMethod(
+            data.preSelectedValuationMethod,
+            null,
+            revFromForm
+          )
+          if (parsed !== null) {
+            useManualResultsStore.getState().setPreSelectedMethod(parsed)
+          } else {
+            useManualResultsStore.getState().setPreSelectedMethod(null)
+          }
+        }
+        generalLogger.debug('[SessionRestoration] Pre-selected valuation method hydrated', {
+          reportId: data.reportId?.substring(0, 30),
+          raw: data.preSelectedValuationMethod,
+        })
+      } catch (error) {
+        generalLogger.warn('[SessionRestoration] Pre-selected method hydration failed', {
           error: error instanceof Error ? error.message : String(error),
         })
       }
@@ -970,6 +1013,31 @@ class SessionRestorationServiceImpl {
         } as any)
         // Explicitly set HTML assets for components that read them directly
         if (pkg.htmlReport) manualStore.setHtmlReport(pkg.htmlReport)
+
+        const mergedAfterSet = useManualResultsStore.getState().result as Record<string, unknown> | null
+        if (
+          mergedAfterSet &&
+          !(mergedAfterSet as { selected_valuation_method?: string }).selected_valuation_method &&
+          pkg.formData &&
+          typeof pkg.formData === 'object'
+        ) {
+          const rawPkg = pkg.formData as Record<string, unknown>
+          if (sessionHasStoredPreSelectedMethod(rawPkg)) {
+            const v =
+              rawPkg[SESSION_PRE_SELECTED_VALUATION_METHOD_KEY] ??
+              rawPkg[SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY]
+            if (v === null) {
+              useManualResultsStore.getState().setPreSelectedMethod(null)
+            } else if (typeof v === 'string') {
+              const revFromForm =
+                pkg.formData && typeof pkg.formData === 'object'
+                  ? parseCurrentYearRevenueForMethodNav(pkg.formData as FormSnapshotForRevenueNav)
+                  : undefined
+              const parsed = sanitizePreSelectedValuationMethod(v, null, revFromForm)
+              useManualResultsStore.getState().setPreSelectedMethod(parsed)
+            }
+          }
+        }
         // Sync session store for instant display (Results component reads session.htmlReport)
         // Include pdfUrl in sessionData so usePdfGeneration shows "ready" on refresh when PDF exists
         try {

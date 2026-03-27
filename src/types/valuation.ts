@@ -87,6 +87,14 @@ export interface OfficialVarianceAnalysis {
   state: 'not_started' | 'pending' | 'explained' | 'not_required'
   explanationRequired: boolean
   explanation?: string
+  /** Absolute % difference vs official filing (revenue). */
+  revenueVariancePercent?: number
+  /** Absolute % difference vs official filing (EBITDA). */
+  ebitdaVariancePercent?: number
+  /** Max of revenue/ebitda variance % when both exist. */
+  maxVariancePercent?: number
+  /** `soft` = at/above soft threshold (default 10%); `hard` = at/above hard threshold (default 25%). */
+  severity?: 'none' | 'soft' | 'hard'
 }
 
 export interface OfficialFinancialsPayload {
@@ -215,6 +223,7 @@ export interface TaxLatencyInput {
   description: string
   temporary_difference: number
   tax_rate: number
+  account_code?: string
 }
 
 export interface BalanceSheetAdjustmentInput {
@@ -225,6 +234,12 @@ export interface BalanceSheetAdjustmentInput {
   category: 'tax_latency' | 'excess_cash' | 'non_operating' | 'provision' | 'other'
   description?: string
   account_code?: string
+  /** Bruto meerwaarde / tijdelijk verschil — when category is tax_latency */
+  temporary_difference?: number
+  /** Latentie % — when category is tax_latency */
+  tax_rate?: number
+  /** active | passive — when category is tax_latency */
+  tax_latency_type?: 'active' | 'passive'
 }
 
 // Extended request type for frontend form state
@@ -967,6 +982,11 @@ export interface ValuationResponse {
     terminal_value_methodology?: 'gordon_growth' | 'exit_multiple' | string | null
     terminal_exit_multiple?: number | null
     pv_terminal_value: number
+    /** Explicit mid-year convention for auditors (matches engine). */
+    mid_year_discounting?: boolean
+    discount_periods_note?: string | null
+    /** CAPM + size (excludes CSR) for academic disclosure alongside full cost_of_equity. */
+    academic_cost_of_equity_formula?: string | null
     wacc_buildup?: DcfWaccBuildup | null
     terminal_value_pct_of_total?: number | null
     explicit_forecast_pct_of_total?: number | null
@@ -1175,6 +1195,23 @@ export interface ValuationResponse {
   // HTML Reports (REQUIRED for display)
   /** Complete Accountant View HTML report (20-30 pages) */
   html_report?: string
+
+  /** EV → equity bridge steps (aligned with report valuation_waterfall_steps) */
+  ev_equity_waterfall_steps?: EvEquityWaterfallStep[]
+  /** Titan may persist full Jinja context; waterfall steps may appear here if top-level omitted */
+  report_context?: Record<string, unknown>
+}
+
+/** One bar/step in the enterprise-to-equity waterfall (ValuationIQ JSON). */
+export interface EvEquityWaterfallStep {
+  label: string
+  short_label?: string
+  kind?: string
+  tone?: 'positive' | 'negative' | 'neutral' | 'bridge' | 'brand' | string
+  start_value?: number
+  end_value?: number
+  delta_value?: number
+  annotation?: string | null
 }
 
 export interface CompanyLookupResult {

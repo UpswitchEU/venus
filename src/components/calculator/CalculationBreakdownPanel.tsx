@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
+import { getCurrentFilingYear } from '@/utils/fiscalYear'
 
 export interface CalculationBreakdownPanelProps {
   report?: {
@@ -84,6 +85,8 @@ export function CalculationBreakdownPanel({ report }: CalculationBreakdownPanelP
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
+  /** Illustrative comp periods: calendar year after latest filing-safe year (not hardcoded). */
+  const illustrationCompYear = getCurrentFilingYear() + 1
   if (!report) {
     return (
       <div className="h-full flex items-center justify-center p-8 bg-background">
@@ -341,19 +344,19 @@ export function CalculationBreakdownPanel({ report }: CalculationBreakdownPanelP
                     companyKey: 'comparableA' as const,
                     multiple: 5.8,
                     revenue: 1500000,
-                    date: '2025-Q3',
+                    date: `${illustrationCompYear}-Q3`,
                   },
                   {
                     companyKey: 'comparableB' as const,
                     multiple: 5.2,
                     revenue: 850000,
-                    date: '2025-Q2',
+                    date: `${illustrationCompYear}-Q2`,
                   },
                   {
                     companyKey: 'comparableC' as const,
                     multiple: 5.5,
                     revenue: 1200000,
-                    date: '2025-Q1',
+                    date: `${illustrationCompYear}-Q1`,
                   },
                 ].map((comp, i) => (
                   <tr key={i} className="hover:bg-muted/50">

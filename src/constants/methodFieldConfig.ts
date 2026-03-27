@@ -42,7 +42,10 @@ export const BUSINESS_TYPE_SECTIONS: Record<string, InputSectionKey[]> = {
 
 function normalizeBusinessSectionKey(value?: string | null): string | null {
   if (!value) return null
-  return value.trim().toLowerCase().replace(/[\s-]+/g, '_')
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
 }
 
 function getBusinessSectionCandidates(
@@ -89,9 +92,7 @@ export const PRE_SELECTABLE_METHOD_SET = new Set<string>(PRE_SELECTABLE_METHODS)
  * Belgian fiscal reference (4× EBITDA) is not offered for Dutch accountant firms.
  * Keeps the nav dropdown aligned with Titan/PDF fiscal gating.
  */
-export function getPreSelectableMethodsForFirm(
-  firmCountryCode?: string | null
-): readonly string[] {
+export function getPreSelectableMethodsForFirm(firmCountryCode?: string | null): readonly string[] {
   const code = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
   if (code === 'NL') {
     return PRE_SELECTABLE_METHODS.filter((m) => m !== 'fiscal_4x')
@@ -99,12 +100,48 @@ export function getPreSelectableMethodsForFirm(
   return PRE_SELECTABLE_METHODS
 }
 
+/**
+ * Same as {@link getPreSelectableMethodsForFirm}, but omits revenue-multiple (omzet) when
+ * current-year turnover is known to be ≤ 0 (holdings / asset-led cases).
+ */
+export function getPreSelectableMethodsForFirmAndRevenue(
+  firmCountryCode?: string | null,
+  currentYearRevenue?: number | null
+): readonly string[] {
+  const base = getPreSelectableMethodsForFirm(firmCountryCode)
+  if (currentYearRevenue == null || !Number.isFinite(currentYearRevenue)) {
+    return base
+  }
+  if (currentYearRevenue <= 0) {
+    return base.filter((m) => m !== 'omzet_multiple')
+  }
+  return base
+}
+
+/**
+ * Whether an upfront nav pick is permitted for the given allowed-method list
+ * (from {@link getPreSelectableMethodsForFirmAndRevenue} / {@link getPreSelectableMethodsForFirm}).
+ */
+export function isUpfrontMethodAllowedForNav(
+  method: string,
+  allowed: readonly string[]
+): boolean {
+  return method === 'upswitch_adaptive' || allowed.includes(method)
+}
+
+/** Nav label key when the stored upfront pick may be invalid for the current firm/turnover rules. */
+export function resolveDisplayPreSelectedMethodKey(
+  preSelectedMethod: string | null | undefined,
+  allowed: readonly string[]
+): string {
+  const raw = preSelectedMethod ?? 'upswitch_adaptive'
+  return isUpfrontMethodAllowedForNav(raw, allowed) ? raw : 'upswitch_adaptive'
+}
+
 if (process.env.NODE_ENV !== 'production') {
   const missingConfig = PRE_SELECTABLE_METHODS.filter((method) => !(method in METHOD_FIELD_CONFIG))
   if (missingConfig.length > 0) {
-    throw new Error(
-      `Missing METHOD_FIELD_CONFIG entries for: ${missingConfig.join(', ')}`
-    )
+    throw new Error(`Missing METHOD_FIELD_CONFIG entries for: ${missingConfig.join(', ')}`)
   }
 }
 

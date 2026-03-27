@@ -32,7 +32,7 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
 
   // Calculate dynamic historical years based on founding year
   // Returns years in descending order (most recent first) for better UX
-  // Example: If current year is 2025, returns [2024, 2023] (most recent first)
+  // Uses filing-safe latest year (getCurrentFilingYear) unless currentYear is passed explicitly.
   const calculateHistoricalYears = (): number[] => {
     const filingYear = currentYear ?? getCurrentFilingYear()
     return getHistoricalYearRange(filingYear, 2, 1).filter(

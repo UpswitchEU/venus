@@ -52,6 +52,8 @@ export default async function NewReportPage({ params, searchParams }: NewReportP
       'spotlight',
       'focusField',
       'flagYear',
+      // Upfront method preference (Mercury calculator → new session)
+      'selected_method',
     ]
 
     for (const param of paramsToPreserve) {

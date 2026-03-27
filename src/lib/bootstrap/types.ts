@@ -206,6 +206,10 @@ export interface OfficialFinancials {
     state: 'not_started' | 'pending' | 'explained' | 'not_required'
     explanationRequired: boolean
     explanation?: string
+    revenueVariancePercent?: number
+    ebitdaVariancePercent?: number
+    maxVariancePercent?: number
+    severity?: 'none' | 'soft' | 'hard'
   }
   verificationBadge?: {
     state: 'verified' | 'partial' | 'unavailable'

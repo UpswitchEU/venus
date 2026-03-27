@@ -1128,6 +1128,7 @@
       "ownershipStructure": "Eigendom & Structuur",
       "financialHistory": "Financiële historie"
     },
+    "balanceSheetAndTransaction": "Activa & balans (transactiestructuur)",
     "fields": {
       "operatingCountry": "Land van vestiging",
       "operatingCountryHelp": "Bepaalt KBO-zoekopdracht (België) of KVK-zoekopdracht (Nederland) en terminologie.",
@@ -1144,6 +1145,8 @@
       "normalizedEbitdaLabel": "Genormaliseerde EBITDA:",
       "adjustmentSuffix": "aanpassing"
     },
+    "registryNlSearchHint": "Zoek op bedrijfsnaam of KVK-nummer, of vul gegevens handmatig in. Live KVK-autocomplete kan ontbreken zolang er geen commerciële registerkoppeling voor uw omgeving is geconfigureerd.",
+    "registryNlNoResults": "Geen registermatch gevonden. U kunt doorgaan met de bedrijfsnaam die u heeft ingevoerd.",
     "normalized": "Genormaliseerd",
     "year": "jaar",
     "years": "jaren",
@@ -1160,6 +1163,8 @@
     "filingYearLabelBooksClosed": "Boeken al gesloten",
     "filingYearAriaSafeDefault": "Kies {year}, aanbevolen wanneer de jaarrekening nog niet definitief is",
     "filingYearAriaBooksClosed": "Kies {year}, wanneer de jaarrekening al is neergelegd of afgerond",
+    "filingYearColumnBase": "Basis",
+    "filingYearColumnBaseMinus": "Basis − {n}",
     "filingYearOther": "Ander jaar...",
     "addYear": "Jaar toevoegen",
     "addForecastYear": "Voeg prognosejaar toe",
@@ -1202,6 +1207,8 @@
       "eyebrow": "Connect & pull",
       "connectTitle": "Start vanuit je boekhouddata",
       "connectDescription": "Verbind Silverfin, Yuki of Exact en haal daarna de laatste cijfers in deze waardering op. Manuele invoer blijft beschikbaar als je liever zonder koppeling verdergaat.",
+      "mercuryCanonicalHint": "Yuki- en Exact Online-koppelingen beheer je in Mercury (Instellingen → Integraties). Verbind daar, synchroniseer klanten en kom dan hier terug om te importeren in deze waardering.",
+      "importedBatchSummaryDescription": "{years, plural, one {# boekjaar} other {# boekjaren}} geïmporteerd uit {provider}. Bekijk de datakwaliteitsscore en ga verder met manuele opvolging.",
       "connectedTitle": "{provider} is verbonden",
       "connectedDescription": "Haal eerst de laatste boekhoudcijfers uit {provider} op en review daarna de normalisaties en waarderingsaannames, met manuele override nog steeds beschikbaar.",
       "supportedProviders": "Yuki en Exact Online zijn live voor sync; Silverfin wanneer je werkruimte het inschakelt",
@@ -2262,7 +2269,12 @@
     "keyMetrics": "Kerncijfers",
     "methodology": "Methodologie",
     "methodologyDesc": "Deze indicatieve bedrijfsschatting is gebaseerd op vergelijkbare transactieanalyse met sectorspecifieke EBITDA-multiples (Damodaran). Het bereik houdt rekening met huidige marktomstandigheden, bedrijfsspecifieke risicofactoren en groeitraject.",
-    "disclaimer": "Disclaimer: Dit document betreft een indicatieve bedrijfsschatting en vormt geen formele waardering conform internationale standaarden. Voor formele transacties dient een gecertificeerde waardering door een erkend expert te worden uitgevoerd."
+    "disclaimer": "Disclaimer: Dit document betreft een indicatieve bedrijfsschatting en vormt geen formele waardering conform internationale standaarden. Voor formele transacties dient een gecertificeerde waardering door een erkend expert te worden uitgevoerd.",
+    "waterfall": {
+      "title": "Ondernemingswaarde → aandelenwaarde",
+      "subtitle": "Kas, schuld en werkkapitaal gebruiken dezelfde balansinputs als uw import of handmatige invoer.",
+      "ariaLabel": "Watervalgrafiek van ondernemingswaarde naar aandelenwaarde"
+    }
   },
   "invite": {
     "title": "Klant Uitnodigen",

@@ -52,7 +52,6 @@ describe('applyUserVsOfficialVariance', () => {
       { ...baseOfficial },
       1_200_000,
       100_000,
-      10,
       {
         state: 'explained',
         explanationRequired: true,
@@ -61,5 +60,17 @@ describe('applyUserVsOfficialVariance', () => {
     )
     expect(out.varianceAnalysis?.state).toBe('explained')
     expect(out.varianceAnalysis?.explanation).toBe('One-off restructuring')
+  })
+
+  it('sets severity soft when max variance is between soft and hard thresholds', () => {
+    const out = applyUserVsOfficialVariance({ ...baseOfficial }, 1_200_000, 100_000)
+    expect(out.varianceAnalysis?.severity).toBe('soft')
+    expect(out.varianceAnalysis?.maxVariancePercent).toBe(20)
+  })
+
+  it('sets severity hard when max variance meets hard threshold', () => {
+    const out = applyUserVsOfficialVariance({ ...baseOfficial }, 1_300_000, 100_000)
+    expect(out.varianceAnalysis?.severity).toBe('hard')
+    expect(out.varianceAnalysis?.maxVariancePercent).toBe(30)
   })
 })

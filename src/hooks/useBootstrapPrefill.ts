@@ -300,7 +300,6 @@ export function useBootstrapPrefill(): {
               mapped,
               userRevenue,
               userEbitda,
-              10,
               fdBefore.official_variance_analysis
             )
             const financialPatch: Partial<ValuationFormData> = {

@@ -40,9 +40,9 @@ import {
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useMemo, useState } from 'react'
+import { getPreSelectableMethodsForFirm, resolveDisplayPreSelectedMethodKey } from '@/constants/methodFieldConfig'
 import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
-import { getPreSelectableMethodsForFirm } from '@/constants/methodFieldConfig'
 
 const METHOD_LABEL_KEYS: Record<string, string> = {
   upswitch_adaptive: 'manualInput.methodSelector.adaptiveRecommended',
@@ -95,7 +95,9 @@ function MethodSelectorMenu({
               <div className="w-5 h-5 rounded-full bg-foreground/[0.06] shrink-0" />
             )}
             <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-              <span>{t(METHOD_LABEL_KEYS[key] ?? 'manualInput.methodSelector.adaptiveRecommended')}</span>
+              <span>
+                {t(METHOD_LABEL_KEYS[key] ?? 'manualInput.methodSelector.adaptiveRecommended')}
+              </span>
               {key === 'arr_multiple' && (
                 <span className="text-[10px] font-normal leading-snug text-foreground/45">
                   {t('manualInput.methodSelector.arrMultipleDescription')}
@@ -209,6 +211,11 @@ export interface CalculatorNavProps {
   onPreSelectMethod?: (method: string) => void
   /** Accountant firm country — hides BE-only fiscal method for NL */
   firmCountryCode?: string
+  /**
+   * When provided (e.g. from ManualLayout), the allowed upfront methods — single source of truth.
+   * Otherwise derived from country only (templates / legacy callers).
+   */
+  preSelectableMethodsForNav?: readonly string[]
 }
 
 // ─────────────────────────────────────────
@@ -264,7 +271,12 @@ interface DropdownProps {
   variant?: 'default' | 'glass'
 }
 
-const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start', variant = 'default' }) => {
+const Dropdown: React.FC<DropdownProps> = ({
+  trigger,
+  children,
+  align = 'start',
+  variant = 'default',
+}) => {
   const [open, setOpen] = React.useState(false)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
   const menuId = React.useId()
@@ -290,32 +302,32 @@ const Dropdown: React.FC<DropdownProps> = ({ trigger, children, align = 'start',
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {React.isValidElement(trigger)
-        ? React.cloneElement(trigger as React.ReactElement<any>, {
-            onClick: (event: React.MouseEvent) => {
-              trigger.props.onClick?.(event)
-              if (!event.defaultPrevented) setOpen((current: boolean) => !current)
-            },
-            'aria-expanded': open,
-            'aria-controls': menuId,
-          })
-        : (
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => setOpen((current) => !current)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                setOpen((current) => !current)
-              }
-            }}
-            aria-expanded={open}
-            aria-controls={menuId}
-          >
-            {trigger}
-          </div>
-        )}
+      {React.isValidElement(trigger) ? (
+        React.cloneElement(trigger as React.ReactElement<any>, {
+          onClick: (event: React.MouseEvent) => {
+            trigger.props.onClick?.(event)
+            if (!event.defaultPrevented) setOpen((current: boolean) => !current)
+          },
+          'aria-expanded': open,
+          'aria-controls': menuId,
+        })
+      ) : (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setOpen((current) => !current)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              setOpen((current) => !current)
+            }
+          }}
+          aria-expanded={open}
+          aria-controls={menuId}
+        >
+          {trigger}
+        </div>
+      )}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -394,6 +406,7 @@ export function CalculatorNav({
   preSelectedMethod,
   onPreSelectMethod,
   firmCountryCode,
+  preSelectableMethodsForNav: preSelectableMethodsForNavProp,
 }: CalculatorNavProps) {
   const t = useTranslations()
   const navLocale = useLocale()
@@ -413,16 +426,17 @@ export function CalculatorNav({
         }
       : null)
 
-  const preSelectableMethods = useMemo(
-    () => getPreSelectableMethodsForFirm(firmCountryCode),
-    [firmCountryCode]
-  )
+  const preSelectableMethods = useMemo(() => {
+    if (preSelectableMethodsForNavProp != null) {
+      return preSelectableMethodsForNavProp
+    }
+    return getPreSelectableMethodsForFirm(firmCountryCode)
+  }, [preSelectableMethodsForNavProp, firmCountryCode])
 
-  const displayPreSelectedMethod = useMemo(() => {
-    const raw = preSelectedMethod ?? 'upswitch_adaptive'
-    if (preSelectableMethods.includes(raw)) return raw
-    return 'upswitch_adaptive'
-  }, [preSelectedMethod, preSelectableMethods])
+  const displayPreSelectedMethod = useMemo(
+    () => resolveDisplayPreSelectedMethodKey(preSelectedMethod, preSelectableMethods),
+    [preSelectedMethod, preSelectableMethods]
+  )
 
   const selectedMethodLabel = t(
     METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended'
@@ -456,7 +470,9 @@ export function CalculatorNav({
         {/* Left: Back + New Valuation + Title with Recent Valuations Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Tooltip
-            content={isAccountantMode ? t('clientContext.exitClientView') : t('common.actions.back')}
+            content={
+              isAccountantMode ? t('clientContext.exitClientView') : t('common.actions.back')
+            }
           >
             <button
               type="button"
@@ -489,100 +505,102 @@ export function CalculatorNav({
                 recentValuations.slice(0, 5).map((val) => {
                   const isActive = !!activeReportId && val.id === activeReportId
                   return (
-                  <div
-                    key={val.id}
-                    className={cn(
-                      'flex items-center gap-2 group rounded-lg transition-colors',
-                      isActive ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-foreground/[0.04]'
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onSelectValuation?.(val.id)}
-                      className="flex-1 flex items-center gap-3 px-2 py-2 min-w-0 text-left"
+                    <div
+                      key={val.id}
+                      className={cn(
+                        'flex items-center gap-2 group rounded-lg transition-colors',
+                        isActive
+                          ? 'bg-primary/10 ring-1 ring-primary/20'
+                          : 'hover:bg-foreground/[0.04]'
+                      )}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
-                        <FileText className="w-4 h-4 text-foreground/50" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {val.companyName}
-                        </p>
-                        <div className="flex items-center gap-1.5 text-xs text-foreground/40">
-                          <Clock className="w-3 h-3" />
-                          <span>{formatTimeAgo(val.updatedAt, t)}</span>
-                          {val.isDraft && (
-                            <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[10px] font-medium">
-                              {t('valuation.draft')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                    {onDeleteValuation && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        className="shrink-0"
+                      <button
+                        type="button"
+                        onClick={() => onSelectValuation?.(val.id)}
+                        className="flex-1 flex items-center gap-3 px-2 py-2 min-w-0 text-left"
                       >
-                        {deletingValuationId === val.id ? (
-                          <div
-                            className="p-1.5 rounded-lg text-foreground/40 flex items-center justify-center"
-                            aria-label={t('common.states.processing')}
-                          >
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                        <div className="w-8 h-8 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
+                          <FileText className="w-4 h-4 text-foreground/50" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {val.companyName}
+                          </p>
+                          <div className="flex items-center gap-1.5 text-xs text-foreground/40">
+                            <Clock className="w-3 h-3" />
+                            <span>{formatTimeAgo(val.updatedAt, t)}</span>
+                            {val.isDraft && (
+                              <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[10px] font-medium">
+                                {t('valuation.draft')}
+                              </span>
+                            )}
                           </div>
-                        ) : (
-                          <Dropdown
-                            trigger={
-                              <button
-                                type="button"
-                                className="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-foreground/[0.08] text-foreground/50 hover:text-foreground transition-all"
-                                aria-label="More actions"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
-                            }
-                            align="end"
-                          >
-                            <div className="p-1">
-                              {onOpenValuationEdit && val.id === activeReportId && (
+                        </div>
+                      </button>
+                      {onDeleteValuation && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="shrink-0"
+                        >
+                          {deletingValuationId === val.id ? (
+                            <div
+                              className="p-1.5 rounded-lg text-foreground/40 flex items-center justify-center"
+                              aria-label={t('common.states.processing')}
+                            >
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            </div>
+                          ) : (
+                            <Dropdown
+                              trigger={
+                                <button
+                                  type="button"
+                                  className="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-foreground/[0.08] text-foreground/50 hover:text-foreground transition-all"
+                                  aria-label="More actions"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+                              }
+                              align="end"
+                            >
+                              <div className="p-1">
+                                {onOpenValuationEdit && val.id === activeReportId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      onOpenValuationEdit()
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-foreground/70 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                    {t('valuationEditModal.editValuation')}
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    onOpenValuationEdit()
+                                    if (
+                                      window.confirm(
+                                        t('valuation.deleteReportConfirm', {
+                                          name: val.companyName || t('valuation.untitledValuation'),
+                                        })
+                                      )
+                                    ) {
+                                      onDeleteValuation(val)
+                                    }
                                   }}
-                                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-foreground/70 hover:text-foreground hover:bg-foreground/[0.04] transition-colors text-sm"
+                                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-sm"
                                 >
-                                  <Pencil className="w-4 h-4" />
-                                  {t('valuationEditModal.editValuation')}
+                                  <Trash2 className="w-4 h-4" />
+                                  {t('common.actions.delete')}
                                 </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      t('valuation.deleteReportConfirm', {
-                                        name: val.companyName || t('valuation.untitledValuation'),
-                                      })
-                                    )
-                                  ) {
-                                    onDeleteValuation(val)
-                                  }
-                                }}
-                                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-sm"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                {t('common.actions.delete')}
-                              </button>
-                            </div>
-                          </Dropdown>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  );
+                              </div>
+                            </Dropdown>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
                 })
               ) : (
                 <div className="px-3 py-4 text-center">
@@ -619,9 +637,7 @@ export function CalculatorNav({
                     className="group flex min-w-0 max-w-[126px] lg:max-w-[160px] items-center gap-2 rounded-full min-h-[40px] border border-foreground/[0.06] bg-foreground/[0.03] px-2.5 py-1.5 text-sm font-medium text-foreground/80 hover:bg-foreground/[0.06] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-foreground/55 group-hover:text-foreground/70 shrink-0" />
-                    <span className="truncate min-w-0 flex-1 text-left">
-                      {compactMethodLabel}
-                    </span>
+                    <span className="truncate min-w-0 flex-1 text-left">{compactMethodLabel}</span>
                     <ChevronDown className="w-3 h-3 text-foreground/40 group-hover:text-foreground/60 shrink-0" />
                   </button>
                 }
@@ -669,7 +685,10 @@ export function CalculatorNav({
                           'group cursor-pointer'
                         )}
                       >
-                        <span className={confidenceDotClassName(displaySummary.confidence)} aria-hidden />
+                        <span
+                          className={confidenceDotClassName(displaySummary.confidence)}
+                          aria-hidden
+                        />
                         <span className={valuationNavAmountClass}>
                           {formatPrice(displaySummary.askPrice)}
                         </span>
@@ -795,11 +814,11 @@ export function CalculatorNav({
                   {t('assistant.shortcut')}
                 </kbd>
                 {openTasksCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-secondary text-secondary-foreground shadow-sm">
-                  {openTasksCount > 9 ? '9+' : openTasksCount}
-                </span>
-              )}
-            </AuroraButton>
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-secondary text-secondary-foreground shadow-sm">
+                    {openTasksCount > 9 ? '9+' : openTasksCount}
+                  </span>
+                )}
+              </AuroraButton>
             </Tooltip>
 
             {/* Normalization Hub Button - Secondary action (Clarity parity) */}
@@ -814,14 +833,14 @@ export function CalculatorNav({
                     'text-foreground/60 hover:text-foreground'
                   )}
                 >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>{t('normalization.title')}</span>
-                {normalizationCount > 0 && (
-                  <span className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-primary/15 text-primary">
-                    {normalizationCount}
-                  </span>
-                )}
-              </AuroraButton>
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>{t('normalization.title')}</span>
+                  {normalizationCount > 0 && (
+                    <span className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-primary/15 text-primary">
+                      {normalizationCount}
+                    </span>
+                  )}
+                </AuroraButton>
               </Tooltip>
             )}
 
@@ -1007,7 +1026,9 @@ export function CalculatorNav({
                     className="flex shrink-0 items-center gap-1.5 px-2 py-1.5 rounded-lg min-h-[44px] border border-foreground/[0.06] bg-foreground/[0.03] text-xs font-medium text-foreground hover:bg-foreground/[0.05] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-foreground/55 shrink-0" />
-                    <span className="text-foreground/60">{t('manualInput.methodSelector.label')}</span>
+                    <span className="text-foreground/60">
+                      {t('manualInput.methodSelector.label')}
+                    </span>
                     <ChevronDown className="w-3.5 h-3.5 text-foreground/40 shrink-0" />
                   </button>
                 }

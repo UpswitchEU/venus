@@ -64,6 +64,8 @@ interface ValuationFlowSelectorProps {
     focusField?: string
     flagYear?: string
   }
+  /** URL query `selected_method` forwarded from ValuationReport */
+  initialSelectedMethodFromUrl?: string
 }
 
 function LoadingErrorFallback() {
@@ -165,6 +167,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     urlAction,
     initialDrawerOpen = false,
     guidedResolution,
+    initialSelectedMethodFromUrl,
   }) => {
     const tErrors = useTranslations('errors')
     // ✅ WORLD CLASS: Loading handled upstream by ValuationSessionManager
@@ -231,6 +234,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 urlAction={urlAction}
                 initialDrawerOpen={initialDrawerOpen}
                 guidedResolution={guidedResolution}
+                initialSelectedMethodFromUrl={initialSelectedMethodFromUrl}
               />
             </Suspense>
           </div>

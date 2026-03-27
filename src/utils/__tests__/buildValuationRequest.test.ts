@@ -199,6 +199,9 @@ describe('buildValuationRequest', () => {
         type: 'subtract',
         amount: 37_500,
         account_code: '222000',
+        temporary_difference: 150_000,
+        tax_rate: 25,
+        tax_latency_type: 'passive',
       }),
     ])
 
@@ -243,6 +246,9 @@ describe('buildValuationRequest', () => {
         id: 'tl-1',
         category: 'tax_latency',
         account_code: '222000',
+        temporary_difference: 150_000,
+        tax_rate: 25,
+        tax_latency_type: 'passive',
       }),
     ])
 

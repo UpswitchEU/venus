@@ -81,6 +81,7 @@ import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
+import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMethodSessionSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
 import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../../../lib/return-url'
@@ -111,7 +112,9 @@ import {
   useSpotlightStore,
 } from '../../../store/useSpotlightStore'
 import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
+import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
+import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useClientContext } from '../../../stores/clientContext'
 import {
   APIError,
@@ -552,6 +555,11 @@ interface ManualLayoutProps {
     focusField?: string
     flagYear?: string
   }
+  /**
+   * Optional `selected_method` query param (e.g. Mercury → Venus). Seeds the top-bar method
+   * when session has no stored preference yet and there is no valuation result.
+   */
+  initialSelectedMethodFromUrl?: string
 }
 
 // ─────────────────────────────────────────
@@ -567,6 +575,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   urlAction,
   initialDrawerOpen = false,
   guidedResolutionUrl,
+  initialSelectedMethodFromUrl,
 }) => {
   const router = useTransitionRouter()
   const t = useTranslations('toast')
@@ -625,6 +634,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   } = useManualResultsStore()
   const { updateFormData } = useManualFormStore()
   const formStoreData = useManualFormStore((s) => s.formData)
+  const { currentYearRevenueForMethodNav, preSelectableMethodsForNav } = useUpfrontMethodNavInputs(
+    formStoreData,
+    user?.firm_country_code
+  )
   const status = useSessionStore((s) => s.status)
   const session = useSessionStore((s) => s.session)
   const sessionError = useSessionStore((s) => s.errorMessage)
@@ -1483,6 +1496,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formData: formStoreData,
   })
 
+  usePreSelectedMethodSessionSync({
+    reportId,
+    resolvedReportId,
+    restorationComplete,
+    initialSelectedMethodFromUrl,
+    firmCountryCode: user?.firm_country_code,
+    currentYearRevenue: currentYearRevenueForMethodNav,
+    hasValuationResult: !!result,
+  })
+
   // When report is restored (e.g. from URL) without our submit, set baseline from form store so we can detect edits
   useEffect(() => {
     if (!result || lastSubmittedFinancialSnapshotRef.current) return
@@ -1776,7 +1799,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       ]
     }
     return versions.map((v) => {
-      const method = v.formData?.selected_valuation_method ?? selectedMethod
+      const method =
+        (v.formData as { selected_valuation_method?: string } | undefined)?.selected_valuation_method ??
+        selectedMethod
       const { priceRange, askPrice } = deriveNavPricesForVersionNav(v.valuationResult, method)
       return {
         id: v.id,
@@ -2320,21 +2345,21 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handlePreSelectMethod = useCallback(
     (method: string) => {
-      const firm = user?.firm_country_code?.trim().toUpperCase().substring(0, 2)
-      if (firm === 'NL' && method === 'fiscal_4x') return
+      if (!isUpfrontMethodAllowedForNav(method, preSelectableMethodsForNav)) return
       setPreSelectedMethod(method === 'upswitch_adaptive' ? null : method)
     },
-    [setPreSelectedMethod, user?.firm_country_code]
+    [setPreSelectedMethod, preSelectableMethodsForNav]
   )
 
+  // Sync persisted pre-selection when allowed list changes (firm, turnover, hydration).
   useEffect(() => {
-    const firm = user?.firm_country_code?.trim().toUpperCase().substring(0, 2)
-    if (firm !== 'NL') return
-    const effective = preSelectedMethod ?? selectedMethod
-    if (effective === 'fiscal_4x') {
+    if (
+      preSelectedMethod &&
+      !isUpfrontMethodAllowedForNav(preSelectedMethod, preSelectableMethodsForNav)
+    ) {
       setPreSelectedMethod(null)
     }
-  }, [user?.firm_country_code, preSelectedMethod, selectedMethod, setPreSelectedMethod])
+  }, [preSelectableMethodsForNav, preSelectedMethod, setPreSelectedMethod])
 
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
@@ -4684,6 +4709,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           preSelectedMethod={preSelectedMethod ?? undefined}
           onPreSelectMethod={handlePreSelectMethod}
           firmCountryCode={user?.firm_country_code}
+          preSelectableMethodsForNav={preSelectableMethodsForNav}
         />
 
         {pdfStaleBannerEl}
@@ -4886,6 +4912,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         preSelectedMethod={preSelectedMethod ?? undefined}
         onPreSelectMethod={handlePreSelectMethod}
         firmCountryCode={user?.firm_country_code}
+        preSelectableMethodsForNav={preSelectableMethodsForNav}
       />
 
       {pdfStaleBannerEl}

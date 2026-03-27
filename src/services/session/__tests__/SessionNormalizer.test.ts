@@ -240,4 +240,45 @@ describe('normalizeSessionData', () => {
 
     expect((normalized.formData as any).business_context._imported_ledger_analysis).toEqual(analysis)
   })
+
+  describe('preSelectedValuationMethod (_pre_selected_valuation_method)', () => {
+    it('is undefined when the session key is absent', () => {
+      const normalized = normalizeSessionData({
+        session_key: 'val_nopre',
+        session_data: { company_name: 'No Pre Co' },
+      })
+      expect(normalized.preSelectedValuationMethod).toBeUndefined()
+    })
+
+    it('is null when the key is explicitly JSON null (AI adaptive)', () => {
+      const normalized = normalizeSessionData({
+        session_key: 'val_nullpre',
+        session_data: {
+          company_name: 'Null Pre Co',
+          _pre_selected_valuation_method: null,
+        },
+      })
+      expect(normalized.preSelectedValuationMethod).toBeNull()
+    })
+
+    it('lower-cases a stored method key', () => {
+      const normalized = normalizeSessionData({
+        session_key: 'val_dcf',
+        session_data: {
+          _pre_selected_valuation_method: 'DCF',
+        },
+      })
+      expect(normalized.preSelectedValuationMethod).toBe('dcf')
+    })
+
+    it('reads the snake_case alias pre_selected_valuation_method', () => {
+      const normalized = normalizeSessionData({
+        session_key: 'val_alias',
+        session_data: {
+          pre_selected_valuation_method: 'adjusted_nav',
+        },
+      })
+      expect(normalized.preSelectedValuationMethod).toBe('adjusted_nav')
+    })
+  })
 })

@@ -237,7 +237,7 @@ describe('OfficialFilingTrustPanel', () => {
       />
     )
 
-    expect(screen.getByText('Officiële filing cross-check')).toBeInTheDocument()
+    expect(screen.getByText('Controle officiële bron (NBB)')).toBeInTheDocument()
     expect(screen.getByText('Verified by NBB')).toBeInTheDocument()
     expect(screen.getByText(/Boekjaar 2024/)).toBeInTheDocument()
     expect(screen.getByText(/EUR 1.250.000/)).toBeInTheDocument()

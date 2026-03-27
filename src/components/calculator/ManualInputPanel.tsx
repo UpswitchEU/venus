@@ -59,6 +59,7 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
+import { getOfficialRegistryLabels } from '@/lib/i18n/officialRegistryLabels'
 import { decodeSilverfinOAuthState, encodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
 import { getBonusSections } from '../../constants/methodFieldConfig'
 import { useAuth } from '../../hooks/useAuth'
@@ -90,7 +91,11 @@ import type {
   OfficialVerificationBadge,
   YearDataInput,
 } from '../../types/valuation'
-import { getCurrentFilingYear, normalizeHistoricalYearsForFiling } from '../../utils/fiscalYear'
+import {
+  getCurrentFilingYear,
+  getFilingYearHistoricalOffset,
+  normalizeHistoricalYearsForFiling,
+} from '../../utils/fiscalYear'
 import {
   appendManualForecastYear,
   canAppendForecastYear,
@@ -335,6 +340,7 @@ export function OfficialFilingTrustPanel({
   isLoadingOfficialFiling = false,
 }: OfficialFilingTrustPanelProps) {
   const isEnglish = locale === 'en'
+  const nbbLabels = getOfficialRegistryLabels(locale)
   const hasOfficialData = Boolean(
     officialFinancials &&
       (officialFinancials.filingYear != null ||
@@ -395,13 +401,12 @@ export function OfficialFilingTrustPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/70">
-            {isEnglish ? 'Official filing cross-check' : 'Officiële filing cross-check'}
+            {nbbLabels.registryHead}
           </p>
           <p className="text-xs text-foreground/55">
-            {officialFinancials?.sourceLabel ||
-              (isEnglish ? 'NBB filing via Staatsbladmonitor' : 'NBB filing via Staatsbladmonitor')}
+            {officialFinancials?.sourceLabel || nbbLabels.defaultSourceLine}
             {officialFinancials?.filingYear != null &&
-              ` • ${isEnglish ? 'Filing year' : 'Boekjaar'} ${officialFinancials.filingYear}`}
+              ` • ${nbbLabels.filingYear} ${officialFinancials.filingYear}`}
           </p>
         </div>
         {officialVerificationBadge && (
@@ -476,12 +481,22 @@ export function OfficialFilingTrustPanel({
       {officialVarianceAnalysis?.explanationRequired && (
         <div className="mt-4 space-y-2">
           <div className="flex items-center gap-2 text-xs text-foreground/70">
-            <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+            <AlertTriangle
+              className={cn(
+                'h-3.5 w-3.5 shrink-0',
+                officialVarianceAnalysis.severity === 'hard' ? 'text-destructive' : 'text-warning'
+              )}
+            />
             <span>
               <strong>{isEnglish ? 'Variance analysis' : 'Verschilanalyse'}:</strong>{' '}
               {varianceStateLabel || (isEnglish ? 'Pending' : 'Openstaand')}
               {officialVarianceAnalysis.explanationRequired &&
                 ` • ${isEnglish ? 'Explanation required' : 'Toelichting vereist'}`}
+              {officialVarianceAnalysis.severity === 'hard' &&
+                ` • ${isEnglish ? 'Large deviation vs official filing (≥25%).' : 'Grote afwijking t.o.v. officiële filing (≥25%).'}`}
+              {officialVarianceAnalysis.severity === 'soft' &&
+                officialVarianceAnalysis.maxVariancePercent != null &&
+                ` • ${isEnglish ? 'Deviation' : 'Afwijking'} ~${Math.round(officialVarianceAnalysis.maxVariancePercent)}%`}
             </span>
           </div>
           <AuroraTextarea
@@ -1784,6 +1799,7 @@ export function ManualInputPanel({
         : sortedYearlyFinancials,
     [effectiveMethod, sortedYearlyFinancials]
   )
+  const baseFilingYearForLabels = useMemo(() => getSeedBaseFilingYear(formData), [formData])
   const dcfForecastRows = useMemo(
     () =>
       effectiveMethod === 'dcf'
@@ -1810,8 +1826,7 @@ export function ManualInputPanel({
       nav?: number
       saas?: number
       revenue?: number
-      realEstate: number
-    } = { realEstate: n }
+    } = {}
     if (bonus.includes('dcf_projections')) {
       out.dcfGlobal = n++
     }
@@ -1824,7 +1839,6 @@ export function ManualInputPanel({
     if (bonus.includes('revenue_quality')) {
       out.revenue = n++
     }
-    out.realEstate = n
     return out
   }, [
     effectiveMethod,
@@ -1832,6 +1846,12 @@ export function ManualInputPanel({
     selectedBusinessType?.category,
     selectedBusinessType?.id,
   ])
+
+  /** Step badge for real-estate carve-out: after DCF forecast workspace (step 4) when present, else 4. */
+  const balanceSheetCarveOutStep = useMemo(
+    () => (effectiveMethod === 'dcf' && dcfForecastRows.length > 0 ? 5 : 4),
+    [effectiveMethod, dcfForecastRows.length]
+  )
 
   const [terminalValueMethod, setTerminalValueMethod] = useState<TerminalValueMethod>(() => {
     if (formData.dcf_terminal_value_method) return formData.dcf_terminal_value_method
@@ -2227,9 +2247,12 @@ export function ManualInputPanel({
                     </h3>
                     <p className="mt-1 text-sm text-foreground/70">
                       {shouldShowImportedBatchSummary
-                        ? `Imported ${importedYearCount} fiscal years from ${importedProviderLabel}. Review the data quality score and continue with manual follow-up.`
+                        ? mi('integrationEntry.importedBatchSummaryDescription', {
+                            years: importedYearCount,
+                            provider: importedProviderLabel,
+                          })
                         : requiresMercuryImportFlow
-                          ? 'Yuki and Exact Online sync and bulk import run in Mercury. Open integrations there to connect, import divisions, and sync client data, then return here for manual follow-up.'
+                          ? mi('integrationEntry.mercuryCanonicalHint')
                           : accountingConnectedStatus?.is_connected
                             ? mi('integrationEntry.connectedDescription', {
                                 provider: accountingProviderDisplayName(
@@ -2438,6 +2461,12 @@ export function ManualInputPanel({
                   size="sm"
                   disabled={isCalculating}
                   countryCode={searchCountry}
+                  description={
+                    searchCountry === 'NL' ? mi('registryNlSearchHint') : undefined
+                  }
+                  noResultsHint={
+                    searchCountry === 'NL' ? mi('registryNlNoResults') : undefined
+                  }
                 />
               )}
 
@@ -2803,6 +2832,16 @@ export function ManualInputPanel({
                       (y) => y.year === yearData.year && !!y.isForecast === !!yearData.isForecast
                     )
                     const normCount = Number(normalizedYear?.normalizationCount ?? 0)
+                    const histOffset = getFilingYearHistoricalOffset(
+                      yearData.year,
+                      baseFilingYearForLabels
+                    )
+                    const yearLabelForHelp =
+                      yearData.isForecast || histOffset === null
+                        ? String(yearData.year)
+                        : histOffset === 0
+                          ? `${yearData.year} (${mi('filingYearColumnBase')})`
+                          : `${yearData.year} (${mi('filingYearColumnBaseMinus', { n: histOffset })})`
 
                     return (
                       <div
@@ -2821,6 +2860,16 @@ export function ManualInputPanel({
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm font-semibold text-foreground">
                             {yearData.year}
+                            {!yearData.isForecast && histOffset === 0 && (
+                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                                ({mi('filingYearColumnBase')})
+                              </span>
+                            )}
+                            {!yearData.isForecast && histOffset !== null && histOffset > 0 && (
+                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                                ({mi('filingYearColumnBaseMinus', { n: histOffset })})
+                              </span>
+                            )}
                             {yearData.isForecast && (
                               <span className="ml-1.5 text-xs font-normal text-primary/60">
                                 ({mi('forecastLabel')})
@@ -2912,7 +2961,7 @@ export function ManualInputPanel({
                                     <FieldHelpTrigger
                                       context={{
                                         field: 'ebitda',
-                                        label: `EBITDA ${yearData.year}`,
+                                        label: `EBITDA ${yearLabelForHelp}`,
                                         value: yearData.ebitda,
                                         hint: mi('ebitdaRelevantHint'),
                                         normalizationType: 'other',
@@ -3044,10 +3093,37 @@ export function ManualInputPanel({
                       }}
                     />
                   )}
+
+                  {/* Balance sheet / transaction structure: vastgoed carve-out (M&A) — next to financial inputs */}
+                  {selectedCompany && hasBusinessType && hasFinancials && (
+                    <div className="pt-2 border-t border-foreground/[0.06]">
+                      <p className="text-xs font-medium text-foreground/50 mb-3 ml-0">
+                        {mi('balanceSheetAndTransaction')}
+                      </p>
+                      <RealEstateCarveOutSection
+                        step={balanceSheetCarveOutStep}
+                        excludeRealEstate={formData.exclude_real_estate}
+                        realEstateBookValue={formData.real_estate_book_value}
+                        estimatedMarketRent={formData.estimated_market_rent}
+                        onToggleChange={(checked) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            exclude_real_estate: checked,
+                            real_estate_book_value: checked ? prev.real_estate_book_value : undefined,
+                            estimated_market_rent: checked ? prev.estimated_market_rent : undefined,
+                          }))
+                        }}
+                        onFieldChange={(field, value) => {
+                          setFormData((prev) => ({ ...prev, [field]: value }))
+                        }}
+                        disabled={isCalculating}
+                      />
+                    </div>
+                  )}
                 </div>
               </motion.section>
             )}
-            {/* Adaptive sections + real estate: consistent vertical rhythm after financials */}
+            {/* Adaptive method-specific sections (DCF globals, NAV, SaaS, etc.) */}
             <div className="mt-4 flex flex-col gap-6">
               <AdaptiveSections
                 effectiveMethod={effectiveMethod}
@@ -3063,25 +3139,6 @@ export function ManualInputPanel({
                 canApplyDcfPercentAutofill={canApplyDcfProjectionAutofill}
                 terminalValueMethod={terminalValueMethod}
                 onTerminalValueMethodChange={handleTerminalValueMethodChange}
-                disabled={isCalculating}
-              />
-
-              <RealEstateCarveOutSection
-                step={adaptiveHeaderSteps.realEstate}
-                excludeRealEstate={formData.exclude_real_estate}
-                realEstateBookValue={formData.real_estate_book_value}
-                estimatedMarketRent={formData.estimated_market_rent}
-                onToggleChange={(checked) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    exclude_real_estate: checked,
-                    real_estate_book_value: checked ? prev.real_estate_book_value : undefined,
-                    estimated_market_rent: checked ? prev.estimated_market_rent : undefined,
-                  }))
-                }}
-                onFieldChange={(field, value) => {
-                  setFormData((prev) => ({ ...prev, [field]: value }))
-                }}
                 disabled={isCalculating}
               />
             </div>
@@ -3223,7 +3280,6 @@ export function AdaptiveSections({
     nav?: number
     saas?: number
     revenue?: number
-    realEstate?: number
   }
   onFieldChange: (field: string, value: number | undefined) => void
   onApplyDcfPercentAutofill?: () => void

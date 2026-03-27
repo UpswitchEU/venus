@@ -21,6 +21,10 @@ import {
 } from '../../utils/fiscalYear'
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
 import { generalLogger } from '../../utils/logger'
+import {
+  SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
+  SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
+} from '../../constants/sessionUiKeys'
 
 /**
  * Pricing range structure for valuation results
@@ -65,6 +69,13 @@ export interface NormalizedSessionData {
   // Metadata
   dataSource: 'manual' | 'conversational' | 'mixed'
   hasExistingData: boolean
+
+  /**
+   * Upfront valuation method preference (session JSONB `_pre_selected_valuation_method`).
+   * Only used when no valuation result exists yet; otherwise `selected_valuation_method` on the result wins.
+   * `undefined` = key absent (do not overwrite store); `null` = explicitly adaptive; string = method key.
+   */
+  preSelectedValuationMethod: string | null | undefined
 }
 
 /**
@@ -437,6 +448,27 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
   const pricingRange = extractPricingRange(sessionData, backendSession)
   const clientContext = extractClientContext(sessionData)
 
+  const preKey = SESSION_PRE_SELECTED_VALUATION_METHOD_KEY
+  const altKey = SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY
+  const hasPreKey =
+    sessionData &&
+    typeof sessionData === 'object' &&
+    (preKey in sessionData || altKey in sessionData)
+  const rawPre = hasPreKey
+    ? (preKey in sessionData! ? (sessionData as any)[preKey] : (sessionData as any)[altKey])
+    : undefined
+
+  let preSelectedValuationMethod: string | null | undefined
+  if (!hasPreKey) {
+    preSelectedValuationMethod = undefined
+  } else if (rawPre === null || rawPre === '') {
+    preSelectedValuationMethod = null
+  } else if (typeof rawPre === 'string' && rawPre.trim().length > 0) {
+    preSelectedValuationMethod = rawPre.trim().toLowerCase()
+  } else {
+    preSelectedValuationMethod = undefined
+  }
+
   const normalized: NormalizedSessionData = {
     // Metadata
     reportId,
@@ -460,6 +492,7 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     clientContext,
     dataSource: normalizeFlowType(backendSession.dataSource || sessionData.dataSource),
     hasExistingData: hasExistingData(formData, valuationResult, htmlReport),
+    preSelectedValuationMethod,
   }
 
   generalLogger.debug('[SessionNormalizer] Normalized session data', {
@@ -494,6 +527,7 @@ export function createEmptyNormalizedData(reportId: string): NormalizedSessionDa
     clientContext: null,
     dataSource: 'manual',
     hasExistingData: false,
+    preSelectedValuationMethod: undefined,
   }
 }
 

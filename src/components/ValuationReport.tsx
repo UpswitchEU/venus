@@ -312,6 +312,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                   focusField: urlParams.focusField,
                   flagYear: urlParams.flagYear,
                 }}
+                initialSelectedMethodFromUrl={urlParams.selected_method}
               />
             )}
           </ValuationSessionManager>

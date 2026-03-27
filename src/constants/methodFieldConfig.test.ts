@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   getBonusSections,
   getPreSelectableMethodsForFirm,
+  getPreSelectableMethodsForFirmAndRevenue,
+  isUpfrontMethodAllowedForNav,
+  resolveDisplayPreSelectedMethodKey,
   METHOD_FIELD_CONFIG,
   PRE_SELECTABLE_METHODS,
 } from './methodFieldConfig'
@@ -53,5 +56,24 @@ describe('methodFieldConfig', () => {
     expect(nl.length).toBe(PRE_SELECTABLE_METHODS.length - 1)
     expect(getPreSelectableMethodsForFirm('BE')).toEqual(PRE_SELECTABLE_METHODS)
     expect(getPreSelectableMethodsForFirm('nl')).not.toContain('fiscal_4x')
+  })
+
+  it('omits omzet_multiple when turnover is known to be ≤ 0', () => {
+    expect(getPreSelectableMethodsForFirmAndRevenue('BE', 0)).not.toContain('omzet_multiple')
+    expect(getPreSelectableMethodsForFirmAndRevenue('BE', undefined)).toEqual(PRE_SELECTABLE_METHODS)
+  })
+
+  it('isUpfrontMethodAllowedForNav respects list and always allows adaptive', () => {
+    const allowed = getPreSelectableMethodsForFirm('NL')
+    expect(isUpfrontMethodAllowedForNav('upswitch_adaptive', allowed)).toBe(true)
+    expect(isUpfrontMethodAllowedForNav('fiscal_4x', allowed)).toBe(false)
+    expect(isUpfrontMethodAllowedForNav('ebitda_multiple', allowed)).toBe(true)
+  })
+
+  it('resolveDisplayPreSelectedMethodKey falls back to adaptive when invalid', () => {
+    const allowed = getPreSelectableMethodsForFirmAndRevenue('BE', 0)
+    expect(resolveDisplayPreSelectedMethodKey('omzet_multiple', allowed)).toBe('upswitch_adaptive')
+    expect(resolveDisplayPreSelectedMethodKey(null, allowed)).toBe('upswitch_adaptive')
+    expect(resolveDisplayPreSelectedMethodKey('dcf', allowed)).toBe('dcf')
   })
 })

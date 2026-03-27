@@ -224,8 +224,12 @@ export interface KBOSearchInputProps extends VariantProps<typeof searchFieldVari
   className?: string
   /** Disabled state */
   disabled?: boolean
-  /** Country code for registry-aware labels */
+  /** Country code for registry-aware labels and external search links */
   countryCode?: string
+  /** Optional helper below the field (e.g. NL manual-entry when registry API is off) */
+  description?: string
+  /** Optional empty-state message (overrides default noResultsHint) */
+  noResultsHint?: string
 }
 
 function defaultKBOSearch(_query: string, _signal?: AbortSignal): KBOCompany[] {
@@ -249,10 +253,17 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       className,
       disabled,
       countryCode = 'BE',
+      description,
+      noResultsHint: noResultsHintOverride,
     },
     ref
   ) => {
     const t = useTranslations('integrationStep')
+    const effectiveCountryCode = (countryCode ?? 'BE').trim().toUpperCase().slice(0, 2)
+    const registrySearchUrl =
+      effectiveCountryCode === 'NL'
+        ? `https://www.kvk.nl/zoeken/?source=all&q=${encodeURIComponent(value.trim())}`
+        : `https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value.trim())}`
     const inputId = React.useId()
     const displayLabel = label ?? t('companyNameOrKbo')
     const displayPlaceholder = placeholder ?? t('searchPlaceholder')
@@ -549,6 +560,10 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           </p>
         )}
 
+        {description && !selectedCompany && !disabled && (
+          <p className="mt-2 text-xs text-foreground/50">{description}</p>
+        )}
+
         {/* Search Results Dropdown - Portal to escape overflow (Clarity parity) */}
         {typeof document !== 'undefined' &&
           !disabled &&
@@ -610,7 +625,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                   </button>
                   <div className="mt-3 pt-3 border-t border-foreground/[0.08]">
                     <a
-                      href={`https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value.trim())}`}
+                      href={registrySearchUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-medium text-primary hover:text-primary/80"
@@ -621,9 +636,9 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                 </div>
               ) : results.length === 0 ? (
                 <div className="px-4 py-4 text-sm text-foreground/50">
-                  <p>{t('noResultsHint')}</p>
+                  <p>{noResultsHintOverride ?? t('noResultsHint')}</p>
                   <a
-                    href={`https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?zoekwoord=${encodeURIComponent(value.trim())}`}
+                    href={registrySearchUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-2 inline-block text-xs font-medium text-primary hover:text-primary/80 transition-colors"

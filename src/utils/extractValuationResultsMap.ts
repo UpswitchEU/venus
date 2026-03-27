@@ -152,6 +152,19 @@ function enrichDcfMethod(
     details.historical_fcf_readiness = readiness
   }
 
+  const midYear = dcfValuation.mid_year_discounting
+  if (details.mid_year_discounting == null && typeof midYear === 'boolean') {
+    details.mid_year_discounting = midYear
+  }
+  const periodsNote = dcfValuation.discount_periods_note
+  if (details.discount_periods_note == null && periodsNote != null && periodsNote !== '') {
+    details.discount_periods_note = periodsNote
+  }
+  const academicCoe = dcfValuation.academic_cost_of_equity_formula
+  if (details.academic_cost_of_equity_formula == null && academicCoe != null && academicCoe !== '') {
+    details.academic_cost_of_equity_formula = academicCoe
+  }
+
   return {
     ...map,
     dcf: {
@@ -370,6 +383,21 @@ function synthesizeMinimalValuationResultsMap(
     if (dcfWacc != null) details.wacc = dcfWacc
     if (dcfTerminalValue != null) details.terminal_value = dcfTerminalValue
     if (readiness) details.historical_fcf_readiness = readiness
+    if (dcfValuation && typeof dcfValuation.mid_year_discounting === 'boolean') {
+      details.mid_year_discounting = dcfValuation.mid_year_discounting
+    }
+    if (
+      dcfValuation?.discount_periods_note != null &&
+      dcfValuation.discount_periods_note !== ''
+    ) {
+      details.discount_periods_note = dcfValuation.discount_periods_note
+    }
+    if (
+      dcfValuation?.academic_cost_of_equity_formula != null &&
+      dcfValuation.academic_cost_of_equity_formula !== ''
+    ) {
+      details.academic_cost_of_equity_formula = dcfValuation.academic_cost_of_equity_formula
+    }
   }
 
   const value = equityMid ?? enterpriseMid ?? 0

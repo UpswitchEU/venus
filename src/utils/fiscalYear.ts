@@ -36,6 +36,20 @@ export function normalizeCurrentYearForFiling(
   return Math.min(parsedYear, filingYearConfirmed ? maxConfirmedYear : filingYear)
 }
 
+/**
+ * For UI labels: how many years before the chosen filing base this row is (0 = base year).
+ * Returns null if the year is after the base (e.g. mis-seeded data) or invalid.
+ */
+export function getFilingYearHistoricalOffset(
+  year: string | number,
+  baseFilingYear: number
+): number | null {
+  const y = Number(year)
+  if (!Number.isFinite(y)) return null
+  const offset = baseFilingYear - y
+  return offset >= 0 ? offset : null
+}
+
 export function normalizeHistoricalYearsForFiling<
   T extends { year: number | string | null | undefined }
 >(

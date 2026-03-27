@@ -142,7 +142,7 @@ export interface UnifiedNormalizationModalProps {
   onUploadClick?: () => void
   initialSearchQuery?: string
   initialYearFilter?: number | null
-  /** Financial years entered by the user (e.g. [2022, 2023, 2024, 2025]) */
+  /** Financial years entered by the user (historical + optional forecasts; numeric years) */
   financialYears?: number[]
   /** Fallback form data ref (from ManualInputPanel) — read when originalEBITDA is 0. Modal renders after panel, so ref has latest. */
   fallbackFormDataRef?: React.MutableRefObject<Record<string, unknown> | null>
