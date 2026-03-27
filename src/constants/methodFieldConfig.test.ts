@@ -34,4 +34,10 @@ describe('methodFieldConfig', () => {
   it('supports Titan SaaS business type ids even when the category is generic', () => {
     expect(getBonusSections('upswitch_adaptive', 'tech-digital', 'saas')).toEqual(['saas_metrics'])
   })
+
+  it('future-proofs SaaS subtype ids without explicit registry entries', () => {
+    expect(getBonusSections('upswitch_adaptive', 'tech-digital', 'vertical-saas-fintech')).toEqual([
+      'saas_metrics',
+    ])
+  })
 })

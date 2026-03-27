@@ -55,7 +55,14 @@ function getBusinessSectionCandidates(
     businessCategory?.trim().toLowerCase() ?? null,
   ].filter((value): value is string => Boolean(value))
 
-  return [...new Set(candidates)]
+  const expanded = [...candidates]
+  for (const candidate of candidates) {
+    if (candidate.includes('saas') && !expanded.includes('saas')) {
+      expanded.push('saas')
+    }
+  }
+
+  return [...new Set(expanded)]
 }
 
 /**
