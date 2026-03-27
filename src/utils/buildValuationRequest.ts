@@ -7,10 +7,10 @@
  * @module utils/buildValuationRequest
  */
 
-import { useNormalizationStore } from '../store/useNormalizationStore'
-import { useEbitdaNormalizationStore } from '../store/useEbitdaNormalizationStore'
-import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
+import { useEbitdaNormalizationStore } from '../store/useEbitdaNormalizationStore'
+import { useNormalizationStore } from '../store/useNormalizationStore'
+import { calculateLatencyAmount, useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { DataResponse } from '../types/data-collection'
 import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
@@ -127,7 +127,7 @@ function pickOptionalYearDataFields(source: unknown): Record<string, number> {
 export function buildValuationRequest(
   source: ValuationFormData | DataResponse[],
   overrideItems?: NormalizationItem[],
-  locale?: 'nl' | 'en',
+  locale?: 'nl' | 'en'
 ): ValuationRequest {
   // Convert DataResponse[] to formData if needed
   let formData: ValuationFormData
@@ -149,7 +149,10 @@ export function buildValuationRequest(
       : defaultFilingYear
 
   // Normalize founding year (1900-2100)
-  const foundingYear = Math.min(Math.max(formData.founding_year || currentFiscalYear - 5, 1900), 2100)
+  const foundingYear = Math.min(
+    Math.max(formData.founding_year || currentFiscalYear - 5, 1900),
+    2100
+  )
 
   // Normalize company name
   const companyName = formData.company_name?.trim() || 'Unknown Company'
@@ -213,12 +216,11 @@ export function buildValuationRequest(
   const legacyNormalizations = useEbitdaNormalizationStore.getState().normalizations
 
   // Separate historical actuals from explicit forecast projections.
-  const actualHistoricalData =
-    formData.historical_years_data?.filter((y) => !y.is_forecast) ?? []
+  const actualHistoricalData = formData.historical_years_data?.filter((y) => !y.is_forecast) ?? []
   const rawForecastData =
     formData.forecast_years_data && formData.forecast_years_data.length > 0
       ? formData.forecast_years_data
-      : formData.historical_years_data?.filter((y) => y.is_forecast) ?? []
+      : (formData.historical_years_data?.filter((y) => y.is_forecast) ?? [])
 
   const historicalYears = actualHistoricalData
     .filter((y) => y.ebitda != null && y.year >= 2000 && y.year <= 2100)
@@ -352,7 +354,10 @@ export function buildValuationRequest(
       .sort((a, b) => a.year - b.year) || []
   )
 
-  const derivedActualYears = deriveNwcChangesForActualYears([...historicalYearsData, currentYearData])
+  const derivedActualYears = deriveNwcChangesForActualYears([
+    ...historicalYearsData,
+    currentYearData,
+  ])
   const derivedCurrentYearData = derivedActualYears[derivedActualYears.length - 1]
   if (derivedCurrentYearData) {
     Object.assign(currentYearData, derivedCurrentYearData)
@@ -434,10 +439,7 @@ export function buildValuationRequest(
     forecastYearSet.add(year.year)
   }
 
-  const projectionYears = Math.max(
-    5,
-    forecastYearsData.length > 0 ? forecastYearsData.length : 5
-  )
+  const projectionYears = Math.max(5, forecastYearsData.length > 0 ? forecastYearsData.length : 5)
 
   // Normalize recurring revenue percentage (0.0-1.0)
   const recurringRevenueInput =
@@ -454,14 +456,18 @@ export function buildValuationRequest(
   // Build business context from internal metadata + adaptive input fields
   const fd = formData as any
   const adaptiveFields: Record<string, unknown> = {}
-  if (fd.dcf_revenue_growth_pct != null) adaptiveFields.dcf_revenue_growth_pct = fd.dcf_revenue_growth_pct
-  if (fd.dcf_ebitda_margin_pct != null) adaptiveFields.dcf_ebitda_margin_pct = fd.dcf_ebitda_margin_pct
+  if (fd.dcf_revenue_growth_pct != null)
+    adaptiveFields.dcf_revenue_growth_pct = fd.dcf_revenue_growth_pct
+  if (fd.dcf_ebitda_margin_pct != null)
+    adaptiveFields.dcf_ebitda_margin_pct = fd.dcf_ebitda_margin_pct
   if (fd.dcf_capex_pct != null) adaptiveFields.dcf_capex_pct = fd.dcf_capex_pct
   if (fd.dcf_nwc_pct != null) adaptiveFields.dcf_nwc_pct = fd.dcf_nwc_pct
   if (fd.dcf_wacc_pct != null) adaptiveFields.dcf_wacc_pct = fd.dcf_wacc_pct
-  if (fd.dcf_terminal_growth_pct != null) adaptiveFields.dcf_terminal_growth_pct = fd.dcf_terminal_growth_pct
+  if (fd.dcf_terminal_growth_pct != null)
+    adaptiveFields.dcf_terminal_growth_pct = fd.dcf_terminal_growth_pct
   if (fd.dcf_exit_multiple != null) adaptiveFields.dcf_exit_multiple = fd.dcf_exit_multiple
-  if (fd.dcf_risk_free_rate_pct != null) adaptiveFields.dcf_risk_free_rate_pct = fd.dcf_risk_free_rate_pct
+  if (fd.dcf_risk_free_rate_pct != null)
+    adaptiveFields.dcf_risk_free_rate_pct = fd.dcf_risk_free_rate_pct
   if (fd.dcf_equity_risk_premium_pct != null) {
     adaptiveFields.dcf_equity_risk_premium_pct = fd.dcf_equity_risk_premium_pct
   }
@@ -469,23 +475,31 @@ export function buildValuationRequest(
   if (fd.dcf_cost_of_debt_pct != null) adaptiveFields.dcf_cost_of_debt_pct = fd.dcf_cost_of_debt_pct
   if (fd.dcf_debt_equity_pct != null) adaptiveFields.dcf_debt_equity_pct = fd.dcf_debt_equity_pct
   if (fd.dcf_tax_shield_pct != null) adaptiveFields.dcf_tax_shield_pct = fd.dcf_tax_shield_pct
-  if (fd.nav_real_estate_adjustment != null) adaptiveFields.nav_real_estate_adjustment = fd.nav_real_estate_adjustment
-  if (fd.nav_inventory_adjustment != null) adaptiveFields.nav_inventory_adjustment = fd.nav_inventory_adjustment
+  if (fd.nav_real_estate_adjustment != null)
+    adaptiveFields.nav_real_estate_adjustment = fd.nav_real_estate_adjustment
+  if (fd.nav_inventory_adjustment != null)
+    adaptiveFields.nav_inventory_adjustment = fd.nav_inventory_adjustment
   if (fd.nav_hidden_reserves != null) adaptiveFields.nav_hidden_reserves = fd.nav_hidden_reserves
-  if (fd.nav_goodwill_writeoff != null) adaptiveFields.nav_goodwill_writeoff = fd.nav_goodwill_writeoff
+  if (fd.nav_goodwill_writeoff != null)
+    adaptiveFields.nav_goodwill_writeoff = fd.nav_goodwill_writeoff
   if (fd.saas_arr != null) adaptiveFields.saas_arr = fd.saas_arr
   if (fd.saas_mrr != null) adaptiveFields.saas_mrr = fd.saas_mrr
   if (fd.saas_arr_growth_pct != null) adaptiveFields.saas_arr_growth_pct = fd.saas_arr_growth_pct
   if (fd.saas_churn_pct != null) adaptiveFields.saas_churn_pct = fd.saas_churn_pct
-  if (fd.saas_customer_churn_pct != null) adaptiveFields.saas_customer_churn_pct = fd.saas_customer_churn_pct
+  if (fd.saas_customer_churn_pct != null)
+    adaptiveFields.saas_customer_churn_pct = fd.saas_customer_churn_pct
   if (fd.saas_nrr_pct != null) adaptiveFields.saas_nrr_pct = fd.saas_nrr_pct
-  if (fd.saas_gross_margin_pct != null) adaptiveFields.saas_gross_margin_pct = fd.saas_gross_margin_pct
+  if (fd.saas_gross_margin_pct != null)
+    adaptiveFields.saas_gross_margin_pct = fd.saas_gross_margin_pct
   if (fd.saas_cac != null) adaptiveFields.saas_cac = fd.saas_cac
-  if (fd.saas_customer_concentration_pct != null) adaptiveFields.saas_customer_concentration_pct = fd.saas_customer_concentration_pct
-  if (fd.saas_expansion_revenue_pct != null) adaptiveFields.saas_expansion_revenue_pct = fd.saas_expansion_revenue_pct
+  if (fd.saas_customer_concentration_pct != null)
+    adaptiveFields.saas_customer_concentration_pct = fd.saas_customer_concentration_pct
+  if (fd.saas_expansion_revenue_pct != null)
+    adaptiveFields.saas_expansion_revenue_pct = fd.saas_expansion_revenue_pct
   if (fd.saas_sm_spend != null) adaptiveFields.saas_sm_spend = fd.saas_sm_spend
   if (fd.rev_recurring_pct != null) adaptiveFields.rev_recurring_pct = fd.rev_recurring_pct
-  if (fd.rev_top_client_concentration_pct != null) adaptiveFields.rev_top_client_concentration_pct = fd.rev_top_client_concentration_pct
+  if (fd.rev_top_client_concentration_pct != null)
+    adaptiveFields.rev_top_client_concentration_pct = fd.rev_top_client_concentration_pct
   if (fd.rev_contract_backlog != null) adaptiveFields.rev_contract_backlog = fd.rev_contract_backlog
 
   const existingBusinessContext =
@@ -510,8 +524,8 @@ export function buildValuationRequest(
           ...adaptiveFields,
         }
       : existingBusinessContext
-      ? existingBusinessContext
-      : undefined
+        ? existingBusinessContext
+        : undefined
 
   // Build ValuationRequest
   const request: ValuationRequest = {
@@ -559,14 +573,18 @@ export function buildValuationRequest(
     ...(locale && { locale }),
   }
 
-  // Tax latencies (belastinglatenties) — equity bridge adjustments
+  // Tax latencies (belastinglatenties) now flow as balance-sheet adjustments
+  // to keep PDF/report output ledger-linked and avoid double-counting in Step 7.
   const taxLatencyItems = useTaxLatencyStore.getState().items
   if (taxLatencyItems.length > 0) {
-    request.tax_latencies = taxLatencyItems.map((item) => ({
-      type: item.type,
+    request.balance_sheet_adjustments = taxLatencyItems.map((item) => ({
+      id: item.id,
+      label: item.description || item.accountName || 'Belastinglatentie',
+      amount: Math.abs(calculateLatencyAmount(item)),
+      type: item.type === 'active' ? 'add' : 'subtract',
+      category: 'tax_latency',
       description: item.description,
-      temporary_difference: Math.abs(item.temporaryDifference),
-      tax_rate: item.taxRate,
+      ...(item.accountCode ? { account_code: item.accountCode } : {}),
     }))
   }
 

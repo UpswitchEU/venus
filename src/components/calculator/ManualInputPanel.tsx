@@ -104,6 +104,10 @@ import { useSpotlightStore } from '../../store/useSpotlightStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import { SilverfinConnectModal } from '@/components/integrations/SilverfinConnectModal'
+import {
+  decodeSilverfinOAuthState,
+  encodeSilverfinOAuthState,
+} from '@/utils/silverfin-oauth-state'
 import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import { ProvenanceDot } from './ProvenanceDot'
@@ -666,25 +670,19 @@ export function ManualInputPanel({
     forecast_years_data: initialData.forecast_years_data,
     filingYearConfirmed: initialData.filingYearConfirmed ?? false,
   })
-  const [showExactConnectModal, setShowExactConnectModal] = useState(false)
   const [showSilverfinConnectModal, setShowSilverfinConnectModal] = useState(false)
   const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)
   const [importBatchProvider, setImportBatchProvider] = useState<
-    Extract<AccountingImportProvider, 'yuki' | 'exact' | 'silverfin'> | null
+    Extract<AccountingImportProvider, 'silverfin'> | null
   >(null)
   const [accountingStatuses, setAccountingStatuses] = useState<IntegrationStatus[]>([])
-  const [exactDivisions, setExactDivisions] = useState<AccountingAdministration[]>([])
   const [silverfinCompanies, setSilverfinCompanies] = useState<AccountingAdministration[]>([])
-  const [selectedExactDivisionId, setSelectedExactDivisionId] = useState('')
   const [selectedSilverfinCompanyId, setSelectedSilverfinCompanyId] = useState('')
-  const [exactHistoryRange, setExactHistoryRange] = useState<'3' | '5'>('5')
   const [silverfinHistoryRange, setSilverfinHistoryRange] = useState<'3' | '5'>('5')
-  const [loadingExactDivisions, setLoadingExactDivisions] = useState(false)
   const [loadingSilverfinCompanies, setLoadingSilverfinCompanies] = useState(false)
-  const [exactConnecting, setExactConnecting] = useState(false)
   const [silverfinConnecting, setSilverfinConnecting] = useState(false)
-  const [exactError, setExactError] = useState<string | null>(null)
   const [silverfinError, setSilverfinError] = useState<string | null>(null)
+  const [silverfinFirmId, setSilverfinFirmId] = useState('')
   const currentFilingYear = getCurrentFilingYear()
   const activityCodeTerm = getFinancialTerm(
     'activityCode',
@@ -1402,10 +1400,6 @@ export function ManualInputPanel({
     }
   }, [])
 
-  const exactIntegrationStatus = useMemo(
-    () => accountingStatuses.find((status) => status.provider === 'exact') ?? null,
-    [accountingStatuses]
-  )
   const silverfinIntegrationStatus = useMemo(
     () => accountingStatuses.find((status) => status.provider === 'silverfin') ?? null,
     [accountingStatuses]
@@ -1434,22 +1428,6 @@ export function ManualInputPanel({
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [loadAccountingIntegrationStatus])
 
-  const loadExactDivisions = useCallback(async () => {
-    setExactError(null)
-    setLoadingExactDivisions(true)
-    try {
-      const response = await accountingAPI.getExactAdministrations()
-      setExactDivisions(response.administrations)
-      setSelectedExactDivisionId((current) => current || response.administrations[0]?.administration_id || '')
-    } catch (error) {
-      const message = parseAccountingApiError(error)
-      setExactError(message)
-      throw error
-    } finally {
-      setLoadingExactDivisions(false)
-    }
-  }, [])
-
   const loadSilverfinCompanies = useCallback(async () => {
     setSilverfinError(null)
     setLoadingSilverfinCompanies(true)
@@ -1469,15 +1447,11 @@ export function ManualInputPanel({
   }, [])
 
   const applyImportedBatch = useCallback(
-    (
-      provider: Extract<AccountingImportProvider, 'yuki' | 'exact' | 'silverfin'>,
-      batch: AccountingBatchPayload
-    ) => {
+    (provider: Extract<AccountingImportProvider, 'silverfin'>, batch: AccountingBatchPayload) => {
       setImportBatchData(batch)
       setImportBatchProvider(provider)
       setIntegrationEntryDismissed(true)
       setImportAccountingError(null)
-      setShowExactConnectModal(false)
       setShowSilverfinConnectModal(false)
       setFormData((prev) => {
         const merged = [...prev.yearlyFinancials]
@@ -1539,12 +1513,18 @@ export function ManualInputPanel({
                   100
               )
             : 0
-        toast.success(`Imported ${mappedYears} fiscal years from ${accountingProviderDisplayName(provider)}`, {
-          description: `Trial balance mapped: ${qualityScore}% match with Belgian MAR`,
-        })
+        toast.success(
+          mi('silverfin.importBatchSuccessTitle', {
+            years: mappedYears,
+            provider: accountingProviderDisplayName(provider),
+          }),
+          {
+            description: mi('silverfin.importBatchSuccessDescription', { score: qualityScore }),
+          }
+        )
       })
     },
-    []
+    [mi]
   )
 
   const handleImportFromAccounting = useCallback(async () => {
@@ -1570,12 +1550,6 @@ export function ManualInputPanel({
         return
       }
 
-      if (provider === 'exact') {
-        setShowExactConnectModal(true)
-        await loadExactDivisions()
-        return
-      }
-
       const mercuryUrl = getMercuryUrl()
       window.location.href = `${mercuryUrl}/${locale}/accountant/settings?tab=integrations`
       return
@@ -1588,78 +1562,36 @@ export function ManualInputPanel({
     } finally {
       setImportingFromAccounting(false)
     }
-  }, [accountingConnectedStatus, loadExactDivisions, loadSilverfinCompanies, locale, mi])
-
-  const handleOpenExactConnect = useCallback(() => {
-    setShowExactConnectModal(true)
-    if (exactIntegrationStatus?.is_connected) {
-      void loadExactDivisions().catch(() => {})
-    }
-  }, [exactIntegrationStatus?.is_connected, loadExactDivisions])
-
-  const handleStartExactOAuth = useCallback(async () => {
-    if (typeof window === 'undefined') return
-    setExactConnecting(true)
-    setExactError(null)
-    setShowExactConnectModal(true)
-    try {
-      const redirectUrl = new URL(window.location.href)
-      redirectUrl.searchParams.delete('code')
-      redirectUrl.searchParams.delete('state')
-      redirectUrl.searchParams.set('exact_connect', '1')
-      window.sessionStorage.setItem('upswitch_exact_oauth_in_progress', '1')
-      const { authorization_url } = await accountingAPI.getExactAuthorizeUrl(redirectUrl.toString())
-      window.location.href = authorization_url
-    } catch (error) {
-      setExactConnecting(false)
-      setExactError(parseAccountingApiError(error))
-    }
-  }, [])
+  }, [accountingConnectedStatus, loadSilverfinCompanies, locale, mi])
 
   const handleStartSilverfinOAuth = useCallback(async () => {
     if (typeof window === 'undefined') return
+    const trimmedFirm = silverfinFirmId.trim()
+    if (!trimmedFirm) {
+      setSilverfinError(mi('silverfin.errors.firmIdRequired'))
+      return
+    }
     setSilverfinConnecting(true)
     setSilverfinError(null)
     setShowSilverfinConnectModal(true)
     try {
+      const oauthState = encodeSilverfinOAuthState(trimmedFirm)
       const redirectUrl = new URL(window.location.href)
       redirectUrl.searchParams.delete('code')
       redirectUrl.searchParams.delete('state')
       redirectUrl.searchParams.delete('firm_id')
       redirectUrl.searchParams.set('silverfin_connect', '1')
       window.sessionStorage.setItem('upswitch_silverfin_oauth_in_progress', '1')
-      const { authorization_url } = await accountingAPI.getSilverfinAuthorizeUrl(redirectUrl.toString())
+      const { authorization_url } = await accountingAPI.getSilverfinAuthorizeUrl(
+        redirectUrl.toString(),
+        oauthState
+      )
       window.location.href = authorization_url
     } catch (error) {
       setSilverfinConnecting(false)
       setSilverfinError(parseAccountingApiError(error))
     }
-  }, [])
-
-  const handleImportExactDivision = useCallback(async () => {
-    if (!selectedExactDivisionId) {
-      setExactError('Select an Exact division before importing.')
-      return
-    }
-    setImportAccountingError(null)
-    setExactError(null)
-    setImportingFromAccounting(true)
-    try {
-      const rangeYears = Number(exactHistoryRange)
-      const endYear = getCurrentFilingYear()
-      const startYear = endYear - (rangeYears - 1)
-      const batch = await accountingAPI.getProviderFinancialDataBatch('exact', startYear, endYear, {
-        administrationId: selectedExactDivisionId,
-      })
-      applyImportedBatch('exact', batch)
-    } catch (error) {
-      const message = parseAccountingApiError(error)
-      setExactError(message)
-      setImportAccountingError(message)
-    } finally {
-      setImportingFromAccounting(false)
-    }
-  }, [applyImportedBatch, exactHistoryRange, selectedExactDivisionId])
+  }, [mi, silverfinFirmId])
 
   const handleImportSilverfinCompany = useCallback(async () => {
     if (!selectedSilverfinCompanyId) {
@@ -1673,14 +1605,9 @@ export function ManualInputPanel({
       const rangeYears = Number(silverfinHistoryRange)
       const endYear = getCurrentFilingYear()
       const startYear = endYear - (rangeYears - 1)
-      const batch = await accountingAPI.getProviderFinancialDataBatch(
-        'silverfin',
-        startYear,
-        endYear,
-        {
-          companyId: selectedSilverfinCompanyId,
-        }
-      )
+      const batch = await accountingAPI.getSilverfinFinancialDataBatch(startYear, endYear, {
+        companyId: selectedSilverfinCompanyId,
+      })
       applyImportedBatch('silverfin', batch)
     } catch (error) {
       const message = parseAccountingApiError(error)
@@ -1695,57 +1622,13 @@ export function ManualInputPanel({
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
-    const exactConnectRequested =
-      params.get('exact_connect') === '1' ||
-      window.sessionStorage.getItem('upswitch_exact_oauth_in_progress') === '1'
-    if (!code || !exactConnectRequested) return
-
-    const oauthLockKey = `exact_oauth_${code}`
-    if (window.sessionStorage.getItem(oauthLockKey)) {
-      params.delete('code')
-      params.delete('state')
-      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
-      return
-    }
-    window.sessionStorage.setItem(oauthLockKey, '1')
-
-    const redirectUrl = new URL(window.location.href)
-    redirectUrl.searchParams.delete('code')
-    redirectUrl.searchParams.delete('state')
-
-    setExactConnecting(true)
-    setExactError(null)
-    setShowExactConnectModal(true)
-
-    accountingAPI
-      .connectExact(code, redirectUrl.toString())
-      .then(async () => {
-        window.sessionStorage.removeItem('upswitch_exact_oauth_in_progress')
-        await loadAccountingIntegrationStatus()
-        await loadExactDivisions()
-      })
-      .catch((error) => {
-        setExactError(parseAccountingApiError(error))
-        window.sessionStorage.removeItem(oauthLockKey)
-      })
-      .finally(() => {
-        setExactConnecting(false)
-        const cleanedUrl = new URL(window.location.href)
-        cleanedUrl.searchParams.delete('code')
-        cleanedUrl.searchParams.delete('state')
-        window.history.replaceState({}, '', cleanedUrl.toString())
-      })
-  }, [loadAccountingIntegrationStatus, loadExactDivisions])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-    const firmId = params.get('firm_id')
+    const firmIdFromQuery = params.get('firm_id')?.trim() || null
+    const firmIdFromState = decodeSilverfinOAuthState(params.get('state'))
+    const resolvedFirmId = firmIdFromQuery || firmIdFromState
     const silverfinConnectRequested =
       params.get('silverfin_connect') === '1' ||
       window.sessionStorage.getItem('upswitch_silverfin_oauth_in_progress') === '1'
-    if (!code || !firmId || !silverfinConnectRequested) return
+    if (!code || !resolvedFirmId || !silverfinConnectRequested) return
 
     const oauthLockKey = `silverfin_oauth_${code}`
     if (window.sessionStorage.getItem(oauthLockKey)) {
@@ -1762,12 +1645,13 @@ export function ManualInputPanel({
     redirectUrl.searchParams.delete('state')
     redirectUrl.searchParams.delete('firm_id')
 
+    setSilverfinFirmId(resolvedFirmId)
     setSilverfinConnecting(true)
     setSilverfinError(null)
     setShowSilverfinConnectModal(true)
 
     accountingAPI
-      .connectSilverfin(code, redirectUrl.toString(), firmId)
+      .connectSilverfin(code, redirectUrl.toString(), resolvedFirmId)
       .then(async () => {
         window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
         await loadAccountingIntegrationStatus()
@@ -2108,15 +1992,10 @@ export function ManualInputPanel({
   const shouldShowImportedBatchSummary =
     !!importBatchData || !!effectiveImportedLedgerAnalysis
   const connectedProvider = accountingConnectedStatus?.provider
-  const preferredLiveImportProvider =
-    connectedProvider === 'silverfin'
-      ? 'silverfin'
-      : connectedProvider === 'exact'
-        ? 'exact'
-        : 'silverfin'
   const supportsVenusLiveImport =
-    connectedProvider === 'silverfin' || connectedProvider === 'exact' || !connectedProvider
-  const requiresMercuryImportFlow = connectedProvider === 'yuki'
+    connectedProvider === 'silverfin' || connectedProvider == null
+  const requiresMercuryImportFlow =
+    connectedProvider === 'yuki' || connectedProvider === 'exact'
   const importedProviderLabel =
     importBatchProvider != null
       ? accountingProviderDisplayName(importBatchProvider)
@@ -2205,7 +2084,7 @@ export function ManualInputPanel({
                       {shouldShowImportedBatchSummary
                         ? `Imported ${importedYearCount} fiscal years from ${importedProviderLabel}. Review the data quality score and continue with manual follow-up.`
                         : requiresMercuryImportFlow
-                        ? 'Yuki sync and bulk import run in Mercury. Open integrations there to sync administrations first, then return here for manual follow-up.'
+                        ? 'Yuki and Exact Online sync and bulk import run in Mercury. Open integrations there to connect, import divisions, and sync client data, then return here for manual follow-up.'
                         : accountingConnectedStatus?.is_connected
                         ? mi('integrationEntry.connectedDescription', {
                             provider: accountingProviderDisplayName(accountingConnectedStatus.provider),
@@ -2247,9 +2126,7 @@ export function ManualInputPanel({
                           <CloudDownload className="mr-2 h-4 w-4" />
                         )}
                         {mi('integrationEntry.pullDataCta', {
-                          provider: accountingProviderDisplayName(
-                            connectedProvider ?? preferredLiveImportProvider
-                          ),
+                          provider: accountingProviderDisplayName(connectedProvider ?? 'silverfin'),
                         })}
                       </AuroraButton>
                     ) : (
@@ -3091,6 +2968,8 @@ export function ManualInputPanel({
         isLoadingCompanies={loadingSilverfinCompanies}
         isImporting={importingFromAccounting}
         error={silverfinError}
+        firmId={silverfinFirmId}
+        onFirmIdChange={setSilverfinFirmId}
         companies={silverfinCompanies}
         selectedCompanyId={selectedSilverfinCompanyId}
         onSelectedCompanyIdChange={setSelectedSilverfinCompanyId}

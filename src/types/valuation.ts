@@ -190,8 +190,9 @@ export interface ValuationRequest {
     pe_ratio?: number
   }>
 
-  // Tax latencies (belastinglatenties) — equity bridge adjustments
+  // Tax latencies (belastinglatenties) — legacy equity bridge adjustments
   tax_latencies?: TaxLatencyInput[]
+  balance_sheet_adjustments?: BalanceSheetAdjustmentInput[]
 
   // Real estate carve-out for share deals where the property remains with the seller
   exclude_real_estate?: boolean
@@ -212,6 +213,16 @@ export interface TaxLatencyInput {
   description: string
   temporary_difference: number
   tax_rate: number
+}
+
+export interface BalanceSheetAdjustmentInput {
+  id: string
+  label: string
+  amount: number
+  type: 'add' | 'subtract'
+  category: 'tax_latency' | 'excess_cash' | 'non_operating' | 'provision' | 'other'
+  description?: string
+  account_code?: string
 }
 
 // Extended request type for frontend form state

@@ -166,6 +166,19 @@ export interface PartialFinancials {
       average_depreciation: number
       suggested_capex: number
     }
+    tax_latency_candidates?: Array<{
+      account_code: string
+      account_name: string
+      description: string
+      suggested_question: string
+      rationale?: string
+      category?: 'real_estate' | 'provision' | 'deferred_tax'
+      fiscal_year?: number
+      tax_rate?: number
+      temporary_difference?: number
+      type?: 'active' | 'passive'
+      auto_apply?: boolean
+    }>
   }
 }
 

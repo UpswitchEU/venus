@@ -10,8 +10,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
-import { getCurrentFilingYear } from '../utils/fiscalYear'
+import { buildBusinessTypeFormData } from '../components/ValuationForm/utils/businessTypeFormData'
 import { useBootstrapSafe } from '../lib/bootstrap'
 import type {
   BusinessTypeInfo,
@@ -20,11 +19,14 @@ import type {
   PrefillData,
   PrefillSource,
 } from '../lib/bootstrap/types'
-import type { ValuationFormData } from '../types/valuation'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { useNormalizationStore } from '../store/useNormalizationStore'
 import { useSpotlightStore } from '../store/useSpotlightStore'
-import { buildBusinessTypeFormData } from '../components/ValuationForm/utils/businessTypeFormData'
+import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
+import type { ValuationFormData } from '../types/valuation'
+import { getCurrentFilingYear } from '../utils/fiscalYear'
+import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../utils/importedLedgerNormalization'
+import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
 import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
 import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
@@ -38,34 +40,13 @@ function normalizeCountryCode(countryCode?: string | null): string | undefined {
   return normalized.length > 0 ? normalized : undefined
 }
 
-function resolveCountryCode(
-  ...candidates: Array<string | null | undefined>
-): string | undefined {
+function resolveCountryCode(...candidates: Array<string | null | undefined>): string | undefined {
   for (const candidate of candidates) {
     const normalized = normalizeCountryCode(candidate)
     if (normalized) return normalized
   }
 
   return undefined
-}
-
-function mapImportedLedgerCategory(category?: string): NormalizationItem['category'] {
-  switch (category) {
-    case 'owner_compensation':
-      return 'salary'
-    case 'related_party_rent':
-      return 'rent'
-    case 'discretionary_expense':
-      return 'vehicle'
-    default:
-      return 'other'
-  }
-}
-
-function mapImportedLedgerConfidence(confidence?: number): NormalizationItem['confidence'] {
-  if ((confidence ?? 0) >= 0.8) return 'high'
-  if ((confidence ?? 0) >= 0.6) return 'medium'
-  return 'low'
 }
 
 // Track if prefill has been applied globally (survives re-renders/re-mounts)
@@ -177,9 +158,7 @@ export function useBootstrapPrefill(): {
 
     // Skip if no meaningful prefill data (country-only may still be <0.05 if weights change — keep NL/BE path)
     if (!bootstrap.hasPrefilledData || bootstrap.prefillData.confidence < 0.05) {
-      const countryOnly = resolveCountryCode(
-        bootstrap.prefillData.companyInfo?.countryCode
-      )
+      const countryOnly = resolveCountryCode(bootstrap.prefillData.companyInfo?.countryCode)
       if (bootstrap.report.mode === 'new' && countryOnly) {
         queueMicrotask(() => {
           const cur = formStore.getState().formData.country_code?.trim().toUpperCase()
@@ -349,7 +328,9 @@ export function useBootstrapPrefill(): {
             updateFormData(financialPatch)
             const ctx = bootstrapRef.current
             const prevSources = ctx?.prefillData.sources ?? []
-            const withoutPending = prevSources.filter((s) => s !== 'official_belgian_filing_pending')
+            const withoutPending = prevSources.filter(
+              (s) => s !== 'official_belgian_filing_pending'
+            )
             const sources: PrefillSource[] = withoutPending.includes('official_belgian_filing')
               ? withoutPending
               : [...withoutPending, 'official_belgian_filing']
@@ -549,29 +530,19 @@ function applyPrefillToForm(
         _imported_ledger_analysis: financials.importedLedgerAnalysis,
       }
 
-      const importedNormalizationItems: NormalizationItem[] =
-        financials.importedLedgerAnalysis.sde_flags?.map((flag, index) => ({
-          id: `imported_sde_${flag.year}_${flag.ledger_code}_${index}`,
-          ledgerCode: flag.ledger_code,
-          ledgerName: flag.ledger_name,
-          category: mapImportedLedgerCategory(flag.category),
-          type: 'add',
-          value: Number(flag.amount) || 0,
-          adjustment: Number(flag.amount) || 0,
-          reason: flag.rationale || flag.suggested_question,
-          source: 'auto',
-          sourceRef: `${flag.year}:${flag.ledger_code}`,
-          status: 'pending',
-          applyAllYears: false,
-          applyYears: flag.year ? [flag.year] : undefined,
-          year: flag.year || getCurrentFilingYear(),
-          confidence: mapImportedLedgerConfidence(flag.confidence),
-          marketBenchmark: flag.benchmark_median_pct,
-        })) ?? []
-
+      const importedNormalizationItems = buildNormalizationItemsFromImportedLedgerAnalysis(
+        financials.importedLedgerAnalysis
+      )
       if (importedNormalizationItems.length > 0) {
         useNormalizationStore.getState().addItems(importedNormalizationItems)
       }
+
+      const importedTaxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
+        financials.importedLedgerAnalysis
+      )
+      useTaxLatencyStore.getState().setCandidates(importedTaxLatencyCandidates)
+    } else {
+      useTaxLatencyStore.getState().setCandidates([])
     }
     if (
       financials.importQuality &&
@@ -582,11 +553,14 @@ function applyPrefillToForm(
     }
     if (financials.saasMetrics) {
       const importedSaasMetrics = financials.saasMetrics
-      if (importedSaasMetrics.saas_arr !== undefined) allData.saas_arr = importedSaasMetrics.saas_arr
-      if (importedSaasMetrics.saas_mrr !== undefined) allData.saas_mrr = importedSaasMetrics.saas_mrr
+      if (importedSaasMetrics.saas_arr !== undefined)
+        allData.saas_arr = importedSaasMetrics.saas_arr
+      if (importedSaasMetrics.saas_mrr !== undefined)
+        allData.saas_mrr = importedSaasMetrics.saas_mrr
       if (importedSaasMetrics.saas_arr_growth_pct !== undefined)
         allData.saas_arr_growth_pct = importedSaasMetrics.saas_arr_growth_pct
-      if (importedSaasMetrics.saas_nrr_pct !== undefined) allData.saas_nrr_pct = importedSaasMetrics.saas_nrr_pct
+      if (importedSaasMetrics.saas_nrr_pct !== undefined)
+        allData.saas_nrr_pct = importedSaasMetrics.saas_nrr_pct
       if (importedSaasMetrics.saas_churn_pct !== undefined)
         allData.saas_churn_pct = importedSaasMetrics.saas_churn_pct
       if (importedSaasMetrics.saas_gross_margin_pct !== undefined)
@@ -601,7 +575,8 @@ function applyPrefillToForm(
       if (importedSaasMetrics.saas_expansion_revenue_pct !== undefined) {
         allData.saas_expansion_revenue_pct = importedSaasMetrics.saas_expansion_revenue_pct
       }
-      if (importedSaasMetrics.saas_cac !== undefined) allData.saas_cac = importedSaasMetrics.saas_cac
+      if (importedSaasMetrics.saas_cac !== undefined)
+        allData.saas_cac = importedSaasMetrics.saas_cac
       if (importedSaasMetrics.saas_sm_spend !== undefined) {
         allData.saas_sm_spend = importedSaasMetrics.saas_sm_spend
       }
@@ -678,7 +653,7 @@ function applyPrefillToForm(
         // Preference fields are not available in bootstrap data — they remain undefined here
         // and will be populated if the user later makes a manual selection.
       } as any,
-      businessType.industry || businessType.category || 'services',
+      businessType.industry || businessType.category || 'services'
     )
     Object.assign(allData, btFormData)
 
@@ -768,10 +743,7 @@ function buildBusinessCard(
   businessType?: BusinessTypeInfo,
   fallbackCountryCode?: string
 ): any {
-  const resolvedCountryCode = resolveCountryCode(
-    companyInfo.countryCode,
-    fallbackCountryCode
-  )
+  const resolvedCountryCode = resolveCountryCode(companyInfo.countryCode, fallbackCountryCode)
 
   return {
     company_name: companyInfo.companyName,

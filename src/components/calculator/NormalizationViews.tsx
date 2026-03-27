@@ -33,7 +33,11 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
-import type { NormalizationItem, NormalizationSource } from './UnifiedNormalizationModal'
+import {
+  type NormalizationItem,
+  type NormalizationSource,
+  isImportedLedgerNormalizationItem,
+} from './UnifiedNormalizationModal'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -580,7 +584,13 @@ export function NormalizationBentoView({
         <AnimatePresence mode="popLayout">
           {items.map((item, index) => {
             const cat = categoryLabels[item.category] || categoryLabels.other
-            const source = sourceConfig[item.source] || sourceConfig.manual
+            const baseSource = sourceConfig[item.source] || sourceConfig.manual
+            const source = isImportedLedgerNormalizationItem(item)
+              ? {
+                  label: t('sources.importedLedger'),
+                  color: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
+                }
+              : baseSource
 
             // Recalculate adjustment for % and absolute types using most recent year
             const displayYear = item.applyYears?.[0] ?? item.year ?? years[0]
@@ -641,6 +651,11 @@ export function NormalizationBentoView({
                             {item.ledgerCode}
                           </span>
                           <span
+                            title={
+                              isImportedLedgerNormalizationItem(item)
+                                ? t('importedLedgerTooltip')
+                                : undefined
+                            }
                             className={cn(
                               'px-2 py-0.5 rounded-full text-[9px] font-medium',
                               source.color

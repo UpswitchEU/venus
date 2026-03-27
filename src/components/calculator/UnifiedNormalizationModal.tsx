@@ -121,6 +121,11 @@ export interface NormalizationItem {
   marketBenchmark?: number
 }
 
+/** Titan / ValuationIQ imported-ledger SDE rows use this ID prefix (stable across bulk + manual follow-up). */
+export function isImportedLedgerNormalizationItem(item: Pick<NormalizationItem, 'id'>): boolean {
+  return typeof item.id === 'string' && item.id.startsWith('imported_sde_')
+}
+
 export interface UnifiedNormalizationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -2307,7 +2312,14 @@ function CompactTableRow({
   const nh = useTranslations('normalizationHub')
   const tCommon = useTranslations('common.actions')
   const category = categoryConfig[item.category] || categoryConfig.other
-  const source = sourceConfig[item.source] || sourceConfig.manual
+  const sourceBase = sourceConfig[item.source] || sourceConfig.manual
+  const isImportedLedger = isImportedLedgerNormalizationItem(item)
+  const source = isImportedLedger
+    ? {
+        labelKey: 'sources.importedLedger' as const,
+        color: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
+      }
+    : sourceBase
 
   // Recalculate adjustment for percentage/absolute types when year-specific EBITDA is available
   const displayAdjustment = useMemo(() => {
@@ -2391,7 +2403,10 @@ function CompactTableRow({
 
       {/* Source */}
       <div className="w-16 flex-shrink-0 text-center">
-        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', source.color)}>
+        <span
+          title={isImportedLedger ? nh('importedLedgerTooltip') : undefined}
+          className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', source.color)}
+        >
           {nh(source.labelKey)}
         </span>
       </div>

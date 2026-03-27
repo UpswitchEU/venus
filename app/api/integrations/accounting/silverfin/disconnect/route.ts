@@ -4,17 +4,15 @@ import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest) {
+export async function DELETE(request: NextRequest) {
   try {
     const cookieHeader = request.headers.get('cookie') || ''
-    const redirectUri = request.nextUrl.searchParams.get('redirect_uri') || ''
     const titanApiUrl = getTitanApiUrl(request)
-    const targetUrl = `${titanApiUrl}/integrations/accounting/exact/authorize?redirect_uri=${encodeURIComponent(redirectUri)}`
 
     const response = await fetchWithTimeout(
-      targetUrl,
+      `${titanApiUrl}/integrations/accounting/silverfin`,
       {
-        method: 'GET',
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           ...(cookieHeader ? { Cookie: cookieHeader } : {}),
@@ -23,21 +21,22 @@ export async function GET(request: NextRequest) {
       15_000,
     )
 
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) {
+    if (!response.ok && response.status !== 204) {
+      const data = await response.json().catch(() => ({}))
       return NextResponse.json(
         {
           message:
-            (typeof data?.message === 'string' && data.message) ||
-            'Failed to get Exact authorize URL',
+            (typeof (data as { message?: string }).message === 'string' &&
+              (data as { message: string }).message) ||
+            'Failed to disconnect Silverfin',
         },
         { status: response.status },
       )
     }
 
-    return NextResponse.json(data)
+    return new NextResponse(null, { status: 204 })
   } catch (error) {
-    console.error('[Venus Exact authorize route]', error)
+    console.error('[Venus Silverfin disconnect route]', error)
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
   }
 }

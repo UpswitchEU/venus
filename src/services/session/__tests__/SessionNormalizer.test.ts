@@ -150,4 +150,47 @@ describe('normalizeSessionData', () => {
     expect((normalizedSnake.formData as any).filing_year_confirmed).toBe(true)
     expect((normalizedCamel.formData as any).filing_year_confirmed).toBe(true)
   })
+
+  it('preserves _import_quality on the form payload for spotlight restoration', () => {
+    const iq = {
+      '2024': {
+        confidence_score: 0.92,
+        audit_flags: [],
+        field_provenance: [],
+        total_accounts_processed: 10,
+        accounts_mapped_directly: 8,
+        accounts_fallback: 1,
+        accounts_skipped: 1,
+      },
+    }
+    const normalized = normalizeSessionData({
+      session_key: 'val_iq',
+      session_data: {
+        company_name: 'IQ Co',
+        _import_quality: iq,
+      },
+    })
+
+    expect((normalized.formData as any)._import_quality).toEqual(iq)
+  })
+
+  it('preserves business_context._imported_ledger_analysis for manual review UI', () => {
+    const analysis = {
+      latest_fiscal_year: 2024,
+      sde_flags: [],
+      ev_equity_bridge: { equity_value: 1, net_debt: 0 } as any,
+      dcf_defaults: { suggested_capex: 50_000, average_depreciation: 40_000 },
+    }
+    const normalized = normalizeSessionData({
+      session_key: 'val_ledger',
+      session_data: {
+        company_name: 'Ledger Co',
+        business_context: {
+          _imported_ledger_analysis: analysis,
+        },
+      },
+    })
+
+    expect((normalized.formData as any).business_context._imported_ledger_analysis).toEqual(analysis)
+  })
 })

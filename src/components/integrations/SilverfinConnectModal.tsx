@@ -24,6 +24,8 @@ interface SilverfinConnectModalProps {
   isLoadingCompanies: boolean
   isImporting: boolean
   error?: string | null
+  firmId: string
+  onFirmIdChange: (firmId: string) => void
   companies: AccountingAdministration[]
   selectedCompanyId: string
   onSelectedCompanyIdChange: (companyId: string) => void
@@ -41,6 +43,8 @@ export function SilverfinConnectModal({
   isLoadingCompanies,
   isImporting,
   error,
+  firmId,
+  onFirmIdChange,
   companies,
   selectedCompanyId,
   onSelectedCompanyIdChange,
@@ -52,6 +56,7 @@ export function SilverfinConnectModal({
   const t = useTranslations('manualInput.silverfin')
   const [search, setSearch] = useState('')
   const [manualOverride, setManualOverride] = useState(false)
+  const firmIdReady = firmId.trim().length > 0
 
   const companyOptions = useMemo(
     () =>
@@ -87,10 +92,20 @@ export function SilverfinConnectModal({
 
           <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-3">
+              <AuroraInput
+                label={t('firmIdLabel')}
+                value={firmId}
+                onChange={(event) => onFirmIdChange(event.target.value)}
+                placeholder={t('firmIdPlaceholder')}
+                disabled={isConnecting || isImporting}
+                autoComplete="off"
+              />
+              <p className="text-xs text-foreground/55">{t('firmIdHint')}</p>
+
               <AuroraButton
                 type="button"
                 onClick={() => void onStartOAuth()}
-                disabled={isConnecting || isImporting}
+                disabled={isConnecting || isImporting || !firmIdReady}
                 className="w-full"
               >
                 {isConnecting ? (

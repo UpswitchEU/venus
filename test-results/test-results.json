@@ -128,20 +128,20 @@
   },
   "suites": [
     {
-      "title": "shareholding-ux.spec.ts",
-      "file": "shareholding-ux.spec.ts",
+      "title": "mercury-exact-prefill.spec.ts",
+      "file": "mercury-exact-prefill.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Shareholding UX",
-          "file": "shareholding-ux.spec.ts",
-          "line": 23,
+          "title": "Mercury Exact prefill",
+          "file": "mercury-exact-prefill.spec.ts",
+          "line": 3,
           "column": 6,
           "specs": [
             {
-              "title": "preserves 33.33 ownership in the browser request and preview surface",
+              "title": "prefills the manual flow from synced Exact data without calling Exact batch import",
               "ok": false,
               "tags": [],
               "tests": [
@@ -155,281 +155,159 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "timedOut",
-                      "duration": 60877,
+                      "status": "failed",
+                      "duration": 14566,
                       "error": {
-                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
-                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62",
+                        "location": {
+                          "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
+                          "column": 62,
+                          "line": 119
+                        },
+                        "snippet": "  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |"
                       },
                       "errors": [
                         {
-                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
-                        },
-                        {
                           "location": {
-                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
-                            "column": 14,
-                            "line": 14
+                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
+                            "column": 62,
+                            "line": 119
                           },
-                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:63:11"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-23T09:59:12.893Z",
+                      "startTime": "2026-03-27T13:47:58.695Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium/test-failed-1.png"
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium/video.webm"
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium/video.webm"
                         }
-                      ]
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
+                        "column": 62,
+                        "line": 119
+                      }
                     },
                     {
                       "workerIndex": 1,
                       "parallelIndex": 0,
-                      "status": "timedOut",
-                      "duration": 62304,
+                      "status": "failed",
+                      "duration": 7907,
                       "error": {
-                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
-                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\u001b[2m    - waiting for\" http://localhost:3001/en/reports/val_1774619299297_v1cqz08yx1?flow=manual&source=mercury\" navigation to finish...\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\u001b[2m    - waiting for\" http://localhost:3001/en/reports/val_1774619299297_v1cqz08yx1?flow=manual&source=mercury\" navigation to finish...\u001b[22m\n\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62",
+                        "location": {
+                          "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
+                          "column": 62,
+                          "line": 119
+                        },
+                        "snippet": "  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |"
                       },
                       "errors": [
                         {
-                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
-                        },
-                        {
                           "location": {
-                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
-                            "column": 14,
-                            "line": 14
+                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
+                            "column": 62,
+                            "line": 119
                           },
-                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:63:11"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\u001b[2m    - waiting for\" http://localhost:3001/en/reports/val_1774619299297_v1cqz08yx1?flow=manual&source=mercury\" navigation to finish...\u001b[22m\n\n\n  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 1,
-                      "startTime": "2026-03-23T10:00:16.274Z",
+                      "startTime": "2026-03-27T13:48:18.274Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry1/test-failed-1.png"
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry1/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry1/video.webm"
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry1/video.webm"
                         },
                         {
                           "name": "trace",
                           "contentType": "application/zip",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry1/trace.zip"
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry1/trace.zip"
                         }
-                      ]
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
+                        "column": 62,
+                        "line": 119
+                      }
                     },
                     {
                       "workerIndex": 2,
                       "parallelIndex": 0,
-                      "status": "timedOut",
-                      "duration": 62991,
+                      "status": "failed",
+                      "duration": 7874,
                       "error": {
-                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
-                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62",
+                        "location": {
+                          "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
+                          "column": 62,
+                          "line": 119
+                        },
+                        "snippet": "  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |"
                       },
                       "errors": [
                         {
-                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
-                        },
-                        {
                           "location": {
-                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
-                            "column": 14,
-                            "line": 14
+                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
+                            "column": 62,
+                            "line": 119
                           },
-                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:63:11"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 2,
-                      "startTime": "2026-03-23T10:01:20.632Z",
+                      "startTime": "2026-03-27T13:48:27.933Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry2/test-failed-1.png"
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry2/test-failed-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-9aff0-request-and-preview-surface-chromium-retry2/video.webm"
+                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry2/video.webm"
                         }
-                      ]
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
+                        "column": 62,
+                        "line": 119
+                      }
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "1c61f220aca22bbcbf17-77b8e9c8d62f0af1ec3d",
-              "file": "shareholding-ux.spec.ts",
-              "line": 30,
-              "column": 3
-            },
-            {
-              "title": "restores the last valid ownership value when invalid precision is blurred",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 0,
-                      "status": "timedOut",
-                      "duration": 62692,
-                      "error": {
-                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
-                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
-                      },
-                      "errors": [
-                        {
-                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
-                        },
-                        {
-                          "location": {
-                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
-                            "column": 14,
-                            "line": 14
-                          },
-                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:82:11"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-23T10:02:26.610Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium/video.webm"
-                        }
-                      ]
-                    },
-                    {
-                      "workerIndex": 4,
-                      "parallelIndex": 0,
-                      "status": "timedOut",
-                      "duration": 62997,
-                      "error": {
-                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
-                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
-                      },
-                      "errors": [
-                        {
-                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
-                        },
-                        {
-                          "location": {
-                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
-                            "column": 14,
-                            "line": 14
-                          },
-                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:82:11"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 1,
-                      "startTime": "2026-03-23T10:03:32.770Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry1/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry1/video.webm"
-                        },
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry1/trace.zip"
-                        }
-                      ]
-                    },
-                    {
-                      "workerIndex": 5,
-                      "parallelIndex": 0,
-                      "status": "timedOut",
-                      "duration": 62552,
-                      "error": {
-                        "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
-                        "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
-                      },
-                      "errors": [
-                        {
-                          "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
-                        },
-                        {
-                          "location": {
-                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts",
-                            "column": 14,
-                            "line": 14
-                          },
-                          "message": "Error: page.fill: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  12 |\n  13 | async function fillBaseValuationForm(page: Page) {\n> 14 |   await page.fill('input[name=\"company_name\"]', 'Precision Co')\n     |              ^\n  15 |   await page.fill('input[name=\"revenue\"]', '1000000')\n  16 |   await page.fill('input[name=\"ebitda\"]', '200000')\n  17 |   await page.selectOption('select[name=\"industry\"]', 'technology')\n    at fillBaseValuationForm (/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:14:14)\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/shareholding-ux.spec.ts:82:11"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 2,
-                      "startTime": "2026-03-23T10:04:39.721Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry2/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/shareholding-ux-Shareholdi-4896c-nvalid-precision-is-blurred-chromium-retry2/video.webm"
-                        }
-                      ]
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "1c61f220aca22bbcbf17-7e3d9d2135920beaa7a2",
-              "file": "shareholding-ux.spec.ts",
-              "line": 76,
+              "id": "bb9bdeba735068dbedbf-4842b4244ecc2723e9bf",
+              "file": "mercury-exact-prefill.spec.ts",
+              "line": 4,
               "column": 3
             }
           ]
@@ -439,11 +317,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-03-23T09:59:12.036Z",
-    "duration": 391239.37299999996,
+    "startTime": "2026-03-27T13:47:57.161Z",
+    "duration": 39351.106,
     "expected": 0,
     "skipped": 0,
-    "unexpected": 2,
+    "unexpected": 1,
     "flaky": 0
   }
 }

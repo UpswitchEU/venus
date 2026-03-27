@@ -170,13 +170,17 @@ class AccountingAPI extends HttpClient {
     return response.data
   }
 
-  async getSilverfinAuthorizeUrl(redirectUri: string): Promise<{ authorization_url: string }> {
-    const response = await fetch(
-      `/api/integrations/accounting/silverfin/authorize?redirect_uri=${encodeURIComponent(redirectUri)}`,
-      {
-        credentials: 'include',
-      }
-    )
+  async getSilverfinAuthorizeUrl(
+    redirectUri: string,
+    state?: string
+  ): Promise<{ authorization_url: string }> {
+    const qs = new URLSearchParams({ redirect_uri: redirectUri })
+    if (state) {
+      qs.set('state', state)
+    }
+    const response = await fetch(`/api/integrations/accounting/silverfin/authorize?${qs.toString()}`, {
+      credentials: 'include',
+    })
     const data = await response.json().catch(() => ({}))
     if (!response.ok) {
       throw new Error(
@@ -217,6 +221,24 @@ class AccountingAPI extends HttpClient {
     return response.data
   }
 
+  async disconnectSilverfin(): Promise<void> {
+    const response = await fetch('/api/integrations/accounting/silverfin/disconnect', {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+    if (!response.ok && response.status !== 204) {
+      const data = await response.json().catch(() => ({}))
+      throw new Error(
+        (data as { message?: string }).message || 'Failed to disconnect Silverfin'
+      )
+    }
+  }
+
+  /**
+   * One fiscal year from Titan for Yuki or Exact **after** Mercury sync (stored financials).
+   * This is `GET /{provider}/financial-data`, not multi-year batch. Silverfin multi-year
+   * import in-app uses {@link getSilverfinFinancialDataBatch} only; Exact batch import was removed from Venus.
+   */
   async getProviderFinancialData(
     provider: AccountingImportProvider,
     fiscalYear?: number
@@ -229,28 +251,24 @@ class AccountingAPI extends HttpClient {
     return response.data
   }
 
-  async getProviderFinancialDataBatch(
-    provider: AccountingImportProvider,
+  /**
+   * Multi-year batch import for Silverfin only (live import in Venus).
+   * Yuki and Exact bulk sync run in Mercury; Exact no longer exposes a Venus-driven batch endpoint.
+   */
+  async getSilverfinFinancialDataBatch(
     startYear: number,
     endYear: number,
-    options?: {
-      administrationId?: string
-      companyId?: string
-    }
+    options: { companyId: string }
   ): Promise<AccountingBatchPayload> {
-    const params: Record<string, string | number> = {
-      start_year: startYear,
-      end_year: endYear,
-    }
-    if (provider === 'exact' && options?.administrationId) {
-      params.administration_id = options.administrationId
-    }
-    if (provider === 'silverfin' && options?.companyId) {
-      params.company_id = options.companyId
-    }
     const response = await this.client.get<AccountingBatchPayload>(
-      `/integrations/accounting/${provider}/financial-data/batch`,
-      { params }
+      '/integrations/accounting/silverfin/financial-data/batch',
+      {
+        params: {
+          start_year: startYear,
+          end_year: endYear,
+          company_id: options.companyId,
+        },
+      }
     )
     return response.data
   }

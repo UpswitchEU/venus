@@ -123,7 +123,10 @@ export type {
   NormalizationType,
   UnifiedNormalizationModalProps,
 } from './UnifiedNormalizationModal'
-export { UnifiedNormalizationModal } from './UnifiedNormalizationModal'
+export {
+  UnifiedNormalizationModal,
+  isImportedLedgerNormalizationItem,
+} from './UnifiedNormalizationModal'
 export type { ReportMetric, ValuationReportData } from './types'
 export type { ValuationEditModalProps } from './ValuationEditModal'
 export { ValuationEditModal } from './ValuationEditModal'

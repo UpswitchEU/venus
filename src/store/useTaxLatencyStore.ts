@@ -24,9 +24,73 @@ export type TaxLatencyType = 'active' | 'passive'
 export interface TaxLatencyItem {
   id: string
   type: TaxLatencyType
+  accountCode?: string
+  accountName?: string
   description: string
   temporaryDifference: number
   taxRate: number
+}
+
+export interface TaxLatencyCandidate {
+  id: string
+  type: TaxLatencyType
+  accountCode: string
+  accountName: string
+  description: string
+  suggestedQuestion: string
+  rationale?: string
+  temporaryDifference?: number
+  taxRate: number
+  year?: number
+  autoApply?: boolean
+}
+
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : fallback
+}
+
+function normalizeTaxLatencyItem(input: unknown): TaxLatencyItem | null {
+  if (!input || typeof input !== 'object') return null
+
+  const record = input as Record<string, unknown>
+  const id = typeof record.id === 'string' && record.id ? record.id : ''
+  if (!id) return null
+
+  return {
+    id,
+    type: record.type === 'active' ? 'active' : 'passive',
+    accountCode:
+      typeof record.accountCode === 'string'
+        ? record.accountCode
+        : typeof record.account_code === 'string'
+          ? record.account_code
+          : undefined,
+    accountName:
+      typeof record.accountName === 'string'
+        ? record.accountName
+        : typeof record.account_name === 'string'
+          ? record.account_name
+          : undefined,
+    description: typeof record.description === 'string' ? record.description : '',
+    temporaryDifference: Math.abs(
+      toFiniteNumber(
+        record.temporaryDifference ??
+          record.temporary_difference ??
+          record.grossSurplusValue ??
+          record.gross_surplus_value,
+        0
+      )
+    ),
+    taxRate: Math.min(100, Math.max(0, toFiniteNumber(record.taxRate ?? record.tax_rate, 25))),
+  }
+}
+
+function normalizeTaxLatencyItems(input: unknown): TaxLatencyItem[] {
+  if (!Array.isArray(input)) return []
+  return input
+    .map((item) => normalizeTaxLatencyItem(item))
+    .filter((item): item is TaxLatencyItem => item !== null)
 }
 
 export function calculateLatencyAmount(item: TaxLatencyItem): number {
@@ -58,11 +122,14 @@ export function formatCurrencyTaxLatency(value: number, currencyLocale: string):
 
 interface TaxLatencyStore {
   items: TaxLatencyItem[]
+  candidates: TaxLatencyCandidate[]
 
   addItem: (item: TaxLatencyItem) => void
   removeItem: (id: string) => void
   updateItem: (id: string, partial: Partial<TaxLatencyItem>) => void
   setItems: (items: TaxLatencyItem[]) => void
+  setCandidates: (candidates: TaxLatencyCandidate[]) => void
+  dismissCandidate: (id: string) => void
   clear: () => void
 
   persistToSession: (reportId: string) => Promise<void>
@@ -105,9 +172,10 @@ export function recoverPendingTaxLatencies(reportId: string): TaxLatencyItem[] |
     const raw = localStorage.getItem(`${LS_PENDING_PREFIX}${reportId}`)
     if (!raw) return null
     const items = JSON.parse(raw)
-    if (Array.isArray(items) && items.length > 0) {
+    const normalized = normalizeTaxLatencyItems(items)
+    if (normalized.length > 0) {
       clearLocalStorage(reportId)
-      return items
+      return normalized
     }
     clearLocalStorage(reportId)
   } catch {
@@ -124,22 +192,22 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
   devtools(
     (set, get) => ({
       items: [],
+      candidates: [],
 
       addItem: (item) =>
         set(
           (state) => ({
-            items: [...state.items, item],
+            items: [...state.items, normalizeTaxLatencyItem(item)].filter(
+              (candidate): candidate is TaxLatencyItem => candidate !== null
+            ),
+            candidates: state.candidates.filter((candidate) => candidate.id !== item.id),
           }),
           false,
           'addItem'
         ),
 
       removeItem: (id) =>
-        set(
-          (state) => ({ items: state.items.filter((i) => i.id !== id) }),
-          false,
-          'removeItem'
-        ),
+        set((state) => ({ items: state.items.filter((i) => i.id !== id) }), false, 'removeItem'),
 
       updateItem: (id, partial) =>
         set(
@@ -150,9 +218,20 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
           'updateItem'
         ),
 
-      setItems: (items) => set({ items }, false, 'setItems'),
+      setItems: (items) => set({ items: normalizeTaxLatencyItems(items) }, false, 'setItems'),
 
-      clear: () => set({ items: [] }, false, 'clear'),
+      setCandidates: (candidates) => set({ candidates }, false, 'setCandidates'),
+
+      dismissCandidate: (id) =>
+        set(
+          (state) => ({
+            candidates: state.candidates.filter((candidate) => candidate.id !== id),
+          }),
+          false,
+          'dismissCandidate'
+        ),
+
+      clear: () => set({ items: [], candidates: [] }, false, 'clear'),
 
       persistToSession: async (reportId) => {
         if (!reportId) return
@@ -167,8 +246,8 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
 
       loadFromSession: (sessionData) => {
         if (!sessionData?._taxLatencies) return
-        const stored = sessionData._taxLatencies
-        if (Array.isArray(stored) && stored.length > 0) {
+        const stored = normalizeTaxLatencyItems(sessionData._taxLatencies)
+        if (stored.length > 0) {
           set({ items: stored })
           generalLogger.debug('[TaxLatencyStore] Loaded from session data', {
             count: stored.length,

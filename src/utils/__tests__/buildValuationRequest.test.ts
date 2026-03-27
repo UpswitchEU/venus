@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../../types/valuation'
 import { buildValuationRequest } from '../buildValuationRequest'
 import { getCurrentFilingYear } from '../fiscalYear'
@@ -21,9 +22,7 @@ function makeFormData(overrides: Partial<ValuationFormData> = {}): ValuationForm
       total_debt: 100_000,
       cash: 25_000,
     },
-    historical_years_data: [
-      { year: getCurrentFilingYear() - 1, revenue: 900_000, ebitda: 90_000 },
-    ],
+    historical_years_data: [{ year: getCurrentFilingYear() - 1, revenue: 900_000, ebitda: 90_000 }],
     recurring_revenue_percentage: 0.5,
     ...overrides,
   } as ValuationFormData
@@ -132,6 +131,36 @@ describe('buildValuationRequest', () => {
     expect(decimalResult.shares_for_sale).toBe(100)
     expect(zeroResult.shares_for_sale).toBe(100)
     expect(defaultResult.shares_for_sale).toBe(100)
+  })
+
+  it('maps ledger-linked tax latencies into balance_sheet_adjustments without legacy double count', () => {
+    useTaxLatencyStore.getState().setItems([
+      {
+        id: 'tl-1',
+        type: 'passive',
+        accountCode: '222000',
+        accountName: 'Gebouwen',
+        description: 'Belastinglatentie op meerwaarde gebouw',
+        temporaryDifference: 150_000,
+        taxRate: 25,
+      },
+    ])
+
+    const result = buildValuationRequest(makeFormData(), [])
+
+    expect(result.tax_latencies).toBeUndefined()
+    expect(result.balance_sheet_adjustments).toEqual([
+      expect.objectContaining({
+        id: 'tl-1',
+        label: 'Belastinglatentie op meerwaarde gebouw',
+        category: 'tax_latency',
+        type: 'subtract',
+        amount: 37_500,
+        account_code: '222000',
+      }),
+    ])
+
+    useTaxLatencyStore.getState().clear()
   })
 
   it('keeps zero EBITDA as the reported baseline for normalization math', () => {
@@ -324,7 +353,9 @@ describe('buildValuationRequest', () => {
         }),
         []
       )
-    ).toThrow(`Historical year ${lastFullYear} must be earlier than the current fiscal year ${lastFullYear}.`)
+    ).toThrow(
+      `Historical year ${lastFullYear} must be earlier than the current fiscal year ${lastFullYear}.`
+    )
   })
 
   it('strips forecast rows from historical_years_data to protect engine integrity', () => {

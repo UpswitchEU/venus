@@ -63,4 +63,51 @@ describe('accountingAPI filing year defaults', () => {
       params: { fiscal_year: 2022 },
     })
   })
+
+  it('requests Silverfin multi-year batch with company_id', async () => {
+    mockGet.mockResolvedValueOnce({ data: { years: [] } })
+
+    await accountingAPI.getSilverfinFinancialDataBatch(2022, 2024, { companyId: 'dossier-1' })
+
+    expect(mockGet).toHaveBeenCalledWith('/integrations/accounting/silverfin/financial-data/batch', {
+      params: {
+        start_year: 2022,
+        end_year: 2024,
+        company_id: 'dossier-1',
+      },
+    })
+  })
+})
+
+describe('accountingAPI Silverfin authorize (fetch)', () => {
+  it('includes OAuth state in the BFF URL when provided', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ authorization_url: 'https://silverfin.example/oauth' }),
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await accountingAPI.getSilverfinAuthorizeUrl('https://app.example/callback', 'firm-state-token')
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain(encodeURIComponent('https://app.example/callback'))
+    expect(url).toContain('state=' + encodeURIComponent('firm-state-token'))
+
+    vi.unstubAllGlobals()
+  })
+
+  it('disconnectSilverfin calls the BFF DELETE route', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 204 })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await accountingAPI.disconnectSilverfin()
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/integrations/accounting/silverfin/disconnect',
+      expect.objectContaining({ method: 'DELETE', credentials: 'include' })
+    )
+
+    vi.unstubAllGlobals()
+  })
 })

@@ -135,6 +135,7 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['comparables'],
     ['_normalizations'],
     ['_taxLatencies'],
+    ['_import_quality'],
   ]
 
   const formData: Partial<ValuationRequest> = {}

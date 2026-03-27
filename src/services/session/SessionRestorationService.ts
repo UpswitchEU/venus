@@ -36,6 +36,8 @@ import {
   validateNormalizedData,
 } from './SessionNormalizer'
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
+import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../../utils/importedLedgerNormalization'
+import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
 
 /**
  * Bank-grade retry utility with exponential backoff
@@ -614,6 +616,34 @@ class SessionRestorationServiceImpl {
       })
     }
 
+    // 7. Imported ledger analysis — seed SDE normalization drafts when no items restored yet
+    try {
+      const normStore = useNormalizationStore.getState()
+      if (normStore.items.length === 0) {
+        const bc = (data.formData as any)?.business_context
+        const analysis = bc?._imported_ledger_analysis
+        if (analysis && typeof analysis === 'object') {
+          const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis)
+          if (items.length > 0) {
+            normStore.addItems(items)
+            restoredEbitdaNormalizations = true
+            generalLogger.info(
+              '[SessionRestoration] SDE drafts seeded from persisted imported ledger analysis',
+              { count: items.length }
+            )
+          }
+          const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
+            analysis as any
+          )
+          useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
+        }
+      }
+    } catch (error) {
+      generalLogger.warn('[SessionRestoration] Imported ledger normalization seed failed (non-blocking)', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+
     return {
       reportId: data.reportId,
       restoredFormFields,
@@ -847,6 +877,27 @@ class SessionRestorationServiceImpl {
           try {
             if (raw._import_quality && typeof raw._import_quality === 'object') {
               useSpotlightStore.getState().setImportQuality(raw._import_quality as any)
+            }
+          } catch {
+            // Non-critical
+          }
+          try {
+            const ns = useNormalizationStore.getState()
+            if (ns.items.length === 0) {
+              const bc = (raw.business_context ?? raw.businessContext) as
+                | Record<string, unknown>
+                | undefined
+              const analysis = bc?._imported_ledger_analysis
+              if (analysis && typeof analysis === 'object') {
+                const items = buildNormalizationItemsFromImportedLedgerAnalysis(analysis as any)
+                if (items.length > 0) {
+                  ns.addItems(items)
+                }
+                const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
+                  analysis as any
+                )
+                useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
+              }
             }
           } catch {
             // Non-critical
