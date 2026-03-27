@@ -134,6 +134,39 @@ export interface PartialFinancials {
       netIncome?: number
     }
   }
+  importQuality?: Record<string, unknown>
+  importedLedgerAnalysis?: {
+    latest_fiscal_year?: number
+    sde_flags?: Array<{
+      ledger_code: string
+      ledger_name: string
+      amount: number
+      deviation_pct: number
+      benchmark_median_pct: number
+      benchmark_std_pct: number
+      actual_pct_of_revenue: number
+      z_score: number
+      confidence: number
+      year: number
+      potential_sde_addback: boolean
+      suggested_question: string
+      rationale: string
+      category: string
+    }>
+    ev_equity_bridge?: {
+      enterprise_value: number
+      cash_and_equivalents: number
+      long_term_debt: number
+      short_term_financial_debt: number
+      interest_bearing_debt: number
+      net_debt: number
+      equity_value: number
+    }
+    dcf_defaults?: {
+      average_depreciation: number
+      suggested_capex: number
+    }
+  }
 }
 
 export interface OfficialFinancials {

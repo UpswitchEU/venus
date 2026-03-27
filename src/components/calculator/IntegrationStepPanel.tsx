@@ -21,14 +21,12 @@ import {
   type ParsedCSVData,
   type SuggestedNormalisation,
 } from '@/components/integrations'
-import { YukiConnectModal } from '@/components/integrations/YukiConnectModal'
 import { trackNormalizationAcceptAll } from '@/lib/analytics'
 import { Badge } from '@/design-system/components/Badge'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
 import { Body, Caption, Heading } from '@/design-system/components/Typography'
 import { cn } from '@/design-system/utils'
-import type { AccountingBatchPayload } from '@/services/api/accounting'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -38,7 +36,6 @@ type IntegrationStep = 'select' | 'upload' | 'mapping' | 'review' | 'complete'
 
 export interface IntegrationStepPanelProps {
   onComplete: (method: 'csv' | 'manual', data?: MappedAccount[]) => void
-  onYukiImported?: (payload: AccountingBatchPayload) => void
   onSkip?: () => void
   className?: string
 }
@@ -88,7 +85,6 @@ const generateNormalisations = (
 
 export function IntegrationStepPanel({
   onComplete,
-  onYukiImported,
   onSkip,
   className,
 }: IntegrationStepPanelProps) {
@@ -97,7 +93,6 @@ export function IntegrationStepPanel({
   const [parsedCSV, setParsedCSV] = useState<ParsedCSVData | null>(null)
   const [mappedAccounts, setMappedAccounts] = useState<MappedAccount[]>([])
   const [suggestions, setSuggestions] = useState<SuggestedNormalisation[]>([])
-  const [showYukiModal, setShowYukiModal] = useState(false)
 
   // Handlers
   const handleCSVSelected = (file: File, data: ParsedCSVData) => {
@@ -193,34 +188,6 @@ export function IntegrationStepPanel({
                 <ChevronRight className="w-5 h-5 text-foreground/30" />
               </div>
             </GlassCard>
-
-            {/* Native Yuki connection */}
-            <div className="relative">
-              <GlassCard
-                className="p-5 cursor-pointer hover:bg-foreground/[0.02] transition-colors"
-                onClick={() => setShowYukiModal(true)}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
-                    <FileSpreadsheet className="w-6 h-6 text-foreground/40" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Heading level={3} className="text-base text-foreground/70">
-                        {t('directIntegration')}
-                      </Heading>
-                      <Badge variant="primary" size="sm">
-                        Yuki
-                      </Badge>
-                    </div>
-                    <Caption className="text-foreground/50">
-                      Connect Yuki directly, pull 3-5 fiscal years, and continue with a prefilled normalization flow.
-                    </Caption>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-foreground/30" />
-                </div>
-              </GlassCard>
-            </div>
 
             {/* Manual Input */}
             <GlassCard
@@ -323,14 +290,6 @@ export function IntegrationStepPanel({
           </motion.div>
         )}
       </div>
-      <YukiConnectModal
-        open={showYukiModal}
-        onOpenChange={setShowYukiModal}
-        onImported={(payload) => {
-          onYukiImported?.(payload)
-          onComplete('manual')
-        }}
-      />
     </>
   )
 }

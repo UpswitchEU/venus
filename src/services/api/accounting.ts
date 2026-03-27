@@ -107,11 +107,11 @@ export interface IntegrationStatus {
 }
 
 /**
- * Venus manual-flow import: **Yuki and Exact only** (Hermes-backed).
+ * Venus manual-flow import: prefers Silverfin (live batch in-app), then Yuki / Exact (Mercury sync).
  * Titan may still report QuickBooks/Xero in `GET /integrations/accounting/status`; we ignore them here
  * so test environments never surface mock QB/Xero financials in this UI.
  */
-export const ACCOUNTING_IMPORT_PROVIDER_ORDER = ['yuki', 'exact'] as const
+export const ACCOUNTING_IMPORT_PROVIDER_ORDER = ['silverfin', 'yuki', 'exact'] as const
 
 export type AccountingImportProvider = (typeof ACCOUNTING_IMPORT_PROVIDER_ORDER)[number]
 
@@ -146,6 +146,8 @@ export function accountingProviderDisplayName(provider: string): string {
       return 'Yuki'
     case 'exact':
       return 'Exact Online'
+    case 'silverfin':
+      return 'Silverfin'
     default:
       return provider
   }
@@ -168,9 +170,9 @@ class AccountingAPI extends HttpClient {
     return response.data
   }
 
-  async getExactAuthorizeUrl(redirectUri: string): Promise<{ authorization_url: string }> {
+  async getSilverfinAuthorizeUrl(redirectUri: string): Promise<{ authorization_url: string }> {
     const response = await fetch(
-      `/api/integrations/accounting/exact/authorize?redirect_uri=${encodeURIComponent(redirectUri)}`,
+      `/api/integrations/accounting/silverfin/authorize?redirect_uri=${encodeURIComponent(redirectUri)}`,
       {
         credentials: 'include',
       }
@@ -178,14 +180,18 @@ class AccountingAPI extends HttpClient {
     const data = await response.json().catch(() => ({}))
     if (!response.ok) {
       throw new Error(
-        (data as { message?: string }).message || 'Failed to get Exact authorize URL'
+        (data as { message?: string }).message || 'Failed to get Silverfin authorize URL'
       )
     }
     return data as { authorization_url: string }
   }
 
-  async connectExact(code: string, redirectUri: string): Promise<AccountingConnectResponse> {
-    const response = await fetch('/api/integrations/accounting/exact/callback', {
+  async connectSilverfin(
+    code: string,
+    redirectUri: string,
+    firmId: string
+  ): Promise<AccountingConnectResponse> {
+    const response = await fetch('/api/integrations/accounting/silverfin/callback', {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -194,18 +200,19 @@ class AccountingAPI extends HttpClient {
       body: JSON.stringify({
         code,
         redirect_uri: redirectUri,
+        firm_id: firmId,
       }),
     })
     const data = await response.json().catch(() => ({}))
     if (!response.ok) {
-      throw new Error((data as { message?: string }).message || 'Failed to connect Exact Online')
+      throw new Error((data as { message?: string }).message || 'Failed to connect Silverfin')
     }
     return data as AccountingConnectResponse
   }
 
-  async getExactAdministrations(): Promise<AccountingAdministrationListResponse> {
+  async getSilverfinCompanies(): Promise<AccountingAdministrationListResponse> {
     const response = await this.client.get<AccountingAdministrationListResponse>(
-      '/integrations/accounting/exact/administrations'
+      '/integrations/accounting/silverfin/companies'
     )
     return response.data
   }
@@ -228,6 +235,7 @@ class AccountingAPI extends HttpClient {
     endYear: number,
     options?: {
       administrationId?: string
+      companyId?: string
     }
   ): Promise<AccountingBatchPayload> {
     const params: Record<string, string | number> = {
@@ -236,6 +244,9 @@ class AccountingAPI extends HttpClient {
     }
     if (provider === 'exact' && options?.administrationId) {
       params.administration_id = options.administrationId
+    }
+    if (provider === 'silverfin' && options?.companyId) {
+      params.company_id = options.companyId
     }
     const response = await this.client.get<AccountingBatchPayload>(
       `/integrations/accounting/${provider}/financial-data/batch`,

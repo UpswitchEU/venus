@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import { getCurrentFilingYear } from '../utils/fiscalYear'
 import { useBootstrapSafe } from '../lib/bootstrap'
 import type {
@@ -21,6 +22,8 @@ import type {
 } from '../lib/bootstrap/types'
 import type { ValuationFormData } from '../types/valuation'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
+import { useNormalizationStore } from '../store/useNormalizationStore'
+import { useSpotlightStore } from '../store/useSpotlightStore'
 import { buildBusinessTypeFormData } from '../components/ValuationForm/utils/businessTypeFormData'
 import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
@@ -44,6 +47,25 @@ function resolveCountryCode(
   }
 
   return undefined
+}
+
+function mapImportedLedgerCategory(category?: string): NormalizationItem['category'] {
+  switch (category) {
+    case 'owner_compensation':
+      return 'salary'
+    case 'related_party_rent':
+      return 'rent'
+    case 'discretionary_expense':
+      return 'vehicle'
+    default:
+      return 'other'
+  }
+}
+
+function mapImportedLedgerConfidence(confidence?: number): NormalizationItem['confidence'] {
+  if ((confidence ?? 0) >= 0.8) return 'high'
+  if ((confidence ?? 0) >= 0.6) return 'medium'
+  return 'low'
 }
 
 // Track if prefill has been applied globally (survives re-renders/re-mounts)
@@ -521,6 +543,43 @@ function applyPrefillToForm(
     if (financials.employeeCount !== undefined)
       allData.number_of_employees = financials.employeeCount
     if (financials.yearData) allData.year_data = financials.yearData
+    if (financials.importedLedgerAnalysis) {
+      allData.business_context = {
+        ...(allData.business_context || {}),
+        _imported_ledger_analysis: financials.importedLedgerAnalysis,
+      }
+
+      const importedNormalizationItems: NormalizationItem[] =
+        financials.importedLedgerAnalysis.sde_flags?.map((flag, index) => ({
+          id: `imported_sde_${flag.year}_${flag.ledger_code}_${index}`,
+          ledgerCode: flag.ledger_code,
+          ledgerName: flag.ledger_name,
+          category: mapImportedLedgerCategory(flag.category),
+          type: 'add',
+          value: Number(flag.amount) || 0,
+          adjustment: Number(flag.amount) || 0,
+          reason: flag.rationale || flag.suggested_question,
+          source: 'auto',
+          sourceRef: `${flag.year}:${flag.ledger_code}`,
+          status: 'pending',
+          applyAllYears: false,
+          applyYears: flag.year ? [flag.year] : undefined,
+          year: flag.year || getCurrentFilingYear(),
+          confidence: mapImportedLedgerConfidence(flag.confidence),
+          marketBenchmark: flag.benchmark_median_pct,
+        })) ?? []
+
+      if (importedNormalizationItems.length > 0) {
+        useNormalizationStore.getState().addItems(importedNormalizationItems)
+      }
+    }
+    if (
+      financials.importQuality &&
+      typeof financials.importQuality === 'object' &&
+      Object.keys(financials.importQuality).length > 0
+    ) {
+      useSpotlightStore.getState().setImportQuality(financials.importQuality as any)
+    }
     if (financials.saasMetrics) {
       const importedSaasMetrics = financials.saasMetrics
       if (importedSaasMetrics.saas_arr !== undefined) allData.saas_arr = importedSaasMetrics.saas_arr

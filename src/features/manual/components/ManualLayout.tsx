@@ -4508,6 +4508,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const cyd = formStoreData?.current_year_data as { ebitda?: number } | undefined
   const hy = (formStoreData?.historical_years_data || []) as Array<{ ebitda?: number }>
   const hasEbitda = (cyd && (cyd.ebitda ?? 0) !== 0) || hy.some((h) => (h.ebitda ?? 0) !== 0)
+  const pendingNormalizationCount = normalizationItems.filter((n) => n.status === 'pending').length
+  const hasImportedNormalizationData =
+    hasImportQuality ||
+    suggestedNormalisations.length > 0 ||
+    normalizationItems.some((n) => n.source !== 'manual' && n.source !== 'ai')
   const chatDrawerProps = {
     open: chatDrawerOpen,
     onOpenChange: setChatDrawerOpen,
@@ -4518,14 +4523,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     fieldContext,
     hasReport: !!report,
     hasEbitda,
-    pendingNormalizationsCount: normalizationItems.filter((n) => n.status === 'pending').length,
+    pendingNormalizationsCount: pendingNormalizationCount,
     onApplyFieldUpdate: handleApplyFieldUpdate,
     pendingUpdates,
     onAcceptUpdate: handleAcceptUpdate,
     onRejectUpdate: handleRejectUpdate,
     onAcceptNormalisation: handleAcceptNormalisation,
     onRejectNormalisation: handleRejectNormalisation,
-    hasUploadedData: suggestedNormalisations.length > 0,
+    hasUploadedData: hasImportedNormalizationData,
     toolInProgress: conversationStore.toolInProgress,
     onOpenNormalizationHub: () => {
       openUnifiedNormalizationModal({ closeChat: true })
@@ -4647,10 +4652,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             openUnifiedNormalizationModal()
           }}
           normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
-          openTasksCount={
-            suggestedNormalisations.filter((n: any) => n.status === 'pending').length +
-            pendingUpdates.length
-          }
+          openTasksCount={pendingNormalizationCount + pendingUpdates.length}
           isExporting={isExporting || isMethodSwitchRendering}
           recentValuations={recentValuations}
           activeReportId={resolvedReportId || reportId}
@@ -4702,7 +4704,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             }
             clientApprovalStatus="none"
             onResendApproval={() => toast.info(t('reminderSent'))}
-            pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending').length}
+            pendingNormalisations={pendingNormalizationCount}
             onShowNormalisationReview={handleShowNormalisationReview}
           />
         )}
@@ -4780,6 +4782,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           normalizations={normalizationItems}
           onNormalizationsChange={handleNormalizationsChange}
           countryCode={formCountry || 'BE'}
+          hasUploadedData={hasImportedNormalizationData}
           onUploadClick={() => {}}
           financialYears={financialYears}
           initialSearchQuery={guidedNormalizationPrefill?.initialSearchQuery ?? ''}
@@ -4820,10 +4823,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         isAssistantOpen={chatDrawerOpen}
         onOpenNormalization={() => openUnifiedNormalizationModal()}
         normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
-        openTasksCount={
-          suggestedNormalisations.filter((n: any) => n.status === 'pending').length +
-          pendingUpdates.length
-        }
+        openTasksCount={pendingNormalizationCount + pendingUpdates.length}
         isExporting={isExporting || isMethodSwitchRendering}
         downloadHistory={downloadHistory}
         onRedownload={(item: any) => {
@@ -4917,7 +4917,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
           clientApprovalStatus="none"
           onResendApproval={() => toast.info(t('reminderSent'))}
-          pendingNormalisations={normalizationItems.filter((n) => n.status === 'pending').length}
+          pendingNormalisations={pendingNormalizationCount}
           onShowNormalisationReview={handleShowNormalisationReview}
         />
       )}
@@ -5190,6 +5190,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         normalizations={normalizationItems}
         onNormalizationsChange={handleNormalizationsChange}
         countryCode={formCountry || 'BE'}
+        hasUploadedData={hasImportedNormalizationData}
         onUploadClick={() => {}}
         financialYears={financialYears}
         initialSearchQuery={guidedNormalizationPrefill?.initialSearchQuery ?? ''}
