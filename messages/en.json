@@ -1363,6 +1363,7 @@
       "arrMultipleDescription": "ARR lens for SaaS. Business model and type together determine which SaaS metrics appear.",
       "ebitdaMultiple": "Market Approach (EV/EBITDA)",
       "dcf": "Discounted Cash Flow (DCF)",
+      "dcfDescription": "Few percentages, live FCFF preview, smart defaults from history and accounting import—defensible DCF in minutes, not days.",
       "adjustedNav": "Adjusted Net Asset Value",
       "fiscal4x": "Fiscal Reference Value",
       "fiscalDisclaimerTitle": "Attention",
@@ -1398,7 +1399,13 @@
         "exit_multiple": "Exit Multiple"
       },
       "terminalMethodAriaLabel": "Terminal value method",
-      "forecastDefaultsLead": "Most valuations: enter revenue growth and EBITDA margin, then check the live table below. Advanced FCFF drivers stay on defaults unless you need to tune them.",
+      "forecastDefaultsLead": "Most valuations: enter revenue growth and EBITDA margin, then check the live table below. We suggest growth, margin, WACC, and bridge drivers from your historical years and business profile, and from accounting import (CapEx/D&A) when you pull data—then refine. Advanced FCFF drivers stay on defaults unless you need to tune them.",
+      "forecastDefaultsProvenanceAria": "Source of suggested DCF defaults",
+      "forecastDefaultsProvenance": {
+        "history": "Defaults from your history & profile (sector WACC band)",
+        "integration": "CapEx & D&A from accounting import (Titan/Mercury)",
+        "both": "History + profile + import CapEx/D&A (same pipeline as bulk valuation)"
+      },
       "dcfInputModeLabelEmbedded": "Forecast input",
       "applyForecastYears": "Apply to forecast years",
       "showAdvancedDrivers": "Edit FCFF drivers",

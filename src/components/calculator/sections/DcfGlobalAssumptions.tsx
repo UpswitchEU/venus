@@ -1,12 +1,21 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Database, History } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { cn } from '@/design-system/utils'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
+import {
+  DCF_DEFAULT_CAPEX_PCT,
+  DCF_DEFAULT_DA_PCT,
+  DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
+  DCF_DEFAULT_NWC_PCT,
+  DCF_DEFAULT_REVENUE_GROWTH_PCT,
+  DCF_DEFAULT_TAX_RATE_PCT,
+  DCF_DEFAULT_TERMINAL_GROWTH_PCT,
+} from './dcfEngineDefaults'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 
@@ -47,6 +56,11 @@ interface DcfGlobalAssumptionsProps {
   onDcfInputModeChange?: (mode: 'ebitda' | 'fcff_only') => void
   disabled?: boolean
   className?: string
+  /**
+   * Where automatic DCF % suggestions come from (Venus ↔ Titan/Mercury import pipeline).
+   * Only shown for `forecastDefaultsOnly`.
+   */
+  dcfDefaultsProvenance?: 'none' | 'history' | 'integration' | 'both'
 }
 
 const terminalMethodOptions: { value: TerminalValueMethod; label: string }[] = [
@@ -84,6 +98,7 @@ export function DcfGlobalAssumptions({
   onDcfInputModeChange,
   disabled,
   className,
+  dcfDefaultsProvenance = 'none',
 }: DcfGlobalAssumptionsProps) {
   const t = useTranslations('manualInput.methodSelector')
   const [showAdvancedDrivers, setShowAdvancedDrivers] = useState(true)
@@ -140,10 +155,10 @@ export function DcfGlobalAssumptions({
   const advancedDriverSummary = useMemo(
     () =>
       t('advancedDriversSummary', {
-        capex: (dcfCapexPct ?? 3).toFixed(1),
-        da: (dcfDaPct ?? 3).toFixed(1),
-        nwc: (dcfNwcPct ?? 1.5).toFixed(1),
-        tax: (dcfTaxRatePct ?? 25).toFixed(1),
+        capex: (dcfCapexPct ?? DCF_DEFAULT_CAPEX_PCT).toFixed(1),
+        da: (dcfDaPct ?? DCF_DEFAULT_DA_PCT).toFixed(1),
+        nwc: (dcfNwcPct ?? DCF_DEFAULT_NWC_PCT).toFixed(1),
+        tax: (dcfTaxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT).toFixed(1),
       }),
     [t, dcfCapexPct, dcfDaPct, dcfNwcPct, dcfTaxRatePct]
   )
@@ -164,7 +179,7 @@ export function DcfGlobalAssumptions({
 
       {variant === 'discountTerminalOnly' && (
         <p className="text-xs leading-relaxed text-muted-foreground -mt-1">
-          {t('discountTerminalLead')}
+          {t('sections.discountTerminalLead')}
         </p>
       )}
 
@@ -172,6 +187,36 @@ export function DcfGlobalAssumptions({
         <p className="text-xs leading-relaxed text-muted-foreground -mt-1">
           {t('forecastDefaultsLead')}
         </p>
+      )}
+
+      {variant === 'forecastDefaultsOnly' && dcfDefaultsProvenance !== 'none' && (
+        <div
+          className="-mt-0.5 flex flex-wrap items-center gap-1.5"
+          role="status"
+          aria-label={t('forecastDefaultsProvenanceAria')}
+        >
+          <span className="inline-flex max-w-full items-center gap-1 rounded-lg border border-primary/15 bg-primary/[0.06] px-2 py-1 text-[10px] font-medium leading-tight text-primary/85 ring-1 ring-inset ring-primary/10">
+            {dcfDefaultsProvenance === 'both' && (
+              <>
+                <History className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+                <Database className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+                <span>{t('forecastDefaultsProvenance.both')}</span>
+              </>
+            )}
+            {dcfDefaultsProvenance === 'history' && (
+              <>
+                <History className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+                <span>{t('forecastDefaultsProvenance.history')}</span>
+              </>
+            )}
+            {dcfDefaultsProvenance === 'integration' && (
+              <>
+                <Database className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+                <span>{t('forecastDefaultsProvenance.integration')}</span>
+              </>
+            )}
+          </span>
+        </div>
       )}
 
       {showDcfInputModeToggle &&
@@ -214,14 +259,14 @@ export function DcfGlobalAssumptions({
                   label={t('fields.dcfRevenueGrowthPct')}
                   value={dcfRevenueGrowthPct}
                   onChange={(v) => onFieldChange('dcf_revenue_growth_pct', v)}
-                  placeholder="5"
+                  placeholder={String(DCF_DEFAULT_REVENUE_GROWTH_PCT)}
                   disabled={disabled}
                 />
                 <AdaptivePercentInput
                   label={t('fields.dcfEbitdaMarginPct')}
                   value={dcfEbitdaMarginPct}
                   onChange={(v) => onFieldChange('dcf_ebitda_margin_pct', v)}
-                  placeholder="15"
+                  placeholder={String(DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT)}
                   disabled={disabled}
                 />
               </div>
@@ -268,14 +313,14 @@ export function DcfGlobalAssumptions({
                         label={t('fields.dcfCapexPct')}
                         value={dcfCapexPct}
                         onChange={(v) => onFieldChange('dcf_capex_pct', v)}
-                        placeholder="3"
+                        placeholder={String(DCF_DEFAULT_CAPEX_PCT)}
                         disabled={disabled}
                       />
                       <AdaptivePercentInput
                         label={t('fields.dcfDaPct')}
                         value={dcfDaPct}
                         onChange={(v) => onFieldChange('dcf_da_pct', v)}
-                        placeholder="3"
+                        placeholder={String(DCF_DEFAULT_DA_PCT)}
                         disabled={disabled}
                       />
                       <AdaptivePercentInput
@@ -283,14 +328,14 @@ export function DcfGlobalAssumptions({
                         description={t('fieldHints.dcfNwcPct')}
                         value={dcfNwcPct}
                         onChange={(v) => onFieldChange('dcf_nwc_pct', v)}
-                        placeholder="2"
+                        placeholder={String(DCF_DEFAULT_NWC_PCT)}
                         disabled={disabled}
                       />
                       <AdaptivePercentInput
                         label={t('fields.dcfTaxRatePct')}
                         value={dcfTaxRatePct}
                         onChange={(v) => onFieldChange('dcf_tax_rate_pct', v)}
-                        placeholder="25"
+                        placeholder={String(DCF_DEFAULT_TAX_RATE_PCT)}
                         disabled={disabled}
                       />
                       <p className="text-[11px] leading-relaxed text-muted-foreground sm:col-span-2">
@@ -377,7 +422,7 @@ export function DcfGlobalAssumptions({
                     label={t('fields.dcfTerminalGrowthPct')}
                     value={dcfTerminalGrowthPct}
                     onChange={(v) => onFieldChange('dcf_terminal_growth_pct', v)}
-                    placeholder="2"
+                    placeholder={String(DCF_DEFAULT_TERMINAL_GROWTH_PCT)}
                     disabled={disabled}
                   />
                 </motion.div>

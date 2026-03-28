@@ -1363,6 +1363,7 @@
       "arrMultipleDescription": "ARR-lens voor SaaS. Bedrijfsmodel of -type bepaalt mee welke SaaS-metrics zichtbaar zijn.",
       "ebitdaMultiple": "Marktbenadering (EV/EBITDA)",
       "dcf": "Discounted Cash Flow (DCF)",
+      "dcfDescription": "Enkele percentages, live FCFF-preview, slimme defaults uit historiek en accounting-import—verdedigbare DCF in minuten, niet in dagen.",
       "adjustedNav": "Gecorrigeerde Netto Actiefwaarde",
       "fiscal4x": "Fiscale Referentiewaarde",
       "fiscalDisclaimerTitle": "Let op",
@@ -1398,7 +1399,13 @@
         "exit_multiple": "Exit Multiple"
       },
       "terminalMethodAriaLabel": "Restwaarde-methode",
-      "forecastDefaultsLead": "Meeste dossiers: vul omzetgroei en EBITDA-marge in, controleer daarna de live tabel hieronder. Geavanceerde FCFF-drivers blijven op standaard tenzij je ze wilt bijsturen.",
+      "forecastDefaultsLead": "Meeste dossiers: vul omzetgroei en EBITDA-marge in, controleer daarna de live tabel hieronder. We stellen groei, marge, WACC en brugdrivers voor op basis van je historiek en bedrijfsprofiel, en vanuit accounting-import (CapEx/D&A) als je data ophaalt—daarna verfijn je gericht. Geavanceerde FCFF-drivers blijven op standaard tenzij je ze wilt bijsturen.",
+      "forecastDefaultsProvenanceAria": "Bron van voorgestelde DCF-defaults",
+      "forecastDefaultsProvenance": {
+        "history": "Defaults uit historiek & profiel (sector-WACC-band)",
+        "integration": "CapEx & D&A uit accounting-import (Titan/Mercury)",
+        "both": "Historiek + profiel + import CapEx/D&A (zelfde keten als bulkwaardering)"
+      },
       "dcfInputModeLabelEmbedded": "Prognose-invoer",
       "applyForecastYears": "Pas toe op prognosejaren",
       "showAdvancedDrivers": "Bewerk FCFF-drivers",

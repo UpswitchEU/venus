@@ -1,11 +1,12 @@
 'use client'
 
-import { cn } from '@/design-system/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useEffect, useMemo, useState } from 'react'
+import { cn } from '@/design-system/utils'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
+import { DCF_DEFAULT_WACC_PCT } from './dcfEngineDefaults'
 
 interface WaccBreakdownPanelProps {
   currentWaccPct?: number
@@ -58,8 +59,7 @@ export function WaccBreakdownPanel({
   const computedWaccPct = useMemo(() => {
     const debtWeight = clamp(resolvedDebtEquityPct, 0, 95) / 100
     const equityWeight = 1 - debtWeight
-    const costOfEquityPct =
-      resolvedRiskFreeRatePct + resolvedBeta * resolvedEquityRiskPremiumPct
+    const costOfEquityPct = resolvedRiskFreeRatePct + resolvedBeta * resolvedEquityRiskPremiumPct
     const afterTaxDebtPct = resolvedCostOfDebtPct * (1 - clamp(resolvedTaxShieldPct, 0, 100) / 100)
     return round1(equityWeight * costOfEquityPct + debtWeight * afterTaxDebtPct)
   }, [
@@ -78,7 +78,8 @@ export function WaccBreakdownPanel({
 
   const handleToggleExpanded = () => {
     if (!expanded) {
-      if (riskFreeRatePct == null) onFieldChange('dcf_risk_free_rate_pct', DEFAULT_RISK_FREE_RATE_PCT)
+      if (riskFreeRatePct == null)
+        onFieldChange('dcf_risk_free_rate_pct', DEFAULT_RISK_FREE_RATE_PCT)
       if (equityRiskPremiumPct == null) {
         onFieldChange('dcf_equity_risk_premium_pct', DEFAULT_EQUITY_RISK_PREMIUM_PCT)
       }
@@ -96,7 +97,7 @@ export function WaccBreakdownPanel({
         label={t('fields.dcfWaccPct')}
         value={expanded ? computedWaccPct : currentWaccPct}
         onChange={(value) => onFieldChange('dcf_wacc_pct', value)}
-        placeholder="10"
+        placeholder={String(DCF_DEFAULT_WACC_PCT)}
         disabled={disabled}
         readOnly={expanded}
       />

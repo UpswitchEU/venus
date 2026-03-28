@@ -1,4 +1,10 @@
-import type { DcfYearlyFinancialsLike, DcfSmartDefaults } from './dcfSmartDefaults'
+import {
+  DCF_DEFAULT_CAPEX_PCT,
+  DCF_DEFAULT_DA_PCT,
+  DCF_DEFAULT_NWC_PCT,
+  DCF_DEFAULT_TAX_RATE_PCT,
+} from './dcfEngineDefaults'
+import type { DcfSmartDefaults, DcfYearlyFinancialsLike } from './dcfSmartDefaults'
 
 export interface DcfProjectionPreviewRow {
   year: number
@@ -103,7 +109,10 @@ function computeFcffRow(
   capexPct: number,
   nwcPct: number,
   taxRate: number
-): Pick<DcfProjectionPreviewRow, 'da' | 'ebit' | 'taxes' | 'nopat' | 'capex' | 'nwcChange' | 'fcff'> {
+): Pick<
+  DcfProjectionPreviewRow,
+  'da' | 'ebit' | 'taxes' | 'nopat' | 'capex' | 'nwcChange' | 'fcff'
+> {
   const da = roundCurrency(revenue * (daPct / 100))
   const ebit = ebitda - da
   const taxes = roundCurrency(Math.max(0, ebit) * taxRate)
@@ -149,10 +158,11 @@ export function deriveDcfProjectionPreview(args: {
 
   const growthRate = revenueGrowthPct / 100
   const marginRate = ebitdaMarginPct / 100
-  const capexPct = args.capexPct ?? args.smartDefaults?.capexPct ?? 4
-  const daPct = args.daPct ?? args.smartDefaults?.daPct ?? 3
-  const nwcPct = args.nwcPct ?? args.smartDefaults?.nwcPct ?? 1.5
-  const taxRate = (args.taxRatePct ?? args.smartDefaults?.taxRatePct ?? 25) / 100
+  const capexPct = args.capexPct ?? args.smartDefaults?.capexPct ?? DCF_DEFAULT_CAPEX_PCT
+  const daPct = args.daPct ?? args.smartDefaults?.daPct ?? DCF_DEFAULT_DA_PCT
+  const nwcPct = args.nwcPct ?? args.smartDefaults?.nwcPct ?? DCF_DEFAULT_NWC_PCT
+  const taxRate =
+    (args.taxRatePct ?? args.smartDefaults?.taxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT) / 100
 
   const explicitForecastYears = (args.forecastYears ?? [])
     .map((year) => Math.trunc(year))

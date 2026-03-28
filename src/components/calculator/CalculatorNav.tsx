@@ -40,7 +40,10 @@ import {
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useMemo, useState } from 'react'
-import { getPreSelectableMethodsForFirm, resolveDisplayPreSelectedMethodKey } from '@/constants/methodFieldConfig'
+import {
+  getPreSelectableMethodsForFirm,
+  resolveDisplayPreSelectedMethodKey,
+} from '@/constants/methodFieldConfig'
 import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
 
@@ -101,6 +104,11 @@ function MethodSelectorMenu({
               {key === 'arr_multiple' && (
                 <span className="text-[10px] font-normal leading-snug text-foreground/45">
                   {t('manualInput.methodSelector.arrMultipleDescription')}
+                </span>
+              )}
+              {key === 'dcf' && (
+                <span className="text-[10px] font-normal leading-snug text-foreground/45">
+                  {t('manualInput.methodSelector.dcfDescription')}
                 </span>
               )}
             </div>

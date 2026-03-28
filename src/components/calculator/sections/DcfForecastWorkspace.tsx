@@ -10,6 +10,12 @@ import { DcfFcffOnlyTable } from './DcfFcffOnlyTable'
 import type { DcfForecastRow } from './DcfForecastTypes'
 import { DcfProjectionTable } from './DcfProjectionTable'
 import {
+  DCF_DEFAULT_CAPEX_PCT,
+  DCF_DEFAULT_DA_PCT,
+  DCF_DEFAULT_NWC_PCT,
+  DCF_DEFAULT_TAX_RATE_PCT,
+} from './dcfEngineDefaults'
+import {
   buildProjectionRowFromForecastRow,
   type DcfProjectionPreviewRow,
 } from './dcfProjectionPreview'
@@ -96,10 +102,10 @@ export function DcfForecastWorkspace({
   const projectionRows: DcfProjectionPreviewRow[] = useMemo(() => {
     if (sortedRows.length === 0) return []
     const globals = {
-      daPct: globalDaPct ?? 3,
-      capexPct: globalCapexPct ?? 4,
-      nwcPct: globalNwcPct ?? 1.5,
-      taxRatePct: globalTaxRatePct ?? 25,
+      daPct: globalDaPct ?? DCF_DEFAULT_DA_PCT,
+      capexPct: globalCapexPct ?? DCF_DEFAULT_CAPEX_PCT,
+      nwcPct: globalNwcPct ?? DCF_DEFAULT_NWC_PCT,
+      taxRatePct: globalTaxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT,
     }
     return sortedRows.map((row) => buildProjectionRowFromForecastRow(row, globals))
   }, [sortedRows, globalCapexPct, globalDaPct, globalNwcPct, globalTaxRatePct])

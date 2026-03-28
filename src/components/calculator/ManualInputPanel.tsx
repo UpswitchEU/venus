@@ -145,6 +145,16 @@ import {
 } from './sections'
 import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
 import {
+  DCF_DEFAULT_CAPEX_PCT,
+  DCF_DEFAULT_DA_PCT,
+  DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
+  DCF_DEFAULT_NWC_PCT,
+  DCF_DEFAULT_REVENUE_GROWTH_PCT,
+  DCF_DEFAULT_TAX_RATE_PCT,
+  DCF_DEFAULT_TERMINAL_GROWTH_PCT,
+  DCF_DEFAULT_WACC_PCT,
+} from './sections/dcfEngineDefaults'
+import {
   type DcfForecastModelSnapshot,
   snapshotFromForecastRowLike,
   snapshotsClose,
@@ -154,6 +164,7 @@ import {
   buildProjectionRowFromForecastRow,
   deriveDcfProjectionPreview,
 } from './sections/dcfProjectionPreview'
+import { deriveDcfSmartDefaults } from './sections/dcfSmartDefaults'
 import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
 
 // Types
@@ -255,6 +266,16 @@ export interface ValuationFormData {
   official_financials?: OfficialFinancialsPayload
   official_variance_analysis?: OfficialVarianceAnalysis
   official_verification_badge?: OfficialVerificationBadge
+}
+
+/** Smart DCF defaults from historical rows + sector text (used inside setForm(prev) callbacks). */
+function dcfSmartDefaultsFromFormSlice(
+  prev: Pick<ValuationFormData, 'yearlyFinancials' | 'industry' | 'businessType'>
+) {
+  return deriveDcfSmartDefaults({
+    yearlyFinancials: prev.yearlyFinancials,
+    businessCategory: prev.industry || prev.businessType,
+  })
 }
 
 interface ImportedLedgerAnalysisSummary {
@@ -1922,6 +1943,61 @@ export function ManualInputPanel({
     return typeof e === 'number' && Number.isFinite(e) ? e : undefined
   }, [sortedYearlyFinancials])
 
+  /** CFA-style defaults from historical CAGR, margins, and sector WACC base (Mercury/Titan-aligned). */
+  const dcfSmartDefaultsFromHistory = useMemo(
+    () =>
+      deriveDcfSmartDefaults({
+        yearlyFinancials: formData.yearlyFinancials,
+        businessCategory:
+          selectedBusinessType?.category ?? formData.industry ?? formData.businessType,
+      }),
+    [
+      formData.yearlyFinancials,
+      selectedBusinessType?.category,
+      formData.industry,
+      formData.businessType,
+    ]
+  )
+
+  /** CapEx % of revenue from Titan/accounting suggested_capex (bulk import / Mercury sync). */
+  const integrationDerivedCapexPct = useMemo(() => {
+    const raw = formData.business_context?._imported_ledger_analysis
+    const persisted =
+      raw && typeof raw === 'object' && !Array.isArray(raw)
+        ? (raw as ImportedLedgerAnalysisSummary).dcf_defaults?.suggested_capex
+        : undefined
+    const suggested = importBatchData?.dcf_defaults?.suggested_capex ?? persisted
+    const rev = latestHistoricalRevenue
+    if (suggested == null || !Number.isFinite(suggested) || rev == null || rev <= 0) return null
+    const pct = (suggested / rev) * 100
+    return Math.round(Math.min(8, Math.max(2, pct)) * 10) / 10
+  }, [importBatchData, formData.business_context, latestHistoricalRevenue])
+
+  /** D&A % of revenue from ledger average depreciation (same integration pipeline as bulk valuation). */
+  const integrationDerivedDaPct = useMemo(() => {
+    const raw = formData.business_context?._imported_ledger_analysis
+    const persisted =
+      raw && typeof raw === 'object' && !Array.isArray(raw)
+        ? (raw as ImportedLedgerAnalysisSummary).dcf_defaults?.average_depreciation
+        : undefined
+    const avgDep = importBatchData?.dcf_defaults?.average_depreciation ?? persisted
+    const rev = latestHistoricalRevenue
+    if (avgDep == null || !Number.isFinite(avgDep) || rev == null || rev <= 0) return null
+    const pct = (avgDep / rev) * 100
+    return Math.round(Math.min(5, Math.max(2, pct)) * 10) / 10
+  }, [importBatchData, formData.business_context, latestHistoricalRevenue])
+
+  /** Forecast-defaults badge: history/sector model vs accounting import (Titan — same defaults as Mercury bulk). */
+  const dcfDefaultsProvenance = useMemo((): 'none' | 'integration' | 'history' | 'both' => {
+    const hasSmart = dcfSmartDefaultsFromHistory != null
+    const hasImport =
+      integrationDerivedCapexPct != null || integrationDerivedDaPct != null
+    if (hasImport && hasSmart) return 'both'
+    if (hasImport) return 'integration'
+    if (hasSmart) return 'history'
+    return 'none'
+  }, [dcfSmartDefaultsFromHistory, integrationDerivedCapexPct, integrationDerivedDaPct])
+
   const saasSignalsForBonusSections: GetBonusSectionsSaasSignals = useMemo(() => {
     const business_model =
       formData.business_model ??
@@ -2033,6 +2109,7 @@ export function ManualInputPanel({
       effectiveMethod === 'dcf'
         ? deriveDcfProjectionPreview({
             yearlyFinancials: formData.yearlyFinancials,
+            smartDefaults: dcfSmartDefaultsFromHistory,
             revenueGrowthPct: formData.dcf_revenue_growth_pct,
             ebitdaMarginPct: formData.dcf_ebitda_margin_pct,
             capexPct: formData.dcf_capex_pct,
@@ -2044,6 +2121,7 @@ export function ManualInputPanel({
         : [],
     [
       dcfForecastRows,
+      dcfSmartDefaultsFromHistory,
       effectiveMethod,
       formData.dcf_capex_pct,
       formData.dcf_da_pct,
@@ -2075,10 +2153,10 @@ export function ManualInputPanel({
     setFormData((prev) => {
       if (mode === 'fcff_only') {
         const globals = {
-          daPct: prev.dcf_da_pct ?? 3,
-          capexPct: prev.dcf_capex_pct ?? 4,
-          nwcPct: prev.dcf_nwc_pct ?? 1.5,
-          taxRatePct: prev.dcf_tax_rate_pct ?? 25,
+          daPct: prev.dcf_da_pct ?? DCF_DEFAULT_DA_PCT,
+          capexPct: prev.dcf_capex_pct ?? DCF_DEFAULT_CAPEX_PCT,
+          nwcPct: prev.dcf_nwc_pct ?? DCF_DEFAULT_NWC_PCT,
+          taxRatePct: prev.dcf_tax_rate_pct ?? DCF_DEFAULT_TAX_RATE_PCT,
         }
         return {
           ...prev,
@@ -2110,6 +2188,7 @@ export function ManualInputPanel({
       )
       const projectionRows = deriveDcfProjectionPreview({
         yearlyFinancials: cleared,
+        smartDefaults: dcfSmartDefaultsFromFormSlice(prev),
         revenueGrowthPct: prev.dcf_revenue_growth_pct,
         ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
         capexPct: prev.dcf_capex_pct,
@@ -2145,6 +2224,7 @@ export function ManualInputPanel({
         prev.yearlyFinancials,
         deriveDcfProjectionPreview({
           yearlyFinancials: prev.yearlyFinancials,
+          smartDefaults: dcfSmartDefaultsFromFormSlice(prev),
           revenueGrowthPct: prev.dcf_revenue_growth_pct,
           ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
           capexPct: prev.dcf_capex_pct,
@@ -2187,25 +2267,55 @@ export function ManualInputPanel({
     }
   }, [formData.dcf_input_mode])
 
-  /** Seed revenue growth and EBITDA margin so projection is non-empty without hunting for inputs. */
+  /** Seed DCF defaults: smart history + integration (Titan/Mercury), then static engine fallbacks. */
   useEffect(() => {
-    if (effectiveMethod !== 'dcf' || formData.dcf_input_mode === 'fcff_only') return
-    if (dcfForecastRows.length === 0) return
+    if (effectiveMethod !== 'dcf') return
+
+    const smart = dcfSmartDefaultsFromHistory
 
     setFormData((prev) => {
       const patch: Partial<ValuationFormData> = {}
-      if (prev.dcf_revenue_growth_pct == null || !Number.isFinite(prev.dcf_revenue_growth_pct)) {
-        patch.dcf_revenue_growth_pct = 3
+      const hasForecastRows = dcfForecastRows.length > 0
+
+      if (prev.dcf_wacc_pct == null || !Number.isFinite(prev.dcf_wacc_pct)) {
+        patch.dcf_wacc_pct = smart?.waccPct ?? DCF_DEFAULT_WACC_PCT
       }
-      if (prev.dcf_ebitda_margin_pct == null || !Number.isFinite(prev.dcf_ebitda_margin_pct)) {
-        const rev = latestHistoricalRevenue
-        const ebitda = latestHistoricalEbitda
-        if (rev && rev > 0 && ebitda != null && Number.isFinite(ebitda)) {
-          patch.dcf_ebitda_margin_pct = Math.round((ebitda / rev) * 1000) / 10
-        } else {
-          patch.dcf_ebitda_margin_pct = 10
+      if (prev.dcf_terminal_growth_pct == null || !Number.isFinite(prev.dcf_terminal_growth_pct)) {
+        patch.dcf_terminal_growth_pct = smart?.terminalGrowthPct ?? DCF_DEFAULT_TERMINAL_GROWTH_PCT
+      }
+
+      if (prev.dcf_input_mode !== 'fcff_only' && hasForecastRows) {
+        if (prev.dcf_revenue_growth_pct == null || !Number.isFinite(prev.dcf_revenue_growth_pct)) {
+          patch.dcf_revenue_growth_pct = smart?.revenueGrowthPct ?? DCF_DEFAULT_REVENUE_GROWTH_PCT
+        }
+        if (prev.dcf_ebitda_margin_pct == null || !Number.isFinite(prev.dcf_ebitda_margin_pct)) {
+          if (smart) {
+            patch.dcf_ebitda_margin_pct = smart.ebitdaMarginPct
+          } else {
+            const rev = latestHistoricalRevenue
+            const ebitda = latestHistoricalEbitda
+            if (rev && rev > 0 && ebitda != null && Number.isFinite(ebitda)) {
+              patch.dcf_ebitda_margin_pct = Math.round((ebitda / rev) * 1000) / 10
+            } else {
+              patch.dcf_ebitda_margin_pct = DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT
+            }
+          }
+        }
+        if (prev.dcf_capex_pct == null || !Number.isFinite(prev.dcf_capex_pct)) {
+          patch.dcf_capex_pct =
+            integrationDerivedCapexPct ?? smart?.capexPct ?? DCF_DEFAULT_CAPEX_PCT
+        }
+        if (prev.dcf_da_pct == null || !Number.isFinite(prev.dcf_da_pct)) {
+          patch.dcf_da_pct = integrationDerivedDaPct ?? smart?.daPct ?? DCF_DEFAULT_DA_PCT
+        }
+        if (prev.dcf_nwc_pct == null || !Number.isFinite(prev.dcf_nwc_pct)) {
+          patch.dcf_nwc_pct = DCF_DEFAULT_NWC_PCT
+        }
+        if (prev.dcf_tax_rate_pct == null || !Number.isFinite(prev.dcf_tax_rate_pct)) {
+          patch.dcf_tax_rate_pct = smart?.taxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT
         }
       }
+
       if (Object.keys(patch).length === 0) return prev
       return { ...prev, ...patch }
     })
@@ -2215,6 +2325,9 @@ export function ManualInputPanel({
     dcfForecastRows.length,
     latestHistoricalRevenue,
     latestHistoricalEbitda,
+    dcfSmartDefaultsFromHistory,
+    integrationDerivedCapexPct,
+    integrationDerivedDaPct,
   ])
 
   /** Live-sync forecast rows from DCF %; rows that diverge from the last model snapshot are treated as manual overrides. */
@@ -2239,6 +2352,7 @@ export function ManualInputPanel({
         .map((r) => Number(r.year))
       const preview = deriveDcfProjectionPreview({
         yearlyFinancials: prev.yearlyFinancials,
+        smartDefaults: dcfSmartDefaultsFromFormSlice(prev),
         revenueGrowthPct: growth,
         ebitdaMarginPct: margin,
         capexPct: prev.dcf_capex_pct,
@@ -3459,9 +3573,7 @@ export function ManualInputPanel({
                         variant="forecastDefaultsOnly"
                         className="mt-6 rounded-xl border border-primary/10 bg-primary/[0.03] p-4 sm:p-5"
                         step={dcfForecastDefaultsStep}
-                        dcfRevenueGrowthPct={
-                          formData.dcf_revenue_growth_pct as number | undefined
-                        }
+                        dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
                         dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
                         dcfCapexPct={formData.dcf_capex_pct as number | undefined}
                         dcfDaPct={formData.dcf_da_pct as number | undefined}
@@ -3490,6 +3602,7 @@ export function ManualInputPanel({
                         dcfModeSegmentOptions={dcfModeSegmentOptions}
                         onDcfInputModeChange={handleDcfInputModeChange}
                         disabled={isCalculating}
+                        dcfDefaultsProvenance={dcfDefaultsProvenance}
                       />
                     )}
 
@@ -3545,9 +3658,7 @@ export function ManualInputPanel({
                         variant="discountTerminalOnly"
                         className="mt-4"
                         step={dcfWaccTerminalStep}
-                        dcfRevenueGrowthPct={
-                          formData.dcf_revenue_growth_pct as number | undefined
-                        }
+                        dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
                         dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
                         dcfCapexPct={formData.dcf_capex_pct as number | undefined}
                         dcfDaPct={formData.dcf_da_pct as number | undefined}
