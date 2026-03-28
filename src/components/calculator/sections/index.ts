@@ -1,6 +1,9 @@
 export { AdaptivePercentInput } from './AdaptivePercentInput'
 export { DcfForecastWorkspace } from './DcfForecastWorkspace'
-export { DcfGlobalAssumptions } from './DcfGlobalAssumptions'
+export {
+  DcfGlobalAssumptions,
+  type DcfGlobalAssumptionsVariant,
+} from './DcfGlobalAssumptions'
 export { DcfProjectionTable } from './DcfProjectionTable'
 export { DcfSensitivityMatrix } from './DcfSensitivityMatrix'
 export { NavAssetScheduleSection } from './NavAssetScheduleSection'

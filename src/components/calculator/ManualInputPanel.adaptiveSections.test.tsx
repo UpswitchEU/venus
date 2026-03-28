@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getBonusSectionsSaasSignalsFromFormData } from '@/constants/methodFieldConfig'
+import { FilingYearPrompt } from './FilingYearPrompt'
 import {
   AdaptiveSections,
-  OfficialFilingTrustPanel,
   getSeedYearlyFinancials,
+  OfficialFilingTrustPanel,
   shouldAutoConfirmPrefilledFilingYear,
 } from './ManualInputPanel'
-import { FilingYearPrompt } from './FilingYearPrompt'
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
@@ -116,14 +116,14 @@ describe('AdaptiveSections', () => {
     expect(screen.queryByText('sections.navAssetSchedule')).not.toBeInTheDocument()
   })
 
-  it('does not render DCF global assumptions in AdaptiveSections when FCFF-only mode is selected', () => {
+  it('does not render DCF global assumptions when suppressDcfGlobalAssumptions is true (embedded in main panel)', () => {
     render(
       <AdaptiveSections
         {...baseProps}
         effectiveMethod="dcf"
         businessCategory="tech-digital"
         businessTypeId="saas"
-        formData={{ dcf_input_mode: 'fcff_only' } as any}
+        suppressDcfGlobalAssumptions
       />
     )
 
@@ -221,13 +221,15 @@ describe('AdaptiveSections', () => {
         effectiveMethod="dcf"
         businessCategory="professional-services"
         businessTypeId="accountancy"
-        formData={{
-          yearlyFinancials: [
-            { year: '2024', revenue: 1_000_000, ebitda: 150_000 },
-            { year: '2025', revenue: 0, ebitda: 0, isForecast: true },
-            { year: '2026', revenue: 0, ebitda: 0, isForecast: true },
-          ],
-        } as any}
+        formData={
+          {
+            yearlyFinancials: [
+              { year: '2024', revenue: 1_000_000, ebitda: 150_000 },
+              { year: '2025', revenue: 0, ebitda: 0, isForecast: true },
+              { year: '2026', revenue: 0, ebitda: 0, isForecast: true },
+            ],
+          } as any
+        }
         onApplyDcfPercentAutofill={handleApply}
         canApplyDcfPercentAutofill
         terminalValueMethod="perpetual_growth"

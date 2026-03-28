@@ -8,7 +8,6 @@ import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { cn } from '@/design-system/utils'
 import { DcfFcffOnlyTable } from './DcfFcffOnlyTable'
 import type { DcfForecastRow } from './DcfForecastTypes'
-import type { TerminalValueMethod } from './DcfGlobalAssumptions'
 import { DcfProjectionTable } from './DcfProjectionTable'
 import {
   buildProjectionRowFromForecastRow,
@@ -21,6 +20,8 @@ export type DcfInputMode = 'ebitda' | 'fcff_only'
 interface DcfForecastWorkspaceProps {
   /** Step index after financial history (default 4). */
   step?: number
+  /** When false, forecast input mode toggle is rendered by the parent (defaults-first layout). */
+  showModeToggle?: boolean
   forecastRows: DcfForecastRow[]
   latestHistoricalRevenue?: number
   /** Last actual historical EBITDA (same base year as latestHistoricalRevenue). */
@@ -33,11 +34,6 @@ interface DcfForecastWorkspaceProps {
   globalDaPct?: number
   globalNwcPct?: number
   globalTaxRatePct?: number
-  /** Shown on the forecast CTA for quick accountant context */
-  dcfWaccPct?: number
-  terminalValueMethod?: TerminalValueMethod
-  dcfTerminalGrowthPct?: number
-  dcfExitMultiple?: number
   disabled?: boolean
   canAddYear: boolean
   nextForecastYear: number
@@ -55,6 +51,7 @@ interface DcfForecastWorkspaceProps {
 
 export function DcfForecastWorkspace({
   step = 4,
+  showModeToggle = true,
   forecastRows,
   latestHistoricalRevenue,
   latestHistoricalEbitda: latestHistoricalEbitdaProp,
@@ -63,10 +60,6 @@ export function DcfForecastWorkspace({
   globalDaPct,
   globalNwcPct,
   globalTaxRatePct,
-  dcfWaccPct,
-  terminalValueMethod,
-  dcfTerminalGrowthPct,
-  dcfExitMultiple,
   disabled,
   canAddYear,
   nextForecastYear,
@@ -122,6 +115,11 @@ export function DcfForecastWorkspace({
     [locale]
   )
 
+  const fmtPct = useCallback((value: number | null | undefined) => {
+    if (value == null || !Number.isFinite(value)) return '—'
+    return `${value.toFixed(1)}%`
+  }, [])
+
   const modeSegmentOptions = useMemo(
     () => [
       { value: 'ebitda' as const, label: t('dcfInputMode.ebitda') },
@@ -129,8 +127,18 @@ export function DcfForecastWorkspace({
     ],
     [t]
   )
-  const firstProjection = projectionRows[0]
-  const lastProjection = projectionRows[projectionRows.length - 1]
+  const inlineGridDerived = useMemo(() => {
+    if (projectionRows.length === 0) return []
+    return projectionRows.map((row, i) => {
+      const prevRev = i === 0 ? (latestHistoricalRevenue ?? 0) : projectionRows[i - 1].revenue
+      const yoyPct = prevRev > 0 ? ((row.revenue - prevRev) / prevRev) * 100 : null
+      const marginPct = row.revenue > 0 ? (row.ebitda / row.revenue) * 100 : 0
+      const capexPctOfRev = row.revenue > 0 ? (row.capex / row.revenue) * 100 : 0
+      const daPctOfRev = row.revenue > 0 ? (row.da / row.revenue) * 100 : 0
+      const nwcPctOfRev = row.revenue > 0 ? (row.nwcChange / row.revenue) * 100 : 0
+      return { yoyPct, marginPct, capexPctOfRev, daPctOfRev, nwcPctOfRev }
+    })
+  }, [projectionRows, latestHistoricalRevenue])
 
   if (sortedRows.length === 0) return null
 
@@ -155,7 +163,7 @@ export function DcfForecastWorkspace({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
-        className="mt-6 space-y-3 pt-2"
+        className={cn(showModeToggle ? 'mt-6' : 'mt-4', 'space-y-3 pt-2')}
         aria-label={
           dcfInputMode === 'fcff_only'
             ? t('dcfForecastWorkspace.sectionLabelFcffOnly')
@@ -178,31 +186,27 @@ export function DcfForecastWorkspace({
             </span>
           }
         />
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-xs font-medium text-foreground/70">{t('dcfInputMode.label')}</span>
-          <SegmentedControl
-            value={dcfInputMode}
-            onChange={(v) => onDcfInputModeChange(v as DcfInputMode)}
-            options={modeSegmentOptions}
-            disabled={disabled}
-            size="sm"
-            className="max-w-md"
-          />
-        </div>
-
-        <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3">
-          <p className="text-xs font-medium text-foreground/80">
-            {dcfInputMode === 'fcff_only'
-              ? t('dcfForecastWorkspace.modeTitleFcffOnly')
-              : t('dcfForecastWorkspace.modeTitleEbitda')}
+        {dcfInputMode === 'ebitda' && (
+          <p className="text-xs leading-relaxed text-muted-foreground -mt-1">
+            {t('dcfForecastWorkspace.ebitdaLiveSubtitle')}
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {dcfInputMode === 'fcff_only'
-              ? t('dcfForecastWorkspace.descriptionFcffOnly')
-              : t('dcfForecastWorkspace.description')}
-          </p>
-        </div>
+        )}
+
+        {showModeToggle && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs font-medium text-foreground/70">
+              {t('dcfInputMode.label')}
+            </span>
+            <SegmentedControl
+              value={dcfInputMode}
+              onChange={(v) => onDcfInputModeChange(v as DcfInputMode)}
+              options={modeSegmentOptions}
+              disabled={disabled}
+              size="sm"
+              className="max-w-md"
+            />
+          </div>
+        )}
 
         {dcfInputMode === 'fcff_only' ? (
           <div className="space-y-3">
@@ -218,134 +222,106 @@ export function DcfForecastWorkspace({
           </div>
         ) : (
           <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => setTableOpen(true)}
-              disabled={disabled}
-              className={cn(
-                'group flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all',
-                hasWarnings
-                  ? 'border-warning/30 bg-warning/[0.04]'
-                  : forecastSectionComplete
-                    ? 'border-primary/20 bg-primary/[0.03] hover:border-primary/35 hover:bg-primary/[0.06]'
-                    : 'border-dashed border-primary/20 bg-primary/[0.02] hover:border-primary/30 hover:bg-primary/[0.04]',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary/70 transition-colors group-hover:bg-primary/15">
-                <Table2 className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">
-                  {t('dcfProjectionTable.triggerTitle')}
+            {projectionRows.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t('dcfForecastWorkspace.inlineGridFormulaShort')}
                 </p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground/60">
-                  <span>
-                    {sortedRows[0]?.year}\u2013{sortedRows[sortedRows.length - 1]?.year}
-                  </span>
-                  <span className="text-foreground/20">|</span>
-                  <span>{t('dcfForecastWorkspace.projectionReady')}</span>
-                  {projectionRows.length > 0 && (
-                    <>
-                      <span className="text-foreground/20">|</span>
-                      <span>
-                        {t('dcfProjectionTable.triggerFcfRange', {
-                          first: fmt(projectionRows[0].fcff),
-                          last: fmt(projectionRows[projectionRows.length - 1].fcff),
-                        })}
-                      </span>
-                    </>
+                <button
+                  type="button"
+                  onClick={() => setTableOpen(true)}
+                  disabled={disabled}
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-foreground/10 bg-background px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/25 hover:bg-primary/[0.04]',
+                    hasWarnings && 'border-warning/30 text-warning',
+                    disabled && 'cursor-not-allowed opacity-50'
                   )}
-                </div>
-                {projectionRows.length > 0 && firstProjection && lastProjection && (
-                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground/60">
-                    <span>
-                      {t('dcfProjectionTable.triggerFirstFcff', {
-                        value: fmt(firstProjection.fcff),
-                      })}
-                    </span>
-                    <span className="text-foreground/20">|</span>
-                    <span>
-                      {t('dcfProjectionTable.triggerLastFcff', {
-                        value: fmt(lastProjection.fcff),
-                      })}
-                    </span>
-                  </div>
-                )}
-                {(dcfWaccPct != null && dcfWaccPct > 0) || terminalValueMethod ? (
-                  <p className="mt-2 text-[11px] leading-relaxed text-foreground/45">
-                    {dcfWaccPct != null && dcfWaccPct > 0 && (
-                      <span>
-                        {t('dcfProjectionTable.triggerWacc', { pct: dcfWaccPct.toFixed(1) })}
-                      </span>
-                    )}
-                    {terminalValueMethod === 'perpetual_growth' &&
-                      dcfTerminalGrowthPct != null &&
-                      Number.isFinite(dcfTerminalGrowthPct) && (
-                        <span className="ml-2">
-                          {t('dcfProjectionTable.triggerTerminalGrowth', {
-                            pct: dcfTerminalGrowthPct.toFixed(1),
-                          })}
-                        </span>
-                      )}
-                    {terminalValueMethod === 'exit_multiple' &&
-                      dcfExitMultiple != null &&
-                      Number.isFinite(dcfExitMultiple) && (
-                        <span className="ml-2">
-                          {t('dcfProjectionTable.triggerExitMultiple', {
-                            x: dcfExitMultiple.toFixed(1),
-                          })}
-                        </span>
-                      )}
-                  </p>
-                ) : null}
+                >
+                  <Table2 className="h-3.5 w-3.5" aria-hidden />
+                  {t('dcfProjectionTable.triggerAction')}
+                </button>
               </div>
-              <span className="shrink-0 text-xs font-medium text-primary/60 transition-colors group-hover:text-primary">
-                {t('dcfProjectionTable.triggerAction')}
-              </span>
-            </button>
+            )}
             {projectionRows.length > 0 && (
               <div className="overflow-x-auto rounded-xl border border-foreground/[0.08] bg-foreground/[0.02]">
-                <table className="w-full min-w-[320px] border-collapse text-sm tabular-nums">
-                  <caption className="sr-only">{t('dcfForecastWorkspace.inlinePreviewAria')}</caption>
+                <table className="w-full min-w-[880px] border-collapse text-sm tabular-nums">
+                  <caption className="sr-only">
+                    {t('dcfForecastWorkspace.inlinePreviewAria')}
+                  </caption>
                   <thead>
                     <tr className="border-b border-foreground/[0.08] text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      <th scope="col" className="px-3 py-2.5">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
                         {t('dcfFcffOnlyTable.year')}
                       </th>
-                      <th scope="col" className="px-3 py-2.5">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
                         {t('dcfProjectionTable.rows.revenue')}
                       </th>
-                      <th scope="col" className="px-3 py-2.5">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                        {t('dcfForecastWorkspace.colYoY')}
+                      </th>
+                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
                         {t('dcfProjectionTable.rows.ebitda')}
                       </th>
-                      <th scope="col" className="px-3 py-2.5">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                        {t('dcfForecastWorkspace.colMarginPct')}
+                      </th>
+                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                        {t('dcfForecastWorkspace.colCapexPct')}
+                      </th>
+                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                        {t('dcfForecastWorkspace.colDaPct')}
+                      </th>
+                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
+                        {t('dcfForecastWorkspace.colNwcPct')}
+                      </th>
+                      <th scope="col" className="whitespace-nowrap px-2 py-2.5 sm:px-3">
                         {t('dcfProjectionTable.rows.fcff')}
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {projectionRows.map((row) => (
-                      <tr
-                        key={row.year}
-                        className="border-b border-foreground/[0.05] last:border-0"
-                      >
-                        <th
-                          scope="row"
-                          className="px-3 py-2 font-medium text-foreground/90"
+                    {projectionRows.map((row, idx) => {
+                      const d = inlineGridDerived[idx]
+                      return (
+                        <tr
+                          key={row.year}
+                          className="border-b border-foreground/[0.05] last:border-0"
                         >
-                          {row.year}
-                        </th>
-                        <td className="px-3 py-2 text-foreground/80">{fmt(row.revenue)}</td>
-                        <td className="px-3 py-2 text-foreground/80">{fmt(row.ebitda)}</td>
-                        <td className="px-3 py-2 font-medium text-foreground">{fmt(row.fcff)}</td>
-                      </tr>
-                    ))}
+                          <th
+                            scope="row"
+                            className="whitespace-nowrap px-2 py-2 font-medium text-foreground/90 sm:px-3"
+                          >
+                            {row.year}
+                          </th>
+                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
+                            {fmt(row.revenue)}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
+                            {fmtPct(d?.yoyPct)}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
+                            {fmt(row.ebitda)}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
+                            {fmtPct(d?.marginPct)}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
+                            {fmtPct(d?.capexPctOfRev)}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
+                            {fmtPct(d?.daPctOfRev)}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 text-foreground/80 sm:px-3">
+                            {fmtPct(d?.nwcPctOfRev)}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-2 font-medium text-foreground sm:px-3">
+                            {fmt(row.fcff)}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
-                <p className="border-t border-foreground/[0.06] px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-                  {t('dcfForecastWorkspace.inlinePreviewHint')}
-                </p>
               </div>
             )}
           </div>
