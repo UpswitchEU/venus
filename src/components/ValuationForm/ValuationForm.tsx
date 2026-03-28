@@ -20,6 +20,7 @@ import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
 import { usePrefillRestorationCoordinator } from '../../hooks/usePrefillRestorationCoordinator'
 import { useSessionDataPrefill } from '../../hooks/useSessionDataPrefill'
+import { useSessionOptionalMethodPrefill } from '../../hooks/useSessionOptionalMethodPrefill'
 import { useBootstrapSafe } from '../../lib/bootstrap'
 import { type BusinessType, businessTypesApiService } from '../../services/businessTypesApi'
 import { useManualFormStore, useManualResultsStore } from '../../store/manual'
@@ -405,6 +406,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // ✅ WORLD-CLASS ARCHITECTURE: Bootstrap is the SINGLE SOURCE OF TRUTH
   // useSessionDataPrefill is deprecated - it will skip when bootstrap is available
   useSessionDataPrefill()
+  useSessionOptionalMethodPrefill()
 
   // PRE-FILL: Business card (ONLY if bootstrap hasn't already prefilled)
   // Bootstrap aggregates all prefill sources including user profile, so this is a fallback

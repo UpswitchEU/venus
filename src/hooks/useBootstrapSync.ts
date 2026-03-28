@@ -26,6 +26,7 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
+import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
 
 const logger = createContextLogger('BootstrapSync')
 
@@ -298,6 +299,17 @@ function syncSession(state: SessionBootstrapState): void {
         // Hydrate form store when form is empty but we have prefill (e.g. re-render before first paint)
         if (!formHasData) {
           const formDataUpdate = buildPrefillFormFields(prefillData)
+          const mergedForOptional = {
+            ...currentSessionData,
+            ...buildPrefillSessionFields(prefillData),
+          }
+          Object.assign(
+            formDataUpdate,
+            mergeOptionalSessionPrefillFields(mergedForOptional as Record<string, unknown>, {
+              ...formStore.formData,
+              ...formDataUpdate,
+            })
+          )
           if (Object.keys(formDataUpdate).length > 0) {
             useManualFormStore.getState().updateFormData(formDataUpdate as any)
             logger.info('Hydrated form store (session already in store, form was empty)', {
@@ -335,6 +347,13 @@ function syncSession(state: SessionBootstrapState): void {
 
         if (prefillData.confidence >= 0.05) {
           const formDataUpdate = buildPrefillFormFields(prefillData)
+          Object.assign(
+            formDataUpdate,
+            mergeOptionalSessionPrefillFields(sessionData as Record<string, unknown>, {
+              ...useManualFormStore.getState().formData,
+              ...formDataUpdate,
+            })
+          )
           if (Object.keys(formDataUpdate).length > 0) {
             useManualFormStore.getState().updateFormData(formDataUpdate as any)
             logger.info('Hydrated form store from bootstrap prefill (new report)', {
@@ -472,6 +491,13 @@ function syncSession(state: SessionBootstrapState): void {
 
         if (hasPrefill) {
           const formDataUpdate = buildPrefillFormFields(prefillData)
+          Object.assign(
+            formDataUpdate,
+            mergeOptionalSessionPrefillFields(sessionData as Record<string, unknown>, {
+              ...useManualFormStore.getState().formData,
+              ...formDataUpdate,
+            })
+          )
           if (Object.keys(formDataUpdate).length > 0) {
             useManualFormStore.getState().updateFormData(formDataUpdate as any)
             logger.info('Hydrated form store from bootstrap prefill (existing report)', {

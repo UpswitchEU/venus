@@ -63,6 +63,7 @@ import { cn } from '@/design-system/utils'
 import { getOfficialRegistryLabels } from '@/lib/i18n/officialRegistryLabels'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
 import { mergeImportedLedgerAnalysisIntoBusinessContext } from '../../utils/mergeImportedLedgerAnalysisIntoBusinessContext'
+import { mergeOptionalSessionPrefillFields } from '../../utils/mergeOptionalSessionPrefillFields'
 import { shouldSuppressMercurySessionPrefill } from '../../utils/prefillRestorationGate'
 import {
   type GetBonusSectionsSaasSignals,
@@ -848,6 +849,29 @@ export function ManualInputPanel({
   const storeBusinessContext = useManualFormStore((s) => s.formData.business_context)
   const sessionReportId = useSessionStore((s) => s.session?.reportId)
   useSyncOfficialVarianceFromForm()
+
+  // Zustand holds session/restoration/bootstrap prefill; local useState only seeds once — gap-fill method inputs
+  // (DCF, NAV, SaaS, multiples prep) into the panel when the store gains values the UI has not mirrored yet.
+  // requestAnimationFrame coalesces rapid store updates; getState() inside the frame always reads the latest snapshot.
+  useEffect(() => {
+    let raf = 0
+    const flush = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const fd = useManualFormStore.getState().formData as unknown as Record<string, unknown>
+        setFormData((prevLocal) => {
+          const patch = mergeOptionalSessionPrefillFields(fd, prevLocal)
+          return Object.keys(patch).length > 0 ? { ...prevLocal, ...patch } : prevLocal
+        })
+      })
+    }
+    flush()
+    const unsub = useManualFormStore.subscribe(flush)
+    return () => {
+      cancelAnimationFrame(raf)
+      unsub()
+    }
+  }, [])
 
   const handleOfficialVarianceExplanationChange = useCallback(
     (explanation: string) => {

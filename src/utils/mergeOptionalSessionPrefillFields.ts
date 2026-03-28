@@ -6,6 +6,11 @@
 import type { ValuationFormData } from '../types/valuation'
 
 const OPTIONAL_SCALAR_KEYS = [
+  'revenue',
+  'ebitda',
+  'recurring_revenue_percentage',
+  'activity_code',
+  'canonical_nace_code',
   'shares_for_sale',
   'net_income',
   'use_dcf',
@@ -29,6 +34,7 @@ const OPTIONAL_SCALAR_KEYS = [
   'dcf_cost_of_debt_pct',
   'dcf_debt_equity_pct',
   'dcf_tax_shield_pct',
+  'dcf_terminal_value_method',
   'nav_real_estate_adjustment',
   'nav_inventory_adjustment',
   'nav_hidden_reserves',
@@ -58,7 +64,43 @@ const OPTIONAL_SCALAR_KEYS = [
   'rev_top_client_concentration_pct',
   'rev_contract_backlog',
   'preparer_ev_ebitda_median',
+  '_internal_dcf_preference',
+  '_internal_multiples_preference',
+  '_internal_owner_dependency_impact',
 ] as const
+
+/** Exported for tests and optional-change detection (store subscribe). */
+export const OPTIONAL_SESSION_PREFILL_SCALAR_KEYS = OPTIONAL_SCALAR_KEYS
+
+/**
+ * Compact stable fingerprint of optional prefill *sources* (session JSON, package blob).
+ * Ignores unrelated session keys so referential churn does not false-positive as “changed”.
+ */
+export function stableOptionalPrefillSourceSignature(record: Record<string, unknown>): string {
+  const parts: string[] = []
+  for (const key of OPTIONAL_SCALAR_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(record, key)) continue
+    const incoming = record[key]
+    if (incoming === undefined || incoming === null) continue
+    if (typeof incoming === 'string' && incoming.trim() === '') continue
+    parts.push(`${key}:${String(incoming)}`)
+  }
+  const tl = record['tax_latencies']
+  if (Array.isArray(tl) && tl.length > 0) parts.push(`tax_latencies:${tl.length}`)
+  const bsa = record['balance_sheet_adjustments']
+  if (Array.isArray(bsa) && bsa.length > 0) parts.push(`balance_sheet_adjustments:${bsa.length}`)
+  if (record['preparer_ev_ebitda_override']) parts.push('preparer_ev_ebitda_override:1')
+  return parts.join('|')
+}
+
+/**
+ * Fingerprint of optional valuation fields currently present on the form/store snapshot.
+ * Used to coalesce Zustand notifications when only non-optional fields change.
+ */
+export function stableOptionalFormSliceSignature(formData: unknown): string {
+  const fd = formData as Record<string, unknown>
+  return stableOptionalPrefillSourceSignature(fd)
+}
 
 function isEmptySlot(existing: unknown): boolean {
   if (existing === undefined || existing === null) return true
@@ -68,11 +110,12 @@ function isEmptySlot(existing: unknown): boolean {
 
 export function mergeOptionalSessionPrefillFields(
   mergedData: Record<string, unknown>,
-  formData: ValuationFormData
+  /** Zustand store, session JSON, or panel local state — overlapping keys, distinct TS types. */
+  formData: unknown
 ): Partial<ValuationFormData> {
   const out: Partial<ValuationFormData> = {}
 
-  const fd = formData as unknown as Record<string, unknown>
+  const fd = formData as Record<string, unknown>
   for (const key of OPTIONAL_SCALAR_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(mergedData, key)) continue
     const incoming = mergedData[key]
@@ -82,23 +125,25 @@ export function mergeOptionalSessionPrefillFields(
     ;(out as Record<string, unknown>)[key] = incoming
   }
 
+  const existingTl = fd['tax_latencies']
   if (
     Array.isArray(mergedData.tax_latencies) &&
     mergedData.tax_latencies.length > 0 &&
-    (!formData.tax_latencies || formData.tax_latencies.length === 0)
+    (!Array.isArray(existingTl) || existingTl.length === 0)
   ) {
     out.tax_latencies = mergedData.tax_latencies as ValuationFormData['tax_latencies']
   }
 
+  const existingBsa = fd['balance_sheet_adjustments']
   if (
     Array.isArray(mergedData.balance_sheet_adjustments) &&
     mergedData.balance_sheet_adjustments.length > 0 &&
-    (!formData.balance_sheet_adjustments || formData.balance_sheet_adjustments.length === 0)
+    (!Array.isArray(existingBsa) || existingBsa.length === 0)
   ) {
     out.balance_sheet_adjustments = mergedData.balance_sheet_adjustments as ValuationFormData['balance_sheet_adjustments']
   }
 
-  if (mergedData.preparer_ev_ebitda_override && !formData.preparer_ev_ebitda_override) {
+  if (mergedData.preparer_ev_ebitda_override && !fd['preparer_ev_ebitda_override']) {
     out.preparer_ev_ebitda_override = mergedData.preparer_ev_ebitda_override as NonNullable<
       ValuationFormData['preparer_ev_ebitda_override']
     >

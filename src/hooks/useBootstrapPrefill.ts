@@ -35,6 +35,8 @@ import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
 import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
 import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
+import { useSessionStore } from '../store/useSessionStore'
+import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
 
 const logger = createContextLogger('BootstrapPrefill')
 
@@ -701,6 +703,19 @@ function applyPrefillToForm(
         kboDataCompanyName: kboData?.companyName,
       })
     }
+  }
+
+  // Same gap-fill as useSessionDataPrefill: Mercury/session may carry DCF, NAV, SaaS, multiples prep
+  // that PrefillResolver does not lift into structured PrefillData — merge from raw sessionData.
+  const sessionRaw = useSessionStore.getState().session?.sessionData as Record<string, unknown> | undefined
+  if (sessionRaw && typeof sessionRaw === 'object') {
+    const bi = (sessionRaw as { _businessInfo?: Record<string, unknown> })._businessInfo || {}
+    const mergedSession = { ...bi, ...sessionRaw }
+    const optional = mergeOptionalSessionPrefillFields(mergedSession as Record<string, unknown>, {
+      ...useManualFormStore.getState().formData,
+      ...allData,
+    })
+    Object.assign(allData, optional)
   }
 
   // Apply all data in a single update FIRST

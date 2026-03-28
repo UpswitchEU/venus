@@ -78,6 +78,7 @@ import {
 // Venus infrastructure (auth, session, stores, services)
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
+import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
@@ -116,6 +117,7 @@ import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/
 import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
+import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
 import { useClientContext } from '../../../stores/clientContext'
 import {
   APIError,
@@ -623,6 +625,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useBootstrapSync()
   const { readOnlyKbo, autoAdvancePastPrefilledSteps, isOfficialFilingPending } =
     useBootstrapPrefill()
+  /** Session blob may gain DCF/NAV/SaaS after bootstrap — gap-fill empty store slots. */
+  useSessionOptionalMethodPrefill()
 
   const {
     isCalculating,
@@ -1707,6 +1711,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (shouldUseSessionBusinessType && !formBusinessTypeId?.trim())
       formUpdates.business_type_id = sessionBusinessType
     if (sessionIndustry && !formIndustry?.trim()) formUpdates.industry = sessionIndustry
+    Object.assign(
+      formUpdates,
+      mergeOptionalSessionPrefillFields(merged as Record<string, unknown>, {
+        ...useManualFormStore.getState().formData,
+        ...formUpdates,
+      })
+    )
     if (Object.keys(formUpdates).length > 0) {
       updateFormData(formUpdates)
     }

@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vitest'
 
-import { mergeOptionalSessionPrefillFields } from '../mergeOptionalSessionPrefillFields'
+import {
+  mergeOptionalSessionPrefillFields,
+  stableOptionalPrefillSourceSignature,
+} from '../mergeOptionalSessionPrefillFields'
 
 const baseForm = {
   business_model: 'services',
   founding_year: 2010,
 } as any
+
+describe('stableOptionalPrefillSourceSignature', () => {
+  it('is stable for same optional content and ignores unrelated keys', () => {
+    const a = { company_name: 'X', dcf_wacc_pct: 9.5, nav_hidden_reserves: 1 }
+    const b = { company_name: 'Y', dcf_wacc_pct: 9.5, nav_hidden_reserves: 1, _foo: 1 }
+    expect(stableOptionalPrefillSourceSignature(a)).toBe(stableOptionalPrefillSourceSignature(b))
+  })
+})
 
 describe('mergeOptionalSessionPrefillFields', () => {
   it('fills empty DCF and NAV scalars when session has them', () => {
@@ -30,6 +41,24 @@ describe('mergeOptionalSessionPrefillFields', () => {
     )
     expect(patch.dcf_wacc_pct).toBeUndefined()
     expect(patch.nav_hidden_reserves).toBe(999)
+  })
+
+  it('fills dcf_terminal_value_method when empty', () => {
+    const patch = mergeOptionalSessionPrefillFields(
+      { dcf_terminal_value_method: 'exit_multiple' },
+      baseForm
+    )
+    expect(patch.dcf_terminal_value_method).toBe('exit_multiple')
+  })
+
+  it('fills revenue and recurring_revenue_percentage when empty', () => {
+    const patch = mergeOptionalSessionPrefillFields(
+      { revenue: 1_000_000, recurring_revenue_percentage: 40, activity_code: '62010' },
+      baseForm
+    )
+    expect(patch.revenue).toBe(1_000_000)
+    expect(patch.recurring_revenue_percentage).toBe(40)
+    expect(patch.activity_code).toBe('62010')
   })
 
   it('merges tax_latencies and balance_sheet_adjustments when form arrays empty', () => {
