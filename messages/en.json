@@ -1406,6 +1406,7 @@
         "integration": "CapEx & D&A from accounting import (Titan/Mercury)",
         "both": "History + profile + import CapEx/D&A (same pipeline as bulk valuation)"
       },
+      "forecastDefaultsEditableHint": "Suggested % are editable—change any field to match your judgment.",
       "dcfInputModeLabelEmbedded": "Forecast input",
       "applyForecastYears": "Apply to forecast years",
       "showAdvancedDrivers": "Edit FCFF drivers",
@@ -1466,6 +1467,8 @@
         "revContractBacklog": "Contracted backlog"
       },
       "realEstateCarveOutHint": "Use this when the buyer acquires the operating company but rents the property from the seller after closing. The engine removes the property value from the deal and deducts market rent from the EBITDA basis.",
+      "estimatedMarketRentEbitdaHint": "Enter your best estimate of annual market rent (not book). The valuation engine uses this to normalize EBITDA when the operating company no longer owns the bricks.",
+      "terminalGrowthHighWarning": "Perpetual growth above long-run GDP is uncommon; auditors often question rates above 3%. Use a higher rate only if you can defend it in the file.",
       "saasProjectionPreview": {
         "title": "5-year ARR projection",
         "description": "For SaaS DCF work, this preview compounds the current ARR or MRR baseline with the selected growth and retention assumptions.",

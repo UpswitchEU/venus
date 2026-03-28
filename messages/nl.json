@@ -1406,6 +1406,7 @@
         "integration": "CapEx & D&A uit accounting-import (Titan/Mercury)",
         "both": "Historiek + profiel + import CapEx/D&A (zelfde keten als bulkwaardering)"
       },
+      "forecastDefaultsEditableHint": "Voorgestelde percentages zijn aanpasbaar—wijzig gerust naar je oordeel.",
       "dcfInputModeLabelEmbedded": "Prognose-invoer",
       "applyForecastYears": "Pas toe op prognosejaren",
       "showAdvancedDrivers": "Bewerk FCFF-drivers",
@@ -1466,6 +1467,8 @@
         "revContractBacklog": "Contractuele orderportefeuille"
       },
       "realEstateCarveOutHint": "Wanneer de koper het vastgoed niet overneemt, wordt de boekwaarde uit de transactie gehaald en wordt de fictieve huur in mindering gebracht op de EBITDA-basis.",
+      "estimatedMarketRentEbitdaHint": "Vul het geschatte jaarlijks markthuur (niet de boekwaarde). De motor gebruikt dit om EBITDA te normaliseren als de vennootschap het pand niet meer bezit.",
+      "terminalGrowthHighWarning": "Eeuwigdurende groei boven het langetermijngroeipad van de economie is zeldzaam; controleurs bekritiseren vaak tarieven boven 3%. Gebruik enkel hoger als je het in het dossier kunt onderbouwen.",
       "saasProjectionPreview": {
         "title": "5-jaars ARR-projectie",
         "description": "Voor SaaS-DCF werk projecteert deze preview de huidige ARR- of MRR-basis door met de gekozen groei- en retentie-aannames.",

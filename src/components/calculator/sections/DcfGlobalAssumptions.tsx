@@ -216,6 +216,9 @@ export function DcfGlobalAssumptions({
               </>
             )}
           </span>
+          <p className="text-[10px] leading-snug text-muted-foreground">
+            {t('forecastDefaultsEditableHint')}
+          </p>
         </div>
       )}
 
@@ -418,13 +421,25 @@ export function DcfGlobalAssumptions({
                   transition={{ duration: 0.15 }}
                   className="grid grid-cols-1 gap-3 sm:grid-cols-2"
                 >
-                  <AdaptivePercentInput
-                    label={t('fields.dcfTerminalGrowthPct')}
-                    value={dcfTerminalGrowthPct}
-                    onChange={(v) => onFieldChange('dcf_terminal_growth_pct', v)}
-                    placeholder={String(DCF_DEFAULT_TERMINAL_GROWTH_PCT)}
-                    disabled={disabled}
-                  />
+                  <div className="space-y-1 sm:col-span-2">
+                    <AdaptivePercentInput
+                      label={t('fields.dcfTerminalGrowthPct')}
+                      value={dcfTerminalGrowthPct}
+                      onChange={(v) => onFieldChange('dcf_terminal_growth_pct', v)}
+                      placeholder={String(DCF_DEFAULT_TERMINAL_GROWTH_PCT)}
+                      disabled={disabled}
+                    />
+                    {dcfTerminalGrowthPct != null &&
+                      Number.isFinite(dcfTerminalGrowthPct) &&
+                      dcfTerminalGrowthPct > 3 && (
+                        <p
+                          className="text-[10px] leading-snug text-amber-800 dark:text-amber-200/90"
+                          role="note"
+                        >
+                          {t('terminalGrowthHighWarning')}
+                        </p>
+                      )}
+                  </div>
                 </motion.div>
               )}
               {dcfInputMode !== 'fcff_only' && terminalValueMethod === 'exit_multiple' && (

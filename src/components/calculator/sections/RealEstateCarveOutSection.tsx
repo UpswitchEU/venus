@@ -72,22 +72,29 @@ export function RealEstateCarveOutSection({
                 className="overflow-hidden"
               >
                 <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
-                  <CurrencyInput
-                    label={t('fields.realEstateBookValue')}
-                    value={realEstateBookValue}
-                    onChange={(value) => onFieldChange('real_estate_book_value', value)}
-                    size="sm"
-                    placeholder="0"
-                    disabled={disabled}
-                  />
-                  <CurrencyInput
-                    label={t('fields.estimatedMarketRent')}
-                    value={estimatedMarketRent}
-                    onChange={(value) => onFieldChange('estimated_market_rent', value)}
-                    size="sm"
-                    placeholder="0"
-                    disabled={disabled}
-                  />
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <CurrencyInput
+                      label={t('fields.estimatedMarketRent')}
+                      value={estimatedMarketRent}
+                      onChange={(value) => onFieldChange('estimated_market_rent', value)}
+                      size="sm"
+                      placeholder="0"
+                      disabled={disabled}
+                    />
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      {t('estimatedMarketRentEbitdaHint')}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <CurrencyInput
+                      label={t('fields.realEstateBookValue')}
+                      value={realEstateBookValue}
+                      onChange={(value) => onFieldChange('real_estate_book_value', value)}
+                      size="sm"
+                      placeholder="0"
+                      disabled={disabled}
+                    />
+                  </div>
                 </div>
               </motion.div>
             )}
