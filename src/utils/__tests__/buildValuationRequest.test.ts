@@ -550,7 +550,40 @@ describe('buildValuationRequest', () => {
     ])
   })
 
+  it('emits explicit free_cash_flow in FCFF-only mode', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        dcf_input_mode: 'fcff_only',
+        historical_years_data: [{ year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000 }],
+        forecast_years_data: [
+          { year: lastFullYear + 1, revenue: 0, ebitda: 0, free_cash_flow: 50_000 },
+          { year: lastFullYear + 2, revenue: 0, ebitda: 0, free_cash_flow: 55_000 },
+        ],
+      } as any),
+      []
+    )
+    expect(result.dcf_input_mode).toBe('fcff_only')
+    expect(result.forecast_years_data).toEqual([
+      {
+        year: lastFullYear + 1,
+        revenue: 0,
+        ebitda: 0,
+        free_cash_flow: 50_000,
+        is_forecast: true,
+      },
+      {
+        year: lastFullYear + 2,
+        revenue: 0,
+        ebitda: 0,
+        free_cash_flow: 55_000,
+        is_forecast: true,
+      },
+    ])
+  })
+
   it('preserves imported DCF detail fields on actual years', () => {
+
     const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(
       makeFormData({

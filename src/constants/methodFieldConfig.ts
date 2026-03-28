@@ -69,6 +69,68 @@ function getBusinessSectionCandidates(
   return [...new Set(expanded)]
 }
 
+/** Optional SaaS hints from session / form (not only business-type registry id). */
+export interface GetBonusSectionsSaasSignals {
+  businessModel?: string | null
+  /** business_context.business_category */
+  businessContextCategory?: string | null
+  /** business_context.sector_tag */
+  sectorTag?: string | null
+}
+
+function shouldAddSaasMetricsFromSignals(signals?: GetBonusSectionsSaasSignals | null): boolean {
+  if (!signals) return false
+  const bm = (signals.businessModel ?? '').trim().toLowerCase()
+  if (bm === 'b2b_saas' || bm === 'b2c_saas') return true
+  if (bm.includes('saas')) return true
+  const cat = (signals.businessContextCategory ?? '').trim().toLowerCase()
+  if (cat.includes('saas')) return true
+  const tag = (signals.sectorTag ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+  if (tag.includes('saas')) return true
+  return false
+}
+
+/**
+ * Extract SaaS signals from valuation form state (aligns with Titan `business_context`).
+ */
+export function getBonusSectionsSaasSignalsFromFormData(formData: {
+  business_model?: string
+  business_context?: unknown
+}): GetBonusSectionsSaasSignals {
+  const ctx =
+    formData.business_context && typeof formData.business_context === 'object'
+      ? (formData.business_context as Record<string, unknown>)
+      : null
+  return {
+    businessModel: formData.business_model ?? null,
+    businessContextCategory:
+      typeof ctx?.business_category === 'string' ? ctx.business_category : null,
+    sectorTag: typeof ctx?.sector_tag === 'string' ? ctx.sector_tag : null,
+  }
+}
+
+/**
+ * Resolves which business-type id drives adaptive bonus sections: picker object wins,
+ * then local `businessType`, then Zustand `business_type_id` when the panel and store
+ * briefly disagree (e.g. session restore / async prefill).
+ */
+export function resolveBusinessTypeIdForBonusSections(
+  selectedBusinessTypeId: string | null | undefined,
+  formBusinessType: string | null | undefined,
+  storeBusinessTypeId: string | null | undefined
+): string | null {
+  const fromPicker = selectedBusinessTypeId?.trim()
+  if (fromPicker) return fromPicker
+  const fromForm = formBusinessType?.trim()
+  if (fromForm) return fromForm
+  const fromStore =
+    typeof storeBusinessTypeId === 'string' ? storeBusinessTypeId.trim() : ''
+  return fromStore || null
+}
+
 /**
  * Methods available for upfront pre-selection in the top-bar dropdown.
  * Subset of PRIMARY_OMNI_METHOD_ORDER — only the methods that meaningfully
@@ -148,7 +210,8 @@ if (process.env.NODE_ENV !== 'production') {
 export function getBonusSections(
   method: string,
   businessCategory?: string | null,
-  businessTypeId?: string | null
+  businessTypeId?: string | null,
+  saasSignals?: GetBonusSectionsSaasSignals | null
 ): InputSectionKey[] {
   const methodSections = METHOD_FIELD_CONFIG[method]?.bonusSections ?? []
   const combined = [...methodSections]
@@ -157,6 +220,9 @@ export function getBonusSections(
     for (const section of BUSINESS_TYPE_SECTIONS[candidate] ?? []) {
       if (!combined.includes(section)) combined.push(section)
     }
+  }
+  if (shouldAddSaasMetricsFromSignals(saasSignals) && !combined.includes('saas_metrics')) {
+    combined.push('saas_metrics')
   }
   return combined
 }

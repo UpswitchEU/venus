@@ -23,6 +23,7 @@ export const OPTIONAL_YEAR_DATA_FIELDS: Array<keyof YearDataInput> = [
   'total_debt',
   'total_equity',
   'nwc_change',
+  'free_cash_flow',
 ]
 
 export function pickDefinedYearDataFields(
@@ -78,6 +79,7 @@ export function mergeYearDataRows(
     capex?: number | null
     depreciation?: number | null
     nwc_change?: number | null
+    free_cash_flow?: number | null
     isForecast?: boolean
     is_forecast?: boolean
   }>,
@@ -125,6 +127,9 @@ export function mergeYearDataRows(
           : {}),
         ...(typeof row.nwc_change === 'number' && Number.isFinite(row.nwc_change)
           ? { nwc_change: row.nwc_change }
+          : {}),
+        ...(typeof row.free_cash_flow === 'number' && Number.isFinite(row.free_cash_flow)
+          ? { free_cash_flow: row.free_cash_flow }
           : {}),
         ...((row.isForecast || row.is_forecast) && { is_forecast: true }),
       }

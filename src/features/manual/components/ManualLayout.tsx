@@ -355,6 +355,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ebitda: number
     capex?: number
     nwc_change?: number
+    free_cash_flow?: number
     isForecast?: boolean
   }>
 
@@ -443,6 +444,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
               ebitda: f.ebitda,
               capex: f.capex,
               nwc_change: f.nwc_change,
+              free_cash_flow: f.free_cash_flow,
               isForecast: true,
             })),
             existingForecastYears
@@ -451,6 +453,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.filingYearConfirmed !== undefined && {
       filing_year_confirmed: Boolean(data.filingYearConfirmed),
     }),
+    ...(data.dcf_input_mode != null && { dcf_input_mode: data.dcf_input_mode }),
     ...(companySectionActive
       ? {
           kbo_number: data.kboNumber || '',

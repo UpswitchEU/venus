@@ -35,6 +35,8 @@ describe('deriveDcfSmartDefaults', () => {
       revenueGrowthPct: 5,
       ebitdaMarginPct: 8,
       capexPct: 2,
+      daPct: 2,
+      taxRatePct: 25,
       exitMultiple: 6,
       waccPct: 11.5,
       terminalGrowthPct: 1.5,

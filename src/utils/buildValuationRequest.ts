@@ -65,6 +65,7 @@ const YEAR_DATA_OPTIONAL_FIELDS = [
   'total_debt',
   'total_equity',
   'nwc_change',
+  'free_cash_flow',
 ] as const
 
 const NON_NEGATIVE_YEAR_FIELDS = new Set<string>([
@@ -366,11 +367,33 @@ export function buildValuationRequest(
     Object.assign(currentYearData, derivedCurrentYearData)
   }
 
+  const dcfInputMode = (formData as ValuationFormData).dcf_input_mode ?? 'ebitda'
+  const isFcffOnlyMode = dcfInputMode === 'fcff_only'
+
   const forecastYearsData =
     rawForecastData
       .filter((year) => year.year >= 2000 && year.year <= 2100)
       .map((year) => {
         const clampedYear = Math.min(Math.max(year.year, 2000), 2100)
+
+        if (isFcffOnlyMode) {
+          const fcf = toFiniteNumber((year as { free_cash_flow?: unknown }).free_cash_flow)
+          if (fcf === null) {
+            throw new ValidationError(
+              'Forecast free cash flow must be a valid number for each year in FCFF-only mode.',
+              `forecast_years_data.${year.year}.free_cash_flow`,
+              (year as { free_cash_flow?: unknown }).free_cash_flow
+            )
+          }
+          return {
+            year: clampedYear,
+            revenue: 0,
+            ebitda: 0,
+            free_cash_flow: fcf,
+            is_forecast: true,
+          }
+        }
+
         const revenue = toFiniteNumber(year.revenue)
         if (revenue === null || revenue < 0) {
           throw new ValidationError(
@@ -464,7 +487,9 @@ export function buildValuationRequest(
   if (fd.dcf_ebitda_margin_pct != null)
     adaptiveFields.dcf_ebitda_margin_pct = fd.dcf_ebitda_margin_pct
   if (fd.dcf_capex_pct != null) adaptiveFields.dcf_capex_pct = fd.dcf_capex_pct
+  if (fd.dcf_da_pct != null) adaptiveFields.dcf_da_pct = fd.dcf_da_pct
   if (fd.dcf_nwc_pct != null) adaptiveFields.dcf_nwc_pct = fd.dcf_nwc_pct
+  if (fd.dcf_tax_rate_pct != null) adaptiveFields.dcf_tax_rate_pct = fd.dcf_tax_rate_pct
   if (fd.dcf_wacc_pct != null) adaptiveFields.dcf_wacc_pct = fd.dcf_wacc_pct
   if (fd.dcf_terminal_growth_pct != null)
     adaptiveFields.dcf_terminal_growth_pct = fd.dcf_terminal_growth_pct
@@ -552,6 +577,7 @@ export function buildValuationRequest(
     use_dcf: true,
     use_multiples: true,
     projection_years: projectionYears,
+    ...(dcfInputMode === 'fcff_only' && { dcf_input_mode: 'fcff_only' as const }),
     comparables: formData.comparables || [],
     business_type_id: formData.business_type_id,
     business_type: formData.business_type,

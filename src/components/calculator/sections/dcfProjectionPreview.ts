@@ -4,12 +4,23 @@ export interface DcfProjectionPreviewRow {
   year: number
   revenue: number
   ebitda: number
+  da: number
+  ebit: number
+  taxes: number
+  nopat: number
+  capex: number
+  nwcChange: number
+  fcff: number
 }
 
 export interface DcfProjectionAutofillRow {
   year: string
   revenue: number
   ebitda: number
+  capex?: number
+  depreciation?: number
+  nwc_change?: number
+  free_cash_flow?: number
   isForecast?: boolean
 }
 
@@ -21,11 +32,97 @@ function roundCurrency(value: number): number {
   return Math.round(value)
 }
 
+/**
+ * McKinsey-style FCFF bridge (aligned with ValuationIQ `cash_flow_projector`):
+ * EBIT = EBITDA - D&A
+ * Taxes = max(0, EBIT) * taxRate — no immediate tax credit on operating losses
+ * NOPAT = EBIT - Taxes
+ * FCFF = NOPAT + D&A - CapEx - ΔNWC
+ */
+export function buildProjectionRowFromForecastRow(
+  row: {
+    year: string
+    revenue: number
+    ebitda: number
+    capex?: number
+    depreciation?: number
+    nwc_change?: number
+    /** When set (FCFF-only mode), FCFF is this value directly. */
+    free_cash_flow?: number
+  },
+  globals: {
+    daPct: number
+    capexPct: number
+    nwcPct: number
+    taxRatePct: number
+  }
+): DcfProjectionPreviewRow {
+  if (typeof row.free_cash_flow === 'number' && Number.isFinite(row.free_cash_flow)) {
+    const y = Number(row.year)
+    return {
+      year: y,
+      revenue: row.revenue,
+      ebitda: row.ebitda,
+      da: 0,
+      ebit: 0,
+      taxes: 0,
+      nopat: 0,
+      capex: 0,
+      nwcChange: 0,
+      fcff: roundCurrency(row.free_cash_flow),
+    }
+  }
+  const taxRate = globals.taxRatePct / 100
+  const revenue = row.revenue
+  const ebitda = row.ebitda
+  const da = row.depreciation ?? Math.round(revenue * (globals.daPct / 100))
+  const capex = row.capex ?? Math.round(revenue * (globals.capexPct / 100))
+  const nwcChange = row.nwc_change ?? Math.round(revenue * (globals.nwcPct / 100))
+  const ebit = ebitda - da
+  const taxes = Math.round(Math.max(0, ebit) * taxRate)
+  const nopat = ebit - taxes
+  const fcff = Math.round(nopat + da - capex - nwcChange)
+  return {
+    year: Number(row.year),
+    revenue,
+    ebitda,
+    da,
+    ebit,
+    taxes,
+    nopat,
+    capex,
+    nwcChange,
+    fcff,
+  }
+}
+
+function computeFcffRow(
+  revenue: number,
+  ebitda: number,
+  daPct: number,
+  capexPct: number,
+  nwcPct: number,
+  taxRate: number
+): Pick<DcfProjectionPreviewRow, 'da' | 'ebit' | 'taxes' | 'nopat' | 'capex' | 'nwcChange' | 'fcff'> {
+  const da = roundCurrency(revenue * (daPct / 100))
+  const ebit = ebitda - da
+  const taxes = roundCurrency(Math.max(0, ebit) * taxRate)
+  const nopat = ebit - taxes
+  const capex = roundCurrency(revenue * (capexPct / 100))
+  const nwcChange = roundCurrency(revenue * (nwcPct / 100))
+  const fcff = roundCurrency(nopat + da - capex - nwcChange)
+  return { da, ebit, taxes, nopat, capex, nwcChange, fcff }
+}
+
 export function deriveDcfProjectionPreview(args: {
   yearlyFinancials?: DcfYearlyFinancialsLike[]
   smartDefaults?: DcfSmartDefaults | null
   revenueGrowthPct?: number
   ebitdaMarginPct?: number
+  capexPct?: number
+  daPct?: number
+  nwcPct?: number
+  taxRatePct?: number
   years?: number
   forecastYears?: number[]
 }): DcfProjectionPreviewRow[] {
@@ -52,6 +149,11 @@ export function deriveDcfProjectionPreview(args: {
 
   const growthRate = revenueGrowthPct / 100
   const marginRate = ebitdaMarginPct / 100
+  const capexPct = args.capexPct ?? args.smartDefaults?.capexPct ?? 4
+  const daPct = args.daPct ?? args.smartDefaults?.daPct ?? 3
+  const nwcPct = args.nwcPct ?? args.smartDefaults?.nwcPct ?? 1.5
+  const taxRate = (args.taxRatePct ?? args.smartDefaults?.taxRatePct ?? 25) / 100
+
   const explicitForecastYears = (args.forecastYears ?? [])
     .map((year) => Math.trunc(year))
     .filter((year) => Number.isFinite(year) && year > latest.year)
@@ -66,10 +168,13 @@ export function deriveDcfProjectionPreview(args: {
         projectedYear += 1
         revenue = revenue * (1 + growthRate)
       }
+      const rev = roundCurrency(revenue)
+      const ebitda = roundCurrency(revenue * marginRate)
       rows.push({
         year: forecastYear,
-        revenue: roundCurrency(revenue),
-        ebitda: roundCurrency(revenue * marginRate),
+        revenue: rev,
+        ebitda,
+        ...computeFcffRow(rev, ebitda, daPct, capexPct, nwcPct, taxRate),
       })
     }
     return rows
@@ -78,10 +183,13 @@ export function deriveDcfProjectionPreview(args: {
   const years = Math.max(1, args.years ?? 3)
   for (let offset = 1; offset <= years; offset += 1) {
     revenue = revenue * (1 + growthRate)
+    const rev = roundCurrency(revenue)
+    const ebitda = roundCurrency(revenue * marginRate)
     rows.push({
       year: latest.year + offset,
-      revenue: roundCurrency(revenue),
-      ebitda: roundCurrency(revenue * marginRate),
+      revenue: rev,
+      ebitda,
+      ...computeFcffRow(rev, ebitda, daPct, capexPct, nwcPct, taxRate),
     })
   }
   return rows
@@ -89,7 +197,8 @@ export function deriveDcfProjectionPreview(args: {
 
 export function applyDcfProjectionPreviewToForecastRows<T extends DcfProjectionAutofillRow>(
   yearlyFinancials: T[],
-  projectionRows: DcfProjectionPreviewRow[]
+  projectionRows: DcfProjectionPreviewRow[],
+  options?: { mode?: 'ebitda' | 'fcff_only' }
 ): T[] {
   if (projectionRows.length === 0) return yearlyFinancials
 
@@ -100,10 +209,22 @@ export function applyDcfProjectionPreviewToForecastRows<T extends DcfProjectionA
     const projection = projectionByYear.get(String(row.year))
     if (!projection) return row
 
+    if (options?.mode === 'fcff_only') {
+      return {
+        ...row,
+        revenue: 0,
+        ebitda: 0,
+        free_cash_flow: projection.fcff,
+      }
+    }
+
     return {
       ...row,
       revenue: projection.revenue,
       ebitda: projection.ebitda,
+      capex: projection.capex,
+      depreciation: projection.da,
+      nwc_change: projection.nwcChange,
     }
   })
 }

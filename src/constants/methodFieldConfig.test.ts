@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   getBonusSections,
+  getBonusSectionsSaasSignalsFromFormData,
   getPreSelectableMethodsForFirm,
   getPreSelectableMethodsForFirmAndRevenue,
   isUpfrontMethodAllowedForNav,
+  resolveBusinessTypeIdForBonusSections,
   resolveDisplayPreSelectedMethodKey,
   METHOD_FIELD_CONFIG,
   PRE_SELECTABLE_METHODS,
@@ -48,6 +50,49 @@ describe('methodFieldConfig', () => {
     expect(getBonusSections('upswitch_adaptive', 'tech-digital', 'vertical-saas-fintech')).toEqual([
       'saas_metrics',
     ])
+  })
+
+  it('adds SaaS metrics when business_model signals SaaS without saas in type id', () => {
+    expect(
+      getBonusSections('upswitch_adaptive', 'technology', 'software_products', {
+        businessModel: 'b2b_saas',
+      })
+    ).toEqual(['saas_metrics'])
+  })
+
+  it('adds SaaS metrics from business_context category or sector_tag', () => {
+    expect(
+      getBonusSections('ebitda_multiple', 'retail', 'shop', {
+        businessContextCategory: 'saas',
+      })
+    ).toEqual(['revenue_quality', 'saas_metrics'])
+    expect(
+      getBonusSections('upswitch_adaptive', 'services', 'consulting', {
+        sectorTag: 'SaaS – B2B',
+      })
+    ).toEqual(['saas_metrics'])
+  })
+
+  it('resolves business type id for bonus sections (picker, form, then store)', () => {
+    expect(resolveBusinessTypeIdForBonusSections('  saas ', '', 'ignored')).toBe('saas')
+    expect(resolveBusinessTypeIdForBonusSections('saas', 'other', 'ignored')).toBe('saas')
+    expect(resolveBusinessTypeIdForBonusSections(null, '  b2b ', 'store')).toBe('b2b')
+    expect(resolveBusinessTypeIdForBonusSections('  ', '', 'vertical-saas')).toBe('vertical-saas')
+    expect(resolveBusinessTypeIdForBonusSections(null, '', '  ')).toBe(null)
+    expect(resolveBusinessTypeIdForBonusSections(undefined, undefined, undefined)).toBe(null)
+  })
+
+  it('parses SaaS signals from form-like state', () => {
+    expect(
+      getBonusSectionsSaasSignalsFromFormData({
+        business_model: 'b2b_saas',
+        business_context: { business_category: 'other', sector_tag: 'x' },
+      })
+    ).toEqual({
+      businessModel: 'b2b_saas',
+      businessContextCategory: 'other',
+      sectorTag: 'x',
+    })
   })
 
   it('excludes Belgian fiscal reference method for NL accountant firms', () => {

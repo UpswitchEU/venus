@@ -73,6 +73,8 @@ export interface YearDataInput {
 
   // Cash flow
   nwc_change?: number
+  /** Explicit FCFF for forecast years (DCF “zonder EBITDA” mode). */
+  free_cash_flow?: number
 
   // Forecast flag — distinguishes user-provided projections from historical actuals
   is_forecast?: boolean
@@ -191,6 +193,8 @@ export interface ValuationRequest {
   use_dcf?: boolean
   use_multiples?: boolean
   projection_years?: number // 5-15 years
+  /** Manual DCF: `ebitda` (default) or `fcff_only` (explicit yearly FCFF). */
+  dcf_input_mode?: 'ebitda' | 'fcff_only'
 
   // Optional comparable companies
   comparables?: Array<{
@@ -291,7 +295,9 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   dcf_revenue_growth_pct?: number
   dcf_ebitda_margin_pct?: number
   dcf_capex_pct?: number
+  dcf_da_pct?: number
   dcf_nwc_pct?: number
+  dcf_tax_rate_pct?: number
   dcf_wacc_pct?: number
   dcf_terminal_growth_pct?: number
   dcf_exit_multiple?: number

@@ -9,6 +9,10 @@ export interface DcfSmartDefaults {
   revenueGrowthPct: number
   ebitdaMarginPct: number
   capexPct: number
+  daPct: number
+  /** Optional; projection preview falls back when absent (see `deriveDcfProjectionPreview`). */
+  nwcPct?: number
+  taxRatePct: number
   waccPct: number
   terminalGrowthPct: number
   exitMultiple: number
@@ -77,6 +81,8 @@ export function deriveDcfSmartDefaults(args: {
       : 15
 
   const capexPct = round1(clamp(Math.max(2, Math.abs(ebitdaMarginPct) * 0.2), 2, 6))
+  const daPct = round1(clamp(capexPct * 0.8, 2, 5))
+  const taxRatePct = 25
   const waccBase = classifyWaccBase(args.businessCategory)
   const growthRiskAdjustment = revenueGrowthPct > 12 ? 0.5 : revenueGrowthPct < 0 ? 1 : 0
   const waccPct = round1(clamp(waccBase + growthRiskAdjustment, 9, 14))
@@ -86,6 +92,8 @@ export function deriveDcfSmartDefaults(args: {
     revenueGrowthPct,
     ebitdaMarginPct,
     capexPct,
+    daPct,
+    taxRatePct,
     waccPct,
     terminalGrowthPct,
     exitMultiple: 6,

@@ -62,7 +62,12 @@ import {
 import { cn } from '@/design-system/utils'
 import { getOfficialRegistryLabels } from '@/lib/i18n/officialRegistryLabels'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
-import { getBonusSections } from '../../constants/methodFieldConfig'
+import {
+  getBonusSections,
+  getBonusSectionsSaasSignalsFromFormData,
+  resolveBusinessTypeIdForBonusSections,
+  type GetBonusSectionsSaasSignals,
+} from '../../constants/methodFieldConfig'
 import { useAuth } from '../../hooks/useAuth'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useCanSave } from '../../hooks/useCanSave'
@@ -141,6 +146,7 @@ import {
 import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
 import {
   applyDcfProjectionPreviewToForecastRows,
+  buildProjectionRowFromForecastRow,
   deriveDcfProjectionPreview,
 } from './sections/dcfProjectionPreview'
 import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
@@ -163,6 +169,8 @@ export interface YearlyFinancials {
   short_term_debt?: number
   nwc_change?: number
   normalizedEbitda?: number
+  /** Explicit FCFF per forecast year (“zonder EBITDA”). */
+  free_cash_flow?: number
   isForecast?: boolean
 }
 
@@ -198,7 +206,9 @@ export interface ValuationFormData {
   dcf_revenue_growth_pct?: number
   dcf_ebitda_margin_pct?: number
   dcf_capex_pct?: number
+  dcf_da_pct?: number
   dcf_nwc_pct?: number
+  dcf_tax_rate_pct?: number
   dcf_wacc_pct?: number
   dcf_terminal_growth_pct?: number
   dcf_exit_multiple?: number
@@ -209,6 +219,8 @@ export interface ValuationFormData {
   dcf_debt_equity_pct?: number
   dcf_tax_shield_pct?: number
   dcf_terminal_value_method?: 'perpetual_growth' | 'exit_multiple'
+  /** Manual DCF forecast entry: EBITDA bridge vs explicit FCFF only. */
+  dcf_input_mode?: 'ebitda' | 'fcff_only'
   nav_real_estate_adjustment?: number
   nav_inventory_adjustment?: number
   nav_hidden_reserves?: number
@@ -232,6 +244,8 @@ export interface ValuationFormData {
   rev_contract_backlog?: number
   /** Optional import/session metadata (e.g. SaaS provenance from accounting import). */
   business_context?: Record<string, unknown>
+  /** Aligns with Titan / manual Zustand store when synced from session or import. */
+  business_model?: string
   /** Belgian official filing trust (merged from Zustand on submit for ManualLayout → store bridge). */
   official_financials?: OfficialFinancialsPayload
   official_variance_analysis?: OfficialVarianceAnalysis
@@ -730,6 +744,7 @@ export function ManualInputPanel({
     ),
     forecast_years_data: initialData.forecast_years_data,
     filingYearConfirmed: initialData.filingYearConfirmed ?? false,
+    dcf_input_mode: initialData.dcf_input_mode ?? 'ebitda',
   })
   const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)
   const [importBatchProvider, setImportBatchProvider] = useState<
@@ -798,6 +813,9 @@ export function ManualInputPanel({
     (s) => s.formData.official_verification_badge
   )
   const updateFormData = useManualFormStore((s) => s.updateFormData)
+  const storeBusinessTypeId = useManualFormStore((s) => s.formData.business_type_id)
+  const storeBusinessModel = useManualFormStore((s) => s.formData.business_model)
+  const storeBusinessContext = useManualFormStore((s) => s.formData.business_context)
   useSyncOfficialVarianceFromForm()
 
   const handleOfficialVarianceExplanationChange = useCallback(
@@ -1059,6 +1077,7 @@ export function ManualInputPanel({
       yearlyFinancials: formData.yearlyFinancials,
       historical_years_data: formData.historical_years_data,
       forecast_years_data: formData.forecast_years_data,
+      dcf_input_mode: formData.dcf_input_mode,
       current_year_data: current
         ? buildCurrentYearData({
             year: parseInt(current.year, 10),
@@ -1085,6 +1104,7 @@ export function ManualInputPanel({
     formData.yearlyFinancials,
     formData.historical_years_data,
     formData.forecast_years_data,
+    formData.dcf_input_mode,
     formData.current_year_data,
   ])
   useEffect(() => {
@@ -1391,7 +1411,13 @@ export function ManualInputPanel({
   const updateYearlyFinancials = (
     year: string,
     isForecast: boolean,
-    field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change',
+    field:
+      | 'revenue'
+      | 'ebitda'
+      | 'capex'
+      | 'depreciation'
+      | 'nwc_change'
+      | 'free_cash_flow',
     value: number
   ) => {
     const yearKey = String(year)
@@ -1822,6 +1848,13 @@ export function ManualInputPanel({
       if (yf.revenue > 0 && yf.revenue > 1_000_000_000) {
         warnings[`revenue-${yf.year}`] = mi('validation.revenueOver1B')
       }
+      if (
+        formData.dcf_input_mode === 'fcff_only' &&
+        yf.isForecast &&
+        (typeof yf.free_cash_flow !== 'number' || !Number.isFinite(yf.free_cash_flow))
+      ) {
+        errors[`fcff-${yf.year}`] = mi('validation.fcffRequired')
+      }
       if (yf.ebitda !== 0) {
         if (yf.ebitda < -100_000_000) errors[`ebitda-${yf.year}`] = mi('validation.ebitdaBelow100M')
         else if (yf.ebitda > 500_000_000)
@@ -1886,11 +1919,51 @@ export function ManualInputPanel({
     return historical.length > 0 ? historical[0].revenue : undefined
   }, [sortedYearlyFinancials])
 
+  const latestHistoricalEbitda = useMemo(() => {
+    const historical = sortedYearlyFinancials.filter((y) => !y.isForecast && y.revenue > 0)
+    if (historical.length === 0) return undefined
+    const e = historical[0].ebitda
+    return typeof e === 'number' && Number.isFinite(e) ? e : undefined
+  }, [sortedYearlyFinancials])
+
+  const saasSignalsForBonusSections: GetBonusSectionsSaasSignals = useMemo(() => {
+    const business_model =
+      formData.business_model ??
+      (typeof storeBusinessModel === 'string' ? storeBusinessModel : undefined)
+    const business_context =
+      formData.business_context ??
+      (storeBusinessContext && typeof storeBusinessContext === 'object'
+        ? (storeBusinessContext as Record<string, unknown>)
+        : undefined)
+    return getBonusSectionsSaasSignalsFromFormData({ business_model, business_context })
+  }, [
+    formData.business_model,
+    formData.business_context,
+    storeBusinessModel,
+    storeBusinessContext,
+  ])
+
+  /** Prefer picker object; fall back to session `businessType` id before sync completes. */
+  const resolvedBusinessCategoryForBonusSections = useMemo(
+    () => selectedBusinessType?.category ?? null,
+    [selectedBusinessType?.category]
+  )
+  const resolvedBusinessTypeIdForBonusSections = useMemo(
+    () =>
+      resolveBusinessTypeIdForBonusSections(
+        selectedBusinessType?.id,
+        formData.businessType,
+        storeBusinessTypeId
+      ),
+    [selectedBusinessType?.id, formData.businessType, storeBusinessTypeId]
+  )
+
   const adaptiveHeaderSteps = useMemo(() => {
     const bonus = getBonusSections(
       effectiveMethod,
-      selectedBusinessType?.category,
-      selectedBusinessType?.id
+      resolvedBusinessCategoryForBonusSections,
+      resolvedBusinessTypeIdForBonusSections,
+      saasSignalsForBonusSections
     )
     let n = effectiveMethod === 'dcf' && dcfForecastRows.length > 0 ? 5 : 4
     const out: {
@@ -1915,8 +1988,9 @@ export function ManualInputPanel({
   }, [
     effectiveMethod,
     dcfForecastRows.length,
-    selectedBusinessType?.category,
-    selectedBusinessType?.id,
+    resolvedBusinessCategoryForBonusSections,
+    resolvedBusinessTypeIdForBonusSections,
+    saasSignalsForBonusSections,
   ])
 
   /** Step badge for real-estate carve-out: after DCF forecast workspace (step 4) when present, else 4. */
@@ -1937,6 +2011,14 @@ export function ManualInputPanel({
     setFormData((prev) => ({ ...prev, dcf_terminal_value_method: method }))
   }, [])
 
+  /** FCFF-only mode has no EBITDA on forecast rows; keep terminal method aligned with ValuationIQ (Gordon growth). */
+  useEffect(() => {
+    if (formData.dcf_input_mode !== 'fcff_only') return
+    if (terminalValueMethod !== 'exit_multiple') return
+    setTerminalValueMethod('perpetual_growth')
+    setFormData((prev) => ({ ...prev, dcf_terminal_value_method: 'perpetual_growth' }))
+  }, [formData.dcf_input_mode, terminalValueMethod])
+
   const dcfProjectionAutofillRows = useMemo(
     () =>
       effectiveMethod === 'dcf'
@@ -1944,19 +2026,97 @@ export function ManualInputPanel({
             yearlyFinancials: formData.yearlyFinancials,
             revenueGrowthPct: formData.dcf_revenue_growth_pct,
             ebitdaMarginPct: formData.dcf_ebitda_margin_pct,
+            capexPct: formData.dcf_capex_pct,
+            daPct: formData.dcf_da_pct,
+            nwcPct: formData.dcf_nwc_pct,
+            taxRatePct: formData.dcf_tax_rate_pct,
             forecastYears: dcfForecastRows.map((row) => Number(row.year)),
           })
         : [],
     [
       dcfForecastRows,
       effectiveMethod,
+      formData.dcf_capex_pct,
+      formData.dcf_da_pct,
       formData.dcf_ebitda_margin_pct,
+      formData.dcf_nwc_pct,
       formData.dcf_revenue_growth_pct,
+      formData.dcf_tax_rate_pct,
       formData.yearlyFinancials,
     ]
   )
   const canApplyDcfProjectionAutofill =
-    dcfForecastRows.length > 0 && dcfProjectionAutofillRows.length === dcfForecastRows.length
+    formData.dcf_input_mode !== 'fcff_only' &&
+    dcfForecastRows.length > 0 &&
+    dcfProjectionAutofillRows.length === dcfForecastRows.length
+
+  const handleDcfInputModeChange = useCallback((mode: 'ebitda' | 'fcff_only') => {
+    if (mode === 'fcff_only') {
+      setTerminalValueMethod('perpetual_growth')
+    }
+    setFormData((prev) => {
+      if (mode === 'fcff_only') {
+        const globals = {
+          daPct: prev.dcf_da_pct ?? 3,
+          capexPct: prev.dcf_capex_pct ?? 4,
+          nwcPct: prev.dcf_nwc_pct ?? 1.5,
+          taxRatePct: prev.dcf_tax_rate_pct ?? 25,
+        }
+        return {
+          ...prev,
+          dcf_input_mode: 'fcff_only',
+          dcf_terminal_value_method: 'perpetual_growth',
+          yearlyFinancials: prev.yearlyFinancials.map((yf) => {
+            if (!yf.isForecast) return yf
+            const fcff = buildProjectionRowFromForecastRow(
+              {
+                year: String(yf.year),
+                revenue: yf.revenue,
+                ebitda: yf.ebitda,
+                capex: yf.capex,
+                depreciation: yf.depreciation,
+                nwc_change: yf.nwc_change,
+                free_cash_flow: yf.free_cash_flow,
+              },
+              globals
+            ).fcff
+            return { ...yf, revenue: 0, ebitda: 0, free_cash_flow: fcff }
+          }),
+        }
+      }
+      const forecastYears = prev.yearlyFinancials
+        .filter((r) => r.isForecast)
+        .map((r) => Number(r.year))
+      const cleared = prev.yearlyFinancials.map((yf) =>
+        yf.isForecast ? { ...yf, free_cash_flow: undefined } : yf
+      )
+      const projectionRows = deriveDcfProjectionPreview({
+        yearlyFinancials: cleared,
+        revenueGrowthPct: prev.dcf_revenue_growth_pct,
+        ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
+        capexPct: prev.dcf_capex_pct,
+        daPct: prev.dcf_da_pct,
+        nwcPct: prev.dcf_nwc_pct,
+        taxRatePct: prev.dcf_tax_rate_pct,
+        forecastYears,
+      })
+      if (projectionRows.length === 0) {
+        return {
+          ...prev,
+          dcf_input_mode: 'ebitda',
+          yearlyFinancials: cleared as YearlyFinancials[],
+        }
+      }
+      return {
+        ...prev,
+        dcf_input_mode: 'ebitda',
+        yearlyFinancials: applyDcfProjectionPreviewToForecastRows(
+          cleared as YearlyFinancials[],
+          projectionRows
+        ) as YearlyFinancials[],
+      }
+    })
+  }, [])
 
   const handleApplyDcfProjectionAutofill = useCallback(() => {
     if (!canApplyDcfProjectionAutofill) return
@@ -1969,6 +2129,10 @@ export function ManualInputPanel({
           yearlyFinancials: prev.yearlyFinancials,
           revenueGrowthPct: prev.dcf_revenue_growth_pct,
           ebitdaMarginPct: prev.dcf_ebitda_margin_pct,
+          capexPct: prev.dcf_capex_pct,
+          daPct: prev.dcf_da_pct,
+          nwcPct: prev.dcf_nwc_pct,
+          taxRatePct: prev.dcf_tax_rate_pct,
           forecastYears: prev.yearlyFinancials
             .filter((row) => row.isForecast)
             .map((row) => Number(row.year)),
@@ -1988,7 +2152,12 @@ export function ManualInputPanel({
     const suggestedCapex =
       importBatchData?.dcf_defaults?.suggested_capex ??
       persistedAnalysis?.dcf_defaults?.suggested_capex
-    if (effectiveMethod !== 'dcf' || !suggestedCapex || dcfForecastRows.length === 0) {
+    if (
+      effectiveMethod !== 'dcf' ||
+      formData.dcf_input_mode === 'fcff_only' ||
+      !suggestedCapex ||
+      dcfForecastRows.length === 0
+    ) {
       return
     }
 
@@ -2004,6 +2173,7 @@ export function ManualInputPanel({
     dcfForecastRows.length,
     effectiveMethod,
     formData.business_context,
+    formData.dcf_input_mode,
     importBatchData?.dcf_defaults?.suggested_capex,
   ])
 
@@ -3126,21 +3296,24 @@ export function ManualInputPanel({
                       step={4}
                       forecastRows={dcfForecastRows}
                       latestHistoricalRevenue={latestHistoricalRevenue}
+                      latestHistoricalEbitda={latestHistoricalEbitda}
                       fieldValidation={fieldValidation}
                       globalCapexPct={formData.dcf_capex_pct}
+                      globalDaPct={formData.dcf_da_pct}
                       globalNwcPct={formData.dcf_nwc_pct}
+                      globalTaxRatePct={formData.dcf_tax_rate_pct}
                       disabled={isCalculating}
                       canAddYear={canAppendForecastYear(formData.yearlyFinancials)}
                       nextForecastYear={getNextForecastYear(formData.yearlyFinancials)}
+                      dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
+                      onDcfInputModeChange={handleDcfInputModeChange}
                       onChange={(year, field, value) =>
                         updateYearlyFinancials(year, true, field, value)
                       }
-                      onRemoveYear={(year) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          yearlyFinancials: removeForecastYear(prev.yearlyFinancials, year),
-                        }))
-                      }
+                      dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
+                      terminalValueMethod={terminalValueMethod}
+                      dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
+                      dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
                       onAddYear={() => {
                         setFormData((prev) => {
                           const result = appendManualForecastYear(prev.yearlyFinancials)
@@ -3160,6 +3333,7 @@ export function ManualInputPanel({
                           }
                         })
                       }}
+                      onRequestRemoveForecastYears={() => setShowForecastRemovalConfirm(true)}
                     />
                   )}
 
@@ -3196,8 +3370,9 @@ export function ManualInputPanel({
             <div className="mt-4 flex flex-col gap-6">
               <AdaptiveSections
                 effectiveMethod={effectiveMethod}
-                businessCategory={selectedBusinessType?.category}
-                businessTypeId={selectedBusinessType?.id}
+                businessCategory={resolvedBusinessCategoryForBonusSections ?? undefined}
+                businessTypeId={resolvedBusinessTypeIdForBonusSections ?? undefined}
+                saasSignals={saasSignalsForBonusSections}
                 formData={formData}
                 firmCountryCode={user?.firm_country_code}
                 sectionHeaderSteps={adaptiveHeaderSteps}
@@ -3349,6 +3524,7 @@ export function AdaptiveSections({
   effectiveMethod,
   businessCategory,
   businessTypeId,
+  saasSignals,
   formData,
   firmCountryCode,
   sectionHeaderSteps,
@@ -3362,6 +3538,7 @@ export function AdaptiveSections({
   effectiveMethod: string
   businessCategory?: string
   businessTypeId?: string
+  saasSignals?: GetBonusSectionsSaasSignals | null
   formData: ValuationFormData
   /** When NL, hide Belgian fiscal (4× EBITDA) notices — matches Titan/PDF gating */
   firmCountryCode?: string
@@ -3379,7 +3556,7 @@ export function AdaptiveSections({
   disabled?: boolean
 }) {
   const t = useTranslations('manualInput.methodSelector')
-  const sections = getBonusSections(effectiveMethod, businessCategory, businessTypeId)
+  const sections = getBonusSections(effectiveMethod, businessCategory, businessTypeId, saasSignals)
   const saasArrProjectionPreview = useMemo(
     () =>
       sections.includes('saas_metrics') && effectiveMethod === 'dcf'
@@ -3488,7 +3665,9 @@ export function AdaptiveSections({
             dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
             dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
             dcfCapexPct={formData.dcf_capex_pct as number | undefined}
+            dcfDaPct={formData.dcf_da_pct as number | undefined}
             dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
+            dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
             dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
             dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
             dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
@@ -3504,6 +3683,7 @@ export function AdaptiveSections({
             onApplyToForecastYears={onApplyDcfPercentAutofill}
             canApplyToForecastYears={!!canApplyDcfPercentAutofill}
             forecastYearCount={countForecastYears(formData.yearlyFinancials ?? [])}
+            dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
             disabled={disabled}
           />
         )}

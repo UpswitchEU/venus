@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { getBonusSectionsSaasSignalsFromFormData } from '@/constants/methodFieldConfig'
 import {
   AdaptiveSections,
   OfficialFilingTrustPanel,
@@ -79,6 +80,23 @@ describe('AdaptiveSections', () => {
       revenue: 8,
     },
   }
+
+  it('renders SaaS metrics on adaptive when business_model signals SaaS (no saas in type id)', () => {
+    render(
+      <AdaptiveSections
+        {...baseProps}
+        effectiveMethod="upswitch_adaptive"
+        businessCategory="technology"
+        businessTypeId="software_products"
+        formData={{ business_model: 'b2b_saas' } as any}
+        saasSignals={getBonusSectionsSaasSignalsFromFormData({
+          business_model: 'b2b_saas',
+        })}
+      />
+    )
+
+    expect(screen.getByText('sections.saasMetrics')).toBeInTheDocument()
+  })
 
   it('renders the DCF and SaaS sections together when both rules apply', () => {
     render(
