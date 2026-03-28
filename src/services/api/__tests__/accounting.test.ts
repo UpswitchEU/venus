@@ -12,7 +12,7 @@ vi.mock('../HttpClient', () => ({
   },
 }))
 
-import { accountingAPI } from '../accounting'
+import { accountingAPI, pickConnectedImportStatus } from '../accounting'
 
 describe('accountingAPI filing year defaults', () => {
   beforeEach(() => {
@@ -90,6 +90,46 @@ describe('accountingAPI filing year defaults', () => {
         company_id: 'client-9',
       },
     })
+  })
+
+  it('requests Octopus multi-year batch with company_id', async () => {
+    mockGet.mockResolvedValueOnce({ data: { years: [] } })
+
+    await accountingAPI.getOctopusFinancialDataBatch(2021, 2025, { companyId: 'dossier-42' })
+
+    expect(mockGet).toHaveBeenCalledWith('/integrations/accounting/octopus/financial-data/batch', {
+      params: {
+        start_year: 2021,
+        end_year: 2025,
+        company_id: 'dossier-42',
+      },
+    })
+  })
+})
+
+describe('accounting import provider selection', () => {
+  it('pickConnectedImportStatus prefers Silverfin over Octopus when both are connected', () => {
+    const row = pickConnectedImportStatus([
+      { provider: 'octopus', is_connected: true },
+      { provider: 'silverfin', is_connected: true },
+    ])
+    expect(row?.provider).toBe('silverfin')
+  })
+
+  it('pickConnectedImportStatus returns Octopus when it is the only connected import provider', () => {
+    const row = pickConnectedImportStatus([
+      { provider: 'yuki', is_connected: false },
+      { provider: 'octopus', is_connected: true },
+    ])
+    expect(row?.provider).toBe('octopus')
+  })
+
+  it('pickConnectedImportStatus prefers Bizzcontrol over Octopus when both are connected', () => {
+    const row = pickConnectedImportStatus([
+      { provider: 'octopus', is_connected: true },
+      { provider: 'bizzcontrol', is_connected: true },
+    ])
+    expect(row?.provider).toBe('bizzcontrol')
   })
 })
 

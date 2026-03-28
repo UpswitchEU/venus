@@ -43,4 +43,12 @@ describe('buildMercuryIntegrationsUrl', () => {
       'https://app.example.com/nl/accountant/settings?tab=integrations&accounting_provider=bizzcontrol'
     )
   })
+
+  it('includes accounting_provider=octopus when set', () => {
+    vi.stubEnv('NEXT_PUBLIC_MERCURY_URL', 'https://app.example.com')
+    const url = buildMercuryIntegrationsUrl('en', { accountingProvider: 'octopus' })
+    expect(url).toBe(
+      'https://app.example.com/en/accountant/settings?tab=integrations&accounting_provider=octopus'
+    )
+  })
 })

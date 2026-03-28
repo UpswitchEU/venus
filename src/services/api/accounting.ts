@@ -2,8 +2,8 @@
  * Accounting Integrations API
  *
  * Fetches financial data from connected accounting software via Titan.
- * Silverfin: connect, dossier import, and sync-to-portfolio run in Mercury (accountant app); Venus uses
- * imported data for review, normalization, and overrides after valuations exist.
+ * Silverfin OAuth + Bizzcontrol/Octopus API keys are configured in Mercury; multi-year batch import for
+ * Silverfin, Bizzcontrol, and Octopus is driven from Venus when those providers are connected.
  */
 
 import axios from 'axios'
@@ -123,7 +123,13 @@ export interface IntegrationStatus {
  * Titan may still report QuickBooks/Xero in `GET /integrations/accounting/status`; we ignore them here
  * so test environments never surface mock QB/Xero financials in this UI.
  */
-export const ACCOUNTING_IMPORT_PROVIDER_ORDER = ['silverfin', 'bizzcontrol', 'yuki', 'exact'] as const
+export const ACCOUNTING_IMPORT_PROVIDER_ORDER = [
+  'silverfin',
+  'bizzcontrol',
+  'octopus',
+  'yuki',
+  'exact',
+] as const
 
 export type AccountingImportProvider = (typeof ACCOUNTING_IMPORT_PROVIDER_ORDER)[number]
 
@@ -162,6 +168,8 @@ export function accountingProviderDisplayName(provider: string): string {
       return 'Silverfin'
     case 'bizzcontrol':
       return 'Bizzcontrol'
+    case 'octopus':
+      return 'Octopus'
     default:
       return provider
   }
@@ -266,8 +274,8 @@ class AccountingAPI extends HttpClient {
   }
 
   /**
-   * Multi-year batch import for Silverfin only (live import in Venus).
-   * Yuki and Exact bulk sync run in Mercury; Exact no longer exposes a Venus-driven batch endpoint.
+   * Multi-year batch import (live in Venus). See also {@link getBizzcontrolFinancialDataBatch}
+   * and {@link getOctopusFinancialDataBatch}.
    */
   async getSilverfinFinancialDataBatch(
     startYear: number,
@@ -308,6 +316,31 @@ class AccountingAPI extends HttpClient {
   async getBizzcontrolCompanies(): Promise<AccountingAdministrationListResponse> {
     const response = await this.client.get<AccountingAdministrationListResponse>(
       '/integrations/accounting/bizzcontrol/companies'
+    )
+    return response.data
+  }
+
+  async getOctopusFinancialDataBatch(
+    startYear: number,
+    endYear: number,
+    options: { companyId: string }
+  ): Promise<AccountingBatchPayload> {
+    const response = await this.client.get<AccountingBatchPayload>(
+      '/integrations/accounting/octopus/financial-data/batch',
+      {
+        params: {
+          start_year: startYear,
+          end_year: endYear,
+          company_id: options.companyId,
+        },
+      }
+    )
+    return response.data
+  }
+
+  async getOctopusCompanies(): Promise<AccountingAdministrationListResponse> {
+    const response = await this.client.get<AccountingAdministrationListResponse>(
+      '/integrations/accounting/octopus/companies'
     )
     return response.data
   }

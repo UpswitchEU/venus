@@ -29,6 +29,7 @@ import {
 import { useLocale, useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BizzcontrolImportModal } from '@/components/integrations/BizzcontrolImportModal'
+import { OctopusImportModal } from '@/components/integrations/OctopusImportModal'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import {
   Accordion,
@@ -732,7 +733,7 @@ export function ManualInputPanel({
   })
   const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)
   const [importBatchProvider, setImportBatchProvider] = useState<
-    Extract<AccountingImportProvider, 'silverfin' | 'bizzcontrol'> | null
+    Extract<AccountingImportProvider, 'silverfin' | 'bizzcontrol' | 'octopus'> | null
   >(null)
   const [showBizzcontrolImportModal, setShowBizzcontrolImportModal] = useState(false)
   const [bizzcontrolCompanies, setBizzcontrolCompanies] = useState<AccountingAdministration[]>([])
@@ -742,6 +743,14 @@ export function ManualInputPanel({
   const [bizzcontrolHistoryRange, setBizzcontrolHistoryRange] = useState<'3' | '5'>('3')
   const [bizzcontrolManualOverride, setBizzcontrolManualOverride] = useState(true)
   const [importingBizzcontrolBatch, setImportingBizzcontrolBatch] = useState(false)
+  const [showOctopusImportModal, setShowOctopusImportModal] = useState(false)
+  const [octopusCompanies, setOctopusCompanies] = useState<AccountingAdministration[]>([])
+  const [loadingOctopusCompanies, setLoadingOctopusCompanies] = useState(false)
+  const [octopusImportError, setOctopusImportError] = useState<string | null>(null)
+  const [selectedOctopusCompanyId, setSelectedOctopusCompanyId] = useState('')
+  const [octopusHistoryRange, setOctopusHistoryRange] = useState<'3' | '5'>('3')
+  const [octopusManualOverride, setOctopusManualOverride] = useState(true)
+  const [importingOctopusBatch, setImportingOctopusBatch] = useState(false)
   const [accountingStatuses, setAccountingStatuses] = useState<IntegrationStatus[]>([])
   const currentFilingYear = getCurrentFilingYear()
   const activityCodeTerm = getFinancialTerm(
@@ -1490,7 +1499,7 @@ export function ManualInputPanel({
 
   const applyImportedBatch = useCallback(
     (
-      provider: Extract<AccountingImportProvider, 'silverfin' | 'bizzcontrol'>,
+      provider: Extract<AccountingImportProvider, 'silverfin' | 'bizzcontrol' | 'octopus'>,
       batch: AccountingBatchPayload
     ) => {
       setImportBatchData(batch)
@@ -1573,11 +1582,17 @@ export function ManualInputPanel({
               )
             : 0
         const baseDesc = mi('silverfin.importBatchSuccessDescription', { score: qualityScore })
+        const forecastExtra =
+          provider === 'bizzcontrol'
+            ? mi('bizzcontrol.forecastImportedDescription')
+            : provider === 'octopus'
+              ? mi('octopus.forecastImportedDescription')
+              : ''
         const description =
-          provider === 'bizzcontrol' &&
+          (provider === 'bizzcontrol' || provider === 'octopus') &&
           batch.forecast_years_data &&
           batch.forecast_years_data.length > 0
-            ? `${baseDesc} ${mi('bizzcontrol.forecastImportedDescription')}`
+            ? `${baseDesc} ${forecastExtra}`
             : baseDesc
         toast.success(
           mi('silverfin.importBatchSuccessTitle', {
@@ -1621,6 +1636,36 @@ export function ManualInputPanel({
     mi,
   ])
 
+  const handleConfirmOctopusImport = useCallback(async () => {
+    if (!selectedOctopusCompanyId) return
+    setImportingOctopusBatch(true)
+    setOctopusImportError(null)
+    try {
+      const endYear = currentFilingYear
+      const span = octopusHistoryRange === '5' ? 5 : 3
+      const startYear = endYear - (span - 1)
+      const batch = await accountingAPI.getOctopusFinancialDataBatch(startYear, endYear, {
+        companyId: selectedOctopusCompanyId,
+      })
+      applyImportedBatch('octopus', batch)
+      setShowOctopusImportModal(false)
+    } catch (err) {
+      const msg = parseAccountingApiError(err)
+      setOctopusImportError(msg)
+      import('sonner').then(({ toast }) =>
+        toast.error(mi('importFromAccountingError') || 'Import failed', { description: msg })
+      )
+    } finally {
+      setImportingOctopusBatch(false)
+    }
+  }, [
+    selectedOctopusCompanyId,
+    octopusHistoryRange,
+    currentFilingYear,
+    applyImportedBatch,
+    mi,
+  ])
+
   const handleImportFromAccounting = useCallback(async () => {
     setImportAccountingError(null)
     setImportingFromAccounting(true)
@@ -1654,6 +1699,26 @@ export function ManualInputPanel({
           setBizzcontrolImportError(parseAccountingApiError(e))
         } finally {
           setLoadingBizzcontrolCompanies(false)
+        }
+        return
+      }
+
+      if (provider === 'octopus' && row != null && row.is_connected) {
+        setOctopusImportError(null)
+        setShowOctopusImportModal(true)
+        setLoadingOctopusCompanies(true)
+        try {
+          const res = await accountingAPI.getOctopusCompanies()
+          setOctopusCompanies(res.administrations)
+          setSelectedOctopusCompanyId((prev) => {
+            if (prev) return prev
+            if (res.administrations.length === 1) return res.administrations[0].administration_id
+            return ''
+          })
+        } catch (e) {
+          setOctopusImportError(parseAccountingApiError(e))
+        } finally {
+          setLoadingOctopusCompanies(false)
         }
         return
       }
@@ -1740,7 +1805,9 @@ export function ManualInputPanel({
             ? 'silverfin'
             : p === 'bizzcontrol'
               ? 'bizzcontrol'
-              : 'exact'
+              : p === 'octopus'
+                ? 'octopus'
+                : 'exact'
     window.location.href = buildMercuryIntegrationsUrl(locale, { accountingProvider: ap })
   }, [locale, accountingConnectedStatus?.provider])
 
@@ -2164,9 +2231,11 @@ export function ManualInputPanel({
   }, [importBatchData, persistedImportedLedgerAnalysis])
   const shouldShowImportedBatchSummary = !!importBatchData || !!effectiveImportedLedgerAnalysis
   const connectedProvider = accountingConnectedStatus?.provider
-  /** Pull data inside Venus when disconnected (redirect to Mercury to connect) or when Bizzcontrol is connected (batch import). */
+  /** Pull data inside Venus when disconnected (redirect to Mercury to connect) or when Bizzcontrol/Octopus is connected (batch import). */
   const supportsVenusLiveImport =
-    connectedProvider == null || connectedProvider === 'bizzcontrol'
+    connectedProvider == null ||
+    connectedProvider === 'bizzcontrol' ||
+    connectedProvider === 'octopus'
   const requiresMercuryImportFlow =
     connectedProvider === 'yuki' ||
     connectedProvider === 'exact' ||
@@ -2310,9 +2379,11 @@ export function ManualInputPanel({
                         ) : (
                           <CloudDownload className="mr-2 h-4 w-4" />
                         )}
-                        {mi('integrationEntry.pullDataCta', {
-                          provider: accountingProviderDisplayName(connectedProvider ?? 'silverfin'),
-                        })}
+                        {connectedProvider
+                          ? mi('integrationEntry.pullDataCta', {
+                              provider: accountingProviderDisplayName(connectedProvider),
+                            })
+                          : mi('integrationEntry.pullDataCtaGeneric')}
                       </AuroraButton>
                     ) : (
                       <AuroraButton
@@ -3204,6 +3275,26 @@ export function ManualInputPanel({
         onImport={handleConfirmBizzcontrolImport}
         manualOverride={bizzcontrolManualOverride}
         onManualOverrideChange={setBizzcontrolManualOverride}
+      />
+
+      <OctopusImportModal
+        open={showOctopusImportModal}
+        onOpenChange={(open) => {
+          setShowOctopusImportModal(open)
+          if (!open) setOctopusImportError(null)
+        }}
+        locale={locale}
+        isLoadingCompanies={loadingOctopusCompanies}
+        isImporting={importingOctopusBatch}
+        error={octopusImportError}
+        companies={octopusCompanies}
+        selectedCompanyId={selectedOctopusCompanyId}
+        onSelectedCompanyIdChange={setSelectedOctopusCompanyId}
+        historyRange={octopusHistoryRange}
+        onHistoryRangeChange={setOctopusHistoryRange}
+        onImport={handleConfirmOctopusImport}
+        manualOverride={octopusManualOverride}
+        onManualOverrideChange={setOctopusManualOverride}
       />
 
       {/* Forecast Removal Confirmation Modal */}

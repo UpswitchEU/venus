@@ -54,6 +54,7 @@ export type MercuryAccountingProviderDeepLink =
   | 'yuki'
   | 'silverfin'
   | 'bizzcontrol'
+  | 'octopus'
 
 /**
  * Mercury accountant settings URL with optional accounting provider focus (UPS-INT-049).
