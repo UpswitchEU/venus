@@ -2,8 +2,14 @@
  * Accounting Integrations API
  *
  * Fetches financial data from connected accounting software via Titan.
- * Silverfin OAuth + Bizzcontrol/Octopus API keys are configured in Mercury; multi-year batch import for
- * Silverfin, Bizzcontrol, and Octopus is driven from Venus when those providers are connected.
+ *
+ * **Provider paths (prefill sources — all valuation methods use the same `yearlyFinancials` + `business_context`):**
+ * - **Bizzcontrol / Octopus**: Multi-year batch from Venus (`get*Bizzcontrol*Batch` / `get*Octopus*Batch`);
+ *   `dcf_defaults` and SDE flags merge into `business_context._imported_ledger_analysis` on import.
+ * - **Silverfin**: OAuth via Mercury; Titan batch API exists for in-app use but the primary flow is
+ *   connect in Mercury → sync → same session/bootstrap prefill as other providers.
+ * - **Yuki / Exact**: `getProviderFinancialData` (single year, post–Mercury sync). Venus may redirect to
+ *   Mercury to connect; financials land in Titan session and hydrate like any saved report.
  */
 
 import axios from 'axios'
@@ -119,9 +125,10 @@ export interface IntegrationStatus {
 }
 
 /**
- * Venus manual-flow import: prefers Silverfin (live batch in-app), then Yuki / Exact (Mercury sync).
- * Titan may still report QuickBooks/Xero in `GET /integrations/accounting/status`; we ignore them here
- * so test environments never surface mock QB/Xero financials in this UI.
+ * Venus manual-flow import order for `pickConnectedImportStatus`.
+ * Bizzcontrol/Octopus support multi-year batch in-app; Silverfin/Yuki/Exact typically flow through
+ * Mercury OAuth → Titan sync (see file header). QuickBooks/Xero in `GET /integrations/accounting/status`
+ * are ignored so test environments never surface mock QB/Xero financials in this UI.
  */
 export const ACCOUNTING_IMPORT_PROVIDER_ORDER = [
   'silverfin',

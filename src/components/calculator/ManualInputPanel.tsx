@@ -62,6 +62,8 @@ import {
 import { cn } from '@/design-system/utils'
 import { getOfficialRegistryLabels } from '@/lib/i18n/officialRegistryLabels'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
+import { mergeImportedLedgerAnalysisIntoBusinessContext } from '../../utils/mergeImportedLedgerAnalysisIntoBusinessContext'
+import { shouldSuppressMercurySessionPrefill } from '../../utils/prefillRestorationGate'
 import {
   type GetBonusSectionsSaasSignals,
   getBonusSections,
@@ -88,6 +90,7 @@ import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
+import { useSessionStore } from '../../store/useSessionStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSpotlightStore } from '../../store/useSpotlightStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
@@ -843,6 +846,7 @@ export function ManualInputPanel({
   const storeBusinessTypeId = useManualFormStore((s) => s.formData.business_type_id)
   const storeBusinessModel = useManualFormStore((s) => s.formData.business_model)
   const storeBusinessContext = useManualFormStore((s) => s.formData.business_context)
+  const sessionReportId = useSessionStore((s) => s.session?.reportId)
   useSyncOfficialVarianceFromForm()
 
   const handleOfficialVarianceExplanationChange = useCallback(
@@ -902,6 +906,14 @@ export function ManualInputPanel({
   useEffect(() => {
     const prefill = initialData
     if (!prefill || typeof prefill !== 'object') return
+
+    // After restoration, session JSONB is authoritative — skip deferred initialData merge (reduces races and duplicate NACE work)
+    if (shouldSuppressMercurySessionPrefill(sessionReportId)) {
+      prefillAbortRef.current = false
+      return () => {
+        prefillAbortRef.current = true
+      }
+    }
 
     prefillAbortRef.current = false
     const isCurrent = () => !prefillAbortRef.current
@@ -1047,6 +1059,7 @@ export function ManualInputPanel({
     initialData?.fteEmployees,
     initialData?.yearlyFinancials,
     updateFormData,
+    sessionReportId,
   ])
 
   // STP: Auto-advance past pre-filled steps by scrolling to first incomplete section
@@ -1613,10 +1626,17 @@ export function ManualInputPanel({
           }))
         }
 
+        const prevBc =
+          prev.business_context && typeof prev.business_context === 'object'
+            ? (prev.business_context as Record<string, unknown>)
+            : undefined
+        const mergedContext = mergeImportedLedgerAnalysisIntoBusinessContext(prevBc, batch, provider)
+
         return {
           ...prev,
           yearlyFinancials: merged,
           ...(nextForecast != null ? { forecast_years_data: nextForecast } : {}),
+          business_context: mergedContext as ValuationFormData['business_context'],
         }
       })
 
@@ -1709,6 +1729,10 @@ export function ManualInputPanel({
     }
   }, [selectedOctopusCompanyId, octopusHistoryRange, currentFilingYear, applyImportedBatch, mi])
 
+  /**
+   * Connected-accounting import entry. Bizzcontrol/Octopus open in-app batch modals; Silverfin, Yuki, and
+   * Exact redirect to Mercury / Titan sync — see `ACCOUNTING_IMPORT_PROVIDER_ORDER` in `services/api/accounting.ts`.
+   */
   const handleImportFromAccounting = useCallback(async () => {
     setImportAccountingError(null)
     setImportingFromAccounting(true)

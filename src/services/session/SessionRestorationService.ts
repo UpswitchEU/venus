@@ -31,6 +31,10 @@ import {
 } from '../../store/useTaxLatencyStore'
 import { generalLogger } from '../../utils/logger'
 import {
+  clearMercurySessionPrefillSuppression,
+  markMercurySessionPrefillSuppressed,
+} from '../../utils/prefillRestorationGate'
+import {
   type NormalizedSessionData,
   normalizeSessionData,
   validateNormalizedData,
@@ -264,10 +268,12 @@ class SessionRestorationServiceImpl {
    */
   clearRestorationState(reportId?: string): void {
     if (reportId) {
+      clearMercurySessionPrefillSuppression(reportId)
       this.restoredReportIds.delete(reportId)
       this.restorationInProgress.delete(reportId)
       this.restorationPromises.delete(reportId)
     } else {
+      clearMercurySessionPrefillSuppression()
       this.restoredReportIds.clear()
       this.restorationInProgress.clear()
       this.restorationPromises.clear()
@@ -299,6 +305,7 @@ class SessionRestorationServiceImpl {
     // Idempotent check: Skip if already restored
     if (this.restoredReportIds.has(reportId)) {
       generalLogger.debug('[SessionRestoration] Skipping - already restored', { reportId })
+      markMercurySessionPrefillSuppressed(reportId)
       // Re-assert flag in case loadSession reset it between calls
       if (!useSessionStore.getState().restorationComplete) {
         useSessionStore.getState().setRestorationComplete(true)
@@ -375,6 +382,7 @@ class SessionRestorationServiceImpl {
 
       // 4. Hydrate ALL stores atomically
       const result = await this.hydrateStores(normalized)
+      markMercurySessionPrefillSuppressed(reportId)
 
       // 5. Signal restoration complete so ManualLayout can unblock the UI immediately
       useSessionStore.getState().setRestorationComplete(true)
@@ -909,6 +917,7 @@ class SessionRestorationServiceImpl {
           }
 
           updateFormData(mapped as any)
+          markMercurySessionPrefillSuppressed(reportId)
 
           // Hydrate tax latencies and normalizations from package (instant restoration on refresh)
           // Priority: localStorage recovery (beforeunload buffer) > package formData

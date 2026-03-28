@@ -23,6 +23,8 @@ import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
+import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
+import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
 
 /**
  * Hook to prefill form from session data
@@ -40,13 +42,28 @@ import { generalLogger } from '../utils/logger'
  */
 export function useSessionDataPrefill() {
   const sessionData = useSessionStore((state) => state.session?.sessionData) as any
+  const reportId = useSessionStore((state) => state.session?.reportId)
   const { updateFormData, formData } = useManualFormStore()
   const hasPrefilledRef = useRef(false)
   const cancelledRef = useRef(false)
+  const lastReportIdRef = useRef<string | undefined>(undefined)
   const bootstrap = useBootstrapSafe()
 
   useEffect(() => {
     cancelledRef.current = false
+    if (reportId !== lastReportIdRef.current) {
+      lastReportIdRef.current = reportId
+      hasPrefilledRef.current = false
+    }
+
+    if (shouldSuppressMercurySessionPrefill(reportId)) {
+      generalLogger.debug(
+        '[useSessionDataPrefill] Skipping — session restoration already hydrated form for this report',
+        { reportId }
+      )
+      hasPrefilledRef.current = true
+      return
+    }
     // MERCURY FIX: For existing reports, allow fallback when form is empty but session has data
     // Restoration (loadSession) is async - form may stay blank until it completes.
     // If session store has sessionData with company/KBO fields and form is empty, apply as fallback.
@@ -141,23 +158,23 @@ export function useSessionDataPrefill() {
       mergedData.founded_year
     )
 
-    if (!hasBusinessCardData) {
+    const hasMethodOrFinancialCues = !!(
+      mergedData.current_year_data ||
+      (Array.isArray(mergedData.historical_years_data) && mergedData.historical_years_data.length > 0) ||
+      mergedData.revenue != null ||
+      mergedData.ebitda != null ||
+      mergedData.dcf_wacc_pct != null ||
+      mergedData.business_context ||
+      (Array.isArray(mergedData.comparables) && mergedData.comparables.length > 0) ||
+      mergedData.forecast_years_data?.length
+    )
+
+    if (!hasBusinessCardData && !hasMethodOrFinancialCues) {
       return
     }
 
-    // ✅ FIX: Check if critical fields are missing, not just company_name
-    // Even if form has some data (like industry), we should prefill missing critical fields
     const hasCompanyName = formData.company_name && formData.company_name.trim() !== ''
     const hasBusinessTypeId = formData.business_type_id && formData.business_type_id !== ''
-
-    // Only skip if BOTH critical fields are filled (user has entered data)
-    if (hasCompanyName && hasBusinessTypeId) {
-      generalLogger.debug('[useSessionDataPrefill] Form already filled, skipping prefill', {
-        hasCompanyName,
-        hasBusinessTypeId,
-      })
-      return
-    }
 
     const runPrefill = async () => {
       const updates: Partial<ValuationFormData> = {}
@@ -232,7 +249,49 @@ export function useSessionDataPrefill() {
       if (mergedData.business_description)
         updates.business_description = mergedData.business_description
       if (mergedData.industry && !updates.industry) updates.industry = mergedData.industry
+      if (mergedData.subIndustry && !formData.subIndustry) updates.subIndustry = mergedData.subIndustry
       if (mergedData.business_model) updates.business_model = mergedData.business_model
+
+      // Financial rows — prefill all valuation methods (multiples, DCF, NAV inputs share these)
+      if (
+        Array.isArray(mergedData.historical_years_data) &&
+        mergedData.historical_years_data.length > 0 &&
+        (!formData.historical_years_data || formData.historical_years_data.length === 0)
+      ) {
+        updates.historical_years_data = mergedData.historical_years_data
+      }
+      if (
+        mergedData.current_year_data &&
+        typeof mergedData.current_year_data === 'object' &&
+        (!formData.current_year_data ||
+          (formData.current_year_data.revenue == null && formData.current_year_data.ebitda == null))
+      ) {
+        updates.current_year_data = {
+          ...(formData.current_year_data && typeof formData.current_year_data === 'object'
+            ? formData.current_year_data
+            : {}),
+          ...mergedData.current_year_data,
+        } as ValuationFormData['current_year_data']
+      }
+      if (
+        Array.isArray(mergedData.forecast_years_data) &&
+        mergedData.forecast_years_data.length > 0 &&
+        (!formData.forecast_years_data || formData.forecast_years_data.length === 0)
+      ) {
+        updates.forecast_years_data = mergedData.forecast_years_data
+      }
+      if (mergedData.filing_year_confirmed != null && formData.filing_year_confirmed == null) {
+        updates.filing_year_confirmed = mergedData.filing_year_confirmed
+      }
+      if (mergedData.comparables && !formData.comparables) {
+        updates.comparables = mergedData.comparables
+      }
+      if (
+        mergedData.recurring_revenue_percentage != null &&
+        formData.recurring_revenue_percentage == null
+      ) {
+        updates.recurring_revenue_percentage = mergedData.recurring_revenue_percentage
+      }
 
       // KBO registry fields (Phase 1.1 enhancement)
       if (mergedData.kbo_number) updates.kbo_number = mergedData.kbo_number
@@ -241,9 +300,20 @@ export function useSessionDataPrefill() {
       if (mergedData.nace_code) updates.nace_code = mergedData.nace_code
       if (mergedData.nace_description) updates.nace_description = mergedData.nace_description
 
-      // business_context for KBO preview card (KBO fields extend ValuationRequest.business_context)
-      if (mergedData.kbo_number) {
+      // business_context: merge session (SaaS, ledger analysis, KBO) without clobbering existing keys
+      const prevBc =
+        formData.business_context && typeof formData.business_context === 'object'
+          ? (formData.business_context as Record<string, unknown>)
+          : {}
+      const sessionBc =
+        mergedData.business_context && typeof mergedData.business_context === 'object'
+          ? (mergedData.business_context as Record<string, unknown>)
+          : null
+      if (sessionBc && Object.keys(sessionBc).length > 0) {
+        updates.business_context = { ...prevBc, ...sessionBc } as ValuationFormData['business_context']
+      } else if (mergedData.kbo_number) {
         updates.business_context = {
+          ...prevBc,
           kbo_registration: mergedData.kbo_number,
           kbo_registration_number: mergedData.kbo_number,
           legal_form: mergedData.legal_form,
@@ -251,13 +321,20 @@ export function useSessionDataPrefill() {
           company_address: [mergedData.postal_code, mergedData.city].filter(Boolean).join(' '),
           company_status: 'Active',
           kbo_verified: true,
-        } as any
+        } as ValuationFormData['business_context']
       }
 
       // Revenue prefill from latest valuation or current year data
       if (mergedData.current_year_data?.revenue) {
         updates.revenue = mergedData.current_year_data.revenue
       }
+
+      // DCF / NAV / real estate / SaaS / ownership — same gap-fill for every valuation method
+      const optionalFromSession = mergeOptionalSessionPrefillFields(mergedData, {
+        ...formData,
+        ...updates,
+      } as ValuationFormData)
+      Object.assign(updates, optionalFromSession)
 
       // Apply updates if we have any (skip if effect re-ran or unmounted)
       if (!cancelledRef.current && Object.keys(updates).length > 0) {
@@ -290,5 +367,6 @@ export function useSessionDataPrefill() {
     bootstrap?.report?.hasValuationResult,
     bootstrap?.hasPrefilledData,
     bootstrap?.prefillData?.confidence,
+    reportId,
   ])
 }

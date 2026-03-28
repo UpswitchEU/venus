@@ -18,6 +18,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../hooks/useBootstrapPrefill'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
+import { usePrefillRestorationCoordinator } from '../../hooks/usePrefillRestorationCoordinator'
 import { useSessionDataPrefill } from '../../hooks/useSessionDataPrefill'
 import { useBootstrapSafe } from '../../lib/bootstrap'
 import { type BusinessType, businessTypesApiService } from '../../services/businessTypesApi'
@@ -267,6 +268,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     reportId,
     formData,
   })
+
+  usePrefillRestorationCoordinator(reportId)
 
   // NOTE: DataResponse[] syncing is not needed for Manual flow
   // Manual flow uses formData directly, conversational flow uses collected data

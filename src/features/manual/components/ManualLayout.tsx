@@ -81,6 +81,7 @@ import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
+import { usePrefillRestorationCoordinator } from '../../../hooks/usePrefillRestorationCoordinator'
 import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMethodSessionSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
@@ -1498,6 +1499,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     reportId: resolvedReportId || reportId || undefined,
     formData: formStoreData,
   })
+
+  usePrefillRestorationCoordinator(resolvedReportId || reportId || undefined)
 
   usePreSelectedMethodSessionSync({
     reportId,

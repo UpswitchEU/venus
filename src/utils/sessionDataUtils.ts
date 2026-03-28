@@ -97,6 +97,36 @@ export function hasMeaningfulSessionData(sessionData: any, session?: any): boole
     if (keys.some((key) => meaningfulFields.includes(key))) {
       return true
     }
+
+    // Persisted method-specific inputs (DCF, NAV, real estate, SaaS) without core identity rows yet
+    if (
+      keys.some(
+        (key) =>
+          key.startsWith('dcf_') ||
+          key.startsWith('nav_') ||
+          key.startsWith('saas_') ||
+          key.startsWith('rev_')
+      )
+    ) {
+      return true
+    }
+    if (
+      keys.some((key) =>
+        [
+          'exclude_real_estate',
+          'real_estate_book_value',
+          'estimated_market_rent',
+          'shares_for_sale',
+          'tax_latencies',
+          'balance_sheet_adjustments',
+          'forecast_years_data',
+          'use_dcf',
+          'use_multiples',
+        ].includes(key)
+      )
+    ) {
+      return true
+    }
   }
 
   // Check top-level session fields (valuationResult, htmlReport)
