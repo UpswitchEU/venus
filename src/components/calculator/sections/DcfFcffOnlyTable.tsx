@@ -11,7 +11,7 @@ interface DcfFcffOnlyTableProps {
     warnings: Record<string, string>
     errors: Record<string, string>
   }
-  onChange: (year: string, value: number) => void
+  onChange: (year: string, value: number | undefined) => void
 }
 
 export function DcfFcffOnlyTable({
@@ -60,8 +60,12 @@ export function DcfFcffOnlyTable({
                     disabled={disabled}
                     value={typeof v === 'number' && Number.isFinite(v) ? v : ''}
                     onChange={(e) => {
+                      if (e.target.value === '') {
+                        onChange(row.year, undefined)
+                        return
+                      }
                       const n = Number(e.target.value)
-                      onChange(row.year, Number.isFinite(n) ? n : 0)
+                      onChange(row.year, Number.isFinite(n) ? n : undefined)
                     }}
                     className={cn(
                       'w-full max-w-[140px] rounded-md border bg-background px-2 py-1.5 text-right font-mono text-sm tabular-nums outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary/30',

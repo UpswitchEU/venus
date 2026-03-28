@@ -1195,7 +1195,7 @@
       "yearCount": "{count, plural, one {# year} other {# years}}",
       "modeTitleEbitda": "Via EBITDA",
       "modeTitleFcffOnly": "Without EBITDA",
-      "description": "Set global percentages below, then open the table to review your 5-year FCFF bridge (revenue → EBITDA → free cash flow). Bridge rows (CapEx, ΔNWC, taxes) stay optional overrides.",
+      "description": "Enter growth and EBITDA margin below to generate 5 yearly FCFF values automatically. Open the table only when you want to review or override the detailed FCFF drivers.",
       "descriptionFcffOnly": "Enter FCFF (free cash flow to the firm) for each forecast year—these values feed straight into the DCF. WACC and terminal growth come from global assumptions; exit multiple is not used in this mode.",
       "fcffOnlyYearlyHint": "Each row is one yearly FCFF before discounting. WACC below discounts these yearly cash flows and the terminal value back to today.",
       "projectionReady": "Projection ready",

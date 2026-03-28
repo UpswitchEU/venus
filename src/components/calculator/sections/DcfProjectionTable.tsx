@@ -247,9 +247,9 @@ export function DcfProjectionTable({
 
                   {baseYear && (
                     <td className="px-4 py-2.5 text-right tabular-nums text-foreground/50">
-                      {wRow.key === 'revenue' && latestHistoricalRevenue
+                      {wRow.key === 'revenue' && latestHistoricalRevenue != null
                         ? fmt(latestHistoricalRevenue)
-                        : wRow.key === 'ebitda' && latestHistoricalEbitda
+                        : wRow.key === 'ebitda' && latestHistoricalEbitda != null
                           ? fmt(latestHistoricalEbitda)
                           : '\u2014'}
                     </td>

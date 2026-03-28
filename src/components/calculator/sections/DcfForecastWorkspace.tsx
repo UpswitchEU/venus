@@ -46,7 +46,7 @@ interface DcfForecastWorkspaceProps {
   onChange: (
     year: string,
     field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change' | 'free_cash_flow',
-    value: number
+    value: number | undefined
   ) => void
   onAddYear: () => void
   /** Opens parent confirmation to remove all forecast years (DCF list no longer shows per-year remove). */

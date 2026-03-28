@@ -282,13 +282,15 @@ export function DcfGlobalAssumptions({
             {t('fcffOnlyTerminalNotice')}
           </p>
         )}
-        <SegmentedControl
-          options={terminalSegmentOptions}
-          value={dcfInputMode === 'fcff_only' ? 'perpetual_growth' : terminalValueMethod}
-          onChange={onTerminalValueMethodChange}
-          size="sm"
-          aria-label={t('terminalMethodAriaLabel')}
-        />
+        {dcfInputMode !== 'fcff_only' && (
+          <SegmentedControl
+            options={terminalSegmentOptions}
+            value={terminalValueMethod}
+            onChange={onTerminalValueMethodChange}
+            size="sm"
+            aria-label={t('terminalMethodAriaLabel')}
+          />
+        )}
         <AnimatePresence mode="wait" initial={false}>
           {(dcfInputMode === 'fcff_only' || terminalValueMethod === 'perpetual_growth') && (
             <motion.div

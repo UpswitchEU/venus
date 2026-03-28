@@ -1195,7 +1195,7 @@
       "yearCount": "{count, plural, one {# jaar} other {# jaren}}",
       "modeTitleEbitda": "Via EBITDA",
       "modeTitleFcffOnly": "Zonder EBITDA",
-      "description": "Stel hieronder de globale percentages in en open daarna de tabel om je 5-jaars FCFF-brug te controleren (omzet → EBITDA → vrije kasstroom). Brugregels (CapEx, ΔNWC, belasting) zijn optionele overschrijvingen.",
+      "description": "Vul hieronder groei en EBITDA-marge in om automatisch 5 jaarlijkse FCFF-waarden te krijgen. Open de tabel alleen als je de gedetailleerde FCFF-drivers wilt controleren of overschrijven.",
       "descriptionFcffOnly": "Vul FCFF (vrije kasstroom voor de onderneming) per prognosejaar in—deze bedragen gaan rechtstreeks de DCF in. WACC en terminale groei komen uit de globale aannames; een exit-multiple wordt in deze modus niet gebruikt.",
       "fcffOnlyYearlyHint": "Elke rij is één jaarlijkse FCFF vóór verdiscontering. De WACC hieronder disconteert deze jaarlijkse kasstromen en de terminale waarde terug naar vandaag.",
       "projectionReady": "Projectie klaar",

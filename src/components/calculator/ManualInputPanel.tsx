@@ -1418,14 +1418,16 @@ export function ManualInputPanel({
       | 'depreciation'
       | 'nwc_change'
       | 'free_cash_flow',
-    value: number
+    value: number | undefined
   ) => {
     const yearKey = String(year)
     setFormData((prev) => ({
       ...prev,
       yearlyFinancials: prev.yearlyFinancials.map((yf) =>
         String(yf.year) === yearKey && !!yf.isForecast === isForecast
-          ? { ...yf, [field]: value }
+          ? field === 'free_cash_flow'
+            ? { ...yf, free_cash_flow: value }
+            : { ...yf, [field]: value ?? 0 }
           : yf
       ),
     }))
