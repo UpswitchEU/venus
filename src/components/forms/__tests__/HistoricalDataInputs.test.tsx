@@ -58,4 +58,21 @@ describe('HistoricalDataInputs', () => {
     expect(screen.getByDisplayValue('2023')).toBeInTheDocument()
     expect(screen.queryByDisplayValue('2022')).not.toBeInTheDocument()
   })
+
+  it('does not hide historical rows when founding year is recent (pre-founding years stay visible)', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
+
+    render(
+      <HistoricalDataInputs
+        historicalInputs={{}}
+        onChange={vi.fn()}
+        onBlur={vi.fn()}
+        foundingYear={2025}
+      />
+    )
+
+    expect(screen.getByDisplayValue('2023')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('2022')).toBeInTheDocument()
+  })
 })

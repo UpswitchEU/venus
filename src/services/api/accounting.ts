@@ -2,7 +2,8 @@
  * Accounting Integrations API
  *
  * Fetches financial data from connected accounting software via Titan.
- * Used for one-click prefill in the valuation manual input flow.
+ * Silverfin: connect, dossier import, and sync-to-portfolio run in Mercury (accountant app); Venus uses
+ * imported data for review, normalization, and overrides after valuations exist.
  */
 
 import axios from 'axios'
@@ -70,6 +71,14 @@ export interface EvEquityBridge {
   equity_value: number
 }
 
+export interface AccountingForecastYearBatchRow {
+  year: number
+  revenue: number
+  ebitda?: number
+  capex?: number
+  is_forecast?: boolean
+}
+
 export interface AccountingBatchPayload {
   years: AccountingFinancialPayload[]
   latest_fiscal_year?: number
@@ -79,6 +88,9 @@ export interface AccountingBatchPayload {
     average_depreciation: number
     suggested_capex: number
   }
+  /** DCF projection years from provider budgets (e.g. Bizzcontrol). */
+  forecast_years_data?: AccountingForecastYearBatchRow[]
+  dcf_projections_from_provider?: boolean
 }
 
 export interface AccountingConnectResponse {
@@ -111,7 +123,7 @@ export interface IntegrationStatus {
  * Titan may still report QuickBooks/Xero in `GET /integrations/accounting/status`; we ignore them here
  * so test environments never surface mock QB/Xero financials in this UI.
  */
-export const ACCOUNTING_IMPORT_PROVIDER_ORDER = ['silverfin', 'yuki', 'exact'] as const
+export const ACCOUNTING_IMPORT_PROVIDER_ORDER = ['silverfin', 'bizzcontrol', 'yuki', 'exact'] as const
 
 export type AccountingImportProvider = (typeof ACCOUNTING_IMPORT_PROVIDER_ORDER)[number]
 
@@ -148,6 +160,8 @@ export function accountingProviderDisplayName(provider: string): string {
       return 'Exact Online'
     case 'silverfin':
       return 'Silverfin'
+    case 'bizzcontrol':
+      return 'Bizzcontrol'
     default:
       return provider
   }
@@ -269,6 +283,31 @@ class AccountingAPI extends HttpClient {
           company_id: options.companyId,
         },
       }
+    )
+    return response.data
+  }
+
+  async getBizzcontrolFinancialDataBatch(
+    startYear: number,
+    endYear: number,
+    options: { companyId: string }
+  ): Promise<AccountingBatchPayload> {
+    const response = await this.client.get<AccountingBatchPayload>(
+      '/integrations/accounting/bizzcontrol/financial-data/batch',
+      {
+        params: {
+          start_year: startYear,
+          end_year: endYear,
+          company_id: options.companyId,
+        },
+      }
+    )
+    return response.data
+  }
+
+  async getBizzcontrolCompanies(): Promise<AccountingAdministrationListResponse> {
+    const response = await this.client.get<AccountingAdministrationListResponse>(
+      '/integrations/accounting/bizzcontrol/companies'
     )
     return response.data
   }

@@ -49,6 +49,32 @@ export function getMercuryUrl(): string {
   return 'https://upswitch.app'
 }
 
+export type MercuryAccountingProviderDeepLink =
+  | 'exact'
+  | 'yuki'
+  | 'silverfin'
+  | 'bizzcontrol'
+
+/**
+ * Mercury accountant settings URL with optional accounting provider focus (UPS-INT-049).
+ * When `accounting_provider=exact`, Mercury opens Exact OAuth or the division-import dialog.
+ * When `yuki`, Mercury opens the Yuki API dialog or administration picker.
+ * When `silverfin`, Mercury opens the firm-ID dialog or the administration picker when already connected.
+ * When `bizzcontrol`, Mercury opens the API key connect dialog or connected state.
+ */
+export function buildMercuryIntegrationsUrl(
+  locale: string,
+  options?: { accountingProvider?: MercuryAccountingProviderDeepLink }
+): string {
+  const base = getMercuryUrl()
+  const url = new URL(`${base.replace(/\/$/, '')}/${locale}/accountant/settings`)
+  url.searchParams.set('tab', 'integrations')
+  if (options?.accountingProvider) {
+    url.searchParams.set('accounting_provider', options.accountingProvider)
+  }
+  return url.toString()
+}
+
 /**
  * Resolve the Titan API base URL, environment-aware.
  *

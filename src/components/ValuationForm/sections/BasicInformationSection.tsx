@@ -22,6 +22,7 @@ import { suggestionService } from '../../../services/businessTypeSuggestionApi'
 import type { BusinessType } from '../../../services/businessTypesApi'
 import type { CompanySearchResult } from '../../../services/registry/types'
 import type { ValuationFormData } from '../../../types/valuation'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { generalLogger } from '../../../utils/logger'
 import { CustomBusinessTypeSearch } from '../../forms'
 import CompanyNameInput from '../../forms/CompanyNameInput'
@@ -425,10 +426,10 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
         <AuroraNumberInput
           label={t('forms.fields.yearBusinessCommenced')}
           placeholder={t('forms.fields.yearBusinessCommencedPlaceholder')}
-          value={formData.founding_year || new Date().getFullYear() - 5}
+          value={formData.founding_year || getCurrentFilingYear() - 5}
           onChange={(e) =>
             updateFormData({
-              founding_year: parseInt(e.target.value) || new Date().getFullYear() - 5,
+              founding_year: parseInt(e.target.value, 10) || getCurrentFilingYear() - 5,
             })
           }
           onBlur={() => {}}

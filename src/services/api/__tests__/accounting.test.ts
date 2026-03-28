@@ -77,6 +77,20 @@ describe('accountingAPI filing year defaults', () => {
       },
     })
   })
+
+  it('requests Bizzcontrol multi-year batch with company_id', async () => {
+    mockGet.mockResolvedValueOnce({ data: { years: [] } })
+
+    await accountingAPI.getBizzcontrolFinancialDataBatch(2023, 2025, { companyId: 'client-9' })
+
+    expect(mockGet).toHaveBeenCalledWith('/integrations/accounting/bizzcontrol/financial-data/batch', {
+      params: {
+        start_year: 2023,
+        end_year: 2025,
+        company_id: 'client-9',
+      },
+    })
+  })
 })
 
 describe('accountingAPI Silverfin authorize (fetch)', () => {

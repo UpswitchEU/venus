@@ -28,8 +28,8 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BizzcontrolImportModal } from '@/components/integrations/BizzcontrolImportModal'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
-import { SilverfinConnectModal } from '@/components/integrations/SilverfinConnectModal'
 import {
   Accordion,
   AccordionContent,
@@ -60,7 +60,7 @@ import {
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import { getOfficialRegistryLabels } from '@/lib/i18n/officialRegistryLabels'
-import { decodeSilverfinOAuthState, encodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
+import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
 import { getBonusSections } from '../../constants/methodFieldConfig'
 import { useAuth } from '../../hooks/useAuth'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
@@ -108,7 +108,10 @@ import {
   removeForecastYear,
   removeForecastYears,
 } from '../../utils/forecastYears'
-import { getMercuryUrl } from '../../utils/getMercuryUrl'
+import {
+  buildMercuryIntegrationsUrl,
+  type MercuryAccountingProviderDeepLink,
+} from '../../utils/getMercuryUrl'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
 import {} from '../../utils/shareholding'
@@ -727,20 +730,19 @@ export function ManualInputPanel({
     forecast_years_data: initialData.forecast_years_data,
     filingYearConfirmed: initialData.filingYearConfirmed ?? false,
   })
-  const [showSilverfinConnectModal, setShowSilverfinConnectModal] = useState(false)
   const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)
-  const [importBatchProvider, setImportBatchProvider] = useState<Extract<
-    AccountingImportProvider,
-    'silverfin'
-  > | null>(null)
+  const [importBatchProvider, setImportBatchProvider] = useState<
+    Extract<AccountingImportProvider, 'silverfin' | 'bizzcontrol'> | null
+  >(null)
+  const [showBizzcontrolImportModal, setShowBizzcontrolImportModal] = useState(false)
+  const [bizzcontrolCompanies, setBizzcontrolCompanies] = useState<AccountingAdministration[]>([])
+  const [loadingBizzcontrolCompanies, setLoadingBizzcontrolCompanies] = useState(false)
+  const [bizzcontrolImportError, setBizzcontrolImportError] = useState<string | null>(null)
+  const [selectedBizzcontrolCompanyId, setSelectedBizzcontrolCompanyId] = useState('')
+  const [bizzcontrolHistoryRange, setBizzcontrolHistoryRange] = useState<'3' | '5'>('3')
+  const [bizzcontrolManualOverride, setBizzcontrolManualOverride] = useState(true)
+  const [importingBizzcontrolBatch, setImportingBizzcontrolBatch] = useState(false)
   const [accountingStatuses, setAccountingStatuses] = useState<IntegrationStatus[]>([])
-  const [silverfinCompanies, setSilverfinCompanies] = useState<AccountingAdministration[]>([])
-  const [selectedSilverfinCompanyId, setSelectedSilverfinCompanyId] = useState('')
-  const [silverfinHistoryRange, setSilverfinHistoryRange] = useState<'3' | '5'>('5')
-  const [loadingSilverfinCompanies, setLoadingSilverfinCompanies] = useState(false)
-  const [silverfinConnecting, setSilverfinConnecting] = useState(false)
-  const [silverfinError, setSilverfinError] = useState<string | null>(null)
-  const [silverfinFirmId, setSilverfinFirmId] = useState('')
   const currentFilingYear = getCurrentFilingYear()
   const activityCodeTerm = getFinancialTerm(
     'activityCode',
@@ -1463,11 +1465,6 @@ export function ManualInputPanel({
     }
   }, [])
 
-  const silverfinIntegrationStatus = useMemo(
-    () => accountingStatuses.find((status) => status.provider === 'silverfin') ?? null,
-    [accountingStatuses]
-  )
-
   useEffect(() => {
     void loadAccountingIntegrationStatus()
   }, [loadAccountingIntegrationStatus])
@@ -1491,35 +1488,20 @@ export function ManualInputPanel({
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [loadAccountingIntegrationStatus])
 
-  const loadSilverfinCompanies = useCallback(async () => {
-    setSilverfinError(null)
-    setLoadingSilverfinCompanies(true)
-    try {
-      const response = await accountingAPI.getSilverfinCompanies()
-      setSilverfinCompanies(response.administrations)
-      setSelectedSilverfinCompanyId(
-        (current) => current || response.administrations[0]?.administration_id || ''
-      )
-    } catch (error) {
-      const message = parseAccountingApiError(error)
-      setSilverfinError(message)
-      throw error
-    } finally {
-      setLoadingSilverfinCompanies(false)
-    }
-  }, [])
-
   const applyImportedBatch = useCallback(
-    (provider: Extract<AccountingImportProvider, 'silverfin'>, batch: AccountingBatchPayload) => {
+    (
+      provider: Extract<AccountingImportProvider, 'silverfin' | 'bizzcontrol'>,
+      batch: AccountingBatchPayload
+    ) => {
       setImportBatchData(batch)
       setImportBatchProvider(provider)
       setIntegrationEntryDismissed(true)
       setImportAccountingError(null)
-      setShowSilverfinConnectModal(false)
       setFormData((prev) => {
         const merged = [...prev.yearlyFinancials]
         for (const yearPayload of batch.years) {
           const year = String(yearPayload.data.fiscal_year ?? getCurrentFilingYear())
+          const raw = yearPayload.data as { capex?: number; depreciation?: number }
           const nextYear: YearlyFinancials = {
             year,
             revenue: Number(yearPayload.data.revenue) || 0,
@@ -1528,10 +1510,7 @@ export function ManualInputPanel({
               yearPayload.data.depreciation != null
                 ? Number(yearPayload.data.depreciation)
                 : undefined,
-            capex:
-              yearPayload.data.depreciation != null
-                ? Number(yearPayload.data.depreciation)
-                : undefined,
+            capex: raw.capex != null ? Number(raw.capex) : undefined,
             cash:
               yearPayload.data.cash_and_equivalents != null
                 ? Number(yearPayload.data.cash_and_equivalents)
@@ -1563,7 +1542,24 @@ export function ManualInputPanel({
           else merged.push(nextYear)
         }
         merged.sort((a, b) => Number(b.year) - Number(a.year))
-        return { ...prev, yearlyFinancials: merged }
+
+        const forecastFromBatch = batch.forecast_years_data
+        let nextForecast: YearDataInput[] | undefined
+        if (forecastFromBatch && forecastFromBatch.length > 0) {
+          nextForecast = forecastFromBatch.map((row) => ({
+            year: row.year,
+            revenue: row.revenue,
+            ebitda: row.ebitda ?? 0,
+            capex: row.capex,
+            is_forecast: row.is_forecast ?? true,
+          }))
+        }
+
+        return {
+          ...prev,
+          yearlyFinancials: merged,
+          ...(nextForecast != null ? { forecast_years_data: nextForecast } : {}),
+        }
       })
 
       import('sonner').then(({ toast }) => {
@@ -1576,19 +1572,54 @@ export function ManualInputPanel({
                   100
               )
             : 0
+        const baseDesc = mi('silverfin.importBatchSuccessDescription', { score: qualityScore })
+        const description =
+          provider === 'bizzcontrol' &&
+          batch.forecast_years_data &&
+          batch.forecast_years_data.length > 0
+            ? `${baseDesc} ${mi('bizzcontrol.forecastImportedDescription')}`
+            : baseDesc
         toast.success(
           mi('silverfin.importBatchSuccessTitle', {
             years: mappedYears,
             provider: accountingProviderDisplayName(provider),
           }),
-          {
-            description: mi('silverfin.importBatchSuccessDescription', { score: qualityScore }),
-          }
+          { description }
         )
       })
     },
     [mi]
   )
+
+  const handleConfirmBizzcontrolImport = useCallback(async () => {
+    if (!selectedBizzcontrolCompanyId) return
+    setImportingBizzcontrolBatch(true)
+    setBizzcontrolImportError(null)
+    try {
+      const endYear = currentFilingYear
+      const span = bizzcontrolHistoryRange === '5' ? 5 : 3
+      const startYear = endYear - (span - 1)
+      const batch = await accountingAPI.getBizzcontrolFinancialDataBatch(startYear, endYear, {
+        companyId: selectedBizzcontrolCompanyId,
+      })
+      applyImportedBatch('bizzcontrol', batch)
+      setShowBizzcontrolImportModal(false)
+    } catch (err) {
+      const msg = parseAccountingApiError(err)
+      setBizzcontrolImportError(msg)
+      import('sonner').then(({ toast }) =>
+        toast.error(mi('importFromAccountingError') || 'Import failed', { description: msg })
+      )
+    } finally {
+      setImportingBizzcontrolBatch(false)
+    }
+  }, [
+    selectedBizzcontrolCompanyId,
+    bizzcontrolHistoryRange,
+    currentFilingYear,
+    applyImportedBatch,
+    mi,
+  ])
 
   const handleImportFromAccounting = useCallback(async () => {
     setImportAccountingError(null)
@@ -1603,18 +1634,40 @@ export function ManualInputPanel({
       }
       const provider = row && isAccountingImportProvider(row.provider) ? row.provider : null
       if (!provider) {
-        setShowSilverfinConnectModal(true)
+        window.location.href = buildMercuryIntegrationsUrl(locale)
+        return
+      }
+
+      if (provider === 'bizzcontrol' && row != null && row.is_connected) {
+        setBizzcontrolImportError(null)
+        setShowBizzcontrolImportModal(true)
+        setLoadingBizzcontrolCompanies(true)
+        try {
+          const res = await accountingAPI.getBizzcontrolCompanies()
+          setBizzcontrolCompanies(res.administrations)
+          setSelectedBizzcontrolCompanyId((prev) => {
+            if (prev) return prev
+            if (res.administrations.length === 1) return res.administrations[0].administration_id
+            return ''
+          })
+        } catch (e) {
+          setBizzcontrolImportError(parseAccountingApiError(e))
+        } finally {
+          setLoadingBizzcontrolCompanies(false)
+        }
         return
       }
 
       if (provider === 'silverfin') {
-        setShowSilverfinConnectModal(true)
-        await loadSilverfinCompanies()
+        window.location.href = buildMercuryIntegrationsUrl(locale, {
+          accountingProvider: 'silverfin',
+        })
         return
       }
 
-      const mercuryUrl = getMercuryUrl()
-      window.location.href = `${mercuryUrl}/${locale}/accountant/settings?tab=integrations`
+      window.location.href = buildMercuryIntegrationsUrl(locale, {
+        accountingProvider: provider === 'yuki' ? 'yuki' : 'exact',
+      })
       return
     } catch (err) {
       const msg = parseAccountingApiError(err)
@@ -1625,61 +1678,7 @@ export function ManualInputPanel({
     } finally {
       setImportingFromAccounting(false)
     }
-  }, [accountingConnectedStatus, loadSilverfinCompanies, locale, mi])
-
-  const handleStartSilverfinOAuth = useCallback(async () => {
-    if (typeof window === 'undefined') return
-    const trimmedFirm = silverfinFirmId.trim()
-    if (!trimmedFirm) {
-      setSilverfinError(mi('silverfin.errors.firmIdRequired'))
-      return
-    }
-    setSilverfinConnecting(true)
-    setSilverfinError(null)
-    setShowSilverfinConnectModal(true)
-    try {
-      const oauthState = encodeSilverfinOAuthState(trimmedFirm)
-      const redirectUrl = new URL(window.location.href)
-      redirectUrl.searchParams.delete('code')
-      redirectUrl.searchParams.delete('state')
-      redirectUrl.searchParams.delete('firm_id')
-      redirectUrl.searchParams.set('silverfin_connect', '1')
-      window.sessionStorage.setItem('upswitch_silverfin_oauth_in_progress', '1')
-      const { authorization_url } = await accountingAPI.getSilverfinAuthorizeUrl(
-        redirectUrl.toString(),
-        oauthState
-      )
-      window.location.href = authorization_url
-    } catch (error) {
-      setSilverfinConnecting(false)
-      setSilverfinError(parseAccountingApiError(error))
-    }
-  }, [mi, silverfinFirmId])
-
-  const handleImportSilverfinCompany = useCallback(async () => {
-    if (!selectedSilverfinCompanyId) {
-      setSilverfinError(mi('silverfin.errors.selectCompany'))
-      return
-    }
-    setImportAccountingError(null)
-    setSilverfinError(null)
-    setImportingFromAccounting(true)
-    try {
-      const rangeYears = Number(silverfinHistoryRange)
-      const endYear = getCurrentFilingYear()
-      const startYear = endYear - (rangeYears - 1)
-      const batch = await accountingAPI.getSilverfinFinancialDataBatch(startYear, endYear, {
-        companyId: selectedSilverfinCompanyId,
-      })
-      applyImportedBatch('silverfin', batch)
-    } catch (error) {
-      const message = parseAccountingApiError(error)
-      setSilverfinError(message)
-      setImportAccountingError(message)
-    } finally {
-      setImportingFromAccounting(false)
-    }
-  }, [applyImportedBatch, mi, selectedSilverfinCompanyId, silverfinHistoryRange])
+  }, [accountingConnectedStatus, locale, mi])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1708,36 +1707,42 @@ export function ManualInputPanel({
     redirectUrl.searchParams.delete('state')
     redirectUrl.searchParams.delete('firm_id')
 
-    setSilverfinFirmId(resolvedFirmId)
-    setSilverfinConnecting(true)
-    setSilverfinError(null)
-    setShowSilverfinConnectModal(true)
-
     accountingAPI
       .connectSilverfin(code, redirectUrl.toString(), resolvedFirmId)
       .then(async () => {
         window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
         await loadAccountingIntegrationStatus()
-        await loadSilverfinCompanies()
+        window.location.href = buildMercuryIntegrationsUrl(locale, {
+          accountingProvider: 'silverfin',
+        })
       })
       .catch((error) => {
-        setSilverfinError(parseAccountingApiError(error))
+        import('sonner').then(({ toast }) =>
+          toast.error(parseAccountingApiError(error) || 'Silverfin connection failed')
+        )
         window.sessionStorage.removeItem(oauthLockKey)
-      })
-      .finally(() => {
-        setSilverfinConnecting(false)
         const cleanedUrl = new URL(window.location.href)
         cleanedUrl.searchParams.delete('code')
         cleanedUrl.searchParams.delete('state')
         cleanedUrl.searchParams.delete('firm_id')
         window.history.replaceState({}, '', cleanedUrl.toString())
       })
-  }, [loadAccountingIntegrationStatus, loadSilverfinCompanies])
+  }, [loadAccountingIntegrationStatus, locale])
 
   const handleOpenMercuryIntegrations = useCallback(() => {
-    const mercuryUrl = getMercuryUrl()
-    window.location.href = `${mercuryUrl}/${locale}/accountant/settings?tab=integrations`
-  }, [locale])
+    const p = accountingConnectedStatus?.provider
+    const ap: MercuryAccountingProviderDeepLink =
+      p === 'yuki'
+        ? 'yuki'
+        : p === 'exact'
+          ? 'exact'
+          : p === 'silverfin'
+            ? 'silverfin'
+            : p === 'bizzcontrol'
+              ? 'bizzcontrol'
+              : 'exact'
+    window.location.href = buildMercuryIntegrationsUrl(locale, { accountingProvider: ap })
+  }, [locale, accountingConnectedStatus?.provider])
 
   // ─── Field-level Validation ───
   const fieldValidation = useMemo(() => {
@@ -2143,19 +2148,29 @@ export function ManualInputPanel({
       ? (raw as ImportedLedgerAnalysisSummary)
       : null
   }, [formData.business_context])
-  const effectiveImportedLedgerAnalysis =
-    importBatchData != null
-      ? ({
-          latest_fiscal_year: importBatchData.latest_fiscal_year,
-          sde_flags: importBatchData.sde_flags,
-          ev_equity_bridge: importBatchData.ev_equity_bridge,
-          dcf_defaults: importBatchData.dcf_defaults,
-        } as ImportedLedgerAnalysisSummary)
-      : persistedImportedLedgerAnalysis
+  const effectiveImportedLedgerAnalysis = useMemo(() => {
+    const fromBatch =
+      importBatchData != null
+        ? ({
+            latest_fiscal_year: importBatchData.latest_fiscal_year,
+            sde_flags: importBatchData.sde_flags,
+            ev_equity_bridge: importBatchData.ev_equity_bridge,
+            dcf_defaults: importBatchData.dcf_defaults,
+          } as ImportedLedgerAnalysisSummary)
+        : null
+    const base = fromBatch ?? persistedImportedLedgerAnalysis
+    if (!base) return null
+    return base
+  }, [importBatchData, persistedImportedLedgerAnalysis])
   const shouldShowImportedBatchSummary = !!importBatchData || !!effectiveImportedLedgerAnalysis
   const connectedProvider = accountingConnectedStatus?.provider
-  const supportsVenusLiveImport = connectedProvider === 'silverfin' || connectedProvider == null
-  const requiresMercuryImportFlow = connectedProvider === 'yuki' || connectedProvider === 'exact'
+  /** Pull data inside Venus when disconnected (redirect to Mercury to connect) or when Bizzcontrol is connected (batch import). */
+  const supportsVenusLiveImport =
+    connectedProvider == null || connectedProvider === 'bizzcontrol'
+  const requiresMercuryImportFlow =
+    connectedProvider === 'yuki' ||
+    connectedProvider === 'exact' ||
+    connectedProvider === 'silverfin'
   const importedProviderLabel =
     importBatchProvider != null
       ? accountingProviderDisplayName(importBatchProvider)
@@ -2642,38 +2657,21 @@ export function ManualInputPanel({
                   </h3>
                 </div>
 
-                {/* Instruction + inline accounting import (only visible when connected) */}
+                {/* Mercury-first: connected Yuki / Exact / Silverfin → deep-link to accountant integrations */}
                 <div className="flex items-center justify-between gap-2 -mt-1 ml-8 flex-wrap">
                   <p className="text-xs text-foreground/40">{mi('financialInstruction')}</p>
-                  {supportsVenusLiveImport && accountingConnectedStatus && (
+                  {accountingConnectedStatus && requiresMercuryImportFlow && (
                     <button
                       type="button"
-                      onClick={handleImportFromAccounting}
-                      disabled={importingFromAccounting}
-                      aria-busy={importingFromAccounting}
-                      aria-label={
-                        mi('importFromAccountingAria', {
-                          provider: accountingProviderDisplayName(
-                            accountingConnectedStatus.provider
-                          ),
-                        }) ||
-                        `Import revenue and EBITDA from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`
-                      }
+                      onClick={handleOpenMercuryIntegrations}
+                      aria-label={mi('integrationEntry.openMercuryCta')}
                       className={cn(
                         'text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg shrink-0',
-                        'text-primary hover:bg-primary/10 transition-colors',
-                        importingFromAccounting && 'opacity-60 cursor-not-allowed'
+                        'text-primary hover:bg-primary/10 transition-colors'
                       )}
                     >
-                      {importingFromAccounting ? (
-                        <Loader2 className="w-3 h-3 animate-spin" aria-hidden />
-                      ) : (
-                        <CloudDownload className="w-3 h-3 shrink-0" aria-hidden />
-                      )}
-                      {mi('importFromAccounting', {
-                        provider: accountingProviderDisplayName(accountingConnectedStatus.provider),
-                      }) ||
-                        `Import from ${accountingProviderDisplayName(accountingConnectedStatus.provider)}`}
+                      <ExternalLink className="w-3 h-3 shrink-0" aria-hidden />
+                      {mi('integrationEntry.openMercuryCta')}
                     </button>
                   )}
                 </div>
@@ -3171,25 +3169,6 @@ export function ManualInputPanel({
         </div>
       </div>
 
-      <SilverfinConnectModal
-        open={showSilverfinConnectModal}
-        onOpenChange={setShowSilverfinConnectModal}
-        isConnected={!!silverfinIntegrationStatus?.is_connected}
-        isConnecting={silverfinConnecting}
-        isLoadingCompanies={loadingSilverfinCompanies}
-        isImporting={importingFromAccounting}
-        error={silverfinError}
-        firmId={silverfinFirmId}
-        onFirmIdChange={setSilverfinFirmId}
-        companies={silverfinCompanies}
-        selectedCompanyId={selectedSilverfinCompanyId}
-        onSelectedCompanyIdChange={setSelectedSilverfinCompanyId}
-        historyRange={silverfinHistoryRange}
-        onHistoryRangeChange={setSilverfinHistoryRange}
-        onStartOAuth={handleStartSilverfinOAuth}
-        onImport={handleImportSilverfinCompany}
-      />
-
       {/* CSV Upload Modal */}
       <Modal open={showCSVUpload} onOpenChange={setShowCSVUpload}>
         <ModalContent className="max-w-2xl">
@@ -3206,6 +3185,26 @@ export function ManualInputPanel({
           </div>
         </ModalContent>
       </Modal>
+
+      <BizzcontrolImportModal
+        open={showBizzcontrolImportModal}
+        onOpenChange={(open) => {
+          setShowBizzcontrolImportModal(open)
+          if (!open) setBizzcontrolImportError(null)
+        }}
+        locale={locale}
+        isLoadingCompanies={loadingBizzcontrolCompanies}
+        isImporting={importingBizzcontrolBatch}
+        error={bizzcontrolImportError}
+        companies={bizzcontrolCompanies}
+        selectedCompanyId={selectedBizzcontrolCompanyId}
+        onSelectedCompanyIdChange={setSelectedBizzcontrolCompanyId}
+        historyRange={bizzcontrolHistoryRange}
+        onHistoryRangeChange={setBizzcontrolHistoryRange}
+        onImport={handleConfirmBizzcontrolImport}
+        manualOverride={bizzcontrolManualOverride}
+        onManualOverrideChange={setBizzcontrolManualOverride}
+      />
 
       {/* Forecast Removal Confirmation Modal */}
       <Modal

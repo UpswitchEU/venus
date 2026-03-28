@@ -398,7 +398,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     country_code: (data.country || '').toUpperCase(),
     industry: data.industry || 'services',
     business_model: data.businessType || 'services',
-    founding_year: parseInt(data.yearFounded) || new Date().getFullYear() - 5,
+    founding_year: parseInt(data.yearFounded, 10) || getCurrentFilingYear() - 5,
     number_of_owners: data.ownerManagers || 1,
     number_of_employees: data.fteEmployees,
     shares_for_sale: 100,

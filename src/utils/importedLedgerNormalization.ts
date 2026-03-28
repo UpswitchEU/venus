@@ -1,6 +1,9 @@
 /**
  * Build EBITDA normalization draft items from Titan/Mercury imported-ledger SDE flags.
  * Shared by bootstrap prefill and session restoration so persisted analysis is consistent.
+ *
+ * SDE “wizard” UX: flags become pending NormalizationItems and are reviewed in UnifiedNormalizationModal
+ * (Yes/No per line item), not a separate step-by-step wizard route.
  */
 
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
