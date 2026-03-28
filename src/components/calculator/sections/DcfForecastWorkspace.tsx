@@ -156,14 +156,22 @@ export function DcfForecastWorkspace({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
         className="mt-6 space-y-3 pt-2"
-        aria-label={t('dcfForecastWorkspace.sectionLabel')}
+        aria-label={
+          dcfInputMode === 'fcff_only'
+            ? t('dcfForecastWorkspace.sectionLabelFcffOnly')
+            : t('dcfForecastWorkspace.sectionLabel')
+        }
       >
         <ValuationSectionHeader
           complete={forecastSectionComplete}
           step={step}
           title={
             <span className="inline-flex flex-wrap items-center gap-2">
-              <span>{t('dcfForecastWorkspace.title')}</span>
+              <span>
+                {dcfInputMode === 'fcff_only'
+                  ? t('dcfForecastWorkspace.titleFcffOnly')
+                  : t('dcfForecastWorkspace.title')}
+              </span>
               <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
                 {t('dcfForecastWorkspace.yearCount', { count: sortedRows.length })}
               </span>
@@ -205,33 +213,8 @@ export function DcfForecastWorkspace({
               onChange={(year, value) => onChange(year, 'free_cash_flow', value)}
             />
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              {t('dcfForecastWorkspace.fcffOnlyYearlyHint')}
+              {t('dcfForecastWorkspace.fcffOnlyAfterTableHint')}
             </p>
-            {(dcfWaccPct != null && dcfWaccPct > 0) || terminalValueMethod ? (
-              <p className="text-[11px] leading-relaxed text-foreground/45">
-                {dcfWaccPct != null && dcfWaccPct > 0 && (
-                  <span>{t('dcfProjectionTable.triggerWacc', { pct: dcfWaccPct.toFixed(1) })}</span>
-                )}
-                {terminalValueMethod === 'perpetual_growth' &&
-                  dcfTerminalGrowthPct != null &&
-                  Number.isFinite(dcfTerminalGrowthPct) && (
-                    <span className="ml-2">
-                      {t('dcfProjectionTable.triggerTerminalGrowth', {
-                        pct: dcfTerminalGrowthPct.toFixed(1),
-                      })}
-                    </span>
-                  )}
-                {terminalValueMethod === 'exit_multiple' &&
-                  dcfExitMultiple != null &&
-                  Number.isFinite(dcfExitMultiple) && (
-                    <span className="ml-2">
-                      {t('dcfProjectionTable.triggerExitMultiple', {
-                        x: dcfExitMultiple.toFixed(1),
-                      })}
-                    </span>
-                  )}
-              </p>
-            ) : null}
           </div>
         ) : (
           <div className="space-y-3">
@@ -321,6 +304,50 @@ export function DcfForecastWorkspace({
                 {t('dcfProjectionTable.triggerAction')}
               </span>
             </button>
+            {projectionRows.length > 0 && (
+              <div className="overflow-x-auto rounded-xl border border-foreground/[0.08] bg-foreground/[0.02]">
+                <table className="w-full min-w-[320px] border-collapse text-sm tabular-nums">
+                  <caption className="sr-only">{t('dcfForecastWorkspace.inlinePreviewAria')}</caption>
+                  <thead>
+                    <tr className="border-b border-foreground/[0.08] text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <th scope="col" className="px-3 py-2.5">
+                        {t('dcfFcffOnlyTable.year')}
+                      </th>
+                      <th scope="col" className="px-3 py-2.5">
+                        {t('dcfProjectionTable.rows.revenue')}
+                      </th>
+                      <th scope="col" className="px-3 py-2.5">
+                        {t('dcfProjectionTable.rows.ebitda')}
+                      </th>
+                      <th scope="col" className="px-3 py-2.5">
+                        {t('dcfProjectionTable.rows.fcff')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectionRows.map((row) => (
+                      <tr
+                        key={row.year}
+                        className="border-b border-foreground/[0.05] last:border-0"
+                      >
+                        <th
+                          scope="row"
+                          className="px-3 py-2 font-medium text-foreground/90"
+                        >
+                          {row.year}
+                        </th>
+                        <td className="px-3 py-2 text-foreground/80">{fmt(row.revenue)}</td>
+                        <td className="px-3 py-2 text-foreground/80">{fmt(row.ebitda)}</td>
+                        <td className="px-3 py-2 font-medium text-foreground">{fmt(row.fcff)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="border-t border-foreground/[0.06] px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                  {t('dcfForecastWorkspace.inlinePreviewHint')}
+                </p>
+              </div>
+            )}
           </div>
         )}
 

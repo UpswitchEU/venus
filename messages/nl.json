@@ -1169,37 +1169,21 @@
     "addYear": "Jaar toevoegen",
     "addForecastYear": "Voeg prognosejaar toe",
     "forecastLabel": "Prognose",
-    "dcfForecastCard": {
-      "revenueGrowth": "Groei %",
-      "ebitdaMargin": "Marge %",
-      "editDetails": "Bewerk details",
-      "removeYear": "Verwijder",
-      "detailsConfigured": "Cashflowfactoren ingesteld"
-    },
-    "dcfYearDetail": {
-      "title": "Prognose {year} — Details",
-      "modalDescription": "Pas de cashflowfactoren aan voor prognosejaar {year}.",
-      "summaryStrip": "Samenvatting",
-      "toplineSection": "Omzet & EBITDA",
-      "capex": "CapEx (investeringen)",
-      "cashFlowDrivers": "Cashflowfactoren",
-      "depreciation": "Afschrijvingen (D&A)",
-      "nwcChange": "Mutatie werkkapitaal (ΔNWC)",
-      "fcff": "Vrije Kasstroom",
-      "prefillHint": "Lege velden worden ingevuld op basis van de globale CapEx- / NWC-aannames.",
-      "done": "Klaar"
-    },
     "dcfForecastWorkspace": {
       "sectionLabel": "DCF prognosejaren",
+      "sectionLabelFcffOnly": "Jaarlijkse FCFF-invoer",
       "title": "Prognosejaren",
+      "titleFcffOnly": "Jaarlijkse FCFF",
       "yearCount": "{count, plural, one {# jaar} other {# jaren}}",
       "modeTitleEbitda": "Via EBITDA",
       "modeTitleFcffOnly": "Zonder EBITDA",
       "description": "Vul hieronder groei en EBITDA-marge in om automatisch 5 jaarlijkse FCFF-waarden te krijgen. Open de tabel alleen als je de gedetailleerde FCFF-drivers wilt controleren of overschrijven.",
-      "descriptionFcffOnly": "Vul FCFF (vrije kasstroom voor de onderneming) per prognosejaar in—deze bedragen gaan rechtstreeks de DCF in. WACC en terminale groei komen uit de globale aannames; een exit-multiple wordt in deze modus niet gebruikt.",
-      "fcffOnlyYearlyHint": "Elke rij is één jaarlijkse FCFF vóór verdiscontering. De WACC hieronder disconteert deze jaarlijkse kasstromen en de terminale waarde terug naar vandaag.",
+      "descriptionFcffOnly": "Vul FCFF (vrije kasstroom voor de onderneming) per prognosejaar in—deze bedragen gaan rechtstreeks de DCF in. Een exit-multiple wordt in deze modus niet gebruikt; stel WACC en terminale groei in bij Globale DCF-aannames in het volgende blok (na toevoegen/verwijderen van prognosejaren).",
+      "fcffOnlyAfterTableHint": "Elke rij is één jaarlijkse FCFF vóór verdiscontering. Gebruik het volgende blok Globale DCF-aannames voor WACC en terminale groei.",
       "projectionReady": "Projectie klaar",
-      "removeAllForecastYears": "Alle prognosejaren verwijderen…"
+      "removeAllForecastYears": "Alle prognosejaren verwijderen…",
+      "inlinePreviewAria": "Prognosejaar: omzet, EBITDA en FCFF-voorbeeld",
+      "inlinePreviewHint": "Open Controleer voor de volledige FCFF-brug, drivers en overschrijvingen."
     },
     "dcfInputMode": {
       "label": "Prognose-invoer",

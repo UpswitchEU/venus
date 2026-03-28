@@ -3339,6 +3339,43 @@ export function ManualInputPanel({
                     />
                   )}
 
+                  {effectiveMethod === 'dcf' &&
+                    dcfForecastRows.length > 0 &&
+                    formData.dcf_input_mode === 'fcff_only' &&
+                    adaptiveHeaderSteps.dcfGlobal != null &&
+                    terminalValueMethod && (
+                      <DcfGlobalAssumptions
+                        key="dcf_global_assumptions_fcff_only"
+                        className="mt-4"
+                        step={adaptiveHeaderSteps.dcfGlobal}
+                        dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
+                        dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
+                        dcfCapexPct={formData.dcf_capex_pct as number | undefined}
+                        dcfDaPct={formData.dcf_da_pct as number | undefined}
+                        dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
+                        dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
+                        dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
+                        dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
+                        dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
+                        dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
+                        dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
+                        dcfBeta={formData.dcf_beta as number | undefined}
+                        dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
+                        dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
+                        dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
+                        terminalValueMethod={terminalValueMethod}
+                        onTerminalValueMethodChange={handleTerminalValueMethodChange}
+                        onFieldChange={(field, value) => {
+                          setFormData((prev) => ({ ...prev, [field]: value }))
+                        }}
+                        onApplyToForecastYears={handleApplyDcfProjectionAutofill}
+                        canApplyToForecastYears={!!canApplyDcfProjectionAutofill}
+                        forecastYearCount={countForecastYears(formData.yearlyFinancials ?? [])}
+                        dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
+                        disabled={isCalculating}
+                      />
+                    )}
+
                   {/* Balance sheet / transaction structure: vastgoed carve-out (M&A) — next to financial inputs */}
                   {selectedCompany && hasBusinessType && hasFinancials && (
                     <div className="pt-2 border-t border-foreground/[0.06]">
@@ -3659,7 +3696,8 @@ export function AdaptiveSections({
       {sections.includes('dcf_projections') &&
         terminalValueMethod &&
         onTerminalValueMethodChange &&
-        sectionHeaderSteps.dcfGlobal != null && (
+        sectionHeaderSteps.dcfGlobal != null &&
+        (formData.dcf_input_mode ?? 'ebitda') !== 'fcff_only' && (
           <DcfGlobalAssumptions
             key="dcf_global_assumptions"
             className={showRevenueNotice || showFiscalNotice ? 'mt-6' : undefined}

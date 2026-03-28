@@ -116,6 +116,21 @@ describe('AdaptiveSections', () => {
     expect(screen.queryByText('sections.navAssetSchedule')).not.toBeInTheDocument()
   })
 
+  it('does not render DCF global assumptions in AdaptiveSections when FCFF-only mode is selected', () => {
+    render(
+      <AdaptiveSections
+        {...baseProps}
+        effectiveMethod="dcf"
+        businessCategory="tech-digital"
+        businessTypeId="saas"
+        formData={{ dcf_input_mode: 'fcff_only' } as any}
+      />
+    )
+
+    expect(screen.queryByText('sections.dcfGlobalAssumptions')).not.toBeInTheDocument()
+    expect(screen.getByText('sections.saasMetrics')).toBeInTheDocument()
+  })
+
   it('removes method-specific sections when switching back to adaptive and restores them later', async () => {
     const { rerender } = render(
       <AdaptiveSections
