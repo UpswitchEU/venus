@@ -503,6 +503,16 @@ export function buildValuationRequest(
   if (fd.dcf_cost_of_debt_pct != null) adaptiveFields.dcf_cost_of_debt_pct = fd.dcf_cost_of_debt_pct
   if (fd.dcf_debt_equity_pct != null) adaptiveFields.dcf_debt_equity_pct = fd.dcf_debt_equity_pct
   if (fd.dcf_tax_shield_pct != null) adaptiveFields.dcf_tax_shield_pct = fd.dcf_tax_shield_pct
+
+  const userConfiguredDcf =
+    fd.dcf_wacc_pct != null ||
+    fd.dcf_terminal_growth_pct != null ||
+    fd.dcf_exit_multiple != null ||
+    fd.dcf_revenue_growth_pct != null ||
+    fd.dcf_ebitda_margin_pct != null ||
+    (Array.isArray(formData.forecast_years_data) && formData.forecast_years_data.length > 0) ||
+    (Array.isArray(rawForecastData) && rawForecastData.length > 0)
+
   if (fd.nav_real_estate_adjustment != null)
     adaptiveFields.nav_real_estate_adjustment = fd.nav_real_estate_adjustment
   if (fd.nav_inventory_adjustment != null)
@@ -576,6 +586,7 @@ export function buildValuationRequest(
     recurring_revenue_percentage: recurringRevenuePercentage,
     use_dcf: true,
     use_multiples: true,
+    ...(userConfiguredDcf && { user_configured_dcf: true }),
     projection_years: projectionYears,
     ...(dcfInputMode === 'fcff_only' && { dcf_input_mode: 'fcff_only' as const }),
     comparables: formData.comparables || [],

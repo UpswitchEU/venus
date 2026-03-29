@@ -192,6 +192,7 @@ export interface ValuationRequest {
   // Valuation preferences
   use_dcf?: boolean
   use_multiples?: boolean
+  user_configured_dcf?: boolean
   projection_years?: number // 5-15 years
   /** Manual DCF: `ebitda` (default) or `fcff_only` (explicit yearly FCFF). */
   dcf_input_mode?: 'ebitda' | 'fcff_only'
