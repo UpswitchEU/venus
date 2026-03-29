@@ -1,7 +1,8 @@
 'use client'
 
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import type { DcfForecastRow } from './DcfForecastTypes'
 
 interface DcfFcffOnlyTableProps {
@@ -21,16 +22,10 @@ export function DcfFcffOnlyTable({
   onChange,
 }: DcfFcffOnlyTableProps) {
   const t = useTranslations('manualInput')
-  const locale = useLocale()
+  const { currency } = useManualPreviewFormatters()
   const sorted = [...forecastRows].sort((a, b) => Number(a.year) - Number(b.year))
 
-  const fmt = (value: number) =>
-    new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value)
+  const fmt = (value: number) => currency.format(value)
 
   return (
     <div className="overflow-x-auto rounded-xl border border-foreground/[0.08]">

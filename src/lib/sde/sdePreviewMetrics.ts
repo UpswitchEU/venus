@@ -88,7 +88,7 @@ export function computeSdePreviewMetrics(input: SdePreviewInputs): SdePreviewMet
     impliedEnterpriseValue: null,
   }
 
-  if (!finitePositive(revenue) || !Number.isFinite(ebitda)) {
+  if (!finitePositive(revenue) || ebitda == null || !Number.isFinite(ebitda)) {
     return { available: false, unavailableReason: 'missing_financials', ...nullBase }
   }
 

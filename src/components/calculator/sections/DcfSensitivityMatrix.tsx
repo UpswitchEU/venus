@@ -12,6 +12,8 @@ import {
 import { cn } from '@/design-system/utils'
 import { Grid3X3 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { useMemo } from 'react'
+import { getBelgianNumberLocale, PREVIEW_DECIMALS } from '@/lib/omniPreview'
 
 interface DcfSensitivityMatrixProps {
   sensitivityData?: {
@@ -27,6 +29,7 @@ interface DcfSensitivityMatrixProps {
 export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixProps) {
   const t = useTranslations('methodBreakdown')
   const locale = useLocale()
+  const beLocale = useMemo(() => getBelgianNumberLocale(locale), [locale])
 
   if (
     !sensitivityData ||
@@ -45,23 +48,23 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
     sensitivityData.secondary_axis_format ?? (secondaryAxisKey === 'exit_multiple' ? 'multiple' : 'percent')
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
+    new Intl.NumberFormat(beLocale, {
       style: 'currency',
       currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: PREVIEW_DECIMALS.currency,
+      maximumFractionDigits: PREVIEW_DECIMALS.currency,
       notation: Math.abs(value) >= 1_000_000 ? 'compact' : 'standard',
     }).format(value)
   const formatPercent = (value: number) =>
-    `${new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
+    `${new Intl.NumberFormat(beLocale, {
+      minimumFractionDigits: PREVIEW_DECIMALS.ratio,
+      maximumFractionDigits: PREVIEW_DECIMALS.ratio,
     }).format(value * 100)}%`
   const formatSecondaryValue = (value: number) =>
     secondaryAxisFormat === 'multiple'
-      ? `${new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
-          minimumFractionDigits: 1,
-          maximumFractionDigits: 1,
+      ? `${new Intl.NumberFormat(beLocale, {
+          minimumFractionDigits: PREVIEW_DECIMALS.ratio,
+          maximumFractionDigits: PREVIEW_DECIMALS.ratio,
         }).format(value)}x`
       : formatPercent(value)
 

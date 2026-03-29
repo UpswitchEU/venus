@@ -2,13 +2,19 @@
 
 import { Info } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
+import { PREVIEW_DECIMALS, useManualPreviewFormatters } from '@/lib/omniPreview'
 import {
   computeSdePreviewMetrics,
   isSdeOwnerCompensationSectionComplete,
 } from '@/lib/sde'
 import { CurrencyInput } from '../CurrencyInput'
+import {
+  formatPreviewMetricValue,
+  PreviewMetricCard,
+  roundPreviewMetric,
+} from './previewMetricCards'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface SdeOwnerCompensationSectionProps {
@@ -21,29 +27,6 @@ interface SdeOwnerCompensationSectionProps {
   disabled?: boolean
 }
 
-function round(value: number): number {
-  return Math.round(value * 100) / 100
-}
-
-function formatMetricValue(
-  value: number | null,
-  formatter: Intl.NumberFormat,
-  suffix = ''
-): string {
-  if (value == null || !Number.isFinite(value)) return '—'
-  return `${formatter.format(round(value))}${suffix}`
-}
-
-function MetricCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-3 py-2.5">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
-      {hint ? <p className="mt-1 text-[10px] leading-snug text-foreground/45">{hint}</p> : null}
-    </div>
-  )
-}
-
 export function SdeOwnerCompensationSection({
   step,
   ownerSalaryAddback,
@@ -53,7 +36,7 @@ export function SdeOwnerCompensationSection({
   disabled,
 }: SdeOwnerCompensationSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
-  const locale = useLocale()
+  const { sdeMultiple: metricFormatter, currency: currencyFormatter } = useManualPreviewFormatters()
 
   const preview = useMemo(
     () =>
@@ -68,26 +51,6 @@ export function SdeOwnerCompensationSection({
   const sectionComplete = useMemo(
     () => isSdeOwnerCompensationSectionComplete(ownerSalaryAddback, preview),
     [ownerSalaryAddback, preview]
-  )
-
-  const metricFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
-        maximumFractionDigits: 2,
-        minimumFractionDigits: 0,
-      }),
-    [locale]
-  )
-
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
-        style: 'currency',
-        currency: 'EUR',
-        maximumFractionDigits: 0,
-        minimumFractionDigits: 0,
-      }),
-    [locale]
   )
 
   const addbackSourceHint =
@@ -150,38 +113,56 @@ export function SdeOwnerCompensationSection({
           <p className="text-[11px] leading-snug text-foreground/50">{unavailableMessage}</p>
         ) : null}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.sdePreviewBenchmarkSalary')}
             value={
               preview.ownerSalaryEstimate != null
-                ? currencyFormatter.format(round(preview.ownerSalaryEstimate))
+                ? currencyFormatter.format(
+                    roundPreviewMetric(preview.ownerSalaryEstimate, PREVIEW_DECIMALS.sdeMultiple)
+                  )
                 : '—'
             }
           />
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.sdePreviewAddbackUsed')}
             value={
               preview.actualAddback != null
-                ? currencyFormatter.format(round(preview.actualAddback))
+                ? currencyFormatter.format(
+                    roundPreviewMetric(preview.actualAddback, PREVIEW_DECIMALS.sdeMultiple)
+                  )
                 : '—'
             }
             hint={addbackSourceHint}
           />
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.sdePreviewAdjustedSde')}
             value={
-              preview.sde != null ? currencyFormatter.format(round(preview.sde)) : '—'
+              preview.sde != null
+                ? currencyFormatter.format(
+                    roundPreviewMetric(preview.sde, PREVIEW_DECIMALS.sdeMultiple)
+                  )
+                : '—'
             }
           />
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.sdePreviewSdeMultiple')}
-            value={formatMetricValue(preview.adjustedSdeMultiple, metricFormatter, 'x')}
+            value={formatPreviewMetricValue(
+              preview.adjustedSdeMultiple,
+              metricFormatter,
+              PREVIEW_DECIMALS.sdeMultiple,
+              'x'
+            )}
           />
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.sdePreviewImpliedEv')}
             value={
               preview.impliedEnterpriseValue != null
-                ? currencyFormatter.format(round(preview.impliedEnterpriseValue))
+                ? currencyFormatter.format(
+                    roundPreviewMetric(
+                      preview.impliedEnterpriseValue,
+                      PREVIEW_DECIMALS.sdeMultiple
+                    )
+                  )
                 : '—'
             }
           />

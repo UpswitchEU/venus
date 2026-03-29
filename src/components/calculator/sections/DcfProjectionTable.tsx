@@ -1,7 +1,8 @@
 'use client'
 
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { useCallback, useMemo, useState } from 'react'
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import {
   Modal,
   ModalContent,
@@ -124,7 +125,7 @@ export function DcfProjectionTable({
   disabled,
 }: DcfProjectionTableProps) {
   const t = useTranslations('manualInput')
-  const locale = useLocale()
+  const { currency } = useManualPreviewFormatters()
   const [editingCell, setEditingCell] = useState<{ year: string; field: string } | null>(null)
   const [showBreakdown, setShowBreakdown] = useState(false)
 
@@ -136,16 +137,7 @@ export function DcfProjectionTable({
     [showBreakdown]
   )
 
-  const fmt = useCallback(
-    (value: number) =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
-        style: 'currency',
-        currency: 'EUR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(value),
-    [locale]
-  )
+  const fmt = useCallback((value: number) => currency.format(value), [currency])
 
   const sortedForecastRows = useMemo(
     () => [...forecastRows].sort((a, b) => Number(a.year) - Number(b.year)),

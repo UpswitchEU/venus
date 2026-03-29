@@ -27,7 +27,12 @@ import {
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  computeFiscal4xPreview,
+  resolveBookEquityFromYearRow,
+  useManualPreviewFormatters,
+} from '@/lib/omniPreview'
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BizzcontrolImportModal } from '@/components/integrations/BizzcontrolImportModal'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import { OctopusImportModal } from '@/components/integrations/OctopusImportModal'
@@ -62,6 +67,12 @@ import {
 import { cn } from '@/design-system/utils'
 import { getOfficialRegistryLabels } from '@/lib/i18n/officialRegistryLabels'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
+
+const MethodPreviewAuditDevPanel = lazy(() =>
+  import('./sections/MethodPreviewAuditDevPanel').then((m) => ({
+    default: m.MethodPreviewAuditDevPanel,
+  }))
+)
 import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
 import {
   countNormalizationsBoundToFiscalYear,
@@ -141,6 +152,7 @@ import {
   historicalYearRowNeedsRemovalWarning,
   hasExplicitNumericValue as hasExplicitFinancialValue,
 } from '../../utils/yearlyFinancials'
+import { PreviewMetricCard } from './sections/previewMetricCards'
 import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
@@ -200,6 +212,10 @@ export interface YearlyFinancials {
   inventory?: number
   short_term_debt?: number
   nwc_change?: number
+  /** Optional balance sheet strip (import / advanced row) — used for fiscal / NAV context. */
+  total_equity?: number
+  total_assets?: number
+  total_liabilities?: number
   normalizedEbitda?: number
   /** Explicit FCFF per forecast year (“zonder EBITDA”). */
   free_cash_flow?: number
@@ -274,6 +290,8 @@ export interface ValuationFormData {
   rev_recurring_pct?: number
   rev_top_client_concentration_pct?: number
   rev_contract_backlog?: number
+  /** 0–100; normalized to 100% in Zustand for the manual product, but kept for API parity. */
+  shares_for_sale?: number
   /** Annual owner compensation (€) for SDE — matches ValuationRequest / Titan. */
   owner_salary_addback?: number
   /** Optional import/session metadata (e.g. SaaS provenance from accounting import). */
@@ -743,7 +761,7 @@ export function ManualInputPanel({
   const tTax = useTranslations('taxLatency')
   const tKbo = useTranslations('forms.kboLookup')
   const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const { currency: panelCurrencyFormatter } = useManualPreviewFormatters()
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const normalizationItems = useNormalizationStore((s) => s.items)
   const spotlightImportQuality = useSpotlightStore((s) => s.importQuality)
@@ -753,16 +771,9 @@ export function ManualInputPanel({
   )
   const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
   const formatCurrency = useCallback(
-    (amount: number) => {
-      const safe = Number.isFinite(amount) ? amount : 0
-      return new Intl.NumberFormat(currencyLocale, {
-        style: 'currency',
-        currency: 'EUR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(safe)
-    },
-    [currencyLocale]
+    (amount: number) =>
+      panelCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0),
+    [panelCurrencyFormatter]
   )
   const [formData, setFormData] = useState<ValuationFormData>({
     companyName: initialData.companyName || '',
@@ -831,7 +842,7 @@ export function ManualInputPanel({
   )
 
   const latestCompleteYearlyFinancial = useMemo(
-    () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials),
+    () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials ?? []),
     [formData.yearlyFinancials]
   )
 
@@ -4122,10 +4133,29 @@ export function AdaptiveSections({
   disabled?: boolean
 }) {
   const t = useTranslations('manualInput.methodSelector')
+  const { currency: fiscalCurrencyFormatter } = useManualPreviewFormatters()
   const methods = effectiveMethods ?? [effectiveMethod]
   const sections = methods.length > 1
     ? getBonusSectionsForMethods(methods, businessCategory, businessTypeId, saasSignals)
     : getBonusSections(effectiveMethod, businessCategory, businessTypeId, saasSignals)
+  const latestCompleteYearlyFinancial = useMemo(
+    () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials ?? []),
+    [formData.yearlyFinancials]
+  )
+
+  const fiscalPreview = useMemo(() => {
+    const row = latestCompleteYearlyFinancial
+    const ebitda =
+      row != null && Number.isFinite(Number(row.ebitda)) ? Number(row.ebitda) : undefined
+    const be = resolveBookEquityFromYearRow(row ?? undefined)
+    return computeFiscal4xPreview({
+      countryCode: formData.country?.trim() || 'BE',
+      ebitda,
+      bookEquity: be,
+      sharesForSale: formData.shares_for_sale ?? 100,
+    })
+  }, [latestCompleteYearlyFinancial, formData.country, formData.shares_for_sale])
+
   const saasArrProjectionPreview = useMemo(
     () =>
       sections.includes('saas_metrics') && methods.includes('dcf')
@@ -4182,6 +4212,7 @@ export function AdaptiveSections({
   if (sections.length === 0 && !showRevenueNotice && !showFiscalNotice) return null
 
   return (
+    <>
     <AnimatePresence mode="sync">
       {showRevenueNotice && (
         <motion.div
@@ -4210,7 +4241,7 @@ export function AdaptiveSections({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3"
+          className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3 space-y-3"
         >
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
@@ -4219,6 +4250,64 @@ export function AdaptiveSections({
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 {t('fiscalDisclaimerText')}
               </p>
+            </div>
+          </div>
+          <div className="space-y-2 border-t border-amber-500/15 pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/70">
+                {t('sections.fiscalDerivedMetrics')}
+              </h4>
+              <span className="text-[10px] text-foreground/45">{t('fields.fiscalPreviewFootnote')}</span>
+            </div>
+            {!fiscalPreview.available && fiscalPreview.unavailableReason && (
+              <p className="text-[11px] leading-snug text-foreground/55">
+                {fiscalPreview.unavailableReason === 'non_be'
+                  ? t('fields.fiscalPreviewUnavailableNonBe')
+                  : fiscalPreview.unavailableReason === 'non_positive_ebitda'
+                    ? t('fields.fiscalPreviewUnavailableEbitda')
+                    : fiscalPreview.unavailableReason === 'missing_ebitda'
+                      ? t('fields.fiscalPreviewUnavailableMissingEbitda')
+                      : fiscalPreview.unavailableReason === 'missing_book_equity'
+                        ? t('fields.fiscalPreviewUnavailableMissingEquity')
+                        : null}
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+              <PreviewMetricCard
+                label={t('fields.fiscalPreviewAnchor')}
+                value={
+                  fiscalPreview.fiscalAnchor != null
+                    ? fiscalCurrencyFormatter.format(fiscalPreview.fiscalAnchor)
+                    : '—'
+                }
+              />
+              <PreviewMetricCard
+                label={t('fields.fiscalPreviewBookEquity')}
+                value={
+                  fiscalPreview.bookEquityUsed != null
+                    ? fiscalCurrencyFormatter.format(fiscalPreview.bookEquityUsed)
+                    : '—'
+                }
+              />
+              <PreviewMetricCard
+                label={t('fields.fiscalPreviewOwnershipStake')}
+                value={
+                  fiscalPreview.ownershipMultiplierApplied != null
+                    ? t('fields.fiscalPreviewOwnershipStakeValue', {
+                        pct: Math.round(fiscalPreview.ownershipMultiplierApplied * 100),
+                      })
+                    : '—'
+                }
+                hint={t('fields.fiscalPreviewOwnershipStakeHint')}
+              />
+              <PreviewMetricCard
+                label={t('fields.fiscalPreviewImpliedEquity')}
+                value={
+                  fiscalPreview.impliedFiscalEquity != null
+                    ? fiscalCurrencyFormatter.format(fiscalPreview.impliedFiscalEquity)
+                    : '—'
+                }
+              />
             </div>
           </div>
         </motion.div>
@@ -4329,6 +4418,13 @@ export function AdaptiveSections({
             formData.rev_top_client_concentration_pct as number | undefined
           }
           revContractBacklog={formData.rev_contract_backlog as number | undefined}
+          revenue={
+            latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.revenue) : undefined
+          }
+          ebitda={
+            latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.ebitda) : undefined
+          }
+          effectiveMethods={methods}
           onFieldChange={onFieldChange}
           disabled={disabled}
         />
@@ -4349,5 +4445,11 @@ export function AdaptiveSections({
         />
       )}
     </AnimatePresence>
+    {process.env.NODE_ENV === 'development' && (
+      <Suspense fallback={null}>
+        <MethodPreviewAuditDevPanel />
+      </Suspense>
+    )}
+    </>
   )
 }

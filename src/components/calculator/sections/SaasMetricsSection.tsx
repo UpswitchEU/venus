@@ -1,11 +1,13 @@
 'use client'
 import { motion } from 'framer-motion'
 import { Zap } from 'lucide-react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
+import { PREVIEW_DECIMALS, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { computeSaasPreviewMetrics } from '@/lib/saas'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
+import { formatPreviewMetricValue, PreviewMetricCard } from './previewMetricCards'
 
 interface SaasMetricsSectionProps {
   saasArr?: number
@@ -29,25 +31,7 @@ interface SaasMetricsSectionProps {
     fiscal_year?: number
   } | null
 }
-function round(value: number): number {
-  return Math.round(value * 10) / 10
-}
-function formatMetricValue(
-  value: number | null,
-  formatter: Intl.NumberFormat,
-  suffix = ''
-): string {
-  if (value == null || !Number.isFinite(value)) return '—'
-  return `${formatter.format(round(value))}${suffix}`
-}
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-3 py-2.5">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
-    </div>
-  )
-}
+
 export function SaasMetricsSection({
   saasArr,
   saasMrr,
@@ -66,15 +50,7 @@ export function SaasMetricsSection({
   importedSaasProvenance,
 }: SaasMetricsSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
-  const locale = useLocale()
-  const metricFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
-        maximumFractionDigits: 1,
-        minimumFractionDigits: 0,
-      }),
-    [locale]
-  )
+  const { saasMetric: metricFormatter, currency: currencyFormatter } = useManualPreviewFormatters()
   const importedProviderLabel = importedSaasProvenance?.source
     ? importedSaasProvenance.source.charAt(0).toUpperCase() + importedSaasProvenance.source.slice(1)
     : null
@@ -92,16 +68,16 @@ export function SaasMetricsSection({
         saasSmSpend,
       }),
     [
-    saasArr,
-    saasArrGrowthPct,
-    saasCac,
-    saasChurnPct,
-    saasCustomerChurnPct,
-    saasGrossMarginPct,
-    saasMrr,
-    saasNrrPct,
-    saasSmSpend,
-  ],
+      saasArr,
+      saasArrGrowthPct,
+      saasCac,
+      saasChurnPct,
+      saasCustomerChurnPct,
+      saasGrossMarginPct,
+      saasMrr,
+      saasNrrPct,
+      saasSmSpend,
+    ],
   )
   return (
     <motion.section
@@ -214,25 +190,49 @@ export function SaasMetricsSection({
           <span className="text-[10px] text-foreground/45">{t('fields.saasAutoCalculated')}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.ruleOf40Score')}
-            value={formatMetricValue(derivedMetrics.ruleOf40, metricFormatter, '%')}
+            value={formatPreviewMetricValue(
+              derivedMetrics.ruleOf40,
+              metricFormatter,
+              PREVIEW_DECIMALS.saasMetric,
+              '%'
+            )}
           />
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.ltvCacRatio')}
-            value={formatMetricValue(derivedMetrics.ltvCac, metricFormatter, 'x')}
+            value={formatPreviewMetricValue(
+              derivedMetrics.ltvCac,
+              metricFormatter,
+              PREVIEW_DECIMALS.saasMetric,
+              'x'
+            )}
           />
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.cacPaybackMonths')}
-            value={formatMetricValue(derivedMetrics.cacPaybackMonths, metricFormatter)}
+            value={formatPreviewMetricValue(
+              derivedMetrics.cacPaybackMonths,
+              metricFormatter,
+              PREVIEW_DECIMALS.saasMetric
+            )}
           />
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.magicNumber')}
-            value={formatMetricValue(derivedMetrics.magicNumber, metricFormatter, 'x')}
+            value={formatPreviewMetricValue(
+              derivedMetrics.magicNumber,
+              metricFormatter,
+              PREVIEW_DECIMALS.saasMetric,
+              'x'
+            )}
           />
-          <MetricCard
+          <PreviewMetricCard
             label={t('fields.nrrExpansionSpread')}
-            value={formatMetricValue(derivedMetrics.nrrExpansionSpread, metricFormatter, ' pts')}
+            value={formatPreviewMetricValue(
+              derivedMetrics.nrrExpansionSpread,
+              metricFormatter,
+              PREVIEW_DECIMALS.saasMetric,
+              ' pts'
+            )}
           />
         </div>
       </div>
@@ -258,12 +258,7 @@ export function SaasMetricsSection({
                   {t('saasProjectionPreview.arr')}
                 </p>
                 <p className="text-sm font-medium text-foreground">
-                  {new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
-                    style: 'currency',
-                    currency: 'EUR',
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  }).format(row.arr)}
+                  {currencyFormatter.format(row.arr)}
                 </p>
               </div>
             ))}

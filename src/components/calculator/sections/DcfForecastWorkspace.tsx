@@ -2,8 +2,9 @@
 
 import { motion } from 'framer-motion'
 import { Plus, Table2 } from 'lucide-react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { useCallback, useMemo, useState } from 'react'
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { cn } from '@/design-system/utils'
 import { DcfFcffOnlyTable } from './DcfFcffOnlyTable'
@@ -82,7 +83,7 @@ export function DcfForecastWorkspace({
   derivedProjectionPreview,
 }: DcfForecastWorkspaceProps) {
   const t = useTranslations('manualInput')
-  const locale = useLocale()
+  const { currency } = useManualPreviewFormatters()
   const [tableOpen, setTableOpen] = useState(false)
 
   const sortedRows = useMemo(
@@ -144,16 +145,7 @@ export function DcfForecastWorkspace({
     derivedProjectionPreview,
   ])
 
-  const fmt = useCallback(
-    (value: number) =>
-      new Intl.NumberFormat(locale === 'en' ? 'en-BE' : 'nl-BE', {
-        style: 'currency',
-        currency: 'EUR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(value),
-    [locale]
-  )
+  const fmt = useCallback((value: number) => currency.format(value), [currency])
 
   const fmtPct = useCallback((value: number | null | undefined) => {
     if (value == null || !Number.isFinite(value)) return '—'

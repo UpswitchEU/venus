@@ -3,7 +3,9 @@
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
+import { computeNavAdjustmentsSum, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { CurrencyInput } from '../CurrencyInput'
+import { PreviewMetricCard } from './previewMetricCards'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 interface NavAssetScheduleSectionProps {
@@ -26,6 +28,7 @@ export function NavAssetScheduleSection({
   disabled,
 }: NavAssetScheduleSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
+  const { currency: currencyFormatter } = useManualPreviewFormatters()
 
   const sectionComplete = useMemo(
     () =>
@@ -36,6 +39,22 @@ export function NavAssetScheduleSection({
         navGoodwillWriteoff,
       ].some((v) => v != null && Number.isFinite(v)),
     [navRealEstateAdjustment, navInventoryAdjustment, navHiddenReserves, navGoodwillWriteoff]
+  )
+
+  const adjustmentSum = useMemo(
+    () =>
+      computeNavAdjustmentsSum({
+        navRealEstateAdjustment,
+        navInventoryAdjustment,
+        navHiddenReserves,
+        navGoodwillWriteoff,
+      }),
+    [
+      navRealEstateAdjustment,
+      navInventoryAdjustment,
+      navHiddenReserves,
+      navGoodwillWriteoff,
+    ]
   )
 
   return (
@@ -90,6 +109,21 @@ export function NavAssetScheduleSection({
           placeholder="0"
           disabled={disabled}
         />
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/55">
+            {t('sections.navDerivedMetrics')}
+          </h4>
+          <span className="text-[10px] text-foreground/45">{t('fields.navPreviewFootnote')}</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <PreviewMetricCard
+            label={t('fields.navAdjustmentsSum')}
+            value={currencyFormatter.format(adjustmentSum)}
+          />
+        </div>
       </div>
     </motion.section>
   )
