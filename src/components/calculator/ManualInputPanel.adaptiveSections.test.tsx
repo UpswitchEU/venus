@@ -316,6 +316,29 @@ describe('OfficialFilingTrustPanel', () => {
     expect(onExplanationChange).toHaveBeenLastCalledWith('Seasonal slowdown in Q4')
   })
 
+  it('renders nothing when enrichment failed and there is no filing content (no error panel)', () => {
+    const { container } = render(
+      <OfficialFilingTrustPanel
+        locale="nl"
+        formatCurrency={formatCurrency}
+        officialFinancials={{
+          sourceLabel: 'NBB filing via Staatsbladmonitor',
+          dataHealth: {
+            state: 'degraded',
+            message: 'Official Belgian financial enrichment failed in Titan.',
+          },
+        }}
+        officialVerificationBadge={{
+          state: 'unavailable',
+          label: 'Official filing unavailable',
+        }}
+        onExplanationChange={vi.fn()}
+      />
+    )
+
+    expect(container.firstChild).toBeNull()
+  })
+
   it('hides the explanation field when no variance explanation is required', () => {
     render(
       <OfficialFilingTrustPanel

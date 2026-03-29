@@ -6,6 +6,7 @@
 
 import { useEffect } from 'react'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
+import { hasUsableOfficialFinancialsContent } from '../utils/officialFinancialsContent'
 import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
 import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
 
@@ -17,8 +18,11 @@ export function useSyncOfficialVarianceFromForm(): void {
   const histYears = useManualFormStore((s) => s.formData.historical_years_data)
   const cyYear = useManualFormStore((s) => s.formData.current_year_data?.year)
   const officialFilingYear = useManualFormStore((s) => s.formData.official_financials?.filingYear)
-  const hasOfficial = useManualFormStore((s) => !!s.formData.official_financials)
+  const hasOfficial = useManualFormStore((s) =>
+    hasUsableOfficialFinancialsContent(s.formData.official_financials)
+  )
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run when user figures or year context change; Biome thinks only hasOfficial is needed but variance reads fresh store state for those inputs
   useEffect(() => {
     if (!hasOfficial) return
 

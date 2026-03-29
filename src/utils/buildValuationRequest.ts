@@ -21,6 +21,7 @@ import {
   normalizeHistoricalYearsForFiling,
 } from './fiscalYear'
 import { generalLogger } from './logger'
+import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import { deriveNwcChangesForActualYears } from './yearData'
 
 function toFiniteNumber(value: unknown): number | null {
@@ -602,15 +603,18 @@ export function buildValuationRequest(
     ...(fd.estimated_market_rent != null && {
       estimated_market_rent: Number(fd.estimated_market_rent),
     }),
-    ...((formData as any).official_financials && {
-      official_financials: (formData as any).official_financials,
-    }),
-    ...((formData as any).official_variance_analysis && {
-      official_variance_analysis: (formData as any).official_variance_analysis,
-    }),
-    ...((formData as any).official_verification_badge && {
-      official_verification_badge: (formData as any).official_verification_badge,
-    }),
+    ...(hasUsableOfficialFinancialsContent((formData as any).official_financials) &&
+      (formData as any).official_financials && {
+        official_financials: (formData as any).official_financials,
+      }),
+    ...(hasUsableOfficialFinancialsContent((formData as any).official_financials) &&
+      (formData as any).official_variance_analysis && {
+        official_variance_analysis: (formData as any).official_variance_analysis,
+      }),
+    ...(hasUsableOfficialFinancialsContent((formData as any).official_financials) &&
+      (formData as any).official_verification_badge && {
+        official_verification_badge: (formData as any).official_verification_badge,
+      }),
     ...(locale && { locale }),
   }
 

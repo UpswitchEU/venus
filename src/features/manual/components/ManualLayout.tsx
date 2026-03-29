@@ -67,6 +67,7 @@ import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
+import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { AuroraButton } from '../../../design-system/components/Button'
 import { springDefault } from '../../../design-system/components/motion'
 // Design System
@@ -78,13 +79,14 @@ import {
 // Venus infrastructure (auth, session, stores, services)
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
-import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
+import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { usePrefillRestorationCoordinator } from '../../../hooks/usePrefillRestorationCoordinator'
 import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMethodSessionSync'
-import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
+import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
+import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
 import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../../../lib/return-url'
 import { reportService, valuationService } from '../../../services'
@@ -114,10 +116,7 @@ import {
   useSpotlightStore,
 } from '../../../store/useSpotlightStore'
 import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
-import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
-import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
-import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
 import { useClientContext } from '../../../stores/clientContext'
 import {
   APIError,
@@ -143,12 +142,14 @@ import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
+import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
   persistNormalizationsBeforeCalculate,
   persistOrDeleteNormalizationsForYears,
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
+import { hasUsableOfficialFinancialsContent } from '../../../utils/officialFinancialsContent'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -559,14 +560,17 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     }),
     ...(data.rev_contract_backlog != null && { rev_contract_backlog: data.rev_contract_backlog }),
     ...(data.owner_salary_addback != null && { owner_salary_addback: data.owner_salary_addback }),
-    // Belgian official filing trust (optional; also merged via getState() after updateFormData)
-    ...(data.official_financials != null && { official_financials: data.official_financials }),
-    ...(data.official_variance_analysis != null && {
-      official_variance_analysis: data.official_variance_analysis,
-    }),
-    ...(data.official_verification_badge != null && {
-      official_verification_badge: data.official_verification_badge,
-    }),
+    // Belgian official filing trust — only when figures/links exist (matches buildValuationRequest)
+    ...(hasUsableOfficialFinancialsContent(data.official_financials) &&
+      data.official_financials && { official_financials: data.official_financials }),
+    ...(hasUsableOfficialFinancialsContent(data.official_financials) &&
+      data.official_variance_analysis != null && {
+        official_variance_analysis: data.official_variance_analysis,
+      }),
+    ...(hasUsableOfficialFinancialsContent(data.official_financials) &&
+      data.official_verification_badge != null && {
+        official_verification_badge: data.official_verification_badge,
+      }),
   }
 }
 
@@ -1849,8 +1853,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
     return versions.map((v) => {
       const method =
-        (v.formData as { selected_valuation_method?: string } | undefined)?.selected_valuation_method ??
-        selectedMethod
+        (v.formData as { selected_valuation_method?: string } | undefined)
+          ?.selected_valuation_method ?? selectedMethod
       const { priceRange, askPrice } = deriveNavPricesForVersionNav(v.valuationResult, method)
       return {
         id: v.id,
@@ -1865,8 +1869,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const navValuationSummary = React.useMemo(() => {
     if (!report) return undefined
-    const vr = result?.valuation_results as Record<string, { available: boolean; value?: number | string | null }> | undefined
-    const isMultiMethod = preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
+    const vr = result?.valuation_results as
+      | Record<string, { available: boolean; value?: number | string | null }>
+      | undefined
+    const isMultiMethod =
+      preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
 
     let liveBlended: number | null = null
     if (isMultiMethod && vr && Object.keys(userWeights).length > 0) {
@@ -1877,17 +1884,23 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         for (const [mk, mw] of Object.entries(userWeights)) {
           if (mw <= 0) continue
           const mr = vr[mk]
-          if (!mr?.available || mr.value == null) { ok = false; break }
+          if (!mr?.available || mr.value == null) {
+            ok = false
+            break
+          }
           sum += Number(mr.value) * (mw / 100)
         }
         if (ok && sum > 0) liveBlended = Math.round(sum)
       }
     }
 
-    const serverBlended = result?.weighted_valuation?.blended_equity_value != null
-      ? Number(result.weighted_valuation.blended_equity_value)
-      : null
-    const blended = liveBlended ?? (serverBlended != null && Number.isFinite(serverBlended) ? serverBlended : null)
+    const serverBlended =
+      result?.weighted_valuation?.blended_equity_value != null
+        ? Number(result.weighted_valuation.blended_equity_value)
+        : null
+    const blended =
+      liveBlended ??
+      (serverBlended != null && Number.isFinite(serverBlended) ? serverBlended : null)
     const primaryValue = blended ?? report.recommendedAskingPrice ?? report.valuation
     return {
       priceRange: {

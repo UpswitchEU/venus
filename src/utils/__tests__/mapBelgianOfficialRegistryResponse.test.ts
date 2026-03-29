@@ -8,6 +8,21 @@ describe('mapBelgianOfficialRegistryResponseToOfficialFinancials', () => {
     ).toBeUndefined()
   })
 
+  it('returns undefined for error (no silent failure UI)', () => {
+    expect(
+      mapBelgianOfficialRegistryResponseToOfficialFinancials({
+        status: 'error',
+        data_health: { message: 'Official Belgian financial enrichment failed in Titan.' },
+      })
+    ).toBeUndefined()
+  })
+
+  it('returns undefined for unknown status', () => {
+    expect(
+      mapBelgianOfficialRegistryResponseToOfficialFinancials({ status: 'unknown' })
+    ).toBeUndefined()
+  })
+
   it('maps ok payload with official_financials snake_case', () => {
     const mapped = mapBelgianOfficialRegistryResponseToOfficialFinancials({
       status: 'ok',

@@ -27,11 +27,6 @@ import {
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import {
-  computeFiscal4xPreview,
-  resolveBookEquityFromYearRow,
-  useManualPreviewFormatters,
-} from '@/lib/omniPreview'
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BizzcontrolImportModal } from '@/components/integrations/BizzcontrolImportModal'
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
@@ -66,6 +61,11 @@ import {
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import { getOfficialRegistryLabels } from '@/lib/i18n/officialRegistryLabels'
+import {
+  computeFiscal4xPreview,
+  resolveBookEquityFromYearRow,
+  useManualPreviewFormatters,
+} from '@/lib/omniPreview'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
 
 const MethodPreviewAuditDevPanel = lazy(() =>
@@ -73,15 +73,7 @@ const MethodPreviewAuditDevPanel = lazy(() =>
     default: m.MethodPreviewAuditDevPanel,
   }))
 )
-import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
-import {
-  countNormalizationsBoundToFiscalYear,
-  removeNormalizationsForRemovedFiscalYear,
-} from '../../utils/normalizationMath'
-import { mergeImportedLedgerAnalysisIntoBusinessContext } from '../../utils/mergeImportedLedgerAnalysisIntoBusinessContext'
-import { getAnnualFictiveRentDeductionForDisplay } from '../../utils/realEstateCarveOutDisplay'
-import { mergeOptionalSessionPrefillFields } from '../../utils/mergeOptionalSessionPrefillFields'
-import { shouldSuppressMercurySessionPrefill } from '../../utils/prefillRestorationGate'
+
 import {
   type GetBonusSectionsSaasSignals,
   getBonusSections,
@@ -109,8 +101,8 @@ import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-import { useSessionStore } from '../../store/useSessionStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
+import { useSessionStore } from '../../store/useSessionStore'
 import { useSpotlightStore } from '../../store/useSpotlightStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type {
@@ -145,15 +137,24 @@ import {
 } from '../../utils/getMercuryUrl'
 import { mapLegalFormToBusinessStructure } from '../../utils/legalFormMapping'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
+import { mergeImportedLedgerAnalysisIntoBusinessContext } from '../../utils/mergeImportedLedgerAnalysisIntoBusinessContext'
+import { mergeOptionalSessionPrefillFields } from '../../utils/mergeOptionalSessionPrefillFields'
+import {
+  countNormalizationsBoundToFiscalYear,
+  removeNormalizationsForRemovedFiscalYear,
+} from '../../utils/normalizationMath'
+import { hasUsableOfficialFinancialsContent } from '../../utils/officialFinancialsContent'
+import { shouldSuppressMercurySessionPrefill } from '../../utils/prefillRestorationGate'
+import { getAnnualFictiveRentDeductionForDisplay } from '../../utils/realEstateCarveOutDisplay'
+import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
 import {} from '../../utils/shareholding'
 import { buildCurrentYearData } from '../../utils/yearData'
 import {
   getHistoricalYearRange,
   getLatestCompleteYearlyFinancial,
-  historicalYearRowNeedsRemovalWarning,
   hasExplicitNumericValue as hasExplicitFinancialValue,
+  historicalYearRowNeedsRemovalWarning,
 } from '../../utils/yearlyFinancials'
-import { PreviewMetricCard } from './sections/previewMetricCards'
 import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import { GuidedResolutionOrphanFields } from './GuidedResolutionOrphanFields'
@@ -168,9 +169,9 @@ import {
   RevenueQualitySection,
   SaasMetricsSection,
   SdeOwnerCompensationSection,
-  SynthesisWeightingSection,
   SECTION_HEADER_ROW_CLASS,
   SectionStatusCircle,
+  SynthesisWeightingSection,
 } from './sections'
 import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
 import {
@@ -194,6 +195,7 @@ import {
   deriveDcfProjectionPreview,
 } from './sections/dcfProjectionPreview'
 import { deriveDcfSmartDefaults } from './sections/dcfSmartDefaults'
+import { PreviewMetricCard } from './sections/previewMetricCards'
 import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
 
 // Types
@@ -422,7 +424,8 @@ export function OfficialFilingTrustPanel({
 }: OfficialFilingTrustPanelProps) {
   const isEnglish = locale === 'en'
   const nbbLabels = getOfficialRegistryLabels(locale)
-  const hasOfficialData = Boolean(
+  const hasUsableFilingContent = hasUsableOfficialFinancialsContent(officialFinancials)
+  const hasOfficialFigures = Boolean(
     officialFinancials &&
       (officialFinancials.filingYear != null ||
         officialFinancials.revenue != null ||
@@ -432,12 +435,8 @@ export function OfficialFilingTrustPanel({
   )
   const dataHealthMessage = officialFinancials?.dataHealth?.message
 
-  if (
-    !hasOfficialData &&
-    !dataHealthMessage &&
-    !officialVerificationBadge &&
-    !isLoadingOfficialFiling
-  ) {
+  // Never show an empty/error-only NBB block: only loading, real figures, or source links.
+  if (!isLoadingOfficialFiling && !hasUsableFilingContent) {
     return null
   }
 
@@ -469,7 +468,7 @@ export function OfficialFilingTrustPanel({
 
   return (
     <div className="ml-8 rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
-      {isLoadingOfficialFiling && !hasOfficialData && (
+      {isLoadingOfficialFiling && !hasUsableFilingContent && (
         <div className="mb-3 flex items-center gap-2 text-xs text-foreground/65">
           <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
           <span>
@@ -502,7 +501,7 @@ export function OfficialFilingTrustPanel({
         )}
       </div>
 
-      {hasOfficialData && (
+      {hasOfficialFigures && (
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-foreground/80">
           {officialFinancials?.revenue != null && (
             <span>
@@ -557,7 +556,9 @@ export function OfficialFilingTrustPanel({
         </div>
       )}
 
-      {dataHealthMessage && <p className="mt-3 text-xs text-foreground/55">{dataHealthMessage}</p>}
+      {dataHealthMessage && officialVerificationBadge?.state !== 'unavailable' && (
+        <p className="mt-3 text-xs text-foreground/55">{dataHealthMessage}</p>
+      )}
 
       {officialVarianceAnalysis?.explanationRequired && (
         <div className="mt-4 space-y-2">
@@ -772,8 +773,7 @@ export function ManualInputPanel({
   )
   const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
   const formatCurrency = useCallback(
-    (amount: number) =>
-      panelCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0),
+    (amount: number) => panelCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0),
     [panelCurrencyFormatter]
   )
   const [formData, setFormData] = useState<ValuationFormData>({
@@ -917,12 +917,13 @@ export function ManualInputPanel({
 
       updateFormData({
         official_variance_analysis: nextVariance,
-        ...(officialFinancials && {
-          official_financials: {
-            ...officialFinancials,
-            varianceAnalysis: nextVariance,
-          },
-        }),
+        ...(officialFinancials &&
+          hasUsableOfficialFinancialsContent(officialFinancials) && {
+            official_financials: {
+              ...officialFinancials,
+              varianceAnalysis: nextVariance,
+            },
+          }),
       })
     },
     [officialFinancials, officialVarianceAnalysis, updateFormData]
@@ -1257,7 +1258,9 @@ export function ManualInputPanel({
   // Section collapse states
   const [showCSVUpload, setShowCSVUpload] = useState(false)
   const [showForecastRemovalConfirm, setShowForecastRemovalConfirm] = useState(false)
-  const [historicalYearPendingRemove, setHistoricalYearPendingRemove] = useState<string | null>(null)
+  const [historicalYearPendingRemove, setHistoricalYearPendingRemove] = useState<string | null>(
+    null
+  )
 
   const commitRemoveHistoricalYear = useCallback((yearStr: string) => {
     const y = Number.parseInt(yearStr, 10)
@@ -1752,7 +1755,11 @@ export function ManualInputPanel({
           prev.business_context && typeof prev.business_context === 'object'
             ? (prev.business_context as Record<string, unknown>)
             : undefined
-        const mergedContext = mergeImportedLedgerAnalysisIntoBusinessContext(prevBc, batch, provider)
+        const mergedContext = mergeImportedLedgerAnalysisIntoBusinessContext(
+          prevBc,
+          batch,
+          provider
+        )
 
         return {
           ...prev,
@@ -2136,8 +2143,7 @@ export function ManualInputPanel({
   /** Forecast-defaults badge: history/sector model vs accounting import (Titan — same defaults as Mercury bulk). */
   const dcfDefaultsProvenance = useMemo((): 'none' | 'integration' | 'history' | 'both' => {
     const hasSmart = dcfSmartDefaultsFromHistory != null
-    const hasImport =
-      integrationDerivedCapexPct != null || integrationDerivedDaPct != null
+    const hasImport = integrationDerivedCapexPct != null || integrationDerivedDaPct != null
     if (hasImport && hasSmart) return 'both'
     if (hasImport) return 'integration'
     if (hasSmart) return 'history'
@@ -2174,19 +2180,20 @@ export function ManualInputPanel({
   const hasDcfForecastWorkspace = hasDcfSelected && dcfForecastRows.length > 0
 
   const adaptiveHeaderSteps = useMemo(() => {
-    const bonus = effectiveMethods.length > 1
-      ? getBonusSectionsForMethods(
-          effectiveMethods,
-          resolvedBusinessCategoryForBonusSections,
-          resolvedBusinessTypeIdForBonusSections,
-          saasSignalsForBonusSections
-        )
-      : getBonusSections(
-          effectiveMethod,
-          resolvedBusinessCategoryForBonusSections,
-          resolvedBusinessTypeIdForBonusSections,
-          saasSignalsForBonusSections
-        )
+    const bonus =
+      effectiveMethods.length > 1
+        ? getBonusSectionsForMethods(
+            effectiveMethods,
+            resolvedBusinessCategoryForBonusSections,
+            resolvedBusinessTypeIdForBonusSections,
+            saasSignalsForBonusSections
+          )
+        : getBonusSections(
+            effectiveMethod,
+            resolvedBusinessCategoryForBonusSections,
+            resolvedBusinessTypeIdForBonusSections,
+            saasSignalsForBonusSections
+          )
     /** With DCF forecast: steps 4–6 = embedded defaults / forecast / WACC+TV; bonus sections start at 8. */
     let n = hasDcfForecastWorkspace ? 8 : 4
     const out: {
@@ -2621,16 +2628,20 @@ export function ManualInputPanel({
       return
     }
     const trust = useManualFormStore.getState().formData
+    const trustOfficialUsable = hasUsableOfficialFinancialsContent(trust.official_financials)
     onSubmit({
       ...formData,
       averageNormalizedEbitda: normalizedData.averageNormalizedEbitda,
-      ...(trust.official_financials != null && { official_financials: trust.official_financials }),
-      ...(trust.official_variance_analysis != null && {
-        official_variance_analysis: trust.official_variance_analysis,
-      }),
-      ...(trust.official_verification_badge != null && {
-        official_verification_badge: trust.official_verification_badge,
-      }),
+      ...(trustOfficialUsable &&
+        trust.official_financials && { official_financials: trust.official_financials }),
+      ...(trustOfficialUsable &&
+        trust.official_variance_analysis != null && {
+          official_variance_analysis: trust.official_variance_analysis,
+        }),
+      ...(trustOfficialUsable &&
+        trust.official_verification_badge != null && {
+          official_verification_badge: trust.official_verification_badge,
+        }),
     })
   }
 
@@ -3457,7 +3468,9 @@ export function ManualInputPanel({
                               {normalizedData.annualFictiveRentDeduction > 0 && (
                                 <p className="mt-2 text-[11px] leading-snug text-foreground/45">
                                   {mi('fictiveRentNormalizedFootnote', {
-                                    amount: formatCurrency(normalizedData.annualFictiveRentDeduction),
+                                    amount: formatCurrency(
+                                      normalizedData.annualFictiveRentDeduction
+                                    ),
                                   })}
                                 </p>
                               )}
@@ -3482,14 +3495,16 @@ export function ManualInputPanel({
                                 className={cn(
                                   'px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                                   normalizedData.years.some(
-                                    (y) => y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
+                                    (y) =>
+                                      y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
                                   )
                                     ? 'bg-background border border-foreground/10 text-foreground hover:bg-foreground/[0.02]'
                                     : 'bg-primary text-primary-foreground hover:bg-primary/90'
                                 )}
                               >
                                 {normalizedData.years.some(
-                                  (y) => y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
+                                  (y) =>
+                                    y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
                                 )
                                   ? mi('adjust')
                                   : mi('normalize')}
@@ -3597,7 +3612,9 @@ export function ManualInputPanel({
                                 canRemoveHistoricalYear(formData.yearlyFinancials) && (
                                   <button
                                     type="button"
-                                    onClick={() => requestRemoveHistoricalYear(String(yearData.year))}
+                                    onClick={() =>
+                                      requestRemoveHistoricalYear(String(yearData.year))
+                                    }
                                     className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-foreground/10 text-foreground/50 transition-colors hover:border-destructive/30 hover:bg-destructive/[0.06] hover:text-destructive"
                                     aria-label={mi('removeHistoricalYearAria', {
                                       year: String(yearData.year),
@@ -3894,7 +3911,6 @@ export function ManualInputPanel({
                         disabled={isCalculating}
                       />
                     )}
-
                 </div>
               </motion.section>
             )}
@@ -3911,9 +3927,7 @@ export function ManualInputPanel({
                     setFormData((prev) => ({
                       ...prev,
                       exclude_real_estate: checked,
-                      real_estate_book_value: checked
-                        ? prev.real_estate_book_value
-                        : undefined,
+                      real_estate_book_value: checked ? prev.real_estate_book_value : undefined,
                       estimated_market_rent: checked ? prev.estimated_market_rent : undefined,
                     }))
                   }}
@@ -4063,7 +4077,9 @@ export function ManualInputPanel({
             </ModalTitle>
             <ModalDescription>
               {historicalYearPendingRemove !== null
-                ? mi('removeHistoricalYearConfirmDescription', { year: historicalYearPendingRemove })
+                ? mi('removeHistoricalYearConfirmDescription', {
+                    year: historicalYearPendingRemove,
+                  })
                 : ''}
             </ModalDescription>
           </ModalHeader>
@@ -4184,9 +4200,10 @@ export function AdaptiveSections({
 }) {
   const t = useTranslations('manualInput.methodSelector')
   const methods = effectiveMethods ?? [effectiveMethod]
-  const sections = methods.length > 1
-    ? getBonusSectionsForMethods(methods, businessCategory, businessTypeId, saasSignals)
-    : getBonusSections(effectiveMethod, businessCategory, businessTypeId, saasSignals)
+  const sections =
+    methods.length > 1
+      ? getBonusSectionsForMethods(methods, businessCategory, businessTypeId, saasSignals)
+      : getBonusSections(effectiveMethod, businessCategory, businessTypeId, saasSignals)
   const latestCompleteYearlyFinancial = useMemo(
     () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials ?? []),
     [formData.yearlyFinancials]
@@ -4263,243 +4280,257 @@ export function AdaptiveSections({
 
   return (
     <>
-    <AnimatePresence mode="sync">
-      {showRevenueNotice && (
-        <motion.div
-          key="omzet_multiple_notice"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3"
-        >
-          <div className="flex items-start gap-2">
-            <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">{t('revenueDriverTitle')}</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {t('revenueDriverText')}
-              </p>
+      <AnimatePresence mode="sync">
+        {showRevenueNotice && (
+          <motion.div
+            key="omzet_multiple_notice"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3"
+          >
+            <div className="flex items-start gap-2">
+              <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">{t('revenueDriverTitle')}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {t('revenueDriverText')}
+                </p>
+              </div>
             </div>
-          </div>
-        </motion.div>
-      )}
-      {showFiscalNotice && (
-        <motion.div
-          key="fiscal_4x_notice"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3 space-y-3"
-        >
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">{t('fiscalDisclaimerTitle')}</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {t('fiscalDisclaimerText')}
-              </p>
+          </motion.div>
+        )}
+        {showFiscalNotice && (
+          <motion.div
+            key="fiscal_4x_notice"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3 space-y-3"
+          >
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">{t('fiscalDisclaimerTitle')}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {t('fiscalDisclaimerText')}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="space-y-2 border-t border-amber-500/15 pt-3">
-            <div className="flex items-center justify-between gap-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/70">
-                {t('sections.fiscalDerivedMetrics')}
-              </h4>
-              <span className="text-[10px] text-foreground/45">{t('fields.fiscalPreviewFootnote')}</span>
+            <div className="space-y-2 border-t border-amber-500/15 pt-3">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/70">
+                  {t('sections.fiscalDerivedMetrics')}
+                </h4>
+                <span className="text-[10px] text-foreground/45">
+                  {t('fields.fiscalPreviewFootnote')}
+                </span>
+              </div>
+              {!fiscalPreview.available && fiscalPreview.unavailableReason && (
+                <p className="text-[11px] leading-snug text-foreground/55">
+                  {fiscalPreview.unavailableReason === 'non_be'
+                    ? t('fields.fiscalPreviewUnavailableNonBe')
+                    : fiscalPreview.unavailableReason === 'non_positive_ebitda'
+                      ? t('fields.fiscalPreviewUnavailableEbitda')
+                      : fiscalPreview.unavailableReason === 'missing_ebitda'
+                        ? t('fields.fiscalPreviewUnavailableMissingEbitda')
+                        : fiscalPreview.unavailableReason === 'missing_book_equity'
+                          ? t('fields.fiscalPreviewUnavailableMissingEquity')
+                          : null}
+                </p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                <PreviewMetricCard
+                  label={t('fields.fiscalPreviewAnchor')}
+                  value={
+                    fiscalPreview.fiscalAnchor != null
+                      ? previewCurrencyFormatter.format(fiscalPreview.fiscalAnchor)
+                      : '—'
+                  }
+                />
+                <PreviewMetricCard
+                  label={t('fields.fiscalPreviewBookEquity')}
+                  value={
+                    fiscalPreview.bookEquityUsed != null
+                      ? previewCurrencyFormatter.format(fiscalPreview.bookEquityUsed)
+                      : '—'
+                  }
+                />
+                <PreviewMetricCard
+                  label={t('fields.fiscalPreviewOwnershipStake')}
+                  value={
+                    fiscalPreview.ownershipMultiplierApplied != null
+                      ? t('fields.fiscalPreviewOwnershipStakeValue', {
+                          pct: Math.round(fiscalPreview.ownershipMultiplierApplied * 100),
+                        })
+                      : '—'
+                  }
+                  hint={t('fields.fiscalPreviewOwnershipStakeHint')}
+                />
+                <PreviewMetricCard
+                  label={t('fields.fiscalPreviewImpliedEquity')}
+                  value={
+                    fiscalPreview.impliedFiscalEquity != null
+                      ? previewCurrencyFormatter.format(fiscalPreview.impliedFiscalEquity)
+                      : '—'
+                  }
+                />
+              </div>
             </div>
-            {!fiscalPreview.available && fiscalPreview.unavailableReason && (
-              <p className="text-[11px] leading-snug text-foreground/55">
-                {fiscalPreview.unavailableReason === 'non_be'
-                  ? t('fields.fiscalPreviewUnavailableNonBe')
-                  : fiscalPreview.unavailableReason === 'non_positive_ebitda'
-                    ? t('fields.fiscalPreviewUnavailableEbitda')
-                    : fiscalPreview.unavailableReason === 'missing_ebitda'
-                      ? t('fields.fiscalPreviewUnavailableMissingEbitda')
-                      : fiscalPreview.unavailableReason === 'missing_book_equity'
-                        ? t('fields.fiscalPreviewUnavailableMissingEquity')
-                        : null}
-              </p>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-              <PreviewMetricCard
-                label={t('fields.fiscalPreviewAnchor')}
-                value={
-                  fiscalPreview.fiscalAnchor != null
-                    ? previewCurrencyFormatter.format(fiscalPreview.fiscalAnchor)
-                    : '—'
-                }
-              />
-              <PreviewMetricCard
-                label={t('fields.fiscalPreviewBookEquity')}
-                value={
-                  fiscalPreview.bookEquityUsed != null
-                    ? previewCurrencyFormatter.format(fiscalPreview.bookEquityUsed)
-                    : '—'
-                }
-              />
-              <PreviewMetricCard
-                label={t('fields.fiscalPreviewOwnershipStake')}
-                value={
-                  fiscalPreview.ownershipMultiplierApplied != null
-                    ? t('fields.fiscalPreviewOwnershipStakeValue', {
-                        pct: Math.round(fiscalPreview.ownershipMultiplierApplied * 100),
-                      })
-                    : '—'
-                }
-                hint={t('fields.fiscalPreviewOwnershipStakeHint')}
-              />
-              <PreviewMetricCard
-                label={t('fields.fiscalPreviewImpliedEquity')}
-                value={
-                  fiscalPreview.impliedFiscalEquity != null
-                    ? previewCurrencyFormatter.format(fiscalPreview.impliedFiscalEquity)
-                    : '—'
-                }
-              />
-            </div>
-          </div>
-        </motion.div>
-      )}
-      {sections.includes('dcf_projections') &&
-        !suppressDcfGlobalAssumptions &&
-        terminalValueMethod &&
-        onTerminalValueMethodChange &&
-        sectionHeaderSteps.dcfGlobal != null && (
-          <DcfGlobalAssumptions
-            key="dcf_global_assumptions"
-            className={showRevenueNotice || showFiscalNotice ? 'mt-6' : undefined}
-            step={sectionHeaderSteps.dcfGlobal}
-            dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
-            dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-            dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-            dcfDaPct={formData.dcf_da_pct as number | undefined}
-            dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-            dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-            dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-            dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
-            dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-            dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-            dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
-            dcfBeta={formData.dcf_beta as number | undefined}
-            dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-            dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-            dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
-            terminalValueMethod={terminalValueMethod}
-            onTerminalValueMethodChange={onTerminalValueMethodChange}
+          </motion.div>
+        )}
+        {sections.includes('dcf_projections') &&
+          !suppressDcfGlobalAssumptions &&
+          terminalValueMethod &&
+          onTerminalValueMethodChange &&
+          sectionHeaderSteps.dcfGlobal != null && (
+            <DcfGlobalAssumptions
+              key="dcf_global_assumptions"
+              className={showRevenueNotice || showFiscalNotice ? 'mt-6' : undefined}
+              step={sectionHeaderSteps.dcfGlobal}
+              dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
+              dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
+              dcfCapexPct={formData.dcf_capex_pct as number | undefined}
+              dcfDaPct={formData.dcf_da_pct as number | undefined}
+              dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
+              dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
+              dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
+              dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
+              dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
+              dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
+              dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
+              dcfBeta={formData.dcf_beta as number | undefined}
+              dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
+              dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
+              dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
+              terminalValueMethod={terminalValueMethod}
+              onTerminalValueMethodChange={onTerminalValueMethodChange}
+              onFieldChange={onFieldChange}
+              onApplyToForecastYears={onApplyDcfPercentAutofill}
+              canApplyToForecastYears={!!canApplyDcfPercentAutofill}
+              forecastYearCount={countForecastYears(formData.yearlyFinancials ?? [])}
+              dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
+              disabled={disabled}
+            />
+          )}
+        {sections.includes('nav_asset_schedule') && sectionHeaderSteps.nav != null && (
+          <NavAssetScheduleSection
+            key="nav_asset_schedule"
+            step={sectionHeaderSteps.nav}
+            navRealEstateAdjustment={formData.nav_real_estate_adjustment as number | undefined}
+            navInventoryAdjustment={formData.nav_inventory_adjustment as number | undefined}
+            navHiddenReserves={formData.nav_hidden_reserves as number | undefined}
+            navGoodwillWriteoff={formData.nav_goodwill_writeoff as number | undefined}
             onFieldChange={onFieldChange}
-            onApplyToForecastYears={onApplyDcfPercentAutofill}
-            canApplyToForecastYears={!!canApplyDcfPercentAutofill}
-            forecastYearCount={countForecastYears(formData.yearlyFinancials ?? [])}
-            dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
             disabled={disabled}
           />
         )}
-      {sections.includes('nav_asset_schedule') && sectionHeaderSteps.nav != null && (
-        <NavAssetScheduleSection
-          key="nav_asset_schedule"
-          step={sectionHeaderSteps.nav}
-          navRealEstateAdjustment={formData.nav_real_estate_adjustment as number | undefined}
-          navInventoryAdjustment={formData.nav_inventory_adjustment as number | undefined}
-          navHiddenReserves={formData.nav_hidden_reserves as number | undefined}
-          navGoodwillWriteoff={formData.nav_goodwill_writeoff as number | undefined}
-          onFieldChange={onFieldChange}
-          disabled={disabled}
-        />
-      )}
-      {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
-        <Accordion
-          key="saas_metrics"
-          type="single"
-          defaultValue="saas_metrics"
-          collapsible
-          variant="separated"
-          className="mt-6 pt-0"
-        >
-          <AccordionItem value="saas_metrics">
-            <AccordionTrigger size="sm" className="gap-2 !py-3">
-              <span className={cn(SECTION_HEADER_ROW_CLASS, 'min-w-0 flex-1 flex-wrap text-left')}>
-                <SectionStatusCircle
-                  step={sectionHeaderSteps.saas}
-                  complete={saasSectionComplete}
-                  className="flex"
+        {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
+          <Accordion
+            key="saas_metrics"
+            type="single"
+            defaultValue="saas_metrics"
+            collapsible
+            variant="separated"
+            className="mt-6 pt-0"
+          >
+            <AccordionItem value="saas_metrics">
+              <AccordionTrigger size="sm" className="gap-2 !py-3">
+                <span
+                  className={cn(SECTION_HEADER_ROW_CLASS, 'min-w-0 flex-1 flex-wrap text-left')}
+                >
+                  <SectionStatusCircle
+                    step={sectionHeaderSteps.saas}
+                    complete={saasSectionComplete}
+                    className="flex"
+                  />
+                  <span className="text-sm font-medium text-foreground">
+                    {t('sections.saasMetrics')}
+                  </span>
+                  <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
+                    {t('shownForBusinessType', {
+                      businessType: t('businessTypes.saasSoftware'),
+                    })}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                <SaasMetricsSection
+                  saasArr={formData.saas_arr as number | undefined}
+                  saasMrr={formData.saas_mrr as number | undefined}
+                  saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
+                  saasChurnPct={formData.saas_churn_pct as number | undefined}
+                  saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
+                  saasNrrPct={formData.saas_nrr_pct as number | undefined}
+                  saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
+                  saasCac={formData.saas_cac as number | undefined}
+                  saasCustomerConcentrationPct={
+                    formData.saas_customer_concentration_pct as number | undefined
+                  }
+                  saasExpansionRevenuePct={
+                    formData.saas_expansion_revenue_pct as number | undefined
+                  }
+                  saasSmSpend={formData.saas_sm_spend as number | undefined}
+                  onFieldChange={onFieldChange}
+                  disabled={disabled}
+                  arrProjectionPreview={saasArrProjectionPreview}
+                  importedSaasProvenance={importedSaasProvenance}
                 />
-                <span className="text-sm font-medium text-foreground">
-                  {t('sections.saasMetrics')}
-                </span>
-                <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
-                  {t('shownForBusinessType', {
-                    businessType: t('businessTypes.saasSoftware'),
-                  })}
-                </span>
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="pt-2">
-              <SaasMetricsSection
-                saasArr={formData.saas_arr as number | undefined}
-                saasMrr={formData.saas_mrr as number | undefined}
-                saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
-                saasChurnPct={formData.saas_churn_pct as number | undefined}
-                saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
-                saasNrrPct={formData.saas_nrr_pct as number | undefined}
-                saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
-                saasCac={formData.saas_cac as number | undefined}
-                saasCustomerConcentrationPct={
-                  formData.saas_customer_concentration_pct as number | undefined
-                }
-                saasExpansionRevenuePct={formData.saas_expansion_revenue_pct as number | undefined}
-                saasSmSpend={formData.saas_sm_spend as number | undefined}
-                onFieldChange={onFieldChange}
-                disabled={disabled}
-                arrProjectionPreview={saasArrProjectionPreview}
-                importedSaasProvenance={importedSaasProvenance}
-              />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
+        {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (
+          <RevenueQualitySection
+            key="revenue_quality"
+            step={sectionHeaderSteps.revenue}
+            revRecurringPct={formData.rev_recurring_pct as number | undefined}
+            revTopClientConcentrationPct={
+              formData.rev_top_client_concentration_pct as number | undefined
+            }
+            revContractBacklog={formData.rev_contract_backlog as number | undefined}
+            revenue={
+              latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.revenue)
+                : undefined
+            }
+            ebitda={
+              latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.ebitda)
+                : undefined
+            }
+            effectiveMethods={methods}
+            onFieldChange={onFieldChange}
+            disabled={disabled}
+          />
+        )}
+        {sections.includes('sde_owner_compensation') && sectionHeaderSteps.sde != null && (
+          <SdeOwnerCompensationSection
+            key="sde_owner_compensation"
+            step={sectionHeaderSteps.sde}
+            ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
+            revenue={
+              latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.revenue)
+                : undefined
+            }
+            ebitda={
+              latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.ebitda)
+                : undefined
+            }
+            onFieldChange={onFieldChange}
+            disabled={disabled}
+          />
+        )}
+      </AnimatePresence>
+      {process.env.NODE_ENV === 'development' && (
+        <Suspense fallback={null}>
+          <MethodPreviewAuditDevPanel />
+        </Suspense>
       )}
-      {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (
-        <RevenueQualitySection
-          key="revenue_quality"
-          step={sectionHeaderSteps.revenue}
-          revRecurringPct={formData.rev_recurring_pct as number | undefined}
-          revTopClientConcentrationPct={
-            formData.rev_top_client_concentration_pct as number | undefined
-          }
-          revContractBacklog={formData.rev_contract_backlog as number | undefined}
-          revenue={
-            latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.revenue) : undefined
-          }
-          ebitda={
-            latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.ebitda) : undefined
-          }
-          effectiveMethods={methods}
-          onFieldChange={onFieldChange}
-          disabled={disabled}
-        />
-      )}
-      {sections.includes('sde_owner_compensation') && sectionHeaderSteps.sde != null && (
-        <SdeOwnerCompensationSection
-          key="sde_owner_compensation"
-          step={sectionHeaderSteps.sde}
-          ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
-          revenue={
-            latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.revenue) : undefined
-          }
-          ebitda={
-            latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.ebitda) : undefined
-          }
-          onFieldChange={onFieldChange}
-          disabled={disabled}
-        />
-      )}
-    </AnimatePresence>
-    {process.env.NODE_ENV === 'development' && (
-      <Suspense fallback={null}>
-        <MethodPreviewAuditDevPanel />
-      </Suspense>
-    )}
     </>
   )
 }

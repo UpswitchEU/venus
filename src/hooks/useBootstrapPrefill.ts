@@ -21,6 +21,7 @@ import type {
 } from '../lib/bootstrap/types'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { useNormalizationStore } from '../store/useNormalizationStore'
+import { useSessionStore } from '../store/useSessionStore'
 import { useSpotlightStore } from '../store/useSpotlightStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
@@ -33,10 +34,10 @@ import { buildNormalizationItemsFromImportedLedgerAnalysis } from '../utils/impo
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../utils/importedLedgerTaxLatencies'
 import { createContextLogger } from '../utils/logger'
 import { mapBelgianOfficialRegistryResponseToOfficialFinancials } from '../utils/mapBelgianOfficialRegistryResponse'
+import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
+import { hasUsableOfficialFinancialsContent } from '../utils/officialFinancialsContent'
 import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
 import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
-import { useSessionStore } from '../store/useSessionStore'
-import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
 
 const logger = createContextLogger('BootstrapPrefill')
 
@@ -293,6 +294,10 @@ export function useBootstrapPrefill(): {
           const fdBefore = formStore.getState().formData
           let mapped = mapBelgianOfficialRegistryResponseToOfficialFinancials(data.result)
           const { updateFormData } = formStore.getState()
+          if (mapped && !hasUsableOfficialFinancialsContent(mapped)) {
+            clearOfficialJob('completed_no_usable_filing_content')
+            return
+          }
           if (mapped) {
             const { revenue: userRevenue, ebitda: userEbitda } = resolveTrustComparisonUserFigures(
               fdBefore,
@@ -651,7 +656,7 @@ function applyPrefillToForm(
     }
   }
 
-  if (officialFinancials) {
+  if (officialFinancials && hasUsableOfficialFinancialsContent(officialFinancials)) {
     allData.official_financials = officialFinancials
     if (officialFinancials.varianceAnalysis) {
       allData.official_variance_analysis = officialFinancials.varianceAnalysis
@@ -707,7 +712,9 @@ function applyPrefillToForm(
 
   // Same gap-fill as useSessionDataPrefill: Mercury/session may carry DCF, NAV, SaaS, multiples prep
   // that PrefillResolver does not lift into structured PrefillData — merge from raw sessionData.
-  const sessionRaw = useSessionStore.getState().session?.sessionData as Record<string, unknown> | undefined
+  const sessionRaw = useSessionStore.getState().session?.sessionData as
+    | Record<string, unknown>
+    | undefined
   if (sessionRaw && typeof sessionRaw === 'object') {
     const bi = (sessionRaw as { _businessInfo?: Record<string, unknown> })._businessInfo || {}
     const mergedSession = { ...bi, ...sessionRaw }

@@ -25,6 +25,12 @@ export function mapBelgianOfficialRegistryResponseToOfficialFinancials(
   if (!response || response.status === 'invalid_input') {
     return undefined
   }
+  if (response.status === 'error') {
+    return undefined
+  }
+  if (response.status !== 'ok' && response.status !== 'partial') {
+    return undefined
+  }
 
   const official = (response.official_financials as Record<string, unknown>) || {}
 
