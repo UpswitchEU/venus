@@ -272,8 +272,15 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
         set({ messages: [], conversationId: null })
       }
 
+      // Mark the target report so we can detect stale responses after await
+      set({ lastLoadedReportId: reportId })
+
       try {
         const { conversationId, messages } = await aiChatService.loadHistory(reportId)
+
+        // Guard: if the user switched reports while the request was in-flight,
+        // discard this stale response to avoid overwriting the newer report's data.
+        if (get().lastLoadedReportId !== reportId) return
 
         if (conversationId) {
           const convertedMessages: Message[] = messages
@@ -301,6 +308,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
           set({ historyLoaded: true, lastLoadedReportId: reportId })
         }
       } catch (error) {
+        if (get().lastLoadedReportId !== reportId) return
         storeLogger.warn('Failed to load conversation history', {
           error: error instanceof Error ? error.message : String(error),
         })
