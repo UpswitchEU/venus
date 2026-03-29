@@ -31,7 +31,8 @@ export const methodSelectorSectionInfoButtonClass = iconButtonBase
 /** Info control beside a method row (stretches to row height). */
 export const methodSelectorRowInfoButtonClass = cn(iconButtonBase, 'self-stretch')
 
-export const methodSelectorSectionHeadingRowClass = 'flex min-h-[44px] items-center gap-1 px-2 py-0.5'
+export const methodSelectorSectionHeadingRowClass =
+  'flex min-h-[44px] items-center gap-1 px-2 py-0.5'
 
 export const methodSelectorSectionHeadingTextClass =
   'min-w-0 flex-1 text-[11px] text-foreground/40 uppercase tracking-wider font-medium'

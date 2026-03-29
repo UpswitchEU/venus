@@ -42,12 +42,7 @@ function MethodSelectorTooltip({
   children: React.ReactNode
 }) {
   return (
-    <Tooltip
-      content={content}
-      className={methodSelectorTooltipSurfaceClass}
-      side="top"
-      align="end"
-    >
+    <Tooltip content={content} className={methodSelectorTooltipSurfaceClass} side="top" align="end">
       {children}
     </Tooltip>
   )
@@ -76,7 +71,9 @@ export function MethodSelectorMenu({
   const descIdBase = React.useId()
 
   const combinableMethods = methods.filter((m) => COMBINABLE_METHODS.has(m))
-  const standaloneMethods = methods.filter((m) => STANDALONE_METHODS.has(m) && m !== 'upswitch_adaptive')
+  const standaloneMethods = methods.filter(
+    (m) => STANDALONE_METHODS.has(m) && m !== 'upswitch_adaptive'
+  )
 
   const handleClick = (key: string) => {
     if (isMultiMode) {
