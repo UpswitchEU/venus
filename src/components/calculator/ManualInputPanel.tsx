@@ -2750,7 +2750,11 @@ export function ManualInputPanel({
   // Check if core fields are filled
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0
   const hasBusinessType = !!selectedBusinessType || formData.businessType.length > 0
-  const hasFinancials = !!getLatestCompleteYearlyFinancial(formData.yearlyFinancials)
+  const latestCompleteYearForSde = useMemo(
+    () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials),
+    [formData.yearlyFinancials]
+  )
+  const hasFinancials = !!latestCompleteYearForSde
   const hasEbitdaValue = formData.yearlyFinancials.some((yf) => hasExplicitNumericValue(yf.ebitda))
   const totalYearsWithEbitda = formData.yearlyFinancials.filter((yf) =>
     hasExplicitNumericValue(yf.ebitda)
@@ -4332,6 +4336,8 @@ export function AdaptiveSections({
           key="sde_owner_compensation"
           step={sectionHeaderSteps.sde}
           ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
+          revenue={latestCompleteYearForSde ? Number(latestCompleteYearForSde.revenue) : undefined}
+          ebitda={latestCompleteYearForSde ? Number(latestCompleteYearForSde.ebitda) : undefined}
           onFieldChange={onFieldChange}
           disabled={disabled}
         />

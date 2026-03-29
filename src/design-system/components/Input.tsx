@@ -364,18 +364,20 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
             {...props}
           />
 
-          {/* Floating Label */}
+          {/* Floating Label — truncate long i18n strings; title shows full text on hover */}
           {label && (
             <label
               htmlFor={props.id || props.name}
+              title={typeof label === 'string' ? label : undefined}
               className={cn(
                 floatingLabelVariants({ state, floated: isFloated, size }),
-                hasLeftIcon && 'left-11'
+                hasLeftIcon ? 'left-11 right-12' : 'left-4 right-12',
+                'flex min-w-0 items-center gap-0.5'
               )}
             >
-              {label}
+              <span className="min-w-0 flex-1 truncate">{label}</span>
               {required && (
-                <span className="text-destructive ml-0.5" aria-label="required">
+                <span className="flex-shrink-0 text-destructive" aria-label="required">
                   *
                 </span>
               )}

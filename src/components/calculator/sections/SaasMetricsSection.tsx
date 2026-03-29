@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Zap } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMemo } from 'react'
+import { computeSaasPreviewMetrics } from '@/lib/saas'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 
@@ -27,10 +28,6 @@ interface SaasMetricsSectionProps {
     derivation_method?: string
     fiscal_year?: number
   } | null
-}
-function ratioFromPercent(value?: number): number | null {
-  if (value == null || !Number.isFinite(value)) return null
-  return value / 100
 }
 function round(value: number): number {
   return Math.round(value * 10) / 10
@@ -81,63 +78,31 @@ export function SaasMetricsSection({
   const importedProviderLabel = importedSaasProvenance?.source
     ? importedSaasProvenance.source.charAt(0).toUpperCase() + importedSaasProvenance.source.slice(1)
     : null
-  const derivedMetrics = useMemo(() => {
-    const grossMarginRatio = ratioFromPercent(saasGrossMarginPct)
-    const revenueChurnRatio = ratioFromPercent(saasChurnPct)
-    const customerChurnRatio = ratioFromPercent(saasCustomerChurnPct)
-    const ruleOf40 =
-      saasArrGrowthPct != null && saasGrossMarginPct != null
-        ? saasArrGrowthPct + saasGrossMarginPct
-        : null
-    const ltvCac =
-      saasArr != null &&
-      saasCac != null &&
-      saasCac > 0 &&
-      grossMarginRatio != null &&
-      customerChurnRatio != null &&
-      customerChurnRatio > 0
-        ? (saasArr * grossMarginRatio) / customerChurnRatio / saasCac
-        : null
-    const cacPaybackMonths =
-      saasCac != null &&
-      saasCac > 0 &&
-      saasMrr != null &&
-      saasMrr > 0 &&
-      grossMarginRatio != null &&
-      grossMarginRatio > 0
-        ? saasCac / (saasMrr * grossMarginRatio)
-        : null
-    const magicNumber =
-      saasArr != null &&
-      saasArr > 0 &&
-      saasArrGrowthPct != null &&
-      saasSmSpend != null &&
-      saasSmSpend > 0
-        ? ((saasArr * (saasArrGrowthPct / 100)) / saasSmSpend) * 4
-        : null
-    return {
-      ruleOf40,
-      ltvCac,
-      cacPaybackMonths,
-      magicNumber,
-      nrrExpansionSpread:
-        saasNrrPct != null && revenueChurnRatio != null
-          ? saasNrrPct - (100 - revenueChurnRatio * 100)
-          : null,
-      expansionRevenuePct: saasExpansionRevenuePct ?? null,
-    }
-  }, [
+  const derivedMetrics = useMemo(
+    () =>
+      computeSaasPreviewMetrics({
+        saasArr,
+        saasMrr,
+        saasArrGrowthPct,
+        saasChurnPct,
+        saasCustomerChurnPct,
+        saasNrrPct,
+        saasGrossMarginPct,
+        saasCac,
+        saasSmSpend,
+      }),
+    [
     saasArr,
     saasArrGrowthPct,
     saasCac,
     saasChurnPct,
     saasCustomerChurnPct,
-    saasExpansionRevenuePct,
     saasGrossMarginPct,
     saasMrr,
     saasNrrPct,
     saasSmSpend,
-  ])
+  ],
+  )
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -264,10 +229,6 @@ export function SaasMetricsSection({
           <MetricCard
             label={t('fields.magicNumber')}
             value={formatMetricValue(derivedMetrics.magicNumber, metricFormatter, 'x')}
-          />
-          <MetricCard
-            label={t('fields.saasExpansionRevenuePct')}
-            value={formatMetricValue(derivedMetrics.expansionRevenuePct, metricFormatter, '%')}
           />
           <MetricCard
             label={t('fields.nrrExpansionSpread')}
