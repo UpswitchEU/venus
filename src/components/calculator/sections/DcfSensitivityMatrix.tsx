@@ -11,9 +11,8 @@ import {
 } from '@/design-system/components/Table'
 import { cn } from '@/design-system/utils'
 import { Grid3X3 } from 'lucide-react'
-import { useLocale, useTranslations } from 'next-intl'
-import { useMemo } from 'react'
-import { getBelgianNumberLocale, PREVIEW_DECIMALS } from '@/lib/omniPreview'
+import { useTranslations } from 'next-intl'
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
 
 interface DcfSensitivityMatrixProps {
   sensitivityData?: {
@@ -28,8 +27,7 @@ interface DcfSensitivityMatrixProps {
 
 export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixProps) {
   const t = useTranslations('methodBreakdown')
-  const locale = useLocale()
-  const beLocale = useMemo(() => getBelgianNumberLocale(locale), [locale])
+  const { formatEurCompact, ratio: ratioFormatter } = useManualPreviewFormatters()
 
   if (
     !sensitivityData ||
@@ -47,25 +45,10 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
   const secondaryAxisFormat =
     sensitivityData.secondary_axis_format ?? (secondaryAxisKey === 'exit_multiple' ? 'multiple' : 'percent')
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat(beLocale, {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: PREVIEW_DECIMALS.currency,
-      maximumFractionDigits: PREVIEW_DECIMALS.currency,
-      notation: Math.abs(value) >= 1_000_000 ? 'compact' : 'standard',
-    }).format(value)
-  const formatPercent = (value: number) =>
-    `${new Intl.NumberFormat(beLocale, {
-      minimumFractionDigits: PREVIEW_DECIMALS.ratio,
-      maximumFractionDigits: PREVIEW_DECIMALS.ratio,
-    }).format(value * 100)}%`
+  const formatPercent = (value: number) => `${ratioFormatter.format(value * 100)}%`
   const formatSecondaryValue = (value: number) =>
     secondaryAxisFormat === 'multiple'
-      ? `${new Intl.NumberFormat(beLocale, {
-          minimumFractionDigits: PREVIEW_DECIMALS.ratio,
-          maximumFractionDigits: PREVIEW_DECIMALS.ratio,
-        }).format(value)}x`
+      ? `${ratioFormatter.format(value)}x`
       : formatPercent(value)
 
   const centerRowIndex = Math.floor(sensitivityData.wacc_values.length / 2)
@@ -131,7 +114,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
                         'bg-primary/10 text-primary'
                     )}
                   >
-                    {formatCurrency(Number(sensitivityData.ev_matrix[rowIndex]?.[columnIndex] ?? 0))}
+                    {formatEurCompact(Number(sensitivityData.ev_matrix[rowIndex]?.[columnIndex] ?? 0))}
                   </TableCell>
                 ))}
               </TableRow>

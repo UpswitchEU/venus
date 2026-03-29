@@ -79,6 +79,7 @@ import {
   removeNormalizationsForRemovedFiscalYear,
 } from '../../utils/normalizationMath'
 import { mergeImportedLedgerAnalysisIntoBusinessContext } from '../../utils/mergeImportedLedgerAnalysisIntoBusinessContext'
+import { getAnnualFictiveRentDeductionForDisplay } from '../../utils/realEstateCarveOutDisplay'
 import { mergeOptionalSessionPrefillFields } from '../../utils/mergeOptionalSessionPrefillFields'
 import { shouldSuppressMercurySessionPrefill } from '../../utils/prefillRestorationGate'
 import {
@@ -1301,6 +1302,10 @@ export function ManualInputPanel({
   // Calculate normalized EBITDA per year and average using global normalization store
   const normalizedData = useMemo(() => {
     const acceptedItems = normalizationItems.filter((n) => n.status === 'accepted')
+    const annualFictiveRentDeduction = getAnnualFictiveRentDeductionForDisplay(
+      formData.exclude_real_estate,
+      formData.estimated_market_rent
+    )
 
     const years = formData.yearlyFinancials.map((yf) => {
       const yearNum = Number(yf.year)
@@ -1328,12 +1333,13 @@ export function ManualInputPanel({
         return sum + adj
       }, 0)
       const safeTotalAdj = Number.isFinite(totalAdjustment) ? totalAdjustment : 0
-      const normalizedEbitda = yearEbitda + safeTotalAdj
+      const normalizedEbitda = yearEbitda + safeTotalAdj - annualFictiveRentDeduction
       return {
         ...yf,
         normalizedEbitda,
         totalAdjustment: safeTotalAdj,
         normalizationCount: yearNorms.length,
+        fictiveRentDeduction: annualFictiveRentDeduction,
       }
     })
 
@@ -1363,8 +1369,15 @@ export function ManualInputPanel({
       years,
       averageNormalizedEbitda,
       totalYearsWithData: yearsWithEbitda.length,
+      annualFictiveRentDeduction,
     }
-  }, [formData.yearlyFinancials, hasExplicitNumericValue, normalizationItems])
+  }, [
+    formData.yearlyFinancials,
+    formData.exclude_real_estate,
+    formData.estimated_market_rent,
+    hasExplicitNumericValue,
+    normalizationItems,
+  ])
 
   const searchCountry = formData.country || initialData.country || 'BE'
 
@@ -3362,7 +3375,11 @@ export function ManualInputPanel({
                   <motion.div
                     className={cn(
                       'relative rounded-xl overflow-hidden transition-all duration-300',
-                      normalizedData.years.some((y) => y.totalAdjustment !== 0) ? 'shadow-sm' : ''
+                      normalizedData.years.some(
+                        (y) => y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
+                      )
+                        ? 'shadow-sm'
+                        : ''
                     )}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -3437,6 +3454,13 @@ export function ManualInputPanel({
                                     )
                                   })()}
                               </div>
+                              {normalizedData.annualFictiveRentDeduction > 0 && (
+                                <p className="mt-2 text-[11px] leading-snug text-foreground/45">
+                                  {mi('fictiveRentNormalizedFootnote', {
+                                    amount: formatCurrency(normalizedData.annualFictiveRentDeduction),
+                                  })}
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 sm:shrink-0">
                               {(acceptedNormCount > 0 || taxLatencyCount > 0) && (
@@ -3457,12 +3481,16 @@ export function ManualInputPanel({
                                 onClick={() => onViewAllNormalizations?.()}
                                 className={cn(
                                   'px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
-                                  normalizedData.years.some((y) => y.totalAdjustment !== 0)
+                                  normalizedData.years.some(
+                                    (y) => y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
+                                  )
                                     ? 'bg-background border border-foreground/10 text-foreground hover:bg-foreground/[0.02]'
                                     : 'bg-primary text-primary-foreground hover:bg-primary/90'
                                 )}
                               >
-                                {normalizedData.years.some((y) => y.totalAdjustment !== 0)
+                                {normalizedData.years.some(
+                                  (y) => y.totalAdjustment !== 0 || (y.fictiveRentDeduction ?? 0) > 0
+                                )
                                   ? mi('adjust')
                                   : mi('normalize')}
                               </button>
@@ -3659,20 +3687,23 @@ export function ManualInputPanel({
                           </SpotlightFieldWrapper>
                         </div>
 
-                        {/* Show normalized EBITDA if different */}
+                        {/* Show normalized EBITDA if different (normalizations and/or fictive rent carve-out) */}
                         {hasExplicitNumericValue(yearData.ebitda) &&
                           normalizedYear &&
-                          normalizedYear.totalAdjustment !== 0 && (
-                            <div className="mt-2 flex items-center justify-between text-xs">
-                              <span className="text-foreground/50">
+                          (normalizedYear.totalAdjustment !== 0 ||
+                            (normalizedYear.fictiveRentDeduction ?? 0) > 0) && (
+                            <div className="mt-2 flex items-center justify-between text-xs gap-2">
+                              <span className="text-foreground/50 shrink-0">
                                 {mi('fields.normalizedEbitdaLabel')}
                               </span>
                               <span
                                 className={cn(
-                                  'font-mono font-semibold',
+                                  'font-mono font-semibold text-right min-w-0',
                                   normalizedYear.totalAdjustment > 0
                                     ? 'text-success'
-                                    : 'text-secondary'
+                                    : normalizedYear.totalAdjustment < 0
+                                      ? 'text-secondary'
+                                      : 'text-foreground'
                                 )}
                               >
                                 {formatCurrency(
@@ -3680,11 +3711,26 @@ export function ManualInputPanel({
                                     ? normalizedYear.normalizedEbitda
                                     : 0
                                 )}
-                                <span className="text-foreground/40 ml-1.5">
+                                <span className="text-foreground/40 ml-1.5 font-normal">
                                   {' '}
-                                  ({normalizedYear.totalAdjustment > 0 ? '+' : ''}
-                                  {formatCurrency(normalizedYear.totalAdjustment)}{' '}
-                                  {mi('fields.adjustmentSuffix')})
+                                  (
+                                  {normalizedYear.totalAdjustment !== 0 && (
+                                    <>
+                                      {normalizedYear.totalAdjustment > 0 ? '+' : ''}
+                                      {formatCurrency(normalizedYear.totalAdjustment)}{' '}
+                                      {mi('fields.adjustmentSuffix')}
+                                    </>
+                                  )}
+                                  {normalizedYear.totalAdjustment !== 0 &&
+                                    (normalizedYear.fictiveRentDeduction ?? 0) > 0 &&
+                                    ' · '}
+                                  {(normalizedYear.fictiveRentDeduction ?? 0) > 0 && (
+                                    <>
+                                      −{formatCurrency(normalizedYear.fictiveRentDeduction)}{' '}
+                                      {mi('fields.fictiveRentInlineLabel')}
+                                    </>
+                                  )}
+                                  )
                                 </span>
                               </span>
                             </div>
@@ -3888,6 +3934,7 @@ export function ManualInputPanel({
                 saasSignals={saasSignalsForBonusSections}
                 formData={formData}
                 firmCountryCode={user?.firm_country_code}
+                previewCurrencyFormatter={panelCurrencyFormatter}
                 sectionHeaderSteps={adaptiveHeaderSteps}
                 suppressDcfGlobalAssumptions={hasDcfForecastWorkspace}
                 onFieldChange={(field, value) => {
@@ -4099,6 +4146,7 @@ export function AdaptiveSections({
   saasSignals,
   formData,
   firmCountryCode,
+  previewCurrencyFormatter,
   sectionHeaderSteps,
   suppressDcfGlobalAssumptions,
   onFieldChange,
@@ -4116,6 +4164,8 @@ export function AdaptiveSections({
   formData: ValuationFormData
   /** When NL, hide Belgian fiscal (4× EBITDA) notices — matches Titan/PDF gating */
   firmCountryCode?: string
+  /** Shared with parent `ManualInputPanel` — one `useManualPreviewFormatters` for panel + fiscal notice */
+  previewCurrencyFormatter: Intl.NumberFormat
   sectionHeaderSteps: {
     dcfGlobal?: number
     nav?: number
@@ -4133,7 +4183,6 @@ export function AdaptiveSections({
   disabled?: boolean
 }) {
   const t = useTranslations('manualInput.methodSelector')
-  const { currency: fiscalCurrencyFormatter } = useManualPreviewFormatters()
   const methods = effectiveMethods ?? [effectiveMethod]
   const sections = methods.length > 1
     ? getBonusSectionsForMethods(methods, businessCategory, businessTypeId, saasSignals)
@@ -4207,7 +4256,8 @@ export function AdaptiveSections({
   )
 
   const firmCode = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
-  const showRevenueNotice = methods.includes('omzet_multiple')
+  const showRevenueNotice =
+    methods.includes('omzet_multiple') || methods.includes('revenue_multiple')
   const showFiscalNotice = methods.includes('fiscal_4x') && firmCode !== 'NL'
   if (sections.length === 0 && !showRevenueNotice && !showFiscalNotice) return null
 
@@ -4277,7 +4327,7 @@ export function AdaptiveSections({
                 label={t('fields.fiscalPreviewAnchor')}
                 value={
                   fiscalPreview.fiscalAnchor != null
-                    ? fiscalCurrencyFormatter.format(fiscalPreview.fiscalAnchor)
+                    ? previewCurrencyFormatter.format(fiscalPreview.fiscalAnchor)
                     : '—'
                 }
               />
@@ -4285,7 +4335,7 @@ export function AdaptiveSections({
                 label={t('fields.fiscalPreviewBookEquity')}
                 value={
                   fiscalPreview.bookEquityUsed != null
-                    ? fiscalCurrencyFormatter.format(fiscalPreview.bookEquityUsed)
+                    ? previewCurrencyFormatter.format(fiscalPreview.bookEquityUsed)
                     : '—'
                 }
               />
@@ -4304,7 +4354,7 @@ export function AdaptiveSections({
                 label={t('fields.fiscalPreviewImpliedEquity')}
                 value={
                   fiscalPreview.impliedFiscalEquity != null
-                    ? fiscalCurrencyFormatter.format(fiscalPreview.impliedFiscalEquity)
+                    ? previewCurrencyFormatter.format(fiscalPreview.impliedFiscalEquity)
                     : '—'
                 }
               />

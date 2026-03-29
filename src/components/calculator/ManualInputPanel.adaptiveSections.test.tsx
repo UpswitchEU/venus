@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getBonusSectionsSaasSignalsFromFormData } from '@/constants/methodFieldConfig'
+import { createManualCurrencyFormatter } from '@/lib/omniPreview'
 import { FilingYearPrompt } from './FilingYearPrompt'
 import {
   AdaptiveSections,
@@ -67,12 +68,15 @@ describe('Manual filing year defaults', () => {
 })
 
 describe('AdaptiveSections', () => {
+  const previewCurrencyFormatter = createManualCurrencyFormatter('nl-BE')
+
   const baseProps = {
     formData: {} as any,
     onFieldChange: vi.fn(),
     terminalValueMethod: 'perpetual_growth' as const,
     onTerminalValueMethodChange: vi.fn(),
     disabled: false,
+    previewCurrencyFormatter,
     sectionHeaderSteps: {
       dcfGlobal: 5,
       nav: 6,

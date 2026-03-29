@@ -1143,8 +1143,10 @@
       "nwcChange": "ΔNWC",
       "normalizedEbitda": "Genormaliseerde EBITDA",
       "normalizedEbitdaLabel": "Genormaliseerde EBITDA:",
-      "adjustmentSuffix": "aanpassing"
+      "adjustmentSuffix": "aanpassing",
+      "fictiveRentInlineLabel": "fictieve huur (vastgoed-carve-out)"
     },
+    "fictiveRentNormalizedFootnote": "Het gewogen genormaliseerde EBITDA trekt {amount} fictieve markthuur per jaar af (vastgoed-carve-out), conform de waarderingsmotor.",
     "registryNlSearchHint": "Zoek op bedrijfsnaam of KVK-nummer, of vul gegevens handmatig in. Live KVK-autocomplete kan ontbreken zolang er geen commerciële registerkoppeling voor uw omgeving is geconfigureerd.",
     "registryNlNoResults": "Geen registermatch gevonden. U kunt doorgaan met de bedrijfsnaam die u heeft ingevoerd.",
     "normalized": "Genormaliseerd",
@@ -1364,6 +1366,7 @@
       "recommended": "Aanbevolen",
       "customBlend": "Markt & inkomen (combineerbaar)",
       "combinableHint": "Selecteer één of meer methodes om te wegen",
+      "exclusivityHint": "SDE en EV/EBITDA kunnen niet gecombineerd worden. Omzetmultiple telt één keer—niet tegelijk met de Engelse revenue-multiple-sleutel in dezelfde synthese.",
       "statutoryLabel": "Wettelijk / standalone",
       "standaloneHint": "Selectie vervangt alle andere methodes",
       "conflictsWith": "Niet combineerbaar met {method}",

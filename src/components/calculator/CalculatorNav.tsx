@@ -53,6 +53,7 @@ import { cn } from '@/design-system/utils'
 const METHOD_LABEL_KEYS: Record<string, string> = {
   upswitch_adaptive: 'manualInput.methodSelector.adaptiveRecommended',
   omzet_multiple: 'manualInput.methodSelector.revenueMultiple',
+  revenue_multiple: 'manualInput.methodSelector.revenueMultiple',
   arr_multiple: 'manualInput.methodSelector.arrMultiple',
   ebitda_multiple: 'manualInput.methodSelector.ebitdaMultiple',
   dcf: 'manualInput.methodSelector.dcf',
@@ -161,8 +162,11 @@ function MethodSelectorMenu({
       <div className="text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
         {t('manualInput.methodSelector.customBlend')}
       </div>
-      <div className="text-[10px] text-foreground/30 px-2 pb-1">
-        {t('manualInput.methodSelector.combinableHint')}
+      <div className="text-[10px] text-foreground/30 px-2 pb-1 space-y-0.5">
+        <p>{t('manualInput.methodSelector.combinableHint')}</p>
+        {isMultiMode ? (
+          <p className="text-foreground/25 leading-snug">{t('manualInput.methodSelector.exclusivityHint')}</p>
+        ) : null}
       </div>
       {combinableMethods.map((key) => renderMethodButton(key, false))}
 

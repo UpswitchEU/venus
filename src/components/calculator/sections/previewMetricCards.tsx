@@ -1,7 +1,9 @@
 'use client'
 
 /**
- * Shared layout + rounding for manual calculator “derived metrics” (SaaS, SDE, etc.).
+ * Shared layout + rounding for manual calculator “derived metrics” (SaaS, SDE, revenue quality, …).
+ * Format `Intl.NumberFormat` instances with `useManualPreviewFormatters` from `@/lib/omniPreview`
+ * so € / % rules stay consistent with DCF preview tables.
  */
 
 export function roundPreviewMetric(value: number, fractionDigits: number): number {

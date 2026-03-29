@@ -39,7 +39,8 @@ describe('DcfSensitivityMatrix', () => {
 
     expect(screen.getAllByText('DCF sensitivity matrix')).toHaveLength(2)
     expect(screen.getByText('WACC / g')).toBeInTheDocument()
-    expect(screen.getByText('10,0%')).toBeInTheDocument()
+    // WACC row 10% (ratio formatter + locale may use 10% vs 10,0%)
+    expect(screen.getByText('10%')).toBeInTheDocument()
     expect(screen.getAllByText('€3M').length).toBeGreaterThan(0)
   })
 
@@ -61,7 +62,7 @@ describe('DcfSensitivityMatrix', () => {
     )
 
     expect(screen.getByText('WACC / exit')).toBeInTheDocument()
-    expect(screen.getByText(/6[,.]0x/)).toBeInTheDocument()
+    expect(screen.getByText('6x')).toBeInTheDocument()
     expect(
       screen.getByText('Enterprise value under +/-1 point changes in WACC and exit multiple.')
     ).toBeInTheDocument()

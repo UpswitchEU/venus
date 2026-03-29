@@ -2,7 +2,7 @@
  * Omni-aligned **client preview** helpers for the manual calculator (pure math + formatters).
  *
  * - **Domain math**: `../saas`, `../sde`, and modules in this folder.
- * - **UI**: import `useManualPreviewFormatters` in client sections for consistent € / % formatting.
+ * - **UI**: import `useManualPreviewFormatters` in client sections for consistent € / % formatting (`formatEurCompact` for DCF sensitivity EV cells).
  * - **Audit**: `METHOD_PREVIEW_AUDIT` lists which engine methods have local previews vs server-only calibration.
  *
  * @see README.md in this folder for the module map.
@@ -13,6 +13,7 @@ export {
   createManualCurrencyFormatter,
   createManualMetricFormatter,
   createManualPreviewFormatters,
+  formatEurCompactBelgian,
   getBelgianNumberLocale,
   type ManualPreviewFormatters,
 } from './manualPreviewFormatters'

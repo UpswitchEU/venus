@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   getBonusSections,
   getBonusSectionsSaasSignalsFromFormData,
+  getConflictingMethod,
   getPreSelectableMethodsForFirm,
   getPreSelectableMethodsForFirmAndRevenue,
   isUpfrontMethodAllowedForNav,
   resolveBusinessTypeIdForBonusSections,
   resolveDisplayPreSelectedMethodKey,
+  sanitizeMethodSelection,
   METHOD_FIELD_CONFIG,
   PRE_SELECTABLE_METHODS,
 } from './methodFieldConfig'
@@ -25,6 +27,34 @@ describe('methodFieldConfig', () => {
   it('surfaces omzet multiple for upfront revenue-led selections', () => {
     expect(PRE_SELECTABLE_METHODS).toContain('omzet_multiple')
     expect(getBonusSections('omzet_multiple')).toEqual(['revenue_quality'])
+  })
+
+  it('maps revenue_multiple (English alias) to the same bonus sections as omzet_multiple', () => {
+    expect(getBonusSections('revenue_multiple')).toEqual(['revenue_quality'])
+  })
+
+  it('reports omzet_multiple and revenue_multiple as mutual conflicts', () => {
+    expect(getConflictingMethod('omzet_multiple')).toBe('revenue_multiple')
+    expect(getConflictingMethod('revenue_multiple')).toBe('omzet_multiple')
+  })
+
+  it('treats revenue_multiple as combinable like omzet_multiple for blended sanitization', () => {
+    expect(sanitizeMethodSelection(['revenue_multiple', 'dcf', 'ebitda_multiple'])).toEqual([
+      'revenue_multiple',
+      'dcf',
+      'ebitda_multiple',
+    ])
+  })
+
+  it('drops duplicate revenue lens when omzet_multiple and revenue_multiple both appear', () => {
+    expect(sanitizeMethodSelection(['omzet_multiple', 'revenue_multiple', 'dcf'])).toEqual([
+      'omzet_multiple',
+      'dcf',
+    ])
+    expect(sanitizeMethodSelection(['revenue_multiple', 'omzet_multiple', 'dcf'])).toEqual([
+      'revenue_multiple',
+      'dcf',
+    ])
   })
 
   it('merges method and business-type sections without duplicates', () => {

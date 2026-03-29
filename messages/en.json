@@ -1143,8 +1143,10 @@
       "nwcChange": "ΔNWC",
       "normalizedEbitda": "Normalized EBITDA",
       "normalizedEbitdaLabel": "Normalized EBITDA:",
-      "adjustmentSuffix": "adjustment"
+      "adjustmentSuffix": "adjustment",
+      "fictiveRentInlineLabel": "fictive rent (RE carve-out)"
     },
+    "fictiveRentNormalizedFootnote": "Weighted normalized EBITDA deducts {amount} per year for estimated market rent (real estate carve-out), consistent with the valuation engine.",
     "registryNlSearchHint": "Search by company name or KVK number, or enter details manually. Live KVK autocomplete may be unavailable until a commercial registry feed is configured for your workspace.",
     "registryNlNoResults": "No registry match found. You can continue with the company name you typed.",
     "normalized": "Normalized",
@@ -1364,6 +1366,7 @@
       "recommended": "Recommended",
       "customBlend": "Market & income (combinable)",
       "combinableHint": "Select one or more methods to weight",
+      "exclusivityHint": "SDE and EV/EBITDA cannot be blended together. The turnover-based revenue multiple and its English equivalent count as one method in a blend.",
       "statutoryLabel": "Statutory / standalone",
       "standaloneHint": "Selection replaces all other methods",
       "conflictsWith": "Cannot be combined with {method}",

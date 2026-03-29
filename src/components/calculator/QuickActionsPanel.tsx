@@ -12,6 +12,7 @@ import { Check, TrendingUp, X, Zap } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { cn } from '@/design-system/utils'
+import { getBelgianNumberLocale } from '@/lib/omniPreview'
 
 // Icons for categories
 const categoryIcons: Record<string, string> = {
@@ -55,12 +56,11 @@ export function QuickActionsPanel({
   className,
 }: QuickActionsPanelProps) {
   const ca = useTranslations('chatAssistant')
-  const locale = useLocale()
-  const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
+  const beNumberLocale = getBelgianNumberLocale(useLocale())
   const formatCurrency = (amount: number) => {
     if (amount >= 1000000) return `€${(amount / 1000000).toFixed(1)}M`
     if (amount >= 1000) return `€${Math.round(amount / 1000)}K`
-    return `€${amount.toLocaleString(currencyLocale)}`
+    return `€${amount.toLocaleString(beNumberLocale)}`
   }
   // Filter pending actions and sort by impact (amount * multiple)
   const pendingActions = actions

@@ -169,7 +169,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
         // Toggling ON a combinable method:
         // 1. Remove any standalone methods from the selection
         let base = current.filter((m) => isCombinableMethod(m))
-        // 2. Remove conflicting method (SDE ↔ EBITDA mutual exclusion)
+        // 2. Remove conflicting method (e.g. SDE ↔ EBITDA, omzet ↔ revenue_multiple)
         const conflict = getConflictingMethod(method)
         if (conflict) {
           base = base.filter((m) => m !== conflict)

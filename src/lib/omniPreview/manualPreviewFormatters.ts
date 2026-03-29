@@ -30,6 +30,19 @@ export function createManualCurrencyFormatter(localeTag: BelgianLocaleTag): Intl
   })
 }
 
+/**
+ * EUR with `notation: 'compact'` when |value| ≥ 1e6 — same rules as DCF sensitivity matrix EV cells.
+ */
+export function formatEurCompactBelgian(localeTag: BelgianLocaleTag, value: number): string {
+  return new Intl.NumberFormat(localeTag, {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: PREVIEW_DECIMALS.currency,
+    maximumFractionDigits: PREVIEW_DECIMALS.currency,
+    notation: Math.abs(value) >= 1_000_000 ? 'compact' : 'standard',
+  }).format(value)
+}
+
 /** Pre-built metric formatters for each preview band (reuse across components). */
 export function createManualPreviewFormatters(localeTag: BelgianLocaleTag) {
   return {
@@ -38,6 +51,7 @@ export function createManualPreviewFormatters(localeTag: BelgianLocaleTag) {
     sdeMultiple: createManualMetricFormatter(localeTag, PREVIEW_DECIMALS.sdeMultiple),
     ratio: createManualMetricFormatter(localeTag, PREVIEW_DECIMALS.ratio),
     currency: createManualCurrencyFormatter(localeTag),
+    formatEurCompact: (value: number) => formatEurCompactBelgian(localeTag, value),
   }
 }
 

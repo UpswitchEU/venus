@@ -1,3 +1,5 @@
+import { PRIMARY_OMNI_METHOD_ORDER } from './omniCalcMethods'
+
 /**
  * Method Field Configuration Registry
  *
@@ -28,6 +30,8 @@ export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
   upswitch_adaptive: { bonusSections: [] },
   ebitda_multiple: { bonusSections: ['revenue_quality'] },
   omzet_multiple: { bonusSections: ['revenue_quality'] },
+  /** English UI / API alias for `omzet_multiple` — same bonus sections (see `extractValuationResultsMap`). */
+  revenue_multiple: { bonusSections: ['revenue_quality'] },
   arr_multiple: { bonusSections: ['saas_metrics'] },
   dcf: { bonusSections: ['dcf_projections'] },
   sde_multiple: { bonusSections: ['sde_owner_compensation'] },
@@ -162,6 +166,8 @@ export const COMBINABLE_METHODS = new Set([
   'dcf',
   'sde_multiple',
   'omzet_multiple',
+  /** Same economics as `omzet_multiple` — must be combinable for blended weights when API uses English key. */
+  'revenue_multiple',
   'arr_multiple',
 ])
 
@@ -176,11 +182,13 @@ export const STANDALONE_METHODS = new Set([
 ])
 
 /**
- * Methods that measure different profit baselines and must never be combined.
- * SDE includes owner salary; EBITDA excludes it — blending them is double-counting.
+ * Methods that must not appear together in a blend (double-counting or duplicate lens).
+ * - SDE vs EBITDA: different owner-compensation bases.
+ * - Omzet vs revenue_multiple: same market approach keyed differently (EN/NL).
  */
 export const MUTUALLY_EXCLUSIVE_PAIRS: ReadonlyArray<[string, string]> = [
   ['sde_multiple', 'ebitda_multiple'],
+  ['omzet_multiple', 'revenue_multiple'],
 ]
 
 /**
@@ -290,9 +298,16 @@ export function resolveDisplayPreSelectedMethodKey(
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  const missingConfig = PRE_SELECTABLE_METHODS.filter((method) => !(method in METHOD_FIELD_CONFIG))
-  if (missingConfig.length > 0) {
-    throw new Error(`Missing METHOD_FIELD_CONFIG entries for: ${missingConfig.join(', ')}`)
+  const missingPreselect = PRE_SELECTABLE_METHODS.filter((method) => !(method in METHOD_FIELD_CONFIG))
+  if (missingPreselect.length > 0) {
+    throw new Error(`Missing METHOD_FIELD_CONFIG entries for: ${missingPreselect.join(', ')}`)
+  }
+  // Keep in sync with `PRIMARY_OMNI_METHOD_ORDER` so result keys / edit flows always resolve bonus sections.
+  const missingPrimary = PRIMARY_OMNI_METHOD_ORDER.filter((method) => !(method in METHOD_FIELD_CONFIG))
+  if (missingPrimary.length > 0) {
+    throw new Error(
+      `Missing METHOD_FIELD_CONFIG entries for primary omni keys: ${missingPrimary.join(', ')}`
+    )
   }
 }
 

@@ -12,6 +12,7 @@ import type { ValuationMethodResult } from '@/types/valuation'
 
 const METHOD_LABEL_KEYS: Record<string, string> = {
   omzet_multiple: 'manualInput.methodSelector.revenueMultiple',
+  revenue_multiple: 'manualInput.methodSelector.revenueMultiple',
   arr_multiple: 'manualInput.methodSelector.arrMultiple',
   ebitda_multiple: 'manualInput.methodSelector.ebitdaMultiple',
   dcf: 'manualInput.methodSelector.dcf',

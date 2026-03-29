@@ -11,6 +11,7 @@ vi.mock('next-intl', () => ({
     }
     return key
   },
+  /** Used by `useManualPreviewFormatters` inside SaasMetricsSection */
   useLocale: () => 'en',
 }))
 

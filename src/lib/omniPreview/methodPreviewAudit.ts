@@ -27,7 +27,7 @@ export const METHOD_PREVIEW_AUDIT = {
   dcf: {
     bonusSections: ['dcf_projections'] as const,
     clientPreview:
-      'DCF workspace + deriveDcfProjectionPreview; EUR cells use useManualPreviewFormatters; sensitivity matrix uses getBelgianNumberLocale + PREVIEW_DECIMALS (compact EV); full EV from engine',
+      'DCF workspace + deriveDcfProjectionPreview; EUR cells + sensitivity matrix use useManualPreviewFormatters (formatEurCompact for large EV); full EV from engine',
   },
   sde_multiple: {
     bonusSections: ['sde_owner_compensation'] as const,
