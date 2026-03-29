@@ -830,10 +830,15 @@ export function ManualInputPanel({
     [activityCodeShort, activityCodeTerm, formData.country]
   )
 
+  const latestCompleteYearlyFinancial = useMemo(
+    () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials),
+    [formData.yearlyFinancials]
+  )
+
   // Sync form financials to ref during render for sibling components (e.g. normalization modal)
   // that need latest data without effect delay — eliminates race when opening modal immediately
   if (formDataRef && formDataRef.current != null) {
-    const current = getLatestCompleteYearlyFinancial(formData.yearlyFinancials)
+    const current = latestCompleteYearlyFinancial
     const latestHistorical = getLatestHistoricalYearlyFinancial(formData.yearlyFinancials)
     Object.assign(formDataRef.current, {
       yearlyFinancials: formData.yearlyFinancials,
@@ -1133,7 +1138,7 @@ export function ManualInputPanel({
   onFormDataChangeRef.current = onFormDataChange
   const syncFormData = useCallback(() => {
     if (!onFormDataChangeRef.current) return
-    const current = getLatestCompleteYearlyFinancial(formData.yearlyFinancials)
+    const current = latestCompleteYearlyFinancial
     // Registry + NACE/SBI: must flow to ManualLayout → Zustand on every change so session
     // autosave and refresh never race ahead with stale kbo/nace (canonical vs display).
     onFormDataChangeRef.current({
@@ -1184,6 +1189,7 @@ export function ManualInputPanel({
     formData.forecast_years_data,
     formData.dcf_input_mode,
     formData.current_year_data,
+    latestCompleteYearlyFinancial,
   ])
   useEffect(() => {
     syncFormData()
@@ -2750,11 +2756,7 @@ export function ManualInputPanel({
   // Check if core fields are filled
   const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0
   const hasBusinessType = !!selectedBusinessType || formData.businessType.length > 0
-  const latestCompleteYearForSde = useMemo(
-    () => getLatestCompleteYearlyFinancial(formData.yearlyFinancials),
-    [formData.yearlyFinancials]
-  )
-  const hasFinancials = !!latestCompleteYearForSde
+  const hasFinancials = !!latestCompleteYearlyFinancial
   const hasEbitdaValue = formData.yearlyFinancials.some((yf) => hasExplicitNumericValue(yf.ebitda))
   const totalYearsWithEbitda = formData.yearlyFinancials.filter((yf) =>
     hasExplicitNumericValue(yf.ebitda)
@@ -4336,8 +4338,12 @@ export function AdaptiveSections({
           key="sde_owner_compensation"
           step={sectionHeaderSteps.sde}
           ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
-          revenue={latestCompleteYearForSde ? Number(latestCompleteYearForSde.revenue) : undefined}
-          ebitda={latestCompleteYearForSde ? Number(latestCompleteYearForSde.ebitda) : undefined}
+          revenue={
+            latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.revenue) : undefined
+          }
+          ebitda={
+            latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.ebitda) : undefined
+          }
           onFieldChange={onFieldChange}
           disabled={disabled}
         />
