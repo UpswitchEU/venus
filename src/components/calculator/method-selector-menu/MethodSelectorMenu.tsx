@@ -21,9 +21,8 @@ import {
   methodSelectorDividerClass,
   methodSelectorListboxClass,
   methodSelectorRowInfoButtonClass,
-  methodSelectorSectionHeadingRowClass,
-  methodSelectorSectionHeadingTextClass,
-  methodSelectorSectionInfoButtonClass,
+  methodSelectorSectionHelperClass,
+  methodSelectorSectionHelperSecondaryClass,
   methodSelectorStaticSectionTitleClass,
   methodSelectorTooltipBodyClass,
   methodSelectorTooltipSurfaceClass,
@@ -32,6 +31,15 @@ import {
 const stopInDropdown: React.HTMLAttributes<HTMLButtonElement> = {
   onPointerDown: (e) => e.stopPropagation(),
   onClick: (e) => e.stopPropagation(),
+}
+
+/** Section titles/helpers are not actions; avoid closing the parent Dropdown on accidental clicks. */
+const stopCloseParentDropdown: Pick<
+  React.HTMLAttributes<HTMLDivElement>,
+  'onClick' | 'onPointerDown'
+> = {
+  onClick: (e) => e.stopPropagation(),
+  onPointerDown: (e) => e.stopPropagation(),
 }
 
 function MethodSelectorTooltip({
@@ -193,42 +201,37 @@ export function MethodSelectorMenu({
       aria-label={t('manualInput.methodSelector.label')}
       aria-multiselectable={isMultiMode}
     >
-      <div className={methodSelectorStaticSectionTitleClass}>
-        {t('manualInput.methodSelector.recommended')}
+      <div {...stopCloseParentDropdown}>
+        <div className={methodSelectorStaticSectionTitleClass}>
+          {t('manualInput.methodSelector.recommended')}
+        </div>
       </div>
       {renderMethodButton('upswitch_adaptive')}
 
       <div className={methodSelectorDividerClass} />
 
-      <div className={methodSelectorSectionHeadingRowClass}>
-        <div className={methodSelectorSectionHeadingTextClass}>
+      <div {...stopCloseParentDropdown}>
+        <div className={methodSelectorStaticSectionTitleClass}>
           {t('manualInput.methodSelector.customBlend')}
         </div>
-        <MethodSelectorTooltip
-          content={
-            <div className={cn('space-y-1.5', methodSelectorTooltipBodyClass)}>
-              <p>{t('manualInput.methodSelector.combinableHint')}</p>
-              {isMultiMode ? <p>{t('manualInput.methodSelector.exclusivityHint')}</p> : null}
-            </div>
-          }
-        >
-          <button
-            type="button"
-            tabIndex={0}
-            className={methodSelectorSectionInfoButtonClass}
-            aria-label={t('manualInput.methodSelector.sectionCombinableInfoAria')}
-            {...stopInDropdown}
-          >
-            <HelpCircle className="h-4 w-4 shrink-0" aria-hidden />
-          </button>
-        </MethodSelectorTooltip>
+        <div className={methodSelectorSectionHelperClass}>
+          <p>{t('manualInput.methodSelector.combinableHint')}</p>
+          {isMultiMode ? (
+            <p className={methodSelectorSectionHelperSecondaryClass}>
+              {t('manualInput.methodSelector.exclusivityHint')}
+            </p>
+          ) : null}
+        </div>
       </div>
       {combinableMethods.map((key) => renderMethodButton(key))}
 
       {isMultiMode &&
         activeMethods.length > 1 &&
         activeMethods.every((m) => COMBINABLE_METHODS.has(m)) && (
-          <div className="mt-1 px-2 py-1 text-[11px] font-medium text-primary/80">
+          <div
+            className="mt-1 px-2 py-1 text-[11px] font-medium text-primary/80"
+            {...stopCloseParentDropdown}
+          >
             {activeMethods.length} {t('manualInput.methodSelector.methodsSelected')}
           </div>
         )}
@@ -237,27 +240,13 @@ export function MethodSelectorMenu({
         <>
           <div className={methodSelectorDividerClass} />
 
-          <div className={methodSelectorSectionHeadingRowClass}>
-            <div className={methodSelectorSectionHeadingTextClass}>
+          <div {...stopCloseParentDropdown}>
+            <div className={methodSelectorStaticSectionTitleClass}>
               {t('manualInput.methodSelector.statutoryLabel')}
             </div>
-            <MethodSelectorTooltip
-              content={
-                <p className={methodSelectorTooltipBodyClass}>
-                  {t('manualInput.methodSelector.standaloneHint')}
-                </p>
-              }
-            >
-              <button
-                type="button"
-                tabIndex={0}
-                className={methodSelectorSectionInfoButtonClass}
-                aria-label={t('manualInput.methodSelector.sectionStandaloneInfoAria')}
-                {...stopInDropdown}
-              >
-                <HelpCircle className="h-4 w-4 shrink-0" aria-hidden />
-              </button>
-            </MethodSelectorTooltip>
+            <div className={methodSelectorSectionHelperClass}>
+              <p>{t('manualInput.methodSelector.standaloneHint')}</p>
+            </div>
           </div>
           {standaloneMethods.map((key) => renderMethodButton(key))}
         </>

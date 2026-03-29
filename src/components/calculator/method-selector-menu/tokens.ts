@@ -1,9 +1,9 @@
 /**
  * Method selector dropdown — layout & interaction tokens.
  *
- * Icon buttons mirror Aurora `Button` ghost emphasis + ring focus
+ * Per-method info icons use Aurora-style ghost + ring focus
  * (see `design-system/components/Button.tsx`) without Framer Motion so tooltip
- * triggers stay predictable inside popovers.
+ * triggers stay predictable inside popovers. Section rules use muted text only.
  *
  * Related: `methodFieldConfig.ts` (which methods exist), `constants/methodLabels.ts`
  * (i18n key paths), and locale JSON under `manualInput.methodSelector` (copy).
@@ -25,19 +25,16 @@ const iconButtonBase = cn(
   'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-primary/40'
 )
 
-/** Info control in section headers (combinable / standalone). */
-export const methodSelectorSectionInfoButtonClass = iconButtonBase
-
 /** Info control beside a method row (stretches to row height). */
 export const methodSelectorRowInfoButtonClass = cn(iconButtonBase, 'self-stretch')
 
-export const methodSelectorSectionHeadingRowClass =
-  'flex min-h-[44px] items-center gap-1 px-2 py-0.5'
+/** Muted helper lines under section titles (combinable / standalone rules). */
+export const methodSelectorSectionHelperClass =
+  'space-y-1 px-2 pb-1.5 text-[10px] font-normal leading-snug text-foreground/35'
 
-export const methodSelectorSectionHeadingTextClass =
-  'min-w-0 flex-1 text-[11px] text-foreground/40 uppercase tracking-wider font-medium'
+export const methodSelectorSectionHelperSecondaryClass = 'text-foreground/30'
 
-/** Static section titles (e.g. “Aanbevolen”) without the info column. */
+/** Static section titles (e.g. “Aanbevolen”, “Markt & inkomen”). */
 export const methodSelectorStaticSectionTitleClass =
   'text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1'
 

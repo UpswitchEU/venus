@@ -2,8 +2,8 @@ export { MethodSelectorMenu, type MethodSelectorMenuProps } from './MethodSelect
 export {
   methodSelectorDividerClass,
   methodSelectorListboxClass,
-  methodSelectorSectionHeadingRowClass,
-  methodSelectorSectionHeadingTextClass,
+  methodSelectorSectionHelperClass,
+  methodSelectorSectionHelperSecondaryClass,
   methodSelectorStaticSectionTitleClass,
   methodSelectorTooltipBodyClass,
   methodSelectorTooltipSurfaceClass,
