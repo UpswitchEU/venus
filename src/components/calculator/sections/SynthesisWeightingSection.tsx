@@ -8,18 +8,8 @@ import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraTextarea } from '@/design-system/components/Input'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 import { equalWeightsFor } from '@/constants/methodFieldConfig'
+import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import type { ValuationMethodResult } from '@/types/valuation'
-
-const METHOD_LABEL_KEYS: Record<string, string> = {
-  omzet_multiple: 'manualInput.methodSelector.revenueMultiple',
-  revenue_multiple: 'manualInput.methodSelector.revenueMultiple',
-  arr_multiple: 'manualInput.methodSelector.arrMultiple',
-  ebitda_multiple: 'manualInput.methodSelector.ebitdaMultiple',
-  dcf: 'manualInput.methodSelector.dcf',
-  sde_multiple: 'manualInput.methodSelector.sdeMultiple',
-  adjusted_nav: 'manualInput.methodSelector.adjustedNav',
-  fiscal_4x: 'manualInput.methodSelector.fiscal4x',
-}
 
 function formatCompactCurrency(amount: number): string {
   const sign = amount < 0 ? '-' : ''

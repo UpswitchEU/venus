@@ -11,7 +11,7 @@ import { PRIMARY_OMNI_METHOD_ORDER } from './omniCalcMethods'
  * input set (company, financials, ownership). These sections surface extra
  * fields that improve accuracy for the chosen method.
  *
- * Method *labels* (i18n) live in CalculatorNav's METHOD_LABEL_KEYS constant,
+ * Method *labels* (i18n) live in `@/constants/methodLabels.ts` (`METHOD_LABEL_KEYS`),
  * mapped to manualInput.methodSelector.* translation keys.
  */
 

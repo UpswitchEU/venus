@@ -27,4 +27,4 @@ This document locks the **implemented** architecture for upfront valuation metho
 
 1. Add the method key to `PRE_SELECTABLE_METHODS` / `METHOD_FIELD_CONFIG` in `methodFieldConfig.ts` (and Titan/ValuationIQ omni keys as needed).
 2. Extend `AdaptiveSections` / `ManualInputPanel` for any new `InputSectionKey` or method-specific UI.
-3. Add i18n labels in `CalculatorNav` `METHOD_LABEL_KEYS` and `manualInput.methodSelector.*`.
+3. Add i18n labels in `constants/methodLabels.ts` (`METHOD_LABEL_KEYS`, optional `METHOD_DESCRIPTION_KEYS`) and `manualInput.methodSelector.*` in `messages`.
