@@ -43,6 +43,9 @@ import React, { useMemo, useState } from 'react'
 import {
   getPreSelectableMethodsForFirm,
   resolveDisplayPreSelectedMethodKey,
+  COMBINABLE_METHODS,
+  STANDALONE_METHODS,
+  getConflictingMethod,
 } from '@/constants/methodFieldConfig'
 import { AuroraButton, Avatar, Tooltip, TooltipProvider } from '@/design-system'
 import { cn } from '@/design-system/utils'
@@ -53,68 +56,137 @@ const METHOD_LABEL_KEYS: Record<string, string> = {
   arr_multiple: 'manualInput.methodSelector.arrMultiple',
   ebitda_multiple: 'manualInput.methodSelector.ebitdaMultiple',
   dcf: 'manualInput.methodSelector.dcf',
+  sde_multiple: 'manualInput.methodSelector.sdeMultiple',
   adjusted_nav: 'manualInput.methodSelector.adjustedNav',
   fiscal_4x: 'manualInput.methodSelector.fiscal4x',
 }
 
+const METHOD_DESCRIPTIONS: Record<string, string> = {
+  arr_multiple: 'manualInput.methodSelector.arrMultipleDescription',
+  dcf: 'manualInput.methodSelector.dcfDescription',
+  sde_multiple: 'manualInput.methodSelector.sdeMultipleDescription',
+  adjusted_nav: 'manualInput.methodSelector.adjustedNavDescription',
+  fiscal_4x: 'manualInput.methodSelector.fiscal4xDescription',
+}
+
 function MethodSelectorMenu({
   preSelectedMethod,
+  preSelectedMethods,
   onPreSelectMethod,
+  onToggleMethod,
   methods,
   t,
 }: {
   preSelectedMethod?: string
+  preSelectedMethods?: string[]
   onPreSelectMethod: (method: string) => void
+  onToggleMethod?: (method: string) => void
   /** Subset of PRE_SELECTABLE_METHODS (e.g. NL firms omit fiscal_4x) */
   methods: readonly string[]
   t: (key: string, values?: Record<string, string>) => string
 }) {
+  const isMultiMode = !!onToggleMethod
+  const activeMethods = preSelectedMethods ?? [preSelectedMethod ?? 'upswitch_adaptive']
+
+  const combinableMethods = methods.filter((m) => COMBINABLE_METHODS.has(m))
+  const standaloneMethods = methods.filter((m) => STANDALONE_METHODS.has(m) && m !== 'upswitch_adaptive')
+
+  const handleClick = (key: string) => {
+    if (isMultiMode) {
+      onToggleMethod(key)
+    } else {
+      onPreSelectMethod(key)
+    }
+  }
+
+  const isSelected = (key: string) => activeMethods.includes(key)
+
+  const renderMethodButton = (key: string, isRadio: boolean) => {
+    const active = isSelected(key)
+    const descKey = METHOD_DESCRIPTIONS[key]
+    const conflict = getConflictingMethod(key)
+    const conflictActive = conflict ? activeMethods.includes(conflict) : false
+    const conflictLabel = conflict ? t(METHOD_LABEL_KEYS[conflict] ?? '') : ''
+    const shape = isRadio ? 'rounded-full' : 'rounded-md'
+
+    return (
+      <button
+        key={key}
+        type="button"
+        onClick={() => handleClick(key)}
+        role="option"
+        aria-selected={active}
+        className={cn(
+          'w-full min-h-[44px] flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left',
+          active
+            ? 'bg-primary/[0.08] text-foreground font-medium'
+            : 'text-foreground/80 hover:bg-foreground/[0.04]'
+        )}
+      >
+        {active ? (
+          <div className={cn('w-5 h-5 bg-primary/20 flex items-center justify-center shrink-0', shape)}>
+            <Check className="w-3 h-3 text-primary" />
+          </div>
+        ) : (
+          <div className={cn('w-5 h-5 border border-foreground/[0.12] bg-foreground/[0.03] shrink-0', shape)} />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+          <span>{t(METHOD_LABEL_KEYS[key] ?? 'manualInput.methodSelector.adaptiveRecommended')}</span>
+          {descKey && (
+            <span className="text-[10px] font-normal leading-snug text-foreground/45">
+              {t(descKey)}
+            </span>
+          )}
+          {!active && conflictActive && isMultiMode && (
+            <span className="text-[10px] font-normal leading-snug text-amber-500/70">
+              {t('manualInput.methodSelector.willReplace', { method: conflictLabel })}
+            </span>
+          )}
+        </div>
+      </button>
+    )
+  }
+
   return (
-    <div className="p-1.5 w-72" role="listbox" aria-label={t('manualInput.methodSelector.label')}>
+    <div className="p-1.5 w-80" role="listbox" aria-label={t('manualInput.methodSelector.label')} aria-multiselectable={isMultiMode}>
+      {/* ─── Recommended (Proprietary) ─── */}
       <div className="text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
-        {t('manualInput.methodSelector.label')}
+        {t('manualInput.methodSelector.recommended')}
       </div>
-      {methods.map((key) => {
-        const isActive = (preSelectedMethod ?? 'upswitch_adaptive') === key
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onPreSelectMethod(key)}
-            role="option"
-            aria-selected={isActive}
-            className={cn(
-              'w-full min-h-[44px] flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left',
-              isActive
-                ? 'bg-primary/[0.08] text-foreground font-medium'
-                : 'text-foreground/80 hover:bg-foreground/[0.04]'
-            )}
-          >
-            {isActive ? (
-              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                <Check className="w-3 h-3 text-primary" />
-              </div>
-            ) : (
-              <div className="w-5 h-5 rounded-full bg-foreground/[0.06] shrink-0" />
-            )}
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-              <span>
-                {t(METHOD_LABEL_KEYS[key] ?? 'manualInput.methodSelector.adaptiveRecommended')}
-              </span>
-              {key === 'arr_multiple' && (
-                <span className="text-[10px] font-normal leading-snug text-foreground/45">
-                  {t('manualInput.methodSelector.arrMultipleDescription')}
-                </span>
-              )}
-              {key === 'dcf' && (
-                <span className="text-[10px] font-normal leading-snug text-foreground/45">
-                  {t('manualInput.methodSelector.dcfDescription')}
-                </span>
-              )}
-            </div>
-          </button>
-        )
-      })}
+      {renderMethodButton('upswitch_adaptive', true)}
+
+      <div className="h-px bg-foreground/[0.06] my-1.5" />
+
+      {/* ─── Market & Income (Combinable) ─── */}
+      <div className="text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
+        {t('manualInput.methodSelector.customBlend')}
+      </div>
+      <div className="text-[10px] text-foreground/30 px-2 pb-1">
+        {t('manualInput.methodSelector.combinableHint')}
+      </div>
+      {combinableMethods.map((key) => renderMethodButton(key, false))}
+
+      {/* Multi-select count indicator */}
+      {isMultiMode && activeMethods.length > 1 && activeMethods.every((m) => COMBINABLE_METHODS.has(m)) && (
+        <div className="mt-1 px-2 py-1 text-[11px] text-primary/80 font-medium">
+          {activeMethods.length} {t('manualInput.methodSelector.methodsSelected')}
+        </div>
+      )}
+
+      {standaloneMethods.length > 0 && (
+        <>
+          <div className="h-px bg-foreground/[0.06] my-1.5" />
+
+          {/* ─── Statutory / Standalone ─── */}
+          <div className="text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
+            {t('manualInput.methodSelector.statutoryLabel')}
+          </div>
+          <div className="text-[10px] text-foreground/30 px-2 pb-1">
+            {t('manualInput.methodSelector.standaloneHint')}
+          </div>
+          {standaloneMethods.map((key) => renderMethodButton(key, true))}
+        </>
+      )}
     </div>
   )
 }
@@ -217,6 +289,9 @@ export interface CalculatorNavProps {
   // Upfront method pre-selection
   preSelectedMethod?: string
   onPreSelectMethod?: (method: string) => void
+  // Multi-method selection for blended valuation
+  preSelectedMethods?: string[]
+  onToggleMethod?: (method: string) => void
   /** Accountant firm country — hides BE-only fiscal method for NL */
   firmCountryCode?: string
   /**
@@ -413,6 +488,8 @@ export function CalculatorNav({
   onOpenValuationEdit,
   preSelectedMethod,
   onPreSelectMethod,
+  preSelectedMethods,
+  onToggleMethod,
   firmCountryCode,
   preSelectableMethodsForNav: preSelectableMethodsForNavProp,
 }: CalculatorNavProps) {
@@ -449,8 +526,11 @@ export function CalculatorNav({
   const selectedMethodLabel = t(
     METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended'
   )
-  const compactMethodLabel =
-    displayPreSelectedMethod === 'upswitch_adaptive'
+  const multiMethodCount = preSelectedMethods?.length ?? 0
+  const isMultiMethod = multiMethodCount > 1 && !(preSelectedMethods ?? []).includes('upswitch_adaptive')
+  const compactMethodLabel = isMultiMethod
+    ? `${multiMethodCount} ${t('manualInput.methodSelector.methods')}`
+    : displayPreSelectedMethod === 'upswitch_adaptive'
       ? t('manualInput.methodSelector.adaptive')
       : selectedMethodLabel
   const methodTriggerLabel = `${t('manualInput.methodSelector.label')} — ${selectedMethodLabel}`
@@ -652,7 +732,9 @@ export function CalculatorNav({
               >
                 <MethodSelectorMenu
                   preSelectedMethod={displayPreSelectedMethod}
+                  preSelectedMethods={preSelectedMethods}
                   onPreSelectMethod={onPreSelectMethod}
+                  onToggleMethod={onToggleMethod}
                   methods={preSelectableMethods}
                   t={t}
                 />
@@ -1043,7 +1125,9 @@ export function CalculatorNav({
               >
                 <MethodSelectorMenu
                   preSelectedMethod={displayPreSelectedMethod}
+                  preSelectedMethods={preSelectedMethods}
                   onPreSelectMethod={onPreSelectMethod}
+                  onToggleMethod={onToggleMethod}
                   methods={preSelectableMethods}
                   t={t}
                 />

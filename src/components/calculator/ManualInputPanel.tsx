@@ -73,6 +73,7 @@ import { shouldSuppressMercurySessionPrefill } from '../../utils/prefillRestorat
 import {
   type GetBonusSectionsSaasSignals,
   getBonusSections,
+  getBonusSectionsForMethods,
   getBonusSectionsSaasSignalsFromFormData,
   resolveBusinessTypeIdForBonusSections,
 } from '../../constants/methodFieldConfig'
@@ -104,6 +105,7 @@ import type {
   OfficialFinancialsPayload,
   OfficialVarianceAnalysis,
   OfficialVerificationBadge,
+  ValuationMethodResult,
   YearDataInput,
 } from '../../types/valuation'
 import {
@@ -152,6 +154,8 @@ import {
   RealEstateCarveOutSection,
   RevenueQualitySection,
   SaasMetricsSection,
+  SdeOwnerCompensationSection,
+  SynthesisWeightingSection,
   SECTION_HEADER_ROW_CLASS,
   SectionStatusCircle,
 } from './sections'
@@ -270,6 +274,8 @@ export interface ValuationFormData {
   rev_recurring_pct?: number
   rev_top_client_concentration_pct?: number
   rev_contract_backlog?: number
+  /** Annual owner compensation (€) for SDE — matches ValuationRequest / Titan. */
+  owner_salary_addback?: number
   /** Optional import/session metadata (e.g. SaaS provenance from accounting import). */
   business_context?: Record<string, unknown>
   /** Aligns with Titan / manual Zustand store when synced from session or import. */
@@ -1561,7 +1567,16 @@ export function ManualInputPanel({
   // DCF auto-injection: add forecast years when DCF is selected, prompt removal on switch-away.
   // Also handles initial mount (e.g. page reload with DCF pre-selected).
   const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
+  const effectiveMethods = useManualResultsStore((s) => s.preSelectedMethods)
+  const hasDcfSelected = effectiveMethods.includes('dcf')
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
+  const userWeights = useManualResultsStore((s) => s.userWeights)
+  const userWeightJustification = useManualResultsStore((s) => s.userWeightJustification)
+  const setUserWeights = useManualResultsStore((s) => s.setUserWeights)
+  const setUserWeightJustification = useManualResultsStore((s) => s.setUserWeightJustification)
+  const omniValuationResults = useManualResultsStore(
+    (s) => s.result?.valuation_results as Record<string, ValuationMethodResult> | undefined
+  )
   const prevMethodRef = useRef<string | null>(null)
   useEffect(() => {
     const prev = prevMethodRef.current
@@ -1570,7 +1585,7 @@ export function ManualInputPanel({
 
     if (!isMount && prev === effectiveMethod) return
 
-    if (effectiveMethod === 'dcf') {
+    if (effectiveMethod === 'dcf' || hasDcfSelected) {
       setShowForecastRemovalConfirm(false)
       setFormData((current) => {
         const before = current.yearlyFinancials
@@ -1593,7 +1608,7 @@ export function ManualInputPanel({
         return current
       })
     }
-  }, [effectiveMethod, mi]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveMethod, hasDcfSelected, mi]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Accounting import — silent preflight; button only appears when a provider is connected
   const [accountingConnectedStatus, setAccountingConnectedStatus] =
@@ -2017,20 +2032,20 @@ export function ManualInputPanel({
   )
   const historicalCardRows = useMemo(
     () =>
-      effectiveMethod === 'dcf'
+      hasDcfSelected
         ? sortedYearlyFinancials.filter((year) => !year.isForecast)
         : sortedYearlyFinancials,
-    [effectiveMethod, sortedYearlyFinancials]
+    [hasDcfSelected, sortedYearlyFinancials]
   )
   const baseFilingYearForLabels = useMemo(() => getSeedBaseFilingYear(formData), [formData])
   const dcfForecastRows = useMemo(
     () =>
-      effectiveMethod === 'dcf'
+      hasDcfSelected
         ? [...sortedYearlyFinancials.filter((year) => year.isForecast)].sort(
             (a, b) => Number(a.year) - Number(b.year)
           )
         : [],
-    [effectiveMethod, sortedYearlyFinancials]
+    [hasDcfSelected, sortedYearlyFinancials]
   )
   const latestHistoricalRevenue = useMemo(() => {
     const historical = sortedYearlyFinancials.filter((y) => !y.isForecast && y.revenue > 0)
@@ -2126,15 +2141,22 @@ export function ManualInputPanel({
     [selectedBusinessType?.id, formData.businessType, storeBusinessTypeId]
   )
 
-  const hasDcfForecastWorkspace = effectiveMethod === 'dcf' && dcfForecastRows.length > 0
+  const hasDcfForecastWorkspace = hasDcfSelected && dcfForecastRows.length > 0
 
   const adaptiveHeaderSteps = useMemo(() => {
-    const bonus = getBonusSections(
-      effectiveMethod,
-      resolvedBusinessCategoryForBonusSections,
-      resolvedBusinessTypeIdForBonusSections,
-      saasSignalsForBonusSections
-    )
+    const bonus = effectiveMethods.length > 1
+      ? getBonusSectionsForMethods(
+          effectiveMethods,
+          resolvedBusinessCategoryForBonusSections,
+          resolvedBusinessTypeIdForBonusSections,
+          saasSignalsForBonusSections
+        )
+      : getBonusSections(
+          effectiveMethod,
+          resolvedBusinessCategoryForBonusSections,
+          resolvedBusinessTypeIdForBonusSections,
+          saasSignalsForBonusSections
+        )
     /** With DCF forecast: steps 4–6 = embedded defaults / forecast / WACC+TV; bonus sections start at 8. */
     let n = hasDcfForecastWorkspace ? 8 : 4
     const out: {
@@ -2142,6 +2164,7 @@ export function ManualInputPanel({
       nav?: number
       saas?: number
       revenue?: number
+      sde?: number
     } = {}
     if (bonus.includes('dcf_projections')) {
       out.dcfGlobal = hasDcfForecastWorkspace ? 4 : n++
@@ -2155,9 +2178,13 @@ export function ManualInputPanel({
     if (bonus.includes('revenue_quality')) {
       out.revenue = n++
     }
+    if (bonus.includes('sde_owner_compensation')) {
+      out.sde = n++
+    }
     return out
   }, [
     effectiveMethod,
+    effectiveMethods,
     hasDcfForecastWorkspace,
     resolvedBusinessCategoryForBonusSections,
     resolvedBusinessTypeIdForBonusSections,
@@ -2207,7 +2234,7 @@ export function ManualInputPanel({
 
   const dcfProjectionAutofillRows = useMemo(
     () =>
-      effectiveMethod === 'dcf'
+      hasDcfSelected
         ? deriveDcfProjectionPreview({
             yearlyFinancials: formData.yearlyFinancials,
             smartDefaults: dcfSmartDefaultsFromHistory,
@@ -2370,7 +2397,7 @@ export function ManualInputPanel({
 
   /** Seed DCF defaults: smart history + integration (Titan/Mercury), then static engine fallbacks. */
   useEffect(() => {
-    if (effectiveMethod !== 'dcf') return
+    if (!hasDcfSelected) return
 
     const smart = dcfSmartDefaultsFromHistory
 
@@ -2433,7 +2460,7 @@ export function ManualInputPanel({
 
   /** Live-sync forecast rows from DCF %; rows that diverge from the last model snapshot are treated as manual overrides. */
   useEffect(() => {
-    if (effectiveMethod !== 'dcf' || formData.dcf_input_mode === 'fcff_only') return
+    if (!hasDcfSelected || formData.dcf_input_mode === 'fcff_only') return
     if (dcfForecastRows.length === 0) return
 
     setFormData((prev) => {
@@ -2529,7 +2556,7 @@ export function ManualInputPanel({
       importBatchData?.dcf_defaults?.suggested_capex ??
       persistedAnalysis?.dcf_defaults?.suggested_capex
     if (
-      effectiveMethod !== 'dcf' ||
+      !hasDcfSelected ||
       formData.dcf_input_mode === 'fcff_only' ||
       !suggestedCapex ||
       dcfForecastRows.length === 0
@@ -3152,7 +3179,7 @@ export function ManualInputPanel({
                     {selectedBusinessType && (
                       <div className="-mt-1 space-y-1">
                         <p className="text-[11px] text-foreground/40">{mi('businessTypeHint')}</p>
-                        {effectiveMethod === 'arr_multiple' ? (
+                        {effectiveMethods.includes('arr_multiple') ? (
                           <p className="text-[11px] text-foreground/40">
                             {mi('businessTypeArrMethodNote')}
                           </p>
@@ -3681,7 +3708,7 @@ export function ManualInputPanel({
                     </button>
                   )}
 
-                  {effectiveMethod === 'dcf' &&
+                  {hasDcfSelected &&
                     dcfForecastRows.length > 0 &&
                     adaptiveHeaderSteps.dcfGlobal != null &&
                     terminalValueMethod && (
@@ -3723,7 +3750,7 @@ export function ManualInputPanel({
                       />
                     )}
 
-                  {effectiveMethod === 'dcf' && dcfForecastRows.length > 0 && (
+                  {hasDcfSelected && dcfForecastRows.length > 0 && (
                     <DcfForecastWorkspace
                       step={dcfForecastWorkspaceStep}
                       showModeToggle={false}
@@ -3767,7 +3794,7 @@ export function ManualInputPanel({
                     />
                   )}
 
-                  {effectiveMethod === 'dcf' &&
+                  {hasDcfSelected &&
                     dcfForecastRows.length > 0 &&
                     adaptiveHeaderSteps.dcfGlobal != null &&
                     terminalValueMethod && (
@@ -3838,6 +3865,7 @@ export function ManualInputPanel({
             <div className="mt-4 flex flex-col gap-6">
               <AdaptiveSections
                 effectiveMethod={effectiveMethod}
+                effectiveMethods={effectiveMethods}
                 businessCategory={resolvedBusinessCategoryForBonusSections ?? undefined}
                 businessTypeId={resolvedBusinessTypeIdForBonusSections ?? undefined}
                 saasSignals={saasSignalsForBonusSections}
@@ -3854,6 +3882,20 @@ export function ManualInputPanel({
                 onTerminalValueMethodChange={handleTerminalValueMethodChange}
                 disabled={isCalculating}
               />
+
+              {/* Synthesis weighting sliders — visible when 2+ methods selected */}
+              {effectiveMethods.length > 1 && !effectiveMethods.includes('upswitch_adaptive') && (
+                <SynthesisWeightingSection
+                  methods={effectiveMethods}
+                  weights={userWeights}
+                  justification={userWeightJustification}
+                  onWeightsChange={setUserWeights}
+                  onJustificationChange={setUserWeightJustification}
+                  step={Object.keys(adaptiveHeaderSteps).length + (hasDcfForecastWorkspace ? 8 : 4)}
+                  disabled={isCalculating}
+                  valuationResults={omniValuationResults}
+                />
+              )}
             </div>
 
             {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}
@@ -4034,6 +4076,7 @@ export function ManualInputPanel({
 
 export function AdaptiveSections({
   effectiveMethod,
+  effectiveMethods,
   businessCategory,
   businessTypeId,
   saasSignals,
@@ -4049,6 +4092,7 @@ export function AdaptiveSections({
   disabled,
 }: {
   effectiveMethod: string
+  effectiveMethods?: string[]
   businessCategory?: string
   businessTypeId?: string
   saasSignals?: GetBonusSectionsSaasSignals | null
@@ -4060,6 +4104,7 @@ export function AdaptiveSections({
     nav?: number
     saas?: number
     revenue?: number
+    sde?: number
   }
   /** When true, DCF globals are rendered in ManualInputPanel (forecast defaults first). */
   suppressDcfGlobalAssumptions?: boolean
@@ -4071,10 +4116,13 @@ export function AdaptiveSections({
   disabled?: boolean
 }) {
   const t = useTranslations('manualInput.methodSelector')
-  const sections = getBonusSections(effectiveMethod, businessCategory, businessTypeId, saasSignals)
+  const methods = effectiveMethods ?? [effectiveMethod]
+  const sections = methods.length > 1
+    ? getBonusSectionsForMethods(methods, businessCategory, businessTypeId, saasSignals)
+    : getBonusSections(effectiveMethod, businessCategory, businessTypeId, saasSignals)
   const saasArrProjectionPreview = useMemo(
     () =>
-      sections.includes('saas_metrics') && effectiveMethod === 'dcf'
+      sections.includes('saas_metrics') && methods.includes('dcf')
         ? deriveSaasArrProjectionPreview({
             yearlyFinancials: formData.yearlyFinancials,
             saasArr: formData.saas_arr as number | undefined,
@@ -4123,8 +4171,8 @@ export function AdaptiveSections({
   )
 
   const firmCode = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
-  const showRevenueNotice = effectiveMethod === 'omzet_multiple'
-  const showFiscalNotice = effectiveMethod === 'fiscal_4x' && firmCode !== 'NL'
+  const showRevenueNotice = methods.includes('omzet_multiple')
+  const showFiscalNotice = methods.includes('fiscal_4x') && firmCode !== 'NL'
   if (sections.length === 0 && !showRevenueNotice && !showFiscalNotice) return null
 
   return (
@@ -4275,6 +4323,15 @@ export function AdaptiveSections({
             formData.rev_top_client_concentration_pct as number | undefined
           }
           revContractBacklog={formData.rev_contract_backlog as number | undefined}
+          onFieldChange={onFieldChange}
+          disabled={disabled}
+        />
+      )}
+      {sections.includes('sde_owner_compensation') && sectionHeaderSteps.sde != null && (
+        <SdeOwnerCompensationSection
+          key="sde_owner_compensation"
+          step={sectionHeaderSteps.sde}
+          ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
           onFieldChange={onFieldChange}
           disabled={disabled}
         />

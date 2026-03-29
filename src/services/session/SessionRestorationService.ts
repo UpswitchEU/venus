@@ -515,6 +515,22 @@ class SessionRestorationServiceImpl {
       }
     }
 
+    // 1c. Restore multi-method blended valuation state (Waarderingssynthese).
+    // Applied both for drafts and completed valuations so recalculation preserves
+    // the accountant's previously configured method mix and weighting.
+    if (!isConversational) {
+      const store = useManualResultsStore.getState()
+      if (data.preSelectedMethods && data.preSelectedMethods.length > 1) {
+        store.setPreSelectedMethods(data.preSelectedMethods)
+      }
+      if (data.userWeights && Object.keys(data.userWeights).length > 0) {
+        store.setUserWeights(data.userWeights)
+      }
+      if (data.userWeightJustification) {
+        store.setUserWeightJustification(data.userWeightJustification)
+      }
+    }
+
     // 2. Hydrate results store
     // CRITICAL: Restore valuation result AND output assets (htmlReport)
     // Sessions may have: (a) full result, (b) output-only, or (c) input-only

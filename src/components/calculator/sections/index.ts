@@ -19,7 +19,9 @@ export {
 export { NavAssetScheduleSection } from './NavAssetScheduleSection'
 export { RealEstateCarveOutSection } from './RealEstateCarveOutSection'
 export { RevenueQualitySection } from './RevenueQualitySection'
+export { SdeOwnerCompensationSection } from './SdeOwnerCompensationSection'
 export { SaasMetricsSection } from './SaasMetricsSection'
+export { SynthesisWeightingSection } from './SynthesisWeightingSection'
 
 export {
   SECTION_HEADER_ROW_CLASS,

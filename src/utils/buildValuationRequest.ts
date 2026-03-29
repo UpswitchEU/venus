@@ -195,16 +195,17 @@ export function buildValuationRequest(
   const revenue = requireNonNegativeRevenue(rawRevenue, 'current_year_data.revenue')
 
   // EBITDA: accept 0 as a legitimate break-even value; only warn if truly absent.
-  const rawEbitda =
+  const rawEbitdaNum =
     formData.ebitda !== undefined && formData.ebitda !== null
       ? Number(formData.ebitda)
       : formData.current_year_data?.ebitda !== undefined &&
           formData.current_year_data?.ebitda !== null
         ? Number(formData.current_year_data.ebitda)
         : null
+  const rawEbitda = rawEbitdaNum !== null && !Number.isFinite(rawEbitdaNum) ? null : rawEbitdaNum
   if (rawEbitda === null) {
     generalLogger.warn(
-      '[buildValuationRequest] EBITDA is missing — using 0. Ensure the form validates EBITDA before submission.',
+      '[buildValuationRequest] EBITDA is missing or non-numeric — using 0. Ensure the form validates EBITDA before submission.',
       { business_name: companyName, industry }
     )
   }

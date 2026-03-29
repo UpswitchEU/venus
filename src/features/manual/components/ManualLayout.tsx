@@ -174,6 +174,33 @@ import {
   deriveNavPricesForVersionNav,
 } from './manualReportPresentation'
 
+/**
+ * Attach user_weights and user_weight_justification to the request when the
+ * accountant selected multiple methods (non-adaptive) and configured weights.
+ * Weights are divided by 100 (UI percentage → API fraction) and only attached
+ * if they sum close enough to 100% for the backend to accept (±2pp tolerance).
+ */
+function attachSynthesisWeights(request: Record<string, any>): void {
+  const snap = useManualResultsStore.getState()
+  if (
+    snap.preSelectedMethods.length < 2 ||
+    snap.preSelectedMethods.includes('upswitch_adaptive') ||
+    Object.keys(snap.userWeights).length === 0
+  ) {
+    return
+  }
+  const pctSum = Object.values(snap.userWeights).reduce((s, v) => s + v, 0)
+  if (Math.abs(pctSum - 100) > 2) return
+  const normalized: Record<string, number> = {}
+  for (const [k, v] of Object.entries(snap.userWeights)) {
+    normalized[k] = v / 100
+  }
+  request.user_weights = normalized
+  if (snap.userWeightJustification?.trim()) {
+    request.user_weight_justification = snap.userWeightJustification
+  }
+}
+
 function getHttpStatusFromError(err: unknown): number | undefined {
   if (err instanceof APIError) return err.statusCode
   const ax = err as { response?: { status?: number } }
@@ -531,6 +558,7 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
       rev_top_client_concentration_pct: data.rev_top_client_concentration_pct,
     }),
     ...(data.rev_contract_backlog != null && { rev_contract_backlog: data.rev_contract_backlog }),
+    ...(data.owner_salary_addback != null && { owner_salary_addback: data.owner_salary_addback }),
     // Belgian official filing trust (optional; also merged via getState() after updateFormData)
     ...(data.official_financials != null && { official_financials: data.official_financials }),
     ...(data.official_variance_analysis != null && {
@@ -636,6 +664,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     setSelectedMethod,
     preSelectedMethod,
     setPreSelectedMethod,
+    preSelectedMethods,
+    togglePreSelectedMethod,
+    userWeights,
+    userWeightJustification,
     trySetCalculating,
     setCalculating,
     setResult,
@@ -1831,6 +1863,42 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     })
   }, [versions, report, selectedMethod, t])
 
+  const navValuationSummary = React.useMemo(() => {
+    if (!report) return undefined
+    const vr = result?.valuation_results as Record<string, { available: boolean; value?: number | string | null }> | undefined
+    const isMultiMethod = preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
+
+    let liveBlended: number | null = null
+    if (isMultiMethod && vr && Object.keys(userWeights).length > 0) {
+      const weightTotal = Object.values(userWeights).reduce((s, v) => s + v, 0)
+      if (Math.abs(weightTotal - 100) < 2) {
+        let sum = 0
+        let ok = true
+        for (const [mk, mw] of Object.entries(userWeights)) {
+          if (mw <= 0) continue
+          const mr = vr[mk]
+          if (!mr?.available || mr.value == null) { ok = false; break }
+          sum += Number(mr.value) * (mw / 100)
+        }
+        if (ok && sum > 0) liveBlended = Math.round(sum)
+      }
+    }
+
+    const serverBlended = result?.weighted_valuation?.blended_equity_value != null
+      ? Number(result.weighted_valuation.blended_equity_value)
+      : null
+    const blended = liveBlended ?? (serverBlended != null && Number.isFinite(serverBlended) ? serverBlended : null)
+    const primaryValue = blended ?? report.recommendedAskingPrice ?? report.valuation
+    return {
+      priceRange: {
+        min: report.valuationLow ?? Math.round(report.valuation * 0.85),
+        max: report.valuationHigh ?? Math.round(report.valuation * 1.15),
+      },
+      askPrice: primaryValue,
+      confidence: 'high' as const,
+    }
+  }, [report, result, userWeights, preSelectedMethods])
+
   const handleSelectVersion = useCallback(
     (id: string) => {
       setSelectedVersionId(id)
@@ -2441,8 +2509,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
         if (preSelectedMethod) {
-          ;(request as any).selected_method = preSelectedMethod
+          request.selected_method = preSelectedMethod
         }
+
+        attachSynthesisWeights(request)
+
         const idForApi = linkedIdentifier
         if (calculationRequestIdentifiers.reportId) {
           ;(request as any).reportId = calculationRequestIdentifiers.reportId
@@ -2875,8 +2946,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ;(request as any).dataSource = 'manual'
         ;(request as any).reportId = idForVersions
         if (preSelectedMethod) {
-          ;(request as any).selected_method = preSelectedMethod
+          request.selected_method = preSelectedMethod
         }
+
+        attachSynthesisWeights(request)
 
         const previousVersion = getLatestVersion(idForVersions)
         if (!previousVersion) {
@@ -4035,8 +4108,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         )
         ;(request as any).dataSource = 'manual'
         if (preSelectedMethod) {
-          ;(request as any).selected_method = preSelectedMethod
+          request.selected_method = preSelectedMethod
         }
+
+        attachSynthesisWeights(request)
+
         if (calculationRequestIdentifiers.reportId) {
           ;(request as any).reportId = calculationRequestIdentifiers.reportId
         }
@@ -4726,9 +4802,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onToggleSourceData={toggleSourceDataPanel}
           onOpenValuationEdit={() => setShowValuationEditModal(true)}
           preSelectedMethod={preSelectedMethod ?? undefined}
+          preSelectedMethods={preSelectedMethods}
           onPreSelectMethod={handlePreSelectMethod}
+          onToggleMethod={togglePreSelectedMethod}
           firmCountryCode={user?.firm_country_code}
           preSelectableMethodsForNav={preSelectableMethodsForNav}
+          valuationSummary={navValuationSummary}
         />
 
         {pdfStaleBannerEl}
@@ -4878,19 +4957,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onNavigateToDashboard={handleNavigateToDashboard}
         onNavigateToBilling={handleNavigateToBilling}
         onNavigateToHelp={handleNavigateToHelp}
-        valuationSummary={
-          report
-            ? {
-                priceRange: {
-                  min: report.valuationLow ?? Math.round(report.valuation * 0.85),
-                  max: report.valuationHigh ?? Math.round(report.valuation * 1.15),
-                },
-                // Voorgestelde Vraagprijs flows to Mercury listing; use when available (world-class: seller sees the number they will publish)
-                askPrice: report.recommendedAskingPrice ?? report.valuation,
-                confidence: 'high' as const,
-              }
-            : undefined
-        }
+        valuationSummary={navValuationSummary}
         valuationVersions={versionHistoryForNav}
         selectedVersionId={selectedVersionId}
         onSelectVersion={handleSelectVersion}
@@ -4929,7 +4996,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onToggleSourceData={toggleSourceDataPanel}
         onOpenValuationEdit={() => setShowValuationEditModal(true)}
         preSelectedMethod={preSelectedMethod ?? undefined}
+        preSelectedMethods={preSelectedMethods}
         onPreSelectMethod={handlePreSelectMethod}
+        onToggleMethod={togglePreSelectedMethod}
         firmCountryCode={user?.firm_country_code}
         preSelectableMethodsForNav={preSelectableMethodsForNav}
       />

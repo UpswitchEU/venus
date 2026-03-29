@@ -24,6 +24,9 @@ import { generalLogger } from '../../utils/logger'
 import {
   SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
   SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
+  SESSION_PRE_SELECTED_METHODS_KEY,
+  SESSION_USER_WEIGHTS_KEY,
+  SESSION_USER_WEIGHT_JUSTIFICATION_KEY,
 } from '../../constants/sessionUiKeys'
 
 /**
@@ -76,6 +79,13 @@ export interface NormalizedSessionData {
    * `undefined` = key absent (do not overwrite store); `null` = explicitly adaptive; string = method key.
    */
   preSelectedValuationMethod: string | null | undefined
+
+  /** Multi-method selection for blended valuation. */
+  preSelectedMethods: string[] | undefined
+  /** User-configured weights (method_key → 0-100). */
+  userWeights: Record<string, number> | undefined
+  /** Accountant justification for chosen weighting. */
+  userWeightJustification: string | undefined
 }
 
 /**
@@ -469,6 +479,22 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     preSelectedValuationMethod = undefined
   }
 
+  const rawMethods = sessionData?.[SESSION_PRE_SELECTED_METHODS_KEY]
+  const preSelectedMethods: string[] | undefined =
+    Array.isArray(rawMethods) && rawMethods.every((m: unknown) => typeof m === 'string')
+      ? rawMethods
+      : undefined
+
+  const rawWeights = sessionData?.[SESSION_USER_WEIGHTS_KEY]
+  const userWeights: Record<string, number> | undefined =
+    rawWeights && typeof rawWeights === 'object' && !Array.isArray(rawWeights)
+      ? (rawWeights as Record<string, number>)
+      : undefined
+
+  const rawJustification = sessionData?.[SESSION_USER_WEIGHT_JUSTIFICATION_KEY]
+  const userWeightJustification: string | undefined =
+    typeof rawJustification === 'string' ? rawJustification : undefined
+
   const normalized: NormalizedSessionData = {
     // Metadata
     reportId,
@@ -493,6 +519,9 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     dataSource: normalizeFlowType(backendSession.dataSource || sessionData.dataSource),
     hasExistingData: hasExistingData(formData, valuationResult, htmlReport),
     preSelectedValuationMethod,
+    preSelectedMethods,
+    userWeights,
+    userWeightJustification,
   }
 
   generalLogger.debug('[SessionNormalizer] Normalized session data', {
@@ -528,6 +557,9 @@ export function createEmptyNormalizedData(reportId: string): NormalizedSessionDa
     dataSource: 'manual',
     hasExistingData: false,
     preSelectedValuationMethod: undefined,
+    preSelectedMethods: undefined,
+    userWeights: undefined,
+    userWeightJustification: undefined,
   }
 }
 

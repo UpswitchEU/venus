@@ -146,6 +146,7 @@ export interface ValuationRequest {
   number_of_owners?: number // Number of operational owners (C-level + working shareholders)
   recurring_revenue_percentage?: number // 0.0 to 1.0
   shares_for_sale?: number // Percentage of shares for sale (0-100), used for ownership adjustment
+  owner_salary_addback?: number // Annual owner compensation (€) for SDE calculation
 
   // Additional business context
   business_type?: string
@@ -196,6 +197,13 @@ export interface ValuationRequest {
   projection_years?: number // 5-15 years
   /** Manual DCF: `ebitda` (default) or `fcff_only` (explicit yearly FCFF). */
   dcf_input_mode?: 'ebitda' | 'fcff_only'
+
+  /** Pre-selected valuation method key (single-method mode). */
+  selected_method?: string
+  /** Method-key → weight (0.0–1.0) map for blended valuation. Weights must sum to 1.0. */
+  user_weights?: Record<string, number>
+  /** Accountant's textual rationale for the chosen weighting (printed in PDF synthesis page). */
+  user_weight_justification?: string
 
   // Optional comparable companies
   comparables?: Array<{
@@ -1189,6 +1197,19 @@ export interface ValuationResponse {
   // Omni-Calc: all methods calculated simultaneously
   valuation_results?: Record<string, ValuationMethodResult>
   selected_valuation_method?: string
+
+  /** User-configured blended valuation (Waarderingssynthese). Present when user_weights were supplied. */
+  weighted_valuation?: {
+    blended_equity_value: number | string
+    contributions: Array<{
+      method_key: string
+      label: string
+      equity_value: number | string
+      weight: number
+      weighted_contribution: number | string
+    }>
+    user_justification?: string | null
+  }
   fiscal_4x_anchor?: number | null
   /** Effective fiscal PDF flag (Titan: branding + per-report override) */
   show_fiscal_reference?: boolean

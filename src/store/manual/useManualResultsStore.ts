@@ -17,6 +17,13 @@ import { create } from 'zustand'
 import { useSessionStore } from '../useSessionStore'
 import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
 import { extractValuationResultsMap } from '../../utils/extractValuationResultsMap'
+import {
+  equalWeightsFor,
+  isStandaloneMethod,
+  isCombinableMethod,
+  getConflictingMethod,
+  sanitizeMethodSelection,
+} from '../../constants/methodFieldConfig'
 import { storeLogger } from '../../utils/logger'
 
 interface ManualResultsStore {
@@ -31,6 +38,15 @@ interface ManualResultsStore {
   // When set, drives adaptive input sections and becomes the default
   // selected_method sent with the calculation request.
   preSelectedMethod: string | null
+
+  // Multi-method selection for blended valuation (Waarderingssynthese).
+  // When length > 1, the synthesis step (weighting sliders) is shown.
+  // `upswitch_adaptive` is mutually exclusive with all other methods.
+  preSelectedMethods: string[]
+
+  // User-configured weights for blended valuation (method_key → 0-100, sum = 100).
+  userWeights: Record<string, number>
+  userWeightJustification: string
 
   // Calculation state
   isCalculating: boolean
@@ -51,6 +67,10 @@ interface ManualResultsStore {
   setHtmlReport: (html: string) => void
   setSelectedMethod: (method: string) => void
   setPreSelectedMethod: (method: string | null) => void
+  setPreSelectedMethods: (methods: string[]) => void
+  togglePreSelectedMethod: (method: string) => void
+  setUserWeights: (weights: Record<string, number>) => void
+  setUserWeightJustification: (justification: string) => void
   setError: (error: string | null) => void
   clearError: () => void
   clearResults: () => void
@@ -70,6 +90,9 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   htmlReport: null,
   selectedMethod: 'upswitch_adaptive',
   preSelectedMethod: null,
+  preSelectedMethods: ['upswitch_adaptive'],
+  userWeights: {},
+  userWeightJustification: '',
   isCalculating: false,
   error: null,
   calculationProgress: 0,
@@ -100,14 +123,80 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   setPreSelectedMethod: (method: string | null) => {
     set((state) => {
       storeLogger.info('[Manual] Pre-selected method changed', { method })
+      const effective = method ?? 'upswitch_adaptive'
       return {
         ...state,
         preSelectedMethod: method,
-        // Keep selectedMethod in sync so downstream consumers always react
-        // to the user's current intent, including returning to Adaptive.
-        selectedMethod: method ?? 'upswitch_adaptive',
+        selectedMethod: effective,
+        preSelectedMethods: [effective],
+        userWeights: {},
+        userWeightJustification: '',
       }
     })
+  },
+
+  setPreSelectedMethods: (methods: string[]) => {
+    set((state) => {
+      const resolved = sanitizeMethodSelection(methods)
+      storeLogger.info('[Manual] Pre-selected methods set', { methods: resolved })
+      const primary = resolved[0]
+      const weights = resolved.length > 1 ? equalWeightsFor(resolved) : {}
+      return {
+        ...state,
+        preSelectedMethods: resolved,
+        preSelectedMethod: primary === 'upswitch_adaptive' ? null : primary,
+        selectedMethod: primary,
+        userWeights: weights,
+      }
+    })
+  },
+
+  togglePreSelectedMethod: (method: string) => {
+    set((state) => {
+      const current = state.preSelectedMethods
+
+      let next: string[]
+
+      if (isStandaloneMethod(method)) {
+        // Standalone methods (upswitch_adaptive, fiscal_4x, adjusted_nav)
+        // always become the sole selection — they cannot be combined.
+        next = [method]
+      } else if (current.includes(method)) {
+        // Toggling OFF a currently-selected combinable method
+        next = current.filter((m) => m !== method)
+        if (next.length === 0) next = ['upswitch_adaptive']
+      } else {
+        // Toggling ON a combinable method:
+        // 1. Remove any standalone methods from the selection
+        let base = current.filter((m) => isCombinableMethod(m))
+        // 2. Remove conflicting method (SDE ↔ EBITDA mutual exclusion)
+        const conflict = getConflictingMethod(method)
+        if (conflict) {
+          base = base.filter((m) => m !== conflict)
+        }
+        next = [...base, method]
+      }
+
+      storeLogger.info('[Manual] Method toggled', { method, result: next })
+      const primary = next[0]
+      const weights = next.length > 1 ? equalWeightsFor(next) : {}
+      return {
+        ...state,
+        preSelectedMethods: next,
+        preSelectedMethod: primary === 'upswitch_adaptive' ? null : primary,
+        selectedMethod: primary,
+        userWeights: weights,
+        userWeightJustification: next.length <= 1 ? '' : state.userWeightJustification,
+      }
+    })
+  },
+
+  setUserWeights: (weights: Record<string, number>) => {
+    set((state) => ({ ...state, userWeights: weights }))
+  },
+
+  setUserWeightJustification: (justification: string) => {
+    set((state) => ({ ...state, userWeightJustification: justification }))
   },
 
   // Set result (atomic)
@@ -177,6 +266,10 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           htmlReport: result.html_report || state.htmlReport,
           selectedMethod: hydratedSelectedMethod,
           preSelectedMethod: hydratedSelectedMethod,
+          preSelectedMethods:
+            state.preSelectedMethods.length > 1
+              ? state.preSelectedMethods
+              : [hydratedSelectedMethod],
         }
       } else {
         storeLogger.debug('[Manual] Valuation result cleared')
@@ -187,6 +280,9 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           htmlReport: null,
           selectedMethod: 'upswitch_adaptive',
           preSelectedMethod: null,
+          preSelectedMethods: ['upswitch_adaptive'],
+          userWeights: {},
+          userWeightJustification: '',
         }
       }
     })
@@ -256,6 +352,9 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
       htmlReport: null,
       selectedMethod: 'upswitch_adaptive',
       preSelectedMethod: null,
+      preSelectedMethods: ['upswitch_adaptive'],
+      userWeights: {},
+      userWeightJustification: '',
       error: null,
       calculationProgress: 0,
       isCalculating: false,

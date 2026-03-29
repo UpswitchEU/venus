@@ -1361,6 +1361,15 @@
       "label": "Method",
       "adaptive": "Upswitch market approach",
       "adaptiveRecommended": "Upswitch market approach (recommended)",
+      "recommended": "Recommended",
+      "customBlend": "Market & income (combinable)",
+      "combinableHint": "Select one or more methods to weight",
+      "statutoryLabel": "Statutory / standalone",
+      "standaloneHint": "Selection replaces all other methods",
+      "conflictsWith": "Cannot be combined with {method}",
+      "willReplace": "Replaces {method}",
+      "methods": "methods",
+      "methodsSelected": "methods selected",
       "revenueMultiple": "Market Approach (Revenue)",
       "arrMultiple": "SaaS market approach (EV/ARR)",
       "arrMultipleDescription": "ARR lens for SaaS. Business model and type together determine which SaaS metrics appear.",
@@ -1368,12 +1377,17 @@
       "dcf": "Discounted Cash Flow (DCF)",
       "dcfDescription": "Few percentages, live FCFF preview, smart defaults from history and accounting import—defensible DCF in minutes, not days.",
       "adjustedNav": "Adjusted Net Asset Value",
+      "adjustedNavDescription": "Book value after corrections. Standalone — cannot be combined with market methods.",
+      "sdeMultiple": "SDE Multiple (Seller's Discretionary Earnings)",
+      "sdeMultipleDescription": "For micro-SMEs and sole proprietorships (revenue < €5M). Adds owner salary back to EBITDA.",
       "fiscal4x": "Fiscal Reference Value",
+      "fiscal4xDescription": "Belgian fiscal formula. Only for internal transfers and succession planning.",
       "fiscalDisclaimerTitle": "Attention",
       "fiscalDisclaimerText": "For internal transfers, succession planning, or tax rulings only. Not intended for external M&A transactions.",
       "revenueDriverTitle": "Revenue is the primary driver",
       "revenueDriverText": "For this method, top-line revenue is the main anchor. EBITDA normalizations remain available, but only as secondary context here.",
       "recommendedForMethod": "Recommended for {method}",
+      "sdeExplainer": "SDE (Seller's Discretionary Earnings) adds the owner's salary back to EBITDA. This reflects the true cash flow available to a buyer who replaces the owner. Enter the total annual owner compensation below.",
       "shownForBusinessType": "Shown for {businessType}",
       "businessTypes": {
         "saasSoftware": "SaaS / Software"
@@ -1387,10 +1401,12 @@
         "discountTerminalLead": "After your cash flows look right, set the discount rate and terminal assumption.",
         "dcfGlobalAssumptions": "Global DCF Assumptions",
         "navAssetSchedule": "Asset Adjustments",
+        "sdeOwnerCompensation": "Owner Compensation (SDE)",
         "realEstateCarveOut": "Real estate carve-out",
         "saasMetrics": "SaaS Metrics",
         "saasDerivedMetrics": "Calculated SaaS Signals",
-        "revenueQuality": "Revenue Quality"
+        "revenueQuality": "Revenue Quality",
+        "synthesisWeighting": "Valuation Synthesis"
       },
       "globalAssumptionGroups": {
         "forecastDefaults": "Forecast Defaults",
@@ -1441,6 +1457,7 @@
         "dcfCostOfDebtPct": "Cost of debt (%)",
         "dcfDebtEquityPct": "Debt share (%)",
         "dcfTaxShieldPct": "Tax shield (%)",
+        "ownerSalaryAddback": "Owner's annual salary (€)",
         "navRealEstateAdjustment": "Real estate revaluation",
         "navInventoryAdjustment": "Inventory Adjustment",
         "navHiddenReserves": "Hidden reserves",
@@ -1484,6 +1501,20 @@
       "waccBreakdown": {
         "expand": "Show inputs",
         "collapse": "Hide inputs"
+      },
+      "synthesis": {
+        "title": "Valuation Synthesis",
+        "subtitle": "Distribute weight across selected methods (total = 100%)",
+        "weight": "Weight",
+        "resetEqual": "Equal distribution",
+        "justificationLabel": "Rationale (appears in report)",
+        "justificationPlaceholder": "E.g. 'Higher DCF weight due to recently secured multi-year contracts not reflected in historical EBITDA.'",
+        "blendedValue": "Blended value",
+        "methodUnavailable": "Not available",
+        "totalWarning": "Total: {total}% (must be 100%)",
+        "methodCol": "Method",
+        "valueCol": "Value",
+        "contributionCol": "Contribution"
       }
     },
     "importModal": {

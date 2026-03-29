@@ -18,6 +18,7 @@ export type InputSectionKey =
   | 'nav_asset_schedule'
   | 'saas_metrics'
   | 'revenue_quality'
+  | 'sde_owner_compensation'
 
 export interface MethodFieldEntry {
   bonusSections: InputSectionKey[]
@@ -29,6 +30,7 @@ export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
   omzet_multiple: { bonusSections: ['revenue_quality'] },
   arr_multiple: { bonusSections: ['saas_metrics'] },
   dcf: { bonusSections: ['dcf_projections'] },
+  sde_multiple: { bonusSections: ['sde_owner_compensation'] },
   adjusted_nav: { bonusSections: ['nav_asset_schedule'] },
   fiscal_4x: { bonusSections: [] },
 }
@@ -142,6 +144,7 @@ export const PRE_SELECTABLE_METHODS = [
   'arr_multiple',
   'ebitda_multiple',
   'dcf',
+  'sde_multiple',
   'adjusted_nav',
   'fiscal_4x',
 ] as const
@@ -149,6 +152,92 @@ export const PRE_SELECTABLE_METHODS = [
 export type PreSelectableMethod = (typeof PRE_SELECTABLE_METHODS)[number]
 
 export const PRE_SELECTABLE_METHOD_SET = new Set<string>(PRE_SELECTABLE_METHODS)
+
+/**
+ * Market & Income methods that can be combined and weighted in a blended valuation.
+ * These all answer "What is the Fair Market Value to an outside buyer?"
+ */
+export const COMBINABLE_METHODS = new Set([
+  'ebitda_multiple',
+  'dcf',
+  'sde_multiple',
+  'omzet_multiple',
+  'arr_multiple',
+])
+
+/**
+ * Standalone methods that cannot be blended with other methods.
+ * Each serves a distinct legal/financial purpose (tax filing, liquidation, proprietary algorithm).
+ */
+export const STANDALONE_METHODS = new Set([
+  'upswitch_adaptive',
+  'fiscal_4x',
+  'adjusted_nav',
+])
+
+/**
+ * Methods that measure different profit baselines and must never be combined.
+ * SDE includes owner salary; EBITDA excludes it — blending them is double-counting.
+ */
+export const MUTUALLY_EXCLUSIVE_PAIRS: ReadonlyArray<[string, string]> = [
+  ['sde_multiple', 'ebitda_multiple'],
+]
+
+/**
+ * Returns the method that conflicts with the given method, or null.
+ */
+export function getConflictingMethod(method: string): string | null {
+  for (const [a, b] of MUTUALLY_EXCLUSIVE_PAIRS) {
+    if (method === a) return b
+    if (method === b) return a
+  }
+  return null
+}
+
+/**
+ * Whether a method is standalone (selecting it deselects everything else).
+ */
+export function isStandaloneMethod(method: string): boolean {
+  return STANDALONE_METHODS.has(method)
+}
+
+/**
+ * Whether a method is combinable (can be multi-selected and weighted).
+ */
+export function isCombinableMethod(method: string): boolean {
+  return COMBINABLE_METHODS.has(method)
+}
+
+/**
+ * Sanitizes a method selection array to enforce exclusivity rules.
+ * Used when restoring from session or any bulk-set path that bypasses togglePreSelectedMethod.
+ *
+ * Rules:
+ *   1. If any standalone method is present, keep only the first standalone.
+ *   2. Among combinable methods, remove one side of each mutually exclusive pair.
+ *   3. Empty → fallback to ['upswitch_adaptive'].
+ */
+export function sanitizeMethodSelection(methods: string[]): string[] {
+  if (methods.length === 0) return ['upswitch_adaptive']
+
+  const hasStandalone = methods.some(isStandaloneMethod)
+  if (hasStandalone) {
+    const first = methods.find(isStandaloneMethod)!
+    return [first]
+  }
+
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const m of methods) {
+    if (!isCombinableMethod(m)) continue
+    const conflict = getConflictingMethod(m)
+    if (conflict && seen.has(conflict)) continue
+    seen.add(m)
+    result.push(m)
+  }
+
+  return result.length === 0 ? ['upswitch_adaptive'] : result
+}
 
 /**
  * Belgian fiscal reference (4× EBITDA) is not offered for Dutch accountant firms.
@@ -225,4 +314,38 @@ export function getBonusSections(
     combined.push('saas_metrics')
   }
   return combined
+}
+
+/**
+ * Union of bonus sections across multiple selected methods.
+ * Used when accountant selects 2+ methods for blended valuation.
+ */
+export function getBonusSectionsForMethods(
+  methods: string[],
+  businessCategory?: string | null,
+  businessTypeId?: string | null,
+  saasSignals?: GetBonusSectionsSaasSignals | null
+): InputSectionKey[] {
+  const combined: InputSectionKey[] = []
+  for (const method of methods) {
+    for (const section of getBonusSections(method, businessCategory, businessTypeId, saasSignals)) {
+      if (!combined.includes(section)) combined.push(section)
+    }
+  }
+  return combined
+}
+
+/**
+ * Distribute 100% weight equally across methods (integer percentages).
+ * Remainder is distributed one-by-one to the first methods to ensure exact 100% sum.
+ */
+export function equalWeightsFor(methods: string[]): Record<string, number> {
+  if (methods.length === 0) return {}
+  const base = Math.floor(100 / methods.length)
+  const remainder = 100 - base * methods.length
+  const weights: Record<string, number> = {}
+  methods.forEach((m, i) => {
+    weights[m] = base + (i < remainder ? 1 : 0)
+  })
+  return weights
 }

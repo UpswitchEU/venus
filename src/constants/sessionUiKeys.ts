@@ -12,6 +12,15 @@ export const SESSION_PRE_SELECTED_VALUATION_METHOD_KEY = '_pre_selected_valuatio
 /** Legacy / alternate key (matches SessionNormalizer). */
 export const SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY = 'pre_selected_valuation_method' as const
 
+/** Multi-method selection for blended valuation. */
+export const SESSION_PRE_SELECTED_METHODS_KEY = '_pre_selected_valuation_methods' as const
+
+/** User-configured weights (JSON object: method_key → 0-100). */
+export const SESSION_USER_WEIGHTS_KEY = '_user_weights' as const
+
+/** Accountant justification for the chosen weighting. */
+export const SESSION_USER_WEIGHT_JUSTIFICATION_KEY = '_user_weight_justification' as const
+
 /**
  * True if session JSONB already carries an upfront method preference (any key variant).
  */

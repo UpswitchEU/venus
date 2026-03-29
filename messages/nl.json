@@ -1361,6 +1361,15 @@
       "label": "Methode",
       "adaptive": "Upswitch marktbenadering",
       "adaptiveRecommended": "Upswitch marktbenadering (aanbevolen)",
+      "recommended": "Aanbevolen",
+      "customBlend": "Markt & inkomen (combineerbaar)",
+      "combinableHint": "Selecteer één of meer methodes om te wegen",
+      "statutoryLabel": "Wettelijk / standalone",
+      "standaloneHint": "Selectie vervangt alle andere methodes",
+      "conflictsWith": "Niet combineerbaar met {method}",
+      "willReplace": "Vervangt {method}",
+      "methods": "methodes",
+      "methodsSelected": "methodes geselecteerd",
       "revenueMultiple": "Marktbenadering (Omzet)",
       "arrMultiple": "SaaS-marktbenadering (EV/ARR)",
       "arrMultipleDescription": "ARR-lens voor SaaS. Bedrijfsmodel of -type bepaalt mee welke SaaS-metrics zichtbaar zijn.",
@@ -1368,12 +1377,17 @@
       "dcf": "Discounted Cash Flow (DCF)",
       "dcfDescription": "Enkele percentages, live FCFF-preview, slimme defaults uit historiek en accounting-import—verdedigbare DCF in minuten, niet in dagen.",
       "adjustedNav": "Gecorrigeerde Netto Actiefwaarde",
+      "adjustedNavDescription": "Boekwaarde na correctie. Standalone — niet combineerbaar met marktmethodes.",
+      "sdeMultiple": "SDE-multiple (Seller's Discretionary Earnings)",
+      "sdeMultipleDescription": "Voor micro-KMO's en eenmanszaken (omzet < €5M). Voegt het eigenaarsalaris toe aan EBITDA.",
       "fiscal4x": "Fiscale Referentiewaarde",
+      "fiscal4xDescription": "Belgische fiscale formule. Alleen voor interne overdrachten en successieplanning.",
       "fiscalDisclaimerTitle": "Let op",
       "fiscalDisclaimerText": "Uitsluitend voor interne overdrachten, successieplanning of fiscale rulings. Niet bestemd voor externe M&A-transacties.",
       "revenueDriverTitle": "Omzet is de primaire driver",
       "revenueDriverText": "Voor deze methode staat topline omzet centraal. EBITDA-normalisaties blijven beschikbaar, maar dienen hier alleen als secundaire context.",
       "recommendedForMethod": "Aanbevolen voor {method}",
+      "sdeExplainer": "SDE (Seller's Discretionary Earnings) telt het eigenaarssalaris op bij EBITDA. Dit weerspiegelt de werkelijke cashflow beschikbaar voor een koper die de eigenaar vervangt. Vul hieronder de totale jaarlijkse eigenaarsbezoldiging in.",
       "shownForBusinessType": "Getoond voor {businessType}",
       "businessTypes": {
         "saasSoftware": "SaaS / Software"
@@ -1387,10 +1401,12 @@
         "discountTerminalLead": "Als je cashflows kloppen: stel hier de discontovoet en de restwaarde in.",
         "dcfGlobalAssumptions": "Globale DCF-aannames",
         "navAssetSchedule": "Activa-Aanpassingen",
+        "sdeOwnerCompensation": "Eigenaarsbezoldiging (SDE)",
         "realEstateCarveOut": "Vastgoed carve-out",
         "saasMetrics": "SaaS Metrics",
         "saasDerivedMetrics": "Berekende SaaS-signalen",
-        "revenueQuality": "Omzetkwaliteit"
+        "revenueQuality": "Omzetkwaliteit",
+        "synthesisWeighting": "Waarderingssynthese"
       },
       "globalAssumptionGroups": {
         "forecastDefaults": "Prognose-standaarden",
@@ -1441,6 +1457,7 @@
         "dcfCostOfDebtPct": "Kost van schuld (%)",
         "dcfDebtEquityPct": "Schuldgewicht (%)",
         "dcfTaxShieldPct": "Tax shield (%)",
+        "ownerSalaryAddback": "Jaarlijks eigenaarssalaris (€)",
         "navRealEstateAdjustment": "Herwaardering vastgoed",
         "navInventoryAdjustment": "Voorraadcorrectie",
         "navHiddenReserves": "Stille reserves",
@@ -1484,6 +1501,20 @@
       "waccBreakdown": {
         "expand": "Toon aannames",
         "collapse": "Verberg aannames"
+      },
+      "synthesis": {
+        "title": "Waarderingssynthese",
+        "subtitle": "Verdeel het gewicht over de geselecteerde methodes (totaal = 100%)",
+        "weight": "Gewicht",
+        "resetEqual": "Gelijke verdeling",
+        "justificationLabel": "Motivatie (verschijnt in rapport)",
+        "justificationPlaceholder": "Bijv. 'Meer gewicht aan DCF vanwege recent afgesloten meerjarencontracten die niet weerspiegeld zijn in de historische EBITDA.'",
+        "blendedValue": "Gewogen waarde",
+        "methodUnavailable": "Niet beschikbaar",
+        "totalWarning": "Totaal: {total}% (moet 100% zijn)",
+        "methodCol": "Methode",
+        "valueCol": "Waarde",
+        "contributionCol": "Bijdrage"
       }
     },
     "importModal": {
