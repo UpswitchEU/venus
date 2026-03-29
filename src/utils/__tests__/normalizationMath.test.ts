@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { NormalizationItem } from '../../components/calculator/UnifiedNormalizationModal'
 import {
   appliesToYear,
+  countNormalizationsBoundToFiscalYear,
   getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
+  removeNormalizationsForRemovedFiscalYear,
   summarizeAcceptedNormalizations,
   summarizeAcceptedNormalizationsAcrossYears,
 } from '../normalizationMath'
@@ -122,5 +124,49 @@ describe('normalizationMath', () => {
       adjustment: -15_000,
       normalized: 135_000,
     })
+  })
+
+  it('removeNormalizationsForRemovedFiscalYear drops single-year items and trims applyYears', () => {
+    const base = {
+      id: 'a',
+      ledgerCode: '',
+      ledgerName: '',
+      category: 'salary' as const,
+      type: 'add' as const,
+      value: 0,
+      adjustment: 0,
+      reason: '',
+      source: 'manual' as const,
+      status: 'accepted' as const,
+    }
+    const items: NormalizationItem[] = [
+      { ...base, id: '1', year: 2023 },
+      { ...base, id: '2', applyYears: [2023, 2024], year: 2024 },
+      { ...base, id: '3', applyAllYears: true, year: 2023 },
+    ]
+    const next = removeNormalizationsForRemovedFiscalYear(items, 2023)
+    expect(next.find((x) => x.id === '1')).toBeUndefined()
+    expect(next.find((x) => x.id === '2')?.applyYears).toEqual([2024])
+    expect(next.find((x) => x.id === '3')).toBeDefined()
+  })
+
+  it('countNormalizationsBoundToFiscalYear excludes applyAllYears', () => {
+    const base = {
+      id: 'a',
+      ledgerCode: '',
+      ledgerName: '',
+      category: 'salary' as const,
+      type: 'add' as const,
+      value: 0,
+      adjustment: 0,
+      reason: '',
+      source: 'manual' as const,
+      status: 'accepted' as const,
+    }
+    const items: NormalizationItem[] = [
+      { ...base, id: '1', year: 2023 },
+      { ...base, id: '2', applyAllYears: true, year: 2023 },
+    ]
+    expect(countNormalizationsBoundToFiscalYear(items, 2023)).toBe(1)
   })
 })

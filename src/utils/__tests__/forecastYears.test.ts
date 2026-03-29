@@ -11,8 +11,10 @@ import {
   MAX_FISCAL_YEAR,
   MAX_FORECAST_YEAR_COUNT,
   MIN_FISCAL_YEAR,
+  canRemoveHistoricalYear,
   removeForecastYear,
   removeForecastYears,
+  removeHistoricalYear,
 } from '../forecastYears'
 
 interface YearlyFinancials {
@@ -250,6 +252,42 @@ describe('forecast year helpers', () => {
 
     it('July 1 is H2 (year-1)', () => {
       expect(getCurrentFilingYear(new Date('2026-07-01'))).toBe(2025)
+    })
+  })
+
+  describe('removeHistoricalYear / canRemoveHistoricalYear', () => {
+    it('canRemoveHistoricalYear is false with only one historical row', () => {
+      const rows: YearlyFinancials[] = [{ year: '2024', revenue: 0, ebitda: 0 }]
+      expect(canRemoveHistoricalYear(rows)).toBe(false)
+    })
+
+    it('canRemoveHistoricalYear is true with two historical rows', () => {
+      const rows: YearlyFinancials[] = [
+        { year: '2024', revenue: 0, ebitda: 0 },
+        { year: '2023', revenue: 0, ebitda: 0 },
+      ]
+      expect(canRemoveHistoricalYear(rows)).toBe(true)
+    })
+
+    it('removeHistoricalYear drops one non-forecast row by year string', () => {
+      const rows: YearlyFinancials[] = [
+        { year: '2024', revenue: 1, ebitda: 1 },
+        { year: '2023', revenue: 1, ebitda: 1 },
+        { year: '2025', revenue: 0, ebitda: 0, isForecast: true },
+      ]
+      const next = removeHistoricalYear(rows, '2023')
+      expect(next).toHaveLength(2)
+      expect(next.map((r) => r.year)).toEqual(['2024', '2025'])
+      expect(next[1].isForecast).toBe(true)
+    })
+
+    it('removeHistoricalYear does not remove forecast rows with the same year string', () => {
+      const rows: YearlyFinancials[] = [
+        { year: '2024', revenue: 0, ebitda: 0 },
+        { year: '2025', revenue: 0, ebitda: 0, isForecast: true },
+      ]
+      const next = removeHistoricalYear(rows, '2025')
+      expect(next).toHaveLength(2)
     })
   })
 })

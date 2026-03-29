@@ -27,6 +27,8 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   const { isActingAsClient, client } = useClientContext()
   const router = useTransitionRouter()
   const pathname = usePathname()
+  /** Mercury app routes are /en|nl/... — align deep links with current Venus locale. */
+  const mercuryLocale = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
   const [isOpen, setIsOpen] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -154,7 +156,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       window.parent.postMessage({ type: 'OPEN_SIGNUP' }, '*')
     } else {
       // Fallback: open in same window
-      window.open(`${getMercuryUrl()}/signup`, '_blank')
+      window.open(`${getMercuryUrl()}/${mercuryLocale}/auth/signup`, '_blank')
     }
   }
 
@@ -191,7 +193,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       window.parent.postMessage({ type: 'NAVIGATE_TO_SETTINGS' }, '*')
     } else {
       // Fallback: open in same window
-      window.open(`${getMercuryUrl()}/users/profile`, '_blank')
+      window.open(`${getMercuryUrl()}/${mercuryLocale}/users/profile`, '_blank')
     }
   }
 
@@ -202,7 +204,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       window.parent.postMessage({ type: 'NAVIGATE_TO_VALUATION' }, '*')
     } else {
       // Fallback: open in same window
-      window.open(`${getMercuryUrl()}/valuation`, '_blank')
+      window.open(`${getMercuryUrl()}/${mercuryLocale}/valuation`, '_blank')
     }
   }
 

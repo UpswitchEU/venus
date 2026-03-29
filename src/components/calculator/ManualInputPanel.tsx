@@ -62,6 +62,11 @@ import {
 import { cn } from '@/design-system/utils'
 import { getOfficialRegistryLabels } from '@/lib/i18n/officialRegistryLabels'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
+import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
+import {
+  countNormalizationsBoundToFiscalYear,
+  removeNormalizationsForRemovedFiscalYear,
+} from '../../utils/normalizationMath'
 import { mergeImportedLedgerAnalysisIntoBusinessContext } from '../../utils/mergeImportedLedgerAnalysisIntoBusinessContext'
 import { mergeOptionalSessionPrefillFields } from '../../utils/mergeOptionalSessionPrefillFields'
 import { shouldSuppressMercurySessionPrefill } from '../../utils/prefillRestorationGate'
@@ -110,6 +115,7 @@ import {
   appendManualForecastYear,
   canAppendForecastYear,
   canAppendHistoricalYear,
+  canRemoveHistoricalYear,
   countForecastYears,
   dcfInjectionAddedRowCount,
   getNextForecastYear,
@@ -117,6 +123,7 @@ import {
   injectDefaultDcfForecastYears,
   removeForecastYear,
   removeForecastYears,
+  removeHistoricalYear,
 } from '../../utils/forecastYears'
 import {
   buildMercuryIntegrationsUrl,
@@ -129,6 +136,7 @@ import { buildCurrentYearData } from '../../utils/yearData'
 import {
   getHistoricalYearRange,
   getLatestCompleteYearlyFinancial,
+  historicalYearRowNeedsRemovalWarning,
   hasExplicitNumericValue as hasExplicitFinancialValue,
 } from '../../utils/yearlyFinancials'
 import { CurrencyInput } from './CurrencyInput'
@@ -1225,6 +1233,47 @@ export function ManualInputPanel({
   // Section collapse states
   const [showCSVUpload, setShowCSVUpload] = useState(false)
   const [showForecastRemovalConfirm, setShowForecastRemovalConfirm] = useState(false)
+  const [historicalYearPendingRemove, setHistoricalYearPendingRemove] = useState<string | null>(null)
+
+  const commitRemoveHistoricalYear = useCallback((yearStr: string) => {
+    const y = Number.parseInt(yearStr, 10)
+    let didRemove = false
+    setFormData((prev) => {
+      if (!canRemoveHistoricalYear(prev.yearlyFinancials)) {
+        return prev
+      }
+      didRemove = true
+      return {
+        ...prev,
+        yearlyFinancials: removeHistoricalYear(prev.yearlyFinancials, yearStr),
+      }
+    })
+    if (didRemove && Number.isFinite(y)) {
+      const { items, setItems } = useNormalizationStore.getState()
+      setItems(removeNormalizationsForRemovedFiscalYear(items, y))
+    }
+    setHistoricalYearPendingRemove(null)
+  }, [])
+
+  const requestRemoveHistoricalYear = useCallback(
+    (yearStr: string) => {
+      if (!canRemoveHistoricalYear(formData.yearlyFinancials)) return
+      const row = formData.yearlyFinancials.find(
+        (yf) => String(yf.year) === yearStr && !yf.isForecast
+      )
+      if (!row) return
+      const yNum = Number.parseInt(yearStr, 10)
+      const normBoundCount = Number.isFinite(yNum)
+        ? countNormalizationsBoundToFiscalYear(normalizationItems, yNum)
+        : 0
+      if (historicalYearRowNeedsRemovalWarning(row, normBoundCount)) {
+        setHistoricalYearPendingRemove(yearStr)
+        return
+      }
+      commitRemoveHistoricalYear(yearStr)
+    },
+    [formData.yearlyFinancials, normalizationItems, commitRemoveHistoricalYear]
+  )
 
   // Calculate normalized EBITDA per year and average using global normalization store
   const normalizedData = useMemo(() => {
@@ -1311,6 +1360,10 @@ export function ManualInputPanel({
       }
       if (!response.results) return []
       return response.results.map((r: CompanySearchResult, index: number) => {
+        const raw = r as unknown as Record<string, unknown>
+        const legalFormResolved =
+          pickLegalFormFromRegistryHit(raw) ||
+          (typeof r.legal_form === 'string' ? r.legal_form : '')
         const canonical = (r.canonical_nace_code || r.nace_code)?.trim() || ''
         const activity = (r.activity_code || '').trim()
         const displayActivity =
@@ -1321,7 +1374,7 @@ export function ManualInputPanel({
             (r.kbo_number || r.registration_number || `kbo-${index}`).replace(/[.\s]/g, ''),
           name: r.company_name,
           kboNumber: r.kbo_number || r.registration_number,
-          legalForm: r.legal_form,
+          legalForm: legalFormResolved,
           address: [r.address, r.postal_code, r.city].filter(Boolean).join(', '),
           postalCode: r.postal_code || '',
           city: r.city || '',
@@ -3436,7 +3489,10 @@ export function ManualInputPanel({
                               </span>
                             )}
                           </span>
-                          {(normCount > 0 || yearData.isForecast) && (
+                          {(normCount > 0 ||
+                            yearData.isForecast ||
+                            (!yearData.isForecast &&
+                              canRemoveHistoricalYear(formData.yearlyFinancials))) && (
                             <div className="flex items-center gap-2">
                               {normCount > 0 && (
                                 <button
@@ -3465,6 +3521,19 @@ export function ManualInputPanel({
                                   <X className="h-3.5 w-3.5" />
                                 </button>
                               )}
+                              {!yearData.isForecast &&
+                                canRemoveHistoricalYear(formData.yearlyFinancials) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => requestRemoveHistoricalYear(String(yearData.year))}
+                                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-foreground/10 text-foreground/50 transition-colors hover:border-destructive/30 hover:bg-destructive/[0.06] hover:text-destructive"
+                                    aria-label={mi('removeHistoricalYearAria', {
+                                      year: String(yearData.year),
+                                    })}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                             </div>
                           )}
                         </div>
@@ -3659,6 +3728,7 @@ export function ManualInputPanel({
                       step={dcfForecastWorkspaceStep}
                       showModeToggle={false}
                       forecastRows={dcfForecastRows}
+                      derivedProjectionPreview={dcfProjectionAutofillRows}
                       latestHistoricalRevenue={latestHistoricalRevenue}
                       latestHistoricalEbitda={latestHistoricalEbitda}
                       fieldValidation={fieldValidation}
@@ -3735,36 +3805,34 @@ export function ManualInputPanel({
                       />
                     )}
 
-                  {/* Balance sheet / transaction structure: vastgoed carve-out (M&A) — next to financial inputs */}
-                  {selectedCompany && hasBusinessType && hasFinancials && (
-                    <div className="pt-2 border-t border-foreground/[0.06]">
-                      <p className="text-xs font-medium text-foreground/50 mb-3 ml-0">
-                        {mi('balanceSheetAndTransaction')}
-                      </p>
-                      <RealEstateCarveOutSection
-                        step={balanceSheetCarveOutStep}
-                        excludeRealEstate={formData.exclude_real_estate}
-                        realEstateBookValue={formData.real_estate_book_value}
-                        estimatedMarketRent={formData.estimated_market_rent}
-                        onToggleChange={(checked) => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            exclude_real_estate: checked,
-                            real_estate_book_value: checked
-                              ? prev.real_estate_book_value
-                              : undefined,
-                            estimated_market_rent: checked ? prev.estimated_market_rent : undefined,
-                          }))
-                        }}
-                        onFieldChange={(field, value) => {
-                          setFormData((prev) => ({ ...prev, [field]: value }))
-                        }}
-                        disabled={isCalculating}
-                      />
-                    </div>
-                  )}
                 </div>
               </motion.section>
+            )}
+
+            {/* Real estate carve-out: sibling section after Financiële historie so DCF forecast/WACC content does not bury it */}
+            {selectedCompany && hasBusinessType && hasFinancials && (
+              <div className="mt-4">
+                <RealEstateCarveOutSection
+                  step={balanceSheetCarveOutStep}
+                  excludeRealEstate={formData.exclude_real_estate}
+                  realEstateBookValue={formData.real_estate_book_value}
+                  estimatedMarketRent={formData.estimated_market_rent}
+                  onToggleChange={(checked) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      exclude_real_estate: checked,
+                      real_estate_book_value: checked
+                        ? prev.real_estate_book_value
+                        : undefined,
+                      estimated_market_rent: checked ? prev.estimated_market_rent : undefined,
+                    }))
+                  }}
+                  onFieldChange={(field, value) => {
+                    setFormData((prev) => ({ ...prev, [field]: value }))
+                  }}
+                  disabled={isCalculating}
+                />
+              </div>
             )}
             {/* Adaptive method-specific sections (DCF globals, NAV, SaaS, etc.) */}
             <div className="mt-4 flex flex-col gap-6">
@@ -3872,6 +3940,49 @@ export function ManualInputPanel({
         manualOverride={octopusManualOverride}
         onManualOverrideChange={setOctopusManualOverride}
       />
+
+      {/* Historical year removal (data / normalizations) */}
+      <Modal
+        open={historicalYearPendingRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setHistoricalYearPendingRemove(null)
+        }}
+      >
+        <ModalContent className="max-w-sm">
+          <ModalHeader>
+            <ModalTitle>
+              {historicalYearPendingRemove !== null
+                ? mi('removeHistoricalYearConfirmTitle', { year: historicalYearPendingRemove })
+                : ''}
+            </ModalTitle>
+            <ModalDescription>
+              {historicalYearPendingRemove !== null
+                ? mi('removeHistoricalYearConfirmDescription', { year: historicalYearPendingRemove })
+                : ''}
+            </ModalDescription>
+          </ModalHeader>
+          <ModalFooter>
+            <button
+              type="button"
+              onClick={() => setHistoricalYearPendingRemove(null)}
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-foreground/10 text-foreground hover:bg-foreground/[0.03] transition-colors"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (historicalYearPendingRemove !== null) {
+                  commitRemoveHistoricalYear(historicalYearPendingRemove)
+                }
+              }}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+            >
+              {t('common.actions.confirm')}
+            </button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* Forecast Removal Confirmation Modal */}
       <Modal

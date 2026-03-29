@@ -1,10 +1,11 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown, Database, History } from 'lucide-react'
+import { Database, History } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
+import { Switch } from '@/design-system/components/Switch'
 import { cn } from '@/design-system/utils'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import {
@@ -274,34 +275,21 @@ export function DcfGlobalAssumptions({
                 />
               </div>
               <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-foreground/80">
-                      {t('advancedDriversTitle')}
-                    </p>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      {advancedDriverSummary}
-                    </p>
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      {t('advancedDriversHelp')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvancedDrivers((v) => !v)}
+                <div className="space-y-2">
+                  <Switch
+                    size="sm"
+                    checked={showAdvancedDrivers}
+                    onChange={(next) => setShowAdvancedDrivers(next)}
                     disabled={disabled}
-                    className="inline-flex items-center gap-1 self-start rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/35 hover:bg-primary/5 disabled:cursor-not-allowed disabled:border-primary/10 disabled:text-primary/40 disabled:hover:bg-background"
-                  >
-                    <span>
-                      {showAdvancedDrivers ? t('hideAdvancedDrivers') : t('showAdvancedDrivers')}
-                    </span>
-                    <ChevronDown
-                      className={cn(
-                        'h-3.5 w-3.5 transition-transform',
-                        showAdvancedDrivers && 'rotate-180'
-                      )}
-                    />
-                  </button>
+                    label={t('advancedDriversTitle')}
+                    labelPosition="right"
+                  />
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {advancedDriverSummary}
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    {t('advancedDriversHelp')}
+                  </p>
                 </div>
                 <AnimatePresence initial={false}>
                   {showAdvancedDrivers && (

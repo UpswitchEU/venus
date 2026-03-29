@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl'
 import { useEffect, useRef } from 'react'
 import type { Locale } from '../../i18n'
 import { useAuthStore } from '../lib/auth'
+import { setNextLocaleCookie } from '../utils/set-next-locale-cookie'
 
 const SUPPORTED_LOCALES: readonly string[] = ['en', 'nl']
 
@@ -78,7 +79,7 @@ export function useLanguageSync() {
       const t = setTimeout(() => {
         if (synced.current) return
         synced.current = true
-        document.cookie = `NEXT_LOCALE=${preferred}; path=/; max-age=31536000; SameSite=Lax`
+        setNextLocaleCookie(preferred)
         const pathWithoutLocale = pathname.replace(/^\/(en|nl)/, '')
         const newPath = `/${preferred}${pathWithoutLocale}`
         window.location.replace(newPath)
@@ -88,7 +89,7 @@ export function useLanguageSync() {
 
     synced.current = true
 
-    document.cookie = `NEXT_LOCALE=${preferred}; path=/; max-age=31536000; SameSite=Lax`
+    setNextLocaleCookie(preferred)
 
     const pathWithoutLocale = pathname.replace(/^\/(en|nl)/, '')
     const newPath = `/${preferred}${pathWithoutLocale}`

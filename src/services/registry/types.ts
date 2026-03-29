@@ -19,6 +19,9 @@ export interface CompanySearchResult {
   website?: string
   /** KBO number (Titan registry returns this) */
   kbo_number?: string
+  /** Dutch KVK: may appear without `legal_form` (see pickLegalFormFromRegistryHit) */
+  rechtsvorm?: string
+  rechtsvormOmschrijving?: string
   /** NACE industry code (Titan KBO returns this) */
   nace_code?: string
   /** NACE activity description (Titan KBO returns this) */

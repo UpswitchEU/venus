@@ -1167,6 +1167,9 @@
     "filingYearColumnBaseMinus": "Basis − {n}",
     "filingYearOther": "Ander jaar...",
     "addYear": "Jaar toevoegen",
+    "removeHistoricalYearAria": "Jaar {year} verwijderen",
+    "removeHistoricalYearConfirmTitle": "Jaar {year} verwijderen?",
+    "removeHistoricalYearConfirmDescription": "Dit jaar bevat omzet, EBITDA of normalisaties. Verwijderen wist deze gegevens en aanpassingen voor dit jaar.",
     "addForecastYear": "Voeg prognosejaar toe",
     "forecastLabel": "Prognose",
     "dcfForecastWorkspace": {

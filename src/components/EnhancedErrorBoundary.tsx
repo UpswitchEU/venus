@@ -11,6 +11,7 @@
 import React, { Component, ReactNode } from 'react'
 import { ErrorFallback } from '@/components/ErrorFallback'
 import { getUserFriendlyErrorMessage, isRecoverableError, isValuationError } from '../types/errors'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { chatLogger } from '../utils/logger'
 import { EnhancedErrorFallbackContent } from './EnhancedErrorFallbackContent'
 
@@ -71,8 +72,8 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     const isAuthCrash = msg.includes('418') || msg.includes('401') || msg.includes('hydration')
 
     if (isAuthCrash && typeof window !== 'undefined') {
-      const locale = window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
-      const mercuryUrl = process.env.NEXT_PUBLIC_MERCURY_URL || 'https://upswitch.app'
+      const locale = window.location.pathname.match(/^\/(en|nl)\//)?.[1] || 'en'
+      const mercuryUrl = getMercuryUrl()
       const returnUrl = encodeURIComponent(window.location.href)
       chatLogger.error('Auth-related crash detected, redirecting to login', {
         error: error.message,

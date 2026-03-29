@@ -149,3 +149,59 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
 
   return summary
 }
+
+/**
+ * When a fiscal year row is removed from financial history, drop or trim normalizations
+ * that only applied to that year. Items with `applyAllYears` are kept.
+ */
+export function removeNormalizationsForRemovedFiscalYear(
+  items: NormalizationItem[],
+  removedYear: number
+): NormalizationItem[] {
+  const y = removedYear
+  const out: NormalizationItem[] = []
+
+  for (const n of items) {
+    if (n.applyAllYears) {
+      out.push(n)
+      continue
+    }
+
+    if (n.applyYears && n.applyYears.length > 0) {
+      if (!n.applyYears.includes(y)) {
+        out.push(n)
+        continue
+      }
+      const nextYears = n.applyYears.filter((yy) => yy !== y).sort((a, b) => a - b)
+      if (nextYears.length === 0) {
+        continue
+      }
+      let next: NormalizationItem = { ...n, applyYears: nextYears }
+      if (n.year === y) {
+        next = { ...next, year: nextYears[0] }
+      }
+      out.push(next)
+      continue
+    }
+
+    if (n.year === y) {
+      continue
+    }
+    out.push(n)
+  }
+
+  return out
+}
+
+/** Normalizations that would be dropped or trimmed when `removedYear` is removed (excludes applyAllYears). */
+export function countNormalizationsBoundToFiscalYear(
+  items: NormalizationItem[],
+  removedYear: number
+): number {
+  const y = removedYear
+  return items.filter((n) => {
+    if (n.applyAllYears) return false
+    if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(y)
+    return n.year === y
+  }).length
+}

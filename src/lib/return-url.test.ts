@@ -101,4 +101,18 @@ describe('getSafeMercuryReturnUrl', () => {
     expect(out).toBe('https://upswitch.app/nl/accountant/dashboard')
     expect(out).not.toContain('from=venus')
   })
+
+  it('rewrites stored absolute Mercury URL to match locale when options.locale is set', () => {
+    const out = getSafeMercuryReturnUrl('https://upswitch.app/en/accountant/settings?tab=billing', {
+      locale: 'nl',
+    })
+    expect(out).toBe('https://upswitch.app/nl/accountant/settings?tab=billing')
+  })
+
+  it('rewrites stored nl path to en when options.locale is en', () => {
+    const out = getSafeMercuryReturnUrl('https://upswitch.app/nl/accountant/clients/c1', {
+      locale: 'en',
+    })
+    expect(out).toBe('https://upswitch.app/en/accountant/clients/c1')
+  })
 })

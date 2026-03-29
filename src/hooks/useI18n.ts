@@ -12,6 +12,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import { type Locale, locales } from '../../i18n'
 import { generalLogger } from '../utils/logger'
+import { setNextLocaleCookie } from '../utils/set-next-locale-cookie'
 
 export function useI18n() {
   const t = useTranslations()
@@ -33,8 +34,7 @@ export function useI18n() {
     const pathWithoutLocale = pathname.replace(/^\/(en|nl)/, '')
     const newPath = `/${newLocale}${pathWithoutLocale}`
 
-    // Set cookie to persist language preference
-    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000; SameSite=Lax`
+    setNextLocaleCookie(newLocale)
 
     // Navigate to new path
     router.push(newPath)

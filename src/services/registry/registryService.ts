@@ -13,6 +13,7 @@ import {
   ValidationError,
 } from '../../utils/errors'
 import { serviceLogger } from '../../utils/logger'
+import { pickLegalFormFromRegistryHit } from '../../utils/registryUtils'
 import { RegistryCache } from './cache'
 import type {
   CompanyFinancialData,
@@ -180,11 +181,22 @@ export class RegistryService {
 
       // Handle both array response and object with results property
       const rawResults = Array.isArray(data) ? data : data.results || []
-      // Normalize: Titan returns kbo_number; Venus components expect registration_number
-      const results = rawResults.map((r: any) => ({
-        ...r,
-        registration_number: r.registration_number ?? r.kbo_number ?? '',
-      }))
+      // Normalize: Titan returns kbo_number; Venus expects registration_number.
+      // Legal form: BE uses legal_form; NL/KVK may only send rechtsvorm / rechtsvormOmschrijving.
+      const results = rawResults.map((r: Record<string, unknown>) => {
+        const spread = { ...r }
+        const registration_number = String(
+          spread.registration_number ?? spread.kbo_number ?? ''
+        )
+        const legal_form =
+          pickLegalFormFromRegistryHit(spread) ||
+          (typeof spread.legal_form === 'string' ? spread.legal_form : '')
+        return {
+          ...spread,
+          registration_number,
+          legal_form,
+        }
+      })
 
       return {
         success: true,

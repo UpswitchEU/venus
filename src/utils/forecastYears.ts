@@ -159,3 +159,21 @@ export function removeForecastYear<T extends ForecastYearLike>(
     (entry) => !(entry.isForecast && String(entry.year) === key)
   )
 }
+
+/** At least one historical row must remain for the valuation flow. */
+export function canRemoveHistoricalYear<T extends ForecastYearLike>(
+  yearlyFinancials: T[]
+): boolean {
+  return countHistoricalYears(yearlyFinancials) > 1
+}
+
+/** Drop one non-forecast row by fiscal year string (e.g. "2022"). */
+export function removeHistoricalYear<T extends ForecastYearLike>(
+  yearlyFinancials: T[],
+  year: string
+): T[] {
+  const key = String(year)
+  return yearlyFinancials.filter(
+    (entry) => entry.isForecast || String(entry.year) !== key
+  )
+}

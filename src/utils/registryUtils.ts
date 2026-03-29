@@ -7,6 +7,25 @@
 import type { CompanySearchResult } from '../types/registry'
 
 /**
+ * Resolve legal form / rechtsvorm from a registry hit.
+ * Titan v2 and KVK may use `legal_form`, camelCase, or Dutch (`rechtsvorm`, `rechtsvormOmschrijving`).
+ */
+export function pickLegalFormFromRegistryHit(r: Record<string, unknown>): string {
+  const candidates = [
+    r.legal_form,
+    r.legalForm,
+    r.rechtsvorm,
+    r.rechtsvormOmschrijving,
+    r.juridical_form,
+    r.juridicalForm,
+  ]
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) return c.trim()
+  }
+  return ''
+}
+
+/**
  * Type-safe detection of whether a search result is a real company or a suggestion
  *
  * @param result - Search result to check

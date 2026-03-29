@@ -73,6 +73,22 @@ export function applyMercuryCelebrationQuery(urlString: string, celebrate: boole
   }
 }
 
+/** Mercury routes only use en|nl as the first path segment. */
+function mercuryPathLocale(locale: string): 'en' | 'nl' {
+  return locale === 'nl' ? 'nl' : 'en'
+}
+
+/** Strip /en or /nl prefix (first segment only). Mirrors Mercury auth-return-url helper. */
+function stripLocalePrefixFromPathname(pathname: string): string {
+  const p = pathname.replace(/^\/(en|nl)(\/|$)/, '/') || '/'
+  return p === '//' ? '/' : p
+}
+
+function pathnameWithLocale(pathname: string, locale: 'en' | 'nl'): string {
+  const rest = stripLocalePrefixFromPathname(pathname)
+  return rest === '/' ? `/${locale}` : `/${locale}${rest}`
+}
+
 /**
  * Returns a safe Mercury URL for redirect. If storedUrl is legacy or invalid,
  * falls back to dashboard or client valuations.
@@ -90,8 +106,10 @@ export function getSafeMercuryReturnUrl(
   }
 ): string {
   const mercuryUrl = getMercuryUrl()
-  const validLocale =
-    options?.locale && ['en', 'nl', 'fr', 'de'].includes(options.locale) ? options.locale : 'en'
+  /** When set, stored Mercury paths are rewritten to this locale; when omitted, stored URLs are kept as-is. */
+  const explicitLocaleOpt =
+    options?.locale && ['en', 'nl', 'fr', 'de'].includes(options.locale) ? options.locale : undefined
+  const pathLocale = mercuryPathLocale(explicitLocaleOpt ?? 'en')
   const celebrate = options?.celebrateMercuryReturn === true
 
   let result: string
@@ -102,33 +120,40 @@ export function getSafeMercuryReturnUrl(
       try {
         const url = new URL(raw)
         if (!isTrustedUpswitchHostname(url.hostname) || isLegacyReturnUrl(url.pathname)) {
-          result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
+          result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
         } else {
           const allowHttp =
             url.protocol === 'http:' &&
             (url.hostname === 'localhost' || url.hostname === '127.0.0.1')
           if (url.protocol === 'http:' && !allowHttp) {
             url.protocol = 'https:'
-            result = url.toString()
-          } else {
-            result = raw
           }
+          if (explicitLocaleOpt !== undefined) {
+            url.pathname = pathnameWithLocale(url.pathname, mercuryPathLocale(explicitLocaleOpt))
+          }
+          result = url.toString()
         }
       } catch {
-        result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
+        result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
       }
     } else if (raw.startsWith('//')) {
       // Protocol-relative "URLs" must not be concatenated onto a base (open-redirect footgun).
-      result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
+      result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
     } else {
-      result = `${mercuryUrl}${raw.startsWith('/') ? '' : '/'}${raw}`
+      if (explicitLocaleOpt !== undefined) {
+        const rel = raw.startsWith('/') ? raw : `/${raw}`
+        const withLoc = pathnameWithLocale(rel, mercuryPathLocale(explicitLocaleOpt))
+        result = `${mercuryUrl.replace(/\/$/, '')}${withLoc}`
+      } else {
+        result = `${mercuryUrl}${raw.startsWith('/') ? '' : '/'}${raw}`
+      }
     }
   } else if (options?.clientContextId) {
-    result = `${mercuryUrl}/${validLocale}/accountant/clients/${options.clientContextId}/valuations`
+    result = `${mercuryUrl}/${pathLocale}/accountant/clients/${options.clientContextId}/valuations`
   } else if (options?.sourceApp?.includes('mercury')) {
-    result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
+    result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
   } else {
-    result = `${mercuryUrl}/${validLocale}/accountant/dashboard`
+    result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
   }
 
   return applyMercuryCelebrationQuery(result, celebrate)

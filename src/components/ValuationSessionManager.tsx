@@ -694,7 +694,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
               const upgradePath =
                 bootstrapCreditStatus.upgrade_path === 'accountant_pro'
                   ? `/${locale}/accountant/trial-setup`
-                  : '/pricing'
+                  : `/${locale}/pricing`
               window.location.href = `${getMercuryUrl()}${upgradePath}`
             }}
           />
@@ -711,8 +711,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             limit={paywallData?.limit || 1}
             message={paywallData?.message}
             onUpgrade={() => {
-              // Session paywall: default to pricing (client/guest). Accountant flow uses showCreditError modal.
-              window.location.href = `${getMercuryUrl()}/pricing`
+              const loc = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
+              window.location.href = `${getMercuryUrl()}/${loc}/pricing`
             }}
           />
         )}

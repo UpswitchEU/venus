@@ -1167,6 +1167,9 @@
     "filingYearColumnBaseMinus": "Base − {n}",
     "filingYearOther": "Other year...",
     "addYear": "Add year",
+    "removeHistoricalYearAria": "Remove year {year}",
+    "removeHistoricalYearConfirmTitle": "Remove year {year}?",
+    "removeHistoricalYearConfirmDescription": "This year has revenue, EBITDA, or normalizations. Removing it will delete those figures and adjustments for this year.",
     "addForecastYear": "Add forecast year",
     "forecastLabel": "Forecast",
     "dcfForecastWorkspace": {

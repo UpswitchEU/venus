@@ -3480,7 +3480,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         error: error instanceof Error ? error.message : String(error),
       })
       try {
-        window.location.href = `${getMercuryUrl()}/en/accountant/dashboard`
+        const loc =
+          currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
+        window.location.href = `${getMercuryUrl()}/${loc}/accountant/dashboard`
       } catch {}
     }
   }, [clientContextId, currentLocale])

@@ -3,6 +3,7 @@ import {
   getCompleteYearlyFinancialsDesc,
   getHistoricalYearRange,
   getLatestCompleteYearlyFinancial,
+  historicalYearRowNeedsRemovalWarning,
   isCompleteYearlyFinancial,
 } from '../yearlyFinancials'
 
@@ -39,5 +40,25 @@ describe('yearlyFinancials helpers', () => {
   it('supports offset ranges for prior historical inputs', () => {
     expect(getHistoricalYearRange(2024, 2, 1)).toEqual([2023, 2022])
     expect(getHistoricalYearRange(2025, 2, 1)).toEqual([2024, 2023])
+  })
+
+  describe('historicalYearRowNeedsRemovalWarning', () => {
+    it('is false for default-like empty row (0 revenue, 0 ebitda, no norms)', () => {
+      expect(
+        historicalYearRowNeedsRemovalWarning({ revenue: 0, ebitda: 0 }, 0)
+      ).toBe(false)
+    })
+
+    it('is true when revenue is positive', () => {
+      expect(historicalYearRowNeedsRemovalWarning({ revenue: 1, ebitda: 0 }, 0)).toBe(true)
+    })
+
+    it('is true when EBITDA is non-zero', () => {
+      expect(historicalYearRowNeedsRemovalWarning({ revenue: 0, ebitda: -5000 }, 0)).toBe(true)
+    })
+
+    it('is true when normalizations are bound to the year', () => {
+      expect(historicalYearRowNeedsRemovalWarning({ revenue: 0, ebitda: 0 }, 1)).toBe(true)
+    })
   })
 })

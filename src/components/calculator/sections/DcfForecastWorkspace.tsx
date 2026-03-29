@@ -53,6 +53,11 @@ interface DcfForecastWorkspaceProps {
   onAddYear: () => void
   /** Opens parent confirmation to remove all forecast years (DCF list no longer shows per-year remove). */
   onRequestRemoveForecastYears?: () => void
+  /**
+   * Live projection from forecast defaults (growth, margin, bridge %) via deriveDcfProjectionPreview.
+   * Inline grid uses these until a forecast row has revenue > 0 (applied or manual override).
+   */
+  derivedProjectionPreview?: DcfProjectionPreviewRow[]
 }
 
 export function DcfForecastWorkspace({
@@ -74,6 +79,7 @@ export function DcfForecastWorkspace({
   onChange,
   onAddYear,
   onRequestRemoveForecastYears,
+  derivedProjectionPreview,
 }: DcfForecastWorkspaceProps) {
   const t = useTranslations('manualInput')
   const locale = useLocale()
@@ -107,8 +113,36 @@ export function DcfForecastWorkspace({
       nwcPct: globalNwcPct ?? DCF_DEFAULT_NWC_PCT,
       taxRatePct: globalTaxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT,
     }
-    return sortedRows.map((row) => buildProjectionRowFromForecastRow(row, globals))
-  }, [sortedRows, globalCapexPct, globalDaPct, globalNwcPct, globalTaxRatePct])
+    const build = (row: DcfForecastRow) => buildProjectionRowFromForecastRow(row, globals)
+
+    if (dcfInputMode !== 'ebitda' || !derivedProjectionPreview?.length) {
+      return sortedRows.map((row) => build(row))
+    }
+
+    const derivedByYear = new Map(derivedProjectionPreview.map((r) => [r.year, r]))
+    return sortedRows.map((row) => {
+      const derivedRow = derivedByYear.get(Number(row.year))
+      // Prefer stored row whenever the user has entered any forecast line (not only revenue).
+      const hasStoredForecastInput =
+        (Number(row.revenue) || 0) > 0 ||
+        (Number(row.ebitda) || 0) !== 0 ||
+        (row.capex != null && Number.isFinite(row.capex)) ||
+        (row.depreciation != null && Number.isFinite(row.depreciation)) ||
+        (row.nwc_change != null && Number.isFinite(row.nwc_change))
+      if (derivedRow && !hasStoredForecastInput) {
+        return derivedRow
+      }
+      return build(row)
+    })
+  }, [
+    sortedRows,
+    globalCapexPct,
+    globalDaPct,
+    globalNwcPct,
+    globalTaxRatePct,
+    dcfInputMode,
+    derivedProjectionPreview,
+  ])
 
   const fmt = useCallback(
     (value: number) =>
