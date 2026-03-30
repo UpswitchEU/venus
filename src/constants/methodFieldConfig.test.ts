@@ -5,6 +5,7 @@ import {
   getConflictingMethod,
   getPreSelectableMethodsForFirm,
   getPreSelectableMethodsForFirmAndRevenue,
+  isCombinableMethod,
   isUpfrontMethodAllowedForNav,
   resolveBusinessTypeIdForBonusSections,
   resolveDisplayPreSelectedMethodKey,
@@ -44,6 +45,16 @@ describe('methodFieldConfig', () => {
       'dcf',
       'ebitda_multiple',
     ])
+  })
+
+  it('treats adjusted_nav (Gecorrigeerde Netto Actiefwaarde) as combinable for weighted synthesis', () => {
+    expect(isCombinableMethod('adjusted_nav')).toBe(true)
+    expect(sanitizeMethodSelection(['ebitda_multiple', 'dcf', 'adjusted_nav'])).toEqual([
+      'ebitda_multiple',
+      'dcf',
+      'adjusted_nav',
+    ])
+    expect(sanitizeMethodSelection(['adjusted_nav'])).toEqual(['adjusted_nav'])
   })
 
   it('drops duplicate revenue lens when omzet_multiple and revenue_multiple both appear', () => {

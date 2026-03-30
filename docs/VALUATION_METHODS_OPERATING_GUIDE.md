@@ -19,7 +19,7 @@
 | `arr_multiple` | SaaS / recurring revenue | SaaS metrics | SaaS ratios in `lib/saas`; **EV** from server |
 | `dcf` | Cash-flow narrative, growth story | DCF projections (+ SaaS if applicable) | Forecast table + projection preview; **EV** from engine |
 | `sde_multiple` | Owner-operated SMEs (US-style SDE) | SDE owner compensation | SDE preview in `lib/sde`; align addbacks with policy |
-| `adjusted_nav` | Asset-heavy / liquidation-style | NAV asset schedule | Sum of adjustments; full NAV from engine |
+| `adjusted_nav` | Asset-heavy / floor value; **blends with** multiples/DCF | NAV asset schedule | Sum of adjustments; full NAV from engine |
 | `fiscal_4x` | Belgian fiscal reference (not NL firms in UI) | Optional carve-out fields elsewhere | 4× EBITDA anchor + book equity **preview**; Step 8 ownership from full run |
 
 `revenue_multiple` is an **English alias** for the same economics as `omzet_multiple` (bonus sections, previews, and **blended synthesis** eligibility align — it is listed in `COMBINABLE_METHODS`, not only `omzet_multiple`).

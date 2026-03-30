@@ -158,7 +158,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
       let next: string[]
 
       if (isStandaloneMethod(method)) {
-        // Standalone methods (upswitch_adaptive, fiscal_4x, adjusted_nav)
+        // Standalone methods (upswitch_adaptive, fiscal_4x)
         // always become the sole selection — they cannot be combined.
         next = [method]
       } else if (current.includes(method)) {

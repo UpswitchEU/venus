@@ -1547,6 +1547,7 @@
       "synthesis": {
         "title": "Waarderingssynthese",
         "subtitle": "Verdeel het gewicht over de geselecteerde methodes (totaal = 100%)",
+        "subtitleHint": "Als je één methode aanpast, verdelen we de rest automatisch zodat het totaal 100% blijft.",
         "weight": "Gewicht",
         "resetEqual": "Gelijke verdeling",
         "justificationLabel": "Motivatie (verschijnt in rapport)",

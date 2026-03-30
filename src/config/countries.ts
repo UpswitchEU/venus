@@ -1,5 +1,6 @@
 // 🗺️ Target Countries Configuration
-// Focus on BENELUX + Germany, UK, and France
+// Benelux (BE, NL, LU) aligned with Mercury accountant flows + public index; plus DE, FR, GB for broader EU/UK.
+// Use ISO 3166-1 alpha-2 (GB for United Kingdom, not UK).
 
 export interface Country {
   code: string
@@ -18,60 +19,58 @@ export const TARGET_COUNTRIES: Country[] = [
     flag: '🇧🇪',
     currency: 'EUR',
     currencySymbol: '€',
-    locale: 'nl-BE', // Dutch Belgium default, can add fr-BE
+    locale: 'nl-BE',
     taxSystem: 'belgian',
   },
-  // Temporarily disabled - only Belgium supported for now
-  // {
-  //   code: 'NL',
-  //   name: 'Netherlands',
-  //   flag: '🇳🇱',
-  //   currency: 'EUR',
-  //   currencySymbol: '€',
-  //   locale: 'nl-NL',
-  //   taxSystem: 'dutch',
-  // },
-  // {
-  //   code: 'LU',
-  //   name: 'Luxembourg',
-  //   flag: '🇱🇺',
-  //   currency: 'EUR',
-  //   currencySymbol: '€',
-  //   locale: 'fr-LU',
-  //   taxSystem: 'luxembourg',
-  // },
-  // {
-  //   code: 'DE',
-  //   name: 'Germany',
-  //   flag: '🇩🇪',
-  //   currency: 'EUR',
-  //   currencySymbol: '€',
-  //   locale: 'de-DE',
-  //   taxSystem: 'german',
-  // },
-  // {
-  //   code: 'GB',
-  //   name: 'United Kingdom',
-  //   flag: '🇬🇧',
-  //   currency: 'GBP',
-  //   currencySymbol: '£',
-  //   locale: 'en-GB',
-  //   taxSystem: 'uk',
-  // },
-  // {
-  //   code: 'FR',
-  //   name: 'France',
-  //   flag: '🇫🇷',
-  //   currency: 'EUR',
-  //   currencySymbol: '€',
-  //   locale: 'fr-FR',
-  //   taxSystem: 'french',
-  // },
-] as const
+  {
+    code: 'NL',
+    name: 'Netherlands',
+    flag: '🇳🇱',
+    currency: 'EUR',
+    currencySymbol: '€',
+    locale: 'nl-NL',
+    taxSystem: 'dutch',
+  },
+  {
+    code: 'LU',
+    name: 'Luxembourg',
+    flag: '🇱🇺',
+    currency: 'EUR',
+    currencySymbol: '€',
+    locale: 'fr-LU',
+    taxSystem: 'luxembourg',
+  },
+  {
+    code: 'DE',
+    name: 'Germany',
+    flag: '🇩🇪',
+    currency: 'EUR',
+    currencySymbol: '€',
+    locale: 'de-DE',
+    taxSystem: 'german',
+  },
+  {
+    code: 'FR',
+    name: 'France',
+    flag: '🇫🇷',
+    currency: 'EUR',
+    currencySymbol: '€',
+    locale: 'fr-FR',
+    taxSystem: 'french',
+  },
+  {
+    code: 'GB',
+    name: 'United Kingdom',
+    flag: '🇬🇧',
+    currency: 'GBP',
+    currencySymbol: '£',
+    locale: 'en-GB',
+    taxSystem: 'uk',
+  },
+]
 
-export const DEFAULT_COUNTRY = TARGET_COUNTRIES[0] // Belgium
+export const DEFAULT_COUNTRY = TARGET_COUNTRIES[0]
 
-// Helper functions
 export function getCountryByCode(code: string): Country | undefined {
   return TARGET_COUNTRIES.find((c) => c.code === code)
 }
@@ -93,7 +92,6 @@ export function getCurrencySymbol(countryCode: string): string {
   return country?.currencySymbol || '€'
 }
 
-// Industry categories relevant for these markets
 export const INDUSTRIES = [
   'Technology & Software',
   'E-commerce & Retail',

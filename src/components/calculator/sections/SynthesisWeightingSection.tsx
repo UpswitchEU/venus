@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { RotateCcw, Scale, TrendingUp, AlertCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
@@ -53,6 +53,10 @@ function rebalanceWeights(
   return result
 }
 
+function sanitizeWeightDigits(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, 3)
+}
+
 export interface SynthesisWeightingSectionProps {
   methods: string[]
   weights: Record<string, number>
@@ -76,6 +80,10 @@ export function SynthesisWeightingSection({
 }: SynthesisWeightingSectionProps) {
   const t = useTranslations()
   const synth = useTranslations('manualInput.methodSelector.synthesis')
+
+  const [editingMethod, setEditingMethod] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const cancelBlurCommitRef = useRef(false)
 
   const safeWeights = useMemo(() => {
     const w: Record<string, number> = {}
@@ -137,8 +145,65 @@ export function SynthesisWeightingSection({
   )
 
   const handleReset = useCallback(() => {
+    setEditingMethod(null)
     onWeightsChange(equalWeightsFor(methods))
   }, [methods, onWeightsChange])
+
+  const commitPercentInput = useCallback(
+    (method: string, rawValue: string) => {
+      const trimmed = sanitizeWeightDigits(rawValue)
+      if (trimmed === '') return
+      const parsed = Number.parseInt(trimmed, 10)
+      if (Number.isNaN(parsed)) return
+      const clamped = Math.min(100, Math.max(0, Math.round(parsed)))
+      const rebalanced = rebalanceWeights(safeWeights, method, clamped)
+      onWeightsChange(rebalanced)
+    },
+    [safeWeights, onWeightsChange]
+  )
+
+  const handlePercentFocus = useCallback(
+    (method: string, currentW: number) => {
+      if (disabled) return
+      setEditingMethod(method)
+      setDraft(String(currentW))
+    },
+    [disabled]
+  )
+
+  const handlePercentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setDraft(sanitizeWeightDigits(e.target.value))
+  }, [])
+
+  const handlePercentBlur = useCallback(
+    (method: string, rawValue: string) => {
+      if (cancelBlurCommitRef.current) {
+        cancelBlurCommitRef.current = false
+        return
+      }
+      if (editingMethod !== method) return
+      setEditingMethod(null)
+      commitPercentInput(method, rawValue)
+    },
+    [editingMethod, commitPercentInput]
+  )
+
+  const handlePercentKeyDown = useCallback(
+    (method: string, e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        e.currentTarget.blur()
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        cancelBlurCommitRef.current = true
+        setEditingMethod(null)
+        e.currentTarget.blur()
+      }
+    },
+    []
+  )
 
   if (methods.length < 2) return null
 
@@ -163,9 +228,10 @@ export function SynthesisWeightingSection({
         </AuroraButton>
       </div>
 
-      <p className="text-[12px] text-foreground/50 -mt-1">
-        {synth('subtitle')}
-      </p>
+      <div className="text-[12px] text-foreground/50 -mt-1 space-y-1">
+        <p>{synth('subtitle')}</p>
+        <p className="text-[11px] text-foreground/40">{synth('subtitleHint')}</p>
+      </div>
 
       {/* Method sliders with optional live equity values */}
       <div className="space-y-3">
@@ -189,9 +255,34 @@ export function SynthesisWeightingSection({
                   {contrib && !contrib.available && w > 0 && (
                     <AlertCircle className="w-3 h-3 text-destructive/70" />
                   )}
-                  <span className="tabular-nums text-foreground/60 font-semibold min-w-[3ch] text-right">
-                    {w}%
-                  </span>
+                  <div className="relative shrink-0">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      disabled={disabled}
+                      value={editingMethod === method ? draft : String(w)}
+                      onFocus={() => handlePercentFocus(method, w)}
+                      onChange={handlePercentChange}
+                      onBlur={(e) => handlePercentBlur(method, e.target.value)}
+                      onKeyDown={(e) => handlePercentKeyDown(method, e)}
+                      aria-label={`${label} ${synth('weight')} (%)`}
+                      className={cn(
+                        'w-[3.25rem] rounded-lg border border-foreground/[0.10] bg-foreground/[0.04]',
+                        'py-1 pl-2 pr-6 text-sm font-semibold tabular-nums text-foreground/80 text-right',
+                        'outline-none transition-colors',
+                        'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20',
+                        'disabled:opacity-50 disabled:cursor-not-allowed',
+                        '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                      )}
+                    />
+                    <span
+                      className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-foreground/45 font-medium"
+                      aria-hidden
+                    >
+                      %
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3">

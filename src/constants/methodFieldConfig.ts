@@ -159,7 +159,8 @@ export const PRE_SELECTABLE_METHOD_SET = new Set<string>(PRE_SELECTABLE_METHODS)
 
 /**
  * Market & Income methods that can be combined and weighted in a blended valuation.
- * These all answer "What is the Fair Market Value to an outside buyer?"
+ * These all answer "What is the Fair Market Value to an outside buyer?" Includes
+ * `adjusted_nav` (corrected NAV) so accountants can blend floor value with multiples/DCF.
  */
 export const COMBINABLE_METHODS = new Set([
   'ebitda_multiple',
@@ -169,17 +170,15 @@ export const COMBINABLE_METHODS = new Set([
   /** Same economics as `omzet_multiple` — must be combinable for blended weights when API uses English key. */
   'revenue_multiple',
   'arr_multiple',
+  'adjusted_nav',
 ])
 
 /**
  * Standalone methods that cannot be blended with other methods.
- * Each serves a distinct legal/financial purpose (tax filing, liquidation, proprietary algorithm).
+ * Each serves a distinct legal/financial purpose (tax filing, proprietary algorithm) or
+ * is the engine default umbrella (`upswitch_adaptive`).
  */
-export const STANDALONE_METHODS = new Set([
-  'upswitch_adaptive',
-  'fiscal_4x',
-  'adjusted_nav',
-])
+export const STANDALONE_METHODS = new Set(['upswitch_adaptive', 'fiscal_4x'])
 
 /**
  * Methods that must not appear together in a blend (double-counting or duplicate lens).
