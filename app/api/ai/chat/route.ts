@@ -14,10 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  CLIENT_CONTEXT_HEADERS,
-  LEGACY_CLIENT_CONTEXT_HEADERS,
-} from '@/constants/headers'
+import { CLIENT_CONTEXT_HEADERS, LEGACY_CLIENT_CONTEXT_HEADERS } from '@/constants/headers'
 
 function getClientContextHeadersForTitan(request: NextRequest): Record<string, string> {
   const headers: Record<string, string> = {}
@@ -31,10 +28,8 @@ function getClientContextHeadersForTitan(request: NextRequest): Record<string, s
     request.headers.get(CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID) ||
     request.headers.get(LEGACY_CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID)
   if (clientUserId) headers[CLIENT_CONTEXT_HEADERS.CLIENT_USER_ID] = clientUserId
-  if (accountantUserId)
-    headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = accountantUserId
-  if (relationshipId)
-    headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = relationshipId
+  if (accountantUserId) headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = accountantUserId
+  if (relationshipId) headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = relationshipId
   return headers
 }
 
@@ -44,6 +39,16 @@ const TITAN_API_URL =
   'https://api.upswitch.app'
 
 const TIMEOUT_MS = 60_000
+
+interface ChatHistoryItem {
+  role: string
+  content: string
+}
+
+interface NormalizationItem {
+  category?: string
+  status?: string
+}
 
 export async function POST(request: NextRequest) {
   const controller = new AbortController()
@@ -71,13 +76,18 @@ export async function POST(request: NextRequest) {
       ? `${TITAN_API_URL}/api/v2/ai/stream`
       : `${TITAN_API_URL}/api/v2/ai/chat`
 
+    const historyRaw = Array.isArray(body.history) ? body.history : []
     const messages = [
-      ...(body.history || []).map((msg: any) => ({
+      ...historyRaw.map((msg: ChatHistoryItem) => ({
         role: msg.role,
         content: msg.content,
       })),
       { role: 'user' as const, content: body.message },
     ]
+
+    const norms: NormalizationItem[] = Array.isArray(body.normalizations)
+      ? (body.normalizations as NormalizationItem[])
+      : []
 
     const context = {
       sessionId: body.sessionId || '',
@@ -88,11 +98,11 @@ export async function POST(request: NextRequest) {
       reportId: body.reportId || body.sessionId,
       hasRevenue: !!body.formData?.revenue,
       hasEbitda: !!body.formData?.ebitda,
-      hasOwnerSalary: !!body.normalizations?.some((n: any) => n.category === 'salary'),
-      needsNormalization: !!body.normalizations?.some((n: any) => n.status === 'pending'),
+      hasOwnerSalary: !!norms.some((n) => n.category === 'salary'),
+      needsNormalization: !!norms.some((n) => n.status === 'pending'),
     }
 
-    const titanPayload: any = { messages, context }
+    const titanPayload: Record<string, unknown> = { messages, context }
     if (body.conversationId) {
       titanPayload.conversationId = body.conversationId
     }

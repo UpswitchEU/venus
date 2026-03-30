@@ -4,6 +4,7 @@
  */
 
 import type { Metadata } from 'next'
+import type { AbstractIntlMessages } from 'next-intl'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
 import { type Locale, locales } from '../../i18n'
@@ -91,9 +92,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
 
   // Path locale (params) always wins when valid - ensures Mercury /nl/ → Venus shows Dutch
   const finalLocale: string =
-    locale && locales.includes(locale as Locale)
-      ? locale
-      : (requestLocale || locale || 'en')
+    locale && locales.includes(locale as Locale) ? locale : requestLocale || locale || 'en'
 
   // Validate final locale
   const validFinalLocale: Locale = locales.includes(finalLocale as Locale)
@@ -102,7 +101,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
 
   // Load messages for the validated locale
   // Always pass locale explicitly so we never depend on request context alone
-  let messages: Record<string, any> = {}
+  let messages: AbstractIntlMessages = {}
   try {
     const loaded = await getMessages({ locale: validFinalLocale })
     if (loaded && typeof loaded === 'object') {
@@ -115,11 +114,12 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
     )
     // Fallback: load messages directly from JSON (same pattern as i18n.ts)
     try {
-      messages = (await import(`../../messages/${validFinalLocale}.json`)).default
-    } catch (fallbackError) {
+      messages = (await import(`../../messages/${validFinalLocale}.json`))
+        .default as AbstractIntlMessages
+    } catch (_fallbackError) {
       if (validFinalLocale !== 'en') {
         try {
-          messages = (await import(`../../messages/en.json`)).default
+          messages = (await import(`../../messages/en.json`)).default as AbstractIntlMessages
         } catch {
           // Keep empty as last resort
         }

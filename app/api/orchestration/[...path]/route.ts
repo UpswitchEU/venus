@@ -76,7 +76,7 @@ async function proxyToTitan(
       titanResponse.headers.get('content-type')?.includes('text/event-stream') &&
       titanResponse.body
     ) {
-      return new NextResponse(titanResponse.body as any, {
+      return new NextResponse(titanResponse.body, {
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
