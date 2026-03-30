@@ -1078,6 +1078,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
   }, [reportHydrationLookupId, reportHydrationRetryNonce, setResult])
 
+  // Defense-in-depth: Titan already sends show_fiscal_reference=false for NL
+  // accountant firms. This client-side guard prevents stale or race-condition
+  // state from showing fiscal UI to Dutch firms.
+  // Policy owner: fiscal-reference-resolution.ts + isDutchAccountantReportContext.
   useEffect(() => {
     const firm = user?.firm_country_code?.trim().toUpperCase().substring(0, 2)
     if (firm === 'NL') {
