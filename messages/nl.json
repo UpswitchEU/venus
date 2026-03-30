@@ -1548,6 +1548,8 @@
         "title": "Waarderingssynthese",
         "subtitle": "Verdeel het gewicht over de geselecteerde methodes (totaal = 100%)",
         "subtitleHint": "Als je één methode aanpast, verdelen we de rest automatisch zodat het totaal 100% blijft.",
+        "subtitleHintRemainder": "Pas de eerste methodes aan; de laatste in de lijst vult automatisch aan tot 100%.",
+        "remainderHint": "De laatste methode toont het resterende percentage (100% minus de andere).",
         "ariaPercentInput": "{methodName}, percentueel gewicht",
         "ariaWeightSlider": "{methodName}, schuifregelaar gewicht",
         "weight": "Gewicht",

@@ -1548,6 +1548,8 @@
         "title": "Valuation Synthesis",
         "subtitle": "Distribute weight across selected methods (total = 100%)",
         "subtitleHint": "Adjusting one method redistributes the others so the total stays 100%.",
+        "subtitleHintRemainder": "Adjust the first methods; the last in the list fills the remainder to 100%.",
+        "remainderHint": "The last method shows the remainder (100% minus the others).",
         "ariaPercentInput": "{methodName}, percentage weight",
         "ariaWeightSlider": "{methodName}, weight slider",
         "weight": "Weight",

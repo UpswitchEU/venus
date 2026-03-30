@@ -8,9 +8,11 @@ import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraTextarea } from '@/design-system/components/Input'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 import {
+  applyRemainderRebalance,
   equalWeightsFor,
-  rebalanceMethodWeights,
+  normalizeRemainderWeights,
   sanitizeSynthesisWeightDigits,
+  usesRemainderWeightModel,
 } from '@/constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import type { ValuationMethodResult } from '@/types/valuation'
@@ -63,7 +65,7 @@ export function SynthesisWeightingSection({
     }
   }, [disabled])
 
-  const safeWeights = useMemo(() => {
+  const rawSafeWeights = useMemo(() => {
     const w: Record<string, number> = {}
     for (const m of methods) {
       w[m] = weights[m] ?? 0
@@ -71,9 +73,28 @@ export function SynthesisWeightingSection({
     return w
   }, [weights, methods])
 
+  const remainderModel = useMemo(() => usesRemainderWeightModel(methods), [methods])
+  const remainderKey = remainderModel ? methods[methods.length - 1] : null
+
+  const displayWeights = useMemo(() => {
+    if (remainderModel) {
+      return normalizeRemainderWeights(methods, rawSafeWeights)
+    }
+    return rawSafeWeights
+  }, [methods, remainderModel, rawSafeWeights])
+
+  useEffect(() => {
+    if (disabled || !remainderModel || remainderKey == null) return
+    const n = normalizeRemainderWeights(methods, rawSafeWeights)
+    const outOfSync = methods.some((m) => (rawSafeWeights[m] ?? 0) !== (n[m] ?? 0))
+    if (outOfSync) {
+      onWeightsChange(n)
+    }
+  }, [disabled, methods, remainderModel, remainderKey, rawSafeWeights, onWeightsChange])
+
   const total = useMemo(
-    () => methods.reduce((s, m) => s + (safeWeights[m] ?? 0), 0),
-    [methods, safeWeights]
+    () => methods.reduce((s, m) => s + (displayWeights[m] ?? 0), 0),
+    [methods, displayWeights]
   )
 
   const hasResults = !!valuationResults && Object.keys(valuationResults).length > 0
@@ -84,7 +105,7 @@ export function SynthesisWeightingSection({
     let allAvailable = true
     for (const m of methods) {
       const mr = valuationResults?.[m]
-      const w = safeWeights[m] ?? 0
+      const w = displayWeights[m] ?? 0
       if (w <= 0) continue
       if (!mr?.available || mr.value == null) {
         allAvailable = false
@@ -93,13 +114,13 @@ export function SynthesisWeightingSection({
       sum += Number(mr.value) * (w / 100)
     }
     return allAvailable ? Math.round(sum) : null
-  }, [hasResults, valuationResults, methods, safeWeights, total])
+  }, [hasResults, valuationResults, methods, displayWeights, total])
 
   const contributions = useMemo(() => {
     if (!hasResults) return null
     return methods.map((m) => {
       const mr = valuationResults?.[m]
-      const w = safeWeights[m] ?? 0
+      const w = displayWeights[m] ?? 0
       const equity = mr?.available && mr.value != null ? Number(mr.value) : null
       return {
         method: m,
@@ -111,7 +132,7 @@ export function SynthesisWeightingSection({
         unavailableReason: mr?.unavailable_reason ?? null,
       }
     })
-  }, [hasResults, valuationResults, methods, safeWeights, t])
+  }, [hasResults, valuationResults, methods, displayWeights, t])
 
   const contributionByMethod = useMemo(() => {
     if (!contributions) return null
@@ -124,11 +145,12 @@ export function SynthesisWeightingSection({
 
   const handleSliderChange = useCallback(
     (method: string, value: number) => {
+      if (remainderModel && remainderKey != null && method === remainderKey) return
       const clamped = Math.min(100, Math.max(0, Math.round(value)))
-      const rebalanced = rebalanceMethodWeights(safeWeights, method, clamped)
+      const rebalanced = applyRemainderRebalance(methods, displayWeights, method, clamped)
       onWeightsChange(rebalanced)
     },
-    [safeWeights, onWeightsChange]
+    [methods, remainderModel, remainderKey, displayWeights, onWeightsChange]
   )
 
   const handleReset = useCallback(() => {
@@ -138,25 +160,27 @@ export function SynthesisWeightingSection({
 
   const commitPercentInput = useCallback(
     (method: string, rawValue: string) => {
+      if (remainderModel && remainderKey != null && method === remainderKey) return
       const trimmed = sanitizeSynthesisWeightDigits(rawValue)
       if (trimmed === '') return
       const parsed = Number.parseInt(trimmed, 10)
       if (Number.isNaN(parsed)) return
       const clamped = Math.min(100, Math.max(0, Math.round(parsed)))
-      const rebalanced = rebalanceMethodWeights(safeWeights, method, clamped)
+      const rebalanced = applyRemainderRebalance(methods, displayWeights, method, clamped)
       onWeightsChange(rebalanced)
     },
-    [safeWeights, onWeightsChange]
+    [methods, remainderModel, remainderKey, displayWeights, onWeightsChange]
   )
 
   const handlePercentFocus = useCallback(
     (method: string, currentW: number, el: HTMLInputElement | null) => {
       if (disabled) return
+      if (remainderModel && remainderKey != null && method === remainderKey) return
       setEditingMethod(method)
       setDraft(String(currentW))
       requestAnimationFrame(() => el?.select())
     },
-    [disabled]
+    [disabled, remainderModel, remainderKey]
   )
 
   const handlePercentBlur = useCallback(
@@ -211,15 +235,22 @@ export function SynthesisWeightingSection({
 
       <div className="text-[12px] text-foreground/50 -mt-1 space-y-1">
         <p>{synth('subtitle')}</p>
-        <p className="text-[11px] text-foreground/40">{synth('subtitleHint')}</p>
+        <p className="text-[11px] text-foreground/40">
+          {remainderModel ? synth('subtitleHintRemainder') : synth('subtitleHint')}
+        </p>
+        {remainderModel && (
+          <p className="text-[11px] text-foreground/40">{synth('remainderHint')}</p>
+        )}
       </div>
 
       {/* Method sliders with optional live equity values */}
       <div className="space-y-3">
         {methods.map((method) => {
-          const w = safeWeights[method] ?? 0
+          const w = displayWeights[method] ?? 0
           const label = t(METHOD_LABEL_KEYS[method] ?? method)
           const contrib = contributionByMethod?.[method]
+          const isRemainderRow =
+            remainderModel && remainderKey != null && method === remainderKey
 
           return (
             <div key={method} className="space-y-1.5">
@@ -236,70 +267,107 @@ export function SynthesisWeightingSection({
                   {contrib && !contrib.available && w > 0 && (
                     <AlertCircle className="w-3 h-3 text-destructive/70" />
                   )}
-                  <div className="relative shrink-0">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      disabled={disabled}
-                      value={editingMethod === method ? draft : String(w)}
-                      onFocus={(e) => handlePercentFocus(method, w, e.currentTarget)}
-                      onChange={(e) => {
-                        if (editingMethod !== method) return
-                        setDraft(sanitizeSynthesisWeightDigits(e.target.value))
-                      }}
-                      onBlur={(e) => handlePercentBlur(method, e.target.value)}
-                      onKeyDown={handlePercentKeyDown}
-                      aria-label={synth('ariaPercentInput', { methodName: label })}
-                      className={cn(
-                        'w-[3.75rem] min-w-[3.75rem] rounded-lg border border-foreground/[0.10] bg-foreground/[0.04]',
-                        'py-1 pl-2 pr-6 text-sm font-semibold tabular-nums text-foreground/80 text-right',
-                        'outline-none transition-colors',
-                        'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20',
-                        'disabled:opacity-50 disabled:cursor-not-allowed'
-                      )}
-                    />
-                    <span
-                      className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-foreground/45 font-medium"
-                      aria-hidden
-                    >
-                      %
-                    </span>
-                  </div>
+                  {isRemainderRow ? (
+                    <div className="relative shrink-0">
+                      <div
+                        className={cn(
+                          'w-[3.75rem] min-w-[3.75rem] rounded-lg border border-foreground/[0.08] bg-foreground/[0.03]',
+                          'py-1 pl-2 pr-6 text-sm font-semibold tabular-nums text-foreground/55 text-right'
+                        )}
+                        aria-label={synth('ariaPercentInput', { methodName: label })}
+                      >
+                        {w}
+                      </div>
+                      <span
+                        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-foreground/45 font-medium"
+                        aria-hidden
+                      >
+                        %
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="relative shrink-0">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        disabled={disabled}
+                        value={editingMethod === method ? draft : String(w)}
+                        onFocus={(e) => handlePercentFocus(method, w, e.currentTarget)}
+                        onChange={(e) => {
+                          if (editingMethod !== method) return
+                          setDraft(sanitizeSynthesisWeightDigits(e.target.value))
+                        }}
+                        onBlur={(e) => handlePercentBlur(method, e.target.value)}
+                        onKeyDown={handlePercentKeyDown}
+                        aria-label={synth('ariaPercentInput', { methodName: label })}
+                        className={cn(
+                          'w-[3.75rem] min-w-[3.75rem] rounded-lg border border-foreground/[0.10] bg-foreground/[0.04]',
+                          'py-1 pl-2 pr-6 text-sm font-semibold tabular-nums text-foreground/80 text-right',
+                          'outline-none transition-colors',
+                          'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20',
+                          'disabled:opacity-50 disabled:cursor-not-allowed'
+                        )}
+                      />
+                      <span
+                        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-foreground/45 font-medium"
+                        aria-hidden
+                      >
+                        %
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={w}
-                  onChange={(e) => handleSliderChange(method, Number(e.target.value))}
-                  disabled={disabled}
-                  className={cn(
-                    'flex-1 h-2 appearance-none rounded-full cursor-pointer',
-                    'bg-foreground/[0.06]',
-                    '[&::-webkit-slider-thumb]:appearance-none',
-                    '[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4',
-                    '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary',
-                    '[&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:border-2',
-                    '[&::-webkit-slider-thumb]:border-background',
-                    '[&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110',
-                    '[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4',
-                    '[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary',
-                    '[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-background',
-                    disabled && 'opacity-50 cursor-not-allowed'
-                  )}
-                  style={{
-                    background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${w}%, hsl(var(--foreground) / 0.06) ${w}%, hsl(var(--foreground) / 0.06) 100%)`,
-                  }}
-                  aria-label={synth('ariaWeightSlider', { methodName: label })}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={w}
-                  aria-valuetext={`${w}%`}
-                />
+                {isRemainderRow ? (
+                  <div
+                    className="flex-1 h-2 rounded-full bg-foreground/[0.06] overflow-hidden"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={w}
+                    aria-valuetext={`${w}%`}
+                    aria-label={synth('ariaWeightSlider', { methodName: label })}
+                  >
+                    <div
+                      className="h-full rounded-full bg-primary/50"
+                      style={{ width: `${w}%` }}
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={w}
+                    onChange={(e) => handleSliderChange(method, Number(e.target.value))}
+                    disabled={disabled}
+                    className={cn(
+                      'flex-1 h-2 appearance-none rounded-full cursor-pointer',
+                      'bg-foreground/[0.06]',
+                      '[&::-webkit-slider-thumb]:appearance-none',
+                      '[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4',
+                      '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary',
+                      '[&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:border-2',
+                      '[&::-webkit-slider-thumb]:border-background',
+                      '[&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110',
+                      '[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4',
+                      '[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary',
+                      '[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-background',
+                      disabled && 'opacity-50 cursor-not-allowed'
+                    )}
+                    style={{
+                      background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${w}%, hsl(var(--foreground) / 0.06) ${w}%, hsl(var(--foreground) / 0.06) 100%)`,
+                    }}
+                    aria-label={synth('ariaWeightSlider', { methodName: label })}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={w}
+                    aria-valuetext={`${w}%`}
+                  />
+                )}
               </div>
 
               {/* Weighted contribution indicator (post-calculation) */}

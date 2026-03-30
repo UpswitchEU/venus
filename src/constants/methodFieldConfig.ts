@@ -410,3 +410,94 @@ export function rebalanceMethodWeights(
 
   return result
 }
+
+/**
+ * When 3+ methods are selected, use "remainder on last" instead of proportional rebalance:
+ * the last method in `methods` (stable selection order from the manual store) gets
+ * `100% − sum(first n−1)` so users can set e.g. 20% / 70% / 10% by editing the first two rows.
+ */
+export function usesRemainderWeightModel(methods: string[]): boolean {
+  return methods.length >= 3
+}
+
+/**
+ * Ensure last method equals the remainder to 100% after free weights.
+ * If free weights sum above 100%, scale them down proportionally (hydration / edge cases).
+ */
+export function normalizeRemainderWeights(
+  methods: string[],
+  weights: Record<string, number>
+): Record<string, number> {
+  if (methods.length < 3) {
+    return { ...weights }
+  }
+  const remainderKey = methods[methods.length - 1]
+  const freeMethods = methods.slice(0, -1)
+  const result: Record<string, number> = {}
+
+  let sumFree = 0
+  for (const k of freeMethods) {
+    const w = Math.max(0, Math.round(weights[k] ?? 0))
+    result[k] = w
+    sumFree += w
+  }
+
+  if (sumFree > 100) {
+    let acc = 0
+    freeMethods.forEach((k, i) => {
+      if (i === freeMethods.length - 1) {
+        result[k] = Math.max(0, 100 - acc)
+      } else {
+        const raw = Math.max(0, weights[k] ?? 0)
+        const v = Math.max(0, Math.floor((raw * 100) / sumFree))
+        result[k] = v
+        acc += v
+      }
+    })
+    sumFree = freeMethods.reduce((s, k) => s + result[k], 0)
+  }
+
+  result[remainderKey] = Math.max(0, 100 - sumFree)
+  return result
+}
+
+/**
+ * Apply a change to one method's weight. For 3+ methods, only free methods (all except last)
+ * are editable; the last method is always `100 − sum(free)`.
+ */
+export function applyRemainderRebalance(
+  methods: string[],
+  weights: Record<string, number>,
+  changedKey: string,
+  newValue: number
+): Record<string, number> {
+  if (methods.length < 3) {
+    return rebalanceMethodWeights(weights, changedKey, newValue)
+  }
+  const remainderKey = methods[methods.length - 1]
+  const freeMethods = methods.slice(0, -1)
+  if (!methods.includes(changedKey)) {
+    return normalizeRemainderWeights(methods, weights)
+  }
+  if (changedKey === remainderKey) {
+    return normalizeRemainderWeights(methods, weights)
+  }
+  const clamped = Math.min(100, Math.max(0, Math.round(newValue)))
+  const otherFreeSum = freeMethods
+    .filter((k) => k !== changedKey)
+    .reduce((s, k) => s + Math.max(0, Math.round(weights[k] ?? 0)), 0)
+  const maxForChanged = Math.max(0, 100 - otherFreeSum)
+  const v = Math.min(clamped, maxForChanged)
+
+  const result: Record<string, number> = {}
+  for (const k of freeMethods) {
+    if (k === changedKey) {
+      result[k] = v
+    } else {
+      result[k] = Math.max(0, Math.round(weights[k] ?? 0))
+    }
+  }
+  const sumFree = freeMethods.reduce((s, k) => s + result[k], 0)
+  result[remainderKey] = Math.max(0, 100 - sumFree)
+  return result
+}

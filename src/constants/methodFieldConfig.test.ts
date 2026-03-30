@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyRemainderRebalance,
   equalWeightsFor,
   getBonusSections,
   getBonusSectionsSaasSignalsFromFormData,
@@ -8,7 +9,9 @@ import {
   getPreSelectableMethodsForFirmAndRevenue,
   isCombinableMethod,
   isUpfrontMethodAllowedForNav,
+  normalizeRemainderWeights,
   rebalanceMethodWeights,
+  usesRemainderWeightModel,
   resolveBusinessTypeIdForBonusSections,
   resolveDisplayPreSelectedMethodKey,
   sanitizeMethodSelection,
@@ -167,6 +170,12 @@ describe('methodFieldConfig', () => {
   })
 
   describe('synthesis weights (Waarderingssynthese)', () => {
+    it('usesRemainderWeightModel applies only when three or more methods are selected', () => {
+      expect(usesRemainderWeightModel(['a', 'b'])).toBe(false)
+      expect(usesRemainderWeightModel(['a', 'b', 'c'])).toBe(true)
+      expect(usesRemainderWeightModel(['a', 'b', 'c', 'd'])).toBe(true)
+    })
+
     it('equalWeightsFor splits 100% across three methods with integer remainder', () => {
       expect(equalWeightsFor(['dcf', 'ebitda_multiple', 'arr_multiple'])).toEqual({
         dcf: 34,
@@ -194,6 +203,63 @@ describe('methodFieldConfig', () => {
 
     it('rebalanceMethodWeights avoids divide-by-zero when only one key exists', () => {
       expect(rebalanceMethodWeights({ dcf: 100 }, 'dcf', 50)).toEqual({ dcf: 100 })
+    })
+
+    it('applyRemainderRebalance reaches 20/70/10 when last method is remainder', () => {
+      const methods = ['dcf', 'ebitda_multiple', 'adjusted_nav']
+      const w0 = { dcf: 34, ebitda_multiple: 33, adjusted_nav: 33 }
+      const w1 = applyRemainderRebalance(methods, w0, 'dcf', 20)
+      expect(w1).toMatchObject({ dcf: 20, ebitda_multiple: 33, adjusted_nav: 47 })
+      const w2 = applyRemainderRebalance(methods, w1, 'ebitda_multiple', 70)
+      expect(w2).toEqual({ dcf: 20, ebitda_multiple: 70, adjusted_nav: 10 })
+    })
+
+    it('applyRemainderRebalance clamps free weight so remainder cannot go negative', () => {
+      const methods = ['dcf', 'ebitda_multiple', 'adjusted_nav']
+      const w0 = { dcf: 40, ebitda_multiple: 50, adjusted_nav: 10 }
+      const w1 = applyRemainderRebalance(methods, w0, 'dcf', 95)
+      expect(w1).toEqual({ dcf: 50, ebitda_multiple: 50, adjusted_nav: 0 })
+    })
+
+    it('normalizeRemainderWeights fixes free sum over 100', () => {
+      const methods = ['dcf', 'ebitda_multiple', 'adjusted_nav']
+      const w = normalizeRemainderWeights(methods, { dcf: 60, ebitda_multiple: 50, adjusted_nav: 0 })
+      expect(Object.values(w).reduce((s, v) => s + v, 0)).toBe(100)
+      expect(w.adjusted_nav).toBeGreaterThanOrEqual(0)
+    })
+
+    it('applyRemainderRebalance falls back to proportional model for two methods', () => {
+      const methods = ['dcf', 'ebitda_multiple']
+      const w = { dcf: 50, ebitda_multiple: 50 }
+      const next = applyRemainderRebalance(methods, w, 'dcf', 60)
+      expect(next.dcf).toBe(60)
+      expect(Object.values(next).reduce((s, v) => s + v, 0)).toBe(100)
+    })
+
+    it('applyRemainderRebalance outputs integer weights summing to 100 when inputs had fractional noise', () => {
+      const methods = ['dcf', 'ebitda_multiple', 'adjusted_nav']
+      const w0 = { dcf: 33.4, ebitda_multiple: 33.4, adjusted_nav: 33.2 }
+      const w1 = applyRemainderRebalance(methods, w0, 'dcf', 40)
+      expect(Object.values(w1).reduce((s, v) => s + v, 0)).toBe(100)
+      expect(Object.values(w1).every((x) => Number.isInteger(x))).toBe(true)
+    })
+
+    it('applyRemainderRebalance normalizes when changedKey is not in methods', () => {
+      const methods = ['dcf', 'ebitda_multiple', 'adjusted_nav']
+      const w = { dcf: 50, ebitda_multiple: 50, adjusted_nav: 0 }
+      expect(applyRemainderRebalance(methods, w, 'unknown_method', 40)).toEqual(
+        normalizeRemainderWeights(methods, w)
+      )
+    })
+
+    it('applyRemainderRebalance keeps last method as remainder for four methods', () => {
+      const methods = ['dcf', 'ebitda_multiple', 'arr_multiple', 'adjusted_nav']
+      const w0 = equalWeightsFor(methods)
+      const w1 = applyRemainderRebalance(methods, w0, 'dcf', 10)
+      expect(Object.values(w1).reduce((s, v) => s + v, 0)).toBe(100)
+      const last = methods[methods.length - 1]
+      const sumFree = methods.slice(0, -1).reduce((s, m) => s + (w1[m] ?? 0), 0)
+      expect(w1[last]).toBe(100 - sumFree)
     })
   })
 })
