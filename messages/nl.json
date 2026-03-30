@@ -1381,7 +1381,7 @@
       "dcf": "Discounted Cash Flow (DCF)",
       "dcfDescription": "Kernpercentages, live FCFF-preview en slimme defaults uit historiek en accounting-import—verdedigbare DCF in minuten, niet in dagen.",
       "adjustedNav": "Gecorrigeerde Netto Actiefwaarde",
-      "adjustedNavDescription": "Nettoactief na herwaardering van activa en passiva naar markt- of reële waarde.",
+      "adjustedNavDescription": "Nettoactief na herwaardering van activa en passiva naar markt- of reële waarde. Combineerbaar met multiples of DCF in een gewogen synthese.",
       "sdeMultiple": "SDE-multiple (Seller's Discretionary Earnings)",
       "sdeMultipleDescription": "Voor kleine KMO's en eenmanszaken (omzet onder €5M). Telt eigenaarsbezoldiging bij EBITDA.",
       "fiscal4x": "Fiscale Referentiewaarde",
@@ -1548,6 +1548,8 @@
         "title": "Waarderingssynthese",
         "subtitle": "Verdeel het gewicht over de geselecteerde methodes (totaal = 100%)",
         "subtitleHint": "Als je één methode aanpast, verdelen we de rest automatisch zodat het totaal 100% blijft.",
+        "ariaPercentInput": "{methodName}, percentueel gewicht",
+        "ariaWeightSlider": "{methodName}, schuifregelaar gewicht",
         "weight": "Gewicht",
         "resetEqual": "Gelijke verdeling",
         "justificationLabel": "Motivatie (verschijnt in rapport)",
@@ -2547,7 +2549,7 @@
       "omzet_multiple": "Omzet × multiple — nuttig bij wisselende marges of als peers op omzet worden beoordeeld.",
       "revenue_multiple": "Omzet × multiple (Engelse term; zelfde idee als omzetmultiple).",
       "sde_multiple": "Seller discretionary earnings × multiple — typisch voor KMO's met eigenaar-operator.",
-      "adjusted_nav": "Gecorrigeerde netto activawaarde vanuit de balans — anker voor asset-heavy of holdings.",
+      "adjusted_nav": "Gecorrigeerde netto activawaarde vanuit de balans — vloer/anker bij asset-heavy dossiers; combineer met multiples/DCF in synthese waar passend.",
       "fiscal_4x": "Belgische fiscale referentiewaarde (forfait): eigen vermogen + 4× genormaliseerde EBITDA.",
       "dcf": "Discontante kasstromethode (DCF): projecteert toekomstige kasstromen en verdiscont naar vandaag — intrinsieke waarde. Alleen beschikbaar als de motor DCF kan berekenen (geen uitsluiting); anders ziet u hieronder de reden."
     }

@@ -1381,7 +1381,7 @@
       "dcf": "Discounted Cash Flow (DCF)",
       "dcfDescription": "Key rates, live FCFF preview, and smart defaults from history and accounting import—defensible DCF in minutes, not days.",
       "adjustedNav": "Adjusted Net Asset Value",
-      "adjustedNavDescription": "Net asset value after revaluing assets and liabilities to market or fair value.",
+      "adjustedNavDescription": "Net asset value after revaluing assets and liabilities to market or fair value. Combine with multiples or DCF in weighted synthesis.",
       "sdeMultiple": "SDE Multiple (Seller's Discretionary Earnings)",
       "sdeMultipleDescription": "For micro-SMEs and sole proprietorships (revenue < €5M). Adds owner salary back to EBITDA.",
       "fiscal4x": "Fiscal Reference Value",
@@ -1548,6 +1548,8 @@
         "title": "Valuation Synthesis",
         "subtitle": "Distribute weight across selected methods (total = 100%)",
         "subtitleHint": "Adjusting one method redistributes the others so the total stays 100%.",
+        "ariaPercentInput": "{methodName}, percentage weight",
+        "ariaWeightSlider": "{methodName}, weight slider",
         "weight": "Weight",
         "resetEqual": "Equal distribution",
         "justificationLabel": "Rationale (appears in report)",
@@ -2547,7 +2549,7 @@
       "omzet_multiple": "Revenue × a multiple — useful when margins swing or peers are quoted on sales.",
       "revenue_multiple": "Revenue × a multiple (same idea as turnover / omzet multiple).",
       "sde_multiple": "Seller discretionary earnings × a multiple — common for owner-operated SMEs.",
-      "adjusted_nav": "Adjusted net asset value from the balance sheet — anchor for asset-heavy or holding structures.",
+      "adjusted_nav": "Adjusted net asset value from the balance sheet — floor or anchor for asset-heavy cases; combine with multiples/DCF in synthesis when appropriate.",
       "fiscal_4x": "Belgian fiscal reference (notional): book equity + 4× normalized EBITDA.",
       "dcf": "Discounted cash flow (DCF): projects future cash flows and discounts them to today — intrinsic value. Only selectable when the engine can compute DCF (no exclusion); otherwise the reason appears below."
     }

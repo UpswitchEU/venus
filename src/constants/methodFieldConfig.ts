@@ -363,3 +363,50 @@ export function equalWeightsFor(methods: string[]): Record<string, number> {
   })
   return weights
 }
+
+/** Digits only, max length 3 (0–100) for synthesis weight text fields. */
+export function sanitizeSynthesisWeightDigits(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, 3)
+}
+
+/**
+ * When one method’s weight changes, scale the others proportionally and fix rounding so the sum is 100%.
+ * Used by Waarderingssynthese sliders and percentage inputs.
+ */
+export function rebalanceMethodWeights(
+  weights: Record<string, number>,
+  changedKey: string,
+  newValue: number
+): Record<string, number> {
+  const keys = Object.keys(weights)
+  const oldValue = weights[changedKey] ?? 0
+  const delta = newValue - oldValue
+  const otherKeys = keys.filter((k) => k !== changedKey)
+
+  if (otherKeys.length === 0) {
+    return { ...weights, [changedKey]: 100 }
+  }
+
+  const result: Record<string, number> = { ...weights, [changedKey]: newValue }
+  const otherSum = otherKeys.reduce((s, k) => s + weights[k], 0)
+
+  if (otherSum === 0) {
+    const share = Math.max(0, Math.round(-delta / otherKeys.length))
+    otherKeys.forEach((k) => {
+      result[k] = share
+    })
+  } else {
+    otherKeys.forEach((k) => {
+      result[k] = Math.max(0, Math.round(weights[k] - (delta * weights[k]) / otherSum))
+    })
+  }
+
+  const total = Object.values(result).reduce((s, v) => s + v, 0)
+  if (total !== 100 && otherKeys.length > 0) {
+    const correction = 100 - total
+    const maxKey = otherKeys.reduce((a, b) => (result[a] >= result[b] ? a : b))
+    result[maxKey] = Math.max(0, result[maxKey] + correction)
+  }
+
+  return result
+}

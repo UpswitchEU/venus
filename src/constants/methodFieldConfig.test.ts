@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  equalWeightsFor,
   getBonusSections,
   getBonusSectionsSaasSignalsFromFormData,
   getConflictingMethod,
@@ -7,9 +8,11 @@ import {
   getPreSelectableMethodsForFirmAndRevenue,
   isCombinableMethod,
   isUpfrontMethodAllowedForNav,
+  rebalanceMethodWeights,
   resolveBusinessTypeIdForBonusSections,
   resolveDisplayPreSelectedMethodKey,
   sanitizeMethodSelection,
+  sanitizeSynthesisWeightDigits,
   METHOD_FIELD_CONFIG,
   PRE_SELECTABLE_METHODS,
 } from './methodFieldConfig'
@@ -161,5 +164,36 @@ describe('methodFieldConfig', () => {
     expect(resolveDisplayPreSelectedMethodKey('omzet_multiple', allowed)).toBe('upswitch_adaptive')
     expect(resolveDisplayPreSelectedMethodKey(null, allowed)).toBe('upswitch_adaptive')
     expect(resolveDisplayPreSelectedMethodKey('dcf', allowed)).toBe('dcf')
+  })
+
+  describe('synthesis weights (Waarderingssynthese)', () => {
+    it('equalWeightsFor splits 100% across three methods with integer remainder', () => {
+      expect(equalWeightsFor(['dcf', 'ebitda_multiple', 'arr_multiple'])).toEqual({
+        dcf: 34,
+        ebitda_multiple: 33,
+        arr_multiple: 33,
+      })
+    })
+
+    it('sanitizeSynthesisWeightDigits keeps digits and caps length', () => {
+      expect(sanitizeSynthesisWeightDigits('ab34cd')).toBe('34')
+      expect(sanitizeSynthesisWeightDigits('1000')).toBe('100')
+      expect(sanitizeSynthesisWeightDigits('')).toBe('')
+    })
+
+    it('rebalanceMethodWeights keeps total 100% when one method changes', () => {
+      const w = { dcf: 34, ebitda_multiple: 33, arr_multiple: 33 }
+      const next = rebalanceMethodWeights(w, 'dcf', 40)
+      expect(Object.values(next).reduce((s, v) => s + v, 0)).toBe(100)
+      expect(next).toEqual({
+        dcf: 40,
+        ebitda_multiple: 30,
+        arr_multiple: 30,
+      })
+    })
+
+    it('rebalanceMethodWeights avoids divide-by-zero when only one key exists', () => {
+      expect(rebalanceMethodWeights({ dcf: 100 }, 'dcf', 50)).toEqual({ dcf: 100 })
+    })
   })
 })

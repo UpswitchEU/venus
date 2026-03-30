@@ -252,6 +252,37 @@ describe('useManualResultsStore', () => {
   })
 
   describe('method coherence', () => {
+    it('keeps adjusted_nav combinable with ebitda_multiple for weighted synthesis', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setPreSelectedMethods(['ebitda_multiple', 'adjusted_nav'])
+      })
+
+      expect(result.current.preSelectedMethods).toEqual(['ebitda_multiple', 'adjusted_nav'])
+      expect(result.current.userWeights).toEqual({
+        ebitda_multiple: 50,
+        adjusted_nav: 50,
+      })
+    })
+
+    it('adds adjusted_nav via togglePreSelectedMethod without clearing ebitda_multiple', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.togglePreSelectedMethod('ebitda_multiple')
+      })
+      act(() => {
+        result.current.togglePreSelectedMethod('adjusted_nav')
+      })
+
+      expect(result.current.preSelectedMethods).toEqual(['ebitda_multiple', 'adjusted_nav'])
+      expect(result.current.userWeights).toEqual({
+        ebitda_multiple: 50,
+        adjusted_nav: 50,
+      })
+    })
+
     it('returns to adaptive when preselection is cleared', () => {
       const { result } = renderHook(() => useManualResultsStore())
 

@@ -1,13 +1,17 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RotateCcw, Scale, TrendingUp, AlertCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraTextarea } from '@/design-system/components/Input'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
-import { equalWeightsFor } from '@/constants/methodFieldConfig'
+import {
+  equalWeightsFor,
+  rebalanceMethodWeights,
+  sanitizeSynthesisWeightDigits,
+} from '@/constants/methodFieldConfig'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import type { ValuationMethodResult } from '@/types/valuation'
 
@@ -17,44 +21,6 @@ function formatCompactCurrency(amount: number): string {
   if (abs >= 1_000_000) return `${sign}€${(abs / 1_000_000).toFixed(1)}M`
   if (abs >= 1_000) return `${sign}€${Math.round(abs / 1_000)}K`
   return `${sign}€${Math.round(abs)}`
-}
-
-function rebalanceWeights(
-  weights: Record<string, number>,
-  changedKey: string,
-  newValue: number
-): Record<string, number> {
-  const keys = Object.keys(weights)
-  const oldValue = weights[changedKey] ?? 0
-  const delta = newValue - oldValue
-  const otherKeys = keys.filter((k) => k !== changedKey)
-  const otherSum = otherKeys.reduce((s, k) => s + weights[k], 0)
-
-  const result: Record<string, number> = { ...weights, [changedKey]: newValue }
-
-  if (otherSum === 0) {
-    const share = Math.max(0, Math.round(-delta / otherKeys.length))
-    otherKeys.forEach((k) => {
-      result[k] = share
-    })
-  } else {
-    otherKeys.forEach((k) => {
-      result[k] = Math.max(0, Math.round(weights[k] - (delta * weights[k]) / otherSum))
-    })
-  }
-
-  const total = Object.values(result).reduce((s, v) => s + v, 0)
-  if (total !== 100 && otherKeys.length > 0) {
-    const correction = 100 - total
-    const maxKey = otherKeys.reduce((a, b) => (result[a] >= result[b] ? a : b))
-    result[maxKey] = Math.max(0, result[maxKey] + correction)
-  }
-
-  return result
-}
-
-function sanitizeWeightDigits(raw: string): string {
-  return raw.replace(/\D/g, '').slice(0, 3)
 }
 
 export interface SynthesisWeightingSectionProps {
@@ -84,6 +50,18 @@ export function SynthesisWeightingSection({
   const [editingMethod, setEditingMethod] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const cancelBlurCommitRef = useRef(false)
+
+  useEffect(() => {
+    if (editingMethod != null && !methods.includes(editingMethod)) {
+      setEditingMethod(null)
+    }
+  }, [methods, editingMethod])
+
+  useEffect(() => {
+    if (disabled) {
+      setEditingMethod(null)
+    }
+  }, [disabled])
 
   const safeWeights = useMemo(() => {
     const w: Record<string, number> = {}
@@ -135,10 +113,19 @@ export function SynthesisWeightingSection({
     })
   }, [hasResults, valuationResults, methods, safeWeights, t])
 
+  const contributionByMethod = useMemo(() => {
+    if (!contributions) return null
+    const map: Record<string, (typeof contributions)[number]> = {}
+    for (const c of contributions) {
+      map[c.method] = c
+    }
+    return map
+  }, [contributions])
+
   const handleSliderChange = useCallback(
     (method: string, value: number) => {
       const clamped = Math.min(100, Math.max(0, Math.round(value)))
-      const rebalanced = rebalanceWeights(safeWeights, method, clamped)
+      const rebalanced = rebalanceMethodWeights(safeWeights, method, clamped)
       onWeightsChange(rebalanced)
     },
     [safeWeights, onWeightsChange]
@@ -151,29 +138,26 @@ export function SynthesisWeightingSection({
 
   const commitPercentInput = useCallback(
     (method: string, rawValue: string) => {
-      const trimmed = sanitizeWeightDigits(rawValue)
+      const trimmed = sanitizeSynthesisWeightDigits(rawValue)
       if (trimmed === '') return
       const parsed = Number.parseInt(trimmed, 10)
       if (Number.isNaN(parsed)) return
       const clamped = Math.min(100, Math.max(0, Math.round(parsed)))
-      const rebalanced = rebalanceWeights(safeWeights, method, clamped)
+      const rebalanced = rebalanceMethodWeights(safeWeights, method, clamped)
       onWeightsChange(rebalanced)
     },
     [safeWeights, onWeightsChange]
   )
 
   const handlePercentFocus = useCallback(
-    (method: string, currentW: number) => {
+    (method: string, currentW: number, el: HTMLInputElement | null) => {
       if (disabled) return
       setEditingMethod(method)
       setDraft(String(currentW))
+      requestAnimationFrame(() => el?.select())
     },
     [disabled]
   )
-
-  const handlePercentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setDraft(sanitizeWeightDigits(e.target.value))
-  }, [])
 
   const handlePercentBlur = useCallback(
     (method: string, rawValue: string) => {
@@ -188,22 +172,19 @@ export function SynthesisWeightingSection({
     [editingMethod, commitPercentInput]
   )
 
-  const handlePercentKeyDown = useCallback(
-    (method: string, e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        e.currentTarget.blur()
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        cancelBlurCommitRef.current = true
-        setEditingMethod(null)
-        e.currentTarget.blur()
-      }
-    },
-    []
-  )
+  const handlePercentKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.currentTarget.blur()
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      cancelBlurCommitRef.current = true
+      setEditingMethod(null)
+      e.currentTarget.blur()
+    }
+  }, [])
 
   if (methods.length < 2) return null
 
@@ -238,7 +219,7 @@ export function SynthesisWeightingSection({
         {methods.map((method) => {
           const w = safeWeights[method] ?? 0
           const label = t(METHOD_LABEL_KEYS[method] ?? method)
-          const contrib = contributions?.find((c) => c.method === method)
+          const contrib = contributionByMethod?.[method]
 
           return (
             <div key={method} className="space-y-1.5">
@@ -262,18 +243,20 @@ export function SynthesisWeightingSection({
                       autoComplete="off"
                       disabled={disabled}
                       value={editingMethod === method ? draft : String(w)}
-                      onFocus={() => handlePercentFocus(method, w)}
-                      onChange={handlePercentChange}
+                      onFocus={(e) => handlePercentFocus(method, w, e.currentTarget)}
+                      onChange={(e) => {
+                        if (editingMethod !== method) return
+                        setDraft(sanitizeSynthesisWeightDigits(e.target.value))
+                      }}
                       onBlur={(e) => handlePercentBlur(method, e.target.value)}
-                      onKeyDown={(e) => handlePercentKeyDown(method, e)}
-                      aria-label={`${label} ${synth('weight')} (%)`}
+                      onKeyDown={handlePercentKeyDown}
+                      aria-label={synth('ariaPercentInput', { methodName: label })}
                       className={cn(
-                        'w-[3.25rem] rounded-lg border border-foreground/[0.10] bg-foreground/[0.04]',
+                        'w-[3.75rem] min-w-[3.75rem] rounded-lg border border-foreground/[0.10] bg-foreground/[0.04]',
                         'py-1 pl-2 pr-6 text-sm font-semibold tabular-nums text-foreground/80 text-right',
                         'outline-none transition-colors',
                         'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20',
-                        'disabled:opacity-50 disabled:cursor-not-allowed',
-                        '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
                       )}
                     />
                     <span
@@ -311,7 +294,11 @@ export function SynthesisWeightingSection({
                   style={{
                     background: `linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary)) ${w}%, hsl(var(--foreground) / 0.06) ${w}%, hsl(var(--foreground) / 0.06) 100%)`,
                   }}
-                  aria-label={`${label} ${synth('weight')}`}
+                  aria-label={synth('ariaWeightSlider', { methodName: label })}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={w}
+                  aria-valuetext={`${w}%`}
                 />
               </div>
 
