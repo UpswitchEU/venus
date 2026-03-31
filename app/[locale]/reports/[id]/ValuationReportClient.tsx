@@ -161,7 +161,7 @@ export default function ValuationReportClient({
       <AuthGate
         hasClientToken={hasClientToken}
         returnUrl={urlParams.return_url}
-        loadingComponent={<CalculatorShellSkeleton />}
+        loadingComponent={<CalculatorShellSkeleton sourceApp={source} />}
         optimistic={false}
       >
         <TokenRefreshGuard />

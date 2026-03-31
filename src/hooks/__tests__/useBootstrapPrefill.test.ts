@@ -221,6 +221,56 @@ describe('useBootstrapPrefill', () => {
     })
   })
 
+  it('hydrates advanced DCF method prefill into the manual form store', async () => {
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
+      report: { mode: 'new', reportId: 'val_dcf_prefill', hasExistingData: false },
+      prefillData: {
+        sources: ['accounting_integration'],
+        companyInfo: {
+          companyName: 'DCF Co',
+          countryCode: 'BE',
+        },
+        methodPrefill: {
+          dcf_projections: {
+            dcf_revenue_growth_pct: 8,
+            dcf_wacc_pct: 11.2,
+            dcf_terminal_growth_pct: 2.5,
+            dcf_risk_free_rate_pct: 3,
+            dcf_equity_risk_premium_pct: 5.5,
+            dcf_beta: 1.2,
+            dcf_cost_of_debt_pct: 4.8,
+            dcf_debt_equity_pct: 28,
+            dcf_tax_shield_pct: 25,
+          },
+        },
+        confidence: 0.7,
+        fieldsPopulated: ['company_name'],
+        fieldsRemaining: [],
+        readOnlyKbo: false,
+        autoAdvancePastPrefilledSteps: false,
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+
+    await waitFor(() => {
+      const formData = useManualFormStore.getState().formData as any
+      expect(formData.dcf_revenue_growth_pct).toBe(8)
+      expect(formData.dcf_wacc_pct).toBe(11.2)
+      expect(formData.dcf_terminal_growth_pct).toBe(2.5)
+      expect(formData.dcf_risk_free_rate_pct).toBe(3)
+      expect(formData.dcf_equity_risk_premium_pct).toBe(5.5)
+      expect(formData.dcf_beta).toBe(1.2)
+      expect(formData.dcf_cost_of_debt_pct).toBe(4.8)
+      expect(formData.dcf_debt_equity_pct).toBe(28)
+      expect(formData.dcf_tax_shield_pct).toBe(25)
+    })
+  })
+
   it('hydrates imported tax latency candidates into the tax latency store', async () => {
     mockUseBootstrapSafe.mockReturnValue({
       isBootstrapping: false,

@@ -182,6 +182,67 @@ export interface PartialFinancials {
   }
 }
 
+export interface MethodPrefillSection {
+  confidence?: number
+  provenance?: Record<string, string>
+}
+
+export interface DcfMethodPrefill extends MethodPrefillSection {
+  dcf_revenue_growth_pct?: number
+  dcf_ebitda_margin_pct?: number
+  dcf_capex_pct?: number
+  dcf_da_pct?: number
+  dcf_nwc_pct?: number
+  dcf_tax_rate_pct?: number
+  dcf_wacc_pct?: number
+  dcf_terminal_growth_pct?: number
+  dcf_risk_free_rate_pct?: number
+  dcf_equity_risk_premium_pct?: number
+  dcf_beta?: number
+  dcf_cost_of_debt_pct?: number
+  dcf_debt_equity_pct?: number
+  dcf_tax_shield_pct?: number
+}
+
+export interface NavMethodPrefill extends MethodPrefillSection {
+  nav_real_estate_adjustment?: number
+  nav_inventory_adjustment?: number
+  nav_hidden_reserves?: number
+  nav_goodwill_writeoff?: number
+}
+
+export interface SaasMethodPrefill extends MethodPrefillSection {
+  saas_arr?: number
+  saas_mrr?: number
+  saas_arr_growth_pct?: number
+  saas_churn_pct?: number
+  saas_customer_churn_pct?: number
+  saas_nrr_pct?: number
+  saas_gross_margin_pct?: number
+  saas_cac?: number
+  saas_customer_concentration_pct?: number
+  saas_expansion_revenue_pct?: number
+  saas_sm_spend?: number
+}
+
+export interface RevenueQualityMethodPrefill extends MethodPrefillSection {
+  rev_recurring_pct?: number
+  rev_top_client_concentration_pct?: number
+  rev_contract_backlog?: number
+}
+
+export interface SdeMethodPrefill extends MethodPrefillSection {
+  owner_salary_addback?: number
+}
+
+export interface MethodPrefill {
+  dcf_projections?: DcfMethodPrefill
+  nav_asset_schedule?: NavMethodPrefill
+  saas_metrics?: SaasMethodPrefill
+  revenue_quality?: RevenueQualityMethodPrefill
+  sde_owner_compensation?: SdeMethodPrefill
+}
+
 export interface OfficialFinancials {
   source?: string
   sourceLabel?: string
@@ -253,6 +314,7 @@ export interface PrefillData {
   companyInfo?: CompanyInfo
   financials?: PartialFinancials
   officialFinancials?: OfficialFinancials
+  methodPrefill?: MethodPrefill
   /** Poll GET /api/jobs/:id until enrichment completes; then merge into officialFinancials. */
   officialEnrichmentJobId?: string
   businessType?: BusinessTypeInfo
