@@ -422,8 +422,7 @@ function applyPrefillToForm(
   updateFormData: (data: Partial<any>) => void,
   prefillFromBusinessCard: (card: any) => void
 ): void {
-  const { companyInfo, financials, businessType, kboData, officialFinancials, methodPrefill } =
-    prefillData
+  const { companyInfo, financials, businessType, kboData, officialFinancials } = prefillData
 
   // CRITICAL LOGGING: Log what we received from bootstrap
   logger.debug('applyPrefillToForm called', {
@@ -654,79 +653,6 @@ function applyPrefillToForm(
           ebitda: currentYearRow.ebitda,
         }
       }
-    }
-  }
-
-  if (methodPrefill) {
-    const dcf = methodPrefill.dcf_projections
-    if (dcf?.dcf_revenue_growth_pct != null)
-      allData.dcf_revenue_growth_pct = dcf.dcf_revenue_growth_pct
-    if (dcf?.dcf_ebitda_margin_pct != null)
-      allData.dcf_ebitda_margin_pct = dcf.dcf_ebitda_margin_pct
-    if (dcf?.dcf_capex_pct != null) allData.dcf_capex_pct = dcf.dcf_capex_pct
-    if (dcf?.dcf_da_pct != null) allData.dcf_da_pct = dcf.dcf_da_pct
-    if (dcf?.dcf_nwc_pct != null) allData.dcf_nwc_pct = dcf.dcf_nwc_pct
-    if (dcf?.dcf_tax_rate_pct != null) allData.dcf_tax_rate_pct = dcf.dcf_tax_rate_pct
-    if (dcf?.dcf_wacc_pct != null) allData.dcf_wacc_pct = dcf.dcf_wacc_pct
-    if (dcf?.dcf_terminal_growth_pct != null)
-      allData.dcf_terminal_growth_pct = dcf.dcf_terminal_growth_pct
-    if (dcf?.dcf_risk_free_rate_pct != null)
-      allData.dcf_risk_free_rate_pct = dcf.dcf_risk_free_rate_pct
-    if (dcf?.dcf_equity_risk_premium_pct != null)
-      allData.dcf_equity_risk_premium_pct = dcf.dcf_equity_risk_premium_pct
-    if (dcf?.dcf_beta != null) allData.dcf_beta = dcf.dcf_beta
-    if (dcf?.dcf_cost_of_debt_pct != null)
-      allData.dcf_cost_of_debt_pct = dcf.dcf_cost_of_debt_pct
-    if (dcf?.dcf_debt_equity_pct != null)
-      allData.dcf_debt_equity_pct = dcf.dcf_debt_equity_pct
-    if (dcf?.dcf_tax_shield_pct != null)
-      allData.dcf_tax_shield_pct = dcf.dcf_tax_shield_pct
-
-    const nav = methodPrefill.nav_asset_schedule
-    if (nav?.nav_real_estate_adjustment != null)
-      allData.nav_real_estate_adjustment = nav.nav_real_estate_adjustment
-    if (nav?.nav_inventory_adjustment != null)
-      allData.nav_inventory_adjustment = nav.nav_inventory_adjustment
-    if (nav?.nav_hidden_reserves != null) allData.nav_hidden_reserves = nav.nav_hidden_reserves
-    if (nav?.nav_goodwill_writeoff != null)
-      allData.nav_goodwill_writeoff = nav.nav_goodwill_writeoff
-
-    const saas = methodPrefill.saas_metrics
-    if (saas?.saas_arr != null) allData.saas_arr = saas.saas_arr
-    if (saas?.saas_mrr != null) allData.saas_mrr = saas.saas_mrr
-    if (saas?.saas_arr_growth_pct != null) allData.saas_arr_growth_pct = saas.saas_arr_growth_pct
-    if (saas?.saas_churn_pct != null) allData.saas_churn_pct = saas.saas_churn_pct
-    if (saas?.saas_customer_churn_pct != null)
-      allData.saas_customer_churn_pct = saas.saas_customer_churn_pct
-    if (saas?.saas_nrr_pct != null) allData.saas_nrr_pct = saas.saas_nrr_pct
-    if (saas?.saas_gross_margin_pct != null)
-      allData.saas_gross_margin_pct = saas.saas_gross_margin_pct
-    if (saas?.saas_cac != null) allData.saas_cac = saas.saas_cac
-    if (saas?.saas_customer_concentration_pct != null) {
-      allData.saas_customer_concentration_pct = saas.saas_customer_concentration_pct
-    }
-    if (saas?.saas_expansion_revenue_pct != null) {
-      allData.saas_expansion_revenue_pct = saas.saas_expansion_revenue_pct
-    }
-    if (saas?.saas_sm_spend != null) allData.saas_sm_spend = saas.saas_sm_spend
-
-    const revenueQuality = methodPrefill.revenue_quality
-    if (revenueQuality?.rev_recurring_pct != null)
-      allData.rev_recurring_pct = revenueQuality.rev_recurring_pct
-    if (revenueQuality?.rev_top_client_concentration_pct != null) {
-      allData.rev_top_client_concentration_pct =
-        revenueQuality.rev_top_client_concentration_pct
-    }
-    if (revenueQuality?.rev_contract_backlog != null)
-      allData.rev_contract_backlog = revenueQuality.rev_contract_backlog
-
-    if (methodPrefill.sde_owner_compensation?.owner_salary_addback != null) {
-      allData.owner_salary_addback = methodPrefill.sde_owner_compensation.owner_salary_addback
-    }
-
-    allData.business_context = {
-      ...(allData.business_context || {}),
-      _method_prefill: methodPrefill,
     }
   }
 

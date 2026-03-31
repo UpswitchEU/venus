@@ -33,10 +33,6 @@ import { APIRequestConfig, HttpClient } from '../HttpClient'
  * - Venus never times out before backend completes
  */
 const VALUATION_TIMEOUT_MS = 120000 // 120 seconds for complex calculations
-const JOB_POLL_INTERVAL_MS = 1000
-const JOB_POLL_TIMEOUT_MS = 5 * 60 * 1000
-const JOB_POLL_MAX_ATTEMPTS = Math.ceil(JOB_POLL_TIMEOUT_MS / JOB_POLL_INTERVAL_MS)
-const INITIAL_QUEUE_REQUEST_TIMEOUT_MS = 30_000
 
 function extractValidationIssues(errors: unknown): Array<{ field?: string; message: string }> {
   if (!Array.isArray(errors)) {
@@ -94,61 +90,7 @@ function extractValidationMessage(responseData: any, fallback: string): string {
   return explicitMessage || issueSummary || fallback
 }
 
-function isQueuedValuationJobResponse(
-  value: unknown
-): value is { job_id: string; status?: string; type?: string } {
-  return (
-    !!value &&
-    typeof value === 'object' &&
-    'job_id' in value &&
-    typeof (value as { job_id?: unknown }).job_id === 'string'
-  )
-}
-
 export class ValuationAPI extends HttpClient {
-  private async waitForQueuedValuation(
-    response: ValuationResponse | { job_id: string },
-    options?: APIRequestConfig
-  ): Promise<ValuationResponse> {
-    if (!isQueuedValuationJobResponse(response)) {
-      return response as ValuationResponse
-    }
-
-    for (let attempt = 0; attempt < JOB_POLL_MAX_ATTEMPTS; attempt++) {
-      const job = await this.executeRequest<any>(
-        {
-          method: 'GET',
-          url: `/jobs/${response.job_id}`,
-          headers: {},
-        } as any,
-        {
-          ...options,
-          timeout: 15_000,
-          retry: {
-            maxRetries: 2,
-            initialDelay: 500,
-            ...options?.retry,
-          },
-        }
-      )
-
-      if (job?.status === 'completed') {
-        return job.result as ValuationResponse
-      }
-
-      if (job?.status === 'failed') {
-        throw new APIError(
-          typeof job?.result?.error === 'string' ? job.result.error : 'Valuation job failed',
-          500
-        )
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, JOB_POLL_INTERVAL_MS))
-    }
-
-    throw new NetworkError('Timed out waiting for queued valuation result.')
-  }
-
   /**
    * Calculate manual valuation (traditional form-based)
    * Uses unified /api/valuations/calculate endpoint with dataSource='manual'
@@ -158,7 +100,7 @@ export class ValuationAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      const response = await this.executeRequest<ValuationResponse | { job_id: string }>(
+      return await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
@@ -170,7 +112,7 @@ export class ValuationAPI extends HttpClient {
         } as any,
         {
           ...options,
-          timeout: options?.timeout ?? INITIAL_QUEUE_REQUEST_TIMEOUT_MS,
+          timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
           retry: {
             maxRetries: 2,
             initialDelay: 1000,
@@ -178,7 +120,6 @@ export class ValuationAPI extends HttpClient {
           },
         }
       )
-      return await this.waitForQueuedValuation(response, options)
     } catch (error) {
       this.handleValuationError(error, 'manual valuation')
     }
@@ -193,7 +134,7 @@ export class ValuationAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      const response = await this.executeRequest<ValuationResponse | { job_id: string }>(
+      return await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
@@ -205,10 +146,9 @@ export class ValuationAPI extends HttpClient {
         } as any,
         {
           ...options,
-          timeout: options?.timeout ?? INITIAL_QUEUE_REQUEST_TIMEOUT_MS,
+          timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
         }
       )
-      return await this.waitForQueuedValuation(response, options)
     } catch (error) {
       this.handleValuationError(error, 'AI-guided valuation')
     }
@@ -223,7 +163,7 @@ export class ValuationAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
     try {
-      const response = await this.executeRequest<ValuationResponse | { job_id: string }>(
+      return await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
@@ -235,10 +175,9 @@ export class ValuationAPI extends HttpClient {
         } as any,
         {
           ...options,
-          timeout: options?.timeout ?? INITIAL_QUEUE_REQUEST_TIMEOUT_MS,
+          timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
         }
       )
-      return await this.waitForQueuedValuation(response, options)
     } catch (error) {
       this.handleValuationError(error, 'instant valuation')
     }
@@ -264,7 +203,7 @@ export class ValuationAPI extends HttpClient {
       } as any
 
       // Use unified endpoint - backend determines credit cost based on dataSource
-      const response = await this.executeRequest<ValuationResponse | { job_id: string }>(
+      return await this.executeRequest<ValuationResponse>(
         {
           method: 'POST',
           url: '/api/v2/valuations/calculate',
@@ -273,7 +212,7 @@ export class ValuationAPI extends HttpClient {
         } as any,
         {
           ...options,
-          timeout: options?.timeout ?? INITIAL_QUEUE_REQUEST_TIMEOUT_MS,
+          timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
           retry: {
             maxRetries: 3,
             initialDelay: 1000,
@@ -281,7 +220,6 @@ export class ValuationAPI extends HttpClient {
           },
         }
       )
-      return await this.waitForQueuedValuation(response, options)
     } catch (error) {
       this.handleValuationError(error, 'unified valuation')
     }

@@ -34,16 +34,9 @@ function NavSkeleton() {
   )
 }
 
-export function CalculatorShellSkeleton({ sourceApp }: { sourceApp?: string }) {
+export function CalculatorShellSkeleton() {
   return (
-    <div className="aurora-theme flex flex-col h-screen bg-background overflow-hidden relative">
-      {sourceApp === 'mercury' && (
-        <div className="absolute top-0 left-0 right-0 z-50 flex justify-center pt-2 pointer-events-none">
-          <div className="bg-primary/10 border border-primary/20 text-primary text-xs font-medium px-4 py-1.5 rounded-full shadow-sm backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-500">
-            Loading your imported data...
-          </div>
-        </div>
-      )}
+    <div className="aurora-theme flex flex-col h-screen bg-background overflow-hidden">
       <NavSkeleton />
 
       <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">

@@ -63,7 +63,6 @@ const OPTIONAL_SCALAR_KEYS = [
   'rev_recurring_pct',
   'rev_top_client_concentration_pct',
   'rev_contract_backlog',
-  'owner_salary_addback',
   'preparer_ev_ebitda_median',
   '_internal_dcf_preference',
   '_internal_multiples_preference',
