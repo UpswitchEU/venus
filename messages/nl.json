@@ -942,12 +942,12 @@
       "premium": "Premium"
     },
     "paywall": {
-      "title": "Upgrade naar Premium",
-      "message": "Upgrade naar Premium voor onbeperkte indicatieve bedrijfsschattingen",
-      "upgrade": "Upgrade naar Premium",
+      "title": "Upgrade uw abonnement",
+      "message": "Upgrade naar Starter (vanaf €99/maand) voor onbeperkte waarderingen en alle methodes, of Pro (vanaf €199/maand) voor live boekhoudkoppelingen.",
+      "upgrade": "Bekijk plannen en upgrade",
       "cancel": "Misschien Later",
-      "accountantProRequired": "Pro-plan vereist om indicatieve bedrijfsschattingen voor klanten te maken. Upgrade naar Pro om door te gaan.",
-      "insufficientCredits": "Onvoldoende credits om schatting te maken. Upgrade naar Premium voor onbeperkte indicatieve bedrijfsschattingen."
+      "accountantProRequired": "Een betaald accountant-abonnement is vereist. Upgrade naar Starter of Pro in Mercury om door te gaan.",
+      "insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (vanaf €99/maand excl. BTW) voor onbeperkte waarderingen."
     },
     "versionComparison": {
       "title": "Versies Vergelijken",
@@ -1360,6 +1360,7 @@
       "fcffRequired": "Vul een geldige FCFF voor elk prognosejaar in"
     },
     "methodSelector": {
+      "lockedPlanBadge": "Starter+",
       "label": "Methode",
       "adaptive": "Upswitch marktbenadering",
       "adaptiveRecommended": "Upswitch marktbenadering (aanbevolen)",
@@ -2500,6 +2501,8 @@
     "stepChooseMethod": "Volgende: kies een hoofdmethode in het overzicht hieronder.",
     "stepExplainReason": "Bijna klaar: kies een reden, voeg desgewenst een notitie toe en bevestig.",
     "methodsListHeading": "Kies een methode",
+    "planTeaserBadge": "Starter+",
+    "planTeaserHint": "Upgrade voor deze methode, gewogen synthese en volledige toegang tot de sector-multiples database.",
     "methodsPanoramaTitle": "Alle methoden in één oogopslag",
     "columnEquity": "Waarde",
     "columnMultiple": "Kengetal",
@@ -2601,7 +2604,9 @@
     "recalcHint": "Pas het formulier aan en herbereken — uw aanpassing wordt meegestuurd wanneer ze afwijkt van de benchmark en een reden is gekozen.",
     "extremeServerToast": "Multiple buiten de guardrails: vink de bevestiging aan en probeer opnieuw, of nader tot de benchmark.",
     "hintFiscalMethod": "Fiscale referentie gebruikt een vaste 4× EBITDA-multiple — kantoor correctie is niet van toepassing op deze methode.",
-    "hintOtherMethod": "Benchmark versus toegepaste multiple ziet u voor EV/EBITDA, omzetmultiple of de Upswitch marktbenadering. Voor andere methoden is dit paneel enkel context."
+    "hintOtherMethod": "Benchmark versus toegepaste multiple ziet u voor EV/EBITDA, omzetmultiple of de Upswitch marktbenadering. Voor andere methoden is dit paneel enkel context.",
+    "benchmarkTeaserBody": "Live Benelux sector-multiples (KMO-index) en de volledige preparer-tool zitten in Starter.",
+    "benchmarkTeaserCta": "Upgrade naar Starter"
   },
   "valuationEditModal": {
     "title": "Waardering bewerken",

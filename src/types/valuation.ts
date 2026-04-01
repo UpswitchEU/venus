@@ -859,6 +859,8 @@ export interface ValuationMethodResult {
   unavailable_reason?: string | null
   /** Engine may include equity_range_low / equity_range_high (model band); UI falls back to ±20% if absent. */
   details?: Record<string, unknown> | null
+  /** Plan-gated teaser row in Omni panorama (no figures; click opens upgrade). */
+  plan_teaser?: boolean
 }
 
 export interface HistoricalFcfReadiness {

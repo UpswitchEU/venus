@@ -17,6 +17,8 @@ interface OmniMethodPanoramaProps {
   className?: string
   /** When set to NL, Belgian-only fiscal reference method is hidden (matches Titan/PDF gating). */
   firmCountryCode?: string | null
+  /** Opens upgrade / method paywall when user taps a plan-gated teaser row. */
+  onPlanLockedMethodClick?: () => void
 }
 
 const formatCurrency = (amount: number) => {
@@ -49,6 +51,7 @@ export function OmniMethodPanorama({
   onMethodClick,
   className,
   firmCountryCode,
+  onPlanLockedMethodClick,
 }: OmniMethodPanoramaProps) {
   const t = useTranslations('omniCalc')
   const tBreakdown = useTranslations('methodBreakdown')
@@ -100,6 +103,7 @@ export function OmniMethodPanorama({
 
       <div className="flex flex-col gap-2">
         {sortedMethodEntries.map(([key, method]) => {
+          const isPlanTeaser = method.plan_teaser === true
           const isSelected = key === selectedMethod
           const isPending = key === pendingMethod
           const isAvailable = method.available
@@ -144,14 +148,31 @@ export function OmniMethodPanorama({
             <button
               key={key}
               type="button"
-              disabled={!isAvailable || methodSelectionLocked}
+              disabled={
+                methodSelectionLocked || (!isPlanTeaser && !isAvailable)
+              }
               aria-pressed={isSelected}
-              aria-label={isSelected ? `${method.label}, ${t('selected')}` : method.label}
-              onClick={() => isAvailable && !methodSelectionLocked && onMethodClick(key)}
+              aria-label={
+                isPlanTeaser
+                  ? `${method.label} — ${t('planTeaserHint')}`
+                  : isSelected
+                    ? `${method.label}, ${t('selected')}`
+                    : method.label
+              }
+              onClick={() => {
+                if (methodSelectionLocked) return
+                if (isPlanTeaser) {
+                  onPlanLockedMethodClick?.()
+                  return
+                }
+                if (isAvailable) onMethodClick(key)
+              }}
               className={cn(
                 'w-full text-left rounded-xl border px-3 py-3 sm:px-3.5 sm:py-3 transition-all duration-200',
                 'focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:outline-none focus-visible:ring-offset-background',
-                isSelected
+                isPlanTeaser
+                  ? 'border-amber-500/25 bg-amber-500/[0.04] cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/[0.07]'
+                  : isSelected
                   ? 'border-primary/45 bg-primary/[0.07] ring-1 ring-primary/15'
                   : isPending
                     ? 'border-primary/35 bg-primary/[0.04] ring-1 ring-primary/20'
@@ -172,7 +193,12 @@ export function OmniMethodPanorama({
                       >
                         {method.label}
                       </span>
-                      {isSelected && (
+                      {isPlanTeaser && (
+                        <span className="shrink-0 inline-flex items-center text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/25">
+                          {t('planTeaserBadge')}
+                        </span>
+                      )}
+                      {isSelected && !isPlanTeaser && (
                         <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-medium text-primary bg-primary/12 px-2 py-0.5 rounded-full border border-primary/15">
                           <Check className="w-2.5 h-2.5" aria-hidden />
                           {t('selected')}
@@ -180,7 +206,13 @@ export function OmniMethodPanorama({
                       )}
                     </div>
 
-                    {!isAvailable && method.unavailable_reason && (
+                    {isPlanTeaser && (
+                      <p className="text-[10px] text-amber-800/90 dark:text-amber-200/90 leading-snug">
+                        {t('planTeaserHint')}
+                      </p>
+                    )}
+
+                    {!isAvailable && !isPlanTeaser && method.unavailable_reason && (
                       <p className="text-[10px] text-foreground/45 leading-snug">
                         {method.unavailable_reason}
                       </p>
@@ -189,9 +221,14 @@ export function OmniMethodPanorama({
                     {descriptionEl}
                   </div>
 
-                  <div className="flex flex-wrap items-start justify-end gap-x-4 gap-y-2 sm:gap-x-6 shrink-0">
+                  <div
+                    className={cn(
+                      'flex flex-wrap items-start justify-end gap-x-4 gap-y-2 sm:gap-x-6 shrink-0',
+                      isPlanTeaser && 'blur-[2px] opacity-60 select-none',
+                    )}
+                  >
                     <div className="text-right min-w-[5.5rem]">
-                      {isAvailable && value != null ? (
+                      {isAvailable && value != null && !isPlanTeaser ? (
                         <>
                           <span
                             className={cn(
@@ -213,26 +250,30 @@ export function OmniMethodPanorama({
                           )}
                         </>
                       ) : (
-                        <span className="text-sm text-foreground/30 font-mono tabular-nums">—</span>
+                        <span className="text-sm text-foreground/30 font-mono tabular-nums">
+                          {isPlanTeaser ? '•••' : '—'}
+                        </span>
                       )}
                     </div>
 
                     <div className="text-right min-w-[3.5rem]">
-                      {metric ? (
+                      {metric && !isPlanTeaser ? (
                         <span className="text-sm font-mono font-semibold tabular-nums text-foreground/80">
                           {metric}
                         </span>
                       ) : (
-                        <span className="text-sm text-foreground/30 font-mono">—</span>
+                        <span className="text-sm text-foreground/30 font-mono">
+                          {isPlanTeaser ? '•••' : '—'}
+                        </span>
                       )}
                     </div>
 
                     <div className="text-right min-w-[3.75rem] sm:min-w-[4.25rem]">
-                      {key === 'upswitch_adaptive' ? (
+                      {key === 'upswitch_adaptive' && !isPlanTeaser ? (
                         <span className="text-[11px] font-medium text-foreground/45 tabular-nums">
                           {t('adaptiveBaselineLabel')}
                         </span>
-                      ) : deltaValue != null && deltaPercent != null ? (
+                      ) : !isPlanTeaser && deltaValue != null && deltaPercent != null ? (
                         <div className="space-y-0.5">
                           <p
                             className={cn(
@@ -254,13 +295,15 @@ export function OmniMethodPanorama({
                           </p>
                         </div>
                       ) : (
-                        <span className="text-sm text-foreground/30">—</span>
+                        <span className="text-sm text-foreground/30">
+                          {isPlanTeaser ? '•••' : '—'}
+                        </span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {isAvailable && value != null && maxComparisonValue > 0 && (
+                {isAvailable && value != null && maxComparisonValue > 0 && !isPlanTeaser && (
                   <div className="h-1 w-full rounded-full bg-foreground/[0.07] overflow-hidden">
                     <div
                       className={cn(

@@ -5,7 +5,8 @@
  * Connects to Node.js backend via backendAPI
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { resolveAllowedMethodKeys } from '../constants/accountantPlanMethods'
 import { backendAPI } from '../services/backendApi'
 import { generalLogger } from '../utils/logger'
 
@@ -17,14 +18,53 @@ interface UserPlan {
   credits_used: number
   credits_remaining: number
   created_at: string
+  allowed_methods?: string[] | null
+  yearly_discount_percent?: number
+  plan_features?: PlanFeatureFlags
 }
 
 const PAID_PLAN_TYPES = new Set(['premium', 'starter', 'pro', 'expert', 'enterprise'])
+
+/** Mirrors Titan `GET /api/v2/credits/plan` `plan_features` (fallback when field omitted). */
+export interface PlanFeatureFlags {
+  ebitda_normalization: boolean
+  version_control: boolean
+  integrations_enabled: boolean
+}
+
+function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
+  const pt = planType || 'free'
+  if (pt === 'free') {
+    return {
+      ebitda_normalization: false,
+      version_control: false,
+      integrations_enabled: false,
+    }
+  }
+  if (pt === 'starter') {
+    return {
+      ebitda_normalization: true,
+      version_control: true,
+      integrations_enabled: false,
+    }
+  }
+  return {
+    ebitda_normalization: true,
+    version_control: true,
+    integrations_enabled: ['pro', 'expert', 'enterprise'].includes(pt),
+  }
+}
 
 interface CreditContextValue {
   plan: UserPlan | null
   creditsRemaining: number
   isPremium: boolean
+  /** Null = all methods; string[] = only these keys (Free tier) */
+  allowedMethodKeys: string[] | null
+  /** Null while loading; then Titan flags (or heuristic fallback if API omits `plan_features`) */
+  planFeatures: PlanFeatureFlags | null
+  /** Titan `yearly_discount_percent` for current plan; null if unknown */
+  yearlyDiscountPercent: number | null
   isLoading: boolean
   refreshCredits: () => Promise<void>
 }
@@ -43,7 +83,7 @@ export const useCredits = (): CreditContextValue => {
       setIsLoading(true)
 
       if (UNLIMITED_CREDITS_MODE) {
-        // SOFT DISABLE: Return unlimited credits for all users
+        // SOFT DISABLE: Return unlimited credits for all users (all valuation methods unlocked in UI)
         setPlan({
           id: 'unlimited-mode',
           user_id: 'current-user',
@@ -52,6 +92,7 @@ export const useCredits = (): CreditContextValue => {
           credits_used: 0,
           credits_remaining: 999999,
           created_at: new Date().toISOString(),
+          allowed_methods: null,
         })
         return
       }
@@ -59,7 +100,12 @@ export const useCredits = (): CreditContextValue => {
       // Call backend API to get user plan
       try {
         const planData = await backendAPI.getUserPlan()
-        setPlan(planData)
+        setPlan({
+          ...planData,
+          allowed_methods: planData.allowed_methods,
+          plan_features: planData.plan_features,
+          yearly_discount_percent: planData.yearly_discount_percent,
+        })
         generalLogger.debug('User plan loaded', {
           planType: planData.plan_type,
           creditsRemaining: planData.credits_remaining,
@@ -77,6 +123,7 @@ export const useCredits = (): CreditContextValue => {
           credits_used: 0,
           credits_remaining: 3,
           created_at: new Date().toISOString(),
+          allowed_methods: undefined,
         })
       }
     } catch (err) {
@@ -94,10 +141,39 @@ export const useCredits = (): CreditContextValue => {
     loadCredits()
   }, [loadCredits])
 
+  const allowedMethodKeys = useMemo(() => {
+    if (UNLIMITED_CREDITS_MODE) return null
+    return resolveAllowedMethodKeys(plan?.allowed_methods, plan?.plan_type)
+  }, [plan?.allowed_methods, plan?.plan_type])
+
+  const planFeatures = useMemo((): PlanFeatureFlags | null => {
+    if (UNLIMITED_CREDITS_MODE) {
+      return {
+        ebitda_normalization: true,
+        version_control: true,
+        integrations_enabled: true,
+      }
+    }
+    if (!plan) return null
+    if (plan.plan_features) return plan.plan_features
+    return defaultPlanFeatures(plan.plan_type)
+  }, [plan])
+
+  const yearlyDiscountPercent = useMemo((): number | null => {
+    if (UNLIMITED_CREDITS_MODE) return null
+    if (plan?.yearly_discount_percent != null && Number.isFinite(plan.yearly_discount_percent)) {
+      return plan.yearly_discount_percent
+    }
+    return null
+  }, [plan?.yearly_discount_percent])
+
   return {
     plan,
     creditsRemaining: plan?.credits_remaining || 0,
     isPremium: PAID_PLAN_TYPES.has(plan?.plan_type ?? ''),
+    allowedMethodKeys,
+    planFeatures,
+    yearlyDiscountPercent,
     isLoading,
     refreshCredits,
   }

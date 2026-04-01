@@ -157,6 +157,15 @@ export interface CalculatorNavProps {
    * Otherwise derived from country only (templates / legacy callers).
    */
   preSelectableMethodsForNav?: readonly string[]
+  /** Free-plan teaser: methods visible but locked until Starter+ */
+  planLockedMethodKeys?: ReadonlySet<string>
+  onPlanLockedMethodAction?: () => void
+  /** Free plan: EBITDA normalization hub (incl. tax latencies in modal) — visible, Starter+ to use */
+  normalizationFeatureLocked?: boolean
+  onNormalizationFeatureLocked?: () => void
+  /** Free plan: multi-version history & audit trail */
+  versionControlFeatureLocked?: boolean
+  onVersionControlFeatureLocked?: () => void
 }
 
 // ─────────────────────────────────────────
@@ -350,6 +359,12 @@ export function CalculatorNav({
   onToggleMethod,
   firmCountryCode,
   preSelectableMethodsForNav: preSelectableMethodsForNavProp,
+  planLockedMethodKeys,
+  onPlanLockedMethodAction,
+  normalizationFeatureLocked = false,
+  onNormalizationFeatureLocked,
+  versionControlFeatureLocked = false,
+  onVersionControlFeatureLocked,
 }: CalculatorNavProps) {
   const t = useTranslations()
   const navLocale = useLocale()
@@ -595,6 +610,8 @@ export function CalculatorNav({
                   onToggleMethod={onToggleMethod}
                   methods={preSelectableMethods}
                   t={t}
+                  lockedMethodKeys={planLockedMethodKeys}
+                  onLockedMethodClick={onPlanLockedMethodAction}
                 />
               </Dropdown>
             </div>
@@ -653,54 +670,87 @@ export function CalculatorNav({
                       <div className="text-[11px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
                         {t('valuation.versions')}
                       </div>
-                      {valuationVersions.length > 0 ? (
-                        valuationVersions.map((version) => (
-                          <button
-                            key={version.id}
-                            type="button"
-                            onClick={() => onSelectVersion?.(version.id)}
-                            className={cn(
-                              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors',
-                              version.id === selectedVersionId
-                                ? 'bg-primary/[0.08]'
-                                : 'hover:bg-foreground/[0.04]'
-                            )}
-                          >
-                            {version.id === selectedVersionId ? (
-                              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
-                                <Check className="w-3 h-3 text-primary" />
-                              </div>
-                            ) : (
-                              <div className="w-5 h-5 rounded-full bg-foreground/[0.06] flex items-center justify-center">
-                                <GitBranch className="w-3 h-3 text-foreground/30" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0 text-left">
-                              <p
+                      <div className="relative rounded-lg">
+                        <div
+                          className={cn(
+                            versionControlFeatureLocked &&
+                              'blur-[1.5px] opacity-[0.88] saturate-75 pointer-events-none'
+                          )}
+                        >
+                          {valuationVersions.length > 0 ? (
+                            valuationVersions.map((version) => (
+                              <button
+                                key={version.id}
+                                type="button"
+                                onClick={() => onSelectVersion?.(version.id)}
                                 className={cn(
-                                  'text-sm font-medium',
+                                  'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors',
                                   version.id === selectedVersionId
-                                    ? 'text-foreground'
-                                    : 'text-foreground/80'
+                                    ? 'bg-primary/[0.08]'
+                                    : 'hover:bg-foreground/[0.04]'
                                 )}
                               >
-                                {version.label}
-                              </p>
-                              <p className={valuationNavAmountClass}>
-                                {formatPrice(version.priceRange.min)}–
-                                {formatPrice(version.priceRange.max)} ·{' '}
-                                {formatPrice(version.askPrice)}
+                                {version.id === selectedVersionId ? (
+                                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                                    <Check className="w-3 h-3 text-primary" />
+                                  </div>
+                                ) : (
+                                  <div className="w-5 h-5 rounded-full bg-foreground/[0.06] flex items-center justify-center">
+                                    <GitBranch className="w-3 h-3 text-foreground/30" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0 text-left">
+                                  <p
+                                    className={cn(
+                                      'text-sm font-medium',
+                                      version.id === selectedVersionId
+                                        ? 'text-foreground'
+                                        : 'text-foreground/80'
+                                    )}
+                                  >
+                                    {version.label}
+                                  </p>
+                                  <p className={valuationNavAmountClass}>
+                                    {formatPrice(version.priceRange.min)}–
+                                    {formatPrice(version.priceRange.max)} ·{' '}
+                                    {formatPrice(version.askPrice)}
+                                  </p>
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-3 text-center">
+                              <p className="text-sm text-foreground/40">
+                                {t('valuation.currentVersion')}
                               </p>
                             </div>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-3 py-3 text-center">
-                          <p className="text-sm text-foreground/40">
-                            {t('valuation.currentVersion')}
-                          </p>
+                          )}
+                          {versionControlFeatureLocked && (
+                            <div className="mx-2 mb-1 rounded-lg border border-dashed border-amber-500/25 bg-amber-500/[0.04] px-2 py-2">
+                              <p className="text-[11px] font-medium text-foreground/45 blur-[1px]">
+                                {navLocale === 'nl'
+                                  ? 'Volledige versiegeschiedenis & audit trail'
+                                  : 'Full version history & audit trail'}
+                              </p>
+                              <p className="text-[10px] text-amber-800/80 dark:text-amber-200/80 font-semibold mt-0.5">
+                                Starter+
+                              </p>
+                            </div>
+                          )}
                         </div>
-                      )}
+                        {versionControlFeatureLocked && (
+                          <button
+                            type="button"
+                            className="absolute inset-0 z-[1] flex items-end justify-center pb-2 rounded-lg bg-background/25"
+                            onClick={onVersionControlFeatureLocked}
+                            aria-label={
+                              navLocale === 'nl'
+                                ? 'Upgrade voor versiecontrole'
+                                : 'Upgrade for version control'
+                            }
+                          />
+                        )}
+                      </div>
                       {onOpenValuationEdit && (
                         <>
                           <div className="mx-2 my-1 border-t border-foreground/[0.06]" />
@@ -771,18 +821,37 @@ export function CalculatorNav({
 
             {/* Normalization Hub Button - Secondary action (Clarity parity) */}
             {onOpenNormalization && (
-              <Tooltip content={t('normalization.title')}>
+              <Tooltip
+                content={
+                  normalizationFeatureLocked
+                    ? navLocale === 'nl'
+                      ? 'EBITDA-normalisatie & belastinglatenties — Starter+'
+                      : 'EBITDA normalization & tax latencies — Starter+'
+                    : t('normalization.title')
+                }
+              >
                 <AuroraButton
                   variant="ghost"
                   size="sm"
-                  onClick={onOpenNormalization}
+                  onClick={
+                    normalizationFeatureLocked
+                      ? onNormalizationFeatureLocked ?? onOpenNormalization
+                      : onOpenNormalization
+                  }
                   className={cn(
                     'gap-1.5 mr-1 transition-all duration-200 relative',
-                    'text-foreground/60 hover:text-foreground'
+                    'text-foreground/60 hover:text-foreground',
+                    normalizationFeatureLocked &&
+                      'blur-[1.5px] opacity-[0.88] saturate-75 ring-1 ring-amber-500/15 rounded-lg'
                   )}
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   <span>{t('normalization.title')}</span>
+                  {normalizationFeatureLocked && (
+                    <span className="ml-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700/90 dark:text-amber-300/90">
+                      Starter+
+                    </span>
+                  )}
                   {normalizationCount > 0 && (
                     <span className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-primary/15 text-primary">
                       {normalizationCount}
@@ -988,6 +1057,8 @@ export function CalculatorNav({
                   onToggleMethod={onToggleMethod}
                   methods={preSelectableMethods}
                   t={t}
+                  lockedMethodKeys={planLockedMethodKeys}
+                  onLockedMethodClick={onPlanLockedMethodAction}
                 />
               </Dropdown>
             )}

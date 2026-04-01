@@ -21,7 +21,7 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2, Send, X as XIcon } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, {
@@ -61,6 +61,7 @@ import {
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
+import { InviteClientModal } from '../../../components/calculator/InviteClientModal'
 import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
 import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { NewValuationModal } from '../../../components/NewValuationModal'
@@ -78,6 +79,7 @@ import {
 } from '../../../design-system/components/Resizable'
 // Venus infrastructure (auth, session, stores, services)
 import { useAuth } from '../../../hooks/useAuth'
+import { useCredits } from '../../../hooks/useCredits'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
@@ -653,6 +655,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // Venus infrastructure
   const { user } = useAuth()
+  const { allowedMethodKeys, planFeatures } = useCredits()
   const { identity, isAccountantFlow } = useBootstrap()
   useBootstrapSync()
   const { readOnlyKbo, autoAdvancePastPrefilledSteps, isOfficialFilingPending } =
@@ -682,6 +685,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formStoreData,
     user?.firm_country_code
   )
+  const planLockedMethodKeys = useMemo(() => {
+    if (allowedMethodKeys === null) return undefined
+    const allowed = new Set(allowedMethodKeys)
+    const next = new Set<string>()
+    for (const m of preSelectableMethodsForNav) {
+      if (!allowed.has(m)) next.add(m)
+    }
+    return next.size > 0 ? next : undefined
+  }, [allowedMethodKeys, preSelectableMethodsForNav])
+  const ebitdaNormalizationLocked = Boolean(planFeatures && !planFeatures.ebitda_normalization)
+  const versionControlLocked = Boolean(planFeatures && !planFeatures.version_control)
   const status = useSessionStore((s) => s.status)
   const session = useSessionStore((s) => s.session)
   const sessionError = useSessionStore((s) => s.errorMessage)
@@ -1407,6 +1421,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Modal State ───
   const [showFullscreenModal, setShowFullscreenModal] = useState(false)
   const [showValuationEditModal, setShowValuationEditModal] = useState(false)
+  const [methodPaywallOpen, setMethodPaywallOpen] = useState(false)
+  const [methodPaywallReason, setMethodPaywallReason] = useState<
+    'methods' | 'normalization' | 'version_history'
+  >('methods')
+  const openStarterPaywall = useCallback(
+    (reason: 'methods' | 'normalization' | 'version_history') => {
+      setMethodPaywallReason(reason)
+      setMethodPaywallOpen(true)
+    },
+    []
+  )
+  const [showInviteNudge, setShowInviteNudge] = useState(false)
+  const [inviteModalOpen, setInviteModalOpen] = useState(false)
   const [showNormalisationModal, setShowNormalisationModal] = useState(false)
   const [showUnifiedNormalizationModal, setShowUnifiedNormalizationModal] = useState(false)
   const [guidedNormalizationPrefill, setGuidedNormalizationPrefill] =
@@ -1918,6 +1945,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handleSelectVersion = useCallback(
     (id: string) => {
+      if (planFeatures && !planFeatures.version_control && id !== 'current') {
+        openStarterPaywall('version_history')
+        return
+      }
       setSelectedVersionId(id)
       const version = versions.find((v) => v.id === id)
       if (version?.valuationResult) {
@@ -1929,7 +1960,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         toast.info(t('versionLoaded', { label: version.versionLabel }))
       }
     },
-    [versions, setResult]
+    [planFeatures, openStarterPaywall, versions, setResult, t]
   )
 
   // ─── Bridge: Result from Venus API → Report for Clarity components ───
@@ -2348,13 +2379,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           lastPersistedMethodRef.current = selectedMethod
         }
       } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error)
         generalLogger.error('[ManualLayout] Method persist failed', {
-          error: error instanceof Error ? error.message : String(error),
+          error: errMsg,
           selectedMethod,
         })
         if (!cancelled) {
           setSelectedMethod(previousMethod)
-          toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+          if (errMsg.includes('plan does not include')) {
+            setMethodPaywallReason('methods')
+            setMethodPaywallOpen(true)
+          } else {
+            toast.error(t('persistFailed'), { description: t('persistFailedDesc') })
+          }
         }
       } finally {
         setIsMethodSwitchRendering(false)
@@ -2445,12 +2482,31 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     []
   )
 
+  const handlePlanLockedMethodAction = useCallback(() => {
+    openStarterPaywall('methods')
+  }, [openStarterPaywall])
+
+  const togglePreSelectedMethodWithPlanGate = useCallback(
+    (method: string) => {
+      if (allowedMethodKeys !== null && !allowedMethodKeys.includes(method)) {
+        openStarterPaywall('methods')
+        return
+      }
+      togglePreSelectedMethod(method)
+    },
+    [allowedMethodKeys, togglePreSelectedMethod, openStarterPaywall]
+  )
+
   const handlePreSelectMethod = useCallback(
     (method: string) => {
       if (!isUpfrontMethodAllowedForNav(method, preSelectableMethodsForNav)) return
+      if (allowedMethodKeys !== null && !allowedMethodKeys.includes(method)) {
+        openStarterPaywall('methods')
+        return
+      }
       setPreSelectedMethod(method === 'upswitch_adaptive' ? null : method)
     },
-    [setPreSelectedMethod, preSelectableMethodsForNav]
+    [setPreSelectedMethod, preSelectableMethodsForNav, allowedMethodKeys, openStarterPaywall]
   )
 
   // Sync persisted pre-selection when allowed list changes (firm, turnover, hydration).
@@ -2816,6 +2872,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         if (!versionCreationFailed) {
           toast.success(t('calculationComplete'))
+          setShowInviteNudge(true)
         }
       } catch (error) {
         setCalculating(false)
@@ -4055,6 +4112,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       closeChat?: boolean
       track?: boolean
     }) => {
+      if (planFeatures && !planFeatures.ebitda_normalization) {
+        openStarterPaywall('normalization')
+        return
+      }
       setGuidedNormalizationPrefill(opts?.prefill ?? null)
       if (opts?.track !== false) {
         trackNormalizationOpen()
@@ -4064,7 +4125,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         setChatDrawerOpen(false)
       }
     },
-    []
+    [planFeatures, openStarterPaywall]
   )
 
   const handleUnifiedNormalizationModalOpenChange = useCallback((open: boolean) => {
@@ -4821,9 +4882,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           preSelectedMethod={preSelectedMethod ?? undefined}
           preSelectedMethods={preSelectedMethods}
           onPreSelectMethod={handlePreSelectMethod}
-          onToggleMethod={togglePreSelectedMethod}
+          onToggleMethod={togglePreSelectedMethodWithPlanGate}
           firmCountryCode={user?.firm_country_code}
           preSelectableMethodsForNav={preSelectableMethodsForNav}
+          planLockedMethodKeys={planLockedMethodKeys}
+          onPlanLockedMethodAction={handlePlanLockedMethodAction}
+          normalizationFeatureLocked={ebitdaNormalizationLocked}
+          onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
+          versionControlFeatureLocked={versionControlLocked}
+          onVersionControlFeatureLocked={() => openStarterPaywall('version_history')}
           valuationSummary={navValuationSummary}
         />
 
@@ -5015,9 +5082,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         preSelectedMethod={preSelectedMethod ?? undefined}
         preSelectedMethods={preSelectedMethods}
         onPreSelectMethod={handlePreSelectMethod}
-        onToggleMethod={togglePreSelectedMethod}
+        onToggleMethod={togglePreSelectedMethodWithPlanGate}
         firmCountryCode={user?.firm_country_code}
         preSelectableMethodsForNav={preSelectableMethodsForNav}
+        planLockedMethodKeys={planLockedMethodKeys}
+        onPlanLockedMethodAction={handlePlanLockedMethodAction}
+        normalizationFeatureLocked={ebitdaNormalizationLocked}
+        onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
+        versionControlFeatureLocked={versionControlLocked}
+        onVersionControlFeatureLocked={() => openStarterPaywall('version_history')}
       />
 
       {pdfStaleBannerEl}
@@ -5083,6 +5156,50 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       transition={springDefault}
                       className="valuation-report-container h-full overflow-y-auto bg-background"
                     >
+                      {/* Post-valuation invite nudge */}
+                      {showInviteNudge && report?.htmlReport && (
+                        <div className="sticky top-0 z-[6] border-b border-primary/15 bg-primary/[0.06] backdrop-blur-sm">
+                          <div className="flex items-center justify-between px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                <Send className="w-4 h-4 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-foreground">
+                                  {currentLocale === 'nl'
+                                    ? 'Nodig uw klant uit'
+                                    : 'Invite your client'}
+                                </p>
+                                <p className="text-xs text-foreground/60">
+                                  {currentLocale === 'nl'
+                                    ? 'Zij krijgen een professioneel rapport — u krijgt marketplace exposure'
+                                    : 'They get a professional report — you get marketplace exposure'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowInviteNudge(false)
+                                  setInviteModalOpen(true)
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                              >
+                                {currentLocale === 'nl' ? 'Uitnodigen' : 'Invite'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowInviteNudge(false)}
+                                className="p-1 rounded text-foreground/40 hover:text-foreground transition-colors"
+                              >
+                                <XIcon className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {report?.htmlReport ? (
                         <div className="relative">
                           {isMethodSwitchRendering && (
@@ -5348,7 +5465,72 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         showPreparerMultiple={showPreparerMultiplePanel}
         isMethodPersisting={isMethodSwitchRendering}
         firmCountryCode={user?.firm_country_code}
+        planAllowedMethodKeys={allowedMethodKeys}
+        onPlanLockedMethodClick={() => openStarterPaywall('methods')}
       />
+
+      {/* Post-valuation client invite modal */}
+      <InviteClientModal
+        open={inviteModalOpen}
+        onOpenChange={setInviteModalOpen}
+        clientId={clientContextId}
+        companyName={collectedData.companyName ?? undefined}
+        reportId={resolvedReportId || reportId}
+      />
+
+      {/* Starter paywall — methods, normalization hub, or version history (Free tier teasers) */}
+      {methodPaywallOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-popover border border-foreground/10 rounded-xl p-6 max-w-md w-full shadow-xl">
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <h2 className="text-lg font-semibold text-foreground mb-2">
+                {methodPaywallReason === 'methods' &&
+                  (currentLocale === 'nl' ? 'Upgrade voor alle methodes' : 'Upgrade for all methods')}
+                {methodPaywallReason === 'normalization' &&
+                  (currentLocale === 'nl'
+                    ? 'EBITDA-normalisatie & belastinglatenties'
+                    : 'EBITDA normalization & tax latencies')}
+                {methodPaywallReason === 'version_history' &&
+                  (currentLocale === 'nl'
+                    ? 'Versiecontrole & audit trail'
+                    : 'Version control & audit trail')}
+              </h2>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {methodPaywallReason === 'methods' &&
+                  (currentLocale === 'nl'
+                    ? 'Je gratis plan bevat Adaptive, DCF, EBITDA en adjusted NAV. Upgrade naar Starter voor alle 9 methodes (o.a. SaaS, omzet, SDE, fiscale referentie) en Live Benelux sector-multiples.'
+                    : 'Your free plan includes Adaptive, DCF, EBITDA, and adjusted NAV. Upgrade to Starter for all nine methods (incl. SaaS, revenue, SDE, fiscal reference) and live Benelux sector multiples.')}
+                {methodPaywallReason === 'normalization' &&
+                  (currentLocale === 'nl'
+                    ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, EBITDA-normalisatie en versiecontrole.'
+                    : 'The full normalization hub (incl. tax latencies) is on Starter — together with branded PDFs, EBITDA normalization, and version history.')}
+                {methodPaywallReason === 'version_history' &&
+                  (currentLocale === 'nl'
+                    ? 'Volledige versiegeschiedenis en audit trail zijn inbegrepen vanaf Starter — naast alle professionele rapportfuncties.'
+                    : 'Full version history and audit trail are included from Starter, alongside professional reporting.')}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setMethodPaywallOpen(false)}
+                className="flex-1 px-4 py-2.5 bg-muted hover:bg-foreground/10 text-foreground text-sm font-medium rounded-lg transition-colors"
+              >
+                {currentLocale === 'nl' ? 'Sluiten' : 'Close'}
+              </button>
+              <a
+                href={`${getMercuryUrl()}/${currentLocale}/pricing`}
+                className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg transition-colors text-center"
+              >
+                {currentLocale === 'nl' ? 'Starter — vanaf €990/jaar' : 'Starter — from €990/year'}
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

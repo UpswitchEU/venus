@@ -24,6 +24,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { trackPaywallShown, trackPaywallUpgradeClick } from '../lib/analytics'
 import { useBootstrapSafe } from '../lib/bootstrap'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import { sessionService } from '../services/session/SessionService'
@@ -162,6 +163,18 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // Reuse the urlIndicatesExisting computed above for consistency
     const showCreditError =
       bootstrapCreditStatus && !bootstrapCreditStatus.allowed && !urlIndicatesExisting // Don't block viewing existing reports (val_xxx or UUID)
+
+    useEffect(() => {
+      if (showCreditError) {
+        trackPaywallShown('bootstrap_credit')
+      }
+    }, [showCreditError])
+
+    useEffect(() => {
+      if (paywallData) {
+        trackPaywallShown('session_credit')
+      }
+    }, [paywallData])
 
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)
@@ -689,13 +702,13 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
                 : t('paywall.insufficientCredits'))
             }
             onUpgrade={() => {
-              // Accountants: redirect to trial-setup (Pro-only flow). Others: pricing.
               const locale = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
+              trackPaywallUpgradeClick('bootstrap_credit')
               const upgradePath =
                 bootstrapCreditStatus.upgrade_path === 'accountant_pro'
-                  ? `/${locale}/accountant/trial-setup`
-                  : `/${locale}/pricing`
-              window.location.href = `${getMercuryUrl()}${upgradePath}`
+                  ? `${getMercuryUrl()}/${locale}/accountant/settings?tab=billing`
+                  : `${getMercuryUrl()}/${locale}/pricing`
+              window.location.href = upgradePath
             }}
           />
         )}
@@ -712,6 +725,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             message={paywallData?.message}
             onUpgrade={() => {
               const loc = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
+              trackPaywallUpgradeClick('session_credit')
               window.location.href = `${getMercuryUrl()}/${loc}/pricing`
             }}
           />

@@ -202,6 +202,13 @@ class BackendAPI {
     credits_used: number
     credits_remaining: number
     created_at: string
+    allowed_methods?: string[] | null
+    yearly_discount_percent?: number
+    plan_features?: {
+      ebitda_normalization: boolean
+      version_control: boolean
+      integrations_enabled: boolean
+    }
   }> {
     return this.creditAPI.getUserPlan()
   }

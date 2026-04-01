@@ -4,6 +4,16 @@ import { describe, expect, it, vi } from 'vitest'
 import { ValuationEditModal } from './ValuationEditModal'
 
 const translations: Record<string, Record<string, string>> = {
+  'manualInput.methodSelector': {
+    adaptiveRecommended: 'Upswitch marktbenadering',
+    arrMultiple: 'ARR-multiple',
+    ebitdaMultiple: 'EBITDA-multiple',
+    revenueMultiple: 'Omzet-multiple',
+    dcf: 'DCF',
+    sdeMultiple: 'SDE-multiple',
+    adjustedNav: 'Aangepaste nettovermogenswaarde',
+    fiscal4x: 'Fiscaal 4×',
+  },
   omniCalc: {
     unavailableTitle: 'Methodedata niet beschikbaar',
     unavailableBlurb: 'Methoden zijn niet geladen. Tik opnieuw op Bereken of vernieuw de pagina.',
@@ -36,6 +46,8 @@ const translations: Record<string, Record<string, string>> = {
     'methodDescriptions.upswitch_adaptive': 'Marktbenadering beschrijving',
     'methodDescriptions.ebitda_multiple': 'EBITDA beschrijving',
     'methodDescriptions.dcf': 'DCF beschrijving',
+    planTeaserBadge: 'Starter+',
+    planTeaserHint: 'Upgrade voor teaser',
     fiscalAnchor: 'Fiscaal',
     fiscalAnchorFootnote: 'Voetnoot',
   },
@@ -366,6 +378,7 @@ describe('ValuationEditModal', () => {
     expect(
       screen.getByText('Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.'),
     ).toBeInTheDocument()
-    expect(screen.getByText('6,0x')).toBeInTheDocument()
+    // Exit multiple headline uses fixed two-decimal formatting on the metric card
+    expect(screen.getByText('6.00x')).toBeInTheDocument()
   })
 })

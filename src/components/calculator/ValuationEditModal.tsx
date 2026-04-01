@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   Calculator,
@@ -29,7 +29,9 @@ import type {
   ValuationResponse,
   WaterfallStep,
 } from '../../types/valuation'
+import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
+import { mergePlanGatedOmniPanoramaResults } from '@/utils/omniPlanPanorama'
 import {
   PREPARER_EBITDA_REASON_KEYS,
   clientShouldWarnExtremeMultiple,
@@ -786,6 +788,9 @@ export interface ValuationEditModalProps {
   isMethodPersisting?: boolean
   /** Accountant firm country — hides BE-only fiscal method in method panorama */
   firmCountryCode?: string
+  /** Null = all methods; list = plan restriction (shows locked rows as teasers) */
+  planAllowedMethodKeys?: string[] | null
+  onPlanLockedMethodClick?: () => void
 }
 
 export function ValuationEditModal({
@@ -812,12 +817,36 @@ export function ValuationEditModal({
   showPreparerMultiple = false,
   isMethodPersisting = false,
   firmCountryCode,
+  planAllowedMethodKeys = null,
+  onPlanLockedMethodClick,
 }: ValuationEditModalProps) {
   const t = useTranslations('omniCalc')
   const tPrep = useTranslations('preparerMultiple')
   const tModal = useTranslations('valuationEditModal')
   const tBreakdown = useTranslations('methodBreakdown')
+  const tMethodSelector = useTranslations('manualInput.methodSelector')
   const locale = useLocale()
+
+  const getMethodLabel = useCallback(
+    (key: string) => {
+      const path = METHOD_LABEL_KEYS[key]
+      if (!path) return key
+      const short = path.replace('manualInput.methodSelector.', '') as Parameters<
+        typeof tMethodSelector
+      >[0]
+      return tMethodSelector(short)
+    },
+    [tMethodSelector]
+  )
+
+  const panoramaValuationResults = useMemo(
+    () =>
+      mergePlanGatedOmniPanoramaResults(valuationResults, planAllowedMethodKeys ?? null, {
+        hideFiscalForNl: firmCountryCode?.trim().toUpperCase().substring(0, 2) === 'NL',
+        getLabel: getMethodLabel,
+      }),
+    [valuationResults, planAllowedMethodKeys, firmCountryCode, getMethodLabel]
+  )
 
   const adaptiveLabel = t('currentMethodAdaptive')
   const [mode, setMode] = useState<'ai' | 'manual'>(
@@ -861,6 +890,7 @@ export function ValuationEditModal({
   }, [result, syncFromValuationResult])
 
   const entries = Object.entries(valuationResults)
+  const panoramaEntries = Object.entries(panoramaValuationResults)
   const activeMethodKey = pendingMethod ?? selectedMethod
   const activeMethod = valuationResults[activeMethodKey] ?? null
 
@@ -917,7 +947,7 @@ export function ValuationEditModal({
       ? t('stepChooseMethod')
       : t('stepAiActive')
 
-  const availableCount = entries.filter(([, m]) => m.available).length
+  const availableCount = panoramaEntries.filter(([, m]) => m.available).length
 
   // Preparer helpers
   const mv = result?.multiples_valuation
@@ -1015,7 +1045,7 @@ export function ValuationEditModal({
       : null
   const activeMetricValue = toNumberOrNull(activeMethod?.value)
 
-  if (entries.length === 0) {
+  if (panoramaEntries.length === 0) {
     const title = isHydratingMethods
       ? tModal('loadingTitle')
       : methodDataLoadError === 'transient'
@@ -1100,7 +1130,7 @@ export function ValuationEditModal({
             </div>
             <div className="shrink-0 text-right max-w-[55%]">
               <span className="text-[10px] text-foreground/40 leading-tight block">
-                {t('methodsReadyBadge', { available: availableCount, total: entries.length })}
+                {t('methodsReadyBadge', { available: availableCount, total: panoramaEntries.length })}
               </span>
               <div className="mt-1 inline-flex items-center rounded-full border border-primary/15 bg-primary/[0.05] px-2 py-1 text-[10px] font-medium text-primary/80 max-w-full">
                 <span className="truncate">
@@ -1151,12 +1181,13 @@ export function ValuationEditModal({
 
           {showMethodList && (
             <OmniMethodPanorama
-              valuationResults={valuationResults}
+              valuationResults={panoramaValuationResults}
               selectedMethod={selectedMethod}
               pendingMethod={pendingMethod}
               methodSelectionLocked={methodSelectionLocked}
               onMethodClick={handleMethodClick}
               firmCountryCode={firmCountryCode}
+              onPlanLockedMethodClick={onPlanLockedMethodClick}
             />
           )}
 

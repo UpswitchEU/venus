@@ -36,16 +36,16 @@ describe('FilingYearPrompt', () => {
     vi.useRealTimers()
   })
 
-  it('renders the prompt with the default filing year and next year options', () => {
+  it('renders the prompt with the safe default filing year (capped to max selectable)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
     render(<FilingYearPrompt defaultYear={2024} onSelect={vi.fn()} />)
 
     expect(screen.getByText('Meest recente afgesloten boekjaar?')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /2024/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /2025/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /2025/ })).not.toBeInTheDocument()
     expect(screen.getByText('Veilige standaard')).toBeInTheDocument()
-    expect(screen.getByText('Boeken al gesloten')).toBeInTheDocument()
+    expect(screen.queryByText('Boeken al gesloten')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ander jaar...' })).toBeInTheDocument()
   })
 
@@ -75,15 +75,18 @@ describe('FilingYearPrompt', () => {
     expect(screen.queryByText('Meest recente afgesloten boekjaar?')).not.toBeInTheDocument()
   })
 
-  it('calls onSelect with the next year option', () => {
+  it('calls onSelect with a custom year from the form', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
     const handleSelect = vi.fn()
 
     render(<FilingYearPrompt defaultYear={2024} onSelect={handleSelect} />)
-    fireEvent.click(screen.getByRole('button', { name: /2025/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ander jaar...' }))
+    const input = screen.getByRole('spinbutton', { name: 'Aangepast boekjaar' })
+    fireEvent.change(input, { target: { value: '2023' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Toepassen' }))
 
-    expect(handleSelect).toHaveBeenCalledWith(2025)
+    expect(handleSelect).toHaveBeenCalledWith(2023)
   })
 
   it('does not render when dismissed is true', () => {

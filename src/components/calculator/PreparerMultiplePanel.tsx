@@ -7,6 +7,8 @@ import { useLocale, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { useCredits } from '../../hooks/useCredits'
+import { getMercuryUrl } from '../../utils/getMercuryUrl'
 import type { ValuationResponse } from '../../types/valuation'
 import {
   PREPARER_EBITDA_REASON_KEYS,
@@ -38,10 +40,15 @@ export function PreparerMultiplePanel({
   selectedOmniMethod,
 }: PreparerMultiplePanelProps) {
   const { user } = useAuth()
+  const { isPremium } = useCredits()
   const t = useTranslations('preparerMultiple')
   const locale = useLocale()
   const [open, setOpen] = useState(true)
   const firmCountry = user?.firm_country_code?.trim().toUpperCase().substring(0, 2) ?? 'BE'
+  const role = user?.role ?? ''
+  const isAccountantTier =
+    role === 'accountant' || role === 'expert' || role === 'enterprise' || role === 'admin'
+  const beneluxBenchmarkLocked = isAccountantTier && !isPremium
 
   const benchmarkMedian = usePreparerMultipleStore((s) => s.benchmarkMedian)
   const appliedMedian = usePreparerMultipleStore((s) => s.appliedMedian)
@@ -149,7 +156,26 @@ export function PreparerMultiplePanel({
         {open ? <ChevronDown className="w-4 h-4 shrink-0 opacity-50" /> : <ChevronRight className="w-4 h-4 shrink-0 opacity-50" />}
       </button>
       {open && (
-        <div className={cn("px-3 pb-3 pt-0 space-y-3 border-t border-border/40", nonEbitdaMethodSelected && "opacity-60")}>
+        <div
+          className={cn(
+            'relative px-3 pb-3 pt-0 space-y-3 border-t border-border/40',
+            nonEbitdaMethodSelected && 'opacity-60'
+          )}
+        >
+          {beneluxBenchmarkLocked && (
+            <div className="absolute inset-0 z-[2] flex flex-col items-center justify-center gap-2 rounded-b-lg bg-background/55 px-4 py-6 backdrop-blur-[3px]">
+              <p className="text-center text-[11px] font-medium leading-snug text-foreground/80 max-w-[260px]">
+                {t('benchmarkTeaserBody')}
+              </p>
+              <a
+                href={`${getMercuryUrl()}/${locale}/pricing`}
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                {t('benchmarkTeaserCta')}
+              </a>
+            </div>
+          )}
+          <div className={cn(beneluxBenchmarkLocked && 'pointer-events-none select-none opacity-45')}>
           {nonEbitdaMethodSelected && (
             <div className="mt-2 rounded-md border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2">
               <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
@@ -321,6 +347,7 @@ export function PreparerMultiplePanel({
             >
               {t('resetBenchmark')}
             </AuroraButton>
+          </div>
           </div>
         </div>
       )}

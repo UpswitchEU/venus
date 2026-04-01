@@ -151,3 +151,13 @@ export function trackFullscreenOpen(): void {
 export function trackPreviewOpen(): void {
   trackEvent('venus_preview_open')
 }
+
+/** A valuation paywall is shown */
+export function trackPaywallShown(source: 'bootstrap_credit' | 'session_credit'): void {
+  trackEvent('venus_paywall_shown', { source })
+}
+
+/** User clicks upgrade from a Venus paywall */
+export function trackPaywallUpgradeClick(source: 'bootstrap_credit' | 'session_credit'): void {
+  trackEvent('venus_paywall_upgrade_click', { source })
+}

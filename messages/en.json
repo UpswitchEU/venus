@@ -942,12 +942,12 @@
       "premium": "Premium"
     },
     "paywall": {
-      "title": "Upgrade to Premium",
-      "message": "Upgrade to Premium for unlimited indicative business estimates",
-      "upgrade": "Upgrade to Premium",
+      "title": "Upgrade your plan",
+      "message": "Upgrade to Starter (from €99/mo) for unlimited valuations and all methods, or Pro (from €199/mo) for live accounting integrations.",
+      "upgrade": "View plans & upgrade",
       "cancel": "Maybe Later",
-      "accountantProRequired": "Pro plan required to create indicative business estimates for clients. Please upgrade to Pro to continue.",
-      "insufficientCredits": "Insufficient credits to create indicative business estimate. Upgrade to Premium for unlimited indicative business estimates."
+      "accountantProRequired": "A paid accountant plan is required. Upgrade to Starter or Pro in Mercury to continue.",
+      "insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (from €99/mo excl. VAT) for unlimited valuations."
     },
     "versionComparison": {
       "title": "Compare Versions",
@@ -1360,6 +1360,7 @@
       "fcffRequired": "Enter a valid FCFF amount for each forecast year"
     },
     "methodSelector": {
+      "lockedPlanBadge": "Starter+",
       "label": "Method",
       "adaptive": "Upswitch market approach",
       "adaptiveRecommended": "Upswitch market approach (recommended)",
@@ -2500,6 +2501,8 @@
     "stepChooseMethod": "Next: pick a headline method in the panorama below.",
     "stepExplainReason": "Almost there: choose a reason, add a note if needed, then confirm.",
     "methodsListHeading": "Pick a method",
+    "planTeaserBadge": "Starter+",
+    "planTeaserHint": "Upgrade to unlock this method, weighted synthesis, and full access to the sector multiples database.",
     "methodsPanoramaTitle": "All methods at a glance",
     "columnEquity": "Equity",
     "columnMultiple": "Metric",
@@ -2601,7 +2604,9 @@
     "recalcHint": "Change the main form and recalculate, or use Recalculate — your adjustment is included when it differs from the benchmark and a reason is selected.",
     "extremeServerToast": "Multiple outside guardrails: confirm the checkbox and try again, or move closer to the benchmark.",
     "hintFiscalMethod": "Fiscal reference uses a fixed 4× EBITDA multiple — firm adjusted multiple does not apply to this method.",
-    "hintOtherMethod": "Benchmark vs applied multiple is shown for EV/EBITDA, revenue multiple, or the Upswitch market approach. For other methods this panel is contextual only."
+    "hintOtherMethod": "Benchmark vs applied multiple is shown for EV/EBITDA, revenue multiple, or the Upswitch market approach. For other methods this panel is contextual only.",
+    "benchmarkTeaserBody": "Live Benelux sector multiples (SME index) and the full preparer workflow are included from Starter.",
+    "benchmarkTeaserCta": "Upgrade to Starter"
   },
   "valuationEditModal": {
     "title": "Edit Valuation",
