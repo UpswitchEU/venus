@@ -288,8 +288,9 @@ The Upswitch Valuation Tester go-to-market strategy targets **Belgian SMEs** thr
 
 #### Freemium Strategy
 - **Free Tier**: 1 valuation per month
-- **Premium Tier**: €49/month unlimited
-- **Enterprise Tier**: €199/month white-label
+- **Starter Tier**: €99/month or €990/year
+- **Pro Tier**: €199/month or €1,990/year
+- **Custom Partnerships**: Contact us for white-label or volume needs
 - **Conversion**: Free to paid conversion
 
 #### Conversion Strategy

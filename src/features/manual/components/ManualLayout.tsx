@@ -90,6 +90,7 @@ import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMe
 import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
+import { getStarterPlanSummary } from '../../../constants/pricing'
 import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../../../lib/return-url'
 import { reportService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
@@ -5525,7 +5526,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 href={`${getMercuryUrl()}/${currentLocale}/pricing`}
                 className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg transition-colors text-center"
               >
-                {currentLocale === 'nl' ? 'Starter — vanaf €990/jaar' : 'Starter — from €990/year'}
+                {getStarterPlanSummary(currentLocale)}
               </a>
             </div>
           </div>

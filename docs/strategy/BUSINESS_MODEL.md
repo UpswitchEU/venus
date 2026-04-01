@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Upswitch Valuation Tester operates a **freemium SaaS model** with multiple revenue streams including subscription fees, success fees, and white-label partnerships. Our business model is designed for **high unit economics**, **scalable growth**, and **sustainable profitability** while delivering exceptional value to users.
+Upswitch Valuation Tester operates a **freemium SaaS model** with multiple revenue streams including subscription fees, success fees, and custom partnerships. Our business model is designed for **high unit economics**, **scalable growth**, and **sustainable profitability** while delivering exceptional value to users.
 
 ### Business Model Philosophy
 
@@ -31,19 +31,19 @@ Upswitch Valuation Tester operates a **freemium SaaS model** with multiple reven
 - **Limited Support**: Community support only
 - **Branding**: Upswitch branding
 
-#### Premium Tier (€49/month)
+#### Starter Tier (€99/month or €990/year)
 - **Unlimited Valuations**: Unlimited monthly valuations
 - **Advanced Features**: AI insights, owner profiling
 - **Priority Support**: Email and chat support
 - **Export Options**: PDF, Excel, PowerPoint exports
-- **API Access**: Limited API access
+- **Team Workflows**: Built for accountant-led delivery
 
-#### Enterprise Tier (€199/month)
-- **White-Label**: Custom branding options
+#### Pro Tier (€199/month or €1,990/year)
 - **Advanced Analytics**: Detailed analytics and reporting
-- **Dedicated Support**: Dedicated account manager
-- **Custom Integrations**: Custom API integrations
-- **SLA**: Service level agreement
+- **Higher Limits**: More portfolio capacity and collaboration
+- **Priority Support**: Faster support for active firms
+- **Client Delivery**: Stronger workflows for accountant teams
+- **Flexible Billing**: Monthly or yearly billing
 
 ### 2. Success Fees (2.5% on Completed Sales)
 
@@ -59,7 +59,7 @@ Success Fee = Transaction Value × 2.5%
 Example: €1M sale = €25,000 success fee
 ```
 
-### 3. White-Label Partnerships (15% Revenue Share)
+### 3. Custom Partnerships (15% Revenue Share)
 
 #### Partner Revenue
 - **Partner Integration**: Integrate with partner platforms
@@ -78,7 +78,7 @@ Example: €1M sale = €25,000 success fee
 #### API Pricing
 - **Basic API**: €0.10 per API call
 - **Premium API**: €0.05 per API call (bulk pricing)
-- **Enterprise API**: Custom pricing for high volume
+- **Custom API**: Contact us for high-volume or embedded use cases
 - **Support**: API documentation and support
 
 #### API Revenue Calculation
@@ -167,15 +167,15 @@ CAC = €12,000 / 100 customers = €120
 #### LTV Calculation
 ```
 LTV = Monthly Revenue × Gross Margin × Customer Lifespan
-LTV = €49 × 85% × 24 months = €999
+LTV = €99 × 85% × 24 months = €2,020
 ```
 
 #### LTV by Tier
 - **Free Tier**: €0 (conversion to paid)
-- **Premium Tier**: €999 (€49 × 85% × 24 months)
-- **Enterprise Tier**: €4,074 (€199 × 85% × 24 months)
+- **Starter Tier**: €2,020 (€99 × 85% × 24 months)
+- **Pro Tier**: €4,060 (€199 × 85% × 24 months)
 
-#### Average LTV: €999
+#### Average LTV: Tier-mix dependent
 
 ### 3. LTV to CAC Ratio
 
@@ -397,7 +397,7 @@ Payback Period = €120 / (€49 × 85%) = 2.9 months
 The Upswitch Valuation Tester business model provides:
 
 ✅ **High Unit Economics**: 8.3:1 LTV:CAC ratio, 2.9-month payback  
-✅ **Multiple Revenue Streams**: Subscription, success fees, white-label, API  
+✅ **Multiple Revenue Streams**: Subscription, success fees, custom partnerships, API  
 ✅ **Scalable Growth**: Efficient customer acquisition and retention  
 ✅ **Strong Margins**: 85% gross margins, 40% net margins  
 ✅ **Market Opportunity**: €1B SAM, €10B TAM  

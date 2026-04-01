@@ -943,11 +943,11 @@
     },
     "paywall": {
       "title": "Upgrade uw abonnement",
-      "message": "Upgrade naar Starter (vanaf €99/maand) voor onbeperkte waarderingen en alle methodes, of Pro (vanaf €199/maand) voor live boekhoudkoppelingen.",
+      "message": "Upgrade naar Starter (€99/maand of €990/jaar) voor onbeperkte waarderingen en alle methodes, of Pro (€199/maand of €1.990/jaar) voor live boekhoudkoppelingen.",
       "upgrade": "Bekijk plannen en upgrade",
       "cancel": "Misschien Later",
       "accountantProRequired": "Een betaald accountant-abonnement is vereist. Upgrade naar Starter of Pro in Mercury om door te gaan.",
-      "insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (vanaf €99/maand excl. BTW) voor onbeperkte waarderingen."
+      "insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€99/maand of €990/jaar excl. BTW) voor onbeperkte waarderingen."
     },
     "versionComparison": {
       "title": "Versies Vergelijken",
@@ -1077,7 +1077,7 @@
     "guestMenu": "Gastmenu",
     "settings": "Account instellingen",
     "switchWorkspace": "Wissel workspace",
-    "roleAccountantPro": "Accountant Pro",
+    "roleAccountantPro": "Accountant-werkruimte",
     "returnToDashboard": "Terug naar dashboard",
     "clients": "Klanten",
     "valuation": "Indicatieve bedrijfsschatting",

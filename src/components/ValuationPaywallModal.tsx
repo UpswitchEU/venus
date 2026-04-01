@@ -1,5 +1,9 @@
 import { useLocale } from 'next-intl'
 import React from 'react'
+import {
+  ACCOUNTANT_PRICING,
+  getStarterAndProPlansLabel,
+} from '../constants/pricing'
 
 interface ValuationPaywallModalProps {
   isOpen: boolean
@@ -38,8 +42,8 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
             {message || (isNl
-              ? 'Upgrade naar Starter voor onbeperkte waarderingen, alle 9 methodes en professionele rapporten in je huisstijl.'
-              : 'Upgrade to Starter for unlimited valuations, all 9 methods, and professionally branded reports.')}
+              ? `Upgrade naar Starter (€${ACCOUNTANT_PRICING.starter.monthly}/maand of €${ACCOUNTANT_PRICING.starter.yearly}/jaar) voor onbeperkte waarderingen, alle 9 methodes en professionele rapporten in je huisstijl. Pro (€${ACCOUNTANT_PRICING.pro.monthly}/maand of €${ACCOUNTANT_PRICING.pro.yearly}/jaar) voegt live boekhoudintegraties toe.`
+              : `Upgrade to Starter (€${ACCOUNTANT_PRICING.starter.monthly}/month or €${ACCOUNTANT_PRICING.starter.yearly}/year) for unlimited valuations, all 9 methods, and branded reports. Pro (€${ACCOUNTANT_PRICING.pro.monthly}/month or €${ACCOUNTANT_PRICING.pro.yearly}/year) adds live accounting integrations.`)}
           </p>
         </div>
 
@@ -67,7 +71,7 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
             onClick={onUpgrade}
             className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg transition-colors"
           >
-            {isNl ? 'Upgrade — €99/maand' : 'Upgrade — €99/month'}
+            {getStarterAndProPlansLabel(locale)}
           </button>
         </div>
       </div>
