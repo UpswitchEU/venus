@@ -943,11 +943,11 @@
     },
     "paywall": {
       "title": "Upgrade your plan",
-      "message": "Upgrade to Starter (€99/mo or €990/year) for unlimited valuations and all methods, or Pro (€199/mo or €1,990/year) for live accounting integrations.",
+      "message": "Upgrade to Starter (€990/year, ~€83/month) for unlimited valuations and all methods, or Pro (€1,990/year, ~€166/month) for live accounting integrations.",
       "upgrade": "View plans & upgrade",
       "cancel": "Maybe Later",
       "accountantProRequired": "A paid accountant plan is required. Upgrade to Starter or Pro in Mercury to continue.",
-      "insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€99/mo or €990/year excl. VAT) for unlimited valuations."
+      "insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€990/year, ~€83/month excl. VAT) for unlimited valuations."
     },
     "versionComparison": {
       "title": "Compare Versions",

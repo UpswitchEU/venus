@@ -2,6 +2,7 @@ import { useLocale } from 'next-intl'
 import React from 'react'
 import {
   ACCOUNTANT_PRICING,
+  formatEuroAmount,
   getStarterAndProPlansLabel,
 } from '../constants/pricing'
 
@@ -24,6 +25,11 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
 }) => {
   const locale = useLocale()
   const isNl = locale === 'nl'
+  const starterEq = Math.round(ACCOUNTANT_PRICING.starter.yearly / 12)
+  const proEq = Math.round(ACCOUNTANT_PRICING.pro.yearly / 12)
+  const starterYear = formatEuroAmount(ACCOUNTANT_PRICING.starter.yearly, locale)
+  const proYear = formatEuroAmount(ACCOUNTANT_PRICING.pro.yearly, locale)
+
   if (!isOpen) return null
 
   const used = Math.min(current, limit)
@@ -42,8 +48,8 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
             {message || (isNl
-              ? `Upgrade naar Starter (€${ACCOUNTANT_PRICING.starter.monthly}/maand of €${ACCOUNTANT_PRICING.starter.yearly}/jaar) voor onbeperkte waarderingen, alle 9 methodes en professionele rapporten in je huisstijl. Pro (€${ACCOUNTANT_PRICING.pro.monthly}/maand of €${ACCOUNTANT_PRICING.pro.yearly}/jaar) voegt live boekhoudintegraties toe.`
-              : `Upgrade to Starter (€${ACCOUNTANT_PRICING.starter.monthly}/month or €${ACCOUNTANT_PRICING.starter.yearly}/year) for unlimited valuations, all 9 methods, and branded reports. Pro (€${ACCOUNTANT_PRICING.pro.monthly}/month or €${ACCOUNTANT_PRICING.pro.yearly}/year) adds live accounting integrations.`)}
+              ? `Upgrade naar Starter (${starterYear}/jaar, ~€${starterEq}/maand) voor onbeperkte waarderingen, alle 9 methodes en professionele rapporten in je huisstijl. Pro (${proYear}/jaar, ~€${proEq}/maand) voegt live boekhoudintegraties toe.`
+              : `Upgrade to Starter (${starterYear}/year, ~€${starterEq}/month) for unlimited valuations, all 9 methods, and branded reports. Pro (${proYear}/year, ~€${proEq}/month) adds live accounting integrations.`)}
           </p>
         </div>
 
