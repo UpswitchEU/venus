@@ -197,7 +197,7 @@ class BackendAPI {
   async getUserPlan(): Promise<{
     id: string
     user_id: string
-    plan_type: 'free' | 'premium'
+    plan_type: string
     credits_per_period: number
     credits_used: number
     credits_remaining: number

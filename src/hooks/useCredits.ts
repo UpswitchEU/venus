@@ -12,12 +12,14 @@ import { generalLogger } from '../utils/logger'
 interface UserPlan {
   id: string
   user_id: string
-  plan_type: 'free' | 'premium'
+  plan_type: string
   credits_per_period: number
   credits_used: number
   credits_remaining: number
   created_at: string
 }
+
+const PAID_PLAN_TYPES = new Set(['premium', 'starter', 'pro', 'expert', 'enterprise'])
 
 interface CreditContextValue {
   plan: UserPlan | null
@@ -95,7 +97,7 @@ export const useCredits = (): CreditContextValue => {
   return {
     plan,
     creditsRemaining: plan?.credits_remaining || 0,
-    isPremium: plan?.plan_type === 'premium',
+    isPremium: PAID_PLAN_TYPES.has(plan?.plan_type ?? ''),
     isLoading,
     refreshCredits,
   }
