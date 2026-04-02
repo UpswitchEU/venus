@@ -5496,8 +5496,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     : 'EBITDA normalization & tax latencies')}
                 {methodPaywallReason === 'version_history' &&
                   (currentLocale === 'nl'
-                    ? 'Versiecontrole & audit trail'
-                    : 'Version control & audit trail')}
+                    ? 'Overschrijven, verfijnen & auditspoor'
+                    : 'Overwrite, refine & audit trail')}
               </h2>
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {methodPaywallReason === 'methods' &&
@@ -5506,12 +5506,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     : 'Your free plan includes Adaptive, DCF, EBITDA, and adjusted NAV. Upgrade to Starter for all nine methods (incl. SaaS, revenue, SDE, fiscal reference) and live Benelux sector multiples.')}
                 {methodPaywallReason === 'normalization' &&
                   (currentLocale === 'nl'
-                    ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, EBITDA-normalisatie en versiecontrole.'
-                    : 'The full normalization hub (incl. tax latencies) is on Starter — together with branded PDFs, EBITDA normalization, and version history.')}
+                    ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, EBITDA-normalisatie en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'
+                    : 'The full normalization hub (incl. tax latencies) is on Starter — together with branded PDFs, EBITDA normalization, and the ability to overwrite valuations with full audit trail.')}
                 {methodPaywallReason === 'version_history' &&
                   (currentLocale === 'nl'
-                    ? 'Volledige versiegeschiedenis en audit trail zijn inbegrepen vanaf Starter — naast alle professionele rapportfuncties.'
-                    : 'Full version history and audit trail are included from Starter, alongside professional reporting.')}
+                    ? 'Waarderingen overschrijven & verfijnen bij wijzigende cijfers — met volledig auditspoor — is inbegrepen vanaf Starter.'
+                    : 'Overwrite & refine valuations as financials evolve — with full audit trail — is included from Starter.')}
               </p>
             </div>
             <div className="flex gap-3">

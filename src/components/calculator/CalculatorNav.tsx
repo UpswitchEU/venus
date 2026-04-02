@@ -729,8 +729,8 @@ export function CalculatorNav({
                             <div className="mx-2 mb-1 rounded-lg border border-dashed border-amber-500/25 bg-amber-500/[0.04] px-2 py-2">
                               <p className="text-[11px] font-medium text-foreground/45 blur-[1px]">
                                 {navLocale === 'nl'
-                                  ? 'Volledige versiegeschiedenis & audit trail'
-                                  : 'Full version history & audit trail'}
+                                  ? 'Overschrijven & verfijnen + volledig auditspoor'
+                                  : 'Overwrite & refine + full audit trail'}
                               </p>
                               <p className="text-[10px] text-amber-800/80 dark:text-amber-200/80 font-semibold mt-0.5">
                                 Starter+
@@ -745,8 +745,8 @@ export function CalculatorNav({
                             onClick={onVersionControlFeatureLocked}
                             aria-label={
                               navLocale === 'nl'
-                                ? 'Upgrade voor versiecontrole'
-                                : 'Upgrade for version control'
+                                ? 'Upgrade om te overschrijven & verfijnen'
+                                : 'Upgrade for overwrite & refine'
                             }
                           />
                         )}

@@ -943,11 +943,11 @@
 		},
 		"paywall": {
 			"title": "Upgrade your plan",
-			"message": "Upgrade to Starter (€990/year, ~€83/month) for unlimited valuations, all 9 methods plus weighted synthesis, and branded PDF reports. Pro (€1,990/year, ~€166/month) adds live accounting integrations.",
+			"message": "Upgrade to Starter (€990/year, ~€83/month) for unlimited valuations, all 9 methods, and branded PDF reports. Pro (€1,990/year, ~€166/month) adds live accounting integrations.",
 			"upgrade": "View plans & upgrade",
 			"cancel": "Maybe Later",
 			"accountantProRequired": "A paid accountant plan is required. Upgrade to Starter or Pro in Mercury to continue.",
-			"insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€990/year, ~€83/month excl. VAT) for unlimited valuations, all 9 methods plus weighted synthesis, and branded reports."
+			"insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€990/year, ~€83/month excl. VAT) for unlimited valuations, all 9 methods, and branded reports."
 		},
 		"versionComparison": {
 			"title": "Compare Versions",
@@ -2502,7 +2502,7 @@
 		"stepExplainReason": "Almost there: choose a reason, add a note if needed, then confirm.",
 		"methodsListHeading": "Pick a method",
 		"planTeaserBadge": "Starter+",
-		"planTeaserHint": "Upgrade to unlock this method, weighted synthesis, and full access to the sector multiples database.",
+		"planTeaserHint": "Upgrade to unlock this method and full access to the sector multiples database.",
 		"methodsPanoramaTitle": "All methods at a glance",
 		"columnEquity": "Equity",
 		"columnMultiple": "Metric",
