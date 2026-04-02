@@ -5510,8 +5510,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     : 'The full normalization hub (incl. tax latencies) is on Starter — together with branded PDFs, EBITDA normalization, and the ability to overwrite valuations with full audit trail.')}
                 {methodPaywallReason === 'version_history' &&
                   (currentLocale === 'nl'
-                    ? 'Waarderingen overschrijven & verfijnen bij wijzigende cijfers — met volledig auditspoor — is inbegrepen vanaf Starter.'
-                    : 'Overwrite & refine valuations as financials evolve — with full audit trail — is included from Starter.')}
+                    ? 'Overschrijven & verfijnen bij wijzigende cijfers — met volledig auditspoor — vanaf Starter.'
+                    : 'Overwrite & refine as financials evolve — with full audit trail — from Starter.')}
               </p>
             </div>
             <div className="flex gap-3">

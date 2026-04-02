@@ -162,7 +162,7 @@
 			"fullscreen": "Fullscreen",
 			"exitFullscreen": "Exit Fullscreen",
 			"returnTo": "Return to {app}",
-			"returnToMercury": "Return to Mercury",
+			"returnToMercury": "Return to dashboard",
 			"close": "Close",
 			"editName": "Edit Name",
 			"saveName": "Save Name",
@@ -946,7 +946,7 @@
 			"message": "Upgrade to Starter (€990/year, ~€83/month) for unlimited valuations, all 9 methods, and branded PDF reports. Pro (€1,990/year, ~€166/month) adds live accounting integrations.",
 			"upgrade": "View plans & upgrade",
 			"cancel": "Maybe Later",
-			"accountantProRequired": "A paid accountant plan is required. Upgrade to Starter or Pro in Mercury to continue.",
+			"accountantProRequired": "A paid accountant plan is required. Upgrade to Starter or Pro from your dashboard (Settings → Billing) to continue.",
 			"insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€990/year, ~€83/month excl. VAT) for unlimited valuations, all 9 methods, and branded reports."
 		},
 		"versionComparison": {
@@ -1245,8 +1245,8 @@
 			"eyebrow": "Connect & pull",
 			"connectTitle": "Start from your accounting data",
 			"connectDescription": "Connect Silverfin, Yuki, Exact, Bizzcontrol, or Octopus and pull the latest figures into this valuation. Manual entry remains available if you prefer to continue without a connection.",
-			"mercuryCanonicalHint": "Yuki, Exact Online, Silverfin, Bizzcontrol, and Octopus connections are managed in Mercury (Settings → Integrations). Connect there, sync or enter your API key, then return here to work on this valuation.",
-			"openMercuryCta": "Open in Mercury",
+			"mercuryCanonicalHint": "Yuki, Exact Online, Silverfin, Bizzcontrol, and Octopus connections are managed under Settings → Integrations on the accountant dashboard. Connect there, sync or enter your API key, then return here to work on this valuation.",
+			"openMercuryCta": "Open Settings → Integrations",
 			"importedBatchSummaryDescription": "Imported {years, plural, one {# fiscal year} other {# fiscal years}} from {provider}. Review the data quality score and continue with manual follow-up.",
 			"connectedTitle": "{provider} is connected",
 			"connectedDescription": "Pull the latest accounting figures from {provider} first, then review normalizations and valuation assumptions with manual override still available.",
@@ -1291,8 +1291,8 @@
 		"bizzcontrol": {
 			"title": "Import from Bizzcontrol",
 			"description": "Select a client dashboard and pull historical reporting plus budgets when your API exposes them.",
-			"connectHint": "Connect your Bizzcontrol API key in Mercury first:",
-			"openMercury": "Open Mercury → Integrations",
+			"connectHint": "Connect your Bizzcontrol API key under Settings → Integrations first:",
+			"openMercury": "Open Settings → Integrations",
 			"searchCompanies": "Search clients",
 			"searchPlaceholder": "Search client dashboards...",
 			"companyLabel": "Client dashboard",
@@ -1310,8 +1310,8 @@
 		"octopus": {
 			"title": "Import from Octopus",
 			"description": "Select a client dossier and pull historical trial balances mapped to Belgian MAR for your valuation.",
-			"connectHint": "Connect your Octopus API token in Mercury first:",
-			"openMercury": "Open Mercury → Integrations",
+			"connectHint": "Connect your Octopus API token under Settings → Integrations first:",
+			"openMercury": "Open Settings → Integrations",
 			"searchCompanies": "Search dossiers",
 			"searchPlaceholder": "Search client companies...",
 			"companyLabel": "Dossier",
@@ -1434,7 +1434,7 @@
 			"forecastDefaultsProvenanceAria": "Source of suggested DCF defaults",
 			"forecastDefaultsProvenance": {
 				"history": "Defaults from your history & profile (sector WACC band)",
-				"integration": "CapEx & D&A from accounting import (Titan/Mercury)",
+				"integration": "CapEx & D&A from accounting import",
 				"both": "History + profile + import CapEx/D&A (same pipeline as bulk valuation)"
 			},
 			"forecastDefaultsEditableHint": "Suggested % are editable—change any field to match your judgment.",

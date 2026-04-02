@@ -3007,7 +3007,7 @@ export function ManualInputPanel({
                       >
                         <ExternalLink className="mr-2 h-4 w-4" />
                         {accountingConnectedStatus?.is_connected
-                          ? 'Open in Mercury'
+                          ? mi('integrationEntry.openMercuryCta')
                           : mi('integrationEntry.connectCta')}
                       </AuroraButton>
                     )}
@@ -3019,9 +3019,7 @@ export function ManualInputPanel({
                       }}
                       className="w-full"
                     >
-                      {shouldShowImportedBatchSummary
-                        ? 'Continue manually'
-                        : mi('integrationEntry.manualCta')}
+                      {mi('integrationEntry.manualCta')}
                     </AuroraButton>
                   </div>
                 </div>

@@ -162,7 +162,7 @@
 			"fullscreen": "Volledig scherm",
 			"exitFullscreen": "Volledig scherm verlaten",
 			"returnTo": "Terug naar {app}",
-			"returnToMercury": "Terug naar Mercury",
+			"returnToMercury": "Terug naar dashboard",
 			"close": "Sluiten",
 			"editName": "Naam bewerken",
 			"saveName": "Naam opslaan",
@@ -946,7 +946,7 @@
 			"message": "Upgrade naar Starter (€990/jaar, ~€83/maand) voor onbeperkte waarderingen, alle 9 methodes en PDF-rapporten in uw huisstijl. Pro (€1.990/jaar, ~€166/maand) voegt live boekhoudkoppelingen toe.",
 			"upgrade": "Bekijk plannen en upgrade",
 			"cancel": "Misschien Later",
-			"accountantProRequired": "Een betaald accountant-abonnement is vereist. Upgrade naar Starter of Pro in Mercury om door te gaan.",
+			"accountantProRequired": "Een betaald accountant-abonnement is vereist. Upgrade naar Starter of Pro via je dashboard (Instellingen → Facturatie) om door te gaan.",
 			"insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€990/jaar, ~€83/maand excl. BTW) voor onbeperkte waarderingen, alle 9 methodes en professionele rapporten."
 		},
 		"versionComparison": {
@@ -1245,8 +1245,8 @@
 			"eyebrow": "Connect & pull",
 			"connectTitle": "Start vanuit je boekhouddata",
 			"connectDescription": "Verbind Silverfin, Yuki, Exact, Bizzcontrol of Octopus en haal daarna de laatste cijfers in deze waardering op. Manuele invoer blijft beschikbaar als je liever zonder koppeling verdergaat.",
-			"mercuryCanonicalHint": "Yuki-, Exact Online-, Silverfin-, Bizzcontrol- en Octopus-koppelingen beheer je in Mercury (Instellingen → Integraties). Verbind daar, synchroniseer of vul je API-sleutel in, en kom dan hier terug om verder te werken aan deze waardering.",
-			"openMercuryCta": "Openen in Mercury",
+			"mercuryCanonicalHint": "Yuki-, Exact Online-, Silverfin-, Bizzcontrol- en Octopus-koppelingen beheer je onder Instellingen → Integraties op het accountantdashboard. Verbind daar, synchroniseer of vul je API-sleutel in, en kom dan hier terug om verder te werken aan deze waardering.",
+			"openMercuryCta": "Open Instellingen → Integraties",
 			"importedBatchSummaryDescription": "{years, plural, one {# boekjaar} other {# boekjaren}} geïmporteerd uit {provider}. Bekijk de datakwaliteitsscore en ga verder met manuele opvolging.",
 			"connectedTitle": "{provider} is verbonden",
 			"connectedDescription": "Haal eerst de laatste boekhoudcijfers uit {provider} op en review daarna de normalisaties en waarderingsaannames, met manuele override nog steeds beschikbaar.",
@@ -1291,8 +1291,8 @@
 		"bizzcontrol": {
 			"title": "Importeren uit Bizzcontrol",
 			"description": "Selecteer een klantdashboard en haal historische rapportage plus budgetten op wanneer je API die beschikbaar stelt.",
-			"connectHint": "Verbind eerst je Bizzcontrol API-sleutel in Mercury:",
-			"openMercury": "Open Mercury → Integraties",
+			"connectHint": "Verbind eerst je Bizzcontrol API-sleutel onder Instellingen → Integraties:",
+			"openMercury": "Open Instellingen → Integraties",
 			"searchCompanies": "Zoek klanten",
 			"searchPlaceholder": "Zoek klantdashboards...",
 			"companyLabel": "Klantdashboard",
@@ -1310,8 +1310,8 @@
 		"octopus": {
 			"title": "Importeren uit Octopus",
 			"description": "Selecteer een klantdossier en haal historische proef- en saldibalansen op, gemapt op het Belgische MAR.",
-			"connectHint": "Verbind eerst je Octopus API-token in Mercury:",
-			"openMercury": "Open Mercury → Integraties",
+			"connectHint": "Verbind eerst je Octopus API-token onder Instellingen → Integraties:",
+			"openMercury": "Open Instellingen → Integraties",
 			"searchCompanies": "Zoek dossiers",
 			"searchPlaceholder": "Zoek klantvennootschappen...",
 			"companyLabel": "Dossier",
@@ -1434,7 +1434,7 @@
 			"forecastDefaultsProvenanceAria": "Bron van voorgestelde DCF-defaults",
 			"forecastDefaultsProvenance": {
 				"history": "Defaults uit historiek & profiel (sector-WACC-band)",
-				"integration": "CapEx & D&A uit accounting-import (Titan/Mercury)",
+				"integration": "CapEx & D&A uit accounting-import",
 				"both": "Historiek + profiel + import CapEx/D&A (zelfde keten als bulkwaardering)"
 			},
 			"forecastDefaultsEditableHint": "Voorgestelde percentages zijn aanpasbaar—wijzig gerust naar je oordeel.",
