@@ -48,8 +48,8 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
             {message || (isNl
-              ? `Uw gratis rapporten bevatten een watermerk. Upgrade naar Starter (${starterYear}/jaar) voor onbeperkte rapporten zonder watermerk in uw huisstijl. Pro (${proYear}/jaar) voegt live boekhoudsync toe — niet meer typen.`
-              : `Your free reports include a watermark. Upgrade to Starter (${starterYear}/year) for unlimited watermark-free branded reports. Pro (${proYear}/year) adds live accounting sync — stop typing.`)}
+              ? `Uw gratis rapporten bevatten een watermerk. Upgrade naar Starter (${starterYear}/jaar) voor onbeperkte rapporten zonder watermerk in uw huisstijl. Pro (${proYear}/jaar) voegt live boekhoudsync toe — geen manuele invoer.`
+              : `Your free reports include a watermark. Upgrade to Starter (${starterYear}/year) for unlimited watermark-free branded reports. Pro (${proYear}/year) — stop typing, live sync with your accounting software.`)}
           </p>
         </div>
 

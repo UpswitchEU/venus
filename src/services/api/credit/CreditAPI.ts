@@ -55,7 +55,7 @@ export class CreditAPI extends HttpClient {
       version_control: boolean
       integrations_enabled: boolean
     }
-    /** Bonus valuations earned via referrals */
+    /** Bonus valuations earned via client invite acceptance */
     bonus_valuations?: number
   }> {
     try {

@@ -3,7 +3,7 @@
  * Kept aligned with titan bootstrap fetchOfficialBelgianFinancials mapping.
  */
 
-import type { OfficialFinancials } from '../lib/bootstrap/types'
+import type { OfficialFinancials, OfficialFinancialsYear } from '../lib/bootstrap/types'
 
 /** Delphi/Titan JSON may emit numbers as strings; keep mapper tolerant. */
 function toOptionalFiniteNumber(value: unknown): number | undefined {
@@ -93,5 +93,35 @@ export function mapBelgianOfficialRegistryResponseToOfficialFinancials(
             ? 'Partial official filing'
             : 'Official filing unavailable',
     },
+    historicalYears: mapHistoricalYears(official),
   }
+}
+
+function mapHistoricalYears(
+  official: Record<string, unknown>
+): OfficialFinancialsYear[] | undefined {
+  const raw = official.historicalYears ?? official.historical_years
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+
+  return raw
+    .filter((yr): yr is Record<string, unknown> => yr != null && typeof yr === 'object')
+    .map((yr) => ({
+      fiscalYear: toOptionalFilingYear(yr.fiscalYear ?? yr.fiscal_year) ?? 0,
+      revenue: toOptionalFiniteNumber(yr.revenue),
+      revenueSource: yr.revenueSource === 'gross_margin' || yr.revenue_source === 'gross_margin'
+        ? 'gross_margin' as const
+        : 'turnover' as const,
+      operatingProfit: toOptionalFiniteNumber(yr.operatingProfit ?? yr.operating_profit),
+      depreciation: toOptionalFiniteNumber(yr.depreciation),
+      writeOffs: toOptionalFiniteNumber(yr.writeOffs ?? yr.write_offs),
+      provisions: toOptionalFiniteNumber(yr.provisions),
+      ebitda: toOptionalFiniteNumber(yr.ebitda),
+      totalAssets: toOptionalFiniteNumber(yr.totalAssets ?? yr.total_assets),
+      equity: toOptionalFiniteNumber(yr.equity),
+      schemaType: yr.schemaType === 'abbreviated' || yr.schema_type === 'abbreviated'
+        ? 'abbreviated' as const
+        : 'full' as const,
+      rubricsUsed: (yr.rubricsUsed ?? yr.rubrics_used) as Record<string, string> | undefined,
+    }))
+    .filter((yr) => yr.fiscalYear > 0)
 }

@@ -6,7 +6,9 @@
  * Small colored dot next to financial input fields indicating
  * how the value was mapped from source ledger data:
  * - Green: directly mapped from a specific MAR account code
- * - Amber: computed from multiple accounts or fallback-mapped
+ * - Blue (computed): computed from multiple accounts or fallback-mapped
+ * - Blue (nbb): imported from NBB CBSO official filing
+ * - Amber: fallback mapping, needs verification
  * - Gray: manually entered (no ledger source)
  *
  * Hover tooltip shows the exact source accounts.
@@ -20,6 +22,7 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { useLocale } from 'next-intl'
+import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import { useSpotlightStore } from '../../store/useSpotlightStore'
 
 interface ProvenanceDotProps {
@@ -40,6 +43,11 @@ const DOT_STYLES: Record<string, { color: string; label: string; nlLabel: string
     label: 'Computed from multiple accounts',
     nlLabel: 'Berekend uit meerdere rekeningen',
   },
+  nbb: {
+    color: 'bg-blue-500',
+    label: 'Imported from NBB filing',
+    nlLabel: 'Geïmporteerd uit NBB-jaarrekening',
+  },
   fallback: {
     color: 'bg-amber-500',
     label: 'Fallback mapping — verify',
@@ -55,14 +63,70 @@ const DOT_STYLES: Record<string, { color: string; label: string; nlLabel: string
 export function ProvenanceDot({ fieldName, fiscalYear, className }: ProvenanceDotProps) {
   const locale = useLocale()
   const { importQuality, getFieldMappingMethod, getFieldProvenance } = useSpotlightStore()
-
-  if (!importQuality) return null
+  const nbbSnapshot = useNbbPrefillStore((s) =>
+    fiscalYear != null ? s.getYearSnapshot(fiscalYear) : undefined
+  )
 
   const yearKey =
     fiscalYear != null && fiscalYear !== ''
       ? String(fiscalYear)
       : null
 
+  // NBB CBSO provenance takes priority when no accounting import data exists
+  const nbbField = fieldName === 'revenue' || fieldName === 'ebitda' ? fieldName : null
+  const isNbbSource = !importQuality && nbbSnapshot != null && nbbField != null && nbbSnapshot[nbbField] != null
+
+  if (!importQuality && !isNbbSource) return null
+
+  if (isNbbSource && nbbSnapshot) {
+    const style = DOT_STYLES.nbb
+    const rubricsLabel = nbbSnapshot.rubricsUsed
+      ? Object.entries(nbbSnapshot.rubricsUsed)
+          .filter(([k]) => k === nbbField)
+          .map(([, v]) => v)
+          .join(', ')
+      : null
+    const isAbbreviated = nbbField === 'revenue' && nbbSnapshot.revenueSource === 'gross_margin'
+
+    return (
+      <TooltipProvider delayDuration={200}>
+        <TooltipRoot>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                'inline-block w-2 h-2 rounded-full shrink-0 cursor-help',
+                style.color,
+                className,
+              )}
+              aria-label={locale === 'nl' ? style.nlLabel : style.label}
+            />
+          </TooltipTrigger>
+          <TooltipContent
+            side='top'
+            className='max-w-[260px] text-xs'
+          >
+            <p className='font-medium mb-1'>
+              {locale === 'nl' ? style.nlLabel : style.label} ({nbbSnapshot.fiscalYear})
+            </p>
+            {rubricsLabel && (
+              <p className='text-muted-foreground'>
+                {locale === 'nl' ? 'Bron' : 'Source'}: NBB {rubricsLabel}
+              </p>
+            )}
+            {isAbbreviated && (
+              <p className='text-muted-foreground mt-1 italic'>
+                {locale === 'nl'
+                  ? 'Omzet niet publiek; brutomarge als basis'
+                  : 'Revenue not public; using Gross Margin as base'}
+              </p>
+            )}
+          </TooltipContent>
+        </TooltipRoot>
+      </TooltipProvider>
+    )
+  }
+
+  // Standard accounting import provenance
   const method = getFieldMappingMethod(fieldName, yearKey)
   if (!method) return null
 
@@ -71,7 +135,7 @@ export function ProvenanceDot({ fieldName, fiscalYear, className }: ProvenanceDo
   const sourceAccounts = provenance?.source_accounts || []
 
   const fetchedSnippet = (() => {
-    if (!yearKey || !importQuality[yearKey]?.fetched_at) return null
+    if (!yearKey || !importQuality?.[yearKey]?.fetched_at) return null
     try {
       const d = new Date(importQuality[yearKey].fetched_at as string)
       if (Number.isNaN(d.getTime())) return null

@@ -20,6 +20,7 @@ import type {
   PrefillSource,
 } from '../lib/bootstrap/types'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
+import { useNbbPrefillStore } from '../store/useNbbPrefillStore'
 import { useNormalizationStore } from '../store/useNormalizationStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useSpotlightStore } from '../store/useSpotlightStore'
@@ -664,6 +665,15 @@ function applyPrefillToForm(
     if (officialFinancials.verificationBadge) {
       allData.official_verification_badge = officialFinancials.verificationBadge
     }
+  }
+
+  // 3b. Populate NBB prefill store from multi-year CBSO data
+  if (officialFinancials?.historicalYears && officialFinancials.historicalYears.length > 0) {
+    useNbbPrefillStore.getState().setFromHistoricalYears(officialFinancials.historicalYears)
+    logger.info('Populated NBB prefill store from CBSO multi-year data', {
+      yearsCount: officialFinancials.historicalYears.length,
+      years: officialFinancials.historicalYears.map((y) => y.fiscalYear),
+    })
   }
 
   // 4. Apply business type — use buildBusinessTypeFormData so all downstream fields

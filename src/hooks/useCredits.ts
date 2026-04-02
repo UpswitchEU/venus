@@ -65,7 +65,7 @@ interface CreditContextValue {
   planFeatures: PlanFeatureFlags | null
   /** Titan `yearly_discount_percent` for current plan; null if unknown */
   yearlyDiscountPercent: number | null
-  /** Bonus valuations earned via referrals */
+  /** Bonus valuations earned via client invite acceptance */
   bonusValuations: number
   isLoading: boolean
   refreshCredits: () => Promise<void>

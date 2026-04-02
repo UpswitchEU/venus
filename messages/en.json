@@ -939,11 +939,11 @@
 			"unlimited": "Unlimited",
 			"generateUnlimited": "Generate unlimited indicative business estimates",
 			"unlimitedAccessAria": "Unlimited access to indicative business estimates",
-			"premium": "Premium"
+			"premium": "Subscribed"
 		},
 		"paywall": {
 			"title": "Upgrade your plan",
-			"message": "Your free reports include a watermark. Upgrade to Starter (€990/year) for unlimited watermark-free branded reports with all 8 methods. Pro (€1,990/year) adds live accounting sync — stop typing.",
+			"message": "Your free reports include a watermark. Upgrade to Starter (€990/year) for unlimited watermark-free branded reports with all 8 methods. Pro (€1,990/year) — stop typing, live sync with your accounting software.",
 			"upgrade": "View plans & upgrade",
 			"cancel": "Maybe Later",
 			"accountantProRequired": "A paid accountant plan is required. Upgrade to Starter or Pro from your dashboard (Settings → Billing) to continue.",
@@ -1144,7 +1144,11 @@
 			"normalizedEbitda": "Normalized EBITDA",
 			"normalizedEbitdaLabel": "Normalized EBITDA:",
 			"adjustmentSuffix": "adjustment",
-			"fictiveRentInlineLabel": "fictive rent (RE carve-out)"
+			"fictiveRentInlineLabel": "fictive rent (RE carve-out)",
+			"nbbSource": "Imported from NBB filing",
+			"grossMarginFallback": "Revenue not public; using Gross Margin as base",
+			"resetToNbb": "Reset to NBB values",
+			"dataUnavailable": "Data unavailable in public filings"
 		},
 		"fictiveRentNormalizedFootnote": "Weighted normalized EBITDA deducts {amount} per year for estimated market rent (real estate carve-out), consistent with the valuation engine.",
 		"registryNlSearchHint": "Search by company name or KVK number, or enter details manually. Live KVK autocomplete may be unavailable until a commercial registry feed is configured for your workspace.",

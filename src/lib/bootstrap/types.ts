@@ -94,6 +94,7 @@ export type PrefillSource =
   | 'url_params'
   | 'official_belgian_filing'
   | 'official_belgian_filing_pending'
+  | 'nbb_cbso_multi_year'
 
 export interface CompanyInfo {
   companyName?: string
@@ -182,6 +183,21 @@ export interface PartialFinancials {
   }
 }
 
+export interface OfficialFinancialsYear {
+  fiscalYear: number
+  revenue?: number
+  revenueSource?: 'turnover' | 'gross_margin'
+  operatingProfit?: number
+  depreciation?: number
+  writeOffs?: number
+  provisions?: number
+  ebitda?: number
+  totalAssets?: number
+  equity?: number
+  schemaType?: 'full' | 'abbreviated'
+  rubricsUsed?: Record<string, string>
+}
+
 export interface OfficialFinancials {
   source?: string
   sourceLabel?: string
@@ -215,6 +231,8 @@ export interface OfficialFinancials {
     state: 'verified' | 'partial' | 'unavailable'
     label: string
   }
+  /** Multi-year NBB CBSO data with proper EBITDA breakdown. */
+  historicalYears?: OfficialFinancialsYear[]
 }
 
 export interface BusinessTypeInfo {

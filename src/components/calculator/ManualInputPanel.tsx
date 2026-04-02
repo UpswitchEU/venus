@@ -102,6 +102,7 @@ import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
+import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useSpotlightStore } from '../../store/useSpotlightStore'
@@ -198,6 +199,42 @@ import {
 import { deriveDcfSmartDefaults } from './sections/dcfSmartDefaults'
 import { PreviewMetricCard } from './sections/previewMetricCards'
 import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
+
+function NbbResetHint({
+  fiscalYear,
+  currentRevenue,
+  currentEbitda,
+  onReset,
+}: {
+  fiscalYear: string
+  currentRevenue: number
+  currentEbitda: number
+  onReset: (field: 'revenue' | 'ebitda', value: number) => void
+}) {
+  const snap = useNbbPrefillStore((s) => s.getYearSnapshot(fiscalYear))
+  if (!snap) return null
+
+  const revDiffers = snap.revenue != null && Math.abs(currentRevenue - snap.revenue) > 0.01
+  const ebitdaDiffers = snap.ebitda != null && Math.abs(currentEbitda - snap.ebitda) > 0.01
+
+  if (!revDiffers && !ebitdaDiffers) return null
+
+  return (
+    <div className="mt-1.5 flex items-center gap-2 text-[10px] text-blue-500">
+      <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+      <button
+        type="button"
+        onClick={() => {
+          if (revDiffers && snap.revenue != null) onReset('revenue', snap.revenue)
+          if (ebitdaDiffers && snap.ebitda != null) onReset('ebitda', snap.ebitda)
+        }}
+        className="underline underline-offset-2 hover:text-blue-600 transition-colors"
+      >
+        Herstel naar NBB-waarden
+      </button>
+    </div>
+  )
+}
 
 // Types
 export interface YearlyFinancials {
@@ -3727,6 +3764,20 @@ export function ManualInputPanel({
                             </div>
                           </SpotlightFieldWrapper>
                         </div>
+
+                        <NbbResetHint
+                          fiscalYear={yearData.year}
+                          currentRevenue={yearData.revenue}
+                          currentEbitda={yearData.ebitda}
+                          onReset={(field, value) =>
+                            updateYearlyFinancials(
+                              yearData.year,
+                              !!yearData.isForecast,
+                              field,
+                              value
+                            )
+                          }
+                        />
 
                         {/* Show normalized EBITDA if different (normalizations and/or fictive rent carve-out) */}
                         {hasExplicitNumericValue(yearData.ebitda) &&

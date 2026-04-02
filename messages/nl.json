@@ -943,11 +943,11 @@
 		},
 		"paywall": {
 			"title": "Upgrade uw abonnement",
-			"message": "Uw gratis rapporten bevatten een watermerk. Upgrade naar Starter (€990/jaar) voor onbeperkte rapporten zonder watermerk in uw huisstijl, met alle 8 methodes. Pro (€1.990/jaar) voegt live boekhoudsync toe — niet meer typen.",
+			"message": "Uw gratis rapporten bevatten een watermerk. Upgrade naar Starter (€990/jaar) voor onbeperkte rapporten zonder watermerk in uw huisstijl, met alle 8 methodes. Pro (€1.990/jaar) voegt live boekhoudsync toe — geen manuele invoer.",
 			"upgrade": "Bekijk plannen en upgrade",
 			"cancel": "Misschien Later",
 			"accountantProRequired": "Een betaald accountant-abonnement is vereist. Upgrade naar Starter of Pro via je dashboard (Instellingen → Facturatie) om door te gaan.",
-			"insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€990/jaar, ~€83/maand excl. BTW) voor onbeperkte waarderingen zonder watermerk, alle 8 methodes en professionele rapporten."
+			"insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€990/jaar, ~€83/maand excl. BTW) voor onbeperkte waarderingen zonder watermerk, alle 8 methodes en branded rapporten."
 		},
 		"versionComparison": {
 			"title": "Versies Vergelijken",
@@ -1144,7 +1144,11 @@
 			"normalizedEbitda": "Genormaliseerde EBITDA",
 			"normalizedEbitdaLabel": "Genormaliseerde EBITDA:",
 			"adjustmentSuffix": "aanpassing",
-			"fictiveRentInlineLabel": "fictieve huur (vastgoed-carve-out)"
+			"fictiveRentInlineLabel": "fictieve huur (vastgoed-carve-out)",
+			"nbbSource": "Geïmporteerd uit NBB-jaarrekening",
+			"grossMarginFallback": "Omzet niet publiek; brutomarge als basis",
+			"resetToNbb": "Herstel naar NBB-waarden",
+			"dataUnavailable": "Niet beschikbaar in publieke jaarrekening"
 		},
 		"fictiveRentNormalizedFootnote": "Het gewogen genormaliseerde EBITDA trekt {amount} fictieve markthuur per jaar af (vastgoed-carve-out), conform de waarderingsmotor.",
 		"registryNlSearchHint": "Zoek op bedrijfsnaam of KVK-nummer, of vul gegevens handmatig in. Live KVK-autocomplete kan ontbreken zolang er geen commerciële registerkoppeling voor uw omgeving is geconfigureerd.",
@@ -1256,8 +1260,8 @@
 			"pullDataCtaGeneric": "Boekhoudgegevens ophalen",
 			"manualCta": "Ga handmatig verder",
 			"proUpsellEyebrow": "Pro",
-			"proUpsellTitle": "Niet meer typen. Synchroniseer direct.",
-			"proUpsellDescription": "Upgrade naar Pro en haal financiële data rechtstreeks uit uw boekhoudsoftware — geen handmatige invoer meer.",
+			"proUpsellTitle": "Geen manuele invoer. Synchroniseer direct.",
+			"proUpsellDescription": "Upgrade naar Pro en haal financiële data rechtstreeks uit uw boekhoudsoftware — geen manuele invoer meer.",
 			"proUpsellCta": "Upgraden naar Pro"
 		},
 		"silverfin": {
