@@ -38,7 +38,7 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
 }) => {
   const t = useTranslations('modals.creditBadge')
   const { isAuthenticated } = useAuth()
-  const { creditsRemaining, isPremium, isLoading } = useCredits()
+  const { creditsRemaining, isPremium, isLoading, bonusValuations } = useCredits()
 
   // AUTH-FIRST: All users are authenticated - no guest credit check needed
 
@@ -117,8 +117,9 @@ export const CreditBadge: React.FC<CreditBadgeProps> = ({
   // Text content
   const getText = () => {
     if (isOut) return t('outOfCredits')
-    if (isLow) return t('creditsLeft', { count: creditsRemaining })
-    return t('credits', { count: creditsRemaining })
+    const bonusSuffix = bonusValuations > 0 ? ` (+${bonusValuations} bonus)` : ''
+    if (isLow) return t('creditsLeft', { count: creditsRemaining }) + bonusSuffix
+    return t('credits', { count: creditsRemaining }) + bonusSuffix
   }
 
   // Upgrade prompt

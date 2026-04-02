@@ -943,11 +943,11 @@
 		},
 		"paywall": {
 			"title": "Upgrade your plan",
-			"message": "Upgrade to Starter (€990/year, ~€83/month) for unlimited valuations, all 9 methods, and branded PDF reports. Pro (€1,990/year, ~€166/month) adds live accounting integrations.",
+			"message": "Your free reports include a watermark. Upgrade to Starter (€990/year) for unlimited watermark-free branded reports with all 8 methods. Pro (€1,990/year) adds live accounting sync — stop typing.",
 			"upgrade": "View plans & upgrade",
 			"cancel": "Maybe Later",
 			"accountantProRequired": "A paid accountant plan is required. Upgrade to Starter or Pro from your dashboard (Settings → Billing) to continue.",
-			"insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€990/year, ~€83/month excl. VAT) for unlimited valuations, all 9 methods, and branded reports."
+			"insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€990/year, ~€83/month excl. VAT) for unlimited watermark-free valuations, all 8 methods, and branded reports."
 		},
 		"versionComparison": {
 			"title": "Compare Versions",
@@ -1240,7 +1240,6 @@
 		"removeForecastDescription": "The forecast years and any data you entered will be removed from your valuation.",
 		"calculating": "Calculating...",
 		"calculateEstimate": "Calculate Estimate",
-		"financialInstruction": "Enter revenue and EBITDA → apply normalizations → view weighted result",
 		"integrationEntry": {
 			"eyebrow": "Connect & pull",
 			"connectTitle": "Start from your accounting data",
@@ -1255,7 +1254,11 @@
 			"connectCta": "Connect Silverfin",
 			"pullDataCta": "Pull from {provider}",
 			"pullDataCtaGeneric": "Pull accounting data",
-			"manualCta": "Continue manually"
+			"manualCta": "Continue manually",
+			"proUpsellEyebrow": "Pro",
+			"proUpsellTitle": "Stop typing. Sync instantly.",
+			"proUpsellDescription": "Upgrade to Pro and pull financial data directly from your accounting software — no more manual entry.",
+			"proUpsellCta": "Upgrade to Pro"
 		},
 		"silverfin": {
 			"title": "Connect Silverfin",

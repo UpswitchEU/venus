@@ -25,6 +25,7 @@ import {
   Plus,
   TrendingUp,
   X,
+  Zap,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -400,6 +401,10 @@ interface ManualInputPanelProps {
   preferIntegrationEntry?: boolean
   /** Async Belgian official filing job in flight — show loading row in trust panel. */
   isOfficialFilingPending?: boolean
+  /** Whether integrations are enabled on the user's plan (Pro+). Drives the Pro upsell CTA. */
+  integrationsEnabled?: boolean
+  /** Current plan type (free/starter/pro/…). Drives the Pro upsell CTA. */
+  planType?: string
 }
 
 interface OfficialFilingTrustPanelProps {
@@ -756,6 +761,8 @@ export function ManualInputPanel({
   autoAdvancePastPrefilledSteps = false,
   preferIntegrationEntry = false,
   isOfficialFilingPending = false,
+  integrationsEnabled = true,
+  planType = 'free',
 }: ManualInputPanelProps) {
   const { user } = useAuth()
   const t = useTranslations()
@@ -2971,7 +2978,42 @@ export function ManualInputPanel({
                     </div>
                   </div>
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[220px]">
-                    {shouldShowImportedBatchSummary ? (
+                    {!integrationsEnabled && planType === 'starter' ? (
+                      <>
+                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3.5">
+                          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                            <Zap className="h-4 w-4 flex-shrink-0" />
+                            <span className="text-xs font-semibold uppercase tracking-[0.12em]">
+                              {mi('integrationEntry.proUpsellEyebrow')}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm font-semibold text-foreground">
+                            {mi('integrationEntry.proUpsellTitle')}
+                          </p>
+                          <p className="mt-1 text-xs text-foreground/60">
+                            {mi('integrationEntry.proUpsellDescription')}
+                          </p>
+                          <AuroraButton
+                            type="button"
+                            onClick={handleOpenMercuryIntegrations}
+                            className="mt-3 w-full"
+                          >
+                            <Zap className="mr-2 h-4 w-4" />
+                            {mi('integrationEntry.proUpsellCta')}
+                          </AuroraButton>
+                        </div>
+                        <AuroraButton
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            setIntegrationEntryDismissed(true)
+                          }}
+                          className="w-full"
+                        >
+                          {mi('integrationEntry.manualCta')}
+                        </AuroraButton>
+                      </>
+                    ) : shouldShowImportedBatchSummary ? (
                       <AuroraButton
                         type="button"
                         onClick={handleImportFromAccounting}
@@ -3011,16 +3053,18 @@ export function ManualInputPanel({
                           : mi('integrationEntry.connectCta')}
                       </AuroraButton>
                     )}
-                    <AuroraButton
-                      type="button"
-                      variant="secondary"
-                      onClick={() => {
-                        setIntegrationEntryDismissed(true)
-                      }}
-                      className="w-full"
-                    >
-                      {mi('integrationEntry.manualCta')}
-                    </AuroraButton>
+                    {(integrationsEnabled || planType !== 'starter') && (
+                      <AuroraButton
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          setIntegrationEntryDismissed(true)
+                        }}
+                        className="w-full"
+                      >
+                        {mi('integrationEntry.manualCta')}
+                      </AuroraButton>
+                    )}
                   </div>
                 </div>
                 {shouldShowImportedBatchSummary && (
@@ -3338,24 +3382,6 @@ export function ManualInputPanel({
                   </h3>
                 </div>
 
-                {/* Mercury-first: connected Yuki / Exact / Silverfin → deep-link to accountant integrations */}
-                <div className="flex items-center justify-between gap-2 -mt-1 ml-8 flex-wrap">
-                  <p className="text-xs text-foreground/40">{mi('financialInstruction')}</p>
-                  {accountingConnectedStatus && requiresMercuryImportFlow && (
-                    <button
-                      type="button"
-                      onClick={handleOpenMercuryIntegrations}
-                      aria-label={mi('integrationEntry.openMercuryCta')}
-                      className={cn(
-                        'text-xs font-medium flex items-center gap-1.5 px-2 py-1 rounded-lg shrink-0',
-                        'text-primary hover:bg-primary/10 transition-colors'
-                      )}
-                    >
-                      <ExternalLink className="w-3 h-3 shrink-0" aria-hidden />
-                      {mi('integrationEntry.openMercuryCta')}
-                    </button>
-                  )}
-                </div>
                 {importAccountingError && (
                   <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
                 )}

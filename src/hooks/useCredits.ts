@@ -65,6 +65,8 @@ interface CreditContextValue {
   planFeatures: PlanFeatureFlags | null
   /** Titan `yearly_discount_percent` for current plan; null if unknown */
   yearlyDiscountPercent: number | null
+  /** Bonus valuations earned via referrals */
+  bonusValuations: number
   isLoading: boolean
   refreshCredits: () => Promise<void>
 }
@@ -105,7 +107,8 @@ export const useCredits = (): CreditContextValue => {
           allowed_methods: planData.allowed_methods,
           plan_features: planData.plan_features,
           yearly_discount_percent: planData.yearly_discount_percent,
-        })
+          bonus_valuations: (planData as any).bonus_valuations ?? 0,
+        } as any)
         generalLogger.debug('User plan loaded', {
           planType: planData.plan_type,
           creditsRemaining: planData.credits_remaining,
@@ -167,6 +170,11 @@ export const useCredits = (): CreditContextValue => {
     return null
   }, [plan?.yearly_discount_percent])
 
+  const bonusValuations = useMemo(() => {
+    if (UNLIMITED_CREDITS_MODE) return 0
+    return (plan as any)?.bonus_valuations ?? 0
+  }, [(plan as any)?.bonus_valuations])
+
   return {
     plan,
     creditsRemaining: plan?.credits_remaining || 0,
@@ -174,6 +182,7 @@ export const useCredits = (): CreditContextValue => {
     allowedMethodKeys,
     planFeatures,
     yearlyDiscountPercent,
+    bonusValuations,
     isLoading,
     refreshCredits,
   }

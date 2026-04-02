@@ -55,6 +55,8 @@ export class CreditAPI extends HttpClient {
       version_control: boolean
       integrations_enabled: boolean
     }
+    /** Bonus valuations earned via referrals */
+    bonus_valuations?: number
   }> {
     try {
       const raw = await this.executeRequest<Record<string, unknown>>(
@@ -101,6 +103,8 @@ export class CreditAPI extends HttpClient {
                 integrations_enabled: rawFeatures.integrations_enabled,
               }
             : undefined,
+        bonus_valuations:
+          typeof p.bonus_valuations === 'number' ? p.bonus_valuations : 0,
       }
     } catch (error) {
       this.handleCreditError(error, 'get user plan')

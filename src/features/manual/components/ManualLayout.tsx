@@ -656,7 +656,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   // Venus infrastructure
   const { user } = useAuth()
-  const { allowedMethodKeys, planFeatures } = useCredits()
+  const { allowedMethodKeys, planFeatures, plan } = useCredits()
   const { identity, isAccountantFlow } = useBootstrap()
   useBootstrapSync()
   const { readOnlyKbo, autoAdvancePastPrefilledSteps, isOfficialFilingPending } =
@@ -4686,6 +4686,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       hasImportQuality ||
       Boolean(identity.clientContext?.clientCompanyName?.trim()),
     isOfficialFilingPending,
+    integrationsEnabled: planFeatures?.integrations_enabled ?? false,
+    planType: plan?.plan_type ?? 'free',
     initialData: {
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,
@@ -5173,8 +5175,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                                 </p>
                                 <p className="text-xs text-foreground/60">
                                   {currentLocale === 'nl'
-                                    ? 'Zij krijgen een professioneel rapport — u krijgt marketplace exposure'
-                                    : 'They get a professional report — you get marketplace exposure'}
+                                    ? 'Uw klant ontvangt een beveiligd rapport met uw naam — u krijgt alle credits'
+                                    : 'Your client gets a secure branded report — you get all the credit'}
                                 </p>
                               </div>
                             </div>
@@ -5502,8 +5504,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {methodPaywallReason === 'methods' &&
                   (currentLocale === 'nl'
-                    ? 'Je gratis plan bevat Adaptive, DCF, EBITDA en adjusted NAV. Upgrade naar Starter voor alle 9 methodes (o.a. SaaS, omzet, SDE, fiscale referentie) en Live Benelux sector-multiples.'
-                    : 'Your free plan includes Adaptive, DCF, EBITDA, and adjusted NAV. Upgrade to Starter for all nine methods (incl. SaaS, revenue, SDE, fiscal reference) and live Benelux sector multiples.')}
+                    ? 'Je gratis plan bevat Adaptive, DCF, EBITDA en adjusted NAV met een PDF-watermerk. Upgrade naar Starter voor alle 8 methodes zonder watermerk en rapporten in uw huisstijl.'
+                    : 'Your free plan includes Adaptive, DCF, EBITDA, and adjusted NAV with a watermarked PDF. Upgrade to Starter for all 8 methods, watermark-free branded reports, and live Benelux sector multiples.')}
                 {methodPaywallReason === 'normalization' &&
                   (currentLocale === 'nl'
                     ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, EBITDA-normalisatie en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'

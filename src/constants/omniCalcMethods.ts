@@ -2,6 +2,9 @@
  * Method keys shown in the primary list (before "Show all methods") in OmniCalc UI.
  * Order is stable for UX (headline → multiples → DCF → balance sheet → fiscal).
  * Must match backend `ValuationMethodResult` keys from the valuation response.
+ *
+ * There are 9 keys here but **8 distinct methodologies**: `omzet_multiple` and
+ * `revenue_multiple` are the same turnover/revenue-multiple approach (NL vs EN alias).
  */
 export const PRIMARY_OMNI_METHOD_ORDER = [
   'upswitch_adaptive',
@@ -14,6 +17,9 @@ export const PRIMARY_OMNI_METHOD_ORDER = [
   'adjusted_nav',
   'fiscal_4x',
 ] as const
+
+/** Use for pricing / marketing copy (distinct methodologies, not raw result keys). */
+export const DISTINCT_VALUATION_METHOD_COUNT = 8
 
 export const PRIMARY_OMNI_METHOD_KEYS = new Set<string>(PRIMARY_OMNI_METHOD_ORDER)
 
