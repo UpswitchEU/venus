@@ -409,6 +409,7 @@ export function useBootstrapPrefill(): {
 export function resetBootstrapPrefillState(): void {
   globalPrefillApplied = false
   globalPrefillReportId = null
+  useNbbPrefillStore.getState().clear()
   logger.debug('Bootstrap prefill state reset')
 }
 
@@ -647,7 +648,7 @@ function applyPrefillToForm(
       )
       if (safeHistoricalYears.length > 0) {
         const currentYearRow = safeHistoricalYears[0]
-        allData.historical_years_data = safeHistoricalYears
+        allData.historical_years_data = safeHistoricalYears.slice(1)
         allData.current_year_data = {
           year: currentYearRow.year,
           revenue: currentYearRow.revenue,

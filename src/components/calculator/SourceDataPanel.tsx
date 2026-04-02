@@ -191,7 +191,7 @@ export function SourceDataPanel() {
           <div className='px-4 py-3 border-b border-border bg-violet-500/[0.06]'>
             <div className='flex items-center gap-2 text-xs font-semibold text-foreground mb-1'>
               <ScrollText className='w-3.5 h-3.5 text-violet-600' />
-              {locale === 'nl' ? 'Titan AI — uitleg' : 'Titan AI — rationale'}
+              {locale === 'nl' ? 'AI — uitleg' : 'AI — rationale'}
             </div>
             <p className='text-[10px] text-muted-foreground mb-2 leading-snug'>
               {locale === 'nl'

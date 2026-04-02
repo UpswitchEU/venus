@@ -211,11 +211,16 @@ function NbbResetHint({
   currentEbitda: number
   onReset: (field: 'revenue' | 'ebitda', value: number) => void
 }) {
+  const t = useTranslations('manualInput')
   const snap = useNbbPrefillStore((s) => s.getYearSnapshot(fiscalYear))
   if (!snap) return null
 
-  const revDiffers = snap.revenue != null && Math.abs(currentRevenue - snap.revenue) > 0.01
-  const ebitdaDiffers = snap.ebitda != null && Math.abs(currentEbitda - snap.ebitda) > 0.01
+  const safeRev = Number.isFinite(currentRevenue) ? currentRevenue : null
+  const safeEbitda = Number.isFinite(currentEbitda) ? currentEbitda : null
+  const revDiffers =
+    snap.revenue != null && (safeRev == null || Math.abs(safeRev - snap.revenue) > 0.01)
+  const ebitdaDiffers =
+    snap.ebitda != null && (safeEbitda == null || Math.abs(safeEbitda - snap.ebitda) > 0.01)
 
   if (!revDiffers && !ebitdaDiffers) return null
 
@@ -230,7 +235,7 @@ function NbbResetHint({
         }}
         className="underline underline-offset-2 hover:text-blue-600 transition-colors"
       >
-        Herstel naar NBB-waarden
+        {t('resetToNbb')}
       </button>
     </div>
   )

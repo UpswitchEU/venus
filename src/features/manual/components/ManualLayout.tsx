@@ -118,6 +118,7 @@ import {
   spotlightDomId,
   useSpotlightStore,
 } from '../../../store/useSpotlightStore'
+import { useNbbPrefillStore } from '../../../store/useNbbPrefillStore'
 import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
@@ -468,7 +469,11 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
             })),
             existingHistoricalYears
           )
-        : existingHistoricalYears,
+        : latestHistorical
+          ? existingHistoricalYears.filter(
+              (y: any) => Number(y.year) < parseInt(latestHistorical.year)
+            )
+          : existingHistoricalYears,
     forecast_years_data:
       forecastRows.length > 0
         ? mergeYearDataRows(
@@ -3795,6 +3800,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       useManualResultsStore.getState().setCalculating(false)
       useNormalizationStore.getState().clear()
       useTaxLatencyStore.getState().clear()
+      useNbbPrefillStore.getState().clear()
       if (reportId) useVersionHistoryStore.getState().clearVersions(reportId)
       setShowNewValuationModal(false)
       // Use full page navigation to ensure clean slate and UI unlock (avoids skeleton trap)
