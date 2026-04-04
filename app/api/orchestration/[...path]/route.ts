@@ -22,10 +22,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 
-const TITAN_API_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.upswitch.app'
+const TITAN_API_URL = (() => {
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (!url) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('NEXT_PUBLIC_BACKEND_URL or NEXT_PUBLIC_API_BASE_URL must be set in production');
+    }
+    return 'http://localhost:3002';
+  }
+  return url;
+})()
 
 function buildTitanUrl(path: string[], searchParams: URLSearchParams): string {
   const pathStr = path.join('/')
