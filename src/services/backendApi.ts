@@ -208,6 +208,7 @@ class BackendAPI {
       ebitda_normalization: boolean
       version_control: boolean
       integrations_enabled: boolean
+      valuation_synthesis: boolean
     }
   }> {
     return this.creditAPI.getUserPlan()

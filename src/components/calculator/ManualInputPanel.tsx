@@ -111,7 +111,6 @@ import type {
   OfficialFinancialsPayload,
   OfficialVarianceAnalysis,
   OfficialVerificationBadge,
-  ValuationMethodResult,
   YearDataInput,
 } from '../../types/valuation'
 import {
@@ -173,7 +172,6 @@ import {
   SdeOwnerCompensationSection,
   SECTION_HEADER_ROW_CLASS,
   SectionStatusCircle,
-  SynthesisWeightingSection,
 } from './sections'
 import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
 import {
@@ -1652,13 +1650,7 @@ export function ManualInputPanel({
   const effectiveMethods = useManualResultsStore((s) => s.preSelectedMethods)
   const hasDcfSelected = effectiveMethods.includes('dcf')
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
-  const userWeights = useManualResultsStore((s) => s.userWeights)
-  const userWeightJustification = useManualResultsStore((s) => s.userWeightJustification)
-  const setUserWeights = useManualResultsStore((s) => s.setUserWeights)
-  const setUserWeightJustification = useManualResultsStore((s) => s.setUserWeightJustification)
-  const omniValuationResults = useManualResultsStore(
-    (s) => s.result?.valuation_results as Record<string, ValuationMethodResult> | undefined
-  )
+  // Synthesis weighting moved to results panel — store selectors no longer needed here
   const prevMethodRef = useRef<string | null>(null)
   useEffect(() => {
     const prev = prevMethodRef.current
@@ -4041,19 +4033,7 @@ export function ManualInputPanel({
                 disabled={isCalculating}
               />
 
-              {/* Synthesis weighting sliders — visible when 2+ methods selected */}
-              {effectiveMethods.length > 1 && !effectiveMethods.includes('upswitch_adaptive') && (
-                <SynthesisWeightingSection
-                  methods={effectiveMethods}
-                  weights={userWeights}
-                  justification={userWeightJustification}
-                  onWeightsChange={setUserWeights}
-                  onJustificationChange={setUserWeightJustification}
-                  step={Object.keys(adaptiveHeaderSteps).length + (hasDcfForecastWorkspace ? 8 : 4)}
-                  disabled={isCalculating}
-                  valuationResults={omniValuationResults}
-                />
-              )}
+              {/* Synthesis weighting moved to Results panel (post-calculation "Advisor Tweak") */}
             </div>
 
             {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}

@@ -18,7 +18,7 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
   historicalInputs,
   onChange,
   onBlur,
-  foundingYear,
+  foundingYear: _foundingYear,
   currentYear,
 }) => {
   // Helper function to update historical data
@@ -30,8 +30,6 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
     })
   }
 
-  // Always show the same filing-based window (two prior years vs base); do not drop
-  // years before founding — those stay visible with empty/disabled inputs.
   const calculateHistoricalYears = (): number[] => {
     const filingYear = currentYear ?? getCurrentFilingYear()
     return getHistoricalYearRange(filingYear, 2, 1)
@@ -57,9 +55,8 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
       {yearsToShow.map((year) => {
         const revenueKey = `${year}_revenue`
         const ebitdaKey = `${year}_ebitda`
-        const isPreFounding = foundingYear != null && year < foundingYear
-        const revenue = isPreFounding ? '' : historicalInputs[revenueKey] || ''
-        const ebitda = isPreFounding ? '' : historicalInputs[ebitdaKey] || ''
+        const revenue = historicalInputs[revenueKey] || ''
+        const ebitda = historicalInputs[ebitdaKey] || ''
 
         // Check if this year has normalization
         const isNormalized = hasNormalization(year)
@@ -93,16 +90,10 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
                 step={1000}
                 prefix="€"
                 formatAsCurrency
-                disabled={isPreFounding}
-                helpText={
-                  isPreFounding
-                    ? 'Year is before company founding — leave empty or use current-year data above.'
-                    : undefined
-                }
               />
             </div>
             <div>
-              {!isPreFounding && isNormalized && sessionId ? (
+              {isNormalized && sessionId ? (
                 <NormalizedEBITDAField
                   label="EBITDA (€)"
                   originalValue={
@@ -136,16 +127,10 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
                     step={1000}
                     prefix="€"
                     formatAsCurrency
-                    disabled={isPreFounding}
-                    helpText={
-                      isPreFounding
-                        ? 'Year is before company founding — leave empty or use current-year data above.'
-                        : undefined
-                    }
                   />
 
                   {/* EBITDA Normalization Link */}
-                  {!isPreFounding && sessionId && ebitda && parseFloat(ebitda.replace(/,/g, '')) !== 0 && (
+                  {sessionId && ebitda && parseFloat(ebitda.replace(/,/g, '')) !== 0 && (
                     <div className="mt-3">
                       <button
                         type="button"

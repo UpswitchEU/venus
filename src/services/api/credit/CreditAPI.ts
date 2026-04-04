@@ -54,6 +54,7 @@ export class CreditAPI extends HttpClient {
       ebitda_normalization: boolean
       version_control: boolean
       integrations_enabled: boolean
+      valuation_synthesis: boolean
     }
     /** Bonus valuations earned via client invite acceptance */
     bonus_valuations?: number
@@ -75,6 +76,7 @@ export class CreditAPI extends HttpClient {
             ebitda_normalization?: boolean
             version_control?: boolean
             integrations_enabled?: boolean
+            valuation_synthesis?: boolean
           }
         | undefined
       return {
@@ -101,6 +103,7 @@ export class CreditAPI extends HttpClient {
                 ebitda_normalization: rawFeatures.ebitda_normalization,
                 version_control: rawFeatures.version_control,
                 integrations_enabled: rawFeatures.integrations_enabled,
+                valuation_synthesis: rawFeatures.valuation_synthesis ?? false,
               }
             : undefined,
         bonus_valuations:

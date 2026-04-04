@@ -432,7 +432,6 @@ describe('useBootstrapPrefill', () => {
       ebitda: 95000,
     })
     expect(formData.historical_years_data).toEqual([
-      { year: 2024, revenue: 950000, ebitda: 95000 },
       { year: 2023, revenue: 850000, ebitda: 85000 },
     ])
   })

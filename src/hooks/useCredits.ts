@@ -30,6 +30,7 @@ export interface PlanFeatureFlags {
   ebitda_normalization: boolean
   version_control: boolean
   integrations_enabled: boolean
+  valuation_synthesis: boolean
 }
 
 function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
@@ -39,6 +40,7 @@ function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
       ebitda_normalization: false,
       version_control: false,
       integrations_enabled: false,
+      valuation_synthesis: false,
     }
   }
   if (pt === 'starter') {
@@ -46,12 +48,14 @@ function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
       ebitda_normalization: true,
       version_control: true,
       integrations_enabled: false,
+      valuation_synthesis: true,
     }
   }
   return {
     ebitda_normalization: true,
     version_control: true,
     integrations_enabled: ['pro', 'expert', 'enterprise'].includes(pt),
+    valuation_synthesis: ['starter', 'pro', 'expert', 'enterprise'].includes(pt),
   }
 }
 
@@ -155,6 +159,7 @@ export const useCredits = (): CreditContextValue => {
         ebitda_normalization: true,
         version_control: true,
         integrations_enabled: true,
+        valuation_synthesis: true,
       }
     }
     if (!plan) return null

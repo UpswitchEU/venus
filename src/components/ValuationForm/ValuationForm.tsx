@@ -286,7 +286,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       formData.current_year_data?.year,
       Boolean(formData.filing_year_confirmed)
     )
-    const foundingYear = formData.founding_year
     const historicalYears: { year: number; revenue: number; ebitda: number }[] = []
 
     // Extract all years from historicalInputs
@@ -296,13 +295,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       if (match) {
         const year = parseInt(match[1])
         if (year >= 2000 && year <= maxHistoricalYear) {
-          if (
-            typeof foundingYear === 'number' &&
-            Number.isFinite(foundingYear) &&
-            year < foundingYear
-          ) {
-            return
-          }
           yearSet.add(year)
         }
       }
@@ -359,7 +351,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     }
   }, [
     formData.current_year_data?.year,
-    formData.founding_year,
     formData.filing_year_confirmed,
     historicalInputs,
     updateFormData,
