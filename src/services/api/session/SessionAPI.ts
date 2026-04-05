@@ -10,6 +10,7 @@
 import { CreateValuationSessionRequest, UpdateValuationSessionRequest } from '../../../types/api'
 import type {
   CreateValuationSessionResponse,
+  SaveValuationResultResponse,
   SwitchViewResponse,
   UpdateValuationSessionResponse,
   ValuationSessionResponse,
@@ -26,6 +27,55 @@ import { normalizeSessionData } from '../../session/SessionNormalizer'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 export class SessionAPI extends HttpClient {
+  private normalizeBackendSessionPayload(sessionData: any): any {
+    const payload = { ...sessionData }
+
+    if (!payload.reportId && payload.session_key) {
+      payload.reportId = payload.session_key
+    }
+
+    if (payload.view_type === 'simple' && !payload.currentView) {
+      payload.currentView = 'manual'
+    } else if (payload.view_type === 'advanced' && !payload.currentView) {
+      payload.currentView = 'conversational'
+    }
+
+    if (payload.session_data && typeof payload.session_data === 'object') {
+      const backendSessionData = payload.session_data
+      payload.sessionData = payload.sessionData
+        ? { ...backendSessionData, ...payload.sessionData }
+        : backendSessionData
+      payload.partialData = payload.partialData
+        ? { ...backendSessionData, ...payload.partialData }
+        : backendSessionData
+
+      if (backendSessionData.currentView && !payload.currentView) {
+        payload.currentView = backendSessionData.currentView
+      }
+    }
+
+    if ((payload.currentView as string) === 'ai-guided') {
+      payload.currentView = 'conversational'
+    }
+    if (payload.dataSource === 'ai-guided') {
+      payload.dataSource = 'conversational'
+    }
+
+    const normalized = normalizeSessionData(payload)
+    return {
+      ...payload,
+      status: payload.status ?? normalized.status,
+      reportReady:
+        typeof payload.reportReady === 'boolean'
+          ? payload.reportReady
+          : normalized.reportReady,
+      valuationResult: normalized.valuationResult,
+      htmlReport: normalized.htmlReport,
+      _normalizedFormData: normalized.formData,
+      _isNormalized: true,
+    }
+  }
+
   private static deletedSessionTombstones = new Map<string, number>()
   private static readonly DELETION_TOMBSTONE_TTL_MS = 120000
 
@@ -204,20 +254,7 @@ export class SessionAPI extends HttpClient {
 
       // ✅ WORLD-CLASS: Normalize session data at API boundary
       // This is the SINGLE place where we convert backend naming to frontend naming
-      const normalized = normalizeSessionData(sessionData)
-
-      // Promote normalized fields to top level for easy access
-      // This ensures consistent access patterns throughout the app
-      const enrichedSessionData = {
-        ...sessionData,
-        // Promote key fields from normalized data to top level
-        valuationResult: normalized.valuationResult,
-        htmlReport: normalized.htmlReport,
-        // Keep the normalized form data accessible
-        _normalizedFormData: normalized.formData,
-        // Mark as normalized so consumers know they can trust field names
-        _isNormalized: true,
-      }
+      const enrichedSessionData = this.normalizeBackendSessionPayload(sessionData)
 
       // Return in expected format
       return {
@@ -1031,9 +1068,9 @@ export class SessionAPI extends HttpClient {
       name?: string // ✅ NEW: Custom valuation name (e.g., "Amadeus report")
     },
     options?: APIRequestConfig
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<SaveValuationResultResponse> {
     try {
-      const response = await this.executeRequest<{ success: boolean; message: string }>(
+      const response = await this.executeRequest<SaveValuationResultResponse>(
         {
           method: 'PUT',
           url: `/api/v2/valuations/sessions/${reportId}/result`,
@@ -1055,9 +1092,23 @@ export class SessionAPI extends HttpClient {
         hasValuationResult: !!data.valuationResult,
         hasHtmlReport: !!data.htmlReport,
         htmlReportLength: data.htmlReport?.length || 0,
+        reportReady: response?.reportReady ?? null,
+        hasSession: !!response?.session,
       })
 
-      return response
+      if (!response) {
+        return {
+          success: true,
+          message: 'Valuation result saved',
+        }
+      }
+
+      return {
+        ...response,
+        session: response.session
+          ? this.normalizeBackendSessionPayload(response.session)
+          : response.session,
+      }
     } catch (error) {
       apiLogger.error('Failed to save valuation result to session', {
         reportId,

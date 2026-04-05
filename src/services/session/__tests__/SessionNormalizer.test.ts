@@ -158,6 +158,18 @@ describe('normalizeSessionData', () => {
     })
   })
 
+  it('marks completed sessions without output assets as not report-ready', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_pending',
+      status: 'completed',
+      session_data: {
+        company_name: 'Pending Co',
+      },
+    })
+
+    expect(normalized.reportReady).toBe(false)
+  })
+
   it('normalizes legacy shares_for_sale values to 100', () => {
     const normalizedSnake = normalizeSessionData({
       session_key: 'val_shares_snake',

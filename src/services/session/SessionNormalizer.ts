@@ -61,6 +61,7 @@ export interface NormalizedSessionData {
   valuationResult: ValuationResponse | null
   htmlReport: string | null
   pricingRange: PricingRange | null
+  reportReady: boolean
 
   // Client context (for accountant flow)
   clientContext: {
@@ -430,6 +431,24 @@ function hasExistingData(
   return hasFormData || hasResult || hasOutput
 }
 
+function deriveReportReady(params: {
+  backendSession: any
+  valuationResult: ValuationResponse | null
+  htmlReport: string | null
+}): boolean {
+  const explicitReady = params.backendSession?.reportReady
+  if (typeof explicitReady === 'boolean') {
+    return explicitReady
+  }
+
+  const status = params.backendSession?.status
+  if (status === 'completed') {
+    return !!(params.valuationResult || params.htmlReport?.trim())
+  }
+
+  return true
+}
+
 /**
  * Main normalization function
  *
@@ -457,6 +476,11 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
   const htmlReport = extractHtmlReport(sessionData, backendSession)
   const pricingRange = extractPricingRange(sessionData, backendSession)
   const clientContext = extractClientContext(sessionData)
+  const reportReady = deriveReportReady({
+    backendSession,
+    valuationResult,
+    htmlReport,
+  })
 
   const preKey = SESSION_PRE_SELECTED_VALUATION_METHOD_KEY
   const altKey = SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY
@@ -513,6 +537,7 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     valuationResult,
     htmlReport,
     pricingRange,
+    reportReady,
 
     // Context
     clientContext,
@@ -531,6 +556,7 @@ export function normalizeSessionData(backendSession: any): NormalizedSessionData
     hasValuationResult: !!normalized.valuationResult,
     hasHtmlReport: !!normalized.htmlReport,
     hasPricingRange: !!normalized.pricingRange,
+    reportReady: normalized.reportReady,
     hasClientContext: !!normalized.clientContext,
     formDataKeys: Object.keys(normalized.formData),
   })
@@ -553,6 +579,7 @@ export function createEmptyNormalizedData(reportId: string): NormalizedSessionDa
     valuationResult: null,
     htmlReport: null,
     pricingRange: null,
+    reportReady: true,
     clientContext: null,
     dataSource: 'manual',
     hasExistingData: false,

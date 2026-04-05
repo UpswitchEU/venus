@@ -35,6 +35,12 @@ export interface ISessionEngine {
   updateSession(updates: Partial<ValuationSession>): void
 
   /**
+   * Hydrate session from an authoritative remote/bootstrap source.
+   * Updates local state without marking it as user-dirty.
+   */
+  hydrateSession(updates: Partial<ValuationSession>): void
+
+  /**
    * Save session to backend
    * Backend persistence (auto-save or explicit user action)
    */

@@ -165,7 +165,7 @@ export class ReportService {
 
       // Save complete package to backend in single API call
       const putResultStartTime = performance.now()
-      await sessionAPI.saveValuationResult(reportId, {
+      const saveResponse = await sessionAPI.saveValuationResult(reportId, {
         sessionData: sessionDataWithContext,
         valuationResult: assets.valuationResult,
         htmlReport: assets.htmlReport,
@@ -179,6 +179,8 @@ export class ReportService {
         hasValuationResult: !!assets.valuationResult,
         hasHtmlReport: !!assets.htmlReport,
         duration_ms: putResultDuration.toFixed(2),
+        reportReady: saveResponse.reportReady ?? null,
+        hasAuthoritativeSession: !!saveResponse.session,
         timestamp: new Date().toISOString(),
       })
 
@@ -202,154 +204,59 @@ export class ReportService {
       try {
         const { sessionService } = await import('../session/SessionService')
         const { globalSessionCache } = await import('../../utils/sessionCacheManager')
+        const { useSessionStore } = await import('../../store/useSessionStore')
+        const authoritativeSession = saveResponse.session
 
         logger.info('[ReportService] Starting cache update after report save', {
           reportId,
           hasHtmlReport: !!assets.htmlReport,
+          hasAuthoritativeSession: !!authoritativeSession,
+          reportReady: saveResponse.reportReady ?? authoritativeSession?.reportReady ?? null,
         })
 
-        // Clear cache first to ensure we fetch fresh data from backend
         globalSessionCache.remove(reportId)
-        logger.debug('[ReportService] Cache cleared, fetching fresh session from backend', {
-          reportId,
-        })
-
-        // Delay to ensure database write is visible (eventual consistency on Railway Postgres)
-        await new Promise((resolve) => setTimeout(resolve, 300))
-
-        // ✅ FIX: Reload session from backend AFTER PUT /result completes
-        // This ensures cache has latest data including HTML reports
-        const reloadStartTime = performance.now()
-        const putResultDuration_ms = putResultDuration.toFixed(2)
-        logger.info('[ReportService] DIAGNOSTIC: Starting session reload after PUT /result', {
-          reportId,
-          timestamp: new Date().toISOString(),
-          putResultDuration_ms,
-          note: 'Reloading to update cache with fresh data from backend',
-        })
-
-        const freshSession = await sessionService.loadSession(reportId)
-        const reloadDuration = performance.now() - reloadStartTime
-
-        logger.info('[ReportService] DIAGNOSTIC: Session reload completed', {
-          reportId,
-          reloadDuration_ms: reloadDuration.toFixed(2),
-          hasSession: !!freshSession,
-          hasHtmlReport: !!freshSession?.htmlReport,
-          htmlReportLength: freshSession?.htmlReport?.length || 0,
-          timestamp: new Date().toISOString(),
-        })
-
-        // ✅ CRITICAL: Update session store with fresh data so UI can restore HTML reports
-        // This ensures restoration effects see the updated session with HTML reports
-        if (freshSession) {
-          try {
-            const { useSessionStore } = await import('../../store/useSessionStore')
-            useSessionStore.getState().updateSession(freshSession)
-            logger.info('[ReportService] DIAGNOSTIC: Session store updated with fresh data', {
-              reportId,
-              hasHtmlReport: !!freshSession.htmlReport,
-              htmlReportLength: freshSession.htmlReport?.length || 0,
-              timestamp: new Date().toISOString(),
-            })
-          } catch (storeError) {
-            logger.error('[ReportService] Failed to update session store after reload', {
-              reportId,
-              error: storeError instanceof Error ? storeError.message : String(storeError),
-            })
-          }
+        if (authoritativeSession) {
+          globalSessionCache.set(reportId, authoritativeSession)
+          useSessionStore.getState().hydrateSession(authoritativeSession)
         }
 
-        if (freshSession) {
-          // ✅ FIX: Check for valuation result instead of HTML reports
-          // HTML reports are excluded from cache, so we verify valuation result exists
-          const hasValuationResult = !!freshSession.valuationResult
-          const hasHtmlReportInBackend = !!freshSession.htmlReport
+        const needsImmediateReload =
+          !authoritativeSession ||
+          authoritativeSession.reportReady === false ||
+          saveResponse.reportReady === false
 
-          if (!hasValuationResult) {
-            logger.warn('[ReportService] Fresh session missing valuation result, will retry', {
-              reportId,
-              hasValuationResult,
-              hasHtmlReport: hasHtmlReportInBackend,
-            })
-
-            // Retry once after another delay
-            await new Promise((resolve) => setTimeout(resolve, 200))
-            const retrySession = await sessionService.loadSession(reportId)
-
-            if (retrySession && retrySession.valuationResult) {
-              // Cache session (HTML reports excluded, fetched from backend on demand)
-              globalSessionCache.set(reportId, retrySession)
-              logger.info('[ReportService] Cache updated after retry (SUCCESS)', {
-                reportId,
-                reloadDuration_ms: (performance.now() - reloadStartTime).toFixed(2),
-                hasValuationResult: !!retrySession.valuationResult,
-                hasHtmlReportInBackend: !!retrySession.htmlReport,
-                hasSessionData: !!retrySession.sessionData,
-                note: 'HTML reports excluded from cache, fetched from backend on demand',
-              })
-            } else {
-              logger.error(
-                '[ReportService] Cache update failed even after retry - session still incomplete',
-                {
-                  reportId,
-                  hasValuationResult: !!retrySession?.valuationResult,
-                }
-              )
-            }
-          } else {
-            // Session has valuation result, cache it (HTML reports excluded, but sessionData included)
-            const cacheStartTime = performance.now()
-
-            // ✅ CRITICAL: Verify sessionData (form input fields) is included before caching
-            // This ensures form fields can be restored from localStorage when revisiting
-            const hasSessionData = !!freshSession.sessionData
-            const sessionDataKeys = freshSession.sessionData
-              ? Object.keys(freshSession.sessionData)
-              : []
-            const sessionData = freshSession.sessionData || ({} as any)
-            const hasFormFields =
-              hasSessionData &&
-              (sessionData.company_name ||
-                (sessionData.current_year_data as any)?.revenue ||
-                (sessionData.current_year_data as any)?.ebitda ||
-                sessionData.current_year_data)
-
-            if (!hasSessionData) {
-              logger.warn(
-                '[ReportService] Fresh session missing sessionData (form fields) - cache may be incomplete',
-                {
-                  reportId,
-                  note: 'Form fields may not restore properly from cache',
-                }
-              )
-            }
-
-            globalSessionCache.set(reportId, freshSession)
-            const cacheDuration = performance.now() - cacheStartTime
-
-            logger.info('[ReportService] DIAGNOSTIC: Cache updated with fresh session (SUCCESS)', {
-              reportId,
-              putResultDuration_ms,
-              reloadDuration_ms: reloadDuration.toFixed(2),
-              cacheDuration_ms: cacheDuration.toFixed(2),
-              totalDuration_ms: (performance.now() - startTime).toFixed(2),
-              hasValuationResult: !!freshSession.valuationResult,
-              hasHtmlReportInBackend: hasHtmlReportInBackend,
-              htmlReportLength: freshSession.htmlReport?.length || 0,
-              hasSessionData,
-              hasFormFields,
-              sessionDataKeys: sessionDataKeys.slice(0, 10), // Log first 10 keys
-              sessionDataKeysCount: sessionDataKeys.length,
-              timestamp: new Date().toISOString(),
-              note: 'HTML reports excluded from cache, but sessionData (form fields) included for restoration',
-            })
-          }
+        if (!needsImmediateReload) {
+          sessionService.revalidateSessionInBackground(reportId)
+          logger.info('[ReportService] Cache updated from authoritative PUT /result response', {
+            reportId,
+            hasValuationResult: !!authoritativeSession.valuationResult,
+            hasHtmlReport: !!authoritativeSession.htmlReport,
+            hasSessionData: !!authoritativeSession.sessionData,
+          })
         } else {
-          logger.error(
-            '[ReportService] Failed to reload session after report save - session is null',
-            { reportId }
-          )
+          const reloadStartTime = performance.now()
+          let freshSession = await sessionService.loadSession(reportId)
+
+          if (freshSession && freshSession.reportReady === false) {
+            logger.warn('[ReportService] Immediate reload still not report-ready, retrying once', {
+              reportId,
+            })
+            freshSession = await sessionService.loadSession(reportId)
+          }
+
+          if (freshSession) {
+            globalSessionCache.set(reportId, freshSession)
+            useSessionStore.getState().hydrateSession(freshSession)
+            logger.info('[ReportService] Cache updated from immediate post-save reload', {
+              reportId,
+              reloadDuration_ms: (performance.now() - reloadStartTime).toFixed(2),
+              hasValuationResult: !!freshSession.valuationResult,
+              hasHtmlReport: !!freshSession.htmlReport,
+              reportReady: freshSession.reportReady ?? null,
+            })
+          } else {
+            logger.error('[ReportService] Failed to reload session after report save', { reportId })
+          }
         }
       } catch (cacheError) {
         // Don't fail the entire save operation if cache update fails

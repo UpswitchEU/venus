@@ -21,6 +21,7 @@ import React, {
 import { generalLogger } from '../../utils/logger'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
 import { setBootstrapState } from '../sessionInitialization'
+import { shouldHydrateBootstrapPackage } from './packageHydration'
 import { AuthenticationRequiredError } from './resolvers/AuthResolver'
 import { bootstrapService } from './SessionBootstrapService'
 import type {
@@ -338,19 +339,20 @@ export function BootstrapProvider({
 
       // WORLD-CLASS: Instant hydration from valuationPackage
       // If package is present, hydrate stores immediately for < 100ms render
-      if (result.valuationPackage && result.report.mode === 'existing') {
+      if (shouldHydrateBootstrapPackage(result.report, result.valuationPackage)) {
+        const valuationPackage = result.valuationPackage!
         try {
           const { SessionRestorationService } = await import(
             '../../services/session/SessionRestorationService'
           )
           SessionRestorationService.hydrateFromPackage(
             result.report.reportId,
-            result.valuationPackage,
+            valuationPackage,
             result.ui.suggestedFlow || 'manual'
           )
           generalLogger.debug('[BootstrapProvider] WORLD-CLASS: Instant hydration complete', {
             reportId: result.report.reportId.substring(0, 30),
-            hasHtmlReport: !!result.valuationPackage.htmlReport,
+            hasHtmlReport: !!valuationPackage.htmlReport,
           })
         } catch (hydrationError) {
           generalLogger.warn(
@@ -383,6 +385,25 @@ export function BootstrapProvider({
               error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
             })
           }
+        }
+      } else if (result.report.mode === 'existing' && result.report.hasExistingData) {
+        try {
+          const { SessionRestorationService } = await import(
+            '../../services/session/SessionRestorationService'
+          )
+          SessionRestorationService.markForRestoration(result.report.reportId)
+          generalLogger.debug(
+            '[BootstrapProvider] Deferred package hydration until explicit report readiness',
+            {
+              reportId: result.report.reportId.substring(0, 30),
+              reportReady: result.report.reportReady,
+              hasPackage: !!result.valuationPackage,
+            }
+          )
+        } catch (fallbackError) {
+          generalLogger.error('[BootstrapProvider] Failed to mark pending restoration', {
+            error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+          })
         }
       }
 

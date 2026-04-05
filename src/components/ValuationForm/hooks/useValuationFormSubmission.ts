@@ -394,9 +394,52 @@ export const useValuationFormSubmission = (
           // Store result in results store
           setResult(result)
 
+          let durableSaveSucceeded = !reportId
+
+          // CRITICAL: Save complete session atomically (form data + results + HTML reports)
+          // This is the durable first-paint path; defer version sync until it succeeds.
+          if (reportId) {
+            const saveStartDirtyVersion = useSessionStore.getState().dirtyVersion
+            try {
+              generalLogger.debug('[Manual] Saving report assets', { reportId })
+
+              await reportService.saveReportAssets(reportId, {
+                sessionData: formData,
+                valuationResult: result,
+                htmlReport: result.html_report,
+                name: sessionName,
+              })
+
+              generalLogger.info(
+                '[Manual] Complete report package saved atomically after calculation',
+                {
+                  reportId,
+                  hasSessionData: !!formData,
+                  sessionDataKeys: formData ? Object.keys(formData) : [],
+                  hasResult: !!result,
+                  hasHtmlReport: !!result.html_report,
+                  htmlReportLength: result.html_report?.length || 0,
+                }
+              )
+
+              useSessionStore.getState().markSaved(saveStartDirtyVersion)
+              durableSaveSucceeded = true
+            } catch (saveError) {
+              const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
+              generalLogger.error('[Manual] Failed to save complete report package', {
+                reportId,
+                error: errMsg,
+              })
+              toast.error(tReport('saveReportFailed'), { description: errMsg })
+            }
+          } else {
+            generalLogger.debug('[Manual] No reportId, skipping save')
+            useSessionStore.getState().markSaved(useSessionStore.getState().dirtyVersion)
+          }
+
           // M&A Workflow: Create version for first calculation or regeneration
           // FIX: Sync from backend first - Titan may have created V1 during calculate (avoids V1/V2 race)
-          if (reportId) {
+          if (reportId && durableSaveSucceeded) {
             try {
               await fetchVersions(reportId)
               const latestAfterSync = getLatestVersion(reportId)
@@ -485,53 +528,10 @@ export const useValuationFormSubmission = (
               }
               toast.error(t('versionCreateFailed'), { description: errMsg })
             }
-          }
-
-          // CRITICAL: Save complete session atomically (form data + results + HTML reports)
-          // This ensures everything can be restored when user returns later
-          // Note: Saving handled by unified session store
-
-          if (reportId) {
-            try {
-              generalLogger.debug('[Manual] Saving report assets', { reportId })
-
-              // ATOMIC SAVE: Save complete package in single API call
-              // - sessionData: Original form inputs for restoration
-              // - valuationResult: Calculation result
-              // - htmlReport: Main report HTML
-              // - name: Custom valuation name (e.g., "Amadeus report")
-              await reportService.saveReportAssets(reportId, {
-                sessionData: formData, // ✅ NEW: Include input data
-                valuationResult: result,
-                htmlReport: result.html_report,
-                name: sessionName, // ✅ NEW: Include custom valuation name
-              })
-
-              generalLogger.info(
-                '[Manual] Complete report package saved atomically after calculation',
-                {
-                  reportId,
-                  hasSessionData: !!formData,
-                  sessionDataKeys: formData ? Object.keys(formData) : [],
-                  hasResult: !!result,
-                  hasHtmlReport: !!result.html_report,
-                  htmlReportLength: result.html_report?.length || 0,
-                }
-              )
-
-              useSessionStore.getState().markSaved()
-            } catch (saveError) {
-              const errMsg =
-                saveError instanceof Error ? saveError.message : String(saveError)
-              generalLogger.error('[Manual] Failed to save complete report package', {
-                reportId,
-                error: errMsg,
-              })
-              toast.error(tReport('saveReportFailed'), { description: errMsg })
-            }
-          } else {
-            generalLogger.debug('[Manual] No reportId, skipping save')
-            useSessionStore.getState().markSaved()
+          } else if (reportId) {
+            generalLogger.warn('[Manual] Skipping version sync until durable asset save succeeds', {
+              reportId,
+            })
           }
 
           generalLogger.info('Valuation calculated successfully', {

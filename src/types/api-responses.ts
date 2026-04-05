@@ -38,6 +38,14 @@ export interface SaveValuationResponse {
   saved_at?: string
 }
 
+export interface SaveValuationResultResponse {
+  success: boolean
+  reportId?: string
+  message: string
+  reportReady?: boolean
+  session?: ValuationSession
+}
+
 // Guest/Migration API responses
 export interface GuestMigrationResponse {
   success: boolean

@@ -1492,6 +1492,8 @@ export interface ValuationSession {
   reportId: string // Links to report URL (val_timestamp_random format) - single ID for everything
   currentView: 'manual' | 'conversational' // Current UI view
   dataSource: 'manual' | 'conversational' | 'mixed' // Tracks which flow provided data
+  status?: 'active' | 'completed' | 'expired' | string
+  reportReady?: boolean
   name?: string // Custom valuation name (e.g., "Amadeus report")
 
   // Timestamps

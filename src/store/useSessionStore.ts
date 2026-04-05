@@ -43,6 +43,7 @@ interface SessionStore {
   isSaving: boolean
   lastSaved: Date | null
   hasUnsavedChanges: boolean
+  dirtyVersion: number
 
   // Restoration progress tracking
   restorationProgress: RestorationProgress | null
@@ -70,6 +71,7 @@ interface SessionStore {
     prefilledQuery?: string | null
   ) => Promise<void>
   updateSession: (updates: Partial<ValuationSession>) => void
+  hydrateSession: (updates: Partial<ValuationSession>) => void
   updateSessionData: (data: Partial<any>) => Promise<void>
   saveSession: (reason?: 'user' | 'autosave' | 'system') => Promise<void>
   clearSession: () => void
@@ -84,7 +86,7 @@ interface SessionStore {
   // Helpers
   getReportId: () => string | null
   getSessionData: () => any | null
-  markSaved: () => void
+  markSaved: (expectedDirtyVersion?: number) => void
   markUnsaved: () => void
 }
 
@@ -118,6 +120,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   isSaving: false,
   lastSaved: null,
   hasUnsavedChanges: false,
+  dirtyVersion: 0,
 
   // Other state
   restorationProgress: null,
@@ -299,6 +302,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           status: 'loaded' as SessionStatus,
           errorMessage: null,
           hasUnsavedChanges: false,
+          dirtyVersion: 0,
           lastSaved: session.updatedAt || null,
           isSaving: false,
         })
@@ -392,6 +396,70 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       set({
         session: updatedSession,
         hasUnsavedChanges: true,
+        dirtyVersion: state.dirtyVersion + 1,
+      })
+    }
+  },
+
+  hydrateSession: (updates: Partial<ValuationSession>) => {
+    const state = get()
+
+    if (!state.engine) {
+      if (!updates.reportId && !state.session) {
+        storeLogger.warn('[Session] Cannot hydrate - engine not initialized and no reportId')
+        return
+      }
+
+      set((current) => {
+        const nextSession = current.session
+          ? {
+              ...current.session,
+              ...updates,
+              sessionData: updates.sessionData
+                ? {
+                    ...(current.session?.sessionData || {}),
+                    ...updates.sessionData,
+                  }
+                : current.session?.sessionData,
+              partialData: updates.partialData
+                ? {
+                    ...(current.session?.partialData || {}),
+                    ...updates.partialData,
+                  }
+                : current.session?.partialData,
+            }
+          : ({
+              reportId: updates.reportId!,
+              currentView: updates.currentView || 'manual',
+              dataSource: updates.dataSource || 'manual',
+              createdAt: updates.createdAt || new Date(),
+              updatedAt: updates.updatedAt || updates.createdAt || new Date(),
+              sessionData: updates.sessionData || {},
+              partialData: updates.partialData || {},
+              ...(updates.status && { status: updates.status }),
+              ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
+              ...(updates.name && { name: updates.name }),
+              ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
+              ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
+            } as ValuationSession)
+
+        return {
+          session: nextSession,
+          hasUnsavedChanges: current.hasUnsavedChanges,
+          dirtyVersion: current.dirtyVersion,
+        }
+      })
+      return
+    }
+
+    state.engine.hydrateSession(updates)
+
+    const updatedSession = state.engine.getSession()
+    if (updatedSession) {
+      set({
+        session: updatedSession,
+        hasUnsavedChanges: state.hasUnsavedChanges,
+        dirtyVersion: state.dirtyVersion,
       })
     }
   },
@@ -426,6 +494,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       set({
         session: updatedSession,
         hasUnsavedChanges: true,
+        dirtyVersion: state.dirtyVersion + 1,
       })
     }
   },
@@ -451,8 +520,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // ✅ FIX: Capture hasUnsavedChanges BEFORE save starts (for toast callback)
     // This ensures we know if there were actual changes, even if state changes during save
     const hadUnsavedChangesBeforeSave = state.hasUnsavedChanges
+    const saveStartDirtyVersion = state.dirtyVersion
 
-    set({ isSaving: true, error: null })
+    set({ isSaving: true, errorMessage: null })
 
     try {
       storeLogger.debug('[Session] Saving session', {
@@ -503,11 +573,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
       // ✅ FIX: Update state AFTER callback is invoked
       // This ensures the ref still has the "before save" value when callback reads it
+      const latestState = get()
+      const hasNewLocalChanges = latestState.dirtyVersion !== saveStartDirtyVersion
       set({
         isSaving: false,
-        hasUnsavedChanges: false,
+        hasUnsavedChanges: hasNewLocalChanges ? latestState.hasUnsavedChanges : false,
         lastSaved: new Date(),
-        error: null,
+        errorMessage: null,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save session'
@@ -535,7 +607,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         // Don't set error state for non-critical errors - just mark as not saving
         set({
           isSaving: false,
-          error: null, // Don't show error for transient issues
+          errorMessage: null, // Don't show error for transient issues
         })
         return // Exit early - don't show error UI
       }
@@ -548,7 +620,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
       set({
         isSaving: false,
-        error: message,
+        errorMessage: message,
       })
 
       throw error
@@ -578,6 +650,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       isSaving: false,
       lastSaved: null,
       hasUnsavedChanges: false,
+      dirtyVersion: 0,
       restorationComplete: false,
     })
   },
@@ -648,12 +721,18 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   /**
    * Mark session as saved
    */
-  markSaved: () => {
-    set({
-      hasUnsavedChanges: false,
-      lastSaved: new Date(),
-      isSaving: false,
-      error: null,
+  markSaved: (expectedDirtyVersion?: number) => {
+    set((current) => {
+      const hasNewerChanges =
+        expectedDirtyVersion !== undefined && current.dirtyVersion !== expectedDirtyVersion
+
+      return {
+        hasUnsavedChanges: hasNewerChanges ? current.hasUnsavedChanges : false,
+        lastSaved: new Date(),
+        isSaving: false,
+        errorMessage: null,
+        dirtyVersion: current.dirtyVersion,
+      }
     })
 
     storeLogger.debug('[Session] Marked as saved')
@@ -665,6 +744,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   markUnsaved: () => {
     set({
       hasUnsavedChanges: true,
+      dirtyVersion: get().dirtyVersion + 1,
     })
   },
 }))

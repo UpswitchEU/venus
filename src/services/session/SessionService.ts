@@ -1186,7 +1186,8 @@ export class SessionService {
    */
   async saveSession(
     reportId: string,
-    updates: Partial<ValuationRequest>
+    updates: Partial<ValuationRequest> &
+      Partial<Pick<ValuationSession, 'currentView' | 'name'>>
   ): Promise<ValuationSession> {
     const startTime = performance.now()
 
@@ -1222,11 +1223,13 @@ export class SessionService {
       // Extract currentView if present (needed for session creation)
       const updatesAny = updates as any
 
-      // Extract currentView separately (it's a top-level session property, not part of sessionData)
+      // Extract top-level mutable fields separately so autosave can persist them too.
       const currentView = updatesAny.currentView || currentSession?.currentView || 'manual'
+      const hasExplicitName = Object.prototype.hasOwnProperty.call(updatesAny, 'name')
+      const name = hasExplicitName ? updatesAny.name : currentSession?.name
 
-      // sessionData should contain the actual form data (everything except currentView)
-      const { currentView: _, ...sessionDataWithoutView } = updatesAny
+      // sessionData should contain the actual form data, not top-level session metadata.
+      const { currentView: _, name: __, ...sessionDataWithoutView } = updatesAny
       const sessionData = updatesAny.sessionData || sessionDataWithoutView
 
       let response: any
@@ -1283,6 +1286,7 @@ export class SessionService {
           session_key: reportId, // Use reportId as session_key for idempotency
           reportId,
           currentView,
+          ...(name !== undefined && { name }),
           sessionData: mergedSessionData,
         } as any) // Type assertion needed because session_key is not in ValuationSession type
 
@@ -1296,7 +1300,7 @@ export class SessionService {
               ...((currentStoreSession.sessionData as any) || {}),
               _bootstrapCreated: undefined,
             }
-            storeState.updateSession({
+            storeState.hydrateSession({
               sessionData: updatedSessionData as any,
             })
             logger.debug('Removed _bootstrapCreated flag after successful creation', {
@@ -1309,6 +1313,7 @@ export class SessionService {
         const sessionUpdates: Partial<ValuationSession> = {
           sessionData: sessionData as any,
           ...(currentView && { currentView }),
+          ...(name !== undefined && { name }),
         }
 
         response = await backendAPI.updateValuationSession(reportId, sessionUpdates)
@@ -1320,6 +1325,12 @@ export class SessionService {
         // Backend returned session data - use it
         const normalizedSession = normalizeSessionDates(response.session)
         mergedSession = mergeSessionFields(normalizedSession)
+        if (name !== undefined && mergedSession.name === undefined) {
+          mergedSession = {
+            ...mergedSession,
+            name,
+          }
+        }
 
         // ✅ CONSOLIDATED: Business card fetch removed from saveSession
         // Business card data should come from:
@@ -1407,9 +1418,16 @@ export class SessionService {
             isComplete: false, // Session just created
             stage: 1, // Data entry stage
             status: 'draft', // Draft status
+            ...(name !== undefined && { name }),
           } as unknown as ValuationSession
         } else {
           mergedSession = reloadedSession
+          if (name !== undefined && mergedSession.name === undefined) {
+            mergedSession = {
+              ...mergedSession,
+              name,
+            }
+          }
         }
       }
 
@@ -1765,7 +1783,7 @@ export class SessionService {
           // Only update if the store still has the same reportId
           if (currentStoreSession?.reportId === reportId) {
             // Update the session with the revalidated HTML reports
-            useSessionStore.getState().updateSession({
+            useSessionStore.getState().hydrateSession({
               htmlReport: mergedSession.htmlReport,
               valuationResult: mergedSession.valuationResult,
               // Also update sessionData with merged fields

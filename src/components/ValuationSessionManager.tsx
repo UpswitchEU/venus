@@ -35,23 +35,13 @@ import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { looksLikeExistingReportId } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
+import {
+  canRenderReportSession,
+  hasAssetsInSession,
+  shouldAllowOptimisticMercuryRender,
+} from './sessionReadiness'
 
 type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
-
-/** Check if session has report assets (HTML, valuation result) for display */
-function hasAssetsInSession(session: ValuationSession | null): boolean {
-  if (!session) return false
-  const sd = (session.sessionData || {}) as Record<string, unknown>
-  return !!(
-    session.htmlReport?.trim() ||
-    session.valuationResult ||
-    sd._htmlReport ||
-    sd.htmlReport ||
-    sd.html_report ||
-    sd.valuation_result ||
-    sd.valuationResult
-  )
-}
 
 interface ValuationSessionManagerProps {
   reportId: string
@@ -178,6 +168,11 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // ROOT CAUSE FIX: Read session only when needed for stage calculation
     const session = useSessionStore((state) => state.session)
+    const sessionHasAssets = hasAssetsInSession(session)
+    const requiresRenderableAssets =
+      (bootstrapHasExistingSession &&
+        (!!bootstrap?.report.hasExistingData || bootstrap?.report.reportReady === false)) ||
+      session?.reportReady === false
 
     // ✅ RACE CONDITION FIX: Track if we've already initiated loading for this reportId
     // This prevents multiple concurrent loads when dependencies change rapidly
@@ -270,11 +265,26 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // prevents destructive actions until auth + bootstrap are ready.
     const stage: Stage = (() => {
       // If session is loaded and matches, always data-entry
-      if (session && session.reportId === reportId && !isLoading && !isInitializing) {
+      if (
+        !isLoading &&
+        !isInitializing &&
+        canRenderReportSession({
+          session,
+          reportId,
+          requiresRenderableAssets,
+        })
+      ) {
         return 'data-entry'
       }
-      // Mercury optimistic: render form during bootstrap instead of loading screen
-      if (isFromMercury && isBootstrapping && !isLoading) {
+      // Mercury optimistic rendering is only safe for brand new drafts.
+      if (
+        shouldAllowOptimisticMercuryRender({
+          isFromMercury,
+          isBootstrapping,
+          isLoading,
+          bootstrapMode: bootstrap?.report.mode ?? null,
+        })
+      ) {
         return 'data-entry'
       }
       // Surface errors so the UI shows an error screen instead of loading forever
@@ -346,7 +356,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       if (bootstrapHasExistingSession && session?.reportId === reportId) {
         const needsFullLoad =
           SessionRestorationService.isPendingRestoration(reportId) ||
-          (bootstrap.report.hasExistingData && !hasAssetsInSession(session))
+          session?.reportReady === false ||
+          (bootstrap.report.hasExistingData && !sessionHasAssets)
 
         if (needsFullLoad) {
           generalLogger.info(
@@ -354,8 +365,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             {
               reportId,
               isPendingRestoration: SessionRestorationService.isPendingRestoration(reportId),
-              hasAssets: hasAssetsInSession(session),
+              hasAssets: sessionHasAssets,
               hasExistingData: bootstrap.report.hasExistingData,
+              bootstrapReportReady: bootstrap.report.reportReady,
+              reportReady: session?.reportReady,
             }
           )
           // Clear restoration marker so the full API response wins over the bootstrap stub.

@@ -7,7 +7,7 @@
  * @module hooks/valuationToolbar/useValuationToolbarName
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { backendAPI } from '../../services/backendApi'
 import { useSessionStore } from '../../store/useSessionStore'
 import { generalLogger } from '../../utils/logger'
@@ -50,6 +50,36 @@ export const useValuationToolbarName = (
 
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState(initialName)
+
+  const persistName = useCallback(
+    async (name: string, reason: 'user' | 'autosave'): Promise<string> => {
+      const store = useSessionStore.getState()
+      const session = store.session
+
+      if (actualReportId && session?.reportId === actualReportId) {
+        store.updateSession({ name })
+        await store.saveSession(reason)
+        return useSessionStore.getState().session?.name || name
+      }
+
+      if (!actualReportId) {
+        generalLogger.debug('[useValuationToolbarName] No reportId available - name saved locally only')
+        return name
+      }
+
+      const response = await backendAPI.updateValuationSession(actualReportId, {
+        name,
+      } as any)
+
+      if (response?.session?.name) {
+        useSessionStore.getState().hydrateSession({ name: response.session.name })
+        return response.session.name
+      }
+
+      return name
+    },
+    [actualReportId]
+  )
 
   // Generate unique name based on company or default
   // ✅ NEW: Initialize from session.name if available, otherwise generate
@@ -105,19 +135,17 @@ export const useValuationToolbarName = (
           setGeneratedName(newName)
           setEditedName(newName)
 
-          // Auto-save to backend (fire-and-forget)
-          backendAPI
-            .updateValuationSession(actualReportId, {
-              name: newName,
-            } as any)
-            .then((response) => {
-              if (response?.session?.name) {
-                useSessionStore.getState().updateSession({ name: response.session.name })
-                generalLogger.debug('[useValuationToolbarName] Auto-saved valuation name', {
-                  reportId: actualReportId,
-                  name: response.session.name,
-                })
+          // Persist through the centralized session save path when possible.
+          persistName(newName, 'autosave')
+            .then((savedName) => {
+              if (savedName !== newName) {
+                setGeneratedName(savedName)
+                setEditedName(savedName)
               }
+              generalLogger.debug('[useValuationToolbarName] Auto-saved valuation name', {
+                reportId: actualReportId,
+                name: savedName,
+              })
             })
             .catch((error) => {
               generalLogger.warn('[useValuationToolbarName] Failed to auto-save valuation name', {
@@ -129,7 +157,7 @@ export const useValuationToolbarName = (
         }
       }
     }
-  }, [companyName, actualReportId, sessionName, generatedName, initialName, isEditingName])
+  }, [companyName, actualReportId, sessionName, generatedName, initialName, isEditingName, persistName])
 
   const nameInputRef = useRef<HTMLInputElement>(null)
 
@@ -152,7 +180,7 @@ export const useValuationToolbarName = (
     setIsEditingName(true)
   }
 
-  const handleNameSave = async () => {
+  const handleNameSave = useCallback(async () => {
     if (!editedName.trim()) {
       setEditedName(initialName) // Reset if empty
       setIsEditingName(false)
@@ -167,38 +195,15 @@ export const useValuationToolbarName = (
       const nameToSave = editedName.trim()
       generalLogger.info('Valuation name saved', { name: nameToSave, reportId: actualReportId })
 
-      // Persist to backend via session update if reportId is available
-      if (actualReportId) {
-        try {
-          const response = await backendAPI.updateValuationSession(actualReportId, {
-            name: nameToSave,
-          } as any)
-
-          // ✅ NEW: Update session store with the saved name to keep it in sync
-          if (response?.session?.name) {
-            useSessionStore.getState().updateSession({ name: response.session.name })
-            generalLogger.debug('Session store updated with saved name', {
-              reportId: actualReportId,
-              name: response.session.name,
-            })
-          }
-
-          generalLogger.debug('Valuation name persisted to backend', { reportId: actualReportId })
-        } catch (error) {
-          generalLogger.warn('Failed to persist valuation name to backend', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            reportId: actualReportId,
-          })
-          // Don't throw - name is already updated in UI
-        }
-      } else {
-        generalLogger.debug('No reportId available - name saved locally only')
-      }
+      const savedName = await persistName(nameToSave, 'user')
+      setGeneratedName(savedName)
+      setEditedName(savedName)
+      generalLogger.debug('Valuation name persisted', { reportId: actualReportId, name: savedName })
     } catch (error) {
       generalLogger.error('Failed to save valuation name', { error })
       // Note: We don't revert here since the UI update is already done
     }
-  }
+  }, [actualReportId, editedName, initialName, persistName])
 
   const handleNameCancel = () => {
     // Reset to current generated name (which may be from session)

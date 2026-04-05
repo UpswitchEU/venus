@@ -76,10 +76,6 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
     )
   }
 
-  if (!result) {
-    return null
-  }
-
   // No HTML but we may still have EV→equity steps (e.g. report_context from Titan)
   if (!htmlReport) {
     if (evEquitySteps && evEquitySteps.length > 0) {

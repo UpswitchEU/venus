@@ -1997,80 +1997,90 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Bridge: Result from Venus API → Report for Clarity components ───
   useEffect(() => {
     if (result) {
-      usePreparerMultipleStore.getState().syncFromValuationResult(result)
-      onComplete(result)
+      try {
+        usePreparerMultipleStore.getState().syncFromValuationResult(result)
+        onComplete(result)
 
-      const r = result as any
-      const presentation = deriveManualReportPresentation(r, selectedMethod)
-      const ebitda = Number(r.current_year_data?.ebitda) || 0
-      const normalizedEbitda = Number(r.latest_normalized_ebitda) || ebitda
-      const revenue = r.current_year_data?.revenue || 0
-      const p25 = r.multiples_valuation?.p25_ebitda_multiple
-      const p75 = r.multiples_valuation?.p75_ebitda_multiple
-      const confidence = (r.overall_confidence ?? r.details?.overall_confidence)?.toLowerCase() as
-        | 'high'
-        | 'medium'
-        | 'low'
-        | undefined
+        const r = result as any
+        const presentation = deriveManualReportPresentation(r, selectedMethod)
+        const ebitda = Number(r.current_year_data?.ebitda) || 0
+        const normalizedEbitda = Number(r.latest_normalized_ebitda) || ebitda
+        const revenue = r.current_year_data?.revenue || 0
+        const p25 = r.multiples_valuation?.p25_ebitda_multiple
+        const p75 = r.multiples_valuation?.p75_ebitda_multiple
+        const rawConfidence = r.overall_confidence ?? r.details?.overall_confidence
+        const confidence =
+          typeof rawConfidence === 'string'
+            ? (rawConfidence.toLowerCase() as 'high' | 'medium' | 'low')
+            : undefined
 
-      const askingPrice =
-        Number(r.recommended_asking_price ?? r.details?.recommended_asking_price) || 0
-      const htmlReport = r.html_report ?? r.details?.html_report
-      const dcfHistoricalFcfReadiness =
-        r.dcf_valuation?.historical_fcf_readiness ??
-        r.details?.dcf_valuation?.historical_fcf_readiness ??
-        null
+        const askingPrice =
+          Number(r.recommended_asking_price ?? r.details?.recommended_asking_price) || 0
+        const htmlReport = r.html_report ?? r.details?.html_report
+        const dcfHistoricalFcfReadiness =
+          r.dcf_valuation?.historical_fcf_readiness ??
+          r.details?.dcf_valuation?.historical_fcf_readiness ??
+          null
 
-      setReport({
-        id: reportId || r.valuation_id || r.id || 'draft',
-        companyName: r.company_name ?? r.business_name ?? tReport('defaultCompanyName'),
-        valuation: presentation.valuation,
-        valuationLow: presentation.valuationLow || undefined,
-        valuationHigh: presentation.valuationHigh || undefined,
-        ebitda,
-        normalizedEbitda: normalizedEbitda || undefined,
-        multiple: presentation.multiple ?? 0,
-        multipleRange:
-          presentation.multipleRange ??
-          (p25 != null && p75 != null ? { low: p25, high: p75 } : undefined),
-        generatedAt: new Date(),
-        confidenceLevel: confidence || 'medium',
-        htmlReport: htmlReport || undefined,
-        dcfHistoricalFcfReadiness,
-        recommendedAskingPrice: askingPrice || undefined,
-        metrics: [
-          { label: tReport('metrics.avgRevenue'), value: `€${(revenue / 1_000_000).toFixed(2)}M` },
-          {
-            label: tReport('metrics.ebitdaMargin'),
-            value: revenue ? `${((ebitda / revenue) * 100).toFixed(1)}%` : '—',
-          },
-          {
-            label: tReport('metrics.sector'),
-            value: r.business_type ?? r.details?.business_type ?? tReport('defaultSector'),
-          },
-        ],
-        reportUpdatedAt: r.updated_at ? new Date(String(r.updated_at)) : undefined,
-        pdfGeneratedAt:
-          r.pdf_generated_at != null && String(r.pdf_generated_at) !== ''
-            ? new Date(String(r.pdf_generated_at))
-            : null,
-        pdfUrl: typeof r.pdf_url === 'string' ? r.pdf_url : undefined,
-      })
-      setDraftStatus('saved')
-      setLastSaved(new Date())
+        setReport({
+          id: reportId || r.valuation_id || r.id || 'draft',
+          companyName: r.company_name ?? r.business_name ?? tReport('defaultCompanyName'),
+          valuation: presentation.valuation,
+          valuationLow: presentation.valuationLow || undefined,
+          valuationHigh: presentation.valuationHigh || undefined,
+          ebitda,
+          normalizedEbitda: normalizedEbitda || undefined,
+          multiple: presentation.multiple ?? 0,
+          multipleRange:
+            presentation.multipleRange ??
+            (p25 != null && p75 != null ? { low: p25, high: p75 } : undefined),
+          generatedAt: new Date(),
+          confidenceLevel: confidence || 'medium',
+          htmlReport: htmlReport || undefined,
+          dcfHistoricalFcfReadiness,
+          recommendedAskingPrice: askingPrice || undefined,
+          metrics: [
+            {
+              label: tReport('metrics.avgRevenue'),
+              value: `€${(revenue / 1_000_000).toFixed(2)}M`,
+            },
+            {
+              label: tReport('metrics.ebitdaMargin'),
+              value: revenue ? `${((ebitda / revenue) * 100).toFixed(1)}%` : '—',
+            },
+            {
+              label: tReport('metrics.sector'),
+              value: r.business_type ?? r.details?.business_type ?? tReport('defaultSector'),
+            },
+          ],
+          reportUpdatedAt: r.updated_at ? new Date(String(r.updated_at)) : undefined,
+          pdfGeneratedAt:
+            r.pdf_generated_at != null && String(r.pdf_generated_at) !== ''
+              ? new Date(String(r.pdf_generated_at))
+              : null,
+          pdfUrl: typeof r.pdf_url === 'string' ? r.pdf_url : undefined,
+        })
+        setDraftStatus('saved')
+        setLastSaved(new Date())
 
-      setRightPanelView('preview')
+        setRightPanelView('preview')
 
-      // On mobile, auto-open fullscreen modal since there's no right panel
-      if (isMobile && htmlReport) {
-        setShowFullscreenModal(true)
-      }
+        if (isMobile && htmlReport) {
+          setShowFullscreenModal(true)
+        }
 
-      if (reportId && htmlReport) {
-        generatePdf?.().catch((err) => {
-          generalLogger.warn('[ManualLayout] Background PDF generation failed', {
-            error: err instanceof Error ? err.message : String(err),
+        if (reportId && htmlReport) {
+          generatePdf?.().catch((err) => {
+            generalLogger.warn('[ManualLayout] Background PDF generation failed', {
+              error: err instanceof Error ? err.message : String(err),
+            })
           })
+        }
+      } catch (error) {
+        generalLogger.error('[ManualLayout] Failed to map result into report presentation', {
+          reportId,
+          valuationId: (result as any)?.valuation_id ?? (result as any)?.id ?? null,
+          error: error instanceof Error ? error.message : String(error),
         })
       }
     }
@@ -2762,12 +2772,37 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           yearlyFinancials: allYf,
         }
 
-        // Step 6: Create version (M&A workflow)
+        // Step 6: Save the authoritative report package first.
+        let durableSaveSucceeded = !idForApi
+        if (idForApi) {
+          const saveStartDirtyVersion = useSessionStore.getState().dirtyVersion
+          try {
+            await reportService.saveReportAssets(idForApi, {
+              sessionData: storeSnapshot,
+              valuationResult: calcResult,
+              htmlReport: calcResult.html_report || undefined,
+              name: sessionName,
+            })
+            useSessionStore.getState().markSaved(saveStartDirtyVersion)
+            durableSaveSucceeded = true
+          } catch (saveError) {
+            const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
+            generalLogger.error('[ManualLayout] Failed to save report assets', {
+              reportId: idForApi,
+              error: errMsg,
+            })
+            toast.error(tReport('saveReportFailed'), {
+              description: errMsg,
+            })
+          }
+        }
+
+        // Step 7: Create version (M&A workflow) after the durable save succeeds.
         // Titan creates V1 automatically during the calculate call.
         // Venus only creates a NEW version when there was already a previous version
         // BEFORE this calculation started AND the user made significant changes.
         let versionCreationFailed = false
-        if (idForApi) {
+        if (idForApi && durableSaveSucceeded) {
           let latestAfterFetch: { versionNumber: number } | null = null
           try {
             await useVersionHistoryStore.getState().fetchVersions(idForApi)
@@ -2859,7 +2894,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   },
                 },
               })
-              // Continue to save report - calculation succeeded, persist it
+              // Continue - the durable report save already succeeded
             }
           }
 
@@ -2877,28 +2912,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                 })
               })
           }, 1500)
-        }
-
-        // Step 7: Save complete report package to backend
-        if (idForApi) {
-          try {
-            await reportService.saveReportAssets(idForApi, {
-              sessionData: storeSnapshot,
-              valuationResult: calcResult,
-              htmlReport: calcResult.html_report || undefined,
-              name: sessionName,
-            })
-            useSessionStore.getState().markSaved()
-          } catch (saveError) {
-            const errMsg = saveError instanceof Error ? saveError.message : String(saveError)
-            generalLogger.error('[ManualLayout] Failed to save report assets', {
-              reportId: idForApi,
-              error: errMsg,
-            })
-            toast.error(tReport('saveReportFailed'), {
-              description: errMsg,
-            })
-          }
+        } else if (idForApi) {
+          generalLogger.warn('[ManualLayout] Skipping version sync until report save succeeds', {
+            reportId: idForApi,
+          })
         }
 
         if (!versionCreationFailed) {

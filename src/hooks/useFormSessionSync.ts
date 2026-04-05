@@ -19,7 +19,6 @@
  */
 
 import { useCallback, useEffect } from 'react'
-import { backendAPI } from '../services/backendApi'
 import { useSessionStore } from '../store/useSessionStore'
 import { debounceWithFlush } from '../utils/debounce'
 import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from '../utils/fiscalYear'
@@ -241,31 +240,13 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
 
           if (shouldUpdateName && newName !== currentName) {
             try {
-              // Update session store optimistically
+              // Persist name through the centralized session autosave path.
               useSessionStore.getState().updateSession({ name: newName })
-
-              // Save to backend (fire-and-forget)
-              backendAPI
-                .updateValuationSession(currentSession.reportId, {
-                  name: newName,
-                } as any)
-                .then((response) => {
-                  if (response?.session?.name) {
-                    useSessionStore.getState().updateSession({ name: response.session.name })
-                    generalLogger.debug('[useFormSessionSync] Auto-updated valuation name', {
-                      reportId: currentSession.reportId,
-                      companyName: sessionUpdate.company_name,
-                      newName: response.session.name,
-                    })
-                  }
-                })
-                .catch((error) => {
-                  generalLogger.warn('[useFormSessionSync] Failed to auto-update valuation name', {
-                    error: error instanceof Error ? error.message : 'Unknown error',
-                    reportId: currentSession.reportId,
-                    companyName: sessionUpdate.company_name,
-                  })
-                })
+              generalLogger.debug('[useFormSessionSync] Queued auto-generated valuation name', {
+                reportId: currentSession.reportId,
+                companyName: sessionUpdate.company_name,
+                newName,
+              })
             } catch (error) {
               // Silently fail - name update is non-critical
               generalLogger.debug('[useFormSessionSync] Error updating valuation name', {

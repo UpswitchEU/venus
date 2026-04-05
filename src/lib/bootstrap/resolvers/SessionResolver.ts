@@ -107,6 +107,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
                   reportId: report.id, // Use the actual report ID, not session key
                   hasExistingData: true,
                   hasValuationResult: true, // Completed reports have valuation output
+                  reportReady: true,
                   version: context.version,
                   status: 'completed',
                   createdAt: new Date(report.created_at),
@@ -141,6 +142,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
             reportId: session.session_key,
             hasExistingData: this.hasExistingData(session),
             hasValuationResult: this.hasValuationResult(session),
+            reportReady: this.mapStatus(session.status) !== 'completed' || this.hasValuationResult(session),
             version: context.version,
             status: this.mapStatus(session.status),
             createdAt: new Date(session.created_at),
@@ -166,6 +168,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
           reportId: context.reportId,
           hasExistingData: false,
           hasValuationResult: false,
+          reportReady: true,
           status: 'draft',
         },
         source: 'new_with_id',
@@ -190,6 +193,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
           reportId: context.reportId || generateReportId(),
           hasExistingData: false,
           hasValuationResult: false,
+          reportReady: true,
           status: 'draft' as const,
         },
         error: errorMessage,
@@ -208,6 +212,7 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
     return {
       ...DEFAULT_REPORT,
       reportId: generateReportId(),
+      reportReady: true,
     }
   }
 
@@ -305,6 +310,10 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       'industry',
       'filing_year_confirmed',
       'valuation_result',
+      '_valuationResult',
+      'html_report',
+      'htmlReport',
+      '_htmlReport',
     ]
 
     for (const field of meaningfulFields) {
@@ -336,21 +345,12 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
    */
   private hasValuationResult(session: SessionData): boolean {
     const sessionData = session.session_data || {}
-    const valuationResult = sessionData.valuation_result as Record<string, unknown> | undefined
+    if (sessionData.valuation_result || sessionData._valuationResult) {
+      return true
+    }
 
-    // Check if valuation_result exists and is meaningful
-    if (valuationResult && typeof valuationResult === 'object') {
-      // Check for key output fields that indicate a completed valuation
-      const hasOutputData = !!(
-        valuationResult.valuation_min ||
-        valuationResult.valuation_midpoint ||
-        valuationResult.valuation_max ||
-        valuationResult.html_report ||
-        valuationResult.equity_value_low ||
-        valuationResult.equity_value_mid ||
-        valuationResult.equity_value_high
-      )
-      return hasOutputData
+    if (sessionData._htmlReport || sessionData.htmlReport || sessionData.html_report) {
+      return true
     }
 
     return false

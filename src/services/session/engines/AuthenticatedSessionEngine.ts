@@ -134,6 +134,41 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     }
   }
 
+  hydrateSession(updates: Partial<ValuationSession>): void {
+    if (!this.currentSession) {
+      if (!updates.reportId) {
+        generalLogger.debug(
+          '[AuthenticatedSessionEngine] Skipping hydrate - no current session and no reportId'
+        )
+        return
+      }
+
+      this.currentSession = {
+        reportId: updates.reportId,
+        currentView: updates.currentView || 'manual',
+        dataSource: updates.dataSource || 'manual',
+        createdAt: updates.createdAt || new Date(),
+        updatedAt: updates.updatedAt || updates.createdAt || new Date(),
+        sessionData: updates.sessionData || {},
+        partialData: updates.partialData || {},
+        ...(updates.status && { status: updates.status }),
+        ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
+        ...(updates.name && { name: updates.name }),
+        ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
+        ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
+      } as ValuationSession
+      this.requestedReportId = updates.reportId
+      this.normalizeReportId()
+      return
+    }
+
+    const previousUpdatedAt = this.currentSession.updatedAt
+    this.applyUpdate(updates)
+    if (this.currentSession) {
+      this.currentSession.updatedAt = updates.updatedAt || previousUpdatedAt || new Date()
+    }
+  }
+
   /**
    * Update session (backend + local state)
    *
@@ -165,6 +200,11 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
           updatedAt: new Date(),
           sessionData: updates.sessionData || {},
           partialData: updates.partialData || {},
+          ...(updates.status && { status: updates.status }),
+          ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
+          ...(updates.name && { name: updates.name }),
+          ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
+          ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
         } as ValuationSession
 
         generalLogger.debug(
@@ -297,6 +337,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         const updates = {
           ...(this.currentSession.sessionData || {}),
           ...(this.currentSession.partialData || {}),
+          currentView: this.currentSession.currentView,
+          ...(this.currentSession.name !== undefined && { name: this.currentSession.name }),
         }
 
         const updatedSession = await sessionService.saveSession(

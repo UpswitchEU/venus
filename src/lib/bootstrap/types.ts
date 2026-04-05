@@ -73,6 +73,7 @@ export interface ReportState {
    * - hasValuationResult = false → "Initializing" (even if hasExistingData is true)
    */
   hasValuationResult?: boolean
+  reportReady?: boolean
   version?: number
   status: ReportStatus
   createdAt?: Date
@@ -567,6 +568,7 @@ export const DEFAULT_REPORT: ReportState = {
   reportId: '',
   hasExistingData: false,
   hasValuationResult: false,
+  reportReady: true,
   status: 'draft',
 }
 

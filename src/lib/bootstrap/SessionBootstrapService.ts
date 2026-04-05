@@ -950,6 +950,10 @@ export class SessionBootstrapService {
           hasExistingData: report.hasExistingData,
           // WORLD-CLASS: Mark as having valuation result if package has HTML
           hasValuationResult: report.hasValuationResult || !!valuationPackage?.htmlReport,
+          reportReady:
+            typeof report.reportReady === 'boolean'
+              ? report.reportReady
+              : report.status !== 'completed' || !!valuationPackage?.htmlReport,
           version: report.version,
           status: report.status,
           createdAt: report.createdAt ? new Date(report.createdAt) : undefined,

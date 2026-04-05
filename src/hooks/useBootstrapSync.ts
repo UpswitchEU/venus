@@ -285,7 +285,7 @@ function syncSession(state: SessionBootstrapState): void {
             _bootstrapPrefill: true,
           }
 
-          sessionStore.updateSession({
+          sessionStore.hydrateSession({
             ...currentSession,
             sessionData: updatedSessionData,
           })
@@ -343,7 +343,7 @@ function syncSession(state: SessionBootstrapState): void {
           sessionData: sessionData as any, // Cast to any since these are internal flags not part of ValuationRequest
         }
 
-        sessionStore.updateSession(minimalSession)
+        sessionStore.hydrateSession(minimalSession)
 
         if (prefillData.confidence >= 0.05) {
           const formDataUpdate = buildPrefillFormFields(prefillData)
@@ -487,7 +487,7 @@ function syncSession(state: SessionBootstrapState): void {
             }
           }
         }
-        sessionStore.updateSession(minimalSession)
+        sessionStore.hydrateSession(minimalSession)
 
         if (hasPrefill) {
           const formDataUpdate = buildPrefillFormFields(prefillData)

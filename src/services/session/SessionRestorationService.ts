@@ -1070,7 +1070,7 @@ class SessionRestorationServiceImpl {
             const { useSessionStore } = require('../../store/useSessionStore')
             const session = useSessionStore.getState().session
             if (session) {
-              useSessionStore.getState().updateSession({
+              useSessionStore.getState().hydrateSession({
                 htmlReport: pkg.htmlReport || undefined,
                 valuationResult: { ...existingResult, ...fullResult },
                 sessionData: {

@@ -208,6 +208,45 @@ describe('SessionBootstrapService', () => {
       expect(result.ui.resumableSession).toBe(true)
     })
 
+    it('preserves explicit report readiness for existing reports', async () => {
+      const context: BootstrapContext = {
+        reportId: 'val_existing_pending',
+        locale: 'en',
+      }
+
+      mockAuthResolver.resolve.mockResolvedValue({
+        data: {
+          type: 'authenticated',
+          userId: 'user-123',
+        },
+      })
+
+      mockSessionResolver.resolve.mockResolvedValue({
+        data: {
+          mode: 'existing',
+          reportId: context.reportId,
+          hasExistingData: true,
+          hasValuationResult: false,
+          reportReady: false,
+          status: 'completed',
+        },
+      })
+
+      mockPrefillResolver.resolve.mockResolvedValue({
+        data: {
+          sources: ['session'],
+          confidence: 0.9,
+          fieldsPopulated: ['company_name'],
+          fieldsRemaining: [],
+        },
+      })
+
+      const result = await service.bootstrap(context)
+
+      expect(result.report.mode).toBe('existing')
+      expect(result.report.reportReady).toBe(false)
+    })
+
     it('should suggest conversational flow for low confidence', async () => {
       const context: BootstrapContext = {
         locale: 'en',

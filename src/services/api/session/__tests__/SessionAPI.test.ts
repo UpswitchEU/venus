@@ -162,6 +162,43 @@ describe('SessionAPI', () => {
     })
   })
 
+  describe('saveValuationResult', () => {
+    it('returns normalized authoritative session data from PUT /result', async () => {
+      executeRequestSpy.mockResolvedValue({
+        success: true,
+        message: 'saved',
+        reportId: 'report-123',
+        reportReady: true,
+        session: {
+          reportId: 'val_ready',
+          session_key: 'val_ready',
+          status: 'completed',
+          session_data: {
+            company_name: 'Ready Corp',
+            valuation_result: {
+              equity_value_mid: 900000,
+            },
+            html_report: '<html>ready</html>',
+          },
+        },
+      })
+
+      const result = await api.saveValuationResult('val_ready', {
+        valuationResult: { equity_value_mid: 900000 } as any,
+        htmlReport: '<html>ready</html>',
+      })
+
+      expect(result.success).toBe(true)
+      expect(result.reportReady).toBe(true)
+      expect(result.session?.reportReady).toBe(true)
+      expect(result.session?.valuationResult).toMatchObject({ equity_value_mid: 900000 })
+      expect(result.session?.htmlReport).toBe('<html>ready</html>')
+      expect(result.session?.sessionData).toMatchObject({
+        company_name: 'Ready Corp',
+      })
+    })
+  })
+
   describe('parallel getValuationSession', () => {
     it('issues one executeRequest per concurrent call (no client-side dedup)', async () => {
       executeRequestSpy.mockResolvedValue({
