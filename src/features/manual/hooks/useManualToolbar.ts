@@ -7,6 +7,8 @@
  */
 
 import { useCallback, useState } from 'react'
+import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import { trackPDFDownload } from '@/lib/analytics'
 import { useValuationToolbarRefresh } from '../../../hooks/valuationToolbar'
 import { backendAPI } from '../../../services/backendApi'
@@ -14,6 +16,7 @@ import { RefreshService } from '../../../services/toolbar/refreshService'
 import UrlGeneratorService from '../../../services/urlGenerator'
 import { useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
+import { APIError } from '../../../types/errors'
 import type { ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { generateReportId } from '../../../utils/reportIdGenerator'
@@ -45,6 +48,7 @@ interface UseManualToolbarOptions {
  */
 export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManualToolbarReturn => {
   const { handleRefresh: handleHookRefresh } = useValuationToolbarRefresh()
+  const tToast = useTranslations('toast')
   // Read from unified session store
   const sessionReportId = useSessionStore((state) => state.session?.reportId)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -106,6 +110,16 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
         pdfSize: pdfBlob.size,
       })
     } catch (error) {
+      if (error instanceof APIError && error.statusCode === 402) {
+        toast.error(tToast('pdfDownloadPlanBlocked'), {
+          description: error.message || tToast('pdfDownloadPlanBlockedDesc'),
+        })
+        generalLogger.warn('PDF download blocked by plan', {
+          reportId,
+          valuationId: currentResult.valuation_id,
+        })
+        return
+      }
       // BANK-GRADE: Specific error handling - PDF download failure
       if (error instanceof Error) {
         generalLogger.error('PDF download failed', {
@@ -124,7 +138,7 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
     } finally {
       setIsDownloading(false)
     }
-  }, [result, sessionReportId]) // ⚠️ Use stable reportId, not entire session
+  }, [result, sessionReportId, tToast]) // ⚠️ Use stable reportId, not entire session
 
   return {
     handleRefresh,

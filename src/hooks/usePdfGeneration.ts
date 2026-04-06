@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { APIError } from '../types/errors'
 import { useSessionStore } from '../store/useSessionStore'
 import { generalLogger } from '../utils/logger'
 
@@ -129,6 +130,20 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         })
 
         if (!response.ok) {
+          if (response.status === 402) {
+            const timer = pollingRef.current
+            if (timer) clearInterval(timer)
+            isGeneratingRef.current = false
+            if (mountedRef.current) {
+              setState({
+                status: 'none',
+                url: null,
+                error: null,
+                progress: 0,
+              })
+            }
+            return
+          }
           throw new Error('Failed to check status')
         }
 
@@ -216,6 +231,22 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}))
+        if (response.status === 402) {
+          isGeneratingRef.current = false
+          const errMsg =
+            (typeof errBody.message === 'string' && errBody.message) ||
+            (typeof errBody.error === 'string' && errBody.error) ||
+            'PDF download requires a plan that includes downloadable reports.'
+          if (mountedRef.current) {
+            setState({
+              status: 'none',
+              url: null,
+              error: null,
+              progress: 0,
+            })
+          }
+          throw new APIError(errMsg, 402, undefined, true, { upgradeRequired: true as const })
+        }
         const errMsg =
           errBody.message ?? errBody.error ?? errBody.detail ?? 'Failed to start PDF generation'
         throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg))
@@ -258,6 +289,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       if ((error as Error).name === 'AbortError') {
         return null
       }
+      if (error instanceof APIError && error.statusCode === 402) {
+        throw error
+      }
       if (mountedRef.current) {
         const message = error instanceof Error ? error.message : 'PDF generation failed'
         setState({
@@ -291,7 +325,24 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
         if (!response.ok) {
           const errBody = await response.json().catch(() => ({}))
-          throw new Error(errBody.error || 'Failed to download PDF')
+          const errMsg =
+            (typeof errBody.error === 'string' && errBody.error) ||
+            (typeof errBody.message === 'string' && errBody.message) ||
+            'Failed to download PDF'
+          if (response.status === 402) {
+            if (mountedRef.current) {
+              setState({
+                status: 'none',
+                url: null,
+                error: null,
+                progress: 0,
+              })
+            }
+            throw new APIError(errMsg, 402, undefined, true, {
+              upgradeRequired: true as const,
+            })
+          }
+          throw new Error(errMsg)
         }
 
         const blob = await response.blob()
@@ -305,6 +356,9 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         document.body.removeChild(link)
         URL.revokeObjectURL(blobUrl)
       } catch (error) {
+        if (error instanceof APIError && error.statusCode === 402) {
+          throw error
+        }
         generalLogger.error('[PDF] Download error', { error })
         if (mountedRef.current) {
           setState((prev) => ({

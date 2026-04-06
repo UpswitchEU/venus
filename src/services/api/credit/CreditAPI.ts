@@ -55,6 +55,7 @@ export class CreditAPI extends HttpClient {
       version_control: boolean
       integrations_enabled: boolean
       valuation_synthesis: boolean
+      valuation_download?: boolean
     }
     /** Bonus valuations earned via client invite acceptance */
     bonus_valuations?: number
@@ -77,6 +78,7 @@ export class CreditAPI extends HttpClient {
             version_control?: boolean
             integrations_enabled?: boolean
             valuation_synthesis?: boolean
+            valuation_download?: boolean
           }
         | undefined
       return {
@@ -104,6 +106,9 @@ export class CreditAPI extends HttpClient {
                 version_control: rawFeatures.version_control,
                 integrations_enabled: rawFeatures.integrations_enabled,
                 valuation_synthesis: rawFeatures.valuation_synthesis ?? false,
+                ...(typeof rawFeatures.valuation_download === 'boolean'
+                  ? { valuation_download: rawFeatures.valuation_download }
+                  : {}),
               }
             : undefined,
         bonus_valuations:

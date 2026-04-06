@@ -209,6 +209,7 @@ class BackendAPI {
       version_control: boolean
       integrations_enabled: boolean
       valuation_synthesis: boolean
+      valuation_download?: boolean
     }
   }> {
     return this.creditAPI.getUserPlan()

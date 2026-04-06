@@ -2,6 +2,11 @@
 
 import { AuroraInput } from '@/design-system/components/Input'
 import { cn } from '@/design-system/utils'
+import { useDecimalTextInputState } from '@/hooks/useDecimalTextInputState'
+import { normalizeDecimalSeparators, parseDecimalTextInput } from '@/utils/decimalTextInput'
+
+export const normalizePercentDecimalInput = normalizeDecimalSeparators
+export const parseAdaptivePercentInput = parseDecimalTextInput
 
 interface AdaptivePercentInputProps {
   label: string
@@ -11,6 +16,7 @@ interface AdaptivePercentInputProps {
   disabled?: boolean
   readOnly?: boolean
   description?: string
+  /** Ignored for text inputs; kept for API compatibility with callers that pass `step`. */
   step?: string
 }
 
@@ -22,29 +28,30 @@ export function AdaptivePercentInput({
   disabled,
   readOnly,
   description,
-  step,
+  step: _step,
 }: AdaptivePercentInputProps) {
+  const {
+    display,
+    onFocus,
+    onBlur,
+    onChange: onDecChange,
+  } = useDecimalTextInputState(value, onChange, { readOnly })
+
   return (
     <AuroraInput
       label={label}
-      type="number"
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
       size="sm"
-      value={value != null ? String(value) : ''}
-      onChange={(e) => {
-        if (readOnly) return
-        const raw = e.target.value
-        if (raw === '') {
-          onChange(undefined)
-          return
-        }
-        const parsed = Number.parseFloat(raw)
-        if (!Number.isNaN(parsed)) onChange(parsed)
-      }}
+      value={display}
+      onChange={onDecChange}
+      onFocus={onFocus}
+      onBlur={onBlur}
       placeholder={placeholder}
       disabled={disabled}
       readOnly={readOnly}
       description={description}
-      step={step}
       className={cn(
         'tabular-nums',
         readOnly && 'cursor-default',

@@ -7,6 +7,8 @@
  * @module lib/bootstrap/types
  */
 
+import type { CreditUpgradePath } from './credit-upgrade-path'
+
 // ============================================================================
 // Client Context Types (for accountant-for-client flow)
 // ============================================================================
@@ -307,7 +309,8 @@ export interface CreditStatus {
   credits_limit: number
   requires_upgrade: boolean
   message?: string
-  upgrade_path?: 'accountant_pro' | 'client_premium'
+  /** `accountant_pro` is legacy; prefer `accountant_paid`. */
+  upgrade_path?: CreditUpgradePath
 }
 
 // ============================================================================

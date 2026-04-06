@@ -45,6 +45,13 @@ export async function GET(
     })
 
     if (!titanResponse.ok) {
+      if (titanResponse.status === 402) {
+        const errBody = await titanResponse.json().catch(() => ({}))
+        return NextResponse.json(
+          { success: false, error: errBody.message || 'PDF download requires a Starter plan or above.', upgradeRequired: true },
+          { status: 402 }
+        )
+      }
       if (titanResponse.status === 404) {
         return NextResponse.json(
           { success: false, error: 'PDF not found for this report' },

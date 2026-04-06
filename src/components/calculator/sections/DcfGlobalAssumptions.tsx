@@ -184,7 +184,7 @@ export function DcfGlobalAssumptions({
         </p>
       )}
 
-      {variant === 'forecastDefaultsOnly' && (
+      {variant === 'forecastDefaultsOnly' && dcfInputMode === 'ebitda' && (
         <p className="text-xs leading-relaxed text-muted-foreground -mt-1">
           {t('forecastDefaultsLead')}
         </p>

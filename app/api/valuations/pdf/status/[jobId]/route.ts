@@ -41,9 +41,19 @@ export async function GET(
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
+      const errBody = await response.json().catch(() => ({})) as {
+        message?: string
+        error?: string
+        detail?: string
+      }
+      const errMsg =
+        errBody.message ?? errBody.error ?? errBody.detail ?? 'Failed to check status'
       return NextResponse.json(
-        { success: false, error: error.message || 'Failed to check status' },
+        {
+          success: false,
+          error: errMsg,
+          ...(response.status === 402 && { upgradeRequired: true as const }),
+        },
         { status: response.status }
       )
     }

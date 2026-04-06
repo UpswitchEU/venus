@@ -14,6 +14,28 @@ import { BY_SESSION_404_BACKOFF_MS } from '../../../constants/reportBySessionRet
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
+async function parsePlanGateErrorMessage(axiosError: {
+  response?: { data?: unknown };
+}): Promise<string> {
+  const fallback =
+    'PDF download requires a plan that includes downloadable reports. Upgrade to Starter to continue.'
+  const data = axiosError.response?.data
+  if (data && typeof data === 'object' && !(data instanceof Blob)) {
+    const o = data as { message?: string; error?: string }
+    return o.message || o.error || fallback
+  }
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text()
+      const j = JSON.parse(text) as { message?: string; error?: string }
+      return j.message || j.error || fallback
+    } catch {
+      return fallback
+    }
+  }
+  return fallback
+}
+
 export class ReportAPI extends HttpClient {
   /**
    * Get valuation report by ID
@@ -188,6 +210,12 @@ export class ReportAPI extends HttpClient {
       if (axiosError?.response?.status === 404) {
         apiLogger.error('Report not found for PDF download', errorContext)
         throw new APIError('Report not found. Please check the report ID.', 404)
+      }
+
+      if (axiosError?.response?.status === 402) {
+        const msg = await parsePlanGateErrorMessage(axiosError)
+        apiLogger.warn('PDF download blocked by plan', { ...errorContext, message: msg })
+        throw new APIError(msg, 402, undefined, true, { upgradeRequired: true })
       }
 
       if (axiosError?.response?.status === 403 || axiosError?.response?.status === 401) {

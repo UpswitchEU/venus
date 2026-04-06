@@ -15,12 +15,12 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React from 'react'
+import { toast } from 'sonner'
 import { Tooltip } from '@/design-system'
 import { generalLogger } from '@/utils/logger'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import {
   useValuationToolbarAuth,
-  useValuationToolbarDownload,
   useValuationToolbarFullscreen,
   useValuationToolbarName,
   useValuationToolbarRefresh,
@@ -30,6 +30,7 @@ import {
 import { getSafeMercuryReturnUrl } from '../lib/return-url'
 import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
+import { APIError } from '../types/errors'
 import { ValuationToolbarProps } from '../types/valuation'
 import { formatVersionLabel } from '../utils/formatters'
 import { UserDropdown } from './UserDropdown'
@@ -121,6 +122,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   }
 
   const t = useTranslations()
+  const tToast = useTranslations('toast')
   const getSaveStatusTooltip = () => {
     if (syncError) return t('report.saveStatus.saveFailed')
     if (isSaving) return t('report.saveStatus.saving')
@@ -201,19 +203,27 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     isGenerating: isPdfGenerating,
   } = usePdfGeneration(reportId || null)
 
-  // Use prop handler if provided, otherwise use PDF hook
-  const { isDownloading: isLegacyDownloading } = useValuationToolbarDownload()
-  const isDownloading = isPdfGenerating || isLegacyDownloading
+  const isDownloading = isPdfGenerating
 
   const handleDownload = React.useCallback(async () => {
     if (onDownload) {
-      // Use prop handler if provided
       onDownload()
     } else {
-      // WORLD-CLASS: Use Titan PDF generation
-      await downloadPdf()
+      try {
+        await downloadPdf()
+      } catch (err) {
+        if (err instanceof APIError && err.statusCode === 402) {
+          toast.error(tToast('pdfDownloadPlanBlocked'), {
+            description: tToast('pdfDownloadPlanBlockedDesc'),
+          })
+          return
+        }
+        generalLogger.error('[ValuationToolbar] PDF download failed', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
     }
-  }, [onDownload, downloadPdf])
+  }, [onDownload, downloadPdf, tToast])
 
   // Fullscreen hook - use prop if provided, otherwise use hook
   const { handleOpenFullscreen: handleHookFullscreen } = useValuationToolbarFullscreen()

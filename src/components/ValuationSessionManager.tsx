@@ -25,7 +25,11 @@ import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { trackPaywallShown, trackPaywallUpgradeClick } from '../lib/analytics'
-import { useBootstrapSafe } from '../lib/bootstrap'
+import {
+	isAccountantBillingUpgradePath,
+	isClientPremiumUpgradePath,
+	useBootstrapSafe,
+} from '../lib/bootstrap'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import { sessionService } from '../services/session/SessionService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
@@ -710,17 +714,23 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
             limit={bootstrapCreditStatus.credits_limit}
             message={
               bootstrapCreditStatus.message ||
-              (bootstrapCreditStatus.upgrade_path === 'accountant_pro'
-                ? t('paywall.accountantProRequired')
-                : t('paywall.insufficientCredits'))
+              (isAccountantBillingUpgradePath(bootstrapCreditStatus.upgrade_path)
+                ? t('paywall.accountantPaidRequired')
+                : isClientPremiumUpgradePath(bootstrapCreditStatus.upgrade_path)
+                  ? t('paywall.clientPremiumRequired')
+                  : t('paywall.insufficientCredits'))
             }
             onUpgrade={() => {
               const locale = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
               trackPaywallUpgradeClick('bootstrap_credit')
-              const upgradePath =
-                bootstrapCreditStatus.upgrade_path === 'accountant_pro'
-                  ? `${getMercuryUrl()}/${locale}/accountant/settings?tab=billing`
-                  : `${getMercuryUrl()}/${locale}/pricing`
+              const base = getMercuryUrl()
+              const upgradePath = isAccountantBillingUpgradePath(
+                bootstrapCreditStatus.upgrade_path,
+              )
+                ? `${base}/${locale}/accountant/settings?tab=billing`
+                : isClientPremiumUpgradePath(bootstrapCreditStatus.upgrade_path)
+                  ? `${base}/${locale}/pricing?tab=sellers`
+                  : `${base}/${locale}/pricing`
               window.location.href = upgradePath
             }}
           />

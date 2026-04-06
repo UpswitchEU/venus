@@ -35,3 +35,10 @@ export {
   parseBootstrapHints,
   parseUrlToContext,
 } from './utils'
+export {
+  ACCOUNTANT_CREDIT_UPGRADE_PATH,
+  CLIENT_CREDIT_UPGRADE_PATH,
+  type CreditUpgradePath,
+  isAccountantBillingUpgradePath,
+  isClientPremiumUpgradePath,
+} from './credit-upgrade-path'

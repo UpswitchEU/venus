@@ -123,6 +123,12 @@ function computeFcffRow(
   return { da, ebit, taxes, nopat, capex, nwcChange, fcff }
 }
 
+/**
+ * Preview rows from the latest historical revenue: one YoY growth % and one EBITDA margin % apply to
+ * every projected year; bridge drivers (CapEx, D&A, ΔNWC, tax) are global % of revenue.
+ * Per-year differences only after users save overrides (see DcfForecastWorkspace merge). User copy:
+ * `manualInput.dcfForecastWorkspace` / `forecastDefaultsLead` in messages.
+ */
 export function deriveDcfProjectionPreview(args: {
   yearlyFinancials?: DcfYearlyFinancialsLike[]
   smartDefaults?: DcfSmartDefaults | null

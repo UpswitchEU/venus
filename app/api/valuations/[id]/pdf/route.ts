@@ -53,7 +53,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const errMsg = errBody.message ?? errBody.error ?? errBody.detail ?? 'PDF generation failed'
       console.error('[PDF] Titan API error:', response.status, errBody)
       return NextResponse.json(
-        { success: false, error: typeof errMsg === 'string' ? errMsg : String(errMsg) },
+        {
+          success: false,
+          error: typeof errMsg === 'string' ? errMsg : String(errMsg),
+          ...(response.status === 402 && { upgradeRequired: true as const }),
+        },
         { status: response.status }
       )
     }
@@ -104,6 +108,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
 
     if (!response.ok) {
+      if (response.status === 402) {
+        const errBody = await response.json().catch(() => ({}))
+        return NextResponse.json(
+          { success: false, error: errBody.message || 'PDF download requires a Starter plan or above.', upgradeRequired: true },
+          { status: 402 }
+        )
+      }
       if (response.status === 404) {
         return NextResponse.json({
           success: true,

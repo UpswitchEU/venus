@@ -7,8 +7,8 @@
  * Stores raw number internally, formats display string live.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AuroraInput } from '@/design-system'
 
 function parseRawDigits(str: string): number | undefined {
@@ -66,7 +66,7 @@ export function CurrencyInput({
   )
   const formatValue = useCallback(
     (n?: number): string => {
-      if (!n) return ''
+      if (n == null || !Number.isFinite(n)) return ''
       return formatter.format(n)
     },
     [formatter]
@@ -86,7 +86,9 @@ export function CurrencyInput({
         num !== undefined
           ? formatter.format(num)
           : raw.replace(/\D/g, '') === '' || (allowNegative && raw.trim() === '-')
-            ? raw.trim() === '-' ? '-' : ''
+            ? raw.trim() === '-'
+              ? '-'
+              : ''
             : ''
       )
       onChange(num)

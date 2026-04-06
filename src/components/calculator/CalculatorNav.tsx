@@ -28,6 +28,7 @@ import {
   History,
   Home,
   Loader2,
+  Lock,
   LogOut,
   Maximize2,
   MessageCircle,
@@ -136,6 +137,8 @@ export interface CalculatorNavProps {
   isExporting?: boolean
   downloadHistory?: DownloadHistoryItem[]
   onRedownload?: (item: DownloadHistoryItem) => void
+  /** false = Free tier — show lock; onDownload still fires (opens upgrade paywall in ManualLayout) */
+  canDownloadPdf?: boolean
   // Accountant mode — back button exits client view
   isAccountantMode?: boolean
   onExitClientView?: () => void
@@ -347,6 +350,7 @@ export function CalculatorNav({
   isExporting = false,
   downloadHistory = [],
   onRedownload,
+  canDownloadPdf = true,
   isAccountantMode = false,
   onExitClientView,
   showSourceDataToggle = false,
@@ -395,6 +399,13 @@ export function CalculatorNav({
     () => resolveDisplayPreSelectedMethodKey(preSelectedMethod, preSelectableMethods),
     [preSelectedMethod, preSelectableMethods]
   )
+
+  const pdfPlanLocked = hasReport && !canDownloadPdf
+  const pdfDownloadTooltip = pdfPlanLocked
+    ? navLocale === 'nl'
+      ? 'PDF-download vanaf Starter — uw rapport is read-only met watermerk'
+      : 'PDF download from Starter — your report is read-only with a watermark'
+    : null
 
   const selectedMethodLabel = t(
     METHOD_LABEL_KEYS[displayPreSelectedMethod] ?? 'manualInput.methodSelector.adaptiveRecommended'
@@ -933,53 +944,68 @@ export function CalculatorNav({
 
             {/* PDF Download with Loading State + History Dropdown */}
             <Dropdown
-              trigger={
-                <button
-                  type="button"
-                  disabled={!hasReport}
-                  className={cn(
-                    'flex items-center gap-1 p-2 rounded-lg transition-colors',
-                    hasReport
-                      ? 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
-                      : 'text-foreground/20 cursor-not-allowed'
-                  )}
-                >
-                  {isExporting ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  <ChevronDown className="w-3 h-3 text-foreground/30" />
-                </button>
-              }
-              align="end"
-            >
-              <div className="p-2 w-64">
-                {/* Download Action */}
-                <button
-                  type="button"
-                  onClick={onDownload}
-                  disabled={isExporting}
-                  className={cn(
-                    'w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-colors',
-                    isExporting ? 'opacity-50 cursor-wait' : 'hover:bg-foreground/[0.04]'
-                  )}
-                >
-                  {isExporting ? (
-                    <>
+                trigger={
+                  <button
+                    type="button"
+                    disabled={!hasReport}
+                    title={pdfPlanLocked ? pdfDownloadTooltip ?? undefined : undefined}
+                    className={cn(
+                      'flex items-center gap-1 p-2 rounded-lg transition-colors',
+                      hasReport
+                        ? pdfPlanLocked
+                          ? 'text-amber-600/90 dark:text-amber-400/90 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-500/10'
+                          : 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
+                        : 'text-foreground/20 cursor-not-allowed'
+                    )}
+                  >
+                    {isExporting ? (
                       <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                      <span className="text-sm">{t('report.generatingPDF')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 text-foreground/50" />
-                      <span className="text-sm">{t('report.downloadPDF')}</span>
-                    </>
-                  )}
-                </button>
+                    ) : pdfPlanLocked ? (
+                      <Lock className="w-4 h-4" aria-hidden />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    <ChevronDown className="w-3 h-3 text-foreground/30" />
+                  </button>
+                }
+                align="end"
+              >
+                <div className="p-2 w-64">
+                  {/* Download Action */}
+                  <button
+                    type="button"
+                    onClick={onDownload}
+                    disabled={isExporting}
+                    className={cn(
+                      'w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-colors',
+                      isExporting ? 'opacity-50 cursor-wait' : 'hover:bg-foreground/[0.04]'
+                    )}
+                  >
+                    {isExporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        <span className="text-sm">{t('report.generatingPDF')}</span>
+                      </>
+                    ) : (
+                      <>
+                        {pdfPlanLocked ? (
+                          <Lock className="w-4 h-4 text-amber-600/90 dark:text-amber-400/90 shrink-0" aria-hidden />
+                        ) : (
+                          <Download className="w-4 h-4 text-foreground/50" />
+                        )}
+                        <span className="text-sm">
+                          {pdfPlanLocked
+                            ? navLocale === 'nl'
+                              ? 'Upgrade voor PDF-download (Starter)'
+                              : 'Upgrade for PDF download (Starter)'
+                            : t('report.downloadPDF')}
+                        </span>
+                      </>
+                    )}
+                  </button>
 
-                {/* Download History */}
-                {downloadHistory.length > 0 && (
+                  {/* Download History */}
+                  {downloadHistory.length > 0 && (
                   <>
                     <div className="h-px bg-foreground/[0.06] my-2" />
                     <div className="text-[10px] text-foreground/40 uppercase tracking-wider font-medium px-2 py-1">
@@ -989,7 +1015,9 @@ export function CalculatorNav({
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => onRedownload?.(item)}
+                        onClick={() =>
+                          pdfPlanLocked ? void onDownload?.() : void onRedownload?.(item)
+                        }
                         className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
                       >
                         <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -1128,9 +1156,11 @@ export function CalculatorNav({
               content={
                 isExporting
                   ? t('common.exporting')
-                  : hasReport
-                    ? t('report.download')
-                    : t('report.noReport')
+                  : !hasReport
+                    ? t('report.noReport')
+                    : pdfPlanLocked
+                      ? pdfDownloadTooltip
+                      : t('report.download')
               }
             >
               <button
@@ -1142,12 +1172,16 @@ export function CalculatorNav({
                   isExporting
                     ? 'text-primary'
                     : hasReport
-                      ? 'text-foreground/50 hover:text-foreground'
+                      ? pdfPlanLocked
+                        ? 'text-amber-600/90 dark:text-amber-400/90 hover:text-amber-700 dark:hover:text-amber-300'
+                        : 'text-foreground/50 hover:text-foreground'
                       : 'text-foreground/20 cursor-not-allowed'
                 )}
               >
                 {isExporting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
+                ) : pdfPlanLocked ? (
+                  <Lock className="w-4 h-4" aria-hidden />
                 ) : (
                   <Download className="w-4 h-4" />
                 )}

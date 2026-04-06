@@ -61,7 +61,6 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
-import { getOfficialRegistryLabels } from '@/lib/i18n/officialRegistryLabels'
 import {
   computeFiscal4xPreview,
   resolveBookEquityFromYearRow,
@@ -431,216 +430,16 @@ interface ManualInputPanelProps {
   onFormDataChange?: (data: Record<string, unknown>) => void
   /** Optional ref to sync form financials synchronously during render. Used by sibling modals that need latest data without effect delay. */
   formDataRef?: React.MutableRefObject<Record<string, unknown> | null>
-  /** When true, valuation is complete (report exists) — progress header is hidden. */
-  hasReport?: boolean
   /** STP: When true, KBO fields are pre-filled from backend enrichment and shown as read-only */
   readOnlyKbo?: boolean
   /** STP: When true, auto-advance past steps that are fully pre-filled */
   autoAdvancePastPrefilledSteps?: boolean
   /** When true, lead the user into import/connect before manual entry. */
   preferIntegrationEntry?: boolean
-  /** Async Belgian official filing job in flight — show loading row in trust panel. */
-  isOfficialFilingPending?: boolean
   /** Whether integrations are enabled on the user's plan (Pro+). Drives the Pro upsell CTA. */
   integrationsEnabled?: boolean
   /** Current plan type (free/starter/pro/…). Drives the Pro upsell CTA. */
   planType?: string
-}
-
-interface OfficialFilingTrustPanelProps {
-  locale: string
-  formatCurrency: (amount: number) => string
-  officialFinancials?: OfficialFinancialsPayload
-  officialVarianceAnalysis?: OfficialVarianceAnalysis
-  officialVerificationBadge?: OfficialVerificationBadge
-  onExplanationChange: (value: string) => void
-  /** NBB/Staatsblad data is loading after async bootstrap enrichment. */
-  isLoadingOfficialFiling?: boolean
-}
-
-export function OfficialFilingTrustPanel({
-  locale,
-  formatCurrency,
-  officialFinancials,
-  officialVarianceAnalysis,
-  officialVerificationBadge,
-  onExplanationChange,
-  isLoadingOfficialFiling = false,
-}: OfficialFilingTrustPanelProps) {
-  const isEnglish = locale === 'en'
-  const nbbLabels = getOfficialRegistryLabels(locale)
-  const hasUsableFilingContent = hasUsableOfficialFinancialsContent(officialFinancials)
-  const hasOfficialFigures = Boolean(
-    officialFinancials &&
-      (officialFinancials.filingYear != null ||
-        officialFinancials.revenue != null ||
-        officialFinancials.ebitda != null ||
-        officialFinancials.totalAssets != null ||
-        officialFinancials.equity != null)
-  )
-  const dataHealthMessage = officialFinancials?.dataHealth?.message
-
-  // Never show an empty/error-only NBB block: only loading, real figures, or source links.
-  if (!isLoadingOfficialFiling && !hasUsableFilingContent) {
-    return null
-  }
-
-  const badgeTone =
-    officialVerificationBadge?.state === 'verified'
-      ? 'bg-success/10 text-success border-success/20'
-      : officialVerificationBadge?.state === 'partial'
-        ? 'bg-warning/10 text-warning border-warning/20'
-        : 'bg-foreground/5 text-foreground/60 border-foreground/10'
-
-  const varianceStateLabel =
-    officialVarianceAnalysis?.state === 'explained'
-      ? isEnglish
-        ? 'Explained'
-        : 'Toegelicht'
-      : officialVarianceAnalysis?.state === 'pending'
-        ? isEnglish
-          ? 'Pending'
-          : 'Openstaand'
-        : officialVarianceAnalysis?.state === 'not_required'
-          ? isEnglish
-            ? 'Not required'
-            : 'Niet vereist'
-          : officialVarianceAnalysis?.state === 'not_started'
-            ? isEnglish
-              ? 'Not started'
-              : 'Niet gestart'
-            : undefined
-
-  return (
-    <div className="ml-8 rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
-      {isLoadingOfficialFiling && !hasUsableFilingContent && (
-        <div className="mb-3 flex items-center gap-2 text-xs text-foreground/65">
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-          <span>
-            {isEnglish
-              ? 'Loading official NBB filing data…'
-              : 'Officiële NBB-gegevens worden geladen…'}
-          </span>
-        </div>
-      )}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/70">
-            {nbbLabels.registryHead}
-          </p>
-          <p className="text-xs text-foreground/55">
-            {officialFinancials?.sourceLabel || nbbLabels.defaultSourceLine}
-            {officialFinancials?.filingYear != null &&
-              ` • ${nbbLabels.filingYear} ${officialFinancials.filingYear}`}
-          </p>
-        </div>
-        {officialVerificationBadge && (
-          <span
-            className={cn(
-              'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium',
-              badgeTone
-            )}
-          >
-            {officialVerificationBadge.label}
-          </span>
-        )}
-      </div>
-
-      {hasOfficialFigures && (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-foreground/80">
-          {officialFinancials?.revenue != null && (
-            <span>
-              <strong>{isEnglish ? 'Revenue' : 'Omzet'}:</strong>{' '}
-              {formatCurrency(officialFinancials.revenue)}
-            </span>
-          )}
-          {officialFinancials?.ebitda != null && (
-            <span>
-              <strong>EBITDA:</strong> {formatCurrency(officialFinancials.ebitda)}
-            </span>
-          )}
-          {officialFinancials?.totalAssets != null && (
-            <span>
-              <strong>{isEnglish ? 'Total assets' : 'Totale activa'}:</strong>{' '}
-              {formatCurrency(officialFinancials.totalAssets)}
-            </span>
-          )}
-          {officialFinancials?.equity != null && (
-            <span>
-              <strong>{isEnglish ? 'Equity' : 'Eigen vermogen'}:</strong>{' '}
-              {formatCurrency(officialFinancials.equity)}
-            </span>
-          )}
-        </div>
-      )}
-
-      {(officialFinancials?.pdfUrl || officialFinancials?.sourceLinks?.length) && (
-        <div className="mt-3 flex flex-wrap gap-3 text-xs">
-          {officialFinancials?.pdfUrl && (
-            <a
-              href={officialFinancials.pdfUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-primary hover:underline"
-            >
-              <ExternalLink className="h-3 w-3" />
-              {isEnglish ? 'Open filing PDF' : 'Open filing-pdf'}
-            </a>
-          )}
-          {officialFinancials?.sourceLinks?.[0] && (
-            <a
-              href={officialFinancials.sourceLinks[0]}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-primary hover:underline"
-            >
-              <ExternalLink className="h-3 w-3" />
-              {isEnglish ? 'Open source' : 'Open bron'}
-            </a>
-          )}
-        </div>
-      )}
-
-      {dataHealthMessage && officialVerificationBadge?.state !== 'unavailable' && (
-        <p className="mt-3 text-xs text-foreground/55">{dataHealthMessage}</p>
-      )}
-
-      {officialVarianceAnalysis?.explanationRequired && (
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center gap-2 text-xs text-foreground/70">
-            <AlertTriangle
-              className={cn(
-                'h-3.5 w-3.5 shrink-0',
-                officialVarianceAnalysis.severity === 'hard' ? 'text-destructive' : 'text-warning'
-              )}
-            />
-            <span>
-              <strong>{isEnglish ? 'Variance analysis' : 'Verschilanalyse'}:</strong>{' '}
-              {varianceStateLabel || (isEnglish ? 'Pending' : 'Openstaand')}
-              {officialVarianceAnalysis.explanationRequired &&
-                ` • ${isEnglish ? 'Explanation required' : 'Toelichting vereist'}`}
-              {officialVarianceAnalysis.severity === 'hard' &&
-                ` • ${isEnglish ? 'Large deviation vs official filing (≥25%).' : 'Grote afwijking t.o.v. officiële filing (≥25%).'}`}
-              {officialVarianceAnalysis.severity === 'soft' &&
-                officialVarianceAnalysis.maxVariancePercent != null &&
-                ` • ${isEnglish ? 'Deviation' : 'Afwijking'} ~${Math.round(officialVarianceAnalysis.maxVariancePercent)}%`}
-            </span>
-          </div>
-          <AuroraTextarea
-            value={officialVarianceAnalysis.explanation || ''}
-            onChange={(event) => onExplanationChange(event.target.value)}
-            placeholder={
-              isEnglish
-                ? 'Explain why your input differs from the official filing.'
-                : 'Licht kort toe waarom jouw input afwijkt van de officiële filing.'
-            }
-            rows={3}
-            className="text-sm"
-          />
-        </div>
-      )}
-    </div>
-  )
 }
 
 // Options
@@ -796,11 +595,9 @@ export function ManualInputPanel({
   onViewAllNormalizations,
   onFormDataChange,
   formDataRef,
-  hasReport = false,
   readOnlyKbo = false,
   autoAdvancePastPrefilledSteps = false,
   preferIntegrationEntry = false,
-  isOfficialFilingPending = false,
   integrationsEnabled = true,
   planType = 'free',
 }: ManualInputPanelProps) {
@@ -916,11 +713,6 @@ export function ManualInputPanel({
   // KBO verification state
   const [selectedCompany, setSelectedCompany] = useState<KBOCompany | null>(null)
   const [companySearchValue, setCompanySearchValue] = useState(formData.companyName || '')
-  const officialFinancials = useManualFormStore((s) => s.formData.official_financials)
-  const officialVarianceAnalysis = useManualFormStore((s) => s.formData.official_variance_analysis)
-  const officialVerificationBadge = useManualFormStore(
-    (s) => s.formData.official_verification_badge
-  )
   const updateFormData = useManualFormStore((s) => s.updateFormData)
   const storeBusinessTypeId = useManualFormStore((s) => s.formData.business_type_id)
   const storeBusinessModel = useManualFormStore((s) => s.formData.business_model)
@@ -950,31 +742,6 @@ export function ManualInputPanel({
       unsub()
     }
   }, [])
-
-  const handleOfficialVarianceExplanationChange = useCallback(
-    (explanation: string) => {
-      const nextVariance: OfficialVarianceAnalysis = {
-        ...(officialVarianceAnalysis ?? {
-          state: 'pending',
-          explanationRequired: true,
-        }),
-        explanation,
-        state: explanation.trim() ? 'explained' : 'pending',
-      }
-
-      updateFormData({
-        official_variance_analysis: nextVariance,
-        ...(officialFinancials &&
-          hasUsableOfficialFinancialsContent(officialFinancials) && {
-            official_financials: {
-              ...officialFinancials,
-              varianceAnalysis: nextVariance,
-            },
-          }),
-      })
-    },
-    [officialFinancials, officialVarianceAnalysis, updateFormData]
-  )
 
   const prefillAbortRef = useRef<boolean>(false)
   /** After user picks a country, do not overwrite from late prefill/session (panel remount resets). */
@@ -1165,31 +932,20 @@ export function ManualInputPanel({
     sessionReportId,
   ])
 
-  // STP: Auto-advance past pre-filled steps by scrolling to first incomplete section
+  // STP: Auto-advance past pre-filled steps by scrolling to the financials section
   const financialsStepRef = useRef<HTMLElement>(null)
-  const normalizationsStepRef = useRef<HTMLElement>(null)
   useEffect(() => {
     if (!autoAdvancePastPrefilledSteps) return
     const hasPrefilledCompany = !!formData.companyName && !!formData.businessType
-    const hasPrefilledFinancials = formData.yearlyFinancials.some(
-      (yf) => yf.revenue > 0 || yf.ebitda !== 0
-    )
 
     const timer = setTimeout(() => {
-      if (hasPrefilledCompany && hasPrefilledFinancials && normalizationsStepRef.current) {
-        normalizationsStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      } else if (hasPrefilledCompany && financialsStepRef.current) {
+      if (hasPrefilledCompany && financialsStepRef.current) {
         financialsStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [
-    autoAdvancePastPrefilledSteps,
-    formData.companyName,
-    formData.businessType,
-    formData.yearlyFinancials,
-  ])
+  }, [autoAdvancePastPrefilledSteps, formData.companyName, formData.businessType])
 
   // Sync form data to parent for AI context and normalization modal originalEBITDA
   // Immediate sync on mount/deps change (avoids 300ms race when opening modal quickly)
@@ -2851,15 +2607,6 @@ export function ManualInputPanel({
     )
     .map((yf) => yf.year)
 
-  // Calculate progress
-  const totalSteps = 4
-  const completedSteps = [
-    hasCompanyInfo && hasBusinessType, // Step 1: Company
-    formData.ownerManagers > 0 && formData.fteEmployees !== undefined && formData.fteEmployees >= 0, // Step 2: Ownership (0 FTE valid for owner-only)
-    hasFinancials, // Step 3: Financials
-    normalizedData.years.some((y) => y.normalizationCount > 0), // Step 4: Normalizations
-  ].filter(Boolean).length
-
   const shouldShowIntegrationEntry =
     preferIntegrationEntry &&
     !integrationEntryDismissed &&
@@ -2932,34 +2679,6 @@ export function ManualInputPanel({
   return (
     <>
       <div className="h-full flex flex-col bg-background overflow-hidden">
-        {/* Progress Header — hide when valuation complete */}
-        {!hasReport && (
-          <div className="shrink-0 px-6 pt-5 pb-4 border-b border-border">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-foreground">
-                {t('calculator.businessValuation')}
-              </h2>
-              <span className="text-xs font-medium text-foreground/50">
-                {t('calculator.stepOf', {
-                  current: Math.max(1, completedSteps),
-                  total: totalSteps,
-                })}
-              </span>
-            </div>
-            <div className="flex gap-1.5">
-              {[1, 2, 3, 4].map((step) => (
-                <div
-                  key={step}
-                  className={cn(
-                    'h-1 flex-1 rounded-full transition-colors',
-                    step <= completedSteps ? 'bg-primary' : 'bg-foreground/10'
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
           <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 flex flex-col">
             <SpotlightBanner />
@@ -3427,16 +3146,6 @@ export function ManualInputPanel({
                     hasMeaningfulYearlyFinancials(formData.yearlyFinancials)
                   }
                   onSelect={handleSelectFilingYear}
-                />
-
-                <OfficialFilingTrustPanel
-                  locale={locale}
-                  formatCurrency={formatCurrency}
-                  officialFinancials={officialFinancials}
-                  officialVarianceAnalysis={officialVarianceAnalysis}
-                  officialVerificationBadge={officialVerificationBadge}
-                  onExplanationChange={handleOfficialVarianceExplanationChange}
-                  isLoadingOfficialFiling={isOfficialFilingPending}
                 />
 
                 {/* Aurora EBITDA Summary Card - only when EBITDA inputs actually contain values */}

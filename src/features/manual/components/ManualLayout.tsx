@@ -666,8 +666,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const { allowedMethodKeys, planFeatures, plan } = useCredits()
   const { identity, isAccountantFlow } = useBootstrap()
   useBootstrapSync()
-  const { readOnlyKbo, autoAdvancePastPrefilledSteps, isOfficialFilingPending } =
-    useBootstrapPrefill()
+  const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
   /** Session blob may gain DCF/NAV/SaaS after bootstrap — gap-fill empty store slots. */
   useSessionOptionalMethodPrefill()
 
@@ -1433,10 +1432,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [showValuationEditModal, setShowValuationEditModal] = useState(false)
   const [methodPaywallOpen, setMethodPaywallOpen] = useState(false)
   const [methodPaywallReason, setMethodPaywallReason] = useState<
-    'methods' | 'normalization' | 'version_history' | 'synthesis'
+    'methods' | 'normalization' | 'version_history' | 'synthesis' | 'pdf_download'
   >('methods')
   const openStarterPaywall = useCallback(
-    (reason: 'methods' | 'normalization' | 'version_history' | 'synthesis') => {
+    (reason: 'methods' | 'normalization' | 'version_history' | 'synthesis' | 'pdf_download') => {
       setMethodPaywallReason(reason)
       setMethodPaywallOpen(true)
     },
@@ -2069,8 +2068,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setShowFullscreenModal(true)
         }
 
-        if (reportId && htmlReport) {
+        if (reportId && htmlReport && planFeatures?.valuation_download !== false) {
           generatePdf?.().catch((err) => {
+            if (err instanceof APIError && err.statusCode === 402) return
             generalLogger.warn('[ManualLayout] Background PDF generation failed', {
               error: err instanceof Error ? err.message : String(err),
             })
@@ -2084,7 +2084,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         })
       }
     }
-  }, [result, onComplete, reportId, generatePdf, isMobile, tReport, selectedMethod])
+  }, [result, onComplete, reportId, generatePdf, isMobile, tReport, selectedMethod, planFeatures])
 
   // ─── Omni-Calc: Update displayed valuation when selected method changes ───
   const prevSelectedMethodRef = useRef(selectedMethod)
@@ -2158,8 +2158,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             ? { ...prev, htmlReport: htmlForPreview, ...pdfMeta }
             : { ...prev, ...pdfMeta }
         })
-        if (htmlForPreview) {
+        if (htmlForPreview && planFeatures?.valuation_download !== false) {
           generatePdf?.().catch((err) => {
+            if (err instanceof APIError && err.statusCode === 402) return
             generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
               error: err instanceof Error ? err.message : String(err),
             })
@@ -2174,16 +2175,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setReport((prev) => (prev ? { ...prev, htmlReport: htmlFromPatch } : prev))
           const latestResult = useManualResultsStore.getState().result
           setResult(latestResult ? { ...latestResult, html_report: htmlFromPatch } : latestResult)
-          generatePdf?.().catch((err) => {
-            generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
-              error: err instanceof Error ? err.message : String(err),
+          if (planFeatures?.valuation_download !== false) {
+            generatePdf?.().catch((err) => {
+              if (err instanceof APIError && err.statusCode === 402) return
+              generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
+                error: err instanceof Error ? err.message : String(err),
+              })
             })
-          })
+          }
         }
         return false
       }
     },
-    [generatePdf, persistedReportLookupId, setResult]
+    [generatePdf, persistedReportLookupId, setResult, planFeatures]
   )
 
   useEffect(() => {
@@ -2253,6 +2257,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handleRetryPdfStalled = useCallback(async () => {
     if (!persistedReportLookupId) return
+    if (planFeatures && !planFeatures.valuation_download) {
+      openStarterPaywall('pdf_download')
+      return
+    }
     setIsPdfRetrying(true)
     try {
       await generatePdf()
@@ -2286,6 +2294,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
       setPdfPollErrorCount(0)
     } catch (err) {
+      if (err instanceof APIError && err.statusCode === 402) {
+        openStarterPaywall('pdf_download')
+        return
+      }
       generalLogger.warn('[ManualLayout] Retry stalled PDF failed', {
         error: err instanceof Error ? err.message : String(err),
       })
@@ -2293,7 +2305,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     } finally {
       setIsPdfRetrying(false)
     }
-  }, [generatePdf, persistedReportLookupId, setResult, t])
+  }, [generatePdf, persistedReportLookupId, setResult, t, planFeatures, openStarterPaywall])
 
   const pdfStaleBannerEl = useMemo(() => {
     if (!report || !pdfStale) return null
@@ -3549,6 +3561,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Export Handler (server-side only — no client-side fallbacks) ───
   const handleExport = useCallback(async () => {
     if (!report) return
+    if (planFeatures && !planFeatures.valuation_download) {
+      openStarterPaywall('pdf_download')
+      return
+    }
     if (pdfStale) {
       toast.warning(t('downloadPdfStaleHint'))
       return
@@ -3577,6 +3593,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               method: 'GET',
               credentials: 'include',
             })
+            if (res.status === 402) {
+              toast.dismiss('pdf-gen')
+              openStarterPaywall('pdf_download')
+              return
+            }
             const data = res.ok ? await res.json().catch(() => null) : null
             if (data?.status === 'ready' && data?.pdfUrl) {
               toast.dismiss('pdf-gen')
@@ -3613,6 +3634,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       toast.success(t('pdfDownloaded'))
     } catch (error) {
       toast.dismiss('pdf-gen')
+      if (error instanceof APIError && error.statusCode === 402) {
+        openStarterPaywall('pdf_download')
+        return
+      }
       generalLogger.error('[ManualLayout] PDF export failed', {
         error: error instanceof Error ? error.message : String(error),
       })
@@ -3630,6 +3655,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     tReport,
     t,
     pdfStale,
+    planFeatures,
+    openStarterPaywall,
   ])
 
   // ─── Navigation Handlers ───
@@ -4726,14 +4753,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onViewAllNormalizations: handleShowNormalisationReview,
     onFormDataChange: handleFormDataChange,
     formDataRef: latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>,
-    hasReport: !!report,
     readOnlyKbo,
     autoAdvancePastPrefilledSteps,
     preferIntegrationEntry:
       isAccountantFlow ||
       hasImportQuality ||
       Boolean(identity.clientContext?.clientCompanyName?.trim()),
-    isOfficialFilingPending,
     integrationsEnabled: planFeatures?.integrations_enabled ?? false,
     planType: plan?.plan_type ?? 'free',
     initialData: {
@@ -4942,6 +4967,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
           versionControlFeatureLocked={versionControlLocked}
           onVersionControlFeatureLocked={() => openStarterPaywall('version_history')}
+          canDownloadPdf={planFeatures?.valuation_download !== false}
           valuationSummary={navValuationSummary}
         />
 
@@ -5142,6 +5168,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
         versionControlFeatureLocked={versionControlLocked}
         onVersionControlFeatureLocked={() => openStarterPaywall('version_history')}
+        canDownloadPdf={planFeatures?.valuation_download !== false}
       />
 
       {pdfStaleBannerEl}
@@ -5620,12 +5647,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   (currentLocale === 'nl'
                     ? 'Waarderingssynthese'
                     : 'Valuation Synthesis')}
+                {methodPaywallReason === 'pdf_download' &&
+                  (currentLocale === 'nl'
+                    ? 'PDF-download vanaf Starter'
+                    : 'PDF download from Starter')}
               </h2>
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {methodPaywallReason === 'methods' &&
                   (currentLocale === 'nl'
-                    ? 'Je gratis plan bevat Adaptive, DCF, EBITDA en adjusted NAV met een PDF-watermerk. Upgrade naar Starter voor alle 8 methodes zonder watermerk en rapporten in uw huisstijl.'
-                    : 'Your free plan includes Adaptive, DCF, EBITDA, and adjusted NAV with a watermarked PDF. Upgrade to Starter for all 8 methods, watermark-free branded reports, and live Benelux sector multiples.')}
+                    ? 'Je gratis plan bevat Adaptive, DCF, EBITDA en adjusted NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 8 methodes, downloadbare rapporten zonder watermerk in uw huisstijl.'
+                    : 'Your free plan includes Adaptive, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all 8 methods, downloadable watermark-free branded reports, and live Benelux sector multiples.')}
                 {methodPaywallReason === 'normalization' &&
                   (currentLocale === 'nl'
                     ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, EBITDA-normalisatie en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'
@@ -5638,6 +5669,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   (currentLocale === 'nl'
                     ? 'Combineer meerdere waarderingsmethodes met een gewogen gemiddelde en verdedig uw keuze in het PDF-rapport. Upgrade naar Starter voor de volledige waarderingssynthese.'
                     : 'Blend multiple valuation methods with weighted averages and defend your choice in the PDF report. Upgrade to Starter for the full valuation synthesis.')}
+                {methodPaywallReason === 'pdf_download' &&
+                  (currentLocale === 'nl'
+                    ? 'Uw gratis rapport is read-only met watermerk. Upgrade naar Starter voor downloadbare PDF-rapporten zonder watermerk in uw huisstijl.'
+                    : 'Your free report is read-only with a watermark. Upgrade to Starter for downloadable, watermark-free PDF reports with your branding.')}
               </p>
             </div>
             <div className="flex gap-3">

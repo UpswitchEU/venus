@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl'
 import { useCallback, useMemo, useState } from 'react'
-import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import {
   Modal,
   ModalContent,
@@ -11,6 +10,7 @@ import {
   ModalTitle,
 } from '@/design-system/components/Modal'
 import { cn } from '@/design-system/utils'
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { CurrencyInput } from '../CurrencyInput'
 import type { DcfForecastRow } from './DcfForecastTypes'
 import type { DcfProjectionPreviewRow } from './dcfProjectionPreview'
@@ -144,6 +144,8 @@ export function DcfProjectionTable({
     [forecastRows]
   )
 
+  const forecastYearCount = sortedForecastRows.length
+
   const projectionByYear = useMemo(
     () => new Map(projectionRows.map((r) => [String(r.year), r])),
     [projectionRows]
@@ -158,7 +160,11 @@ export function DcfProjectionTable({
   )
 
   const handleCellChange = useCallback(
-    (year: string, field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change', value: number | undefined) => {
+    (
+      year: string,
+      field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change',
+      value: number | undefined
+    ) => {
       onChange(year, field, value ?? 0)
     },
     [onChange]
@@ -172,20 +178,20 @@ export function DcfProjectionTable({
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent
         size="full"
-        description={t('dcfProjectionTable.description')}
+        description={t('dcfProjectionTable.description', { count: forecastYearCount })}
         className={cn('flex max-h-[90vh] flex-col overflow-hidden')}
       >
         <ModalHeader className="mb-4 shrink-0">
-          <ModalTitle>{t('dcfProjectionTable.title')}</ModalTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('dcfProjectionTable.subtitle')}
-          </p>
+          <ModalTitle>{t('dcfProjectionTable.title', { count: forecastYearCount })}</ModalTitle>
+          <p className="mt-1 text-sm text-muted-foreground">{t('dcfProjectionTable.subtitle')}</p>
           <button
             type="button"
             onClick={() => setShowBreakdown((v) => !v)}
             className="mt-3 inline-flex w-fit items-center rounded-lg border border-foreground/10 bg-background px-2.5 py-1.5 text-left text-xs font-medium text-foreground/65 transition-colors hover:border-foreground/20 hover:text-foreground"
           >
-            {showBreakdown ? t('dcfProjectionTable.hideBreakdown') : t('dcfProjectionTable.showBreakdown')}
+            {showBreakdown
+              ? t('dcfProjectionTable.hideBreakdown')
+              : t('dcfProjectionTable.showBreakdown')}
           </button>
         </ModalHeader>
 
@@ -198,7 +204,8 @@ export function DcfProjectionTable({
                 </th>
                 {baseYear && (
                   <th className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
-                    {baseYear} <span className="text-foreground/30">({t('dcfProjectionTable.base')})</span>
+                    {baseYear}{' '}
+                    <span className="text-foreground/30">({t('dcfProjectionTable.base')})</span>
                   </th>
                 )}
                 {sortedForecastRows.map((row) => (
@@ -260,26 +267,21 @@ export function DcfProjectionTable({
                     const value = wRow.getValue(proj, fRow)
                     const isEditing =
                       editingCell?.year === fRow.year && editingCell?.field === wRow.key
-                    const canEdit = wRow.editable != null
+                    const editableField = wRow.editable
+                    const canEdit = editableField != null
 
-                    if (isEditing && canEdit) {
+                    if (isEditing && editableField) {
                       return (
                         <td key={fRow.year} className="px-2 py-1">
                           <CurrencyInput
                             value={value !== 0 ? value : undefined}
-                            onChange={(v) =>
-                              handleCellChange(fRow.year, wRow.editable!, v)
-                            }
+                            onChange={(v) => handleCellChange(fRow.year, editableField, v)}
                             size="sm"
                             className="min-w-[100px]"
                             allowNegative={wRow.key === 'nwcChange'}
                             ariaLabel={`${wRow.labelKey} ${fRow.year}`}
                           />
-                          <button
-                            type="button"
-                            className="sr-only"
-                            onFocus={handleCellBlur}
-                          />
+                          <button type="button" className="sr-only" onFocus={handleCellBlur} />
                         </td>
                       )
                     }
@@ -291,7 +293,9 @@ export function DcfProjectionTable({
                           'px-4 py-2.5 text-right tabular-nums',
                           wRow.isBold ? 'font-semibold text-foreground' : 'text-foreground/80',
                           wRow.isHighlight && 'font-bold text-primary',
-                          canEdit && !disabled && 'cursor-pointer hover:bg-primary/[0.06] rounded transition-colors'
+                          canEdit &&
+                            !disabled &&
+                            'cursor-pointer hover:bg-primary/[0.06] rounded transition-colors'
                         )}
                         onClick={canEdit ? () => handleCellClick(fRow.year, wRow.key) : undefined}
                         title={canEdit ? t('dcfProjectionTable.clickToEdit') : undefined}
@@ -307,9 +311,7 @@ export function DcfProjectionTable({
         </div>
 
         <ModalFooter className="mt-0 shrink-0 border-t border-foreground/[0.06] pt-4">
-          <p className="mr-auto text-xs text-muted-foreground">
-            {t('dcfProjectionTable.formula')}
-          </p>
+          <p className="mr-auto text-xs text-muted-foreground">{t('dcfProjectionTable.formula')}</p>
           <button
             type="button"
             onClick={() => onOpenChange(false)}

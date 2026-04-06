@@ -31,6 +31,7 @@ export interface PlanFeatureFlags {
   version_control: boolean
   integrations_enabled: boolean
   valuation_synthesis: boolean
+  valuation_download: boolean
 }
 
 function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
@@ -41,6 +42,7 @@ function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
       version_control: false,
       integrations_enabled: false,
       valuation_synthesis: false,
+      valuation_download: false,
     }
   }
   if (pt === 'starter') {
@@ -49,6 +51,7 @@ function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
       version_control: true,
       integrations_enabled: false,
       valuation_synthesis: true,
+      valuation_download: true,
     }
   }
   return {
@@ -56,6 +59,7 @@ function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
     version_control: true,
     integrations_enabled: ['pro', 'expert', 'enterprise'].includes(pt),
     valuation_synthesis: ['starter', 'pro', 'expert', 'enterprise'].includes(pt),
+    valuation_download: true,
   }
 }
 
@@ -160,11 +164,15 @@ export const useCredits = (): CreditContextValue => {
         version_control: true,
         integrations_enabled: true,
         valuation_synthesis: true,
+        valuation_download: true,
       }
     }
     if (!plan) return null
-    if (plan.plan_features) return plan.plan_features
-    return defaultPlanFeatures(plan.plan_type)
+    const base = defaultPlanFeatures(plan.plan_type)
+    if (plan.plan_features) {
+      return { ...base, ...plan.plan_features }
+    }
+    return base
   }, [plan])
 
   const yearlyDiscountPercent = useMemo((): number | null => {

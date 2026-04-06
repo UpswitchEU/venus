@@ -74,8 +74,6 @@ export function useBootstrapPrefill(): {
   prefillConfidence: number
   readOnlyKbo: boolean
   autoAdvancePastPrefilledSteps: boolean
-  /** True while Titan async BE official enrichment job is in flight (poll merges when done). */
-  isOfficialFilingPending: boolean
 } {
   const bootstrap = useBootstrapSafe()
   const bootstrapRef = useRef(bootstrap)
@@ -392,14 +390,11 @@ export function useBootstrapPrefill(): {
     }
   }, [bootstrap?.prefillData.officialEnrichmentJobId, bootstrap?.isBootstrapping, formStore])
 
-  const isOfficialFilingPending = Boolean(bootstrap?.prefillData.officialEnrichmentJobId)
-
   return {
     hasPrefilled: hasPrefilled || hasPrefilledRef.current,
     prefillConfidence: bootstrap?.prefillData.confidence || 0,
     readOnlyKbo: bootstrap?.prefillData.readOnlyKbo ?? false,
     autoAdvancePastPrefilledSteps: bootstrap?.prefillData.autoAdvancePastPrefilledSteps ?? false,
-    isOfficialFilingPending,
   }
 }
 

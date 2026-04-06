@@ -2,8 +2,39 @@
 
 import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
+import { useDecimalTextInputState } from '@/hooks/useDecimalTextInputState'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import type { DcfForecastRow } from './DcfForecastTypes'
+
+function FcffAmountInput({
+  value,
+  disabled,
+  className,
+  'aria-label': ariaLabel,
+  onValueChange,
+}: {
+  value: number | undefined
+  disabled?: boolean
+  className?: string
+  'aria-label'?: string
+  onValueChange: (v: number | undefined) => void
+}) {
+  const { display, onFocus, onBlur, onChange } = useDecimalTextInputState(value, onValueChange)
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      disabled={disabled}
+      value={display}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      onChange={onChange}
+      className={className}
+      aria-label={ariaLabel}
+    />
+  )
+}
 
 interface DcfFcffOnlyTableProps {
   forecastRows: DcfForecastRow[]
@@ -43,25 +74,17 @@ export function DcfFcffOnlyTable({
         <tbody>
           {sorted.map((row) => {
             const v = row.free_cash_flow
+            const numericValue = typeof v === 'number' && Number.isFinite(v) ? v : undefined
             const hasErr = !!fieldValidation?.errors[`fcff-${row.year}`]
             const hasWarn = !!fieldValidation?.warnings[`fcff-${row.year}`]
             return (
               <tr key={row.year} className="border-b border-foreground/[0.06] last:border-0">
                 <td className="px-3 py-2 font-mono text-xs text-foreground/80">{row.year}</td>
                 <td className="px-3 py-2 text-right">
-                  <input
-                    type="number"
-                    inputMode="decimal"
+                  <FcffAmountInput
+                    value={numericValue}
                     disabled={disabled}
-                    value={typeof v === 'number' && Number.isFinite(v) ? v : ''}
-                    onChange={(e) => {
-                      if (e.target.value === '') {
-                        onChange(row.year, undefined)
-                        return
-                      }
-                      const n = Number(e.target.value)
-                      onChange(row.year, Number.isFinite(n) ? n : undefined)
-                    }}
+                    onValueChange={(next) => onChange(row.year, next)}
                     className={cn(
                       'w-full max-w-[140px] rounded-md border bg-background px-2 py-1.5 text-right font-mono text-sm tabular-nums outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary/30',
                       hasErr
@@ -72,8 +95,8 @@ export function DcfFcffOnlyTable({
                     )}
                     aria-label={t('dcfFcffOnlyTable.inputAria', { year: row.year })}
                   />
-                  {typeof v === 'number' && Number.isFinite(v) && v !== 0 && (
-                    <p className="mt-0.5 text-[10px] text-foreground/40">{fmt(v)}</p>
+                  {numericValue != null && (
+                    <p className="mt-0.5 text-[10px] text-foreground/40">{fmt(numericValue)}</p>
                   )}
                   {(hasErr || hasWarn) && (
                     <p
