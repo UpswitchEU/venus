@@ -50,6 +50,8 @@ const translations: Record<string, Record<string, string>> = {
     planTeaserHint: 'Upgrade voor teaser',
     fiscalAnchor: 'Fiscaal',
     fiscalAnchorFootnote: 'Voetnoot',
+    exportZeroDraft: 'Exporteer Zero Draft',
+    zeroDraftBlurb: 'Download de Zero Draft als CSV.',
   },
   valuationEditModal: {
     title: 'Waardering bewerken',
@@ -380,5 +382,26 @@ describe('ValuationEditModal', () => {
     ).toBeInTheDocument()
     // Exit multiple headline uses fixed two-decimal formatting on the metric card
     expect(screen.getByText('6.00x')).toBeInTheDocument()
+  })
+
+  it('hides Zero Draft export when downloads are plan-locked', () => {
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        selectedMethod="upswitch_adaptive"
+        valuationResults={{
+          upswitch_adaptive: {
+            available: true,
+            value: 100_000,
+            label: 'Upswitch marktbenadering',
+          },
+        }}
+        showZeroDraftExport
+        canExportZeroDraft={false}
+        zeroDraftReportId="report-123"
+      />
+    )
+
+    expect(screen.queryByRole('button', { name: 'Exporteer Zero Draft' })).not.toBeInTheDocument()
   })
 })

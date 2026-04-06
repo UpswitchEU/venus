@@ -28,10 +28,14 @@ const PAID_PLAN_TYPES = new Set(['premium', 'starter', 'pro', 'expert', 'enterpr
 /** Mirrors Titan `GET /api/v2/credits/plan` `plan_features` (fallback when field omitted). */
 export interface PlanFeatureFlags {
   ebitda_normalization: boolean
+  tax_latencies: boolean
   version_control: boolean
+  audit_trail: boolean
   integrations_enabled: boolean
   valuation_synthesis: boolean
   valuation_download: boolean
+  live_benelux_sector_multiples: boolean
+  team_seat_addons: boolean
 }
 
 function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
@@ -39,27 +43,39 @@ function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
   if (pt === 'free') {
     return {
       ebitda_normalization: false,
+      tax_latencies: false,
       version_control: false,
+      audit_trail: false,
       integrations_enabled: false,
       valuation_synthesis: false,
       valuation_download: false,
+      live_benelux_sector_multiples: false,
+      team_seat_addons: false,
     }
   }
   if (pt === 'starter') {
     return {
       ebitda_normalization: true,
+      tax_latencies: true,
       version_control: true,
+      audit_trail: true,
       integrations_enabled: false,
       valuation_synthesis: true,
       valuation_download: true,
+      live_benelux_sector_multiples: true,
+      team_seat_addons: true,
     }
   }
   return {
     ebitda_normalization: true,
+    tax_latencies: true,
     version_control: true,
+    audit_trail: true,
     integrations_enabled: ['pro', 'expert', 'enterprise'].includes(pt),
     valuation_synthesis: ['starter', 'pro', 'expert', 'enterprise'].includes(pt),
     valuation_download: true,
+    live_benelux_sector_multiples: ['premium', 'starter', 'pro', 'expert', 'enterprise'].includes(pt),
+    team_seat_addons: ['starter', 'pro', 'expert', 'enterprise'].includes(pt),
   }
 }
 
@@ -82,7 +98,7 @@ interface CreditContextValue {
 // SOFT DISABLE: Feature flag for unlimited credits mode
 import { env } from '../utils/env'
 
-const UNLIMITED_CREDITS_MODE = env.NEXT_PUBLIC_UNLIMITED_CREDITS_MODE !== 'false'
+const UNLIMITED_CREDITS_MODE = env.NEXT_PUBLIC_UNLIMITED_CREDITS_MODE === 'true'
 
 export const useCredits = (): CreditContextValue => {
   const [plan, setPlan] = useState<UserPlan | null>(null)
@@ -161,10 +177,14 @@ export const useCredits = (): CreditContextValue => {
     if (UNLIMITED_CREDITS_MODE) {
       return {
         ebitda_normalization: true,
+        tax_latencies: true,
         version_control: true,
+        audit_trail: true,
         integrations_enabled: true,
         valuation_synthesis: true,
         valuation_download: true,
+        live_benelux_sector_multiples: true,
+        team_seat_addons: true,
       }
     }
     if (!plan) return null

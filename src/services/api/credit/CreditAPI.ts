@@ -52,10 +52,14 @@ export class CreditAPI extends HttpClient {
     /** Feature gates — same source as Titan plan enforcement */
     plan_features?: {
       ebitda_normalization: boolean
+      tax_latencies: boolean
       version_control: boolean
+      audit_trail: boolean
       integrations_enabled: boolean
       valuation_synthesis: boolean
       valuation_download?: boolean
+      live_benelux_sector_multiples?: boolean
+      team_seat_addons?: boolean
     }
     /** Bonus valuations earned via client invite acceptance */
     bonus_valuations?: number
@@ -75,10 +79,14 @@ export class CreditAPI extends HttpClient {
       const rawFeatures = p.plan_features as
         | {
             ebitda_normalization?: boolean
+            tax_latencies?: boolean
             version_control?: boolean
+            audit_trail?: boolean
             integrations_enabled?: boolean
             valuation_synthesis?: boolean
             valuation_download?: boolean
+            live_benelux_sector_multiples?: boolean
+            team_seat_addons?: boolean
           }
         | undefined
       return {
@@ -99,15 +107,28 @@ export class CreditAPI extends HttpClient {
         plan_features:
           rawFeatures &&
           typeof rawFeatures.ebitda_normalization === 'boolean' &&
+          typeof rawFeatures.tax_latencies === 'boolean' &&
           typeof rawFeatures.version_control === 'boolean' &&
+          typeof rawFeatures.audit_trail === 'boolean' &&
           typeof rawFeatures.integrations_enabled === 'boolean'
             ? {
                 ebitda_normalization: rawFeatures.ebitda_normalization,
+                tax_latencies: rawFeatures.tax_latencies,
                 version_control: rawFeatures.version_control,
+                audit_trail: rawFeatures.audit_trail,
                 integrations_enabled: rawFeatures.integrations_enabled,
                 valuation_synthesis: rawFeatures.valuation_synthesis ?? false,
                 ...(typeof rawFeatures.valuation_download === 'boolean'
                   ? { valuation_download: rawFeatures.valuation_download }
+                  : {}),
+                ...(typeof rawFeatures.live_benelux_sector_multiples === 'boolean'
+                  ? {
+                      live_benelux_sector_multiples:
+                        rawFeatures.live_benelux_sector_multiples,
+                    }
+                  : {}),
+                ...(typeof rawFeatures.team_seat_addons === 'boolean'
+                  ? { team_seat_addons: rawFeatures.team_seat_addons }
                   : {}),
               }
             : undefined,

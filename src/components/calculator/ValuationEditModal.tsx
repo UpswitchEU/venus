@@ -780,6 +780,7 @@ export interface ValuationEditModalProps {
   businessTypeLabel?: string
   countryCode?: string
   showZeroDraftExport?: boolean
+  canExportZeroDraft?: boolean
   zeroDraftReportId?: string
   zeroDraftBusinessName?: string | null
   zeroDraftCreatedAt?: string | null
@@ -811,6 +812,7 @@ export function ValuationEditModal({
   businessTypeLabel,
   countryCode,
   showZeroDraftExport = false,
+  canExportZeroDraft = true,
   zeroDraftReportId,
   zeroDraftBusinessName,
   zeroDraftCreatedAt,
@@ -1527,7 +1529,7 @@ export function ValuationEditModal({
         />}
 
         {/* ─── Zero Draft Export ─── */}
-        {showZeroDraftExport && zeroDraftReportId && entries.length > 0 && (
+        {showZeroDraftExport && canExportZeroDraft && zeroDraftReportId && entries.length > 0 && (
             <div className="space-y-1">
               <p className="text-[10px] text-foreground/45 leading-snug px-0.5">
                 {t('zeroDraftBlurb')}

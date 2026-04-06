@@ -5603,6 +5603,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         businessTypeLabel={collectedData.businessType}
         countryCode={collectedData.country}
         showZeroDraftExport={showPreparerMultiplePanel}
+        canExportZeroDraft={planFeatures?.valuation_download !== false}
         zeroDraftReportId={resolvedReportId || reportId}
         zeroDraftBusinessName={collectedData.companyName ?? report?.companyName}
         zeroDraftCreatedAt={

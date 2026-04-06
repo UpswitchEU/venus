@@ -9,7 +9,7 @@ import { generalLogger } from '../utils/logger'
 
 export const FEATURE_FLAGS = {
   // Credit System Flags
-  UNLIMITED_CREDITS_MODE: env.NEXT_PUBLIC_UNLIMITED_CREDITS_MODE !== 'false',
+  UNLIMITED_CREDITS_MODE: env.NEXT_PUBLIC_UNLIMITED_CREDITS_MODE === 'true',
   SHOW_CREDIT_BADGE: process.env.NEXT_PUBLIC_SHOW_CREDIT_BADGE !== 'false',
   SHOW_USAGE_STATS: process.env.NEXT_PUBLIC_SHOW_USAGE_STATS === 'true',
   ENABLE_PREMIUM_UPSELL: process.env.NEXT_PUBLIC_ENABLE_PREMIUM_UPSELL === 'true',
