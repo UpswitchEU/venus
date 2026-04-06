@@ -230,7 +230,7 @@ export class SessionService {
           // Create specific PaywallError (not generic ApplicationError)
           const error = new ApplicationError(
             result.message ||
-              'Valuation limit reached. Upgrade to Starter or Pro for unlimited valuations.',
+              'Valuation limit reached. Upgrade to Starter or higher for unlimited valuations.',
             'PAYWALL_VALUATION_LIMIT',
             {
               current: result.current,

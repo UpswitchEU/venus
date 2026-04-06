@@ -939,11 +939,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (isPdfReady && report.pdfGeneratedAt == null) return false
     return true
   }, [report, isPdfReady])
+  const canDownloadPdf = planFeatures?.valuation_download !== false
 
   // When client-side PDF generation has a URL, treat report as fresh and sync metadata
   // so `isPdfLikelyStaleVenus` stays false until the next server refresh.
   useEffect(() => {
-    if (!isPdfReady || !pdfGenerationState.url) return
+    if (!canDownloadPdf || !isPdfReady || !pdfGenerationState.url) return
     const url = pdfGenerationState.url
     setReport((prev) => {
       if (!prev) return prev
@@ -961,7 +962,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         pdfGeneratedAt: syncAt,
       }
     })
-  }, [isPdfReady, pdfGenerationState.url])
+  }, [canDownloadPdf, isPdfReady, pdfGenerationState.url])
   // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
   const isRestoringExistingReport =
     !report &&
@@ -2057,7 +2058,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             r.pdf_generated_at != null && String(r.pdf_generated_at) !== ''
               ? new Date(String(r.pdf_generated_at))
               : null,
-          pdfUrl: typeof r.pdf_url === 'string' ? r.pdf_url : undefined,
+          pdfUrl: canDownloadPdf && typeof r.pdf_url === 'string' ? r.pdf_url : undefined,
         })
         setDraftStatus('saved')
         setLastSaved(new Date())
@@ -2152,7 +2153,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
                 ? new Date(String(fresh.pdf_generated_at))
                 : null,
-            pdfUrl: typeof fresh.pdf_url === 'string' ? fresh.pdf_url : prev.pdfUrl,
+            pdfUrl:
+              canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
           }
           return htmlForPreview
             ? { ...prev, htmlReport: htmlForPreview, ...pdfMeta }
@@ -2233,7 +2235,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
                 ? new Date(String(fresh.pdf_generated_at))
                 : null,
-            pdfUrl: typeof fresh.pdf_url === 'string' ? fresh.pdf_url : prev.pdfUrl,
+            pdfUrl:
+              canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
           }
         })
         setPdfPollErrorCount(0)
@@ -2289,7 +2292,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
               ? new Date(String(fresh.pdf_generated_at))
               : null,
-          pdfUrl: typeof fresh.pdf_url === 'string' ? fresh.pdf_url : prev.pdfUrl,
+          pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
         }
       })
       setPdfPollErrorCount(0)
@@ -2344,7 +2347,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             >
               {t('pdfRetry')}
             </AuroraButton>
-            {report.pdfUrl ? (
+            {canDownloadPdf && report.pdfUrl ? (
               <AuroraButton
                 type="button"
                 size="sm"
@@ -4967,7 +4970,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
           versionControlFeatureLocked={versionControlLocked}
           onVersionControlFeatureLocked={() => openStarterPaywall('version_history')}
-          canDownloadPdf={planFeatures?.valuation_download !== false}
+          canDownloadPdf={canDownloadPdf}
           valuationSummary={navValuationSummary}
         />
 
@@ -5109,6 +5112,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         isExporting={isExporting || isMethodSwitchRendering}
         downloadHistory={downloadHistory}
         onRedownload={(item: any) => {
+          if (!canDownloadPdf) {
+            openStarterPaywall('pdf_download')
+            return
+          }
           if (item.url) {
             window.open(item.url, '_blank')
           } else {
@@ -5168,7 +5175,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
         versionControlFeatureLocked={versionControlLocked}
         onVersionControlFeatureLocked={() => openStarterPaywall('version_history')}
-        canDownloadPdf={planFeatures?.valuation_download !== false}
+        canDownloadPdf={canDownloadPdf}
       />
 
       {pdfStaleBannerEl}
@@ -5656,7 +5663,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {methodPaywallReason === 'methods' &&
                   (currentLocale === 'nl'
-                    ? 'Je gratis plan bevat Adaptive, DCF, EBITDA en adjusted NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 8 methodes, downloadbare rapporten zonder watermerk in uw huisstijl.'
+                    ? 'Je gratis plan bevat Adaptive, DCF, EBITDA en adjusted NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 8 methodes, downloadbare rapporten zonder watermerk in uw huisstijl, en live Benelux sector-multiples.'
                     : 'Your free plan includes Adaptive, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all 8 methods, downloadable watermark-free branded reports, and live Benelux sector multiples.')}
                 {methodPaywallReason === 'normalization' &&
                   (currentLocale === 'nl'

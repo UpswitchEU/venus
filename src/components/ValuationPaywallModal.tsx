@@ -48,8 +48,8 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
             {message || (isNl
-              ? `Uw gratis rapporten zijn read-only met watermerk (geen PDF-download). Upgrade naar Starter (${starterYear}/jaar) voor onbeperkte downloadbare rapporten zonder watermerk in uw huisstijl. Pro (${proYear}/jaar) voegt live sync met uw boekhoudsoftware toe — geen manuele invoer.`
-              : `Your free reports are read-only with a watermark (no PDF download). Upgrade to Starter (${starterYear}/year) for unlimited downloadable watermark-free branded reports. Pro (${proYear}/year) — stop typing, live sync with your accounting software.`)}
+              ? `Uw gratis rapporten zijn read-only met watermerk (geen PDF-download). Upgrade naar Starter (${starterYear}/jaar) voor onbeperkte downloadbare rapporten zonder watermerk in uw huisstijl, alle 8 methodes, EBITDA-normalisatie & belastinglatenties, volledig auditspoor en live Benelux sector-multiples. Pro (${proYear}/jaar) voegt live sync met uw boekhoudsoftware toe — geen manuele invoer.`
+              : `Your free reports are read-only with a watermark (no PDF download). Upgrade to Starter (${starterYear}/year) for unlimited downloadable watermark-free branded reports, all 8 methods, EBITDA normalization & tax latencies, full audit trail, and live Benelux sector multiples. Pro (${proYear}/year) adds live sync with your accounting software.`)}
           </p>
         </div>
 
