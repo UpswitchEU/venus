@@ -1403,6 +1403,7 @@
 			"revenueQualityBadgeOmzet": "Revenue",
 			"revenueQualityBadgeEbitda": "EV/EBITDA",
 			"revenueQualityBadgeBoth": "Revenue & EV/EBITDA",
+			"revenueDisabledHint": "Enter revenue first",
 			"sdeExplainer": "SDE (Seller's Discretionary Earnings) adds the owner's salary back to EBITDA. This reflects the true cash flow available to a buyer who replaces the owner. Enter the total annual owner compensation below.",
 			"shownForBusinessType": "Shown for {businessType}",
 			"businessTypes": {
@@ -1570,7 +1571,9 @@
 				"totalWarning": "Total: {total}% (must be 100%)",
 				"methodCol": "Method",
 				"valueCol": "Value",
-				"contributionCol": "Contribution"
+				"contributionCol": "Contribution",
+				"lockedTitle": "Valuation Synthesis",
+				"lockedDescription": "Blend methods with weighted averages — available from Starter"
 			}
 		},
 		"importModal": {

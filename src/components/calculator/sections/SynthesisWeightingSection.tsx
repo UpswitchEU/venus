@@ -210,10 +210,26 @@ export function SynthesisWeightingSection({
     }
   }, [])
 
+  const sectionRef = useRef<HTMLElement>(null)
+  const hasScrolledRef = useRef(false)
+  useEffect(() => {
+    if (!hasScrolledRef.current && sectionRef.current && methods.length >= 2) {
+      hasScrolledRef.current = true
+      const timer = setTimeout(() => {
+        sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [methods.length])
+
   if (methods.length < 2) return null
 
   return (
-    <div className="space-y-4">
+    <section
+      ref={sectionRef}
+      className="space-y-4"
+      aria-label={synth('title')}
+    >
       <div className="flex items-center justify-between">
         <ValuationSectionHeader
           step={step}
@@ -407,47 +423,43 @@ export function SynthesisWeightingSection({
 
       {/* Contributions breakdown table (post-calculation) */}
       {contributions && liveBlended != null && total === 100 && (
-        <div className="rounded-lg border border-foreground/[0.06] bg-muted/30 overflow-hidden">
-          <div className="px-3 py-2 border-b border-foreground/[0.06]">
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 text-[9px] font-semibold uppercase tracking-wider text-foreground/40">
-              <span>{synth('methodCol')}</span>
-              <span className="text-right min-w-[4.5rem]">{synth('valueCol')}</span>
-              <span className="text-right min-w-[3rem]">{synth('weight')}</span>
-              <span className="text-right min-w-[4.5rem]">{synth('contributionCol')}</span>
-            </div>
-          </div>
-          <div className="divide-y divide-foreground/[0.04]">
-            {contributions.map((c) => (
-              <div
-                key={c.method}
-                className={cn(
-                  'grid grid-cols-[1fr_auto_auto_auto] gap-2 px-3 py-2 text-[11px]',
-                  !c.available && c.weight > 0 && 'opacity-50'
-                )}
-              >
-                <span className="text-foreground/70 font-medium truncate">{c.label}</span>
-                <span className="text-right tabular-nums font-mono text-foreground/55 min-w-[4.5rem]">
-                  {c.equity != null ? formatCompactCurrency(c.equity) : '—'}
-                </span>
-                <span className="text-right tabular-nums text-foreground/55 min-w-[3rem]">
-                  {c.weight}%
-                </span>
-                <span className="text-right tabular-nums font-mono font-medium text-foreground/70 min-w-[4.5rem]">
-                  {c.contribution != null ? formatCompactCurrency(c.contribution) : '—'}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="px-3 py-2.5 border-t border-foreground/[0.08] bg-muted/40">
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 text-[11px]">
-              <span className="font-semibold text-foreground/80">{synth('blendedValue')}</span>
-              <span />
-              <span className="text-right tabular-nums text-foreground/50">100%</span>
-              <span className="text-right tabular-nums font-mono font-bold text-primary min-w-[4.5rem]">
-                {formatCompactCurrency(liveBlended)}
-              </span>
-            </div>
-          </div>
+        <div className="rounded-lg border border-foreground/[0.06] bg-muted/30 overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="border-b border-foreground/[0.06]">
+                <th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-foreground/40">{synth('methodCol')}</th>
+                <th className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap">{synth('valueCol')}</th>
+                <th className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40">{synth('weight')}</th>
+                <th className="px-3 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap">{synth('contributionCol')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-foreground/[0.04]">
+              {contributions.map((c) => (
+                <tr key={c.method} className={cn(!c.available && c.weight > 0 && 'opacity-50')}>
+                  <td className="px-3 py-2 text-foreground/70 font-medium truncate max-w-[8rem]">{c.label}</td>
+                  <td className="px-2 py-2 text-right tabular-nums font-mono text-foreground/55 whitespace-nowrap">
+                    {c.equity != null ? formatCompactCurrency(c.equity) : '—'}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums text-foreground/55 whitespace-nowrap">
+                    {c.weight}%
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums font-mono font-medium text-foreground/70 whitespace-nowrap">
+                    {c.contribution != null ? formatCompactCurrency(c.contribution) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-foreground/[0.08] bg-muted/40">
+                <td className="px-3 py-2.5 font-semibold text-foreground/80">{synth('blendedValue')}</td>
+                <td />
+                <td className="px-2 py-2.5 text-right tabular-nums text-foreground/50">100%</td>
+                <td className="px-3 py-2.5 text-right tabular-nums font-mono font-bold text-primary whitespace-nowrap">
+                  {formatCompactCurrency(liveBlended)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       )}
 
@@ -465,6 +477,6 @@ export function SynthesisWeightingSection({
           maxLength={2000}
         />
       </div>
-    </div>
+    </section>
   )
 }

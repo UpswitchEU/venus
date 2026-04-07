@@ -22,6 +22,7 @@ import {
   FileSpreadsheet,
   HelpCircle,
   Loader2,
+  Lock,
   Plus,
   TrendingUp,
   X,
@@ -169,6 +170,7 @@ import {
   RevenueQualitySection,
   SaasMetricsSection,
   SdeOwnerCompensationSection,
+  SynthesisWeightingSection,
   SECTION_HEADER_ROW_CLASS,
   SectionStatusCircle,
 } from './sections'
@@ -440,6 +442,22 @@ interface ManualInputPanelProps {
   integrationsEnabled?: boolean
   /** Current plan type (free/starter/pro/…). Drives the Pro upsell CTA. */
   planType?: string
+  /** Synthesis: methods with available results for weighted blending. */
+  synthesisMethods?: string[]
+  /** Synthesis: current weight per method key. */
+  synthesisWeights?: Record<string, number>
+  /** Synthesis: advisor justification text. */
+  synthesisJustification?: string
+  /** Synthesis: callback when weights change. */
+  onSynthesisWeightsChange?: (weights: Record<string, number>) => void
+  /** Synthesis: callback when justification changes. */
+  onSynthesisJustificationChange?: (justification: string) => void
+  /** Synthesis: whether the feature is unlocked (Starter+). */
+  synthesisUnlocked?: boolean
+  /** Synthesis: valuation results keyed by method. */
+  synthesisValuationResults?: Record<string, import('../../types/valuation').ValuationMethodResult> | null
+  /** Synthesis: open Starter paywall when locked. */
+  onSynthesisPaywall?: () => void
 }
 
 // Options
@@ -600,6 +618,14 @@ export function ManualInputPanel({
   preferIntegrationEntry = false,
   integrationsEnabled = true,
   planType = 'free',
+  synthesisMethods = [],
+  synthesisWeights = {},
+  synthesisJustification = '',
+  onSynthesisWeightsChange,
+  onSynthesisJustificationChange,
+  synthesisUnlocked = false,
+  synthesisValuationResults,
+  onSynthesisPaywall,
 }: ManualInputPanelProps) {
   const { user } = useAuth()
   const t = useTranslations()
@@ -1406,7 +1432,7 @@ export function ManualInputPanel({
   const effectiveMethods = useManualResultsStore((s) => s.preSelectedMethods)
   const hasDcfSelected = effectiveMethods.includes('dcf')
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
-  // Synthesis weighting moved to results panel — store selectors no longer needed here
+  // Synthesis weighting rendered as the final step in the left panel (props from ManualLayout)
   const prevMethodRef = useRef<string | null>(null)
   useEffect(() => {
     const prev = prevMethodRef.current
@@ -2029,6 +2055,20 @@ export function ManualInputPanel({
   const balanceSheetCarveOutStep = useMemo(
     () => (hasDcfForecastWorkspace ? 7 : 4),
     [hasDcfForecastWorkspace]
+  )
+
+  const synthesisStep = useMemo(() => {
+    const allSteps = [
+      3,
+      balanceSheetCarveOutStep,
+      adaptiveHeaderSteps.dcfGlobal,
+      adaptiveHeaderSteps.nav,
+      adaptiveHeaderSteps.saas,
+      adaptiveHeaderSteps.revenue,
+      adaptiveHeaderSteps.sde,
+    ].filter((s): s is number => s != null)
+    return Math.max(...allSteps) + 1
+  }, [balanceSheetCarveOutStep, adaptiveHeaderSteps]
   )
 
   const dcfForecastDefaultsStep = 4
@@ -3742,7 +3782,51 @@ export function ManualInputPanel({
                 disabled={isCalculating}
               />
 
-              {/* Synthesis weighting moved to Results panel (post-calculation "Advisor Tweak") */}
+              <AnimatePresence>
+                {synthesisMethods.length >= 2 && (
+                  <motion.div
+                    key="synthesis-panel"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t border-foreground/[0.06] pt-6">
+                      {synthesisUnlocked ? (
+                        <SynthesisWeightingSection
+                          methods={synthesisMethods}
+                          weights={synthesisWeights}
+                          justification={synthesisJustification}
+                          onWeightsChange={onSynthesisWeightsChange ?? (() => {})}
+                          onJustificationChange={onSynthesisJustificationChange ?? (() => {})}
+                          step={synthesisStep}
+                          disabled={isCalculating}
+                          valuationResults={synthesisValuationResults}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onSynthesisPaywall?.()}
+                          className="w-full rounded-xl border border-dashed border-foreground/10 bg-muted/30 p-4 text-center hover:bg-muted/50 transition-colors group"
+                        >
+                          <div className="flex items-center justify-center gap-2 mb-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40 group-hover:text-primary transition-colors"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-foreground/40 group-hover:text-primary transition-colors">
+                              {locale === 'nl' ? 'Waarderingssynthese' : 'Valuation Synthesis'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-foreground/40">
+                            {locale === 'nl'
+                              ? 'Combineer methodes met gewogen gemiddelden — beschikbaar vanaf Starter'
+                              : 'Blend methods with weighted averages — available from Starter'}
+                          </p>
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Sticky Bottom CTA - stays visible when scrolling (mobile keyboard) */}

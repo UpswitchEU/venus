@@ -62,14 +62,13 @@ import {
   type ValuationReportData,
 } from '../../../components/calculator'
 import { InviteClientModal } from '../../../components/calculator/InviteClientModal'
-import { SynthesisWeightingSection } from '../../../components/calculator/sections/SynthesisWeightingSection'
 import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
 import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
-import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
+import { isMethodDisabledForRevenue, isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { AuroraButton } from '../../../design-system/components/Button'
 import { springDefault } from '../../../design-system/components/motion'
 // Design System
@@ -631,6 +630,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const tHistory = useTranslations('historyPanel')
   const tErrors = useTranslations('errors')
   const tPreparer = useTranslations('preparerMultiple')
+  const tMethodSelector = useTranslations('manualInput.methodSelector')
   const isMobile = useIsMobile()
 
   // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
@@ -679,6 +679,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     preSelectedMethod,
     setPreSelectedMethod,
     preSelectedMethods,
+    setPreSelectedMethods,
     togglePreSelectedMethod,
     userWeights,
     userWeightJustification,
@@ -703,6 +704,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
     return next.size > 0 ? next : undefined
   }, [allowedMethodKeys, preSelectableMethodsForNav])
+  const revenueDisabledMethodKeys = useMemo(() => {
+    const disabled = new Set<string>()
+    for (const m of preSelectableMethodsForNav) {
+      if (isMethodDisabledForRevenue(m, currentYearRevenueForMethodNav)) {
+        disabled.add(m)
+      }
+    }
+    return disabled.size > 0 ? disabled : undefined
+  }, [preSelectableMethodsForNav, currentYearRevenueForMethodNav])
   const ebitdaNormalizationLocked = Boolean(planFeatures && !planFeatures.ebitda_normalization)
   const versionControlLocked = Boolean(planFeatures && !planFeatures.version_control)
   const status = useSessionStore((s) => s.status)
@@ -1972,8 +1982,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [preSelectedMethods, synthesisValuationResults])
 
   const synthesisUnlocked = planFeatures?.valuation_synthesis ?? false
-  const showSynthesisSection = report?.htmlReport && synthesisMethods.length >= 2
-
   const handleSelectVersion = useCallback(
     (id: string) => {
       if (planFeatures && !planFeatures.version_control && id !== 'current') {
@@ -2544,25 +2552,27 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const togglePreSelectedMethodWithPlanGate = useCallback(
     (method: string) => {
+      if (isMethodDisabledForRevenue(method, currentYearRevenueForMethodNav)) return
       if (allowedMethodKeys !== null && !allowedMethodKeys.includes(method)) {
         openStarterPaywall('methods')
         return
       }
       togglePreSelectedMethod(method)
     },
-    [allowedMethodKeys, togglePreSelectedMethod, openStarterPaywall]
+    [allowedMethodKeys, currentYearRevenueForMethodNav, togglePreSelectedMethod, openStarterPaywall]
   )
 
   const handlePreSelectMethod = useCallback(
     (method: string) => {
       if (!isUpfrontMethodAllowedForNav(method, preSelectableMethodsForNav)) return
+      if (isMethodDisabledForRevenue(method, currentYearRevenueForMethodNav)) return
       if (allowedMethodKeys !== null && !allowedMethodKeys.includes(method)) {
         openStarterPaywall('methods')
         return
       }
       setPreSelectedMethod(method === 'upswitch_adaptive' ? null : method)
     },
-    [setPreSelectedMethod, preSelectableMethodsForNav, allowedMethodKeys, openStarterPaywall]
+    [setPreSelectedMethod, preSelectableMethodsForNav, currentYearRevenueForMethodNav, allowedMethodKeys, openStarterPaywall]
   )
 
   // Sync persisted pre-selection when allowed list changes (firm, turnover, hydration).
@@ -2574,6 +2584,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setPreSelectedMethod(null)
     }
   }, [preSelectableMethodsForNav, preSelectedMethod, setPreSelectedMethod])
+
+  // Auto-deselect revenue-disabled methods from both single and multi-select when revenue drops to 0.
+  useEffect(() => {
+    if (preSelectedMethod && isMethodDisabledForRevenue(preSelectedMethod, currentYearRevenueForMethodNav)) {
+      setPreSelectedMethod(null)
+    }
+    const hasDisabled = preSelectedMethods.some((m) => isMethodDisabledForRevenue(m, currentYearRevenueForMethodNav))
+    if (hasDisabled) {
+      const cleaned = preSelectedMethods.filter((m) => !isMethodDisabledForRevenue(m, currentYearRevenueForMethodNav))
+      setPreSelectedMethods(cleaned.length > 0 ? cleaned : ['upswitch_adaptive'])
+    }
+  }, [currentYearRevenueForMethodNav, preSelectedMethod, preSelectedMethods, setPreSelectedMethod, setPreSelectedMethods])
 
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
@@ -4764,6 +4786,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       Boolean(identity.clientContext?.clientCompanyName?.trim()),
     integrationsEnabled: planFeatures?.integrations_enabled ?? false,
     planType: plan?.plan_type ?? 'free',
+    synthesisMethods,
+    synthesisWeights: userWeights,
+    synthesisJustification: userWeightJustification,
+    onSynthesisWeightsChange: setUserWeights,
+    onSynthesisJustificationChange: setUserWeightJustification,
+    synthesisUnlocked,
+    synthesisValuationResults,
+    onSynthesisPaywall: () => openStarterPaywall('synthesis'),
     initialData: {
       companyName: collectedData.companyName,
       kboNumber: collectedData.kboNumber,
@@ -4966,6 +4996,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           preSelectableMethodsForNav={preSelectableMethodsForNav}
           planLockedMethodKeys={planLockedMethodKeys}
           onPlanLockedMethodAction={handlePlanLockedMethodAction}
+          disabledMethodKeys={revenueDisabledMethodKeys}
+          disabledMethodHint={tMethodSelector('revenueDisabledHint')}
           normalizationFeatureLocked={ebitdaNormalizationLocked}
           onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
           versionControlFeatureLocked={versionControlLocked}
@@ -5171,6 +5203,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         preSelectableMethodsForNav={preSelectableMethodsForNav}
         planLockedMethodKeys={planLockedMethodKeys}
         onPlanLockedMethodAction={handlePlanLockedMethodAction}
+        disabledMethodKeys={revenueDisabledMethodKeys}
+        disabledMethodHint={tMethodSelector('revenueDisabledHint')}
         normalizationFeatureLocked={ebitdaNormalizationLocked}
         onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
         versionControlFeatureLocked={versionControlLocked}
@@ -5325,40 +5359,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               </div>
                             </div>
                           )}
-                          {showSynthesisSection && (
-                            <div className="border-b border-foreground/[0.06] px-5 py-5">
-                              {synthesisUnlocked ? (
-                                <SynthesisWeightingSection
-                                  methods={synthesisMethods}
-                                  weights={userWeights}
-                                  justification={userWeightJustification}
-                                  onWeightsChange={setUserWeights}
-                                  onJustificationChange={setUserWeightJustification}
-                                  step={1}
-                                  disabled={isCalculating || isGenerating}
-                                  valuationResults={synthesisValuationResults}
-                                />
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => openStarterPaywall('synthesis')}
-                                  className="w-full rounded-xl border border-dashed border-foreground/10 bg-muted/30 p-4 text-center hover:bg-muted/50 transition-colors group"
-                                >
-                                  <div className="flex items-center justify-center gap-2 mb-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40 group-hover:text-primary transition-colors"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-foreground/40 group-hover:text-primary transition-colors">
-                                      {currentLocale === 'nl' ? 'Waarderingssynthese' : 'Valuation Synthesis'}
-                                    </span>
-                                  </div>
-                                  <p className="text-[11px] text-foreground/40">
-                                    {currentLocale === 'nl'
-                                      ? 'Combineer methodes met gewogen gemiddelden — beschikbaar vanaf Starter'
-                                      : 'Blend methods with weighted averages — available from Starter'}
-                                  </p>
-                                </button>
-                              )}
-                            </div>
-                          )}
                           <div className="valuation-report">
                             <div
                               dangerouslySetInnerHTML={{
@@ -5439,40 +5439,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               </p>
                             </div>
                           </div>
-                        </div>
-                      )}
-                      {showSynthesisSection && (
-                        <div className="border-b border-foreground/[0.06] px-5 py-5">
-                          {synthesisUnlocked ? (
-                            <SynthesisWeightingSection
-                              methods={synthesisMethods}
-                              weights={userWeights}
-                              justification={userWeightJustification}
-                              onWeightsChange={setUserWeights}
-                              onJustificationChange={setUserWeightJustification}
-                              step={1}
-                              disabled={isCalculating || isGenerating}
-                              valuationResults={synthesisValuationResults}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => openStarterPaywall('synthesis')}
-                              className="w-full rounded-xl border border-dashed border-foreground/10 bg-muted/30 p-4 text-center hover:bg-muted/50 transition-colors group"
-                            >
-                              <div className="flex items-center justify-center gap-2 mb-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40 group-hover:text-primary transition-colors"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                <span className="text-xs font-semibold uppercase tracking-wider text-foreground/40 group-hover:text-primary transition-colors">
-                                  {currentLocale === 'nl' ? 'Waarderingssynthese' : 'Valuation Synthesis'}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-foreground/40">
-                                {currentLocale === 'nl'
-                                  ? 'Combineer methodes met gewogen gemiddelden — beschikbaar vanaf Starter'
-                                  : 'Blend methods with weighted averages — available from Starter'}
-                              </p>
-                            </button>
-                          )}
                         </div>
                       )}
                       <div className="valuation-report">

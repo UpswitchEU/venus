@@ -8,6 +8,7 @@ import {
   getPreSelectableMethodsForFirm,
   getPreSelectableMethodsForFirmAndRevenue,
   isCombinableMethod,
+  isMethodDisabledForRevenue,
   isUpfrontMethodAllowedForNav,
   normalizeRemainderWeights,
   rebalanceMethodWeights,
@@ -150,9 +151,18 @@ describe('methodFieldConfig', () => {
     expect(getPreSelectableMethodsForFirm('nl')).not.toContain('fiscal_4x')
   })
 
-  it('omits omzet_multiple when turnover is known to be ≤ 0', () => {
-    expect(getPreSelectableMethodsForFirmAndRevenue('BE', 0)).not.toContain('omzet_multiple')
+  it('keeps omzet_multiple in the list even when turnover is 0 (disabled via isMethodDisabledForRevenue)', () => {
+    expect(getPreSelectableMethodsForFirmAndRevenue('BE', 0)).toContain('omzet_multiple')
     expect(getPreSelectableMethodsForFirmAndRevenue('BE', undefined)).toEqual(PRE_SELECTABLE_METHODS)
+  })
+
+  it('isMethodDisabledForRevenue disables omzet/revenue_multiple when revenue ≤ 0', () => {
+    expect(isMethodDisabledForRevenue('omzet_multiple', 0)).toBe(true)
+    expect(isMethodDisabledForRevenue('revenue_multiple', -100)).toBe(true)
+    expect(isMethodDisabledForRevenue('omzet_multiple', 1000)).toBe(false)
+    expect(isMethodDisabledForRevenue('omzet_multiple', undefined)).toBe(false)
+    expect(isMethodDisabledForRevenue('omzet_multiple', null)).toBe(false)
+    expect(isMethodDisabledForRevenue('ebitda_multiple', 0)).toBe(false)
   })
 
   it('isUpfrontMethodAllowedForNav respects list and always allows adaptive', () => {
@@ -163,10 +173,11 @@ describe('methodFieldConfig', () => {
   })
 
   it('resolveDisplayPreSelectedMethodKey falls back to adaptive when invalid', () => {
-    const allowed = getPreSelectableMethodsForFirmAndRevenue('BE', 0)
-    expect(resolveDisplayPreSelectedMethodKey('omzet_multiple', allowed)).toBe('upswitch_adaptive')
+    const allowed = getPreSelectableMethodsForFirm('NL')
+    expect(resolveDisplayPreSelectedMethodKey('fiscal_4x', allowed)).toBe('upswitch_adaptive')
     expect(resolveDisplayPreSelectedMethodKey(null, allowed)).toBe('upswitch_adaptive')
     expect(resolveDisplayPreSelectedMethodKey('dcf', allowed)).toBe('dcf')
+    expect(resolveDisplayPreSelectedMethodKey('omzet_multiple', allowed)).toBe('omzet_multiple')
   })
 
   describe('synthesis weights (Waarderingssynthese)', () => {

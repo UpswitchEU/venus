@@ -163,6 +163,10 @@ export interface CalculatorNavProps {
   /** Free-plan teaser: methods visible but locked until Starter+ */
   planLockedMethodKeys?: ReadonlySet<string>
   onPlanLockedMethodAction?: () => void
+  /** Methods visible but temporarily disabled (e.g. revenue multiple when revenue is 0) */
+  disabledMethodKeys?: ReadonlySet<string>
+  /** Hint shown under disabled methods */
+  disabledMethodHint?: string
   /** Free plan: EBITDA normalization hub (incl. tax latencies in modal) — visible, Starter+ to use */
   normalizationFeatureLocked?: boolean
   onNormalizationFeatureLocked?: () => void
@@ -365,6 +369,8 @@ export function CalculatorNav({
   preSelectableMethodsForNav: preSelectableMethodsForNavProp,
   planLockedMethodKeys,
   onPlanLockedMethodAction,
+  disabledMethodKeys,
+  disabledMethodHint,
   normalizationFeatureLocked = false,
   onNormalizationFeatureLocked,
   versionControlFeatureLocked = false,
@@ -623,6 +629,8 @@ export function CalculatorNav({
                   t={t}
                   lockedMethodKeys={planLockedMethodKeys}
                   onLockedMethodClick={onPlanLockedMethodAction}
+                  disabledMethodKeys={disabledMethodKeys}
+                  disabledMethodHint={disabledMethodHint}
                 />
               </Dropdown>
             </div>
@@ -1087,6 +1095,8 @@ export function CalculatorNav({
                   t={t}
                   lockedMethodKeys={planLockedMethodKeys}
                   onLockedMethodClick={onPlanLockedMethodAction}
+                  disabledMethodKeys={disabledMethodKeys}
+                  disabledMethodHint={disabledMethodHint}
                 />
               </Dropdown>
             )}

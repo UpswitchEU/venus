@@ -4,6 +4,7 @@
 
 import {
   getPreSelectableMethodsForFirmAndRevenue,
+  isMethodDisabledForRevenue,
   isUpfrontMethodAllowedForNav,
 } from './methodFieldConfig'
 
@@ -49,6 +50,7 @@ export function sanitizePreSelectedValuationMethod(
   const lower = trimmed.toLowerCase()
   const allowed = getPreSelectableMethodsForFirmAndRevenue(firmCountryCode, currentYearRevenue)
   if (!isUpfrontMethodAllowedForNav(lower, allowed)) return null
+  if (isMethodDisabledForRevenue(lower, currentYearRevenue)) return null
   return lower === 'upswitch_adaptive' ? null : lower
 }
 
