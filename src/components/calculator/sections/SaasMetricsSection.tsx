@@ -1,14 +1,14 @@
 'use client'
 import { motion } from 'framer-motion'
-import { BarChart3, RefreshCw, Shield, TrendingUp, Users, Zap } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { PREVIEW_DECIMALS, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { computeSaasPreviewMetrics } from '@/lib/saas'
 import { cn } from '@/design-system/utils'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { formatPreviewMetricValue, PreviewMetricCard } from './previewMetricCards'
+import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 type HealthStatus = 'excellent' | 'good' | 'warning' | 'poor'
 
@@ -45,27 +45,29 @@ function getHealthStatus(metric: string, value: number | null): HealthStatus | n
   }
 }
 
-function SaasGroupHeader({
-  icon: Icon,
+function SaasPanel({
   title,
-  hint,
+  description,
+  children,
 }: {
-  icon: React.ComponentType<{ className?: string }>
   title: string
-  hint: string
+  description: string
+  children: ReactNode
 }) {
   return (
-    <div className="flex items-center gap-2 pb-1.5">
-      <Icon className="h-3.5 w-3.5 text-primary/60" />
-      <div>
-        <h4 className="text-xs font-semibold text-foreground/70">{title}</h4>
-        <p className="text-[10px] text-foreground/40">{hint}</p>
+    <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
+      <div className="space-y-1">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">{title}</h4>
+        <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
       </div>
+      {children}
     </div>
   )
 }
 
 interface SaasMetricsSectionProps {
+  step: number
+  complete: boolean
   saasArr?: number
   saasMrr?: number
   saasArrGrowthPct?: number
@@ -89,6 +91,8 @@ interface SaasMetricsSectionProps {
 }
 
 export function SaasMetricsSection({
+  step,
+  complete,
   saasArr,
   saasMrr,
   saasArrGrowthPct,
@@ -154,6 +158,7 @@ export function SaasMetricsSection({
 
   const totalFields = 11
   const isReady = saasArr != null && filledCount >= 3
+  const progressPct = (filledCount / totalFields) * 100
 
   return (
     <motion.section
@@ -161,8 +166,21 @@ export function SaasMetricsSection({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="space-y-5 pt-2"
+      className="mt-6 space-y-4 pt-2"
     >
+      <ValuationSectionHeader
+        step={step}
+        complete={complete}
+        title={t('sections.saasMetrics')}
+        badge={
+          <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
+            {t('shownForBusinessType', {
+              businessType: t('businessTypes.saasSoftware'),
+            })}
+          </span>
+        }
+      />
+
       {importedSaasProvenance && importedProviderLabel && (
         <div className="rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2.5">
           <p className="text-xs font-medium text-foreground">{t('saasImported.title')}</p>
@@ -176,40 +194,45 @@ export function SaasMetricsSection({
         </div>
       )}
 
-      {/* Progress indicator */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <div className="h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
-            <motion.div
-              className={cn(
-                'h-full rounded-full transition-colors',
-                isReady ? 'bg-emerald-500' : 'bg-primary/50'
-              )}
-              initial={{ width: 0 }}
-              animate={{ width: `${(filledCount / totalFields) * 100}%` }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-            />
-          </div>
+      <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
+        <div className="space-y-1">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+            {t('saasPanels.startLeadTitle')}
+          </h4>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('fields.saasLead')}</p>
+          <p className="text-[11px] text-foreground/45">{t('fields.saasQuickStart')}</p>
         </div>
-        <p className="text-[10px] text-foreground/45 whitespace-nowrap">
-          {isReady
-            ? t('saasProgress.ready')
-            : t('saasProgress.filled', { count: filledCount, total: totalFields })}
-        </p>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <div className="h-1.5 overflow-hidden rounded-full bg-foreground/[0.06]">
+              <motion.div
+                className={cn(
+                  'h-full rounded-full transition-colors',
+                  isReady ? 'bg-emerald-500' : 'bg-primary/50'
+                )}
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPct}%` }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              />
+            </div>
+          </div>
+          <p className="whitespace-nowrap text-[10px] text-foreground/45">
+            {isReady
+              ? t('saasProgress.ready')
+              : t('saasProgress.filled', { count: filledCount, total: totalFields })}
+          </p>
+        </div>
+        {!isReady && (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t('saasProgress.minimumHint')}
+          </p>
+        )}
       </div>
-      {!isReady && (
-        <p className="text-[10px] text-foreground/35 -mt-3">
-          {t('saasProgress.minimumHint')}
-        </p>
-      )}
 
-      {/* Group 1: Revenue & Growth */}
-      <div className="space-y-2.5">
-        <SaasGroupHeader
-          icon={TrendingUp}
-          title={t('saasGroupHeaders.revenueGrowth')}
-          hint={t('saasGroupHeaders.revenueGrowthHint')}
-        />
+      <SaasPanel
+        title={t('saasPanels.startHereTitle')}
+        description={t('saasPanels.startHereDescription')}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <CurrencyInput
             label={t('fields.saasArr')}
@@ -237,16 +260,21 @@ export function SaasMetricsSection({
             disabled={disabled}
             description={t('fieldHints.saasArrGrowthPct')}
           />
+          <AdaptivePercentInput
+            label={t('fields.saasNrrPct')}
+            value={saasNrrPct}
+            onChange={(v) => onFieldChange('saas_nrr_pct', v)}
+            placeholder="110"
+            disabled={disabled}
+            description={t('fieldHints.saasNrrPct')}
+          />
         </div>
-      </div>
+      </SaasPanel>
 
-      {/* Group 2: Retention & Churn */}
-      <div className="space-y-2.5">
-        <SaasGroupHeader
-          icon={RefreshCw}
-          title={t('saasGroupHeaders.retentionChurn')}
-          hint={t('saasGroupHeaders.retentionChurnHint')}
-        />
+      <SaasPanel
+        title={t('saasPanels.retentionTitle')}
+        description={t('saasPanels.retentionDescription')}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <AdaptivePercentInput
             label={t('fields.saasChurnPct')}
@@ -265,14 +293,6 @@ export function SaasMetricsSection({
             description={t('fieldHints.saasCustomerChurnPct')}
           />
           <AdaptivePercentInput
-            label={t('fields.saasNrrPct')}
-            value={saasNrrPct}
-            onChange={(v) => onFieldChange('saas_nrr_pct', v)}
-            placeholder="110"
-            disabled={disabled}
-            description={t('fieldHints.saasNrrPct')}
-          />
-          <AdaptivePercentInput
             label={t('fields.saasExpansionRevenuePct')}
             value={saasExpansionRevenuePct}
             onChange={(v) => onFieldChange('saas_expansion_revenue_pct', v)}
@@ -280,17 +300,6 @@ export function SaasMetricsSection({
             disabled={disabled}
             description={t('fieldHints.saasExpansionRevenuePct')}
           />
-        </div>
-      </div>
-
-      {/* Group 3: Profitability & Risk */}
-      <div className="space-y-2.5">
-        <SaasGroupHeader
-          icon={Shield}
-          title={t('saasGroupHeaders.profitability')}
-          hint={t('saasGroupHeaders.profitabilityHint')}
-        />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <AdaptivePercentInput
             label={t('fields.saasGrossMarginPct')}
             value={saasGrossMarginPct}
@@ -299,24 +308,13 @@ export function SaasMetricsSection({
             disabled={disabled}
             description={t('fieldHints.saasGrossMarginPct')}
           />
-          <AdaptivePercentInput
-            label={t('fields.saasCustomerConcentrationPct')}
-            value={saasCustomerConcentrationPct}
-            onChange={(v) => onFieldChange('saas_customer_concentration_pct', v)}
-            placeholder="20"
-            disabled={disabled}
-            description={t('fieldHints.saasCustomerConcentrationPct')}
-          />
         </div>
-      </div>
+      </SaasPanel>
 
-      {/* Group 4: Unit Economics */}
-      <div className="space-y-2.5">
-        <SaasGroupHeader
-          icon={Users}
-          title={t('saasGroupHeaders.unitEconomics')}
-          hint={t('saasGroupHeaders.unitEconomicsHint')}
-        />
+      <SaasPanel
+        title={t('saasPanels.advancedTitle')}
+        description={t('saasPanels.advancedDescription')}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <CurrencyInput
             label={t('fields.saasCac')}
@@ -336,18 +334,22 @@ export function SaasMetricsSection({
             disabled={disabled}
             description={t('fieldHints.saasSmSpend')}
           />
+          <AdaptivePercentInput
+            label={t('fields.saasCustomerConcentrationPct')}
+            value={saasCustomerConcentrationPct}
+            onChange={(v) => onFieldChange('saas_customer_concentration_pct', v)}
+            placeholder="20"
+            disabled={disabled}
+            description={t('fieldHints.saasCustomerConcentrationPct')}
+          />
         </div>
-      </div>
+      </SaasPanel>
 
-      {/* Calculated SaaS Signals with health indicators */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-3.5 w-3.5 text-primary/60" />
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/55">
-              {t('sections.saasDerivedMetrics')}
-            </h4>
-          </div>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+            {t('sections.saasDerivedMetrics')}
+          </h4>
           <span className="text-[10px] text-foreground/45">{t('fields.saasAutoCalculated')}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -375,16 +377,16 @@ export function SaasMetricsSection({
             )
           })}
         </div>
+        {!isReady && (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t('fields.saasDerivedNeedMoreInputs')}
+          </p>
+        )}
       </div>
 
       {arrProjectionPreview.length > 0 && (
         <div className="rounded-xl border border-foreground/10 bg-background/70 p-3">
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-primary" />
-            <p className="text-sm font-medium text-foreground">
-              {t('saasProjectionPreview.title')}
-            </p>
-          </div>
+          <p className="text-sm font-medium text-foreground">{t('saasProjectionPreview.title')}</p>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
             {t('saasProjectionPreview.description')}
           </p>

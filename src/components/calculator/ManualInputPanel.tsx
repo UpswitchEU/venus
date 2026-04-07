@@ -34,10 +34,6 @@ import { BizzcontrolImportModal } from '@/components/integrations/BizzcontrolImp
 import { CSVUploadCard, type ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import { OctopusImportModal } from '@/components/integrations/OctopusImportModal'
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
   type BusinessType,
   BusinessTypeSearchInput,
   categoryIcons,
@@ -4518,59 +4514,30 @@ export function AdaptiveSections({
           />
         )}
         {sections.includes('saas_metrics') && sectionHeaderSteps.saas != null && (
-          <Accordion
+          <SaasMetricsSection
             key="saas_metrics"
-            type="single"
-            defaultValue="saas_metrics"
-            collapsible
-            variant="separated"
-            className="mt-6 pt-0"
-          >
-            <AccordionItem value="saas_metrics">
-              <AccordionTrigger size="sm" className="gap-2 !py-3">
-                <span
-                  className={cn(SECTION_HEADER_ROW_CLASS, 'min-w-0 flex-1 flex-wrap text-left')}
-                >
-                  <SectionStatusCircle
-                    step={sectionHeaderSteps.saas}
-                    complete={saasSectionComplete}
-                    className="flex"
-                  />
-                  <span className="text-sm font-medium text-foreground">
-                    {t('sections.saasMetrics')}
-                  </span>
-                  <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
-                    {t('shownForBusinessType', {
-                      businessType: t('businessTypes.saasSoftware'),
-                    })}
-                  </span>
-                </span>
-              </AccordionTrigger>
-              <AccordionContent className="pt-2">
-                <SaasMetricsSection
-                  saasArr={formData.saas_arr as number | undefined}
-                  saasMrr={formData.saas_mrr as number | undefined}
-                  saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
-                  saasChurnPct={formData.saas_churn_pct as number | undefined}
-                  saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
-                  saasNrrPct={formData.saas_nrr_pct as number | undefined}
-                  saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
-                  saasCac={formData.saas_cac as number | undefined}
-                  saasCustomerConcentrationPct={
-                    formData.saas_customer_concentration_pct as number | undefined
-                  }
-                  saasExpansionRevenuePct={
-                    formData.saas_expansion_revenue_pct as number | undefined
-                  }
-                  saasSmSpend={formData.saas_sm_spend as number | undefined}
-                  onFieldChange={onFieldChange}
-                  disabled={disabled}
-                  arrProjectionPreview={saasArrProjectionPreview}
-                  importedSaasProvenance={importedSaasProvenance}
-                />
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+            step={sectionHeaderSteps.saas}
+            complete={saasSectionComplete}
+            saasArr={formData.saas_arr as number | undefined}
+            saasMrr={formData.saas_mrr as number | undefined}
+            saasArrGrowthPct={formData.saas_arr_growth_pct as number | undefined}
+            saasChurnPct={formData.saas_churn_pct as number | undefined}
+            saasCustomerChurnPct={formData.saas_customer_churn_pct as number | undefined}
+            saasNrrPct={formData.saas_nrr_pct as number | undefined}
+            saasGrossMarginPct={formData.saas_gross_margin_pct as number | undefined}
+            saasCac={formData.saas_cac as number | undefined}
+            saasCustomerConcentrationPct={
+              formData.saas_customer_concentration_pct as number | undefined
+            }
+            saasExpansionRevenuePct={
+              formData.saas_expansion_revenue_pct as number | undefined
+            }
+            saasSmSpend={formData.saas_sm_spend as number | undefined}
+            onFieldChange={onFieldChange}
+            disabled={disabled}
+            arrProjectionPreview={saasArrProjectionPreview}
+            importedSaasProvenance={importedSaasProvenance}
+          />
         )}
         {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (
           <RevenueQualitySection
