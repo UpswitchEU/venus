@@ -22,6 +22,27 @@ export type InputSectionKey =
   | 'revenue_quality'
   | 'sde_owner_compensation'
 
+/**
+ * Canonical order for bonus sections — matches `AdaptiveSections` JSX order and
+ * `adaptiveHeaderSteps` step assignment. Union-of-methods must not depend on
+ * arbitrary method-array order.
+ */
+const BONUS_SECTION_RENDER_ORDER: InputSectionKey[] = [
+  'dcf_projections',
+  'nav_asset_schedule',
+  'saas_metrics',
+  'revenue_quality',
+  'sde_owner_compensation',
+]
+
+function sortBonusSectionsCanonical(sections: InputSectionKey[]): InputSectionKey[] {
+  const rank = (k: InputSectionKey) => {
+    const i = BONUS_SECTION_RENDER_ORDER.indexOf(k)
+    return i === -1 ? BONUS_SECTION_RENDER_ORDER.length : i
+  }
+  return [...sections].sort((a, b) => rank(a) - rank(b))
+}
+
 export interface MethodFieldEntry {
   bonusSections: InputSectionKey[]
 }
@@ -322,7 +343,7 @@ export function getBonusSections(
   if (shouldAddSaasMetricsFromSignals(saasSignals) && !combined.includes('saas_metrics')) {
     combined.push('saas_metrics')
   }
-  return combined
+  return sortBonusSectionsCanonical(combined)
 }
 
 /**
@@ -341,7 +362,7 @@ export function getBonusSectionsForMethods(
       if (!combined.includes(section)) combined.push(section)
     }
   }
-  return combined
+  return sortBonusSectionsCanonical(combined)
 }
 
 /**

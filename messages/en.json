@@ -1403,8 +1403,6 @@
 			"fiscal4xDescription": "Belgian fiscal reference formula. Use for internal transfers and succession planning—not arm's-length M&A.",
 			"fiscalDisclaimerTitle": "Attention",
 			"fiscalDisclaimerText": "For internal transfers, succession planning, or tax rulings only. Not intended for external M&A transactions.",
-			"revenueDriverTitle": "Revenue is the primary driver",
-			"revenueDriverText": "For this method, top-line revenue is the main anchor. EBITDA normalizations remain available, but only as secondary context here.",
 			"recommendedForMethod": "Recommended for {method}",
 			"revenueQualityBadgeOmzet": "Revenue",
 			"revenueQualityBadgeEbitda": "EV/EBITDA",

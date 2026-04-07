@@ -1403,8 +1403,6 @@
 			"fiscal4xDescription": "Belgische fiscale referentieformule. Voor interne overdrachten en successie—niet voor gewone M&A tegen marktvoorwaarden.",
 			"fiscalDisclaimerTitle": "Let op",
 			"fiscalDisclaimerText": "Uitsluitend voor interne overdrachten, successieplanning of fiscale rulings. Niet bestemd voor externe M&A-transacties.",
-			"revenueDriverTitle": "Omzet is de primaire driver",
-			"revenueDriverText": "Voor deze methode staat topline omzet centraal. EBITDA-normalisaties blijven beschikbaar, maar dienen hier alleen als secundaire context.",
 			"recommendedForMethod": "Aanbevolen voor {method}",
 			"revenueQualityBadgeOmzet": "Omzet",
 			"revenueQualityBadgeEbitda": "EV/EBITDA",

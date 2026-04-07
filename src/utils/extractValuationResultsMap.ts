@@ -13,7 +13,17 @@ export type ExtractValuationResultsContext = {
   selectedValuationMethod?: string | null
 }
 
+const METHOD_KEY_ALIASES: Record<string, string> = {
+  revenue_multiple: 'omzet_multiple',
+}
 const REVENUE_METHOD_KEYS = new Set(['omzet_multiple', 'revenue_multiple'])
+
+export function normalizeSelectedMethodKey(methodKey: unknown): string {
+  if (methodKey == null) return ''
+  const raw = String(methodKey).trim().toLowerCase().replace(/-/g, '_')
+  const normalized = raw.split(/\s+/).join('_')
+  return METHOD_KEY_ALIASES[normalized] || normalized
+}
 
 function toFiniteNumber(value: unknown): number | null {
   if (value == null || value === '') return null
@@ -179,7 +189,7 @@ function resolveSelectedMethodForSynthesis(
   valuationResult: Record<string, any>,
   context?: ExtractValuationResultsContext | null
 ): string {
-  const fromContext = context?.selectedValuationMethod?.trim()
+  const fromContext = normalizeSelectedMethodKey(context?.selectedValuationMethod)
   if (fromContext) return fromContext
 
   const rc = getCanonicalReportContext(valuationResult)
@@ -190,7 +200,8 @@ function resolveSelectedMethodForSynthesis(
     valuationResult?.valuation_result?.selected_valuation_method,
   ]
   for (const c of candidates) {
-    if (typeof c === 'string' && c.trim()) return c.trim()
+    const normalized = normalizeSelectedMethodKey(c)
+    if (normalized) return normalized
   }
   return 'upswitch_adaptive'
 }

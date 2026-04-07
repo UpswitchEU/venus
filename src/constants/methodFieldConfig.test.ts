@@ -3,6 +3,7 @@ import {
   applyRemainderRebalance,
   equalWeightsFor,
   getBonusSections,
+  getBonusSectionsForMethods,
   getBonusSectionsSaasSignalsFromFormData,
   getConflictingMethod,
   getPreSelectableMethodsForFirm,
@@ -112,7 +113,7 @@ describe('methodFieldConfig', () => {
       getBonusSections('ebitda_multiple', 'retail', 'shop', {
         businessContextCategory: 'saas',
       })
-    ).toEqual(['revenue_quality', 'saas_metrics'])
+    ).toEqual(['saas_metrics', 'revenue_quality'])
     expect(
       getBonusSections('upswitch_adaptive', 'services', 'consulting', {
         sectorTag: 'SaaS – B2B',
@@ -127,6 +128,25 @@ describe('methodFieldConfig', () => {
     expect(resolveBusinessTypeIdForBonusSections('  ', '', 'vertical-saas')).toBe('vertical-saas')
     expect(resolveBusinessTypeIdForBonusSections(null, '', '  ')).toBe(null)
     expect(resolveBusinessTypeIdForBonusSections(undefined, undefined, undefined)).toBe(null)
+  })
+
+  it('orders bonus sections canonically when blending methods (stable regardless of method order)', () => {
+    expect(getBonusSectionsForMethods(['adjusted_nav', 'dcf'], 'saas_software', 'saas')).toEqual([
+      'dcf_projections',
+      'nav_asset_schedule',
+      'saas_metrics',
+    ])
+    expect(getBonusSectionsForMethods(['dcf', 'adjusted_nav'], 'saas_software', 'saas')).toEqual([
+      'dcf_projections',
+      'nav_asset_schedule',
+      'saas_metrics',
+    ])
+  })
+
+  it('deduplicates bonus sections when blending methods', () => {
+    expect(getBonusSectionsForMethods(['ebitda_multiple', 'omzet_multiple'], 'retail', 'shop')).toEqual([
+      'revenue_quality',
+    ])
   })
 
   it('parses SaaS signals from form-like state', () => {

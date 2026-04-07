@@ -172,7 +172,7 @@ describe('AdaptiveSections', () => {
     expect(screen.getByText('sections.dcfGlobalAssumptions')).toBeInTheDocument()
   })
 
-  it('renders revenue-led guidance when omzet multiple is pre-selected', () => {
+  it('renders revenue quality inputs when omzet multiple is pre-selected', () => {
     render(
       <AdaptiveSections
         {...baseProps}
@@ -182,8 +182,6 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('revenueDriverTitle')).toBeInTheDocument()
-    expect(screen.getByText('revenueDriverText')).toBeInTheDocument()
     expect(screen.getByText('sections.revenueQuality')).toBeInTheDocument()
   })
 

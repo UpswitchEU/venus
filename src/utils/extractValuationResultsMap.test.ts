@@ -2,10 +2,16 @@ import { describe, expect, it } from 'vitest'
 
 import {
   extractValuationResultsMap,
+  normalizeSelectedMethodKey,
   normalizeValuationResultWithMethodMap,
 } from './extractValuationResultsMap'
 
 describe('extractValuationResultsMap', () => {
+  it('normalizes revenue_multiple aliases to canonical omzet_multiple', () => {
+    expect(normalizeSelectedMethodKey(' revenue-multiple ')).toBe('omzet_multiple')
+    expect(normalizeSelectedMethodKey('omzet_multiple')).toBe('omzet_multiple')
+  })
+
   it('normalizes adaptive multiple from canonical report context', () => {
     const payload = {
       details: {
@@ -159,6 +165,25 @@ describe('extractValuationResultsMap', () => {
       value: null,
       label: 'Omzetmultiple',
       unavailable_reason: 'Omzet moet positief zijn.',
+    })
+  })
+
+  it('synthesizes canonical revenue method when context uses revenue alias', () => {
+    const payload = {
+      valuation_results: {},
+      report_context: {
+        equity_value_mid: 120_000,
+        applied_multiple: 1.5,
+        revenue: 500_000,
+      },
+    }
+    expect(
+      extractValuationResultsMap(payload, { selectedValuationMethod: ' revenue-multiple ' }),
+    ).toMatchObject({
+      omzet_multiple: {
+        value: 120_000,
+        multiple_used: 1.5,
+      },
     })
   })
 

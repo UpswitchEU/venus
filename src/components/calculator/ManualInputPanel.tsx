@@ -24,7 +24,6 @@ import {
   Loader2,
   Lock,
   Plus,
-  TrendingUp,
   X,
   Zap,
 } from 'lucide-react'
@@ -4307,7 +4306,7 @@ export function AdaptiveSections({
         : [],
     [
       sections,
-      effectiveMethod,
+      methods,
       formData.yearlyFinancials,
       formData.saas_arr,
       formData.saas_mrr,
@@ -4343,34 +4342,12 @@ export function AdaptiveSections({
   )
 
   const firmCode = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
-  const showRevenueNotice =
-    methods.includes('omzet_multiple') || methods.includes('revenue_multiple')
   const showFiscalNotice = methods.includes('fiscal_4x') && firmCode !== 'NL'
-  if (sections.length === 0 && !showRevenueNotice && !showFiscalNotice) return null
+  if (sections.length === 0 && !showFiscalNotice) return null
 
   return (
     <>
       <AnimatePresence mode="sync">
-        {showRevenueNotice && (
-          <motion.div
-            key="omzet_multiple_notice"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3"
-          >
-            <div className="flex items-start gap-2">
-              <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{t('revenueDriverTitle')}</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {t('revenueDriverText')}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
         {showFiscalNotice && (
           <motion.div
             key="fiscal_4x_notice"
@@ -4458,7 +4435,7 @@ export function AdaptiveSections({
           sectionHeaderSteps.dcfGlobal != null && (
             <DcfGlobalAssumptions
               key="dcf_global_assumptions"
-              className={showRevenueNotice || showFiscalNotice ? 'mt-6' : undefined}
+              className={showFiscalNotice ? 'mt-6' : undefined}
               step={sectionHeaderSteps.dcfGlobal}
               dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
               dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
