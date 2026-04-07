@@ -1,7 +1,7 @@
 'use client'
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { PREVIEW_DECIMALS, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { computeSaasPreviewMetrics } from '@/lib/saas'
 import { cn } from '@/design-system/utils'
@@ -111,6 +111,7 @@ export function SaasMetricsSection({
 }: SaasMetricsSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
   const { saasMetric: metricFormatter, currency: currencyFormatter } = useManualPreviewFormatters()
+  const [advancedExpanded, setAdvancedExpanded] = useState(false)
   const importedProviderLabel = importedSaasProvenance?.source
     ? importedSaasProvenance.source.charAt(0).toUpperCase() + importedSaasProvenance.source.slice(1)
     : null
@@ -156,9 +157,20 @@ export function SaasMetricsSection({
     saasExpansionRevenuePct,
   ])
 
+  const coreFilledCount = useMemo(() => {
+    const coreFields = [saasArr, saasMrr, saasArrGrowthPct, saasNrrPct]
+    return coreFields.filter((v) => v != null && Number.isFinite(v)).length
+  }, [saasArr, saasMrr, saasArrGrowthPct, saasNrrPct])
+
+  const advancedFilledCount = useMemo(() => {
+    const advancedFields = [saasCac, saasSmSpend, saasCustomerConcentrationPct]
+    return advancedFields.filter((v) => v != null && Number.isFinite(v)).length
+  }, [saasCac, saasSmSpend, saasCustomerConcentrationPct])
+
   const totalFields = 11
-  const isReady = saasArr != null && filledCount >= 3
+  const isReady = saasArr != null && Number.isFinite(saasArr) && coreFilledCount >= 3
   const progressPct = (filledCount / totalFields) * 100
+  const showAdvancedInputs = advancedExpanded || advancedFilledCount > 0 || isReady
 
   return (
     <motion.section
@@ -311,39 +323,56 @@ export function SaasMetricsSection({
         </div>
       </SaasPanel>
 
-      <SaasPanel
-        title={t('saasPanels.advancedTitle')}
-        description={t('saasPanels.advancedDescription')}
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <CurrencyInput
-            label={t('fields.saasCac')}
-            value={saasCac}
-            onChange={(v) => onFieldChange('saas_cac', v)}
-            size="sm"
-            placeholder="1.500"
+      {showAdvancedInputs ? (
+        <SaasPanel
+          title={t('saasPanels.advancedTitle')}
+          description={t('saasPanels.advancedDescription')}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <CurrencyInput
+              label={t('fields.saasCac')}
+              value={saasCac}
+              onChange={(v) => onFieldChange('saas_cac', v)}
+              size="sm"
+              placeholder="1.500"
+              disabled={disabled}
+              description={t('fieldHints.saasCac')}
+            />
+            <CurrencyInput
+              label={t('fields.saasSmSpend')}
+              value={saasSmSpend}
+              onChange={(v) => onFieldChange('saas_sm_spend', v)}
+              size="sm"
+              placeholder="120.000"
+              disabled={disabled}
+              description={t('fieldHints.saasSmSpend')}
+            />
+            <AdaptivePercentInput
+              label={t('fields.saasCustomerConcentrationPct')}
+              value={saasCustomerConcentrationPct}
+              onChange={(v) => onFieldChange('saas_customer_concentration_pct', v)}
+              placeholder="20"
+              disabled={disabled}
+              description={t('fieldHints.saasCustomerConcentrationPct')}
+            />
+          </div>
+        </SaasPanel>
+      ) : (
+        <SaasPanel
+          title={t('saasPanels.advancedTitle')}
+          description={t('saasPanels.advancedLockedDescription')}
+        >
+          <button
+            type="button"
+            onClick={() => setAdvancedExpanded(true)}
             disabled={disabled}
-            description={t('fieldHints.saasCac')}
-          />
-          <CurrencyInput
-            label={t('fields.saasSmSpend')}
-            value={saasSmSpend}
-            onChange={(v) => onFieldChange('saas_sm_spend', v)}
-            size="sm"
-            placeholder="120.000"
-            disabled={disabled}
-            description={t('fieldHints.saasSmSpend')}
-          />
-          <AdaptivePercentInput
-            label={t('fields.saasCustomerConcentrationPct')}
-            value={saasCustomerConcentrationPct}
-            onChange={(v) => onFieldChange('saas_customer_concentration_pct', v)}
-            placeholder="20"
-            disabled={disabled}
-            description={t('fieldHints.saasCustomerConcentrationPct')}
-          />
-        </div>
-      </SaasPanel>
+            className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2 text-left text-xs font-medium text-primary/80 transition-colors hover:bg-primary/[0.08] disabled:opacity-50"
+            aria-expanded={showAdvancedInputs}
+          >
+            {t('saasPanels.showAdvancedButton')}
+          </button>
+        </SaasPanel>
+      )}
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">

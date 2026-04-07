@@ -187,6 +187,23 @@ describe('AdaptiveSections', () => {
     expect(screen.getByText('sections.revenueQuality')).toBeInTheDocument()
   })
 
+  it('renders the NAV section with the cleaned-up fields when adjusted NAV is selected', () => {
+    render(
+      <AdaptiveSections
+        {...baseProps}
+        effectiveMethod="adjusted_nav"
+        businessCategory="holding"
+        businessTypeId="family-holdco"
+      />
+    )
+
+    expect(screen.getByText('sections.navAssetSchedule')).toBeInTheDocument()
+    expect(screen.getByText('fields.navLead')).toBeInTheDocument()
+    expect(screen.getByText('fields.navRealEstateAdjustment')).toBeInTheDocument()
+    expect(screen.getByText('fields.navTaxLatencyPct')).toBeInTheDocument()
+    expect(screen.queryByText('sections.saasMetrics')).not.toBeInTheDocument()
+  })
+
   it('renders the fiscal disclaimer when fiscal 4x is selected', () => {
     render(
       <AdaptiveSections

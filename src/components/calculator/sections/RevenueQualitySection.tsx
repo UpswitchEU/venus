@@ -3,8 +3,11 @@
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { useMemo } from 'react'
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
+import { cn } from '@/design-system/utils'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
+import { PreviewMetricCard } from './previewMetricCards'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 const SAAS_BUSINESS_TYPE_IDS = new Set([
@@ -30,6 +33,7 @@ interface RevenueQualitySectionProps {
   revTopClientAmount?: number
   revGrossChurnPct?: number
   revCapitalizedRdAmount?: number
+  latestRevenue?: number
   effectiveMethods?: string[]
   businessTypeId?: string
   businessCategory?: string
@@ -56,6 +60,7 @@ export function RevenueQualitySection({
   revTopClientAmount,
   revGrossChurnPct,
   revCapitalizedRdAmount,
+  latestRevenue,
   effectiveMethods = EMPTY_METHODS,
   businessTypeId,
   businessCategory,
@@ -63,6 +68,7 @@ export function RevenueQualitySection({
   disabled,
 }: RevenueQualitySectionProps) {
   const t = useTranslations('manualInput.methodSelector')
+  const { currency: currencyFormatter, ratio: ratioFormatter } = useManualPreviewFormatters()
 
   const isTechSaas = useMemo(
     () => isSaasOrTech(businessTypeId, businessCategory),
@@ -74,6 +80,32 @@ export function RevenueQualitySection({
     [effectiveMethods]
   )
 
+  const badgeKey = useMemo(() => {
+    const methods = effectiveMethods.filter((method) => method !== 'upswitch_adaptive')
+    const hasRevenue = methods.some((method) => method === 'omzet_multiple' || method === 'revenue_multiple')
+    const hasEbitda = methods.includes('ebitda_multiple')
+    if (hasRevenue && hasEbitda) return 'revenueQualityBadgeBoth'
+    if (hasEbitda) return 'revenueQualityBadgeEbitda'
+    return 'revenueQualityBadgeOmzet'
+  }, [effectiveMethods])
+
+  const totalFields = isEbitdaOnly ? 2 : 3
+  const coreFilledCount = useMemo(() => {
+    const coreFields = [revRecurringAmount, revTopClientAmount]
+    if (isEbitdaOnly) {
+      return coreFields.filter((value) => value != null && Number.isFinite(value)).length
+    }
+    const thirdField = isTechSaas ? revGrossChurnPct : revContractBacklog
+    return [...coreFields, thirdField].filter((value) => value != null && Number.isFinite(value)).length
+  }, [
+    isEbitdaOnly,
+    isTechSaas,
+    revRecurringAmount,
+    revTopClientAmount,
+    revGrossChurnPct,
+    revContractBacklog,
+  ])
+
   const sectionComplete = useMemo(
     () =>
       revRecurringAmount != null ||
@@ -83,6 +115,27 @@ export function RevenueQualitySection({
       (revCapitalizedRdAmount != null && Number.isFinite(revCapitalizedRdAmount)),
     [revRecurringAmount, revTopClientAmount, revContractBacklog, revGrossChurnPct, revCapitalizedRdAmount]
   )
+
+  const isReady = coreFilledCount >= totalFields
+  const progressPct = (coreFilledCount / totalFields) * 100
+
+  const recurringRevenuePct = useMemo(() => {
+    if (latestRevenue == null || !Number.isFinite(latestRevenue) || latestRevenue <= 0) return null
+    if (revRecurringAmount == null || !Number.isFinite(revRecurringAmount)) return null
+    return (revRecurringAmount / latestRevenue) * 100
+  }, [latestRevenue, revRecurringAmount])
+
+  const topClientConcentrationPct = useMemo(() => {
+    if (latestRevenue == null || !Number.isFinite(latestRevenue) || latestRevenue <= 0) return null
+    if (revTopClientAmount == null || !Number.isFinite(revTopClientAmount)) return null
+    return (revTopClientAmount / latestRevenue) * 100
+  }, [latestRevenue, revTopClientAmount])
+
+  const backlogMonths = useMemo(() => {
+    if (latestRevenue == null || !Number.isFinite(latestRevenue) || latestRevenue <= 0) return null
+    if (revContractBacklog == null || !Number.isFinite(revContractBacklog)) return null
+    return (revContractBacklog / latestRevenue) * 12
+  }, [latestRevenue, revContractBacklog])
 
   return (
     <motion.section
@@ -97,13 +150,73 @@ export function RevenueQualitySection({
         step={step}
         complete={sectionComplete}
         title={isEbitdaOnly ? t('sections.ebitdaQuality') : t('sections.revenueQuality')}
+        badge={
+          <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
+            {t(badgeKey)}
+          </span>
+        }
       />
 
-      <p className="text-xs leading-relaxed text-muted-foreground -mt-1">
-        {isEbitdaOnly ? t('fields.ebitdaQualityLead') : t('fields.revenueQualityLead')}
-      </p>
+      <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
+        <div className="space-y-1">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+            {t('revenueQualityPanels.startLeadTitle')}
+          </h4>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {isEbitdaOnly ? t('fields.ebitdaQualityLead') : t('fields.revenueQualityLead')}
+          </p>
+          <p className="text-[11px] text-foreground/45">
+            {isEbitdaOnly
+              ? t('revenueQualityPanels.quickStartEbitda')
+              : isTechSaas
+                ? t('revenueQualityPanels.quickStartTech')
+                : t('revenueQualityPanels.quickStartRevenue')}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <div className="h-1.5 overflow-hidden rounded-full bg-foreground/[0.06]">
+              <motion.div
+                className={cn(
+                  'h-full rounded-full transition-colors',
+                  isReady ? 'bg-emerald-500' : 'bg-primary/50'
+                )}
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPct}%` }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              />
+            </div>
+          </div>
+          <p className="whitespace-nowrap text-[10px] text-foreground/45">
+            {isReady
+              ? t('revenueQualityPanels.ready')
+              : t('revenueQualityPanels.progress', { filled: coreFilledCount, total: totalFields })}
+          </p>
+        </div>
+        {!isReady && (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {isEbitdaOnly
+              ? t('revenueQualityPanels.minimumHintEbitda')
+              : isTechSaas
+                ? t('revenueQualityPanels.minimumHintTech')
+                : t('revenueQualityPanels.minimumHintRevenue')}
+          </p>
+        )}
+      </div>
 
       <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
+        <div className="space-y-1">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+            {t('revenueQualityPanels.startHereTitle')}
+          </h4>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {isEbitdaOnly
+              ? t('revenueQualityPanels.startHereDescriptionEbitda')
+              : isTechSaas
+                ? t('revenueQualityPanels.startHereDescriptionTech')
+                : t('revenueQualityPanels.startHereDescriptionRevenue')}
+          </p>
+        </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <CurrencyInput
             label={t('fields.revRecurringCurrency')}
@@ -164,6 +277,45 @@ export function RevenueQualitySection({
             />
           </div>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+            {t('sections.revenueQualityDerivedMetrics')}
+          </h4>
+          <span className="text-[10px] text-foreground/45">{t('fields.revenueQualityPreviewFootnote')}</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          <PreviewMetricCard
+            label={t('fields.revRecurringPct')}
+            value={
+              recurringRevenuePct != null
+                ? `${ratioFormatter.format(recurringRevenuePct)}%`
+                : revRecurringAmount != null && Number.isFinite(revRecurringAmount)
+                  ? currencyFormatter.format(revRecurringAmount)
+                  : '—'
+            }
+          />
+          <PreviewMetricCard
+            label={t('fields.revTopClientConcentrationPct')}
+            value={
+              topClientConcentrationPct != null
+                ? `${ratioFormatter.format(topClientConcentrationPct)}%`
+                : revTopClientAmount != null && Number.isFinite(revTopClientAmount)
+                  ? currencyFormatter.format(revTopClientAmount)
+                  : '—'
+            }
+          />
+          <PreviewMetricCard
+            label={t('fields.revenueQualityBacklogMonths')}
+            value={
+              backlogMonths != null
+                ? `${ratioFormatter.format(backlogMonths)} ${t('fields.revenueQualityMonthsSuffix')}`
+                : '—'
+            }
+          />
+        </div>
       </div>
     </motion.section>
   )

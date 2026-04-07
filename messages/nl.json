@@ -1440,6 +1440,7 @@
 				"saasMetrics": "SaaS Metrics",
 				"saasDerivedMetrics": "Berekende SaaS-signalen",
 				"sdeDerivedMetrics": "Berekende SDE-signalen",
+				"revenueQualityDerivedMetrics": "Omzetkwaliteits-snapshot",
 				"revenueQuality": "Omzetkwaliteit",
 				"ebitdaQuality": "EBITDA Kwaliteit & Risico",
 				"navDerivedMetrics": "Overzicht aanpassingen",
@@ -1507,7 +1508,24 @@
 				"retentionTitle": "Retentie en marge",
 				"retentionDescription": "Vul deze aan als je ze kent om de kwaliteit van de SaaS-inschatting te verbeteren.",
 				"advancedTitle": "Geavanceerde invoer",
-				"advancedDescription": "Deze velden zijn nuttig maar optioneel. Vul ze in wanneer je betrouwbare data hebt over acquisitiekosten of klantconcentratie."
+				"advancedDescription": "Deze velden zijn nuttig maar optioneel. Vul ze in wanneer je betrouwbare data hebt over acquisitiekosten of klantconcentratie.",
+				"advancedLockedDescription": "Werk eerst de kerninputs voor SaaS af, of open deze optionele velden nu als je de acquisitiemetrics al kent.",
+				"showAdvancedButton": "Toon optionele geavanceerde velden"
+			},
+			"revenueQualityPanels": {
+				"startLeadTitle": "Snel starten",
+				"startHereTitle": "Start met deze kwaliteitsdrivers",
+				"startHereDescriptionRevenue": "Begin met wederkerende omzet, klantconcentratie en backlog. Die sturen de omzetmultiple meestal het sterkst.",
+				"startHereDescriptionTech": "Begin met wederkerende omzet, klantconcentratie en churn. Dat zijn de snelste kwaliteitschecks voor software- en SaaS-omzet.",
+				"startHereDescriptionEbitda": "Begin met wederkerende omzet en je blootstelling aan topklanten. Dat zijn de snelste checks voor de duurzaamheid van EBITDA.",
+				"quickStartRevenue": "Een sterke eerste inschatting is wederkerende omzet, omzet van de top 3 klanten en contractuele backlog.",
+				"quickStartTech": "Een sterke eerste inschatting is wederkerende omzet, omzet van de top 3 klanten en gross churn.",
+				"quickStartEbitda": "Een sterke eerste inschatting is wederkerende omzet en omzet van de top 3 klanten. Voeg geactiveerde R&D toe bij softwarebedrijven.",
+				"progress": "{filled} van {total} kerninputs ingevuld",
+				"ready": "Klaar om de toegepaste multiple te kalibreren",
+				"minimumHintRevenue": "Voeg wederkerende omzet, omzet van de top 3 klanten en backlog toe om de kern van de omzetkwaliteit af te ronden.",
+				"minimumHintTech": "Voeg wederkerende omzet, omzet van de top 3 klanten en gross churn toe om de kern van de omzetkwaliteit af te ronden.",
+				"minimumHintEbitda": "Voeg wederkerende omzet en omzet van de top 3 klanten toe om de kern van de EBITDA-kwaliteit af te ronden."
 			},
 			"saasProgress": {
 				"filled": "{count} van {total} metrics ingevuld",
@@ -1612,6 +1630,7 @@
 				"revGrossChurnTooltip": "Hoeveel procent van de wederkerende omzet van vorig jaar ging verloren door opzeggingen? (Standaard in SaaS is 5–10%)",
 				"revenueQualityBacklogMonths": "Backlog (maanden omzet)",
 				"revenueQualityMonthsSuffix": "mnd",
+				"revenueQualityPreviewFootnote": "Previewratio's op basis van je laatste volledige boekjaaromzet. De motor gebruikt nog altijd de ruwe inputs rechtstreeks.",
 				"ebitdaQualityLead": "Vul hieronder de belangrijkste EBITDA-kwaliteitsinputs in. Die helpen de motor om de toegepaste multiple te kalibreren.",
 				"revTopClientCurrencyEbitda": "Omzet Top 3 Klanten",
 				"revTopClientCurrencyEbitdaTooltip": "Tel de omzet van de 3 grootste klanten op. Het verlies van een grote klant kan de hele EBITDA-marge wegvagen als de vaste kosten hoog zijn.",

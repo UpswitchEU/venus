@@ -4548,6 +4548,9 @@ export function AdaptiveSections({
             revTopClientAmount={formData.rev_top_client_amount as number | undefined}
             revGrossChurnPct={formData.rev_gross_churn_pct as number | undefined}
             revCapitalizedRdAmount={formData.rev_capitalized_rd_amount as number | undefined}
+            latestRevenue={
+              latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.revenue) : undefined
+            }
             effectiveMethods={methods}
             businessTypeId={businessTypeId}
             businessCategory={businessCategory}

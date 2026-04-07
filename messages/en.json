@@ -1440,6 +1440,7 @@
 				"saasMetrics": "SaaS Metrics",
 				"saasDerivedMetrics": "Calculated SaaS Signals",
 				"sdeDerivedMetrics": "Calculated SDE signals",
+				"revenueQualityDerivedMetrics": "Revenue Quality Snapshot",
 				"revenueQuality": "Revenue Quality",
 				"ebitdaQuality": "EBITDA Quality & Risk",
 				"navDerivedMetrics": "Schedule summary",
@@ -1507,7 +1508,24 @@
 				"retentionTitle": "Retention and margin",
 				"retentionDescription": "Add these when you know them to sharpen the quality of the SaaS readout.",
 				"advancedTitle": "Advanced inputs",
-				"advancedDescription": "These are helpful but optional. Add them when you have reliable customer acquisition or concentration data."
+				"advancedDescription": "These are helpful but optional. Add them when you have reliable customer acquisition or concentration data.",
+				"advancedLockedDescription": "Finish the core SaaS inputs first, or open these optional fields now if you already know the acquisition metrics.",
+				"showAdvancedButton": "Show optional advanced inputs"
+			},
+			"revenueQualityPanels": {
+				"startLeadTitle": "Quick start",
+				"startHereTitle": "Start with these quality drivers",
+				"startHereDescriptionRevenue": "Start with recurring revenue, client concentration, and backlog. These usually drive the revenue multiple most.",
+				"startHereDescriptionTech": "Start with recurring revenue, client concentration, and churn. These are the fastest quality checks for software and SaaS revenue.",
+				"startHereDescriptionEbitda": "Start with recurring revenue and your top-client exposure. These are the fastest checks for EBITDA durability.",
+				"quickStartRevenue": "A strong first pass is recurring revenue, top-3 client revenue, and contracted backlog.",
+				"quickStartTech": "A strong first pass is recurring revenue, top-3 client revenue, and gross churn.",
+				"quickStartEbitda": "A strong first pass is recurring revenue and top-3 client revenue. Add capitalized R&D for software businesses.",
+				"progress": "{filled} of {total} key inputs filled",
+				"ready": "Ready to calibrate the applied multiple",
+				"minimumHintRevenue": "Add recurring revenue, top-3 client revenue, and backlog to complete the core revenue-quality read.",
+				"minimumHintTech": "Add recurring revenue, top-3 client revenue, and gross churn to complete the core revenue-quality read.",
+				"minimumHintEbitda": "Add recurring revenue and top-3 client revenue to complete the core EBITDA-quality read."
 			},
 			"saasProgress": {
 				"filled": "{count} of {total} metrics filled",
@@ -1612,6 +1630,7 @@
 				"revGrossChurnTooltip": "What percentage of last year's recurring revenue was lost to cancellations? (SaaS standard is 5–10%)",
 				"revenueQualityBacklogMonths": "Backlog (months of revenue)",
 				"revenueQualityMonthsSuffix": "mo",
+				"revenueQualityPreviewFootnote": "Preview ratios from your latest full-year revenue. The engine still uses the raw inputs directly.",
 				"ebitdaQualityLead": "Enter the key EBITDA-quality inputs below. These help the engine calibrate the applied multiple.",
 				"revTopClientCurrencyEbitda": "Revenue Top 3 Clients",
 				"revTopClientCurrencyEbitdaTooltip": "Sum the revenue of the 3 largest clients. Loss of a major client can wipe out the entire EBITDA margin when fixed costs are high.",
