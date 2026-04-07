@@ -1,5 +1,4 @@
 export { AdaptivePercentInput } from './AdaptivePercentInput'
-export { EbitdaNormalizationSection } from './EbitdaNormalizationSection'
 export { DcfForecastWorkspace } from './DcfForecastWorkspace'
 export {
   DcfGlobalAssumptions,

@@ -112,7 +112,7 @@ describe('methodFieldConfig', () => {
       getBonusSections('ebitda_multiple', 'retail', 'shop', {
         businessContextCategory: 'saas',
       })
-    ).toEqual(['ebitda_normalization', 'revenue_quality', 'saas_metrics'])
+    ).toEqual(['revenue_quality', 'saas_metrics'])
     expect(
       getBonusSections('upswitch_adaptive', 'services', 'consulting', {
         sectorTag: 'SaaS – B2B',

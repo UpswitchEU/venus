@@ -165,7 +165,6 @@ import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 import {
   DcfForecastWorkspace,
   DcfGlobalAssumptions,
-  EbitdaNormalizationSection,
   NavAssetScheduleSection,
   RealEstateCarveOutSection,
   RevenueQualitySection,
@@ -2149,13 +2148,14 @@ export function ManualInputPanel({
             resolvedBusinessTypeIdForBonusSections,
             saasSignalsForBonusSections
           )
-    /** With DCF forecast: steps 4–6 = embedded defaults / forecast / WACC+TV; bonus sections start at 8. */
-    let n = hasDcfForecastWorkspace ? 8 : 4
+    /** With DCF forecast: steps 4–6 = embedded defaults / forecast / WACC+TV; bonus sections start at 8.
+     * Without DCF forecast, step 4 is reserved for the real-estate carve-out section.
+     */
+    let n = hasDcfForecastWorkspace ? 8 : 5
     const out: {
       dcfGlobal?: number
       nav?: number
       saas?: number
-      ebitdaNorm?: number
       revenue?: number
       sde?: number
     } = {}
@@ -2167,9 +2167,6 @@ export function ManualInputPanel({
     }
     if (bonus.includes('saas_metrics')) {
       out.saas = n++
-    }
-    if (bonus.includes('ebitda_normalization')) {
-      out.ebitdaNorm = n++
     }
     if (bonus.includes('revenue_quality')) {
       out.revenue = n++
@@ -2200,7 +2197,6 @@ export function ManualInputPanel({
       adaptiveHeaderSteps.dcfGlobal,
       adaptiveHeaderSteps.nav,
       adaptiveHeaderSteps.saas,
-      adaptiveHeaderSteps.ebitdaNorm,
       adaptiveHeaderSteps.revenue,
       adaptiveHeaderSteps.sde,
     ].filter((s): s is number => s != null)
@@ -4252,7 +4248,6 @@ export function AdaptiveSections({
     dcfGlobal?: number
     nav?: number
     saas?: number
-    ebitdaNorm?: number
     revenue?: number
     sde?: number
   }
@@ -4576,25 +4571,6 @@ export function AdaptiveSections({
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-        )}
-        {sections.includes('ebitda_normalization') && sectionHeaderSteps.ebitdaNorm != null && (
-          <EbitdaNormalizationSection
-            key="ebitda_normalization"
-            step={sectionHeaderSteps.ebitdaNorm}
-            reportedEbitda={
-              latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.ebitda)
-                : undefined
-            }
-            currentFiscalYear={
-              currentFiscalYear ??
-              (latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.year)
-                : new Date().getFullYear())
-            }
-            onViewAllNormalizations={onViewAllNormalizations}
-            disabled={disabled}
-          />
         )}
         {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (
           <RevenueQualitySection
