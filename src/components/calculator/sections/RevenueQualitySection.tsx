@@ -241,7 +241,7 @@ export function RevenueQualitySection({
       <ValuationSectionHeader
         step={step}
         complete={sectionComplete}
-        title={t('sections.revenueQuality')}
+        title={isEbitdaOnly ? t('sections.ebitdaQuality') : t('sections.revenueQuality')}
         badge={
           <span className="rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-primary/70">
             {t('recommendedForMethod', { method: badgeLabel })}
@@ -250,7 +250,7 @@ export function RevenueQualitySection({
       />
 
       <p className="text-xs leading-relaxed text-muted-foreground -mt-1">
-        {t('fields.revenueQualityLead')}
+        {isEbitdaOnly ? t('fields.ebitdaQualityLead') : t('fields.revenueQualityLead')}
       </p>
 
       {/* Input fields in a grouped panel (matches DCF convention) */}
@@ -278,12 +278,12 @@ export function RevenueQualitySection({
           {/* Top-client concentration: currency input */}
           <div>
             <CurrencyInput
-              label={t('fields.revTopClientCurrency')}
+              label={isEbitdaOnly ? t('fields.revTopClientCurrencyEbitda') : t('fields.revTopClientCurrency')}
               value={revTopClientAmount}
               onChange={(v) => onFieldChange('rev_top_client_amount', v)}
               placeholder="150.000"
               disabled={disabled}
-              description={t('fields.revTopClientCurrencyTooltip')}
+              description={isEbitdaOnly ? t('fields.revTopClientCurrencyEbitdaTooltip') : t('fields.revTopClientCurrencyTooltip')}
             />
             {topClientBadgeVariant && topClientPctDisplay && topClientBadgeLabel && (
               <LiveBadge
@@ -295,8 +295,20 @@ export function RevenueQualitySection({
           </div>
         </div>
 
-        {/* Conditional: SaaS churn rate OR traditional backlog */}
-        {isTechSaas ? (
+        {/* EBITDA context: show capitalized R&D for tech/SaaS instead of backlog */}
+        {isEbitdaOnly ? (
+          isTechSaas && (
+            <CurrencyInput
+              label={t('fields.revCapitalizedRd')}
+              value={revCapitalizedRdAmount}
+              onChange={(v) => onFieldChange('rev_capitalized_rd_amount', v)}
+              size="sm"
+              placeholder="50.000"
+              disabled={disabled}
+              description={t('fields.revCapitalizedRdDescription')}
+            />
+          )
+        ) : isTechSaas ? (
           <AdaptivePercentInput
             label={t('fields.revGrossChurnPct')}
             value={revGrossChurnPct}

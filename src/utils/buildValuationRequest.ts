@@ -642,6 +642,9 @@ export function buildValuationRequest(
   }
   if (fd.rev_contract_backlog != null) adaptiveFields.rev_contract_backlog = fd.rev_contract_backlog
   if (fd.rev_gross_churn_pct != null) adaptiveFields.rev_gross_churn_pct = fd.rev_gross_churn_pct
+  if (fd.rev_capitalized_rd_amount != null && Number.isFinite(fd.rev_capitalized_rd_amount)) {
+    adaptiveFields.rev_capitalized_rd_amount = fd.rev_capitalized_rd_amount
+  }
 
   const existingBusinessContext =
     formData.business_context && typeof formData.business_context === 'object'

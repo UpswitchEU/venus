@@ -70,6 +70,7 @@ const OPTIONAL_SCALAR_KEYS = [
   'rev_top_client_amount',
   'rev_contract_backlog',
   'rev_gross_churn_pct',
+  'rev_capitalized_rd_amount',
   'owner_salary_addback',
   'preparer_ev_ebitda_median',
   '_internal_dcf_preference',

@@ -165,6 +165,7 @@ import { SpotlightFieldWrapper } from './SpotlightFieldWrapper'
 import {
   DcfForecastWorkspace,
   DcfGlobalAssumptions,
+  EbitdaNormalizationSection,
   NavAssetScheduleSection,
   RealEstateCarveOutSection,
   RevenueQualitySection,
@@ -2150,6 +2151,7 @@ export function ManualInputPanel({
       dcfGlobal?: number
       nav?: number
       saas?: number
+      ebitdaNorm?: number
       revenue?: number
       sde?: number
     } = {}
@@ -2161,6 +2163,9 @@ export function ManualInputPanel({
     }
     if (bonus.includes('saas_metrics')) {
       out.saas = n++
+    }
+    if (bonus.includes('ebitda_normalization')) {
+      out.ebitdaNorm = n++
     }
     if (bonus.includes('revenue_quality')) {
       out.revenue = n++
@@ -2191,6 +2196,7 @@ export function ManualInputPanel({
       adaptiveHeaderSteps.dcfGlobal,
       adaptiveHeaderSteps.nav,
       adaptiveHeaderSteps.saas,
+      adaptiveHeaderSteps.ebitdaNorm,
       adaptiveHeaderSteps.revenue,
       adaptiveHeaderSteps.sde,
     ].filter((s): s is number => s != null)
@@ -3687,6 +3693,26 @@ export function ManualInputPanel({
                           </SpotlightFieldWrapper>
                         </div>
 
+                        {/* YoY EBITDA change indicator */}
+                        {(() => {
+                          if (!hasExplicitNumericValue(yearData.ebitda) || yearData.isForecast) return null
+                          const prevRow = historicalCardRows[index + 1]
+                          if (!prevRow || prevRow.isForecast || !hasExplicitNumericValue(prevRow.ebitda) || prevRow.ebitda === 0) return null
+                          const yoyPct = ((yearData.ebitda - prevRow.ebitda) / Math.abs(prevRow.ebitda)) * 100
+                          if (!Number.isFinite(yoyPct)) return null
+                          const rounded = Math.round(yoyPct)
+                          return (
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1 mt-1 text-[10px] font-medium tabular-nums',
+                                rounded > 0 ? 'text-success' : rounded < 0 ? 'text-destructive' : 'text-foreground/40'
+                              )}
+                            >
+                              {rounded > 0 ? '+' : ''}{rounded}% {mi('fields.ebitdaYoY')}
+                            </span>
+                          )
+                        })()}
+
                         <NbbResetHint
                           fiscalYear={yearData.year}
                           currentRevenue={yearData.revenue}
@@ -3951,6 +3977,12 @@ export function ManualInputPanel({
                 onFieldChange={(field, value) => {
                   setFormData((prev) => ({ ...prev, [field]: value }))
                 }}
+                onViewAllNormalizations={onViewAllNormalizations}
+                currentFiscalYear={
+                  historicalCardRows.length > 0
+                    ? Number(historicalCardRows[0].year)
+                    : undefined
+                }
                 onApplyDcfPercentAutofill={handleApplyDcfProjectionAutofill}
                 canApplyDcfPercentAutofill={canApplyDcfProjectionAutofill}
                 terminalValueMethod={terminalValueMethod}
@@ -4194,6 +4226,8 @@ export function AdaptiveSections({
   sectionHeaderSteps,
   suppressDcfGlobalAssumptions,
   onFieldChange,
+  onViewAllNormalizations,
+  currentFiscalYear,
   onApplyDcfPercentAutofill,
   canApplyDcfPercentAutofill,
   terminalValueMethod,
@@ -4214,12 +4248,15 @@ export function AdaptiveSections({
     dcfGlobal?: number
     nav?: number
     saas?: number
+    ebitdaNorm?: number
     revenue?: number
     sde?: number
   }
   /** When true, DCF globals are rendered in ManualInputPanel (forecast defaults first). */
   suppressDcfGlobalAssumptions?: boolean
   onFieldChange: (field: string, value: number | undefined) => void
+  onViewAllNormalizations?: () => void
+  currentFiscalYear?: number
   onApplyDcfPercentAutofill?: () => void
   canApplyDcfPercentAutofill?: boolean
   terminalValueMethod?: TerminalValueMethod
@@ -4536,6 +4573,25 @@ export function AdaptiveSections({
             </AccordionItem>
           </Accordion>
         )}
+        {sections.includes('ebitda_normalization') && sectionHeaderSteps.ebitdaNorm != null && (
+          <EbitdaNormalizationSection
+            key="ebitda_normalization"
+            step={sectionHeaderSteps.ebitdaNorm}
+            reportedEbitda={
+              latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.ebitda)
+                : undefined
+            }
+            currentFiscalYear={
+              currentFiscalYear ??
+              (latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.year)
+                : new Date().getFullYear())
+            }
+            onViewAllNormalizations={onViewAllNormalizations}
+            disabled={disabled}
+          />
+        )}
         {sections.includes('revenue_quality') && sectionHeaderSteps.revenue != null && (
           <RevenueQualitySection
             key="revenue_quality"
@@ -4548,6 +4604,7 @@ export function AdaptiveSections({
             revRecurringAmount={formData.rev_recurring_amount as number | undefined}
             revTopClientAmount={formData.rev_top_client_amount as number | undefined}
             revGrossChurnPct={formData.rev_gross_churn_pct as number | undefined}
+            revCapitalizedRdAmount={formData.rev_capitalized_rd_amount as number | undefined}
             revenue={
               latestCompleteYearlyFinancial
                 ? Number(latestCompleteYearlyFinancial.revenue)

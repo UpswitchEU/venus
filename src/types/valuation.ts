@@ -348,6 +348,7 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   rev_top_client_amount?: number
   rev_contract_backlog?: number
   rev_gross_churn_pct?: number
+  rev_capitalized_rd_amount?: number
 }
 
 export interface QuickValuationRequest {
