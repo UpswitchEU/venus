@@ -5,6 +5,8 @@
  * Venus-specific extensions (UI category definitions, form types) remain here.
  */
 
+import type { ConfidenceScoreValue, NormalizationCategory } from '@upswitch/types/normalization'
+
 export {
   NormalizationCategory,
   ConfidenceScore,
