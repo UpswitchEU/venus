@@ -52,6 +52,9 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       'business_model',
       'founding_year',
       'business_type_id',
+      'rev_recurring_amount',
+      'rev_top_client_amount',
+      'rev_gross_churn_pct',
     ]
 
     for (const field of keyFields) {
@@ -188,6 +191,9 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           business_type: data.business_type,
           shares_for_sale: 100,
           business_context: data.business_context,
+          rev_recurring_amount: data.rev_recurring_amount,
+          rev_top_client_amount: data.rev_top_client_amount,
+          rev_gross_churn_pct: data.rev_gross_churn_pct,
           kbo_number: data.kbo_number,
           vat_number: data.vat_number,
           postal_code: data.postal_code,

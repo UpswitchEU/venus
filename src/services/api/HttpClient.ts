@@ -299,6 +299,10 @@ export class HttpClient {
       shouldRetry = this.shouldRetryError,
     } = options.retry!
 
+    if (!options.idempotencyKey && !options.skipIdempotency) {
+      options = { ...options, idempotencyKey: generateIdempotencyKey() }
+    }
+
     let lastError: any
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {

@@ -543,6 +543,18 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.nav_goodwill_writeoff != null && {
       nav_goodwill_writeoff: data.nav_goodwill_writeoff,
     }),
+    ...(data.nav_receivables_adjustment != null && {
+      nav_receivables_adjustment: data.nav_receivables_adjustment,
+    }),
+    ...(data.nav_other_revaluations != null && {
+      nav_other_revaluations: data.nav_other_revaluations,
+    }),
+    ...(data.nav_tax_latency_pct != null && {
+      nav_tax_latency_pct: data.nav_tax_latency_pct,
+    }),
+    ...(data.nav_off_balance_items != null && {
+      nav_off_balance_items: data.nav_off_balance_items,
+    }),
     ...(data.saas_arr != null && { saas_arr: data.saas_arr }),
     ...(data.saas_mrr != null && { saas_mrr: data.saas_mrr }),
     ...(data.saas_arr_growth_pct != null && { saas_arr_growth_pct: data.saas_arr_growth_pct }),
@@ -563,10 +575,13 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     }),
     ...(data.saas_sm_spend != null && { saas_sm_spend: data.saas_sm_spend }),
     ...(data.rev_recurring_pct != null && { rev_recurring_pct: data.rev_recurring_pct }),
+    ...(data.rev_recurring_amount != null && { rev_recurring_amount: data.rev_recurring_amount }),
     ...(data.rev_top_client_concentration_pct != null && {
       rev_top_client_concentration_pct: data.rev_top_client_concentration_pct,
     }),
+    ...(data.rev_top_client_amount != null && { rev_top_client_amount: data.rev_top_client_amount }),
     ...(data.rev_contract_backlog != null && { rev_contract_backlog: data.rev_contract_backlog }),
+    ...(data.rev_gross_churn_pct != null && { rev_gross_churn_pct: data.rev_gross_churn_pct }),
     ...(data.owner_salary_addback != null && { owner_salary_addback: data.owner_salary_addback }),
     // Belgian official filing trust — only when figures/links exist (matches buildValuationRequest)
     ...(hasUsableOfficialFinancialsContent(data.official_financials) &&
@@ -1153,6 +1168,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   useEffect(() => {
     return () => {
       streamCleanupRef.current?.()
+    }
+  }, [])
+
+  const versionSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (versionSyncTimeoutRef.current) clearTimeout(versionSyncTimeoutRef.current)
     }
   }, [])
 
@@ -1915,7 +1937,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     let liveBlended: number | null = null
     if (isMultiMethod && vr && Object.keys(userWeights).length > 0) {
       const weightTotal = Object.values(userWeights).reduce((s, v) => s + v, 0)
-      if (Math.abs(weightTotal - 100) < 2) {
+      if (Math.abs(weightTotal - 100) <= 2) {
         let sum = 0
         let ok = true
         for (const [mk, mw] of Object.entries(userWeights)) {
@@ -2908,8 +2930,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             }
           }
 
-          // Always re-sync version history from backend after calculation so panels show latest
-          setTimeout(() => {
+          // Re-sync version history from backend after calculation so panels show latest
+          if (versionSyncTimeoutRef.current) clearTimeout(versionSyncTimeoutRef.current)
+          versionSyncTimeoutRef.current = setTimeout(() => {
+            versionSyncTimeoutRef.current = null
             useVersionHistoryStore
               .getState()
               .fetchVersions(idForApi)

@@ -37,6 +37,7 @@ export interface CurrencyInputProps {
   ariaLabel?: string
   id?: string
   name?: string
+  description?: string
 }
 
 export function CurrencyInput({
@@ -52,6 +53,7 @@ export function CurrencyInput({
   ariaLabel,
   id,
   name,
+  description,
 }: CurrencyInputProps) {
   const locale = useLocale()
   const inputId = useId()
@@ -134,6 +136,7 @@ export function CurrencyInput({
         size={size}
         disabled={disabled}
         aria-label={ariaLabel}
+        description={description}
         leftIcon={<span className="text-foreground/40 text-xs font-medium select-none">€</span>}
         rightIcon={rightIcon}
       />

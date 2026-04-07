@@ -53,7 +53,7 @@ describe('methodFieldConfig', () => {
     ])
   })
 
-  it('treats adjusted_nav (Gecorrigeerde Netto Actiefwaarde) as combinable for weighted synthesis', () => {
+  it('treats adjusted_nav (Gecorrigeerde NAV) as combinable for weighted synthesis', () => {
     expect(isCombinableMethod('adjusted_nav')).toBe(true)
     expect(sanitizeMethodSelection(['ebitda_multiple', 'dcf', 'adjusted_nav'])).toEqual([
       'ebitda_multiple',

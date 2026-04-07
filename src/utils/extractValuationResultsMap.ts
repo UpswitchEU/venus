@@ -206,7 +206,7 @@ function getFallbackMethodLabel(methodKey: string): string {
     return 'EBITDA-multiple'
   }
   if (methodKey === 'adjusted_nav') {
-    return 'Gecorrigeerde Netto Actiefwaarde (NAV)'
+    return 'Gecorrigeerde NAV (Intrinsieke Waarde)'
   }
   return methodKey
 }

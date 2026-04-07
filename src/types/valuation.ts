@@ -321,6 +321,10 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   nav_inventory_adjustment?: number
   nav_hidden_reserves?: number
   nav_goodwill_writeoff?: number
+  nav_receivables_adjustment?: number
+  nav_other_revaluations?: number
+  nav_tax_latency_pct?: number
+  nav_off_balance_items?: number
   // M&A transaction structure
   exclude_real_estate?: boolean
   real_estate_book_value?: number
@@ -339,8 +343,11 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   saas_sm_spend?: number
   // Revenue quality
   rev_recurring_pct?: number
+  rev_recurring_amount?: number
   rev_top_client_concentration_pct?: number
+  rev_top_client_amount?: number
   rev_contract_backlog?: number
+  rev_gross_churn_pct?: number
 }
 
 export interface QuickValuationRequest {

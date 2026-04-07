@@ -519,9 +519,32 @@ export function buildValuationRequest(
   const projectionYears = Math.max(5, forecastYearsData.length > 0 ? forecastYearsData.length : 5)
 
   // Normalize recurring revenue percentage (0.0-1.0)
-  const recurringRevenueInput =
-    formData.recurring_revenue_percentage ??
-    ((formData as any).rev_recurring_pct != null ? (formData as any).rev_recurring_pct / 100 : 0)
+  // Priority: explicit percentage > currency amount derived > legacy field
+  // Use current year revenue as primary reference (matches the UI's
+  // latestCompleteYearlyFinancial), falling back to latest historical year.
+  const latestRevenue = revenue > 0
+    ? revenue
+    : historicalYearsData.length > 0
+      ? historicalYearsData.reduce((latest, y) => (y.year > latest.year ? y : latest)).revenue
+      : undefined
+  // Priority: explicit percentage > currency amount (new UX) > legacy pct > default 0.
+  // When rev_recurring_amount is set, it always wins over rev_recurring_pct to
+  // stay consistent with adaptiveFields derivation and the UI badge.
+  let recurringRevenueInput: number
+  if (formData.recurring_revenue_percentage != null && Number.isFinite(formData.recurring_revenue_percentage)) {
+    recurringRevenueInput = formData.recurring_revenue_percentage
+  } else if (
+    formData.rev_recurring_amount != null &&
+    Number.isFinite(formData.rev_recurring_amount) &&
+    latestRevenue != null &&
+    latestRevenue > 0
+  ) {
+    recurringRevenueInput = formData.rev_recurring_amount / latestRevenue
+  } else if ((formData as any).rev_recurring_pct != null && Number.isFinite((formData as any).rev_recurring_pct)) {
+    recurringRevenueInput = (formData as any).rev_recurring_pct / 100
+  } else {
+    recurringRevenueInput = 0
+  }
   const recurringRevenuePercentage = Math.min(Math.max(recurringRevenueInput || 0, 0.0), 1.0)
 
   // Handle sole trader vs company
@@ -564,13 +587,25 @@ export function buildValuationRequest(
     (Array.isArray(formData.forecast_years_data) && formData.forecast_years_data.length > 0) ||
     (Array.isArray(rawForecastData) && rawForecastData.length > 0)
 
-  if (fd.nav_real_estate_adjustment != null)
-    adaptiveFields.nav_real_estate_adjustment = fd.nav_real_estate_adjustment
-  if (fd.nav_inventory_adjustment != null)
-    adaptiveFields.nav_inventory_adjustment = fd.nav_inventory_adjustment
-  if (fd.nav_hidden_reserves != null) adaptiveFields.nav_hidden_reserves = fd.nav_hidden_reserves
-  if (fd.nav_goodwill_writeoff != null)
-    adaptiveFields.nav_goodwill_writeoff = fd.nav_goodwill_writeoff
+  if (fd.nav_real_estate_adjustment != null && Number.isFinite(Number(fd.nav_real_estate_adjustment)))
+    adaptiveFields.nav_real_estate_adjustment = Number(fd.nav_real_estate_adjustment)
+  if (fd.nav_inventory_adjustment != null && Number.isFinite(Number(fd.nav_inventory_adjustment)))
+    adaptiveFields.nav_inventory_adjustment = Number(fd.nav_inventory_adjustment)
+  if (fd.nav_hidden_reserves != null && Number.isFinite(Number(fd.nav_hidden_reserves)))
+    adaptiveFields.nav_hidden_reserves = Number(fd.nav_hidden_reserves)
+  if (fd.nav_goodwill_writeoff != null && Number.isFinite(Number(fd.nav_goodwill_writeoff)))
+    adaptiveFields.nav_goodwill_writeoff = Number(fd.nav_goodwill_writeoff)
+  if (fd.nav_receivables_adjustment != null && Number.isFinite(Number(fd.nav_receivables_adjustment)))
+    adaptiveFields.nav_receivables_adjustment = Number(fd.nav_receivables_adjustment)
+  if (fd.nav_other_revaluations != null && Number.isFinite(Number(fd.nav_other_revaluations)))
+    adaptiveFields.nav_other_revaluations = Number(fd.nav_other_revaluations)
+  if (fd.nav_tax_latency_pct != null && Number.isFinite(Number(fd.nav_tax_latency_pct))) {
+    adaptiveFields.nav_tax_latency_pct = Math.min(Math.max(Number(fd.nav_tax_latency_pct), 0), 100)
+  } else if (countryCode === 'BE') {
+    adaptiveFields.nav_tax_latency_pct = 25
+  }
+  if (fd.nav_off_balance_items != null && Number.isFinite(Number(fd.nav_off_balance_items)))
+    adaptiveFields.nav_off_balance_items = Number(fd.nav_off_balance_items)
   if (fd.saas_arr != null) adaptiveFields.saas_arr = fd.saas_arr
   if (fd.saas_mrr != null) adaptiveFields.saas_mrr = fd.saas_mrr
   if (fd.saas_arr_growth_pct != null) adaptiveFields.saas_arr_growth_pct = fd.saas_arr_growth_pct
@@ -586,10 +621,27 @@ export function buildValuationRequest(
   if (fd.saas_expansion_revenue_pct != null)
     adaptiveFields.saas_expansion_revenue_pct = fd.saas_expansion_revenue_pct
   if (fd.saas_sm_spend != null) adaptiveFields.saas_sm_spend = fd.saas_sm_spend
-  if (fd.rev_recurring_pct != null) adaptiveFields.rev_recurring_pct = fd.rev_recurring_pct
-  if (fd.rev_top_client_concentration_pct != null)
+  // Revenue quality: prefer currency amounts (new UX), derive % for the API.
+  // Clamp to [0, 100] to satisfy the Titan Zod schema.
+  // Guard with Number.isFinite to prevent NaN from corrupted session data.
+  if (fd.rev_recurring_amount != null && Number.isFinite(fd.rev_recurring_amount) && latestRevenue && latestRevenue > 0) {
+    adaptiveFields.rev_recurring_pct = Math.min(
+      Math.max((fd.rev_recurring_amount / latestRevenue) * 100, 0),
+      100
+    )
+  } else if (fd.rev_recurring_pct != null && Number.isFinite(fd.rev_recurring_pct)) {
+    adaptiveFields.rev_recurring_pct = fd.rev_recurring_pct
+  }
+  if (fd.rev_top_client_amount != null && Number.isFinite(fd.rev_top_client_amount) && latestRevenue && latestRevenue > 0) {
+    adaptiveFields.rev_top_client_concentration_pct = Math.min(
+      Math.max((fd.rev_top_client_amount / latestRevenue) * 100, 0),
+      100
+    )
+  } else if (fd.rev_top_client_concentration_pct != null && Number.isFinite(fd.rev_top_client_concentration_pct)) {
     adaptiveFields.rev_top_client_concentration_pct = fd.rev_top_client_concentration_pct
+  }
   if (fd.rev_contract_backlog != null) adaptiveFields.rev_contract_backlog = fd.rev_contract_backlog
+  if (fd.rev_gross_churn_pct != null) adaptiveFields.rev_gross_churn_pct = fd.rev_gross_churn_pct
 
   const existingBusinessContext =
     formData.business_context && typeof formData.business_context === 'object'

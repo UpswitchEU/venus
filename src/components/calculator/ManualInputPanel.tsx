@@ -318,6 +318,10 @@ export interface ValuationFormData {
   nav_inventory_adjustment?: number
   nav_hidden_reserves?: number
   nav_goodwill_writeoff?: number
+  nav_receivables_adjustment?: number
+  nav_other_revaluations?: number
+  nav_tax_latency_pct?: number
+  nav_off_balance_items?: number
   exclude_real_estate?: boolean
   real_estate_book_value?: number
   estimated_market_rent?: number
@@ -756,6 +760,22 @@ export function ManualInputPanel({
   /** After user picks a country, do not overwrite from late prefill/session (panel remount resets). */
   const countryUserOverrideRef = useRef(false)
 
+  /**
+   * Tracks the company identity that was loaded from session/platform prefill.
+   * Set once when prefill populates the company — never overwritten by user actions.
+   * Used to decide whether clearing the company requires a confirmation warning.
+   */
+  const prefillCompanyRef = useRef<{ name: string; kbo: string } | null>(null)
+  const [showChangeCompanyWarning, setShowChangeCompanyWarning] = useState(false)
+
+  // Dismiss the change-company warning whenever the selected company is cleared by any code path
+  // (country change, external clear, etc.) — single reactive rule instead of scattered dismissals.
+  useEffect(() => {
+    if (!selectedCompany && showChangeCompanyWarning) {
+      setShowChangeCompanyWarning(false)
+    }
+  }, [selectedCompany, showChangeCompanyWarning])
+
   // Drop registry selection when operating country changes (e.g. firm NL prefill after BE default)
   useEffect(() => {
     const c = (formData.country || initialData.country || 'BE').toUpperCase()
@@ -915,6 +935,12 @@ export function ManualInputPanel({
               ? prefill.naceCode
               : undefined,
         })
+        if (!prefillCompanyRef.current) {
+          prefillCompanyRef.current = {
+            name: companyNameUpdate,
+            kbo: prefill.kboNumber || '',
+          }
+        }
       }
     }
     runPrefill()
@@ -994,6 +1020,51 @@ export function ManualInputPanel({
             currentYearData: formData.current_year_data,
           })
         : formData.current_year_data,
+      nav_real_estate_adjustment: formData.nav_real_estate_adjustment,
+      nav_inventory_adjustment: formData.nav_inventory_adjustment,
+      nav_hidden_reserves: formData.nav_hidden_reserves,
+      nav_goodwill_writeoff: formData.nav_goodwill_writeoff,
+      nav_receivables_adjustment: formData.nav_receivables_adjustment,
+      nav_other_revaluations: formData.nav_other_revaluations,
+      nav_tax_latency_pct: formData.nav_tax_latency_pct,
+      nav_off_balance_items: formData.nav_off_balance_items,
+      dcf_revenue_growth_pct: formData.dcf_revenue_growth_pct,
+      dcf_ebitda_margin_pct: formData.dcf_ebitda_margin_pct,
+      dcf_capex_pct: formData.dcf_capex_pct,
+      dcf_da_pct: formData.dcf_da_pct,
+      dcf_nwc_pct: formData.dcf_nwc_pct,
+      dcf_tax_rate_pct: formData.dcf_tax_rate_pct,
+      dcf_wacc_pct: formData.dcf_wacc_pct,
+      dcf_terminal_growth_pct: formData.dcf_terminal_growth_pct,
+      dcf_exit_multiple: formData.dcf_exit_multiple,
+      dcf_risk_free_rate_pct: formData.dcf_risk_free_rate_pct,
+      dcf_equity_risk_premium_pct: formData.dcf_equity_risk_premium_pct,
+      dcf_beta: formData.dcf_beta,
+      dcf_cost_of_debt_pct: formData.dcf_cost_of_debt_pct,
+      dcf_debt_equity_pct: formData.dcf_debt_equity_pct,
+      dcf_tax_shield_pct: formData.dcf_tax_shield_pct,
+      dcf_terminal_value_method: formData.dcf_terminal_value_method,
+      saas_arr: formData.saas_arr,
+      saas_mrr: formData.saas_mrr,
+      saas_arr_growth_pct: formData.saas_arr_growth_pct,
+      saas_churn_pct: formData.saas_churn_pct,
+      saas_customer_churn_pct: formData.saas_customer_churn_pct,
+      saas_nrr_pct: formData.saas_nrr_pct,
+      saas_gross_margin_pct: formData.saas_gross_margin_pct,
+      saas_cac: formData.saas_cac,
+      saas_customer_concentration_pct: formData.saas_customer_concentration_pct,
+      saas_expansion_revenue_pct: formData.saas_expansion_revenue_pct,
+      saas_sm_spend: formData.saas_sm_spend,
+      exclude_real_estate: formData.exclude_real_estate,
+      real_estate_book_value: formData.real_estate_book_value,
+      estimated_market_rent: formData.estimated_market_rent,
+      rev_recurring_pct: formData.rev_recurring_pct,
+      rev_recurring_amount: formData.rev_recurring_amount,
+      rev_top_client_concentration_pct: formData.rev_top_client_concentration_pct,
+      rev_top_client_amount: formData.rev_top_client_amount,
+      rev_contract_backlog: formData.rev_contract_backlog,
+      rev_gross_churn_pct: formData.rev_gross_churn_pct,
+      owner_salary_addback: formData.owner_salary_addback,
     })
   }, [
     formData.companyName,
@@ -1015,6 +1086,51 @@ export function ManualInputPanel({
     formData.dcf_input_mode,
     formData.current_year_data,
     latestCompleteYearlyFinancial,
+    formData.nav_real_estate_adjustment,
+    formData.nav_inventory_adjustment,
+    formData.nav_hidden_reserves,
+    formData.nav_goodwill_writeoff,
+    formData.nav_receivables_adjustment,
+    formData.nav_other_revaluations,
+    formData.nav_tax_latency_pct,
+    formData.nav_off_balance_items,
+    formData.dcf_revenue_growth_pct,
+    formData.dcf_ebitda_margin_pct,
+    formData.dcf_capex_pct,
+    formData.dcf_da_pct,
+    formData.dcf_nwc_pct,
+    formData.dcf_tax_rate_pct,
+    formData.dcf_wacc_pct,
+    formData.dcf_terminal_growth_pct,
+    formData.dcf_exit_multiple,
+    formData.dcf_risk_free_rate_pct,
+    formData.dcf_equity_risk_premium_pct,
+    formData.dcf_beta,
+    formData.dcf_cost_of_debt_pct,
+    formData.dcf_debt_equity_pct,
+    formData.dcf_tax_shield_pct,
+    formData.dcf_terminal_value_method,
+    formData.saas_arr,
+    formData.saas_mrr,
+    formData.saas_arr_growth_pct,
+    formData.saas_churn_pct,
+    formData.saas_customer_churn_pct,
+    formData.saas_nrr_pct,
+    formData.saas_gross_margin_pct,
+    formData.saas_cac,
+    formData.saas_customer_concentration_pct,
+    formData.saas_expansion_revenue_pct,
+    formData.saas_sm_spend,
+    formData.exclude_real_estate,
+    formData.real_estate_book_value,
+    formData.estimated_market_rent,
+    formData.rev_recurring_pct,
+    formData.rev_recurring_amount,
+    formData.rev_top_client_concentration_pct,
+    formData.rev_top_client_amount,
+    formData.rev_contract_backlog,
+    formData.rev_gross_churn_pct,
+    formData.owner_salary_addback,
   ])
   useEffect(() => {
     syncFormData()
@@ -1044,6 +1160,9 @@ export function ManualInputPanel({
 
     setSelectedCompany((prev) => {
       if (prev) return prev
+      if (!prefillCompanyRef.current) {
+        prefillCompanyRef.current = { name, kbo: initialData?.kboNumber || '' }
+      }
       return {
         id: initialData?.kboNumber || 'prefill',
         name,
@@ -2594,11 +2713,13 @@ export function ManualInputPanel({
     }
   }
 
-  const handleClearCompany = () => {
+  const executeClearCompany = useCallback(() => {
+    prefillCompanyRef.current = null
     setSelectedCompany(null)
     setCompanySearchValue('')
     setNacePrefillError(null)
     setSelectedBusinessType(null)
+    setShowChangeCompanyWarning(false)
     setFormData((prev) => ({
       ...prev,
       companyName: '',
@@ -2622,7 +2743,15 @@ export function ManualInputPanel({
       nace_description: '',
       activity_code: undefined,
     })
-  }
+  }, [updateFormData])
+
+  const handleClearCompany = useCallback(() => {
+    if (prefillCompanyRef.current && selectedCompany) {
+      setShowChangeCompanyWarning(true)
+      return
+    }
+    executeClearCompany()
+  }, [executeClearCompany, selectedCompany])
 
   const handleCSVFileSelected = useCallback(
     (_file: File, parsedData: ParsedCSVData) => {
@@ -3008,6 +3137,45 @@ export function ManualInputPanel({
                   noResultsHint={searchCountry === 'NL' ? mi('registryNlNoResults') : undefined}
                 />
               )}
+
+              <AnimatePresence>
+                {showChangeCompanyWarning && selectedCompany && prefillCompanyRef.current && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-3.5 py-3 text-sm">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-foreground/70 text-xs leading-relaxed">
+                          {mi('changeCompanyWarning.message', {
+                            companyName: prefillCompanyRef.current.name,
+                          })}
+                        </p>
+                        <div className="mt-2.5 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowChangeCompanyWarning(false)}
+                            className="rounded-lg border border-foreground/10 bg-background px-3 py-1.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-muted"
+                          >
+                            {mi('changeCompanyWarning.cancel')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={executeClearCompany}
+                            className="rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
+                          >
+                            {mi('changeCompanyWarning.confirm')}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <AnimatePresence>
                 {selectedCompany && (
@@ -4293,6 +4461,22 @@ export function AdaptiveSections({
             navInventoryAdjustment={formData.nav_inventory_adjustment as number | undefined}
             navHiddenReserves={formData.nav_hidden_reserves as number | undefined}
             navGoodwillWriteoff={formData.nav_goodwill_writeoff as number | undefined}
+            navReceivablesAdjustment={formData.nav_receivables_adjustment as number | undefined}
+            navOtherRevaluations={formData.nav_other_revaluations as number | undefined}
+            navTaxLatencyPct={formData.nav_tax_latency_pct as number | undefined}
+            navOffBalanceItems={formData.nav_off_balance_items as number | undefined}
+            countryCode={formData.country?.trim() || 'BE'}
+            totalAssets={
+              latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.total_assets)
+                : undefined
+            }
+            totalLiabilities={
+              latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.total_liabilities)
+                : undefined
+            }
+            businessType={formData.industry || undefined}
             onFieldChange={onFieldChange}
             disabled={disabled}
           />
@@ -4361,6 +4545,9 @@ export function AdaptiveSections({
               formData.rev_top_client_concentration_pct as number | undefined
             }
             revContractBacklog={formData.rev_contract_backlog as number | undefined}
+            revRecurringAmount={formData.rev_recurring_amount as number | undefined}
+            revTopClientAmount={formData.rev_top_client_amount as number | undefined}
+            revGrossChurnPct={formData.rev_gross_churn_pct as number | undefined}
             revenue={
               latestCompleteYearlyFinancial
                 ? Number(latestCompleteYearlyFinancial.revenue)
@@ -4372,6 +4559,8 @@ export function AdaptiveSections({
                 : undefined
             }
             effectiveMethods={methods}
+            businessTypeId={businessTypeId}
+            businessCategory={businessCategory}
             onFieldChange={onFieldChange}
             disabled={disabled}
           />

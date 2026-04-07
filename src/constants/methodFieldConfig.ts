@@ -184,10 +184,12 @@ export const STANDALONE_METHODS = new Set(['upswitch_adaptive', 'fiscal_4x'])
  * Methods that must not appear together in a blend (double-counting or duplicate lens).
  * - SDE vs EBITDA: different owner-compensation bases.
  * - Omzet vs revenue_multiple: same market approach keyed differently (EN/NL).
+ * - SDE vs NAV: SDE excludes balance-sheet-driven valuations (conceptually incompatible).
  */
 export const MUTUALLY_EXCLUSIVE_PAIRS: ReadonlyArray<[string, string]> = [
   ['sde_multiple', 'ebitda_multiple'],
   ['omzet_multiple', 'revenue_multiple'],
+  ['sde_multiple', 'adjusted_nav'],
 ]
 
 /**

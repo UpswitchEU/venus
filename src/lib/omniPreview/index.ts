@@ -28,15 +28,28 @@ export {
 export { computeEbitdaMarginPct } from './marketBasicsPreview'
 export { METHOD_PREVIEW_AUDIT } from './methodPreviewAudit'
 export {
+  computeEstimatedNav,
+  computeGrossPositiveAdjustments,
   computeNavAdjustmentsSum,
+  computeTaxLatencyDeduction,
+  countFilledNavFields,
   hasAnyNavAdjustment,
+  NAV_DEFAULT_TAX_LATENCY_PCT,
+  NAV_SECTOR_DEFAULTS,
+  NAV_TOTAL_FIELDS,
+  resolveNavSectorKey,
+  type NavDeductionInputs,
   type NavScheduleInputs,
 } from './navSchedulePreview'
 export { ownershipMultiplierFromSharesForSale } from './ownershipMultiplier'
 export {
   computeRevenueQualityPreview,
+  getRecurringRevenueBadge,
+  getTopClientBadge,
+  type RecurringBadge,
   type RevenueQualityPreviewInputs,
   type RevenueQualityPreviewMetrics,
+  type TopClientBadge,
 } from './revenueQualityPreview'
 export {
   resolveRevenueQualityBadgeVariant,

@@ -53,8 +53,24 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
 ): DebouncedWithFlush<T> {
   let timeoutId: NodeJS.Timeout | null = null
   let lastArgs: Parameters<T> | null = null
+  let inFlight: Promise<any> | null = null
 
-  const execute = (...args: Parameters<T>) => fn(...args)
+  const drainQueue = async (args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
+    inFlight = fn(...args)
+    try {
+      const result = await inFlight
+      inFlight = null
+      if (lastArgs) {
+        const queued = lastArgs
+        lastArgs = null
+        return drainQueue(queued)
+      }
+      return result
+    } catch (err) {
+      inFlight = null
+      throw err
+    }
+  }
 
   const debounced = ((...args: Parameters<T>) => {
     lastArgs = args
@@ -64,11 +80,12 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
         timeoutId = null
         const argsToUse = lastArgs
         lastArgs = null
-        if (argsToUse) {
-          execute(...argsToUse)
-            .then(resolve)
-            .catch(reject)
+        if (!argsToUse) return
+        if (inFlight) {
+          lastArgs = argsToUse
+          return
         }
+        drainQueue(argsToUse).then(resolve).catch(reject)
       }, delay)
     })
   }) as DebouncedWithFlush<T>
@@ -81,7 +98,14 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
     if (lastArgs) {
       const argsToUse = lastArgs
       lastArgs = null
-      await execute(...argsToUse)
+      if (inFlight) {
+        lastArgs = argsToUse
+        await inFlight
+        return
+      }
+      await drainQueue(argsToUse)
+    } else if (inFlight) {
+      await inFlight
     }
   }
 
