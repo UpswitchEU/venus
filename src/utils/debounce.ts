@@ -54,6 +54,10 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
   let timeoutId: NodeJS.Timeout | null = null
   let lastArgs: Parameters<T> | null = null
   let inFlight: Promise<any> | null = null
+  let pendingResolvers: {
+    resolve: (v: any) => void
+    reject: (e: any) => void
+  }[] = []
 
   const drainQueue = async (args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
     inFlight = fn(...args)
@@ -72,10 +76,18 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
     }
   }
 
+  const settleAll = (resultPromise: Promise<any>) => {
+    const captured = pendingResolvers.splice(0)
+    for (const { resolve, reject } of captured) {
+      resultPromise.then(resolve, reject)
+    }
+  }
+
   const debounced = ((...args: Parameters<T>) => {
     lastArgs = args
     if (timeoutId) clearTimeout(timeoutId)
     return new Promise<Awaited<ReturnType<T>>>((resolve, reject) => {
+      pendingResolvers.push({ resolve, reject })
       timeoutId = setTimeout(() => {
         timeoutId = null
         const argsToUse = lastArgs
@@ -85,7 +97,8 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
           lastArgs = argsToUse
           return
         }
-        drainQueue(argsToUse).then(resolve).catch(reject)
+        const p = drainQueue(argsToUse)
+        settleAll(p)
       }, delay)
     })
   }) as DebouncedWithFlush<T>
@@ -100,11 +113,16 @@ export function debounceWithFlush<T extends (...args: any[]) => Promise<any>>(
       lastArgs = null
       if (inFlight) {
         lastArgs = argsToUse
-        await inFlight
+        const existing = inFlight
+        settleAll(existing)
+        await existing
         return
       }
-      await drainQueue(argsToUse)
+      const p = drainQueue(argsToUse)
+      settleAll(p)
+      await p
     } else if (inFlight) {
+      settleAll(inFlight)
       await inFlight
     }
   }

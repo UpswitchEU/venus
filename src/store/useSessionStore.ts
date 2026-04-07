@@ -517,6 +517,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return
     }
 
+    if (state.isSaving) {
+      storeLogger.debug('[Session] Save already in progress, skipping', { reason })
+      return
+    }
+
     // ✅ FIX: Capture hasUnsavedChanges BEFORE save starts (for toast callback)
     // This ensures we know if there were actual changes, even if state changes during save
     const hadUnsavedChangesBeforeSave = state.hasUnsavedChanges

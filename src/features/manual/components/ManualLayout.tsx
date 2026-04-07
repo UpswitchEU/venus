@@ -1008,6 +1008,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [isPdfRetrying, setIsPdfRetrying] = useState(false)
   const [pdfPollErrorCount, setPdfPollErrorCount] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
+  const pdfExportAbortRef = useRef<AbortController | null>(null)
+  useEffect(() => {
+    return () => { pdfExportAbortRef.current?.abort() }
+  }, [])
   const [downloadHistory, setDownloadHistory] = useState<
     { id: string; fileName: string; timestamp: Date; size: string }[]
   >([])
@@ -3592,6 +3596,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       return
     }
     setIsExporting(true)
+    pdfExportAbortRef.current?.abort()
+    const abortController = new AbortController()
+    pdfExportAbortRef.current = abortController
 
     const filename = `${report.companyName?.replace(/\s+/g, '-') || tReport('defaultFilename')}-${tReport('pdfSuffix')}.pdf`
 
@@ -3610,10 +3617,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           const maxWaitMs = 120_000
           const pollIntervalMs = 2_000
           let elapsed = 0
-          while (elapsed < maxWaitMs) {
+          while (elapsed < maxWaitMs && !abortController.signal.aborted) {
             const res = await fetch(`/api/valuations/${idForPdf}/pdf`, {
               method: 'GET',
               credentials: 'include',
+              signal: abortController.signal,
             })
             if (res.status === 402) {
               toast.dismiss('pdf-gen')
