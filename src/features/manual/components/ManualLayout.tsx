@@ -536,6 +536,15 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.nav_real_estate_adjustment != null && {
       nav_real_estate_adjustment: data.nav_real_estate_adjustment,
     }),
+    ...(data.exclude_real_estate != null && {
+      exclude_real_estate: data.exclude_real_estate,
+    }),
+    ...(data.real_estate_book_value != null && {
+      real_estate_book_value: data.real_estate_book_value,
+    }),
+    ...(data.estimated_market_rent != null && {
+      estimated_market_rent: data.estimated_market_rent,
+    }),
     ...(data.nav_inventory_adjustment != null && {
       nav_inventory_adjustment: data.nav_inventory_adjustment,
     }),

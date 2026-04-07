@@ -338,8 +338,12 @@ export interface ValuationFormData {
   saas_expansion_revenue_pct?: number
   saas_sm_spend?: number
   rev_recurring_pct?: number
+  rev_recurring_amount?: number
   rev_top_client_concentration_pct?: number
+  rev_top_client_amount?: number
   rev_contract_backlog?: number
+  rev_gross_churn_pct?: number
+  rev_capitalized_rd_amount?: number
   /** 0–100; normalized to 100% in Zustand for the manual product, but kept for API parity. */
   shares_for_sale?: number
   /** Annual owner compensation (€) for SDE — matches ValuationRequest / Titan. */
