@@ -40,6 +40,7 @@ interface RevenueQualitySectionProps {
   revRecurringAmount?: number
   revTopClientAmount?: number
   revGrossChurnPct?: number
+  revCapitalizedRdAmount?: number
   revenue?: number
   ebitda?: number
   effectiveMethods?: string[]
@@ -47,6 +48,12 @@ interface RevenueQualitySectionProps {
   businessCategory?: string
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
+}
+
+function isEbitdaOnlyContext(methods: string[]): boolean {
+  if (methods.length === 0) return false
+  const multiples = methods.filter((m) => m !== 'upswitch_adaptive')
+  return multiples.length > 0 && multiples.every((m) => m === 'ebitda_multiple')
 }
 
 function isSaasOrTech(businessTypeId?: string, businessCategory?: string): boolean {
@@ -103,6 +110,7 @@ export function RevenueQualitySection({
   revRecurringAmount,
   revTopClientAmount,
   revGrossChurnPct,
+  revCapitalizedRdAmount,
   revenue,
   ebitda,
   effectiveMethods = EMPTY_METHODS,
@@ -119,6 +127,11 @@ export function RevenueQualitySection({
     [businessTypeId, businessCategory]
   )
 
+  const isEbitdaOnly = useMemo(
+    () => isEbitdaOnlyContext(effectiveMethods),
+    [effectiveMethods]
+  )
+
   const sectionComplete = useMemo(
     () =>
       revRecurringAmount != null ||
@@ -126,8 +139,9 @@ export function RevenueQualitySection({
       revRecurringPct != null ||
       revTopClientConcentrationPct != null ||
       (revContractBacklog != null && Number.isFinite(revContractBacklog)) ||
-      revGrossChurnPct != null,
-    [revRecurringAmount, revTopClientAmount, revRecurringPct, revTopClientConcentrationPct, revContractBacklog, revGrossChurnPct]
+      revGrossChurnPct != null ||
+      (revCapitalizedRdAmount != null && Number.isFinite(revCapitalizedRdAmount)),
+    [revRecurringAmount, revTopClientAmount, revRecurringPct, revTopClientConcentrationPct, revContractBacklog, revGrossChurnPct, revCapitalizedRdAmount]
   )
 
   const badgeVariant = useMemo(

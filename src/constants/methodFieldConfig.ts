@@ -20,6 +20,7 @@ export type InputSectionKey =
   | 'nav_asset_schedule'
   | 'saas_metrics'
   | 'revenue_quality'
+  | 'ebitda_normalization'
   | 'sde_owner_compensation'
 
 export interface MethodFieldEntry {
@@ -28,7 +29,7 @@ export interface MethodFieldEntry {
 
 export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
   upswitch_adaptive: { bonusSections: [] },
-  ebitda_multiple: { bonusSections: ['revenue_quality'] },
+  ebitda_multiple: { bonusSections: ['ebitda_normalization', 'revenue_quality'] },
   omzet_multiple: { bonusSections: ['revenue_quality'] },
   /** English UI / API alias for `omzet_multiple` — same bonus sections (see `extractValuationResultsMap`). */
   revenue_multiple: { bonusSections: ['revenue_quality'] },
