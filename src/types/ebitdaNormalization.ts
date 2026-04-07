@@ -1,11 +1,11 @@
 /**
  * EBITDA Normalization Types (Venus)
  *
- * Re-exports canonical types from @upswitch/types/normalization.
- * Venus-specific extensions (UI category definitions, form types) remain here.
+ * Canonical enums/metadata are vendored in `./canonical/normalization` so
+ * standalone Vercel builds resolve without the monorepo `packages/types` tree.
  */
 
-import type { ConfidenceScoreValue, NormalizationCategory } from '@upswitch/types/normalization'
+import type { ConfidenceScoreValue, NormalizationCategory } from './canonical/normalization'
 
 export {
   NormalizationCategory,
@@ -18,7 +18,7 @@ export {
   type NormalizationSource,
   type NormalizationItemBase,
   type NormalizationCategoryMetadata,
-} from '@upswitch/types/normalization'
+} from './canonical/normalization'
 
 export interface CustomAdjustment {
   id?: string
