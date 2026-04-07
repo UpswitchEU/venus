@@ -25,15 +25,11 @@ const EMPTY_METHODS: string[] = []
 
 interface RevenueQualitySectionProps {
   step: number
-  revRecurringPct?: number
-  revTopClientConcentrationPct?: number
   revContractBacklog?: number
   revRecurringAmount?: number
   revTopClientAmount?: number
   revGrossChurnPct?: number
   revCapitalizedRdAmount?: number
-  revenue?: number
-  ebitda?: number
   effectiveMethods?: string[]
   businessTypeId?: string
   businessCategory?: string

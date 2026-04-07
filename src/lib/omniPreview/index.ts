@@ -33,12 +33,15 @@ export {
   computeNavAdjustmentsSum,
   computeTaxLatencyDeduction,
   countFilledNavFields,
+  countFilledNavProgressFields,
   hasAnyNavAdjustment,
   NAV_DEFAULT_TAX_LATENCY_PCT,
+  NAV_PROGRESS_TOTAL_FIELDS,
   NAV_SECTOR_DEFAULTS,
   NAV_TOTAL_FIELDS,
   resolveNavSectorKey,
   type NavDeductionInputs,
+  type NavProgressInputs,
   type NavScheduleInputs,
 } from './navSchedulePreview'
 export { ownershipMultiplierFromSharesForSale } from './ownershipMultiplier'

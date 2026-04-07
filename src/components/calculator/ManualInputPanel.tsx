@@ -4543,25 +4543,11 @@ export function AdaptiveSections({
           <RevenueQualitySection
             key="revenue_quality"
             step={sectionHeaderSteps.revenue}
-            revRecurringPct={formData.rev_recurring_pct as number | undefined}
-            revTopClientConcentrationPct={
-              formData.rev_top_client_concentration_pct as number | undefined
-            }
             revContractBacklog={formData.rev_contract_backlog as number | undefined}
             revRecurringAmount={formData.rev_recurring_amount as number | undefined}
             revTopClientAmount={formData.rev_top_client_amount as number | undefined}
             revGrossChurnPct={formData.rev_gross_churn_pct as number | undefined}
             revCapitalizedRdAmount={formData.rev_capitalized_rd_amount as number | undefined}
-            revenue={
-              latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.revenue)
-                : undefined
-            }
-            ebitda={
-              latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.ebitda)
-                : undefined
-            }
             effectiveMethods={methods}
             businessTypeId={businessTypeId}
             businessCategory={businessCategory}

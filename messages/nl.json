@@ -1434,6 +1434,7 @@
 				"navDefaultsApplied": "Standaarden toegepast op basis van je bedrijfstype",
 				"navProgressReady": "Klaar voor NAV-berekening",
 				"navProgressHint": "{filled} van {total} velden ingevuld",
+				"navProgressMinimumHint": "Start met de balanscorrecties die je het best kent. Vastgoed, stille reserves, vorderingen of off-balance verplichtingen geven meestal de beste eerste inschatting.",
 				"sdeOwnerCompensation": "Eigenaarsbezoldiging (SDE)",
 				"realEstateCarveOut": "Vastgoed carve-out",
 				"saasMetrics": "SaaS Metrics",
@@ -1519,6 +1520,15 @@
 				"warning": "Matig",
 				"poor": "Zwak"
 			},
+				"navPanels": {
+					"startLeadTitle": "Snel starten",
+					"startHereTitle": "Start met deze correcties",
+					"startHereDescription": "Begin met de balanscorrecties die je het best kent. Die hebben meestal de grootste impact op de NAV-vloerwaarde.",
+					"assetsTitle": "Aanvullende activa-aanpassingen",
+					"assetsDescription": "Vul hier de overige herwaarderingen in als ze relevant zijn voor deze vennootschap.",
+					"deductionsTitle": "Aftrekposten en belasting",
+					"deductionsDescription": "Gebruik deze velden om belastinglatenties op meerwaarden en verplichtingen buiten de balans mee te nemen."
+				},
 			"fields": {
 				"dcfRevenueGrowthPct": "Omzetgroei (%)",
 				"dcfEbitdaMarginPct": "EBITDA-marge (%)",
@@ -1552,6 +1562,8 @@
 				"navTaxLatencyPctDesc": "Vennootschapsbelasting op gerealiseerde meerwaarden. In België standaard 25%. Op aandelen vaak 0% (meerwaarde-vrijstelling).",
 				"navOffBalanceItems": "Off-balance sheet items",
 				"navOffBalanceItemsDesc": "Verplichtingen die niet op de balans staan: hangende juridische claims, milieuverplichtingen, afvloeiingsregelingen, etc.",
+					"navLead": "Herwaardeer de balans naar een realistischer marktbeeld. Zo schat je een verdedigbare vloerwaarde voor de onderneming.",
+					"navQuickStart": "Een sterke eerste inschatting bestaat uit herwaardering vastgoed, stille reserves, vorderingen en eventuele verplichtingen buiten de balans.",
 				"excludeRealEstate": "Vastgoed uitsluiten uit transactie?",
 				"realEstateBookValue": "Boekwaarde vastgoed",
 				"estimatedMarketRent": "Fictieve huur",

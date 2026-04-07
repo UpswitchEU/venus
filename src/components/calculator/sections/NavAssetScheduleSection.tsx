@@ -1,18 +1,17 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Building2, Info, Layers, ShieldMinus, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, type ReactNode } from 'react'
 import {
   computeEstimatedNav,
   computeGrossPositiveAdjustments,
   computeNavAdjustmentsSum,
   computeTaxLatencyDeduction,
-  countFilledNavFields,
+  countFilledNavProgressFields,
   NAV_DEFAULT_TAX_LATENCY_PCT,
+  NAV_PROGRESS_TOTAL_FIELDS,
   NAV_SECTOR_DEFAULTS,
-  NAV_TOTAL_FIELDS,
   resolveNavSectorKey,
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
@@ -22,22 +21,22 @@ import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { PreviewMetricCard } from './previewMetricCards'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
-function NavGroupHeader({
-  icon: Icon,
+function NavPanel({
   title,
-  hint,
+  description,
+  children,
 }: {
-  icon: React.ComponentType<{ className?: string }>
   title: string
-  hint: string
+  description: string
+  children: ReactNode
 }) {
   return (
-    <div className="flex items-center gap-2 pb-1.5">
-      <Icon className="h-3.5 w-3.5 text-primary/60" />
-      <div>
-        <h4 className="text-xs font-semibold text-foreground/70">{title}</h4>
-        <p className="text-[10px] text-foreground/40">{hint}</p>
+    <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
+      <div className="space-y-1">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">{title}</h4>
+        <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
       </div>
+      {children}
     </div>
   )
 }
@@ -88,6 +87,8 @@ export function NavAssetScheduleSection({
       navGoodwillWriteoff,
       navReceivablesAdjustment,
       navOtherRevaluations,
+      navTaxLatencyPct,
+      navOffBalanceItems,
     }),
     [
       navRealEstateAdjustment,
@@ -96,10 +97,12 @@ export function NavAssetScheduleSection({
       navGoodwillWriteoff,
       navReceivablesAdjustment,
       navOtherRevaluations,
+      navTaxLatencyPct,
+      navOffBalanceItems,
     ]
   )
 
-  const filledCount = useMemo(() => countFilledNavFields(inputs), [inputs])
+  const filledCount = useMemo(() => countFilledNavProgressFields(inputs), [inputs])
   const grossAdjustmentSum = useMemo(() => computeNavAdjustmentsSum(inputs), [inputs])
   const grossPositiveAdjustments = useMemo(() => computeGrossPositiveAdjustments(inputs), [inputs])
 
@@ -125,6 +128,7 @@ export function NavAssetScheduleSection({
 
   const sectionComplete = filledCount > 0
   const isReady = filledCount >= 2
+  const progressPct = (filledCount / NAV_PROGRESS_TOTAL_FIELDS) * 100
 
   const sectorKey = useMemo(() => resolveNavSectorKey(businessType), [businessType])
   const hasDefaults = sectorKey != null && sectorKey in NAV_SECTOR_DEFAULTS
@@ -155,7 +159,7 @@ export function NavAssetScheduleSection({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="mt-6 space-y-5 pt-2"
+      className="mt-6 space-y-4 pt-2"
     >
       <ValuationSectionHeader
         step={step}
@@ -168,54 +172,59 @@ export function NavAssetScheduleSection({
         }
       />
 
-      {/* Explainer callout */}
-      <div className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] px-3.5 py-3 text-[12px] leading-relaxed text-foreground/50 flex items-start gap-2.5">
-        <Info className="w-4 h-4 text-primary/50 mt-0.5 shrink-0" />
-        <span>{t('sections.navExplainer')}</span>
-      </div>
-
-      {/* Progress indicator */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <div className="h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
-            <motion.div
-              className={cn(
-                'h-full rounded-full transition-colors',
-                isReady ? 'bg-emerald-500' : 'bg-primary/50'
-              )}
-              initial={{ width: 0 }}
-              animate={{ width: `${(filledCount / NAV_TOTAL_FIELDS) * 100}%` }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-            />
-          </div>
+      <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
+        <div className="space-y-1">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+            {t('navPanels.startLeadTitle')}
+          </h4>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('fields.navLead')}</p>
+          <p className="text-[11px] text-foreground/45">{t('fields.navQuickStart')}</p>
         </div>
-        <p className="text-[10px] text-foreground/45 whitespace-nowrap">
-          {isReady
-            ? t('sections.navProgressReady')
-            : t('sections.navProgressHint', { filled: filledCount, total: NAV_TOTAL_FIELDS })}
-        </p>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <div className="h-1.5 overflow-hidden rounded-full bg-foreground/[0.06]">
+              <motion.div
+                className={cn(
+                  'h-full rounded-full transition-colors',
+                  isReady ? 'bg-emerald-500' : 'bg-primary/50'
+                )}
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPct}%` }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              />
+            </div>
+          </div>
+          <p className="whitespace-nowrap text-[10px] text-foreground/45">
+            {isReady
+              ? t('sections.navProgressReady')
+              : t('sections.navProgressHint', {
+                  filled: filledCount,
+                  total: NAV_PROGRESS_TOTAL_FIELDS,
+                })}
+          </p>
+        </div>
+        {!isReady && (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t('sections.navProgressMinimumHint')}
+          </p>
+        )}
+
+        {hasDefaults && filledCount === 0 && (
+          <button
+            type="button"
+            onClick={applyDefaults}
+            disabled={disabled}
+            className="rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2 text-left text-xs font-medium text-primary/80 transition-colors hover:bg-primary/[0.08] disabled:opacity-50"
+          >
+            {t('sections.navDefaultsButton')}
+          </button>
+        )}
       </div>
 
-      {/* Sector defaults button */}
-      {hasDefaults && filledCount === 0 && (
-        <button
-          type="button"
-          onClick={applyDefaults}
-          disabled={disabled}
-          className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2 text-xs font-medium text-primary/80 transition-colors hover:bg-primary/[0.08] disabled:opacity-50"
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-          {t('sections.navDefaultsButton')}
-        </button>
-      )}
-
-      {/* Group 1: Fixed assets */}
-      <div className="space-y-2.5">
-        <NavGroupHeader
-          icon={Building2}
-          title={t('sections.navGroupFixedAssets')}
-          hint={t('sections.navGroupFixedAssetsHint')}
-        />
+      <NavPanel
+        title={t('navPanels.startHereTitle')}
+        description={t('navPanels.startHereDescription')}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <CurrencyInput
             label={t('fields.navRealEstateAdjustment')}
@@ -225,35 +234,6 @@ export function NavAssetScheduleSection({
             placeholder="0"
             disabled={disabled}
             description={t('fields.navRealEstateAdjustmentDesc')}
-          />
-          <CurrencyInput
-            label={t('fields.navGoodwillWriteoff')}
-            value={navGoodwillWriteoff}
-            onChange={(v) => onFieldChange('nav_goodwill_writeoff', v)}
-            size="sm"
-            placeholder="0"
-            disabled={disabled}
-            description={t('fields.navGoodwillWriteoffDesc')}
-          />
-        </div>
-      </div>
-
-      {/* Group 2: Current assets & reserves */}
-      <div className="space-y-2.5">
-        <NavGroupHeader
-          icon={Layers}
-          title={t('sections.navGroupCurrentAndReserves')}
-          hint={t('sections.navGroupCurrentAndReservesHint')}
-        />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <CurrencyInput
-            label={t('fields.navInventoryAdjustment')}
-            value={navInventoryAdjustment}
-            onChange={(v) => onFieldChange('nav_inventory_adjustment', v)}
-            size="sm"
-            placeholder="0"
-            disabled={disabled}
-            description={t('fields.navInventoryAdjustmentDesc')}
           />
           <CurrencyInput
             label={t('fields.navHiddenReserves')}
@@ -275,34 +255,6 @@ export function NavAssetScheduleSection({
             description={t('fields.navReceivablesAdjustmentDesc')}
           />
           <CurrencyInput
-            label={t('fields.navOtherRevaluations')}
-            value={navOtherRevaluations}
-            onChange={(v) => onFieldChange('nav_other_revaluations', v)}
-            size="sm"
-            placeholder="0"
-            disabled={disabled}
-            description={t('fields.navOtherRevaluationsDesc')}
-          />
-        </div>
-      </div>
-
-      {/* Group 3: Deductions */}
-      <div className="space-y-2.5">
-        <NavGroupHeader
-          icon={ShieldMinus}
-          title={t('sections.navGroupDeductions')}
-          hint={t('sections.navGroupDeductionsHint')}
-        />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <AdaptivePercentInput
-            label={t('fields.navTaxLatencyPct')}
-            value={navTaxLatencyPct}
-            onChange={(v) => onFieldChange('nav_tax_latency_pct', v)}
-            placeholder={countryCode?.startsWith('BE') ? '25' : '0'}
-            disabled={disabled}
-            description={t('fields.navTaxLatencyPctDesc')}
-          />
-          <CurrencyInput
             label={t('fields.navOffBalanceItems')}
             value={navOffBalanceItems}
             onChange={(v) => onFieldChange('nav_off_balance_items', v)}
@@ -312,7 +264,58 @@ export function NavAssetScheduleSection({
             description={t('fields.navOffBalanceItemsDesc')}
           />
         </div>
-      </div>
+      </NavPanel>
+
+      <NavPanel
+        title={t('navPanels.assetsTitle')}
+        description={t('navPanels.assetsDescription')}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <CurrencyInput
+            label={t('fields.navGoodwillWriteoff')}
+            value={navGoodwillWriteoff}
+            onChange={(v) => onFieldChange('nav_goodwill_writeoff', v)}
+            size="sm"
+            placeholder="0"
+            disabled={disabled}
+            description={t('fields.navGoodwillWriteoffDesc')}
+          />
+          <CurrencyInput
+            label={t('fields.navInventoryAdjustment')}
+            value={navInventoryAdjustment}
+            onChange={(v) => onFieldChange('nav_inventory_adjustment', v)}
+            size="sm"
+            placeholder="0"
+            disabled={disabled}
+            description={t('fields.navInventoryAdjustmentDesc')}
+          />
+          <CurrencyInput
+            label={t('fields.navOtherRevaluations')}
+            value={navOtherRevaluations}
+            onChange={(v) => onFieldChange('nav_other_revaluations', v)}
+            size="sm"
+            placeholder="0"
+            disabled={disabled}
+            description={t('fields.navOtherRevaluationsDesc')}
+          />
+        </div>
+      </NavPanel>
+
+      <NavPanel
+        title={t('navPanels.deductionsTitle')}
+        description={t('navPanels.deductionsDescription')}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <AdaptivePercentInput
+            label={t('fields.navTaxLatencyPct')}
+            value={navTaxLatencyPct}
+            onChange={(v) => onFieldChange('nav_tax_latency_pct', v)}
+            placeholder={countryCode?.startsWith('BE') ? '25' : '0'}
+            disabled={disabled}
+            description={t('fields.navTaxLatencyPctDesc')}
+          />
+        </div>
+      </NavPanel>
 
       {/* Live preview panel */}
       <div className="space-y-2">

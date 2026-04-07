@@ -20,6 +20,8 @@ export type NavDeductionInputs = {
   navOffBalanceItems?: number
 }
 
+export type NavProgressInputs = NavScheduleInputs & NavDeductionInputs
+
 const NAV_SCHEDULE_KEYS: (keyof NavScheduleInputs)[] = [
   'navRealEstateAdjustment',
   'navInventoryAdjustment',
@@ -27,6 +29,11 @@ const NAV_SCHEDULE_KEYS: (keyof NavScheduleInputs)[] = [
   'navGoodwillWriteoff',
   'navReceivablesAdjustment',
   'navOtherRevaluations',
+]
+
+const NAV_DEDUCTION_KEYS: (keyof NavDeductionInputs)[] = [
+  'navTaxLatencyPct',
+  'navOffBalanceItems',
 ]
 
 export function computeNavAdjustmentsSum(input: NavScheduleInputs): number {
@@ -59,6 +66,16 @@ export function countFilledNavFields(input: NavScheduleInputs): number {
 }
 
 export const NAV_TOTAL_FIELDS = NAV_SCHEDULE_KEYS.length
+
+/** Count how many NAV inputs are filled across adjustments and deductions. */
+export function countFilledNavProgressFields(input: NavProgressInputs): number {
+  return [...NAV_SCHEDULE_KEYS, ...NAV_DEDUCTION_KEYS].filter((k) => {
+    const v = input[k]
+    return v != null && Number.isFinite(v)
+  }).length
+}
+
+export const NAV_PROGRESS_TOTAL_FIELDS = NAV_SCHEDULE_KEYS.length + NAV_DEDUCTION_KEYS.length
 
 /** Belgian standard corporate tax rate applied to unrealised capital gains. */
 export const NAV_DEFAULT_TAX_LATENCY_PCT = 25

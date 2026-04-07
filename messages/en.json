@@ -1434,6 +1434,7 @@
 				"navDefaultsApplied": "Defaults applied based on your business type",
 				"navProgressReady": "Ready for NAV calculation",
 				"navProgressHint": "{filled} of {total} fields filled",
+				"navProgressMinimumHint": "Start with the balance-sheet adjustments you know best. Real estate, hidden reserves, receivables, or off-balance items are usually the best first pass.",
 				"sdeOwnerCompensation": "Owner Compensation (SDE)",
 				"realEstateCarveOut": "Real estate carve-out",
 				"saasMetrics": "SaaS Metrics",
@@ -1519,6 +1520,15 @@
 				"warning": "Moderate",
 				"poor": "Weak"
 			},
+				"navPanels": {
+					"startLeadTitle": "Quick start",
+					"startHereTitle": "Start with these adjustments",
+					"startHereDescription": "Begin with the balance-sheet corrections you know best. These usually have the biggest impact on the NAV floor value.",
+					"assetsTitle": "Additional asset adjustments",
+					"assetsDescription": "Add the remaining balance-sheet revaluations when they are relevant for this company.",
+					"deductionsTitle": "Deductions and tax",
+					"deductionsDescription": "Use these inputs to reflect tax leakage on gains and obligations that sit outside the balance sheet."
+				},
 			"fields": {
 				"dcfRevenueGrowthPct": "Revenue growth (%)",
 				"dcfEbitdaMarginPct": "EBITDA margin (%)",
@@ -1552,6 +1562,8 @@
 				"navTaxLatencyPctDesc": "Corporate tax on realised capital gains. Belgian default is 25%. On shares often 0% (participation exemption).",
 				"navOffBalanceItems": "Off-balance sheet items",
 				"navOffBalanceItemsDesc": "Obligations not on the balance sheet: pending legal claims, environmental liabilities, severance arrangements, etc.",
+					"navLead": "Revalue the balance sheet to a more realistic market view. This helps estimate a defendable floor value for the business.",
+					"navQuickStart": "A strong first pass is real estate revaluation, hidden reserves, receivables, and any off-balance obligations.",
 				"excludeRealEstate": "Exclude real estate from transaction?",
 				"realEstateBookValue": "Real estate book value",
 				"estimatedMarketRent": "Estimated market rent",
