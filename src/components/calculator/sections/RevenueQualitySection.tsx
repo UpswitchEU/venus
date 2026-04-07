@@ -227,6 +227,24 @@ export function RevenueQualitySection({
     return 'poor'
   }, [ebitdaMarginPct])
 
+  const fcfConversion = useMemo(() => {
+    if (!isEbitdaOnly || !isTechSaas) return null
+    const safeEbitda = ebitda != null && Number.isFinite(ebitda) ? ebitda : 0
+    const safeRd = revCapitalizedRdAmount != null && Number.isFinite(revCapitalizedRdAmount) ? revCapitalizedRdAmount : 0
+    if (safeEbitda <= 0 || safeRd <= 0) return null
+    const cashEbitda = safeEbitda - safeRd
+    const pct = (cashEbitda / safeEbitda) * 100
+    return { pct: Math.round(pct * 10) / 10, cashEbitda }
+  }, [isEbitdaOnly, isTechSaas, ebitda, revCapitalizedRdAmount])
+
+  const fcfHealthStatus: MetricHealthStatus | null = useMemo(() => {
+    if (fcfConversion == null) return null
+    if (fcfConversion.pct >= 80) return 'excellent'
+    if (fcfConversion.pct >= 60) return 'good'
+    if (fcfConversion.pct >= 40) return 'warning'
+    return 'poor'
+  }, [fcfConversion])
+
   const hasRevenue = revenue != null && Number.isFinite(revenue) && revenue > 0
 
   return (
@@ -236,7 +254,7 @@ export function RevenueQualitySection({
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="mt-6 space-y-4 pt-2"
-      aria-label={t('sections.revenueQuality')}
+      aria-label={isEbitdaOnly ? t('sections.ebitdaQuality') : t('sections.revenueQuality')}
     >
       <ValuationSectionHeader
         step={step}
@@ -336,7 +354,7 @@ export function RevenueQualitySection({
           {t('sections.revenueQualityDerived')}
         </h4>
         {hasRevenue ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className={`grid grid-cols-1 gap-3 ${fcfConversion ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'}`}>
             <PreviewMetricCard
               label={t('fields.revenueQualityEbitdaMargin')}
               value={
@@ -381,6 +399,15 @@ export function RevenueQualitySection({
               status={topClientHealthStatus}
               statusLabel={topClientBadgeLabel}
             />
+            {fcfConversion && (
+              <PreviewMetricCard
+                label={t('fields.ebitdaFcfConversion')}
+                value={`${metricFormatter.format(fcfConversion.pct)}%`}
+                hint={currencyFormatter.format(fcfConversion.cashEbitda)}
+                status={fcfHealthStatus}
+                statusLabel={t('fields.ebitdaFcfConversionHint')}
+              />
+            )}
           </div>
         ) : (
           <p className="text-[11px] leading-relaxed text-muted-foreground">

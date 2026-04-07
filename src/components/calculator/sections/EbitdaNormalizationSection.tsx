@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { useCallback, useId, useMemo, useState } from 'react'
+import { useCallback, useId, useMemo } from 'react'
 import { cn } from '@/design-system/utils'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { useNormalizationStore } from '@/store/useNormalizationStore'
@@ -78,16 +78,6 @@ export function EbitdaNormalizationSection({
   const removeItem = useNormalizationStore((s) => s.removeItem)
   const updateItem = useNormalizationStore((s) => s.updateItem)
 
-  const [expandedChips, setExpandedChips] = useState<Set<string>>(() => {
-    const initial = new Set<string>()
-    for (const preset of NORMALIZATION_PRESETS) {
-      if (items.some((n) => isChipItem(n, preset.key) && n.status === 'accepted')) {
-        initial.add(preset.key)
-      }
-    }
-    return initial
-  })
-
   const safeReportedEbitda = useMemo(() => {
     const v = Number(reportedEbitda)
     return Number.isFinite(v) ? v : 0
@@ -120,20 +110,25 @@ export function EbitdaNormalizationSection({
   const toggleChip = useCallback(
     (preset: NormalizationPreset) => {
       const chipId = makeChipId(preset.key)
-      const existing = items.find((n) => n.id === chipId)
+      const currentItems = useNormalizationStore.getState().items
+      const existing = currentItems.find((n) => n.id === chipId)
 
-      if (existing && existing.status === 'accepted') {
+      if (existing?.status === 'accepted') {
         removeItem(chipId)
-        setExpandedChips((prev) => {
-          const next = new Set(prev)
-          next.delete(preset.key)
-          return next
+        return
+      }
+
+      if (existing) {
+        updateItem(chipId, {
+          status: 'accepted' as NormalizationStatus,
+          type: 'add',
+          value: 0,
+          adjustment: 0,
+          applyAllYears: true,
+          year: currentFiscalYear,
         })
       } else {
-        if (existing) {
-          removeItem(chipId)
-        }
-        const newItem: NormalizationItem = {
+        addItems([{
           id: chipId,
           ledgerCode: '',
           ledgerName: t(`fields.ebitdaNormChip_${preset.key}` as any),
@@ -147,12 +142,10 @@ export function EbitdaNormalizationSection({
           status: 'accepted' as NormalizationStatus,
           applyAllYears: true,
           year: currentFiscalYear,
-        }
-        addItems([newItem])
-        setExpandedChips((prev) => new Set(prev).add(preset.key))
+        }])
       }
     },
-    [items, removeItem, addItems, currentFiscalYear, t]
+    [removeItem, addItems, updateItem, currentFiscalYear, t]
   )
 
   const handleAmountChange = useCallback(
@@ -203,7 +196,6 @@ export function EbitdaNormalizationSection({
       <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-2">
         {NORMALIZATION_PRESETS.map((preset) => {
           const cv = chipValues[preset.key]
-          const isExpanded = expandedChips.has(preset.key)
           const chipInputId = `${idPrefix}-chip-${preset.key}`
 
           return (
@@ -240,7 +232,7 @@ export function EbitdaNormalizationSection({
               </button>
 
               <AnimatePresence>
-                {isExpanded && cv.active && (
+                {cv.active && (
                   <motion.div
                     key={chipInputId}
                     initial={{ height: 0, opacity: 0 }}

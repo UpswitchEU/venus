@@ -1606,6 +1606,8 @@
 				"revTopClientCurrencyEbitdaTooltip": "Sum the revenue of the 3 largest clients. Loss of a major client can wipe out the entire EBITDA margin when fixed costs are high.",
 				"revCapitalizedRd": "Capitalized R&D (Development Costs)",
 				"revCapitalizedRdDescription": "Amount of software development costs capitalized on the balance sheet last year. The engine deducts this to show Cash EBITDA.",
+				"ebitdaFcfConversion": "EBITDA → Free Cash Flow",
+				"ebitdaFcfConversionHint": "Cash EBITDA after capitalized R&D",
 				"ebitdaNormLead": "Add one-time or personal costs back to EBITDA. Click a category and enter the amount.",
 				"ebitdaNormChip_ownerComp": "Management fee correction",
 				"ebitdaNormChipDesc_ownerComp": "Does the owner pay themselves above or below market rate via a management company?",

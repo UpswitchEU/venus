@@ -1606,6 +1606,8 @@
 				"revTopClientCurrencyEbitdaTooltip": "Tel de omzet van de 3 grootste klanten op. Het verlies van een grote klant kan de hele EBITDA-marge wegvagen als de vaste kosten hoog zijn.",
 				"revCapitalizedRd": "Geactiveerde R&D (Ontwikkelingskosten)",
 				"revCapitalizedRdDescription": "Bedrag aan softwareontwikkelingskosten dat vorig jaar op de balans is geactiveerd. De motor trekt dit af om Cash EBITDA te tonen.",
+				"ebitdaFcfConversion": "EBITDA → Vrije Kasstroom",
+				"ebitdaFcfConversionHint": "Cash EBITDA na geactiveerde R&D",
 				"ebitdaNormLead": "Voeg eenmalige of privékosten terug bij de EBITDA. Klik op een categorie en vul het bedrag in.",
 				"ebitdaNormChip_ownerComp": "Managementvergoeding correctie",
 				"ebitdaNormChipDesc_ownerComp": "Betaalt de eigenaar zichzelf te veel of te weinig t.o.v. de markt via zijn managementvennootschap?",
