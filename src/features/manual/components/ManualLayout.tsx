@@ -21,7 +21,7 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, Loader2, Send, X as XIcon } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, {
@@ -61,7 +61,6 @@ import {
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
-import { InviteClientModal } from '../../../components/calculator/InviteClientModal'
 import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
 import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { NewValuationModal } from '../../../components/NewValuationModal'
@@ -1441,8 +1440,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     },
     []
   )
-  const [showInviteNudge, setShowInviteNudge] = useState(false)
-  const [inviteModalOpen, setInviteModalOpen] = useState(false)
   const [showNormalisationModal, setShowNormalisationModal] = useState(false)
   const [showUnifiedNormalizationModal, setShowUnifiedNormalizationModal] = useState(false)
   const [guidedNormalizationPrefill, setGuidedNormalizationPrefill] =
@@ -2933,7 +2930,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         if (!versionCreationFailed) {
           toast.success(t('calculationComplete'))
-          setShowInviteNudge(true)
         }
       } catch (error) {
         setCalculating(false)
@@ -3474,6 +3470,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ledgerCode: s.ledgerCode || '',
         ledgerName: s.description,
         category: mapBackendCategoryToFrontend(s.category) || 'other',
+        backendCategory: s.category,
         type: (s.isAddback ? 'add' : 'subtract') as 'add' | 'subtract',
         value: Math.abs(s.amount),
         adjustment: s.amount,
@@ -4569,6 +4566,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   ledgerCode: adj.ledger_code || '',
                   ledgerName: adj.ledger_name || adj.note || adj.category || '',
                   category,
+                  backendCategory: rawCat,
                   type: amount >= 0 ? 'add' : 'subtract',
                   value: Math.abs(amount),
                   adjustment: amount,
@@ -4748,9 +4746,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     onCSVImportComplete: handleCSVImportComplete,
     isCalculating: isGenerating || isCalculating,
     onFieldHelpRequest: handleFieldHelpRequest,
-    quickActions: suggestedNormalisations,
-    onQuickActionAccept: handleAcceptNormalisation,
-    onQuickActionReject: handleRejectNormalisation,
     onViewAllNormalizations: handleShowNormalisationReview,
     onFormDataChange: handleFormDataChange,
     formDataRef: latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>,
@@ -5247,50 +5242,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                       transition={springDefault}
                       className="valuation-report-container h-full overflow-y-auto bg-background"
                     >
-                      {/* Post-valuation invite nudge */}
-                      {showInviteNudge && report?.htmlReport && (
-                        <div className="sticky top-0 z-[6] border-b border-primary/15 bg-primary/[0.06] backdrop-blur-sm">
-                          <div className="flex items-center justify-between px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                <Send className="w-4 h-4 text-primary" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium text-foreground">
-                                  {currentLocale === 'nl'
-                                    ? 'Nodig uw klant uit'
-                                    : 'Invite your client'}
-                                </p>
-                                <p className="text-xs text-foreground/60">
-                                  {currentLocale === 'nl'
-                                    ? 'Uw klant ontvangt een beveiligd rapport met uw naam — u krijgt alle credits'
-                                    : 'Your client gets a secure branded report — you get all the credit'}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowInviteNudge(false)
-                                  setInviteModalOpen(true)
-                                }}
-                                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-                              >
-                                {currentLocale === 'nl' ? 'Uitnodigen' : 'Invite'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setShowInviteNudge(false)}
-                                className="p-1 rounded text-foreground/40 hover:text-foreground transition-colors"
-                              >
-                                <XIcon className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
                       {report?.htmlReport ? (
                         <div className="relative">
                           {isMethodSwitchRendering && (
@@ -5559,15 +5510,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         firmCountryCode={user?.firm_country_code}
         planAllowedMethodKeys={allowedMethodKeys}
         onPlanLockedMethodClick={() => openStarterPaywall('methods')}
-      />
-
-      {/* Post-valuation client invite modal */}
-      <InviteClientModal
-        open={inviteModalOpen}
-        onOpenChange={setInviteModalOpen}
-        clientId={clientContextId}
-        companyName={collectedData.companyName ?? undefined}
-        reportId={resolvedReportId || reportId}
       />
 
       {/* Starter paywall — methods, normalization hub, or version history (Free tier teasers) */}

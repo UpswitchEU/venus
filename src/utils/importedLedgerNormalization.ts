@@ -47,6 +47,19 @@ function mapImportedLedgerCategory(category?: string): NormalizationItem['catego
   }
 }
 
+function mapImportedLedgerBackendCategory(category?: string): string | undefined {
+  switch (category) {
+    case 'owner_compensation':
+      return 'owner_compensation_adjustment'
+    case 'related_party_rent':
+      return 'related_party_transactions'
+    case 'discretionary_expense':
+      return 'discretionary_expenses'
+    default:
+      return undefined
+  }
+}
+
 function mapImportedLedgerConfidence(confidence?: number): NormalizationItem['confidence'] {
   if ((confidence ?? 0) >= 0.8) return 'high'
   if ((confidence ?? 0) >= 0.6) return 'medium'
@@ -64,6 +77,7 @@ export function buildNormalizationItemsFromImportedLedgerAnalysis(
     ledgerCode: flag.ledger_code,
     ledgerName: flag.ledger_name,
     category: mapImportedLedgerCategory(flag.category),
+    backendCategory: mapImportedLedgerBackendCategory(flag.category),
     type: 'add' as const,
     value: Number(flag.amount) || 0,
     adjustment: Number(flag.amount) || 0,

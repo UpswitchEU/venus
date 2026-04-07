@@ -57,11 +57,23 @@ const FRONTEND_TO_BACKEND_CATEGORY: Record<string, string> = {
   other: 'other_adjustments',
 }
 
+const VALID_BACKEND_CATEGORIES = new Set(Object.keys(BACKEND_TO_FRONTEND_CATEGORY))
+
 export function mapBackendCategoryToFrontend(category: string): NormalizationItem['category'] {
   return BACKEND_TO_FRONTEND_CATEGORY[category] || 'other'
 }
 
-export function mapFrontendCategoryToBackend(category: string): string {
+/**
+ * Map a frontend category to its backend equivalent.
+ * If `backendCategory` is provided (preserved from a prior load), it takes
+ * priority so round-trips are lossless.
+ */
+export function mapFrontendCategoryToBackend(
+  category: string,
+  backendCategory?: string,
+): string {
+  if (backendCategory && VALID_BACKEND_CATEGORIES.has(backendCategory)) return backendCategory
+  if (VALID_BACKEND_CATEGORIES.has(category)) return category
   return FRONTEND_TO_BACKEND_CATEGORY[category] || category
 }
 
@@ -321,7 +333,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
               else if (n.type === 'absolute') amount = safeVal - yearEbitda
               if (!Number.isFinite(amount)) amount = 0
               return {
-                category: mapFrontendCategoryToBackend(n.category),
+                category: mapFrontendCategoryToBackend(n.category, n.backendCategory),
                 amount,
                 note: n.reason,
                 confidence: n.confidence,
@@ -471,6 +483,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
                 ledgerCode: adj.ledger_code || '',
                 ledgerName: adj.ledger_name || adj.note || adj.category,
                 category: mapBackendCategoryToFrontend(adj.category),
+                backendCategory: adj.category,
                 type: restoredType,
                 value: restoredValue,
                 adjustment: adj.amount,

@@ -9,7 +9,7 @@
 
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import { useEbitdaNormalizationStore } from '../store/useEbitdaNormalizationStore'
-import { useNormalizationStore } from '../store/useNormalizationStore'
+import { mapFrontendCategoryToBackend, useNormalizationStore } from '../store/useNormalizationStore'
 import { calculateLatencyAmount, useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { DataResponse } from '../types/data-collection'
 import { ValidationError } from '../types/errors'
@@ -23,6 +23,20 @@ import {
 import { generalLogger } from './logger'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import { deriveNwcChangesForActualYears } from './yearData'
+
+interface NormYearEntry {
+  totalAdjustment: number
+  count: number
+  confidence: string
+  hasCustomAdjustments: boolean
+  items: Array<{
+    category: string
+    amount: number
+    source: string
+    confidence: string
+    ledger_code?: string
+  }>
+}
 
 function toFiniteNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === '') {
@@ -239,11 +253,7 @@ export function buildValuationRequest(
     if (y.ebitda != null) yearEbitdaMap[y.year] = Number(y.ebitda)
   })
 
-  // Build year-keyed normalization lookup from accepted items
-  // CRITICAL: Respect applyAllYears and applyYears — items can apply to multiple years
-  // Percentage/absolute types recalculate using year-specific EBITDA
-  const normByYear: Record<number, { totalAdjustment: number; count: number; confidence: string }> =
-    {}
+  const normByYear: Record<number, NormYearEntry> = {}
   for (const n of acceptedNorms) {
     const yearsToApply: number[] = n.applyAllYears
       ? allDataYears
@@ -251,7 +261,14 @@ export function buildValuationRequest(
         ? n.applyYears
         : [n.year]
     for (const y of yearsToApply) {
-      if (!normByYear[y]) normByYear[y] = { totalAdjustment: 0, count: 0, confidence: 'medium' }
+      if (!normByYear[y])
+        normByYear[y] = {
+          totalAdjustment: 0,
+          count: 0,
+          confidence: 'medium',
+          hasCustomAdjustments: false,
+          items: [],
+        }
       const rawYearEbitda = yearEbitdaMap[y] ?? 0
       const yearEbitda = Number.isFinite(rawYearEbitda) ? rawYearEbitda : 0
       const val = Number.isFinite(Number(n.value)) ? Number(n.value) || 0 : 0
@@ -263,6 +280,16 @@ export function buildValuationRequest(
       normByYear[y].totalAdjustment += amount
       normByYear[y].count++
       if (n.confidence === 'high') normByYear[y].confidence = 'high'
+      if (n.source === 'manual') normByYear[y].hasCustomAdjustments = true
+      normByYear[y].items.push({
+        category: mapFrontendCategoryToBackend(n.category, n.backendCategory),
+        amount,
+        label: n.ledgerName || n.reason || undefined,
+        note: n.reason || undefined,
+        source: n.source ?? 'manual',
+        confidence: n.confidence ?? 'medium',
+        ...(n.ledgerCode && { ledger_code: n.ledgerCode }),
+      })
     }
   }
 
@@ -283,6 +310,22 @@ export function buildValuationRequest(
       totalAdjustment: Number.isFinite(totalAdjustment) ? totalAdjustment : 0,
       count: adjustmentCount,
       confidence: legacy.confidence_score || 'medium',
+      hasCustomAdjustments: (legacy.custom_adjustments?.length ?? 0) > 0,
+      items: [
+        ...(legacy.adjustments ?? []).map((a: any) => ({
+          category: a.category ?? 'other_adjustments',
+          amount: Number(a.amount) || 0,
+          source: 'manual',
+          confidence: a.confidence ?? 'medium',
+          ...(a.ledger_code && { ledger_code: a.ledger_code }),
+        })),
+        ...(legacy.custom_adjustments ?? []).map((a: any) => ({
+          category: 'other_adjustments',
+          amount: Number(a.amount) || 0,
+          source: 'manual',
+          confidence: 'medium',
+        })),
+      ],
     }
   }
 
@@ -298,10 +341,12 @@ export function buildValuationRequest(
       ebitda_normalized: true,
       ebitda_normalization_metadata: {
         reported_ebitda: ebitda,
+        normalized_ebitda: ebitda + currentYearNormalization.totalAdjustment,
         total_adjustments: currentYearNormalization.totalAdjustment,
         adjustment_count: currentYearNormalization.count,
         confidence_score: currentYearNormalization.confidence,
-        has_custom_adjustments: false,
+        has_custom_adjustments: currentYearNormalization.hasCustomAdjustments,
+        adjustments: currentYearNormalization.items,
       },
     }),
     ...pickOptionalYearDataFields(formData.current_year_data),
@@ -336,10 +381,12 @@ export function buildValuationRequest(
             ebitda_normalized: true,
             ebitda_normalization_metadata: {
               reported_ebitda: reportedEbitda,
+              normalized_ebitda: reportedEbitda + normalization.totalAdjustment,
               total_adjustments: normalization.totalAdjustment,
               adjustment_count: normalization.count,
               confidence_score: normalization.confidence,
-              has_custom_adjustments: false,
+              has_custom_adjustments: normalization.hasCustomAdjustments,
+              adjustments: normalization.items,
             },
           }
         }

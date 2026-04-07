@@ -1,30 +1,25 @@
 /**
- * Type definitions for EBITDA Normalization (Frontend)
+ * EBITDA Normalization Types (Venus)
  *
- * Supports the first primitive: the normalization bridge (economic truth)
- * Transforms reported EBITDA to normalized EBITDA through 12 adjustment categories
+ * Re-exports canonical types from @upswitch/types/normalization.
+ * Venus-specific extensions (UI category definitions, form types) remain here.
  */
 
-// 12 Adjustment Categories
-export enum NormalizationCategory {
-  OWNER_COMPENSATION = 'owner_compensation_adjustment',
-  ONE_TIME_EXPENSES = 'one_time_expenses',
-  PERSONAL_EXPENSES = 'personal_expenses',
-  RELATED_PARTY = 'related_party_transactions',
-  NON_RECURRING_REVENUE = 'non_recurring_revenue',
-  NON_RECURRING_COSTS = 'non_recurring_costs',
-  DEPRECIATION = 'depreciation_adjustment',
-  FAMILY_EXPENSES = 'family_expenses',
-  UNUSUAL_TRANSACTIONS = 'unusual_transactions',
-  TAX_OPTIMIZATION = 'tax_optimization_reversal',
-  DISCRETIONARY_EXPENSES = 'discretionary_expenses',
-  OTHER_ADJUSTMENTS = 'other_adjustments',
-}
-
-export type ConfidenceScore = 'low' | 'medium' | 'high'
+export {
+  NormalizationCategory,
+  ConfidenceScore,
+  NORMALIZATION_CATEGORY_VALUES,
+  CATEGORY_METADATA,
+  type ConfidenceScoreValue,
+  type NormalizationType,
+  type NormalizationStatus,
+  type NormalizationSource,
+  type NormalizationItemBase,
+  type NormalizationCategoryMetadata,
+} from '@upswitch/types/normalization'
 
 export interface CustomAdjustment {
-  id?: string // Client-side ID for React keys
+  id?: string
   description: string
   amount: number
   note?: string
@@ -36,7 +31,7 @@ export interface NormalizationAdjustment {
   category: NormalizationCategory
   amount: number
   note?: string
-  confidence?: ConfidenceScore
+  confidence?: ConfidenceScoreValue
   ledger_code?: string
   ledger_name?: string
 }
@@ -51,7 +46,7 @@ export interface EbitdaNormalization {
   custom_adjustments: CustomAdjustment[]
   total_adjustments: number
   normalized_ebitda: number
-  confidence_score: ConfidenceScore
+  confidence_score: ConfidenceScoreValue
   market_rate_source?: string | null
   created_at?: string
   updated_at?: string
@@ -64,7 +59,7 @@ export interface MarketRateSuggestion {
   market_rate_75th_percentile?: number
   suggested_percentage?: number
   rationale: string
-  confidence: ConfidenceScore
+  confidence: ConfidenceScoreValue
   source?: string
 }
 
@@ -77,7 +72,6 @@ export interface NormalizationBridgeData {
   adjustment_percentage: number
 }
 
-// API Request/Response types
 export interface CreateNormalizationRequest {
   session_id: string
   user_id?: string | null
@@ -86,7 +80,7 @@ export interface CreateNormalizationRequest {
   reported_ebitda: number
   adjustments: NormalizationAdjustment[]
   custom_adjustments?: CustomAdjustment[]
-  confidence_score?: ConfidenceScore
+  confidence_score?: ConfidenceScoreValue
   market_rate_source?: string
 }
 
@@ -99,7 +93,7 @@ export interface GetNormalizationResponse {
   custom_adjustments: CustomAdjustment[]
   total_adjustments: number
   normalized_ebitda: number
-  confidence_score: ConfidenceScore
+  confidence_score: ConfidenceScoreValue
   market_rate_source: string | null
   created_at: string
   updated_at: string
@@ -113,11 +107,10 @@ export interface MarketRatesResponse {
   discretionary_expenses_suggested_percentage?: number
   industry: string
   location: string
-  confidence: ConfidenceScore
+  confidence: ConfidenceScoreValue
   source?: string
 }
 
-// Category definition for UI
 export interface NormalizationCategoryDefinition {
   id: NormalizationCategory
   label: string

@@ -107,6 +107,8 @@ export interface NormalizationItem {
   ledgerCode: string
   ledgerName: string
   category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other'
+  /** Original backend 12-category value, preserved for lossless round-trip persistence. */
+  backendCategory?: string
   type: NormalizationType
   value: number
   adjustment: number
@@ -115,7 +117,7 @@ export interface NormalizationItem {
   sourceRef?: string
   status: NormalizationStatus
   applyAllYears: boolean
-  applyYears?: number[] // Specific years this normalization applies to
+  applyYears?: number[]
   year: number
   confidence?: 'high' | 'medium' | 'low'
   marketBenchmark?: number

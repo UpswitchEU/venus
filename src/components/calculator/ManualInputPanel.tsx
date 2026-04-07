@@ -403,18 +403,6 @@ export interface FieldHelpContext {
   normalizationType?: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'other'
 }
 
-// Quick action for top normalisations
-export interface QuickNormalizationAction {
-  id: string
-  code: string
-  description: string
-  category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other'
-  amount: number
-  reason: string
-  sourceRef?: string
-  status: 'pending' | 'accepted' | 'rejected'
-}
-
 interface ManualInputPanelProps {
   onSubmit: (data: ValuationFormData) => void
   onCSVImportComplete?: (
@@ -424,9 +412,6 @@ interface ManualInputPanelProps {
   isCalculating?: boolean
   initialData?: Partial<ValuationFormData>
   onFieldHelpRequest?: (context: FieldHelpContext) => void
-  quickActions?: QuickNormalizationAction[]
-  onQuickActionAccept?: (id: string) => void
-  onQuickActionReject?: (id: string) => void
   onViewAllNormalizations?: () => void
   /** Called when form data changes (debounced 300ms). Enables AI assistant to access financials before submit. */
   onFormDataChange?: (data: Record<string, unknown>) => void
@@ -607,9 +592,6 @@ export function ManualInputPanel({
   isCalculating = false,
   initialData = {},
   onFieldHelpRequest,
-  quickActions = [],
-  onQuickActionAccept,
-  onQuickActionReject,
   onViewAllNormalizations,
   onFormDataChange,
   formDataRef,
@@ -642,6 +624,16 @@ export function ManualInputPanel({
     []
   )
   const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
+
+  const sdeOwnerCompDoubleCountRisk = useMemo(() => {
+    if (!formData.owner_salary_addback || formData.owner_salary_addback <= 0) return false
+    return normalizationItems.some(
+      (n) =>
+        n.status === 'accepted' &&
+        n.category === 'salary' &&
+        Math.abs(n.adjustment) > 0
+    )
+  }, [formData.owner_salary_addback, normalizationItems])
   const formatCurrency = useCallback(
     (amount: number) => panelCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0),
     [panelCurrencyFormatter]
@@ -1434,18 +1426,23 @@ export function ManualInputPanel({
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
   // Synthesis weighting rendered as the final step in the left panel (props from ManualLayout)
   const prevMethodRef = useRef<string | null>(null)
+  const prevHasDcfRef = useRef(false)
   useEffect(() => {
     const prev = prevMethodRef.current
     prevMethodRef.current = effectiveMethod
+    const prevHasDcf = prevHasDcfRef.current
+    prevHasDcfRef.current = hasDcfSelected
     const isMount = prev === null
 
-    if (!isMount && prev === effectiveMethod) return
+    const methodChanged = prev !== effectiveMethod
+    const dcfJustEnabled = hasDcfSelected && !prevHasDcf
+    if (!isMount && !methodChanged && !dcfJustEnabled) return
 
     if (effectiveMethod === 'dcf' || hasDcfSelected) {
       setShowForecastRemovalConfirm(false)
       setFormData((current) => {
         const before = current.yearlyFinancials
-        const nextFinancials = injectDefaultDcfForecastYears(before)
+        let nextFinancials = injectDefaultDcfForecastYears(before)
         if (nextFinancials === current.yearlyFinancials) return current
         const addedCount = dcfInjectionAddedRowCount(before, nextFinancials)
         if (!isMount && addedCount > 0) {
@@ -1453,9 +1450,29 @@ export function ManualInputPanel({
             toast.info(mi('dcfForecastAdded', { count: addedCount }))
           )
         }
+        const smart = dcfSmartDefaultsFromFormSlice(current)
+        const preview = deriveDcfProjectionPreview({
+          yearlyFinancials: nextFinancials,
+          smartDefaults: smart,
+          revenueGrowthPct: current.dcf_revenue_growth_pct as number | undefined,
+          ebitdaMarginPct: current.dcf_ebitda_margin_pct as number | undefined,
+          capexPct: current.dcf_capex_pct as number | undefined,
+          daPct: current.dcf_da_pct as number | undefined,
+          nwcPct: current.dcf_nwc_pct as number | undefined,
+          taxRatePct: current.dcf_tax_rate_pct as number | undefined,
+          forecastYears: nextFinancials
+            .filter((r) => r.isForecast)
+            .map((r) => Number(r.year)),
+        })
+        if (preview.length > 0) {
+          nextFinancials = applyDcfProjectionPreviewToForecastRows(
+            nextFinancials,
+            preview
+          ) as typeof nextFinancials
+        }
         return { ...current, yearlyFinancials: nextFinancials as YearlyFinancials[] }
       })
-    } else if (!isMount && prev === 'dcf') {
+    } else if (!isMount && (prev === 'dcf' || (prevHasDcf && !hasDcfSelected))) {
       setFormData((current) => {
         const hasForecast = current.yearlyFinancials.some((yf) => yf.isForecast)
         if (hasForecast) {
@@ -2124,7 +2141,7 @@ export function ManualInputPanel({
     [
       dcfForecastRows,
       dcfSmartDefaultsFromHistory,
-      effectiveMethod,
+      hasDcfSelected,
       formData.dcf_capex_pct,
       formData.dcf_da_pct,
       formData.dcf_ebitda_margin_pct,
@@ -2322,7 +2339,7 @@ export function ManualInputPanel({
       return { ...prev, ...patch }
     })
   }, [
-    effectiveMethod,
+    hasDcfSelected,
     formData.dcf_input_mode,
     dcfForecastRows.length,
     latestHistoricalRevenue,
@@ -2411,7 +2428,7 @@ export function ManualInputPanel({
       return { ...prev, yearlyFinancials: nextYf as YearlyFinancials[] }
     })
   }, [
-    effectiveMethod,
+    hasDcfSelected,
     formData.dcf_input_mode,
     formData.dcf_revenue_growth_pct,
     formData.dcf_ebitda_margin_pct,
@@ -2448,7 +2465,7 @@ export function ManualInputPanel({
     }))
   }, [
     dcfForecastRows.length,
-    effectiveMethod,
+    hasDcfSelected,
     formData.business_context,
     formData.dcf_input_mode,
     importBatchData?.dcf_defaults?.suggested_capex,
@@ -4359,23 +4376,41 @@ export function AdaptiveSections({
           />
         )}
         {sections.includes('sde_owner_compensation') && sectionHeaderSteps.sde != null && (
-          <SdeOwnerCompensationSection
-            key="sde_owner_compensation"
-            step={sectionHeaderSteps.sde}
-            ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
-            revenue={
-              latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.revenue)
-                : undefined
-            }
-            ebitda={
-              latestCompleteYearlyFinancial
-                ? Number(latestCompleteYearlyFinancial.ebitda)
-                : undefined
-            }
-            onFieldChange={onFieldChange}
-            disabled={disabled}
-          />
+          <>
+            {sdeOwnerCompDoubleCountRisk && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mx-1 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-300"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Owner compensation is set as both an SDE add-back and an EBITDA normalization.
+                    This may double-count the adjustment. Consider removing one.
+                  </span>
+                </div>
+              </motion.div>
+            )}
+            <SdeOwnerCompensationSection
+              key="sde_owner_compensation"
+              step={sectionHeaderSteps.sde}
+              ownerSalaryAddback={formData.owner_salary_addback as number | undefined}
+              revenue={
+                latestCompleteYearlyFinancial
+                  ? Number(latestCompleteYearlyFinancial.revenue)
+                  : undefined
+              }
+              ebitda={
+                latestCompleteYearlyFinancial
+                  ? Number(latestCompleteYearlyFinancial.ebitda)
+                  : undefined
+              }
+              onFieldChange={onFieldChange}
+              disabled={disabled}
+            />
+          </>
         )}
       </AnimatePresence>
       {process.env.NODE_ENV === 'development' && (

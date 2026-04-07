@@ -25,7 +25,7 @@ import {
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { buildCurrentYearData } from '../utils/yearData'
-import { useNormalizationStore } from './useNormalizationStore'
+import { useNormalizationStore, mapFrontendCategoryToBackend } from './useNormalizationStore'
 import { useTaxLatencyStore } from './useTaxLatencyStore'
 
 const versionLogger = createContextLogger('VersionHistoryStore')
@@ -429,9 +429,11 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 normalized_ebitda: reportedEbitda + totalAdj,
                 total_adjustments: totalAdj,
                 adjustments: items.map((n) => ({
-                  category: n.category,
+                  category: mapFrontendCategoryToBackend(n.category, n.backendCategory),
                   amount: getNormalizationAmountForBase(n, reportedEbitda),
                   note: n.reason,
+                  ledger_code: n.ledgerCode || undefined,
+                  ledger_name: n.ledgerName || undefined,
                 })),
                 custom_adjustments: [],
                 confidence_score: items[0]?.confidence || 'medium',

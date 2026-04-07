@@ -60,8 +60,6 @@ export { FieldHelpTrigger } from './FieldHelpTrigger'
 export { FilingYearPrompt } from './FilingYearPrompt'
 export type { FullscreenReportModalProps } from './FullscreenReportModal'
 export { FullscreenReportModal } from './FullscreenReportModal'
-export type { InviteClientModalProps } from './InviteClientModal'
-export { InviteClientModal } from './InviteClientModal'
 export type {
   HistoryPanelProps,
   HistoryVersion,
@@ -75,7 +73,6 @@ export type { IntegrationStepPanelProps } from './IntegrationStepPanel'
 export { IntegrationStepPanel } from './IntegrationStepPanel'
 export type {
   FieldHelpContext,
-  QuickNormalizationAction,
   ValuationFormData,
   YearlyFinancials,
 } from './ManualInputPanel'
@@ -98,11 +95,6 @@ export type {
   NormalisationSuggestionModalProps,
 } from './NormalisationSuggestionModal'
 export { NormalisationSuggestionModal } from './NormalisationSuggestionModal'
-export type {
-  Normalization,
-  NormalizationEditorProps,
-} from './NormalizationEditor'
-export { NormalizationEditor } from './NormalizationEditor'
 export type { NormalizationHubProps } from './NormalizationHub'
 // ─────────────────────────────────────────
 // NORMALIZATION
@@ -110,11 +102,6 @@ export type { NormalizationHubProps } from './NormalizationHub'
 export { NormalizationHub } from './NormalizationHub'
 export { NormalizationBentoView, NormalizationTableView } from './NormalizationViews'
 export { TaxLatencySection } from './TaxLatencySection'
-export type {
-  QuickAction,
-  QuickActionsPanelProps,
-} from './QuickActionsPanel'
-export { QuickActionsPanel } from './QuickActionsPanel'
 export type {
   LedgerAccount,
   NormalizationItem,
