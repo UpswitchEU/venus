@@ -12,6 +12,21 @@ describe('extractValuationResultsMap', () => {
     expect(normalizeSelectedMethodKey('omzet_multiple')).toBe('omzet_multiple')
   })
 
+  it('mirrors revenue aliases on extracted method maps', () => {
+    const payload = {
+      valuation_results: {
+        revenue_multiple: {
+          available: true,
+          value: 120_000,
+          label: 'Revenue Multiple',
+        },
+      },
+    }
+    const out = extractValuationResultsMap(payload)
+    expect(out?.revenue_multiple?.value).toBe(120_000)
+    expect(out?.omzet_multiple?.value).toBe(120_000)
+  })
+
   it('normalizes adaptive multiple from canonical report context', () => {
     const payload = {
       details: {

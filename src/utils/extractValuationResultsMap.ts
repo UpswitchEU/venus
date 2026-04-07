@@ -25,6 +25,19 @@ export function normalizeSelectedMethodKey(methodKey: unknown): string {
   return METHOD_KEY_ALIASES[normalized] || normalized
 }
 
+function withMethodAliases(map: Record<string, any> | null): Record<string, any> | null {
+  if (!map || typeof map !== 'object' || Array.isArray(map)) {
+    return map
+  }
+  if (map.omzet_multiple && !map.revenue_multiple) {
+    return { ...map, revenue_multiple: map.omzet_multiple }
+  }
+  if (map.revenue_multiple && !map.omzet_multiple) {
+    return { ...map, omzet_multiple: map.revenue_multiple }
+  }
+  return map
+}
+
 function toFiniteNumber(value: unknown): number | null {
   if (value == null || value === '') return null
   const n = Number(value)
@@ -473,14 +486,16 @@ export function extractValuationResultsMap(
       !Array.isArray(candidate) &&
       Object.keys(candidate).length > 0
     ) {
-      return enrichDcfMethod(
-        normalizeAdaptiveMethod(candidate as Record<string, any>, valuationResult),
-        valuationResult
+      return withMethodAliases(
+        enrichDcfMethod(
+          normalizeAdaptiveMethod(candidate as Record<string, any>, valuationResult),
+          valuationResult
+        )
       )
     }
   }
 
-  return synthesizeMinimalValuationResultsMap(valuationResult, context)
+  return withMethodAliases(synthesizeMinimalValuationResultsMap(valuationResult, context))
 }
 
 function hasNonEmptyValuationResults(value: Record<string, any>): boolean {
