@@ -625,15 +625,6 @@ export function ManualInputPanel({
   )
   const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
 
-  const sdeOwnerCompDoubleCountRisk = useMemo(() => {
-    if (!formData.owner_salary_addback || formData.owner_salary_addback <= 0) return false
-    return normalizationItems.some(
-      (n) =>
-        n.status === 'accepted' &&
-        n.category === 'salary' &&
-        Math.abs(n.adjustment) > 0
-    )
-  }, [formData.owner_salary_addback, normalizationItems])
   const formatCurrency = useCallback(
     (amount: number) => panelCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0),
     [panelCurrencyFormatter]
@@ -4068,6 +4059,16 @@ export function AdaptiveSections({
   disabled?: boolean
 }) {
   const t = useTranslations('manualInput.methodSelector')
+  const normalizationItems = useNormalizationStore((s) => s.items)
+  const sdeOwnerCompDoubleCountRisk = useMemo(() => {
+    if (!formData.owner_salary_addback || formData.owner_salary_addback <= 0) return false
+    return normalizationItems.some(
+      (n) =>
+        n.status === 'accepted' &&
+        n.category === 'salary' &&
+        Math.abs(n.adjustment) > 0
+    )
+  }, [formData.owner_salary_addback, normalizationItems])
   const methods = effectiveMethods ?? [effectiveMethod]
   const sections =
     methods.length > 1

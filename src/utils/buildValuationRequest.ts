@@ -32,6 +32,8 @@ interface NormYearEntry {
   items: Array<{
     category: string
     amount: number
+    label?: string
+    note?: string
     source: string
     confidence: string
     ledger_code?: string
