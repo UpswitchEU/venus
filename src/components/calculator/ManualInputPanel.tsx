@@ -3808,18 +3808,17 @@ export function ManualInputPanel({
                         <button
                           type="button"
                           onClick={() => onSynthesisPaywall?.()}
-                          className="w-full rounded-xl border border-dashed border-foreground/10 bg-muted/30 p-4 text-center hover:bg-muted/50 transition-colors group"
+                          aria-label={mi('synthesis.lockedTitle')}
+                          className="w-full rounded-xl border border-dashed border-foreground/10 bg-muted/30 p-4 text-center hover:bg-muted/50 transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2"
                         >
                           <div className="flex items-center justify-center gap-2 mb-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40 group-hover:text-primary transition-colors"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <Lock className="w-3.5 h-3.5 text-foreground/40 group-hover:text-primary transition-colors" />
                             <span className="text-xs font-semibold uppercase tracking-wider text-foreground/40 group-hover:text-primary transition-colors">
-                              {locale === 'nl' ? 'Waarderingssynthese' : 'Valuation Synthesis'}
+                              {mi('synthesis.lockedTitle')}
                             </span>
                           </div>
                           <p className="text-[11px] text-foreground/40">
-                            {locale === 'nl'
-                              ? 'Combineer methodes met gewogen gemiddelden — beschikbaar vanaf Starter'
-                              : 'Blend methods with weighted averages — available from Starter'}
+                            {mi('synthesis.lockedDescription')}
                           </p>
                         </button>
                       )}

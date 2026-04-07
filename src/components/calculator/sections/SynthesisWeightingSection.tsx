@@ -427,10 +427,10 @@ export function SynthesisWeightingSection({
           <table className="w-full text-[11px]">
             <thead>
               <tr className="border-b border-foreground/[0.06]">
-                <th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-foreground/40">{synth('methodCol')}</th>
-                <th className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap">{synth('valueCol')}</th>
-                <th className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40">{synth('weight')}</th>
-                <th className="px-3 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap">{synth('contributionCol')}</th>
+                <th scope="col" className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-foreground/40">{synth('methodCol')}</th>
+                <th scope="col" className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap">{synth('valueCol')}</th>
+                <th scope="col" className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40">{synth('weight')}</th>
+                <th scope="col" className="px-3 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap">{synth('contributionCol')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-foreground/[0.04]">
