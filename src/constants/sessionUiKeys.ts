@@ -4,7 +4,6 @@
 
 import {
   getPreSelectableMethodsForFirmAndRevenue,
-  isMethodDisabledForRevenue,
   isUpfrontMethodAllowedForNav,
 } from './methodFieldConfig'
 
@@ -41,7 +40,6 @@ export function sessionHasStoredPreSelectedMethod(sessionData: unknown): boolean
 export function sanitizePreSelectedValuationMethod(
   raw: string | null | undefined,
   firmCountryCode?: string | null,
-  /** When set (e.g. from form), omzet is rejected at ≤0 turnover. Omit when unknown (firm-only rules). */
   currentYearRevenue?: number | null
 ): string | null {
   if (raw == null || typeof raw !== 'string') return null
@@ -50,7 +48,6 @@ export function sanitizePreSelectedValuationMethod(
   const lower = trimmed.toLowerCase()
   const allowed = getPreSelectableMethodsForFirmAndRevenue(firmCountryCode, currentYearRevenue)
   if (!isUpfrontMethodAllowedForNav(lower, allowed)) return null
-  if (isMethodDisabledForRevenue(lower, currentYearRevenue)) return null
   return lower === 'upswitch_adaptive' ? null : lower
 }
 

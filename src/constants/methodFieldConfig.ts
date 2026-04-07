@@ -259,29 +259,14 @@ export function getPreSelectableMethodsForFirm(firmCountryCode?: string | null):
 }
 
 /**
- * Same as {@link getPreSelectableMethodsForFirm}, but annotates revenue-multiple (omzet) as
- * disabled when current-year turnover is known to be ≤ 0 (holdings / asset-led cases).
- * The method stays in the list so users see all 8 methodologies; UI should grey it out
- * using {@link isMethodDisabledForRevenue}.
+ * Same as {@link getPreSelectableMethodsForFirm} — revenue is accepted for
+ * signature compatibility but does not filter any methods.
  */
 export function getPreSelectableMethodsForFirmAndRevenue(
   firmCountryCode?: string | null,
   _currentYearRevenue?: number | null
 ): readonly string[] {
   return getPreSelectableMethodsForFirm(firmCountryCode)
-}
-
-/**
- * Whether `omzet_multiple` (revenue multiple) should be disabled in the method selector
- * because current-year turnover is known to be ≤ 0.
- */
-export function isMethodDisabledForRevenue(
-  method: string,
-  currentYearRevenue?: number | null
-): boolean {
-  if (method !== 'omzet_multiple' && method !== 'revenue_multiple') return false
-  if (currentYearRevenue == null || !Number.isFinite(currentYearRevenue)) return false
-  return currentYearRevenue <= 0
 }
 
 /**

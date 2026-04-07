@@ -67,10 +67,6 @@ export interface MethodSelectorMenuProps {
   /** Methods not included on current plan (e.g. Free) — row stays visible as upgrade teaser */
   lockedMethodKeys?: ReadonlySet<string>
   onLockedMethodClick?: () => void
-  /** Methods visible but temporarily disabled (e.g. omzet_multiple when revenue is 0) */
-  disabledMethodKeys?: ReadonlySet<string>
-  /** Tooltip hint for disabled methods */
-  disabledMethodHint?: string
 }
 
 export function MethodSelectorMenu({
@@ -82,8 +78,6 @@ export function MethodSelectorMenu({
   t,
   lockedMethodKeys,
   onLockedMethodClick,
-  disabledMethodKeys,
-  disabledMethodHint,
 }: MethodSelectorMenuProps) {
   const isMultiMode = !!onToggleMethod
   const activeMethods = preSelectedMethods ?? [preSelectedMethod ?? 'upswitch_adaptive']
@@ -95,7 +89,6 @@ export function MethodSelectorMenu({
   )
 
   const handleClick = (key: string) => {
-    if (disabledMethodKeys?.has(key)) return
     if (lockedMethodKeys?.has(key)) {
       onLockedMethodClick?.()
       return
@@ -111,8 +104,7 @@ export function MethodSelectorMenu({
 
   const renderMethodButton = (key: string) => {
     const planLocked = lockedMethodKeys?.has(key) ?? false
-    const revenueDisabled = disabledMethodKeys?.has(key) ?? false
-    const active = isSelected(key) && !planLocked && !revenueDisabled
+    const active = isSelected(key) && !planLocked
     const descKey = METHOD_DESCRIPTION_KEYS[key]
     const conflict = getConflictingMethod(key)
     const conflictActive = conflict ? activeMethods.includes(conflict) : false
@@ -136,13 +128,11 @@ export function MethodSelectorMenu({
 
     const rowButtonClass = cn(
       'flex min-w-0 flex-1 items-center gap-2.5 px-2 py-2 text-left text-sm transition-colors',
-      revenueDisabled
-        ? 'text-foreground/35 cursor-not-allowed'
-        : planLocked
-          ? 'text-foreground/45 cursor-pointer'
-          : active
-            ? 'font-medium text-foreground'
-            : 'text-foreground/80 hover:bg-foreground/[0.04]'
+      planLocked
+        ? 'text-foreground/45 cursor-pointer'
+        : active
+          ? 'font-medium text-foreground'
+          : 'text-foreground/80 hover:bg-foreground/[0.04]'
     )
 
     if (!descKey) {
@@ -153,16 +143,13 @@ export function MethodSelectorMenu({
           onClick={() => handleClick(key)}
           role="option"
           aria-selected={active}
-          aria-disabled={revenueDisabled}
           className={cn(
             'flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition-colors',
-            revenueDisabled
-              ? 'opacity-50 cursor-not-allowed'
-              : planLocked
-                ? 'relative bg-foreground/[0.02] ring-1 ring-foreground/[0.06]'
-                : active
-                  ? 'bg-primary/[0.08] font-medium text-foreground'
-                  : 'text-foreground/80 hover:bg-foreground/[0.04]'
+            planLocked
+              ? 'relative bg-foreground/[0.02] ring-1 ring-foreground/[0.06]'
+              : active
+                ? 'bg-primary/[0.08] font-medium text-foreground'
+                : 'text-foreground/80 hover:bg-foreground/[0.04]'
           )}
         >
           {planLocked ? (
@@ -179,11 +166,6 @@ export function MethodSelectorMenu({
                 </span>
               )}
             </span>
-            {revenueDisabled && disabledMethodHint && (
-              <span className="text-[10px] font-normal leading-snug text-foreground/40">
-                {disabledMethodHint}
-              </span>
-            )}
           </div>
         </button>
       )
@@ -194,13 +176,11 @@ export function MethodSelectorMenu({
         key={key}
         className={cn(
           'flex min-h-[44px] w-full items-stretch overflow-hidden rounded-lg',
-          revenueDisabled
-            ? 'opacity-50'
-            : planLocked
-              ? 'relative bg-foreground/[0.02] ring-1 ring-foreground/[0.06]'
-              : active
-                ? 'bg-primary/[0.08]'
-                : ''
+          planLocked
+            ? 'relative bg-foreground/[0.02] ring-1 ring-foreground/[0.06]'
+            : active
+              ? 'bg-primary/[0.08]'
+              : ''
         )}
       >
         <button
@@ -208,7 +188,6 @@ export function MethodSelectorMenu({
           onClick={() => handleClick(key)}
           role="option"
           aria-selected={active}
-          aria-disabled={revenueDisabled}
           aria-describedby={descDomId}
           className={rowButtonClass}
         >
@@ -228,12 +207,7 @@ export function MethodSelectorMenu({
                 </span>
               )}
             </span>
-            {revenueDisabled && disabledMethodHint && (
-              <span className="text-[10px] font-normal leading-snug text-foreground/40">
-                {disabledMethodHint}
-              </span>
-            )}
-            {!revenueDisabled && !active && conflictActive && isMultiMode && (
+            {!active && conflictActive && isMultiMode && (
               <span className="text-[10px] font-normal leading-snug text-amber-500/70">
                 {t('manualInput.methodSelector.willReplace', { method: conflictLabel })}
               </span>

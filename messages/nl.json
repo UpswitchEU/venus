@@ -1403,7 +1403,6 @@
 			"revenueQualityBadgeOmzet": "Omzet",
 			"revenueQualityBadgeEbitda": "EV/EBITDA",
 			"revenueQualityBadgeBoth": "Omzet & EV/EBITDA",
-			"revenueDisabledHint": "Vul eerst omzet in",
 			"sdeExplainer": "SDE (Seller's Discretionary Earnings) telt het eigenaarssalaris op bij EBITDA. Dit weerspiegelt de werkelijke cashflow beschikbaar voor een koper die de eigenaar vervangt. Vul hieronder de totale jaarlijkse eigenaarsbezoldiging in.",
 			"shownForBusinessType": "Getoond voor {businessType}",
 			"businessTypes": {

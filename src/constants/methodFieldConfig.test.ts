@@ -8,7 +8,6 @@ import {
   getPreSelectableMethodsForFirm,
   getPreSelectableMethodsForFirmAndRevenue,
   isCombinableMethod,
-  isMethodDisabledForRevenue,
   isUpfrontMethodAllowedForNav,
   normalizeRemainderWeights,
   rebalanceMethodWeights,
@@ -151,18 +150,10 @@ describe('methodFieldConfig', () => {
     expect(getPreSelectableMethodsForFirm('nl')).not.toContain('fiscal_4x')
   })
 
-  it('keeps omzet_multiple in the list even when turnover is 0 (disabled via isMethodDisabledForRevenue)', () => {
+  it('keeps omzet_multiple in the list regardless of revenue value', () => {
     expect(getPreSelectableMethodsForFirmAndRevenue('BE', 0)).toContain('omzet_multiple')
+    expect(getPreSelectableMethodsForFirmAndRevenue('BE', -500)).toContain('omzet_multiple')
     expect(getPreSelectableMethodsForFirmAndRevenue('BE', undefined)).toEqual(PRE_SELECTABLE_METHODS)
-  })
-
-  it('isMethodDisabledForRevenue disables omzet/revenue_multiple when revenue ≤ 0', () => {
-    expect(isMethodDisabledForRevenue('omzet_multiple', 0)).toBe(true)
-    expect(isMethodDisabledForRevenue('revenue_multiple', -100)).toBe(true)
-    expect(isMethodDisabledForRevenue('omzet_multiple', 1000)).toBe(false)
-    expect(isMethodDisabledForRevenue('omzet_multiple', undefined)).toBe(false)
-    expect(isMethodDisabledForRevenue('omzet_multiple', null)).toBe(false)
-    expect(isMethodDisabledForRevenue('ebitda_multiple', 0)).toBe(false)
   })
 
   it('isUpfrontMethodAllowedForNav respects list and always allows adaptive', () => {

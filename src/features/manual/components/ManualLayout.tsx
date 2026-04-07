@@ -68,7 +68,7 @@ import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
-import { isMethodDisabledForRevenue, isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
+import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { AuroraButton } from '../../../design-system/components/Button'
 import { springDefault } from '../../../design-system/components/motion'
 // Design System
@@ -630,7 +630,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const tHistory = useTranslations('historyPanel')
   const tErrors = useTranslations('errors')
   const tPreparer = useTranslations('preparerMultiple')
-  const tMethodSelector = useTranslations('manualInput.methodSelector')
   const isMobile = useIsMobile()
 
   // Panel layout: no persistence (match Clarity v2). Clear all layout keys before first paint.
@@ -679,7 +678,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     preSelectedMethod,
     setPreSelectedMethod,
     preSelectedMethods,
-    setPreSelectedMethods,
     togglePreSelectedMethod,
     userWeights,
     userWeightJustification,
@@ -704,15 +702,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     }
     return next.size > 0 ? next : undefined
   }, [allowedMethodKeys, preSelectableMethodsForNav])
-  const revenueDisabledMethodKeys = useMemo(() => {
-    const disabled = new Set<string>()
-    for (const m of preSelectableMethodsForNav) {
-      if (isMethodDisabledForRevenue(m, currentYearRevenueForMethodNav)) {
-        disabled.add(m)
-      }
-    }
-    return disabled.size > 0 ? disabled : undefined
-  }, [preSelectableMethodsForNav, currentYearRevenueForMethodNav])
   const ebitdaNormalizationLocked = Boolean(planFeatures && !planFeatures.ebitda_normalization)
   const versionControlLocked = Boolean(planFeatures && !planFeatures.version_control)
   const status = useSessionStore((s) => s.status)
@@ -1971,13 +1960,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [result?.valuation_results])
 
   const synthesisMethods = useMemo(() => {
-    if (!synthesisValuationResults) return []
     const isMultiMethod =
       preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
     if (!isMultiMethod) return []
+    if (!synthesisValuationResults) return preSelectedMethods
     return preSelectedMethods.filter((m) => {
       const mr = synthesisValuationResults[m]
-      return mr?.available && mr.value != null
+      if (!mr) return true
+      return mr.available && mr.value != null
     })
   }, [preSelectedMethods, synthesisValuationResults])
 
@@ -2552,27 +2542,25 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const togglePreSelectedMethodWithPlanGate = useCallback(
     (method: string) => {
-      if (isMethodDisabledForRevenue(method, currentYearRevenueForMethodNav)) return
       if (allowedMethodKeys !== null && !allowedMethodKeys.includes(method)) {
         openStarterPaywall('methods')
         return
       }
       togglePreSelectedMethod(method)
     },
-    [allowedMethodKeys, currentYearRevenueForMethodNav, togglePreSelectedMethod, openStarterPaywall]
+    [allowedMethodKeys, togglePreSelectedMethod, openStarterPaywall]
   )
 
   const handlePreSelectMethod = useCallback(
     (method: string) => {
       if (!isUpfrontMethodAllowedForNav(method, preSelectableMethodsForNav)) return
-      if (isMethodDisabledForRevenue(method, currentYearRevenueForMethodNav)) return
       if (allowedMethodKeys !== null && !allowedMethodKeys.includes(method)) {
         openStarterPaywall('methods')
         return
       }
       setPreSelectedMethod(method === 'upswitch_adaptive' ? null : method)
     },
-    [setPreSelectedMethod, preSelectableMethodsForNav, currentYearRevenueForMethodNav, allowedMethodKeys, openStarterPaywall]
+    [setPreSelectedMethod, preSelectableMethodsForNav, allowedMethodKeys, openStarterPaywall]
   )
 
   // Sync persisted pre-selection when allowed list changes (firm, turnover, hydration).
@@ -2584,18 +2572,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setPreSelectedMethod(null)
     }
   }, [preSelectableMethodsForNav, preSelectedMethod, setPreSelectedMethod])
-
-  // Auto-deselect revenue-disabled methods from both single and multi-select when revenue drops to 0.
-  useEffect(() => {
-    if (preSelectedMethod && isMethodDisabledForRevenue(preSelectedMethod, currentYearRevenueForMethodNav)) {
-      setPreSelectedMethod(null)
-    }
-    const hasDisabled = preSelectedMethods.some((m) => isMethodDisabledForRevenue(m, currentYearRevenueForMethodNav))
-    if (hasDisabled) {
-      const cleaned = preSelectedMethods.filter((m) => !isMethodDisabledForRevenue(m, currentYearRevenueForMethodNav))
-      setPreSelectedMethods(cleaned.length > 0 ? cleaned : ['upswitch_adaptive'])
-    }
-  }, [currentYearRevenueForMethodNav, preSelectedMethod, preSelectedMethods, setPreSelectedMethod, setPreSelectedMethods])
 
   // Store last submitted data for retry capability
   const lastSubmittedDataRef = useRef<any>(null)
@@ -4996,8 +4972,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           preSelectableMethodsForNav={preSelectableMethodsForNav}
           planLockedMethodKeys={planLockedMethodKeys}
           onPlanLockedMethodAction={handlePlanLockedMethodAction}
-          disabledMethodKeys={revenueDisabledMethodKeys}
-          disabledMethodHint={tMethodSelector('revenueDisabledHint')}
           normalizationFeatureLocked={ebitdaNormalizationLocked}
           onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
           versionControlFeatureLocked={versionControlLocked}
@@ -5203,8 +5177,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         preSelectableMethodsForNav={preSelectableMethodsForNav}
         planLockedMethodKeys={planLockedMethodKeys}
         onPlanLockedMethodAction={handlePlanLockedMethodAction}
-        disabledMethodKeys={revenueDisabledMethodKeys}
-        disabledMethodHint={tMethodSelector('revenueDisabledHint')}
         normalizationFeatureLocked={ebitdaNormalizationLocked}
         onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
         versionControlFeatureLocked={versionControlLocked}

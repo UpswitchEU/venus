@@ -163,10 +163,6 @@ export interface CalculatorNavProps {
   /** Free-plan teaser: methods visible but locked until Starter+ */
   planLockedMethodKeys?: ReadonlySet<string>
   onPlanLockedMethodAction?: () => void
-  /** Methods visible but temporarily disabled (e.g. revenue multiple when revenue is 0) */
-  disabledMethodKeys?: ReadonlySet<string>
-  /** Hint shown under disabled methods */
-  disabledMethodHint?: string
   /** Free plan: EBITDA normalization hub (incl. tax latencies in modal) — visible, Starter+ to use */
   normalizationFeatureLocked?: boolean
   onNormalizationFeatureLocked?: () => void
@@ -226,6 +222,7 @@ interface DropdownProps {
   children: React.ReactNode
   align?: 'start' | 'center' | 'end'
   variant?: 'default' | 'glass'
+  keepOpen?: boolean
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
@@ -233,6 +230,7 @@ const Dropdown: React.FC<DropdownProps> = ({
   children,
   align = 'start',
   variant = 'default',
+  keepOpen = false,
 }) => {
   const [open, setOpen] = React.useState(false)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
@@ -301,7 +299,7 @@ const Dropdown: React.FC<DropdownProps> = ({
               align === 'center' && 'left-1/2 -translate-x-1/2',
               align === 'start' && 'left-0'
             )}
-            onClick={() => setOpen(false)}
+            onClick={keepOpen ? undefined : () => setOpen(false)}
           >
             {children}
           </motion.div>
@@ -369,8 +367,6 @@ export function CalculatorNav({
   preSelectableMethodsForNav: preSelectableMethodsForNavProp,
   planLockedMethodKeys,
   onPlanLockedMethodAction,
-  disabledMethodKeys,
-  disabledMethodHint,
   normalizationFeatureLocked = false,
   onNormalizationFeatureLocked,
   versionControlFeatureLocked = false,
@@ -606,6 +602,7 @@ export function CalculatorNav({
             <div className="hidden sm:flex min-w-0 items-center">
               <div className="h-5 w-px bg-foreground/[0.08] ml-1.5 mr-4 shrink-0" aria-hidden />
               <Dropdown
+                keepOpen
                 trigger={
                   <button
                     type="button"
@@ -629,8 +626,6 @@ export function CalculatorNav({
                   t={t}
                   lockedMethodKeys={planLockedMethodKeys}
                   onLockedMethodClick={onPlanLockedMethodAction}
-                  disabledMethodKeys={disabledMethodKeys}
-                  disabledMethodHint={disabledMethodHint}
                 />
               </Dropdown>
             </div>
@@ -1070,6 +1065,7 @@ export function CalculatorNav({
             {/* Mobile method selector — compact labeled trigger */}
             {onPreSelectMethod && (
               <Dropdown
+                keepOpen
                 trigger={
                   <button
                     type="button"
@@ -1095,8 +1091,6 @@ export function CalculatorNav({
                   t={t}
                   lockedMethodKeys={planLockedMethodKeys}
                   onLockedMethodClick={onPlanLockedMethodAction}
-                  disabledMethodKeys={disabledMethodKeys}
-                  disabledMethodHint={disabledMethodHint}
                 />
               </Dropdown>
             )}

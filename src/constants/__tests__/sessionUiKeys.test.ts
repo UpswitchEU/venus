@@ -22,8 +22,9 @@ describe('sanitizePreSelectedValuationMethod', () => {
     expect(sanitizePreSelectedValuationMethod('dcf', 'NL')).toBe('dcf')
   })
 
-  it('excludes omzet_multiple when third-party turnover is zero (parity with nav)', () => {
-    expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE', 0)).toBeNull()
+  it('allows omzet_multiple regardless of revenue value', () => {
+    expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE', 0)).toBe('omzet_multiple')
+    expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE', -500)).toBe('omzet_multiple')
     expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE', 100_000)).toBe('omzet_multiple')
     expect(sanitizePreSelectedValuationMethod('omzet_multiple', 'BE')).toBe('omzet_multiple')
   })
