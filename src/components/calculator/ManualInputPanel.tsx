@@ -62,8 +62,8 @@ import {
   resolveBookEquityFromYearRow,
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
+import { generalLogger } from '@/utils/logger'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
-import { generalLogger } from '../../utils/logger'
 
 const MethodPreviewAuditDevPanel = lazy(() =>
   import('./sections/MethodPreviewAuditDevPanel').then((m) => ({
@@ -167,9 +167,9 @@ import {
   RevenueQualitySection,
   SaasMetricsSection,
   SdeOwnerCompensationSection,
-  SynthesisWeightingSection,
   SECTION_HEADER_ROW_CLASS,
   SectionStatusCircle,
+  SynthesisWeightingSection,
 } from './sections'
 import type { TerminalValueMethod } from './sections/DcfGlobalAssumptions'
 import {
@@ -443,7 +443,10 @@ interface ManualInputPanelProps {
   /** Synthesis: whether the feature is unlocked (Starter+). */
   synthesisUnlocked?: boolean
   /** Synthesis: valuation results keyed by method. */
-  synthesisValuationResults?: Record<string, import('../../types/valuation').ValuationMethodResult> | null
+  synthesisValuationResults?: Record<
+    string,
+    import('../../types/valuation').ValuationMethodResult
+  > | null
   /** Synthesis: open Starter paywall when locked. */
   onSynthesisPaywall?: () => void
 }
@@ -1596,9 +1599,7 @@ export function ManualInputPanel({
           daPct: current.dcf_da_pct as number | undefined,
           nwcPct: current.dcf_nwc_pct as number | undefined,
           taxRatePct: current.dcf_tax_rate_pct as number | undefined,
-          forecastYears: nextFinancials
-            .filter((r) => r.isForecast)
-            .map((r) => Number(r.year)),
+          forecastYears: nextFinancials.filter((r) => r.isForecast).map((r) => Number(r.year)),
         })
         if (preview.length > 0) {
           nextFinancials = applyDcfProjectionPreviewToForecastRows(
@@ -2223,8 +2224,7 @@ export function ManualInputPanel({
       adaptiveHeaderSteps.sde,
     ].filter((s): s is number => s != null)
     return Math.max(...allSteps) + 1
-  }, [balanceSheetCarveOutStep, adaptiveHeaderSteps]
-  )
+  }, [balanceSheetCarveOutStep, adaptiveHeaderSteps])
 
   const dcfForecastDefaultsStep = 4
   const dcfForecastWorkspaceStep = 5
@@ -3721,20 +3721,33 @@ export function ManualInputPanel({
 
                         {/* YoY EBITDA change indicator */}
                         {(() => {
-                          if (!hasExplicitNumericValue(yearData.ebitda) || yearData.isForecast) return null
+                          if (!hasExplicitNumericValue(yearData.ebitda) || yearData.isForecast)
+                            return null
                           const prevRow = historicalCardRows[index + 1]
-                          if (!prevRow || prevRow.isForecast || !hasExplicitNumericValue(prevRow.ebitda) || prevRow.ebitda === 0) return null
-                          const yoyPct = ((yearData.ebitda - prevRow.ebitda) / Math.abs(prevRow.ebitda)) * 100
+                          if (
+                            !prevRow ||
+                            prevRow.isForecast ||
+                            !hasExplicitNumericValue(prevRow.ebitda) ||
+                            prevRow.ebitda === 0
+                          )
+                            return null
+                          const yoyPct =
+                            ((yearData.ebitda - prevRow.ebitda) / Math.abs(prevRow.ebitda)) * 100
                           if (!Number.isFinite(yoyPct)) return null
                           const rounded = Math.round(yoyPct)
                           return (
                             <span
                               className={cn(
                                 'inline-flex items-center gap-1 mt-1 text-[10px] font-medium tabular-nums',
-                                rounded > 0 ? 'text-success' : rounded < 0 ? 'text-destructive' : 'text-foreground/40'
+                                rounded > 0
+                                  ? 'text-success'
+                                  : rounded < 0
+                                    ? 'text-destructive'
+                                    : 'text-foreground/40'
                               )}
                             >
-                              {rounded > 0 ? '+' : ''}{rounded}% {mi('fields.ebitdaYoY')}
+                              {rounded > 0 ? '+' : ''}
+                              {rounded}% {mi('fields.ebitdaYoY')}
                             </span>
                           )
                         })()}
@@ -4005,9 +4018,7 @@ export function ManualInputPanel({
                 }}
                 onViewAllNormalizations={onViewAllNormalizations}
                 currentFiscalYear={
-                  historicalCardRows.length > 0
-                    ? Number(historicalCardRows[0].year)
-                    : undefined
+                  historicalCardRows.length > 0 ? Number(historicalCardRows[0].year) : undefined
                 }
                 onApplyDcfPercentAutofill={handleApplyDcfProjectionAutofill}
                 canApplyDcfPercentAutofill={canApplyDcfProjectionAutofill}
@@ -4294,10 +4305,7 @@ export function AdaptiveSections({
   const sdeOwnerCompDoubleCountRisk = useMemo(() => {
     if (!formData.owner_salary_addback || formData.owner_salary_addback <= 0) return false
     return normalizationItems.some(
-      (n) =>
-        n.status === 'accepted' &&
-        n.category === 'salary' &&
-        Math.abs(n.adjustment) > 0
+      (n) => n.status === 'accepted' && n.category === 'salary' && Math.abs(n.adjustment) > 0
     )
   }, [formData.owner_salary_addback, normalizationItems])
   const methods = effectiveMethods ?? [effectiveMethod]
@@ -4548,9 +4556,7 @@ export function AdaptiveSections({
             saasCustomerConcentrationPct={
               formData.saas_customer_concentration_pct as number | undefined
             }
-            saasExpansionRevenuePct={
-              formData.saas_expansion_revenue_pct as number | undefined
-            }
+            saasExpansionRevenuePct={formData.saas_expansion_revenue_pct as number | undefined}
             saasSmSpend={formData.saas_sm_spend as number | undefined}
             onFieldChange={onFieldChange}
             disabled={disabled}
@@ -4568,7 +4574,9 @@ export function AdaptiveSections({
             revGrossChurnPct={formData.rev_gross_churn_pct as number | undefined}
             revCapitalizedRdAmount={formData.rev_capitalized_rd_amount as number | undefined}
             latestRevenue={
-              latestCompleteYearlyFinancial ? Number(latestCompleteYearlyFinancial.revenue) : undefined
+              latestCompleteYearlyFinancial
+                ? Number(latestCompleteYearlyFinancial.revenue)
+                : undefined
             }
             effectiveMethods={methods}
             businessTypeId={businessTypeId}

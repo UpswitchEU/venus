@@ -68,6 +68,7 @@ import { RecalculateConfirmationPopup } from '../../../components/normalization/
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
+import { getStarterPlanSummary } from '../../../constants/pricing'
 import { AuroraButton } from '../../../design-system/components/Button'
 import { springDefault } from '../../../design-system/components/motion'
 // Design System
@@ -78,9 +79,9 @@ import {
 } from '../../../design-system/components/Resizable'
 // Venus infrastructure (auth, session, stores, services)
 import { useAuth } from '../../../hooks/useAuth'
-import { useCredits } from '../../../hooks/useCredits'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useBootstrapSync } from '../../../hooks/useBootstrapSync'
+import { useCredits } from '../../../hooks/useCredits'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
 import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
@@ -89,7 +90,6 @@ import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMe
 import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
-import { getStarterPlanSummary } from '../../../constants/pricing'
 import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../../../lib/return-url'
 import { reportService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
@@ -104,6 +104,7 @@ import {
   usePreparerMultipleStore,
 } from '../../../store/manual/usePreparerMultipleStore'
 import { useConversationStore } from '../../../store/useConversationStore'
+import { useNbbPrefillStore } from '../../../store/useNbbPrefillStore'
 import {
   enableNormalizationAutoPersist,
   mapBackendCategoryToFrontend,
@@ -117,7 +118,6 @@ import {
   spotlightDomId,
   useSpotlightStore,
 } from '../../../store/useSpotlightStore'
-import { useNbbPrefillStore } from '../../../store/useNbbPrefillStore'
 import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
@@ -135,6 +135,7 @@ import type {
   ValuationFormData as VenusFormData,
   YearDataInput,
 } from '../../../types/valuation'
+import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
@@ -173,7 +174,6 @@ import {
   deriveGuidedNormalizationPrefill,
   type GuidedNormalizationPrefill,
 } from '../utils/guidedNormalizationPrefill'
-import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import {
   deriveManualReportPresentation,
@@ -562,7 +562,9 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
     ...(data.rev_top_client_concentration_pct != null && {
       rev_top_client_concentration_pct: data.rev_top_client_concentration_pct,
     }),
-    ...(data.rev_top_client_amount != null && { rev_top_client_amount: data.rev_top_client_amount }),
+    ...(data.rev_top_client_amount != null && {
+      rev_top_client_amount: data.rev_top_client_amount,
+    }),
     ...(data.rev_contract_backlog != null && { rev_contract_backlog: data.rev_contract_backlog }),
     ...(data.rev_gross_churn_pct != null && { rev_gross_churn_pct: data.rev_gross_churn_pct }),
     ...(data.owner_salary_addback != null && { owner_salary_addback: data.owner_salary_addback }),
@@ -993,7 +995,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [isExporting, setIsExporting] = useState(false)
   const pdfExportAbortRef = useRef<AbortController | null>(null)
   useEffect(() => {
-    return () => { pdfExportAbortRef.current?.abort() }
+    return () => {
+      pdfExportAbortRef.current?.abort()
+    }
   }, [])
   const [downloadHistory, setDownloadHistory] = useState<
     { id: string; fileName: string; timestamp: Date; size: string }[]
@@ -1965,9 +1969,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   }, [report, result, userWeights, preSelectedMethods])
 
   const synthesisValuationResults = useMemo(() => {
-    const vr = result?.valuation_results as
-      | Record<string, ValuationMethodResult>
-      | undefined
+    const vr = result?.valuation_results as Record<string, ValuationMethodResult> | undefined
     return vr ?? null
   }, [result?.valuation_results])
 
@@ -2151,8 +2153,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
                 ? new Date(String(fresh.pdf_generated_at))
                 : null,
-            pdfUrl:
-              canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
+            pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
           }
           return htmlForPreview
             ? { ...prev, htmlReport: htmlForPreview, ...pdfMeta }
@@ -2233,8 +2234,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
                 ? new Date(String(fresh.pdf_generated_at))
                 : null,
-            pdfUrl:
-              canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
+            pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
           }
         })
         setPdfPollErrorCount(0)
@@ -5526,11 +5526,27 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           <div className="bg-popover border border-foreground/10 rounded-xl p-6 max-w-md w-full shadow-xl">
             <div className="text-center mb-6">
               <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-primary"
+                >
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
               </div>
               <h2 className="text-lg font-semibold text-foreground mb-2">
                 {methodPaywallReason === 'methods' &&
-                  (currentLocale === 'nl' ? 'Upgrade voor alle methodes' : 'Upgrade for all methods')}
+                  (currentLocale === 'nl'
+                    ? 'Upgrade voor alle methodes'
+                    : 'Upgrade for all methods')}
                 {methodPaywallReason === 'normalization' &&
                   (currentLocale === 'nl'
                     ? 'EBITDA-normalisatie & belastinglatenties'
@@ -5540,9 +5556,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     ? 'Overschrijven, verfijnen & auditspoor'
                     : 'Overwrite, refine & audit trail')}
                 {methodPaywallReason === 'synthesis' &&
-                  (currentLocale === 'nl'
-                    ? 'Waarderingssynthese'
-                    : 'Valuation Synthesis')}
+                  (currentLocale === 'nl' ? 'Waarderingssynthese' : 'Valuation Synthesis')}
                 {methodPaywallReason === 'pdf_download' &&
                   (currentLocale === 'nl'
                     ? 'PDF-download vanaf Starter'
