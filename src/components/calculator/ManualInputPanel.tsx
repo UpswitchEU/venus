@@ -3611,7 +3611,7 @@ export function ManualInputPanel({
                           )}
                         </div>
 
-                        <div className={cn('grid gap-3', 'grid-cols-2')}>
+                        <div className={cn('grid gap-3', 'grid-cols-1 sm:grid-cols-2')}>
                           <SpotlightFieldWrapper fieldName="revenue" fiscalYear={yearData.year}>
                             <div>
                               <div className="flex items-center gap-1.5">
@@ -3629,6 +3629,7 @@ export function ManualInputPanel({
                                   }
                                   size="sm"
                                   placeholder="1.500.000"
+                                  truncateLabel={false}
                                 />
                               </div>
                               {(fieldValidation.warnings[`revenue-${yearData.year}`] ||
@@ -3659,6 +3660,7 @@ export function ManualInputPanel({
                                   }
                                   size="sm"
                                   placeholder="250.000"
+                                  truncateLabel={false}
                                   rightIcon={
                                     <FieldHelpTrigger
                                       context={{

@@ -71,8 +71,8 @@ export function RealEstateCarveOutSection({
                 transition={{ duration: 0.2, ease: 'easeOut' }}
                 className="overflow-hidden"
               >
-                <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
-                  <div className="space-y-1.5 sm:col-span-2">
+                <div className="grid grid-cols-1 gap-3 pt-1">
+                  <div className="space-y-1.5">
                     <CurrencyInput
                       label={t('fields.estimatedMarketRent')}
                       value={estimatedMarketRent}
@@ -80,12 +80,13 @@ export function RealEstateCarveOutSection({
                       size="sm"
                       placeholder="0"
                       disabled={disabled}
+                      truncateLabel={false}
                     />
                     <p className="text-[11px] leading-relaxed text-muted-foreground">
                       {t('estimatedMarketRentEbitdaHint')}
                     </p>
                   </div>
-                  <div className="sm:col-span-2">
+                  <div>
                     <CurrencyInput
                       label={t('fields.realEstateBookValue')}
                       value={realEstateBookValue}
@@ -93,6 +94,7 @@ export function RealEstateCarveOutSection({
                       size="sm"
                       placeholder="0"
                       disabled={disabled}
+                      truncateLabel={false}
                     />
                   </div>
                 </div>

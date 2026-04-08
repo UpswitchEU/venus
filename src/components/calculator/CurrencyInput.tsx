@@ -38,6 +38,8 @@ export interface CurrencyInputProps {
   id?: string
   name?: string
   description?: string
+  /** When false, long floating labels wrap instead of ellipsis */
+  truncateLabel?: boolean
 }
 
 export function CurrencyInput({
@@ -54,6 +56,7 @@ export function CurrencyInput({
   id,
   name,
   description,
+  truncateLabel,
 }: CurrencyInputProps) {
   const locale = useLocale()
   const inputId = useId()
@@ -137,6 +140,7 @@ export function CurrencyInput({
         disabled={disabled}
         aria-label={ariaLabel}
         description={description}
+        truncateLabel={truncateLabel}
         leftIcon={<span className="text-foreground/40 text-xs font-medium select-none">€</span>}
         rightIcon={rightIcon}
       />

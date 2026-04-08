@@ -225,7 +225,7 @@ export function NavAssetScheduleSection({
         title={t('navPanels.startHereTitle')}
         description={t('navPanels.startHereDescription')}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <CurrencyInput
             label={t('fields.navRealEstateAdjustment')}
             value={navRealEstateAdjustment}
@@ -234,6 +234,7 @@ export function NavAssetScheduleSection({
             placeholder="0"
             disabled={disabled}
             description={t('fields.navRealEstateAdjustmentDesc')}
+            truncateLabel={false}
           />
           <CurrencyInput
             label={t('fields.navHiddenReserves')}
@@ -243,6 +244,7 @@ export function NavAssetScheduleSection({
             placeholder="0"
             disabled={disabled}
             description={t('fields.navHiddenReservesDesc')}
+            truncateLabel={false}
           />
           <CurrencyInput
             label={t('fields.navReceivablesAdjustment')}
@@ -253,6 +255,7 @@ export function NavAssetScheduleSection({
             disabled={disabled}
             allowNegative
             description={t('fields.navReceivablesAdjustmentDesc')}
+            truncateLabel={false}
           />
           <CurrencyInput
             label={t('fields.navOffBalanceItems')}
@@ -262,6 +265,7 @@ export function NavAssetScheduleSection({
             placeholder="0"
             disabled={disabled}
             description={t('fields.navOffBalanceItemsDesc')}
+            truncateLabel={false}
           />
         </div>
       </NavPanel>
@@ -270,7 +274,7 @@ export function NavAssetScheduleSection({
         title={t('navPanels.assetsTitle')}
         description={t('navPanels.assetsDescription')}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <CurrencyInput
             label={t('fields.navGoodwillWriteoff')}
             value={navGoodwillWriteoff}
@@ -279,6 +283,7 @@ export function NavAssetScheduleSection({
             placeholder="0"
             disabled={disabled}
             description={t('fields.navGoodwillWriteoffDesc')}
+            truncateLabel={false}
           />
           <CurrencyInput
             label={t('fields.navInventoryAdjustment')}
@@ -288,6 +293,7 @@ export function NavAssetScheduleSection({
             placeholder="0"
             disabled={disabled}
             description={t('fields.navInventoryAdjustmentDesc')}
+            truncateLabel={false}
           />
           <CurrencyInput
             label={t('fields.navOtherRevaluations')}
@@ -297,6 +303,7 @@ export function NavAssetScheduleSection({
             placeholder="0"
             disabled={disabled}
             description={t('fields.navOtherRevaluationsDesc')}
+            truncateLabel={false}
           />
         </div>
       </NavPanel>
@@ -305,7 +312,7 @@ export function NavAssetScheduleSection({
         title={t('navPanels.deductionsTitle')}
         description={t('navPanels.deductionsDescription')}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <AdaptivePercentInput
             label={t('fields.navTaxLatencyPct')}
             value={navTaxLatencyPct}
@@ -313,6 +320,7 @@ export function NavAssetScheduleSection({
             placeholder={countryCode?.startsWith('BE') ? '25' : '0'}
             disabled={disabled}
             description={t('fields.navTaxLatencyPctDesc')}
+            truncateLabel={false}
           />
         </div>
       </NavPanel>

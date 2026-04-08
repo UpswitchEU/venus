@@ -217,7 +217,7 @@ export function RevenueQualitySection({
                 : t('revenueQualityPanels.startHereDescriptionRevenue')}
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3">
           <CurrencyInput
             label={t('fields.revRecurringCurrency')}
             value={revRecurringAmount}
@@ -225,6 +225,7 @@ export function RevenueQualitySection({
             placeholder="400.000"
             disabled={disabled}
             description={t('fields.revRecurringCurrencyDescription')}
+            truncateLabel={false}
           />
 
           <CurrencyInput
@@ -238,6 +239,7 @@ export function RevenueQualitySection({
                 ? t('fields.revTopClientCurrencyEbitdaTooltip')
                 : t('fields.revTopClientCurrencyTooltip')
             }
+            truncateLabel={false}
           />
         </div>
 
@@ -251,10 +253,11 @@ export function RevenueQualitySection({
               placeholder="50.000"
               disabled={disabled}
               description={t('fields.revCapitalizedRdDescription')}
+              truncateLabel={false}
             />
           )
         ) : isTechSaas ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3">
             <AdaptivePercentInput
               label={t('fields.revGrossChurnPct')}
               value={revGrossChurnPct}
@@ -262,10 +265,11 @@ export function RevenueQualitySection({
               placeholder="8"
               disabled={disabled}
               description={t('fields.revGrossChurnTooltip')}
+              truncateLabel={false}
             />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3">
             <CurrencyInput
               label={t('fields.revContractBacklog')}
               value={revContractBacklog}
@@ -274,6 +278,7 @@ export function RevenueQualitySection({
               placeholder="250.000"
               disabled={disabled}
               description={t('fields.revContractBacklogDescription')}
+              truncateLabel={false}
             />
           </div>
         )}

@@ -245,7 +245,7 @@ export function SaasMetricsSection({
         title={t('saasPanels.startHereTitle')}
         description={t('saasPanels.startHereDescription')}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <CurrencyInput
             label={t('fields.saasArr')}
             value={saasArr}
@@ -254,6 +254,7 @@ export function SaasMetricsSection({
             placeholder="500.000"
             disabled={disabled}
             description={t('fieldHints.saasArr')}
+            truncateLabel={false}
           />
           <CurrencyInput
             label={t('fields.saasMrr')}
@@ -263,6 +264,7 @@ export function SaasMetricsSection({
             placeholder="42.000"
             disabled={disabled}
             description={t('fieldHints.saasMrr')}
+            truncateLabel={false}
           />
           <AdaptivePercentInput
             label={t('fields.saasArrGrowthPct')}
@@ -271,6 +273,7 @@ export function SaasMetricsSection({
             placeholder="25"
             disabled={disabled}
             description={t('fieldHints.saasArrGrowthPct')}
+            truncateLabel={false}
           />
           <AdaptivePercentInput
             label={t('fields.saasNrrPct')}
@@ -279,6 +282,7 @@ export function SaasMetricsSection({
             placeholder="110"
             disabled={disabled}
             description={t('fieldHints.saasNrrPct')}
+            truncateLabel={false}
           />
         </div>
       </SaasPanel>
@@ -287,7 +291,7 @@ export function SaasMetricsSection({
         title={t('saasPanels.retentionTitle')}
         description={t('saasPanels.retentionDescription')}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <AdaptivePercentInput
             label={t('fields.saasChurnPct')}
             value={saasChurnPct}
@@ -295,6 +299,7 @@ export function SaasMetricsSection({
             placeholder="5"
             disabled={disabled}
             description={t('fieldHints.saasChurnPct')}
+            truncateLabel={false}
           />
           <AdaptivePercentInput
             label={t('fields.saasCustomerChurnPct')}
@@ -303,6 +308,7 @@ export function SaasMetricsSection({
             placeholder="8"
             disabled={disabled}
             description={t('fieldHints.saasCustomerChurnPct')}
+            truncateLabel={false}
           />
           <AdaptivePercentInput
             label={t('fields.saasExpansionRevenuePct')}
@@ -311,6 +317,7 @@ export function SaasMetricsSection({
             placeholder="12"
             disabled={disabled}
             description={t('fieldHints.saasExpansionRevenuePct')}
+            truncateLabel={false}
           />
           <AdaptivePercentInput
             label={t('fields.saasGrossMarginPct')}
@@ -319,6 +326,7 @@ export function SaasMetricsSection({
             placeholder="78"
             disabled={disabled}
             description={t('fieldHints.saasGrossMarginPct')}
+            truncateLabel={false}
           />
         </div>
       </SaasPanel>
@@ -328,7 +336,7 @@ export function SaasMetricsSection({
           title={t('saasPanels.advancedTitle')}
           description={t('saasPanels.advancedDescription')}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <CurrencyInput
               label={t('fields.saasCac')}
               value={saasCac}
@@ -337,6 +345,7 @@ export function SaasMetricsSection({
               placeholder="1.500"
               disabled={disabled}
               description={t('fieldHints.saasCac')}
+              truncateLabel={false}
             />
             <CurrencyInput
               label={t('fields.saasSmSpend')}
@@ -346,6 +355,7 @@ export function SaasMetricsSection({
               placeholder="120.000"
               disabled={disabled}
               description={t('fieldHints.saasSmSpend')}
+              truncateLabel={false}
             />
             <AdaptivePercentInput
               label={t('fields.saasCustomerConcentrationPct')}
@@ -354,6 +364,7 @@ export function SaasMetricsSection({
               placeholder="20"
               disabled={disabled}
               description={t('fieldHints.saasCustomerConcentrationPct')}
+              truncateLabel={false}
             />
           </div>
         </SaasPanel>

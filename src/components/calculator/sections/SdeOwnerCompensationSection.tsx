@@ -100,6 +100,7 @@ export function SdeOwnerCompensationSection({
         size="sm"
         placeholder="45 000"
         disabled={disabled}
+        truncateLabel={false}
       />
 
       <div className="space-y-2">

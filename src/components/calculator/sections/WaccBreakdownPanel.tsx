@@ -92,7 +92,7 @@ export function WaccBreakdownPanel({
   }
 
   return (
-    <div className={cn(expanded && 'sm:col-span-2')}>
+    <div className="w-full min-w-0">
       <AdaptivePercentInput
         label={t('fields.dcfWaccPct')}
         value={expanded ? computedWaccPct : currentWaccPct}
@@ -100,6 +100,7 @@ export function WaccBreakdownPanel({
         placeholder={String(DCF_DEFAULT_WACC_PCT)}
         disabled={disabled}
         readOnly={expanded}
+        truncateLabel={false}
       />
       <button
         type="button"
@@ -120,13 +121,14 @@ export function WaccBreakdownPanel({
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className="overflow-hidden"
           >
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-1 gap-3">
               <AdaptivePercentInput
                 label={t('fields.dcfRiskFreeRatePct')}
                 value={riskFreeRatePct}
                 onChange={(value) => onFieldChange('dcf_risk_free_rate_pct', value)}
                 placeholder={String(DEFAULT_RISK_FREE_RATE_PCT)}
                 disabled={disabled}
+                truncateLabel={false}
               />
               <AdaptivePercentInput
                 label={t('fields.dcfEquityRiskPremiumPct')}
@@ -134,6 +136,7 @@ export function WaccBreakdownPanel({
                 onChange={(value) => onFieldChange('dcf_equity_risk_premium_pct', value)}
                 placeholder={String(DEFAULT_EQUITY_RISK_PREMIUM_PCT)}
                 disabled={disabled}
+                truncateLabel={false}
               />
               <AdaptivePercentInput
                 label={t('fields.dcfBeta')}
@@ -142,6 +145,7 @@ export function WaccBreakdownPanel({
                 placeholder={String(DEFAULT_BETA)}
                 disabled={disabled}
                 step="0.1"
+                truncateLabel={false}
               />
               <AdaptivePercentInput
                 label={t('fields.dcfCostOfDebtPct')}
@@ -149,6 +153,7 @@ export function WaccBreakdownPanel({
                 onChange={(value) => onFieldChange('dcf_cost_of_debt_pct', value)}
                 placeholder={String(DEFAULT_COST_OF_DEBT_PCT)}
                 disabled={disabled}
+                truncateLabel={false}
               />
               <AdaptivePercentInput
                 label={t('fields.dcfDebtEquityPct')}
@@ -156,6 +161,7 @@ export function WaccBreakdownPanel({
                 onChange={(value) => onFieldChange('dcf_debt_equity_pct', value)}
                 placeholder={String(DEFAULT_DEBT_EQUITY_PCT)}
                 disabled={disabled}
+                truncateLabel={false}
               />
               <AdaptivePercentInput
                 label={t('fields.dcfTaxShieldPct')}
@@ -163,6 +169,7 @@ export function WaccBreakdownPanel({
                 onChange={(value) => onFieldChange('dcf_tax_shield_pct', value)}
                 placeholder={String(DEFAULT_TAX_SHIELD_PCT)}
                 disabled={disabled}
+                truncateLabel={false}
               />
             </div>
           </motion.div>

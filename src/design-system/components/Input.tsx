@@ -183,6 +183,8 @@ export interface AuroraInputProps
   description?: string
   /** Input ref */
   inputRef?: React.RefObject<HTMLInputElement>
+  /** When false, long labels wrap (line-clamp-2) instead of ellipsis — for dense i18n */
+  truncateLabel?: boolean
 }
 
 export interface PasswordInputProps extends Omit<AuroraInputProps, 'type'> {
@@ -244,6 +246,7 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
       helpTextPlacement = 'below',
       description,
       inputRef,
+      truncateLabel = true,
       ...props
     },
     ref
@@ -312,7 +315,9 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
             ? 'focus'
             : 'default'
 
-    const isFloated = isFocused || hasValue
+    const shouldTruncateLabel = truncateLabel
+    /** When labels are long i18n, keep compact floated styling even when empty so text can wrap. */
+    const isLabelFloated = isFocused || hasValue || !shouldTruncateLabel
     const hasLeftIcon = Boolean(leftIcon)
     const showClearButton = clearable && hasValue && !disabled
     const showStateIcon = (hasError || success) && !showClearButton
@@ -364,18 +369,28 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
             {...props}
           />
 
-          {/* Floating Label — truncate long i18n strings; title shows full text on hover */}
+          {/* Floating Label — truncate by default; truncateLabel=false wraps (line-clamp-3) for long i18n */}
           {label && (
             <label
               htmlFor={props.id || props.name}
               title={typeof label === 'string' ? label : undefined}
               className={cn(
-                floatingLabelVariants({ state, floated: isFloated, size }),
+                floatingLabelVariants({ state, floated: isLabelFloated, size }),
                 hasLeftIcon ? 'left-11 right-12' : 'left-4 right-12',
-                'flex min-w-0 items-center gap-0.5'
+                'flex min-w-0 gap-0.5',
+                shouldTruncateLabel ? 'items-center' : 'items-start pt-0.5'
               )}
             >
-              <span className="min-w-0 flex-1 truncate">{label}</span>
+              <span
+                className={cn(
+                  'min-w-0 flex-1',
+                  shouldTruncateLabel
+                    ? 'truncate'
+                    : 'whitespace-normal break-words line-clamp-3 leading-tight text-left'
+                )}
+              >
+                {label}
+              </span>
               {required && (
                 <span className="flex-shrink-0 text-destructive" aria-label="required">
                   *

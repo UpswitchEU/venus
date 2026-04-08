@@ -258,13 +258,14 @@ export function DcfGlobalAssumptions({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3">
                 <AdaptivePercentInput
                   label={t('fields.dcfRevenueGrowthPct')}
                   value={dcfRevenueGrowthPct}
                   onChange={(v) => onFieldChange('dcf_revenue_growth_pct', v)}
                   placeholder={String(DCF_DEFAULT_REVENUE_GROWTH_PCT)}
                   disabled={disabled}
+                  truncateLabel={false}
                 />
                 <AdaptivePercentInput
                   label={t('fields.dcfEbitdaMarginPct')}
@@ -272,6 +273,7 @@ export function DcfGlobalAssumptions({
                   onChange={(v) => onFieldChange('dcf_ebitda_margin_pct', v)}
                   placeholder={String(DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT)}
                   disabled={disabled}
+                  truncateLabel={false}
                 />
               </div>
               <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3">
@@ -298,7 +300,7 @@ export function DcfGlobalAssumptions({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
                       transition={{ duration: 0.15 }}
-                      className="mt-3 grid grid-cols-1 gap-3 border-t border-primary/10 pt-3 sm:grid-cols-2"
+                      className="mt-3 grid grid-cols-1 gap-3 border-t border-primary/10 pt-3"
                     >
                       <AdaptivePercentInput
                         label={t('fields.dcfCapexPct')}
@@ -306,6 +308,7 @@ export function DcfGlobalAssumptions({
                         onChange={(v) => onFieldChange('dcf_capex_pct', v)}
                         placeholder={String(DCF_DEFAULT_CAPEX_PCT)}
                         disabled={disabled}
+                        truncateLabel={false}
                       />
                       <AdaptivePercentInput
                         label={t('fields.dcfDaPct')}
@@ -313,6 +316,7 @@ export function DcfGlobalAssumptions({
                         onChange={(v) => onFieldChange('dcf_da_pct', v)}
                         placeholder={String(DCF_DEFAULT_DA_PCT)}
                         disabled={disabled}
+                        truncateLabel={false}
                       />
                       <AdaptivePercentInput
                         label={t('fields.dcfNwcPct')}
@@ -321,6 +325,7 @@ export function DcfGlobalAssumptions({
                         onChange={(v) => onFieldChange('dcf_nwc_pct', v)}
                         placeholder={String(DCF_DEFAULT_NWC_PCT)}
                         disabled={disabled}
+                        truncateLabel={false}
                       />
                       <AdaptivePercentInput
                         label={t('fields.dcfTaxRatePct')}
@@ -328,8 +333,9 @@ export function DcfGlobalAssumptions({
                         onChange={(v) => onFieldChange('dcf_tax_rate_pct', v)}
                         placeholder={String(DCF_DEFAULT_TAX_RATE_PCT)}
                         disabled={disabled}
+                        truncateLabel={false}
                       />
-                      <p className="text-[11px] leading-relaxed text-muted-foreground sm:col-span-2">
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
                         {t('dcfCapexFootnote')}
                       </p>
                     </motion.div>
@@ -366,7 +372,7 @@ export function DcfGlobalAssumptions({
             <p className="text-[11px] leading-relaxed text-muted-foreground">
               {t('fieldHints.dcfWaccSummary')}
             </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3">
               <WaccBreakdownPanel
                 currentWaccPct={dcfWaccPct}
                 riskFreeRatePct={dcfRiskFreeRatePct}
@@ -407,15 +413,16 @@ export function DcfGlobalAssumptions({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.15 }}
-                  className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                  className="grid grid-cols-1 gap-3"
                 >
-                  <div className="space-y-1 sm:col-span-2">
+                  <div className="space-y-1">
                     <AdaptivePercentInput
                       label={t('fields.dcfTerminalGrowthPct')}
                       value={dcfTerminalGrowthPct}
                       onChange={(v) => onFieldChange('dcf_terminal_growth_pct', v)}
                       placeholder={String(DCF_DEFAULT_TERMINAL_GROWTH_PCT)}
                       disabled={disabled}
+                      truncateLabel={false}
                     />
                     {dcfTerminalGrowthPct != null &&
                       Number.isFinite(dcfTerminalGrowthPct) &&
@@ -437,7 +444,7 @@ export function DcfGlobalAssumptions({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.15 }}
-                  className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                  className="grid grid-cols-1 gap-3"
                 >
                   <AdaptivePercentInput
                     label={t('fields.dcfExitMultiple')}
@@ -446,6 +453,7 @@ export function DcfGlobalAssumptions({
                     placeholder="6.0"
                     disabled={disabled}
                     step="0.1"
+                    truncateLabel={false}
                   />
                 </motion.div>
               )}
