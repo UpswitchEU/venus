@@ -1400,7 +1400,7 @@
 			"sdeMultiple": "SDE Multiple (Seller's Discretionary Earnings)",
 			"sdeMultipleDescription": "For micro-SMEs and sole proprietorships (revenue < €5M). Adds owner salary back to EBITDA.",
 			"fiscal4x": "Fiscal Reference Value",
-			"fiscal4xDescription": "Belgian fiscal reference formula. Use for internal transfers and succession planning—not arm's-length M&A.",
+			"fiscal4xDescription": "Belgian fiscal reference formula. You still get the full adaptive valuation report; a separate fiscal annex in the PDF depends on firm settings and per-report options (not on this method alone). For internal transfers and succession planning—not arm's-length M&A.",
 			"fiscalDisclaimerTitle": "Attention",
 			"fiscalDisclaimerText": "For internal transfers, succession planning, or tax rulings only. Not intended for external M&A transactions.",
 			"recommendedForMethod": "Recommended for {method}",

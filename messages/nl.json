@@ -1400,7 +1400,7 @@
 			"sdeMultiple": "SDE-multiple (Seller's Discretionary Earnings)",
 			"sdeMultipleDescription": "Voor kleine KMO's en eenmanszaken (omzet onder €5M). Telt eigenaarsbezoldiging bij EBITDA.",
 			"fiscal4x": "Fiscale Referentiewaarde",
-			"fiscal4xDescription": "Belgische fiscale referentieformule. Voor interne overdrachten en successie—niet voor gewone M&A tegen marktvoorwaarden.",
+			"fiscal4xDescription": "Belgische fiscale referentieformule. Je krijgt het volledige adaptieve waarderingsrapport; een aparte fiscale annex in de PDF volgt op kantoorinstellingen en per rapport (niet alleen op deze methode). Voor interne overdrachten en successie—niet voor gewone M&A tegen marktvoorwaarden.",
 			"fiscalDisclaimerTitle": "Let op",
 			"fiscalDisclaimerText": "Uitsluitend voor interne overdrachten, successieplanning of fiscale rulings. Niet bestemd voor externe M&A-transacties.",
 			"recommendedForMethod": "Aanbevolen voor {method}",
