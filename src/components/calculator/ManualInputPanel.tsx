@@ -63,6 +63,7 @@ import {
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
+import { generalLogger } from '../../utils/logger'
 
 const MethodPreviewAuditDevPanel = lazy(() =>
   import('./sections/MethodPreviewAuditDevPanel').then((m) => ({
@@ -1529,11 +1530,34 @@ export function ManualInputPanel({
   // Also handles initial mount (e.g. page reload with DCF pre-selected).
   const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
   const effectiveMethods = useManualResultsStore((s) => s.preSelectedMethods)
-  /** Same rules as ManualLayout `synthesisMethods` — derive from store so sliders stay in sync with nav/Titan. */
+  /** Combinable methods for synthesis weging — derived from store (nav/Titan). */
   const synthesisMethodsForPanel = useMemo(
     () => getSynthesisMethodKeysForUi(effectiveMethods),
     [effectiveMethods]
   )
+  const synthesisPanelAnchorRef = useRef<HTMLDivElement>(null)
+  const prevSynthesisMethodCountRef = useRef(0)
+  useEffect(() => {
+    const n = synthesisMethodsForPanel.length
+    const prev = prevSynthesisMethodCountRef.current
+    prevSynthesisMethodCountRef.current = n
+    if (n >= 2 && prev < 2) {
+      requestAnimationFrame(() => {
+        synthesisPanelAnchorRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+        })
+      })
+    }
+  }, [synthesisMethodsForPanel.length])
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return
+    generalLogger.debug('[ManualInputPanel] synthesis diagnostics', {
+      synthesisMethodsCount: synthesisMethodsForPanel.length,
+      preSelectedMethods: [...effectiveMethods],
+      synthesisUnlocked,
+    })
+  }, [synthesisMethodsForPanel.length, effectiveMethods, synthesisUnlocked])
   const hasDcfSelected = effectiveMethods.includes('dcf')
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
   // Synthesis weighting rendered as the final step in the left panel (props from ManualLayout)
@@ -3995,6 +4019,7 @@ export function ManualInputPanel({
               <AnimatePresence>
                 {synthesisMethodsForPanel.length >= 2 && (
                   <motion.div
+                    ref={synthesisPanelAnchorRef}
                     key="synthesis-panel"
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}

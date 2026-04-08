@@ -1021,6 +1021,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       setReportMethodHydrationError(null)
       return
     }
+    // Defer merging Titan report into the store until session restoration has applied
+    // multi-method selection (1c); otherwise setResult can collapse to a single method
+    // before keepSessionMulti applies.
+    if (!restorationComplete) {
+      return
+    }
     const existingResult = useManualResultsStore.getState().result
     const needsMethodHydration = !getHydratedValuationResults(existingResult)
     setIsHydratingEditModalData(needsMethodHydration)
@@ -1100,7 +1106,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return () => {
       cancelled = true
     }
-  }, [reportHydrationLookupId, reportHydrationRetryNonce, setResult])
+  }, [reportHydrationLookupId, reportHydrationRetryNonce, restorationComplete, setResult])
 
   // Defense-in-depth: Titan already sends show_fiscal_reference=false for NL
   // accountant firms. This client-side guard prevents stale or race-condition
@@ -1964,11 +1970,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       | undefined
     return vr ?? null
   }, [result?.valuation_results])
-
-  const synthesisMethods = useMemo(
-    () => getSynthesisMethodKeysForUi(preSelectedMethods),
-    [preSelectedMethods]
-  )
 
   const synthesisUnlocked = planFeatures?.valuation_synthesis ?? false
   const handleSelectVersion = useCallback(
