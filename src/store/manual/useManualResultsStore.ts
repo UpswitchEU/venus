@@ -22,9 +22,49 @@ import {
   isStandaloneMethod,
   isCombinableMethod,
   getConflictingMethod,
+  resolveSynthesisPercentWeightsForMethods,
   sanitizeMethodSelection,
 } from '../../constants/methodFieldConfig'
 import { storeLogger } from '../../utils/logger'
+
+/**
+ * When Titan/ValuationIQ returns weighted synthesis, restore multi-method + weights for the
+ * left-panel sliders when session had no multi-method row (or it was collapsed).
+ */
+function hydrateBlendFromWeightedValuation(result: ValuationResponse): {
+  methods: string[]
+  weights: Record<string, number>
+  justification?: string
+} | null {
+  const wv = result.weighted_valuation
+  if (!wv?.contributions || !Array.isArray(wv.contributions) || wv.contributions.length < 2) {
+    return null
+  }
+  const rawWeights: Record<string, number> = {}
+  const order: string[] = []
+  for (const c of wv.contributions) {
+    if (!c || typeof c !== 'object') continue
+    const row = c as { method_key?: unknown; weight?: unknown }
+    const mk = row.method_key
+    if (typeof mk !== 'string' || !mk.trim()) continue
+    const key = mk.trim()
+    order.push(key)
+    const w = row.weight
+    if (typeof w === 'number' && Number.isFinite(w)) {
+      const pct = w <= 1 && w >= 0 ? Math.round(w * 100) : Math.round(w)
+      rawWeights[key] = pct
+    }
+  }
+  const methods = sanitizeMethodSelection(order)
+  if (methods.length < 2 || methods.includes('upswitch_adaptive')) return null
+  const filledWeights =
+    resolveSynthesisPercentWeightsForMethods(methods, rawWeights) ?? equalWeightsFor(methods)
+  const justification =
+    typeof wv.user_justification === 'string' && wv.user_justification.trim()
+      ? wv.user_justification.trim()
+      : undefined
+  return { methods, weights: filledWeights, justification }
+}
 
 interface ManualResultsStore {
   // Results state
@@ -260,16 +300,47 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           })
         }
 
+        const keepSessionMulti =
+          state.preSelectedMethods.length > 1 &&
+          !state.preSelectedMethods.includes('upswitch_adaptive')
+        const blendHydration = hydrateBlendFromWeightedValuation(result)
+
+        let nextPreSelectedMethods: string[]
+        let nextUserWeights: Record<string, number>
+        let nextUserWeightJustification: string
+
+        if (keepSessionMulti) {
+          nextPreSelectedMethods = state.preSelectedMethods
+          nextUserWeights = state.userWeights
+          nextUserWeightJustification = state.userWeightJustification
+        } else if (blendHydration) {
+          nextPreSelectedMethods = blendHydration.methods
+          nextUserWeights = blendHydration.weights
+          nextUserWeightJustification =
+            blendHydration.justification ?? state.userWeightJustification
+        } else {
+          nextPreSelectedMethods = [hydratedSelectedMethod]
+          nextUserWeights = state.userWeights
+          nextUserWeightJustification = state.userWeightJustification
+        }
+
+        const blendApplied = blendHydration && !keepSessionMulti ? blendHydration : null
+        const nextSelectedMethod = blendApplied ? blendApplied.methods[0] : hydratedSelectedMethod
+        const nextPreSelectedMethodSlot = blendApplied
+          ? blendApplied.methods[0] === 'upswitch_adaptive'
+            ? null
+            : blendApplied.methods[0]
+          : hydratedSelectedMethod
+
         return {
           ...state,
           result,
           htmlReport: result.html_report || state.htmlReport,
-          selectedMethod: hydratedSelectedMethod,
-          preSelectedMethod: hydratedSelectedMethod,
-          preSelectedMethods:
-            state.preSelectedMethods.length > 1
-              ? state.preSelectedMethods
-              : [hydratedSelectedMethod],
+          selectedMethod: nextSelectedMethod,
+          preSelectedMethod: nextPreSelectedMethodSlot,
+          preSelectedMethods: nextPreSelectedMethods,
+          userWeights: nextUserWeights,
+          userWeightJustification: nextUserWeightJustification,
         }
       } else {
         storeLogger.debug('[Manual] Valuation result cleared')

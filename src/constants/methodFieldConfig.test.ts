@@ -17,6 +17,8 @@ import {
   resolveDisplayPreSelectedMethodKey,
   sanitizeMethodSelection,
   sanitizeSynthesisWeightDigits,
+  getSynthesisMethodKeysForUi,
+  resolveSynthesisPercentWeightsForMethods,
   METHOD_FIELD_CONFIG,
   PRE_SELECTABLE_METHODS,
 } from './methodFieldConfig'
@@ -44,6 +46,65 @@ describe('methodFieldConfig', () => {
   it('reports omzet_multiple and revenue_multiple as mutual conflicts', () => {
     expect(getConflictingMethod('omzet_multiple')).toBe('revenue_multiple')
     expect(getConflictingMethod('revenue_multiple')).toBe('omzet_multiple')
+  })
+
+  describe('getSynthesisMethodKeysForUi', () => {
+    it('returns empty when fewer than two methods or adaptive is selected', () => {
+      expect(getSynthesisMethodKeysForUi([])).toEqual([])
+      expect(getSynthesisMethodKeysForUi(['upswitch_adaptive'])).toEqual([])
+      expect(getSynthesisMethodKeysForUi(['ebitda_multiple'])).toEqual([])
+      expect(getSynthesisMethodKeysForUi(['upswitch_adaptive', 'ebitda_multiple'])).toEqual([])
+    })
+
+    it('returns all selected combinable methods when two or more without adaptive', () => {
+      expect(getSynthesisMethodKeysForUi(['ebitda_multiple', 'omzet_multiple'])).toEqual([
+        'ebitda_multiple',
+        'omzet_multiple',
+      ])
+      expect(getSynthesisMethodKeysForUi(['dcf', 'ebitda_multiple', 'adjusted_nav'])).toEqual([
+        'dcf',
+        'ebitda_multiple',
+        'adjusted_nav',
+      ])
+    })
+  })
+
+  describe('resolveSynthesisPercentWeightsForMethods', () => {
+    it('returns null when fewer than two methods or adaptive is included', () => {
+      expect(resolveSynthesisPercentWeightsForMethods(['dcf'], {})).toBeNull()
+      expect(
+        resolveSynthesisPercentWeightsForMethods(['upswitch_adaptive', 'dcf'], { upswitch_adaptive: 50, dcf: 50 })
+      ).toBeNull()
+    })
+
+    it('uses equal weights when store weights are missing or do not sum to ~100', () => {
+      expect(resolveSynthesisPercentWeightsForMethods(['dcf', 'ebitda_multiple'], {})).toEqual({
+        dcf: 50,
+        ebitda_multiple: 50,
+      })
+      expect(
+        resolveSynthesisPercentWeightsForMethods(['dcf', 'ebitda_multiple'], { dcf: 30, ebitda_multiple: 30 })
+      ).toEqual({ dcf: 50, ebitda_multiple: 50 })
+    })
+
+    it('maps revenue_multiple weight onto omzet_multiple when ValuationIQ uses EN key', () => {
+      expect(
+        resolveSynthesisPercentWeightsForMethods(['ebitda_multiple', 'omzet_multiple'], {
+          ebitda_multiple: 60,
+          revenue_multiple: 40,
+        })
+      ).toEqual({ ebitda_multiple: 60, omzet_multiple: 40 })
+    })
+
+    it('keeps valid explicit weights', () => {
+      expect(
+        resolveSynthesisPercentWeightsForMethods(['dcf', 'adjusted_nav', 'ebitda_multiple'], {
+          dcf: 34,
+          adjusted_nav: 33,
+          ebitda_multiple: 33,
+        })
+      ).toEqual({ dcf: 34, adjusted_nav: 33, ebitda_multiple: 33 })
+    })
   })
 
   it('treats revenue_multiple as combinable like omzet_multiple for blended sanitization', () => {

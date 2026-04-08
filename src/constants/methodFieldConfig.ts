@@ -270,6 +270,18 @@ export function sanitizeMethodSelection(methods: string[]): string[] {
 }
 
 /**
+ * Method keys for the synthesis weighting UI when blending multiple non-adaptive methods.
+ * Does not filter by valuation result availability — the synthesis weighting UI handles
+ * missing or partial results. Empty when fewer than two methods or when `upswitch_adaptive` is selected.
+ */
+export function getSynthesisMethodKeysForUi(preSelectedMethods: string[]): string[] {
+  const isMultiMethod =
+    preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
+  if (!isMultiMethod) return []
+  return [...preSelectedMethods]
+}
+
+/**
  * Belgian fiscal reference (4× EBITDA) is not offered for Dutch accountant firms.
  * Keeps the nav dropdown aligned with Titan/PDF fiscal gating.
  */
@@ -378,6 +390,44 @@ export function equalWeightsFor(methods: string[]): Record<string, number> {
     weights[m] = base + (i < remainder ? 1 : 0)
   })
   return weights
+}
+
+/**
+ * Integer % weights (sum 100) for Waarderingssynthese → Titan `user_weights` (÷100).
+ * - Aligns `omzet_multiple` / `revenue_multiple` when one side is missing (ValuationIQ may echo EN key).
+ * - If any selected method has no weight or the sum is not ~100% (±2pp), uses {@link equalWeightsFor}.
+ */
+export function resolveSynthesisPercentWeightsForMethods(
+  methods: string[],
+  userWeights: Record<string, number>
+): Record<string, number> | null {
+  if (methods.length < 2) return null
+  if (methods.includes('upswitch_adaptive')) return null
+
+  const pick = (m: string): number | undefined => {
+    const v = userWeights[m]
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (m === 'omzet_multiple') {
+      const r = userWeights['revenue_multiple']
+      if (typeof r === 'number' && Number.isFinite(r)) return r
+    }
+    if (m === 'revenue_multiple') {
+      const o = userWeights['omzet_multiple']
+      if (typeof o === 'number' && Number.isFinite(o)) return o
+    }
+    return undefined
+  }
+
+  const filtered: Record<string, number> = {}
+  for (const m of methods) {
+    const v = pick(m)
+    if (v != null) filtered[m] = v
+  }
+  const sum = Object.values(filtered).reduce((s, x) => s + x, 0)
+  if (Object.keys(filtered).length < methods.length || Math.abs(sum - 100) > 2) {
+    return equalWeightsFor(methods)
+  }
+  return filtered
 }
 
 /** Digits only, max length 3 (0–100) for synthesis weight text fields. */

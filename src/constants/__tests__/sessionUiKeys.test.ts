@@ -53,4 +53,13 @@ describe('sessionHasStoredPreSelectedMethod', () => {
     expect(sessionHasStoredPreSelectedMethod({ pre_selected_valuation_method: null })).toBe(true)
     expect(sessionHasStoredPreSelectedMethod({ company_name: 'X' })).toBe(false)
   })
+
+  it('detects multi-method array without legacy single-key (URL seed must not wipe)', () => {
+    expect(
+      sessionHasStoredPreSelectedMethod({
+        _pre_selected_valuation_methods: ['ebitda_multiple', 'adjusted_nav'],
+      })
+    ).toBe(true)
+    expect(sessionHasStoredPreSelectedMethod({ _pre_selected_valuation_methods: [] })).toBe(false)
+  })
 })

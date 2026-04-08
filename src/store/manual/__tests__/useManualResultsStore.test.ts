@@ -227,6 +227,38 @@ describe('useManualResultsStore', () => {
       expect(result.current.getEffectiveMethod()).toBe('upswitch_adaptive')
     })
 
+    it('hydrates preSelectedMethods and weights from weighted_valuation when session was single-method', () => {
+      const { result } = renderHook(() => useManualResultsStore())
+
+      act(() => {
+        result.current.setPreSelectedMethod('ebitda_multiple')
+      })
+
+      act(() => {
+        result.current.setResult({
+          valuation_id: 'val-blend',
+          html_report: '<html>Report</html>',
+          selected_valuation_method: 'ebitda_multiple',
+          weighted_valuation: {
+            blended_equity_value: 400000,
+            contributions: [
+              { method_key: 'ebitda_multiple', label: 'EBITDA', equity_value: 400000, weight: 0.5, weighted_contribution: 200000 },
+              { method_key: 'adjusted_nav', label: 'NAV', equity_value: 400000, weight: 0.5, weighted_contribution: 200000 },
+            ],
+            user_justification: 'Test note',
+          },
+          valuation_results: {
+            ebitda_multiple: { available: true, value: 400000, label: 'M' },
+            adjusted_nav: { available: true, value: 400000, label: 'N' },
+          },
+        } as any)
+      })
+
+      expect(result.current.preSelectedMethods).toEqual(['ebitda_multiple', 'adjusted_nav'])
+      expect(result.current.userWeights).toEqual({ ebitda_multiple: 50, adjusted_nav: 50 })
+      expect(result.current.userWeightJustification).toBe('Test note')
+    })
+
     it('hydrates selected and preselected methods from selected_valuation_method', () => {
       const { result } = renderHook(() => useManualResultsStore())
 

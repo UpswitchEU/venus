@@ -129,6 +129,14 @@ export function usePreSelectedMethodSessionSync({
       urlSeedDoneRef.current = true
       return
     }
+    const storeSnap = useManualResultsStore.getState()
+    if (
+      storeSnap.preSelectedMethods.length > 1 &&
+      !storeSnap.preSelectedMethods.includes('upswitch_adaptive')
+    ) {
+      urlSeedDoneRef.current = true
+      return
+    }
     useManualResultsStore
       .getState()
       .setPreSelectedMethod(

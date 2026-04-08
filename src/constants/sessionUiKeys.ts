@@ -23,14 +23,21 @@ export const SESSION_USER_WEIGHT_JUSTIFICATION_KEY = '_user_weight_justification
 
 /**
  * True if session JSONB already carries an upfront method preference (any key variant).
+ * Also true when only `_pre_selected_valuation_methods` is present (multi-select persisted
+ * without legacy single-key rows) so URL `?selected_method=` seeding does not call
+ * `setPreSelectedMethod` and collapse the selection to one method.
  */
 export function sessionHasStoredPreSelectedMethod(sessionData: unknown): boolean {
   if (!sessionData || typeof sessionData !== 'object') return false
   const o = sessionData as Record<string, unknown>
-  return (
+  if (
     SESSION_PRE_SELECTED_VALUATION_METHOD_KEY in o ||
     SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY in o
-  )
+  ) {
+    return true
+  }
+  const multi = o[SESSION_PRE_SELECTED_METHODS_KEY]
+  return Array.isArray(multi) && multi.length > 0
 }
 
 /**

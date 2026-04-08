@@ -173,38 +173,12 @@ import {
   deriveGuidedNormalizationPrefill,
   type GuidedNormalizationPrefill,
 } from '../utils/guidedNormalizationPrefill'
+import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import {
   deriveManualReportPresentation,
   deriveNavPricesForVersionNav,
 } from './manualReportPresentation'
-
-/**
- * Attach user_weights and user_weight_justification to the request when the
- * accountant selected multiple methods (non-adaptive) and configured weights.
- * Weights are divided by 100 (UI percentage → API fraction) and only attached
- * if they sum close enough to 100% for the backend to accept (±2pp tolerance).
- */
-function attachSynthesisWeights(request: Record<string, any>): void {
-  const snap = useManualResultsStore.getState()
-  if (
-    snap.preSelectedMethods.length < 2 ||
-    snap.preSelectedMethods.includes('upswitch_adaptive') ||
-    Object.keys(snap.userWeights).length === 0
-  ) {
-    return
-  }
-  const pctSum = Object.values(snap.userWeights).reduce((s, v) => s + v, 0)
-  if (Math.abs(pctSum - 100) > 2) return
-  const normalized: Record<string, number> = {}
-  for (const [k, v] of Object.entries(snap.userWeights)) {
-    normalized[k] = v / 100
-  }
-  request.user_weights = normalized
-  if (snap.userWeightJustification?.trim()) {
-    request.user_weight_justification = snap.userWeightJustification
-  }
-}
 
 function getHttpStatusFromError(err: unknown): number | undefined {
   if (err instanceof APIError) return err.statusCode
@@ -1991,17 +1965,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return vr ?? null
   }, [result?.valuation_results])
 
-  const synthesisMethods = useMemo(() => {
-    const isMultiMethod =
-      preSelectedMethods.length > 1 && !preSelectedMethods.includes('upswitch_adaptive')
-    if (!isMultiMethod) return []
-    if (!synthesisValuationResults) return preSelectedMethods
-    return preSelectedMethods.filter((m) => {
-      const mr = synthesisValuationResults[m]
-      if (!mr) return true
-      return mr.available && mr.value != null
-    })
-  }, [preSelectedMethods, synthesisValuationResults])
+  const synthesisMethods = useMemo(
+    () => getSynthesisMethodKeysForUi(preSelectedMethods),
+    [preSelectedMethods]
+  )
 
   const synthesisUnlocked = planFeatures?.valuation_synthesis ?? false
   const handleSelectVersion = useCallback(
@@ -2671,7 +2638,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           request.selected_method = preSelectedMethod
         }
 
-        attachSynthesisWeights(request)
+        attachSynthesisWeightsToValuationRequest(request as Record<string, unknown>)
 
         const idForApi = linkedIdentifier
         if (calculationRequestIdentifiers.reportId) {
@@ -3117,7 +3084,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           request.selected_method = preSelectedMethod
         }
 
-        attachSynthesisWeights(request)
+        attachSynthesisWeightsToValuationRequest(request as Record<string, unknown>)
 
         const previousVersion = getLatestVersion(idForVersions)
         if (!previousVersion) {
@@ -4304,7 +4271,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           request.selected_method = preSelectedMethod
         }
 
-        attachSynthesisWeights(request)
+        attachSynthesisWeightsToValuationRequest(request as Record<string, unknown>)
 
         if (calculationRequestIdentifiers.reportId) {
           ;(request as any).reportId = calculationRequestIdentifiers.reportId
@@ -4798,7 +4765,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       Boolean(identity.clientContext?.clientCompanyName?.trim()),
     integrationsEnabled: planFeatures?.integrations_enabled ?? false,
     planType: plan?.plan_type ?? 'free',
-    synthesisMethods,
     synthesisWeights: userWeights,
     synthesisJustification: userWeightJustification,
     onSynthesisWeightsChange: setUserWeights,

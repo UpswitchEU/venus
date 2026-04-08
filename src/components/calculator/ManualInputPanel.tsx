@@ -75,6 +75,7 @@ import {
   getBonusSections,
   getBonusSectionsForMethods,
   getBonusSectionsSaasSignalsFromFormData,
+  getSynthesisMethodKeysForUi,
   resolveBusinessTypeIdForBonusSections,
 } from '../../constants/methodFieldConfig'
 import { useAuth } from '../../hooks/useAuth'
@@ -430,8 +431,6 @@ interface ManualInputPanelProps {
   integrationsEnabled?: boolean
   /** Current plan type (free/starter/pro/…). Drives the Pro upsell CTA. */
   planType?: string
-  /** Synthesis: methods with available results for weighted blending. */
-  synthesisMethods?: string[]
   /** Synthesis: current weight per method key. */
   synthesisWeights?: Record<string, number>
   /** Synthesis: advisor justification text. */
@@ -603,7 +602,6 @@ export function ManualInputPanel({
   preferIntegrationEntry = false,
   integrationsEnabled = true,
   planType = 'free',
-  synthesisMethods = [],
   synthesisWeights = {},
   synthesisJustification = '',
   onSynthesisWeightsChange,
@@ -1531,6 +1529,11 @@ export function ManualInputPanel({
   // Also handles initial mount (e.g. page reload with DCF pre-selected).
   const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
   const effectiveMethods = useManualResultsStore((s) => s.preSelectedMethods)
+  /** Same rules as ManualLayout `synthesisMethods` — derive from store so sliders stay in sync with nav/Titan. */
+  const synthesisMethodsForPanel = useMemo(
+    () => getSynthesisMethodKeysForUi(effectiveMethods),
+    [effectiveMethods]
+  )
   const hasDcfSelected = effectiveMethods.includes('dcf')
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
   // Synthesis weighting rendered as the final step in the left panel (props from ManualLayout)
@@ -3990,7 +3993,7 @@ export function ManualInputPanel({
               />
 
               <AnimatePresence>
-                {synthesisMethods.length >= 2 && (
+                {synthesisMethodsForPanel.length >= 2 && (
                   <motion.div
                     key="synthesis-panel"
                     initial={{ opacity: 0, height: 0 }}
@@ -4002,7 +4005,7 @@ export function ManualInputPanel({
                     <div className="border-t border-foreground/[0.06] pt-6">
                       {synthesisUnlocked ? (
                         <SynthesisWeightingSection
-                          methods={synthesisMethods}
+                          methods={synthesisMethodsForPanel}
                           weights={synthesisWeights}
                           justification={synthesisJustification}
                           onWeightsChange={onSynthesisWeightsChange ?? (() => {})}

@@ -18,6 +18,7 @@ import { useManualFormStore, useManualResultsStore } from '../../../store/manual
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { ValidationError } from '../../../types/errors'
+import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import {
@@ -282,6 +283,12 @@ export const useValuationFormSubmission = (
         if (calculationRequestIdentifiers.sessionKey) {
           ;(request as any).sessionKey = calculationRequestIdentifiers.sessionKey
         }
+
+        const methodSnap = useManualResultsStore.getState()
+        if (methodSnap.preSelectedMethod) {
+          request.selected_method = methodSnap.preSelectedMethod
+        }
+        attachSynthesisWeightsToValuationRequest(request as Record<string, unknown>)
 
         // M&A Workflow: Check if this is a regeneration
         let previousVersion: any = null
