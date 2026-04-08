@@ -4343,6 +4343,18 @@ export function AdaptiveSections({
 
   const firmCode = (firmCountryCode ?? 'BE').trim().toUpperCase().substring(0, 2)
   const showFiscalNotice = methods.includes('fiscal_4x') && firmCode !== 'NL'
+  const fiscalPreviewUnavailableMessage =
+    !fiscalPreview.available && fiscalPreview.unavailableReason
+      ? fiscalPreview.unavailableReason === 'non_be'
+        ? t('fields.fiscalPreviewUnavailableNonBe')
+        : fiscalPreview.unavailableReason === 'non_positive_ebitda'
+          ? t('fields.fiscalPreviewUnavailableEbitda')
+          : fiscalPreview.unavailableReason === 'missing_ebitda'
+            ? t('fields.fiscalPreviewUnavailableMissingEbitda')
+            : fiscalPreview.unavailableReason === 'missing_book_equity'
+              ? t('fields.fiscalPreviewUnavailableMissingEquity')
+              : null
+      : null
   if (sections.length === 0 && !showFiscalNotice) return null
 
   return (
@@ -4355,75 +4367,73 @@ export function AdaptiveSections({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3 space-y-3"
+            className="space-y-3"
           >
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{t('fiscalDisclaimerTitle')}</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            <div className="rounded-lg border border-amber-500/15 bg-amber-500/[0.05] px-3 py-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                <p className="min-w-0 text-[11px] leading-relaxed text-muted-foreground">
+                  <span className="mr-1 font-medium text-foreground">
+                    {t('fiscalDisclaimerTitle')}:
+                  </span>
                   {t('fiscalDisclaimerText')}
                 </p>
               </div>
             </div>
-            <div className="space-y-2 border-t border-amber-500/15 pt-3">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/70">
-                  {t('sections.fiscalDerivedMetrics')}
-                </h4>
-                <span className="text-[10px] text-foreground/45">
-                  {t('fields.fiscalPreviewFootnote')}
-                </span>
-              </div>
-              {!fiscalPreview.available && fiscalPreview.unavailableReason && (
-                <p className="text-[11px] leading-snug text-foreground/55">
-                  {fiscalPreview.unavailableReason === 'non_be'
-                    ? t('fields.fiscalPreviewUnavailableNonBe')
-                    : fiscalPreview.unavailableReason === 'non_positive_ebitda'
-                      ? t('fields.fiscalPreviewUnavailableEbitda')
-                      : fiscalPreview.unavailableReason === 'missing_ebitda'
-                        ? t('fields.fiscalPreviewUnavailableMissingEbitda')
-                        : fiscalPreview.unavailableReason === 'missing_book_equity'
-                          ? t('fields.fiscalPreviewUnavailableMissingEquity')
-                          : null}
-                </p>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                <PreviewMetricCard
-                  label={t('fields.fiscalPreviewAnchor')}
-                  value={
-                    fiscalPreview.fiscalAnchor != null
-                      ? previewCurrencyFormatter.format(fiscalPreview.fiscalAnchor)
-                      : '—'
-                  }
-                />
-                <PreviewMetricCard
-                  label={t('fields.fiscalPreviewBookEquity')}
-                  value={
-                    fiscalPreview.bookEquityUsed != null
-                      ? previewCurrencyFormatter.format(fiscalPreview.bookEquityUsed)
-                      : '—'
-                  }
-                />
-                <PreviewMetricCard
-                  label={t('fields.fiscalPreviewOwnershipStake')}
-                  value={
-                    fiscalPreview.ownershipMultiplierApplied != null
-                      ? t('fields.fiscalPreviewOwnershipStakeValue', {
-                          pct: Math.round(fiscalPreview.ownershipMultiplierApplied * 100),
-                        })
-                      : '—'
-                  }
-                  hint={t('fields.fiscalPreviewOwnershipStakeHint')}
-                />
-                <PreviewMetricCard
-                  label={t('fields.fiscalPreviewImpliedEquity')}
-                  value={
-                    fiscalPreview.impliedFiscalEquity != null
-                      ? previewCurrencyFormatter.format(fiscalPreview.impliedFiscalEquity)
-                      : '—'
-                  }
-                />
+            <div className="rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-semibold text-foreground">
+                      {t('sections.fiscalDerivedMetrics')}
+                    </h4>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      {t('fields.fiscalPreviewFootnote')}
+                    </p>
+                  </div>
+                </div>
+                {fiscalPreviewUnavailableMessage && (
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {fiscalPreviewUnavailableMessage}
+                  </p>
+                )}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <PreviewMetricCard
+                    label={t('fields.fiscalPreviewAnchor')}
+                    value={
+                      fiscalPreview.fiscalAnchor != null
+                        ? previewCurrencyFormatter.format(fiscalPreview.fiscalAnchor)
+                        : '—'
+                    }
+                  />
+                  <PreviewMetricCard
+                    label={t('fields.fiscalPreviewBookEquity')}
+                    value={
+                      fiscalPreview.bookEquityUsed != null
+                        ? previewCurrencyFormatter.format(fiscalPreview.bookEquityUsed)
+                        : '—'
+                    }
+                  />
+                  <PreviewMetricCard
+                    label={t('fields.fiscalPreviewOwnershipStake')}
+                    value={
+                      fiscalPreview.ownershipMultiplierApplied != null
+                        ? t('fields.fiscalPreviewOwnershipStakeValue', {
+                            pct: Math.round(fiscalPreview.ownershipMultiplierApplied * 100),
+                          })
+                        : '—'
+                    }
+                    hint={t('fields.fiscalPreviewOwnershipStakeHint')}
+                  />
+                  <PreviewMetricCard
+                    label={t('fields.fiscalPreviewImpliedEquity')}
+                    value={
+                      fiscalPreview.impliedFiscalEquity != null
+                        ? previewCurrencyFormatter.format(fiscalPreview.impliedFiscalEquity)
+                        : '—'
+                    }
+                  />
+                </div>
               </div>
             </div>
           </motion.div>

@@ -212,8 +212,8 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.getByText('fiscalDisclaimerTitle')).toBeInTheDocument()
     expect(screen.getByText('fiscalDisclaimerText')).toBeInTheDocument()
+    expect(screen.getByText('sections.fiscalDerivedMetrics')).toBeInTheDocument()
   })
 
   it('hides the fiscal disclaimer for NL accountant firms even if fiscal 4x is selected', () => {
@@ -227,7 +227,7 @@ describe('AdaptiveSections', () => {
       />
     )
 
-    expect(screen.queryByText('fiscalDisclaimerTitle')).not.toBeInTheDocument()
+    expect(screen.queryByText('fiscalDisclaimerText')).not.toBeInTheDocument()
   })
 
   it('surfaces the DCF autofill action and forwards clicks', () => {
