@@ -6,8 +6,9 @@
 
 import { resolveSynthesisPercentWeightsForMethods } from '../constants/methodFieldConfig'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
+import type { ValuationRequest } from '../types/valuation'
 
-export function attachSynthesisWeightsToValuationRequest(request: Record<string, unknown>): void {
+export function attachSynthesisWeightsToValuationRequest(request: ValuationRequest): void {
   const snap = useManualResultsStore.getState()
   if (snap.preSelectedMethods.length < 2 || snap.preSelectedMethods.includes('upswitch_adaptive')) {
     return

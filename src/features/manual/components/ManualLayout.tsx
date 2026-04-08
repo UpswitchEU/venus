@@ -2639,7 +2639,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           request.selected_method = preSelectedMethod
         }
 
-        attachSynthesisWeightsToValuationRequest(request as Record<string, unknown>)
+        attachSynthesisWeightsToValuationRequest(request)
 
         const idForApi = linkedIdentifier
         if (calculationRequestIdentifiers.reportId) {
@@ -3085,7 +3085,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           request.selected_method = preSelectedMethod
         }
 
-        attachSynthesisWeightsToValuationRequest(request as Record<string, unknown>)
+        attachSynthesisWeightsToValuationRequest(request)
 
         const previousVersion = getLatestVersion(idForVersions)
         if (!previousVersion) {
@@ -4272,7 +4272,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           request.selected_method = preSelectedMethod
         }
 
-        attachSynthesisWeightsToValuationRequest(request as Record<string, unknown>)
+        attachSynthesisWeightsToValuationRequest(request)
 
         if (calculationRequestIdentifiers.reportId) {
           ;(request as any).reportId = calculationRequestIdentifiers.reportId

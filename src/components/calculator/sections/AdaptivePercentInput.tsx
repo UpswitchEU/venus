@@ -30,6 +30,7 @@ export function AdaptivePercentInput({
   disabled,
   readOnly,
   description,
+  truncateLabel,
   step: _step,
 }: AdaptivePercentInputProps) {
   const {

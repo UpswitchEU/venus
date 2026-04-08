@@ -288,7 +288,7 @@ export const useValuationFormSubmission = (
         if (methodSnap.preSelectedMethod) {
           request.selected_method = methodSnap.preSelectedMethod
         }
-        attachSynthesisWeightsToValuationRequest(request as Record<string, unknown>)
+        attachSynthesisWeightsToValuationRequest(request)
 
         // M&A Workflow: Check if this is a regeneration
         let previousVersion: any = null

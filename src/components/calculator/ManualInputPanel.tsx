@@ -62,7 +62,6 @@ import {
   resolveBookEquityFromYearRow,
   useManualPreviewFormatters,
 } from '@/lib/omniPreview'
-import { generalLogger } from '@/utils/logger'
 import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
 
 const MethodPreviewAuditDevPanel = lazy(() =>
@@ -1545,22 +1544,17 @@ export function ManualInputPanel({
     const prev = prevSynthesisMethodCountRef.current
     prevSynthesisMethodCountRef.current = n
     if (n >= 2 && prev < 2) {
+      // Double rAF: let Framer height animation + layout settle before scrolling into view.
       requestAnimationFrame(() => {
-        synthesisPanelAnchorRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
+        requestAnimationFrame(() => {
+          synthesisPanelAnchorRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+          })
         })
       })
     }
   }, [synthesisMethodsForPanel.length])
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return
-    generalLogger.debug('[ManualInputPanel] synthesis diagnostics', {
-      synthesisMethodsCount: synthesisMethodsForPanel.length,
-      preSelectedMethods: [...effectiveMethods],
-      synthesisUnlocked,
-    })
-  }, [synthesisMethodsForPanel.length, effectiveMethods, synthesisUnlocked])
   const hasDcfSelected = effectiveMethods.includes('dcf')
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
   // Synthesis weighting rendered as the final step in the left panel (props from ManualLayout)
