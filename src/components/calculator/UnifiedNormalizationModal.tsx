@@ -1833,6 +1833,7 @@ export function UnifiedNormalizationModal({
                         </span>
                       }
                       size="sm"
+                      truncateLabel={false}
                     />
                   </div>
 
@@ -1975,6 +1976,7 @@ export function UnifiedNormalizationModal({
                     value={newReason}
                     onChange={(e) => setNewReason(e.target.value)}
                     size="sm"
+                    truncateLabel={false}
                   />
                 </div>
               </motion.div>

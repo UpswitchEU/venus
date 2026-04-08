@@ -3274,7 +3274,7 @@ export function ManualInputPanel({
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="relative">
                     <AuroraInput
                       label={mi('fields.ownerManagers')}
@@ -3285,6 +3285,7 @@ export function ManualInputPanel({
                       onChange={(e) => updateField('ownerManagers', Number(e.target.value))}
                       size="sm"
                       placeholder="1"
+                      truncateLabel={false}
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
                       <FieldHelpTrigger
@@ -3321,6 +3322,7 @@ export function ManualInputPanel({
                       }}
                       size="sm"
                       placeholder="0"
+                      truncateLabel={false}
                     />
                     {(fieldValidation.errors.fteEmployees ||
                       fieldValidation.warnings.fteEmployees) && (

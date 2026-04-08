@@ -28,6 +28,8 @@ export interface CustomInputFieldProps {
   inputRef?: React.RefObject<HTMLInputElement>
   helpText?: string
   helpTextPlacement?: 'tooltip' | 'below'
+  /** When false, long floating labels wrap instead of ellipsis (matches AuroraInput) */
+  truncateLabel?: boolean
 }
 
 const CustomInputField: React.FC<CustomInputFieldProps> = ({
@@ -53,6 +55,7 @@ const CustomInputField: React.FC<CustomInputFieldProps> = ({
   inputRef,
   helpText,
   helpTextPlacement = 'tooltip',
+  truncateLabel,
 }) => {
   const effectiveRightIcon =
     helpText && helpTextPlacement === 'tooltip' ? (
@@ -85,6 +88,7 @@ const CustomInputField: React.FC<CustomInputFieldProps> = ({
         inputRef={inputRef}
         helpText={helpText}
         helpTextPlacement={helpTextPlacement}
+        truncateLabel={truncateLabel}
       />
     </div>
   )
