@@ -3713,39 +3713,6 @@ export function ManualInputPanel({
                           </SpotlightFieldWrapper>
                         </div>
 
-                        {/* YoY EBITDA change indicator */}
-                        {(() => {
-                          if (!hasExplicitNumericValue(yearData.ebitda) || yearData.isForecast)
-                            return null
-                          const prevRow = historicalCardRows[index + 1]
-                          if (
-                            !prevRow ||
-                            prevRow.isForecast ||
-                            !hasExplicitNumericValue(prevRow.ebitda) ||
-                            prevRow.ebitda === 0
-                          )
-                            return null
-                          const yoyPct =
-                            ((yearData.ebitda - prevRow.ebitda) / Math.abs(prevRow.ebitda)) * 100
-                          if (!Number.isFinite(yoyPct)) return null
-                          const rounded = Math.round(yoyPct)
-                          return (
-                            <span
-                              className={cn(
-                                'inline-flex items-center gap-1 mt-1 text-[10px] font-medium tabular-nums',
-                                rounded > 0
-                                  ? 'text-success'
-                                  : rounded < 0
-                                    ? 'text-destructive'
-                                    : 'text-foreground/40'
-                              )}
-                            >
-                              {rounded > 0 ? '+' : ''}
-                              {rounded}% {mi('fields.ebitdaYoY')}
-                            </span>
-                          )
-                        })()}
-
                         <NbbResetHint
                           fiscalYear={yearData.year}
                           currentRevenue={yearData.revenue}

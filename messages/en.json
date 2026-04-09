@@ -1149,8 +1149,7 @@
 			"nbbSource": "Imported from NBB filing",
 			"grossMarginFallback": "Revenue not public; using Gross Margin as base",
 			"resetToNbb": "Reset to NBB values",
-			"dataUnavailable": "Data unavailable in public filings",
-			"ebitdaYoY": "vs prior year"
+			"dataUnavailable": "Data unavailable in public filings"
 		},
 		"fictiveRentNormalizedFootnote": "Weighted normalized EBITDA deducts {amount} per year for estimated market rent (real estate carve-out), consistent with the valuation engine.",
 		"changeCompanyWarning": {

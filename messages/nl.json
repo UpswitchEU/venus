@@ -1149,8 +1149,7 @@
 			"nbbSource": "Geïmporteerd uit NBB-jaarrekening",
 			"grossMarginFallback": "Omzet niet publiek; brutomarge als basis",
 			"resetToNbb": "Herstel naar NBB-waarden",
-			"dataUnavailable": "Niet beschikbaar in publieke jaarrekening",
-			"ebitdaYoY": "vs vorig jaar"
+			"dataUnavailable": "Niet beschikbaar in publieke jaarrekening"
 		},
 		"fictiveRentNormalizedFootnote": "Het gewogen genormaliseerde EBITDA trekt {amount} fictieve markthuur per jaar af (vastgoed-carve-out), conform de waarderingsmotor.",
 		"changeCompanyWarning": {
