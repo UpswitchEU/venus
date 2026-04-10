@@ -82,7 +82,7 @@ export function BizzcontrolImportModal({
               target="_blank"
               rel="noopener noreferrer"
             >
-              {t('openMercury')}
+              {t('openIntegrationsSettings')}
             </a>
           </p>
 

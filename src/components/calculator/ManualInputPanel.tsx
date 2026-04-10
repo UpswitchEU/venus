@@ -2909,7 +2909,7 @@ export function ManualInputPanel({
                             provider: importedProviderLabel,
                           })
                         : requiresMercuryImportFlow
-                          ? mi('integrationEntry.mercuryCanonicalHint')
+                          ? mi('integrationEntry.advisorIntegrationsHint')
                           : accountingConnectedStatus?.is_connected
                             ? mi('integrationEntry.connectedDescription', {
                                 provider: accountingProviderDisplayName(
@@ -3001,7 +3001,7 @@ export function ManualInputPanel({
                       >
                         <ExternalLink className="mr-2 h-4 w-4" />
                         {accountingConnectedStatus?.is_connected
-                          ? mi('integrationEntry.openMercuryCta')
+                          ? mi('integrationEntry.openIntegrationsSettingsCta')
                           : mi('integrationEntry.connectCta')}
                       </AuroraButton>
                     )}

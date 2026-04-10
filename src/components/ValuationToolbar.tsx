@@ -530,7 +530,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                   /* Embedded Mode - Show Close Button */
                   <>
                     <Tooltip
-                      content={t('report.toolbar.returnToMercury')}
+                      content={t('report.toolbar.returnToDashboard')}
                       position="bottom"
                       className=""
                     >
