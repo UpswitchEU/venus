@@ -727,7 +727,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
               const upgradePath = isAccountantBillingUpgradePath(
                 bootstrapCreditStatus.upgrade_path,
               )
-                ? `${base}/${locale}/accountant/settings?tab=billing`
+                ? `${base}/${locale}/advisor/settings?tab=billing`
                 : isClientPremiumUpgradePath(bootstrapCreditStatus.upgrade_path)
                   ? `${base}/${locale}/pricing?tab=sellers`
                   : `${base}/${locale}/pricing`

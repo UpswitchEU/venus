@@ -299,7 +299,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
         ? window.location.pathname.match(/\/(en|nl|fr|de)\//)?.[1] || 'en'
         : 'en'
     const fallbackPath = sourceApp?.includes('mercury')
-      ? `/${currentLocale}/accountant/dashboard`
+      ? `/${currentLocale}/advisor/dashboard`
       : `/${currentLocale}/my-business/overview`
     const targetUrl = getSafeMercuryReturnUrl(returnUrl ?? fallbackPath, {
       locale: currentLocale,

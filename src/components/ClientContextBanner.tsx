@@ -82,7 +82,7 @@ export function ClientContextBanner() {
       try {
         const mercuryUrl = getMercuryUrl()
         const loc = locale && (locale === 'en' || locale === 'nl') ? locale : 'en'
-        window.location.href = `${mercuryUrl}/${loc}/accountant/dashboard`
+        window.location.href = `${mercuryUrl}/${loc}/advisor/dashboard`
       } catch (fallbackError) {
         generalLogger.error('[ClientContextBanner] Fallback navigation also failed', {
           error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
@@ -127,7 +127,7 @@ export function ClientContextBanner() {
       })
       try {
         const loc = locale && (locale === 'en' || locale === 'nl') ? locale : 'en'
-        window.location.href = `${getMercuryUrl()}/${loc}/accountant/dashboard`
+        window.location.href = `${getMercuryUrl()}/${loc}/advisor/dashboard`
       } catch (fallbackError) {
         generalLogger.error('[ClientContextBanner] Fallback navigation also failed', {
           error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),

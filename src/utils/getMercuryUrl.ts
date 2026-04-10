@@ -68,7 +68,7 @@ export function buildMercuryIntegrationsUrl(
   options?: { accountingProvider?: MercuryAccountingProviderDeepLink }
 ): string {
   const base = getMercuryUrl()
-  const url = new URL(`${base.replace(/\/$/, '')}/${locale}/accountant/settings`)
+  const url = new URL(`${base.replace(/\/$/, '')}/${locale}/advisor/settings`)
   url.searchParams.set('tab', 'integrations')
   if (options?.accountingProvider) {
     url.searchParams.set('accounting_provider', options.accountingProvider)

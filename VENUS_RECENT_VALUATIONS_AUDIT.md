@@ -93,7 +93,7 @@ ManualLayout
 | Item | Status |
 |------|--------|
 | **Client context** | fetchRecentValuations forwards X-Client-User-Id etc. when accountant views client |
-| **Accountant redirect** | Delete last report → Mercury dashboard (`/accountant/dashboard`) |
+| **Accountant redirect** | Delete last report → Mercury dashboard (`/advisor/dashboard`) |
 | **Client redirect** | Delete last report → Venus `/reports/new` |
 | **Locale** | Mercury redirect uses `currentLocale` (nl/en) |
 | **3-dot aria** | `valuation.deleteReportTitle` for screen readers |

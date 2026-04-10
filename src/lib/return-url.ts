@@ -54,7 +54,10 @@ export function isSafeMercuryReturnUrlInput(
  */
 /** Only client detail (or sub-routes) should carry `from=venus` — not dashboard fallbacks. */
 function isAccountantClientPath(pathname: string): boolean {
-  return pathname.includes('/accountant/clients/')
+  return (
+    pathname.includes('/advisor/clients/') ||
+    pathname.includes('/accountant/clients/')
+  )
 }
 
 export function applyMercuryCelebrationQuery(urlString: string, celebrate: boolean): string {
@@ -120,7 +123,7 @@ export function getSafeMercuryReturnUrl(
       try {
         const url = new URL(raw)
         if (!isTrustedUpswitchHostname(url.hostname) || isLegacyReturnUrl(url.pathname)) {
-          result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
+          result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
         } else {
           const allowHttp =
             url.protocol === 'http:' &&
@@ -134,11 +137,11 @@ export function getSafeMercuryReturnUrl(
           result = url.toString()
         }
       } catch {
-        result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
+        result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
       }
     } else if (raw.startsWith('//')) {
       // Protocol-relative "URLs" must not be concatenated onto a base (open-redirect footgun).
-      result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
+      result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
     } else {
       if (explicitLocaleOpt !== undefined) {
         const rel = raw.startsWith('/') ? raw : `/${raw}`
@@ -149,11 +152,11 @@ export function getSafeMercuryReturnUrl(
       }
     }
   } else if (options?.clientContextId) {
-    result = `${mercuryUrl}/${pathLocale}/accountant/clients/${options.clientContextId}/valuations`
+    result = `${mercuryUrl}/${pathLocale}/advisor/clients/${options.clientContextId}/valuations`
   } else if (options?.sourceApp?.includes('mercury')) {
-    result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
+    result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
   } else {
-    result = `${mercuryUrl}/${pathLocale}/accountant/dashboard`
+    result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
   }
 
   return applyMercuryCelebrationQuery(result, celebrate)

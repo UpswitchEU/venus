@@ -67,7 +67,7 @@ function detectLocale(request: NextRequest): string {
 	if (localeParam && locales.includes(localeParam as typeof locales[number])) {
 		return localeParam;
 	}
-	// When source=mercury, parse return_url for locale (e.g. .../nl/accountant/clients/...)
+	// When source=mercury, parse return_url for locale (e.g. .../nl/advisor/clients/...)
 	if (request.nextUrl.searchParams.get('source') === 'mercury') {
 		const returnUrl = request.nextUrl.searchParams.get('return_url');
 		if (returnUrl) {

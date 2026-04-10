@@ -14,17 +14,22 @@ import {
 describe('applyMercuryCelebrationQuery', () => {
   it('strips from when not celebrating', () => {
     expect(
-      applyMercuryCelebrationQuery('https://upswitch.app/nl/accountant/clients/x?from=venus', false)
-    ).toBe('https://upswitch.app/nl/accountant/clients/x')
+      applyMercuryCelebrationQuery('https://upswitch.app/nl/advisor/clients/x?from=venus', false)
+    ).toBe('https://upswitch.app/nl/advisor/clients/x')
   })
 
   it('sets from=venus on accountant client paths when celebrating', () => {
+    const u = applyMercuryCelebrationQuery('https://upswitch.app/nl/advisor/clients/abc', true)
+    expect(u).toContain('from=venus')
+  })
+
+  it('sets from=venus on legacy /accountant/clients/ paths when celebrating (301 may not run in iframe)', () => {
     const u = applyMercuryCelebrationQuery('https://upswitch.app/nl/accountant/clients/abc', true)
     expect(u).toContain('from=venus')
   })
 
   it('does not add from=venus on dashboard URLs when celebrating', () => {
-    const u = applyMercuryCelebrationQuery('https://upswitch.app/nl/accountant/dashboard', true)
+    const u = applyMercuryCelebrationQuery('https://upswitch.app/nl/advisor/dashboard', true)
     expect(u).not.toContain('from=venus')
   })
 })
@@ -44,7 +49,7 @@ describe('isTrustedUpswitchHostname', () => {
 describe('isSafeMercuryReturnUrlInput', () => {
   it('accepts safe Mercury-relative paths used by toolbar return flows', () => {
     expect(isSafeMercuryReturnUrlInput('/nl/my-business/overview')).toBe(true)
-    expect(isSafeMercuryReturnUrlInput('/nl/accountant/clients/c1')).toBe(true)
+    expect(isSafeMercuryReturnUrlInput('/nl/advisor/clients/c1')).toBe(true)
   })
 
   it('rejects typosquats and protocol-relative values before they are stored', () => {
@@ -56,12 +61,12 @@ describe('isSafeMercuryReturnUrlInput', () => {
 describe('getSafeMercuryReturnUrl', () => {
   it('rejects notupswitch.app typosquat and falls back to dashboard', () => {
     const out = getSafeMercuryReturnUrl('https://notupswitch.app/phish', { locale: 'en' })
-    expect(out).toBe('https://upswitch.app/en/accountant/dashboard')
+    expect(out).toBe('https://upswitch.app/en/advisor/dashboard')
   })
 
   it('rejects protocol-relative stored paths (//...) and falls back to dashboard', () => {
     const out = getSafeMercuryReturnUrl('//evil.example/phish', { locale: 'en' })
-    expect(out).toBe('https://upswitch.app/en/accountant/dashboard')
+    expect(out).toBe('https://upswitch.app/en/advisor/dashboard')
   })
 
   it('upgrades http to https for production Upswitch hosts (no cleartext downgrade)', () => {
@@ -78,7 +83,7 @@ describe('getSafeMercuryReturnUrl', () => {
 
   it('strips legacy from=venus from stored absolute URLs when celebrate is false', () => {
     const out = getSafeMercuryReturnUrl(
-      'https://upswitch.app/nl/accountant/clients/c1?from=venus&keep=1',
+      'https://upswitch.app/nl/advisor/clients/c1?from=venus&keep=1',
       { celebrateMercuryReturn: false }
     )
     expect(out).not.toContain('from=venus')
@@ -86,7 +91,7 @@ describe('getSafeMercuryReturnUrl', () => {
   })
 
   it('appends from=venus for client URLs when celebrate is true', () => {
-    const out = getSafeMercuryReturnUrl('https://upswitch.app/nl/accountant/clients/c1', {
+    const out = getSafeMercuryReturnUrl('https://upswitch.app/nl/advisor/clients/c1', {
       celebrateMercuryReturn: true,
     })
     expect(out).toContain('from=venus')
@@ -98,21 +103,21 @@ describe('getSafeMercuryReturnUrl', () => {
       sourceApp: 'mercury',
       locale: 'nl',
     })
-    expect(out).toBe('https://upswitch.app/nl/accountant/dashboard')
+    expect(out).toBe('https://upswitch.app/nl/advisor/dashboard')
     expect(out).not.toContain('from=venus')
   })
 
   it('rewrites stored absolute Mercury URL to match locale when options.locale is set', () => {
-    const out = getSafeMercuryReturnUrl('https://upswitch.app/en/accountant/settings?tab=billing', {
+    const out = getSafeMercuryReturnUrl('https://upswitch.app/en/advisor/settings?tab=billing', {
       locale: 'nl',
     })
-    expect(out).toBe('https://upswitch.app/nl/accountant/settings?tab=billing')
+    expect(out).toBe('https://upswitch.app/nl/advisor/settings?tab=billing')
   })
 
   it('rewrites stored nl path to en when options.locale is en', () => {
-    const out = getSafeMercuryReturnUrl('https://upswitch.app/nl/accountant/clients/c1', {
+    const out = getSafeMercuryReturnUrl('https://upswitch.app/nl/advisor/clients/c1', {
       locale: 'en',
     })
-    expect(out).toBe('https://upswitch.app/en/accountant/clients/c1')
+    expect(out).toBe('https://upswitch.app/en/advisor/clients/c1')
   })
 })

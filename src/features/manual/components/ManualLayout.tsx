@@ -3711,7 +3711,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       try {
         const loc =
           currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
-        window.location.href = `${getMercuryUrl()}/${loc}/accountant/dashboard`
+        window.location.href = `${getMercuryUrl()}/${loc}/advisor/dashboard`
       } catch {}
     }
   }, [clientContextId, currentLocale])
@@ -3957,7 +3957,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
           // Always notify Mercury when embedded so it invalidates cache (avoids stale "1 bedrijfsschatting")
           if (isEmbedded && typeof window !== 'undefined') {
-            const redirectTo = `/${currentLocale}/accountant/dashboard`
+            const redirectTo = `/${currentLocale}/advisor/dashboard`
             window.parent.postMessage(
               {
                 type: 'venus-report-deleted',
@@ -3992,7 +3992,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                   sourceApp: sourceApp ?? undefined,
                 })
               } catch {
-                redirectUrl = `${getMercuryUrl()}/${currentLocale}/accountant/dashboard`
+                redirectUrl = `${getMercuryUrl()}/${currentLocale}/advisor/dashboard`
               }
             } else {
               redirectUrl = `/${currentLocale}/reports/new`
@@ -4059,7 +4059,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     // Settings page lives in Mercury (cross-app navigation)
     const mercuryBaseUrl = getMercuryUrl()
     const locale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'en'
-    window.location.href = `${mercuryBaseUrl}/${locale}/accountant/settings`
+    window.location.href = `${mercuryBaseUrl}/${locale}/advisor/settings`
   }, [currentLocale])
 
   const handleSwitchWorkspace = useCallback(() => {
@@ -4096,12 +4096,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
   const handleNavigateToDashboard = useCallback(() => {
     const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/accountant/dashboard`
+    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/advisor/dashboard`
   }, [mercuryLocale])
 
   const handleNavigateToBilling = useCallback(() => {
     const mercuryBaseUrl = getMercuryUrl()
-    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/accountant/settings?tab=billing`
+    window.location.href = `${mercuryBaseUrl}/${mercuryLocale}/advisor/settings?tab=billing`
   }, [mercuryLocale])
 
   const handleNavigateToHelp = useCallback(() => {
@@ -4112,7 +4112,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   /** Client invite / share: Mercury client detail (SendInvitationModal), not Venus nav CTA */
   const handleOpenMercuryClientForInvite = useCallback(() => {
     if (!clientContextId) return
-    window.location.href = `${getMercuryUrl()}/${mercuryLocale}/accountant/clients/${clientContextId}`
+    window.location.href = `${getMercuryUrl()}/${mercuryLocale}/advisor/clients/${clientContextId}`
   }, [clientContextId, mercuryLocale])
 
   // ─── Field Help (opens Chat with context) - Clarity parity: full getContextualQuestion ───
@@ -4995,14 +4995,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             onClientClick={() => {
               if (clientContextId) {
                 const mercuryUrl = getMercuryUrl()
-                window.location.href = `${mercuryUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
+                window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
               }
             }}
             onBusinessClick={
               clientContextId
                 ? () => {
                     const mercuryUrl = getMercuryUrl()
-                    window.location.href = `${mercuryUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
+                    window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
                   }
                 : undefined
             }
@@ -5142,8 +5142,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           trackReturnToMercury()
           const mercuryBaseUrl = getMercuryUrl()
           const basePath = clientContextId
-            ? `${mercuryBaseUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
-            : `${mercuryBaseUrl}/${mercuryLocale}/accountant/clients`
+            ? `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
+            : `${mercuryBaseUrl}/${mercuryLocale}/advisor/clients`
           const hasCompletedValuation =
             (!!report &&
               typeof report.valuation === 'number' &&
@@ -5199,14 +5199,14 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           onClientClick={() => {
             if (clientContextId) {
               const mercuryUrl = getMercuryUrl()
-              window.location.href = `${mercuryUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
+              window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
             }
           }}
           onBusinessClick={
             clientContextId
               ? () => {
                   const mercuryUrl = getMercuryUrl()
-                  window.location.href = `${mercuryUrl}/${mercuryLocale}/accountant/clients/${clientContextId}`
+                  window.location.href = `${mercuryUrl}/${mercuryLocale}/advisor/clients/${clientContextId}`
                 }
               : undefined
           }
