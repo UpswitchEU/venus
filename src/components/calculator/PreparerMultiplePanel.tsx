@@ -40,7 +40,7 @@ export function PreparerMultiplePanel({
   selectedOmniMethod,
 }: PreparerMultiplePanelProps) {
   const { user } = useAuth()
-  const { isPremium, planFeatures } = useCredits()
+  const { planFeatures } = useCredits()
   const t = useTranslations('preparerMultiple')
   const locale = useLocale()
   const [open, setOpen] = useState(true)
@@ -48,8 +48,7 @@ export function PreparerMultiplePanel({
   const role = user?.role ?? ''
   const isAccountantTier =
     role === 'accountant' || role === 'expert' || role === 'enterprise' || role === 'admin'
-  const hasLiveBeneluxMultiples =
-    planFeatures?.live_benelux_sector_multiples ?? isPremium
+  const hasLiveBeneluxMultiples = planFeatures?.live_benelux_sector_multiples === true
   const beneluxBenchmarkLocked = isAccountantTier && !hasLiveBeneluxMultiples
 
   const benchmarkMedian = usePreparerMultipleStore((s) => s.benchmarkMedian)
