@@ -1,173 +1,34 @@
-# UpSwitch Valuation Tester - Documentation
+# Venus (valuation tester) — documentation index
 
-**Last Updated**: December 13, 2025
+Start here: [Quick start](./QUICK_START.md).
 
----
+## Architecture and auth
 
-## Documentation Index
+- [Architecture index](./ARCHITECTURE_INDEX.md)
+- [Twin-engine architecture](./ARCHITECTURE_TWIN_ENGINE.md)
+- [Auth architecture](./AUTH_ARCHITECTURE.md)
+- [Auth-first architecture](./AUTH_FIRST_ARCHITECTURE.md)
+- [Venus authentication](./VENUS_AUTHENTICATION.md)
+- [Session management API](./SESSION_MANAGEMENT_API.md)
+- [Session persistence](./SESSION_PERSISTENCE_UNIFIED.md), [refactoring notes](./SESSION_PERSISTENCE_REFACTORING.md), [verification](./SESSION_PERSISTENCE_VERIFICATION.md)
+- [Restoration architecture](./RESTORATION_ARCHITECTURE.md)
 
-### Architecture
+## Product and integration
 
-- **[M&A Workflow Complete Architecture](./architecture/MA_WORKFLOW_COMPLETE.md)**
-  - Complete system architecture
-  - Component diagrams
-  - Data flow diagrams
-  - Performance considerations
+- [Valuation methods operating guide](./VALUATION_METHODS_OPERATING_GUIDE.md)
+- [Adaptive input studio](./ADAPTIVE_INPUT_STUDIO.md)
+- [CSV import positioning](./CSV_IMPORT_POSITIONING.md) — normalization hints, not the Hermes→Titan ledger pipeline
+- [Backend requirements](./BACKEND_REQUIREMENTS.md)
+- [No calculations policy](./NO_CALCULATIONS_POLICY.md)
+- [Header format specification](./HEADER_FORMAT_SPECIFICATION.md)
+- [V2 version and assets](./V2_VERSION_AND_ASSETS_BEHAVIOR.md)
+- [Version dropdown](./VERSION_DROPDOWN_IMPLEMENTATION.md), [version timeline brand](./VERSION_TIMELINE_BRAND_UPDATE.md)
 
-- **[Session Restoration Robustness Audit](./analysis/SESSION_RESTORATION_ROBUSTNESS_AUDIT.md)**
-  - Robustness gaps identified
-  - Fail-proof mechanisms implemented
-  - Testing requirements
+## Launch and quality
 
-### Strategy
+- [Launch readiness](./LAUNCH_READINESS.md)
+- [Grootboek / NACE / business type audit](./AUDIT_GROOTBOEK_NACE_BUSINESSTYPE.md)
 
-- **[M&A Workflow Strategy](./strategy/MA_WORKFLOW_STRATEGY.md)**
-  - Business context
-  - User journey
-  - Feature prioritization
-  - Success metrics
+## Strategy
 
-### Implementation
-
-- **[M&A Workflow Implementation Summary](./implementation/MA_WORKFLOW_IMPLEMENTATION_SUMMARY.md)**
-  - What was built
-  - Before/after comparison
-  - Backend requirements
-  - Migration strategy
-
-- **[Implementation Complete](./IMPLEMENTATION_COMPLETE.md)**
-  - Executive summary
-  - Features delivered
-  - Performance metrics
-  - Compliance validation
-
-### API
-
-- **[Versioning API Specification](./api/VERSIONING_API_SPEC.md)**
-  - Complete API reference
-  - Request/response formats
-  - Error handling
-  - Business logic
-
-### Financial ingestion (positioning)
-
-- **[CSV import positioning](./CSV_IMPORT_POSITIONING.md)** — CSV in Venus is normalization hints / gap-analysis assist, **not** the Hermes→Titan ledger pipeline (integration-first strategy).
-
----
-
-## Quick Links
-
-### For Developers
-
-- [Frontend Architecture](./architecture/MA_WORKFLOW_COMPLETE.md#frontend-architecture)
-- [Backend Architecture](./architecture/MA_WORKFLOW_COMPLETE.md#backend-architecture)
-- [API Endpoints](./api/VERSIONING_API_SPEC.md)
-
-### For Product Managers
-
-- [Strategy Overview](./strategy/MA_WORKFLOW_STRATEGY.md)
-- [User Journey](./strategy/MA_WORKFLOW_STRATEGY.md#user-journey)
-- [Success Metrics](./strategy/MA_WORKFLOW_STRATEGY.md#success-metrics)
-
-### For QA/Testing
-
-- [Testing Strategy](./architecture/MA_WORKFLOW_COMPLETE.md#testing-strategy)
-- [Robustness Audit](./analysis/SESSION_RESTORATION_ROBUSTNESS_AUDIT.md)
-
----
-
-## Getting Started
-
-### Frontend Development
-
-```bash
-cd apps/upswitch-valuation-tester
-npm install
-npm run dev
-```
-
-### Backend Development
-
-```bash
-cd apps/upswitch-backend
-npm install
-npm run dev
-```
-
-### Database Migrations
-
-```bash
-cd apps/upswitch-backend
-psql $DATABASE_URL -f database/migrations/25_create_valuation_versions.sql
-psql $DATABASE_URL -f database/migrations/26_create_valuation_audit_log.sql
-```
-
----
-
-## Key Concepts
-
-### M&A Workflow
-
-The M&A workflow enables iterative valuation refinement over weeks or months:
-
-1. **Create** → Start new valuation
-2. **Save** → Auto-save on changes
-3. **Return** → Resume anytime
-4. **Edit** → Adjust assumptions
-5. **Regenerate** → New version created
-6. **Compare** → See what changed
-
-### Version Management
-
-- **Auto-Versioning**: New version created on regeneration with significant changes
-- **Version History**: Complete timeline of all versions
-- **Version Comparison**: Side-by-side diff view
-- **Version Labels**: User-friendly labels (e.g., "Q4 2025 Final")
-
-### Session Robustness
-
-- **Fail-Proof Loading**: Request deduplication, retry, circuit breaker
-- **Session Caching**: localStorage cache for offline resilience
-- **Data Validation**: Auto-fix common data issues
-- **Audit Logging**: Complete operation history
-
----
-
-## Support
-
-For questions or issues:
-- Check [Architecture Documentation](./architecture/MA_WORKFLOW_COMPLETE.md)
-- Review [Implementation Summary](./implementation/MA_WORKFLOW_IMPLEMENTATION_SUMMARY.md)
-- See [API Specification](./api/VERSIONING_API_SPEC.md)
-
-The M&A workflow enables iterative valuation refinement over weeks or months:
-
-1. **Create** → Start new valuation
-2. **Save** → Auto-save on changes
-3. **Return** → Resume anytime
-4. **Edit** → Adjust assumptions
-5. **Regenerate** → New version created
-6. **Compare** → See what changed
-
-### Version Management
-
-- **Auto-Versioning**: New version created on regeneration with significant changes
-- **Version History**: Complete timeline of all versions
-- **Version Comparison**: Side-by-side diff view
-- **Version Labels**: User-friendly labels (e.g., "Q4 2025 Final")
-
-### Session Robustness
-
-- **Fail-Proof Loading**: Request deduplication, retry, circuit breaker
-- **Session Caching**: localStorage cache for offline resilience
-- **Data Validation**: Auto-fix common data issues
-- **Audit Logging**: Complete operation history
-
----
-
-## Support
-
-For questions or issues:
-- Check [Architecture Documentation](./architecture/MA_WORKFLOW_COMPLETE.md)
-- Review [Implementation Summary](./implementation/MA_WORKFLOW_IMPLEMENTATION_SUMMARY.md)
-- See [API Specification](./api/VERSIONING_API_SPEC.md)
+See [strategy/](./strategy/) (business model, GTM, competitive analysis, workflow strategy).

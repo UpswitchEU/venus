@@ -27,10 +27,7 @@ npm run build
 | Guide | Purpose | When to Use |
 |-------|---------|-------------|
 | [TRANSLATION_WORKFLOW.md](./TRANSLATION_WORKFLOW.md) | Add/update translations | When adding new features or changing copy |
-| [I18N_IMPLEMENTATION_GUIDE.md](./I18N_IMPLEMENTATION_GUIDE.md) | Technical reference | When integrating i18n in components |
 | [TRANSLATION_TESTING_CHECKLIST.md](./TRANSLATION_TESTING_CHECKLIST.md) | QA testing | Before deploying to production |
-| [MERCURY_INTEGRATION_VERIFICATION.md](./MERCURY_INTEGRATION_VERIFICATION.md) | Cross-app testing | When testing with Mercury |
-| [I18N_IMPLEMENTATION_COMPLETE.md](./I18N_IMPLEMENTATION_COMPLETE.md) | Full summary | For understanding the complete implementation |
 
 ---
 
