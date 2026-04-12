@@ -2628,7 +2628,7 @@
 		"stepExplainReason": "Bijna klaar: kies een reden, voeg desgewenst een notitie toe en bevestig.",
 		"methodsListHeading": "Kies een methode",
 		"planTeaserBadge": "Starter+",
-		"planTeaserHint": "Upgrade voor deze methode en volledige toegang tot de sector-multiples database.",
+		"planTeaserHint": "Upgrade voor deze methode en geïntegreerde live Benelux multiples in de preparer (Starter+). De volledige actuele index blijft gratis met een Upswitch-account.",
 		"methodsPanoramaTitle": "Alle methoden in één oogopslag",
 		"columnEquity": "Waarde",
 		"columnMultiple": "Kengetal",
@@ -2731,7 +2731,7 @@
 		"extremeServerToast": "Multiple buiten de guardrails: vink de bevestiging aan en probeer opnieuw, of nader tot de benchmark.",
 		"hintFiscalMethod": "Fiscale referentie gebruikt een vaste 4× EBITDA-multiple — kantoor correctie is niet van toepassing op deze methode.",
 		"hintOtherMethod": "Benchmark versus toegepaste multiple ziet u voor EV/EBITDA, omzetmultiple of de Upswitch marktbenadering. Voor andere methoden is dit paneel enkel context.",
-		"benchmarkTeaserBody": "Live Benelux sector-multiples (KMO-index) en de volledige preparer-tool zitten in Starter.",
+		"benchmarkTeaserBody": "Vanaf Starter: geïntegreerde live Benelux sector-multiples (KMO-index) in de preparer. De volledige actuele openbare index-snapshot is gratis met een Upswitch-account.",
 		"benchmarkTeaserCta": "Upgrade naar Starter"
 	},
 	"valuationEditModal": {

@@ -2628,7 +2628,7 @@
 		"stepExplainReason": "Almost there: choose a reason, add a note if needed, then confirm.",
 		"methodsListHeading": "Pick a method",
 		"planTeaserBadge": "Starter+",
-		"planTeaserHint": "Upgrade to unlock this method and full access to the sector multiples database.",
+		"planTeaserHint": "Upgrade for this method and integrated live Benelux multiples in the preparer (Starter+). The full current index stays free with an Upswitch account.",
 		"methodsPanoramaTitle": "All methods at a glance",
 		"columnEquity": "Equity",
 		"columnMultiple": "Metric",
@@ -2731,7 +2731,7 @@
 		"extremeServerToast": "Multiple outside guardrails: confirm the checkbox and try again, or move closer to the benchmark.",
 		"hintFiscalMethod": "Fiscal reference uses a fixed 4× EBITDA multiple — firm adjusted multiple does not apply to this method.",
 		"hintOtherMethod": "Benchmark vs applied multiple is shown for EV/EBITDA, revenue multiple, or the Upswitch market approach. For other methods this panel is contextual only.",
-		"benchmarkTeaserBody": "Live Benelux sector multiples (SME index) and the full preparer workflow are included from Starter.",
+		"benchmarkTeaserBody": "From Starter: integrated live Benelux sector multiples (SME index) in the preparer. The full current public index snapshot is free with an Upswitch account.",
 		"benchmarkTeaserCta": "Upgrade to Starter"
 	},
 	"valuationEditModal": {
