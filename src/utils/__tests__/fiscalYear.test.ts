@@ -10,21 +10,21 @@ describe('getCurrentFilingYear', () => {
     ['January', new Date('2026-01-15'), 2024],
     ['February', new Date('2026-02-10'), 2024],
     ['March', new Date('2026-03-26'), 2024],
-    ['April', new Date('2026-04-01'), 2024],
-    ['May', new Date('2026-05-31'), 2024],
-    ['June', new Date('2026-06-30'), 2024],
-  ])('returns year - 2 in %s (H1)', (_month, date, expected) => {
+  ])('returns year - 2 before April in %s', (_month, date, expected) => {
     expect(getCurrentFilingYear(date)).toBe(expected)
   })
 
   it.each([
+    ['April', new Date('2026-04-01'), 2025],
+    ['May', new Date('2026-05-31'), 2025],
+    ['June', new Date('2026-06-30'), 2025],
     ['July', new Date('2026-07-01'), 2025],
     ['August', new Date('2026-08-15'), 2025],
     ['September', new Date('2026-09-30'), 2025],
     ['October', new Date('2026-10-15'), 2025],
     ['November', new Date('2026-11-01'), 2025],
     ['December', new Date('2026-12-31'), 2025],
-  ])('returns year - 1 in %s (H2)', (_month, date, expected) => {
+  ])('returns year - 1 from April onward in %s', (_month, date, expected) => {
     expect(getCurrentFilingYear(date)).toBe(expected)
   })
 
@@ -32,7 +32,7 @@ describe('getCurrentFilingYear', () => {
     const now = new Date()
     const month = now.getMonth() + 1
     const year = now.getFullYear()
-    const expected = month <= 6 ? year - 2 : year - 1
+    const expected = month < 4 ? year - 2 : year - 1
     expect(getCurrentFilingYear()).toBe(expected)
   })
 })

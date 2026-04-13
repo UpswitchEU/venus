@@ -44,8 +44,8 @@ describe('accountingAPI filing year defaults', () => {
     })
   })
 
-  it('requests the prior year after the July filing cutoff', async () => {
-    vi.setSystemTime(new Date('2026-08-15T12:00:00Z'))
+  it('requests the prior year once the April filing cutoff has passed', async () => {
+    vi.setSystemTime(new Date('2026-04-01T12:00:00Z'))
 
     await accountingAPI.getProviderFinancialData('exact')
 

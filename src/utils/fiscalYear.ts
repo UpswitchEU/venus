@@ -7,13 +7,13 @@ export function getLastFullFiscalYear(): number {
  * Returns the latest fiscal year for which books are realistically
  * closed and published, based on Belgian/EU filing timelines.
  *
- * Jan–Jun: books for (currentYear − 1) are still being closed → return currentYear − 2
- * Jul–Dec: (currentYear − 1) books are published → return currentYear − 1
+ * Jan–Mar: books for (currentYear − 1) are still being closed → return currentYear − 2
+ * Apr–Dec: (currentYear − 1) books are published → return currentYear − 1
  */
 export function getCurrentFilingYear(now: Date = new Date()): number {
   const month = now.getMonth() + 1
   const year = now.getFullYear()
-  return month <= 6 ? year - 2 : year - 1
+  return month < 4 ? year - 2 : year - 1
 }
 
 /**

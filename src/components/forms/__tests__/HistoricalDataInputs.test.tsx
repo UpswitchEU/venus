@@ -42,9 +42,9 @@ describe('HistoricalDataInputs', () => {
     expect(screen.queryByDisplayValue('2024')).not.toBeInTheDocument()
   })
 
-  it('moves the window forward after July', () => {
+  it('moves the window forward after the April cutoff', () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-08-15T12:00:00Z'))
+    vi.setSystemTime(new Date('2026-04-01T12:00:00Z'))
 
     render(
       <HistoricalDataInputs

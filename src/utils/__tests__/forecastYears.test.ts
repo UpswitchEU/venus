@@ -242,16 +242,16 @@ describe('forecast year helpers', () => {
       expect(getCurrentFilingYear(new Date('2026-03-26'))).toBe(2024)
     })
 
-    it('August 2026: base year is 2025 (books for 2025 closed by July)', () => {
-      expect(getCurrentFilingYear(new Date('2026-08-15'))).toBe(2025)
+    it('April 2026: base year is 2025 once the cutoff has passed', () => {
+      expect(getCurrentFilingYear(new Date('2026-04-01'))).toBe(2025)
     })
 
-    it('June 30 is still H1 (year-2)', () => {
-      expect(getCurrentFilingYear(new Date('2026-06-30'))).toBe(2024)
+    it('March 31 is still pre-cutoff (year-2)', () => {
+      expect(getCurrentFilingYear(new Date('2026-03-31'))).toBe(2024)
     })
 
-    it('July 1 is H2 (year-1)', () => {
-      expect(getCurrentFilingYear(new Date('2026-07-01'))).toBe(2025)
+    it('April 1 switches to year-1', () => {
+      expect(getCurrentFilingYear(new Date('2026-04-01'))).toBe(2025)
     })
   })
 

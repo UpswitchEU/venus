@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../../types/valuation'
 import {
@@ -33,6 +33,10 @@ function makeFormData(overrides: Partial<ValuationFormData> = {}): ValuationForm
 }
 
 describe('buildValuationRequest', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('preserves zero historical years when none were entered', () => {
     const result = buildValuationRequest(
       makeFormData({
@@ -140,6 +144,9 @@ describe('buildValuationRequest', () => {
   })
 
   it('preserves an explicitly confirmed newer year for current_year_data', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
+
     const result = buildValuationRequest(
       makeFormData({
         filing_year_confirmed: true,
@@ -153,6 +160,31 @@ describe('buildValuationRequest', () => {
     )
 
     expect(result.current_year_data.year).toBe(getCurrentFilingYear() + 1)
+  })
+
+  it('rejects confirmed-year leakage into historical_years_data', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          filing_year_confirmed: true,
+          current_year_data: {
+            year: getCurrentFilingYear() + 1,
+            revenue: 1_500_000,
+            ebitda: 250_000,
+          },
+          historical_years_data: [
+            { year: getCurrentFilingYear() + 1, revenue: 1_200_000, ebitda: 200_000 },
+            { year: getCurrentFilingYear(), revenue: 900_000, ebitda: 150_000 },
+          ],
+        }),
+        []
+      )
+    ).toThrow(
+      `Historical year ${getCurrentFilingYear() + 1} must be earlier than the current fiscal year ${getCurrentFilingYear() + 1}.`
+    )
   })
 
   it('always forces shares_for_sale to 100', () => {
@@ -354,7 +386,6 @@ describe('buildValuationRequest', () => {
   })
 
   it('accepts the latest complete year when newer placeholder years are empty', () => {
-    const lastFullYear = getCurrentFilingYear()
     const yearlyFinancials = [
       { year: '2025', revenue: 0, ebitda: 0 },
       { year: '2024', revenue: 1_500_000, ebitda: 250_000 },
@@ -380,7 +411,7 @@ describe('buildValuationRequest', () => {
       []
     )
 
-    expect(result.current_year_data.year).toBe(lastFullYear)
+    expect(result.current_year_data.year).toBe(2024)
     expect(result.current_year_data.revenue).toBe(1_500_000)
     expect(result.historical_years_data).toEqual([
       { year: 2023, revenue: 1_000_000, ebitda: 100_000, ebitda_normalized: false },
