@@ -16,6 +16,18 @@ describe('stableOptionalPrefillSourceSignature', () => {
     const b = { company_name: 'Y', dcf_wacc_pct: 9.5, nav_hidden_reserves: 1, _foo: 1 }
     expect(stableOptionalPrefillSourceSignature(a)).toBe(stableOptionalPrefillSourceSignature(b))
   })
+
+  it('changes when _internal_key_metrics changes', () => {
+    const a = { _internal_key_metrics: ['ebitda'] }
+    const b = { _internal_key_metrics: ['ebitda', 'revenue'] }
+    expect(stableOptionalPrefillSourceSignature(a)).not.toBe(stableOptionalPrefillSourceSignature(b))
+  })
+
+  it('includes user_configured_dcf when present', () => {
+    expect(stableOptionalPrefillSourceSignature({ user_configured_dcf: true })).toContain(
+      'user_configured_dcf'
+    )
+  })
 })
 
 describe('mergeOptionalSessionPrefillFields', () => {

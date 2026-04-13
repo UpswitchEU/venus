@@ -15,6 +15,7 @@ import { useCanSave } from '../../../hooks/useCanSave'
 import { reportService, sessionService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
+import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { ValidationError } from '../../../types/errors'
@@ -27,6 +28,7 @@ import {
 } from '../../../utils/fiscalYear'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
+import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import {
   areChangesSignificant,
@@ -411,7 +413,11 @@ export const useValuationFormSubmission = (
               generalLogger.debug('[Manual] Saving report assets', { reportId })
 
               await reportService.saveReportAssets(reportId, {
-                sessionData: formData,
+                sessionData: mergeSessionDataForReportAssets(
+                  formData as Record<string, unknown>,
+                  request as Record<string, unknown>,
+                  useTaxLatencyStore.getState().items
+                ),
                 valuationResult: result,
                 htmlReport: result.html_report,
                 name: sessionName,

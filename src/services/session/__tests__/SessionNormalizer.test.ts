@@ -7,6 +7,8 @@ describe('normalizeSessionData', () => {
   })
 
   it('does not fabricate historical years from current year data and keeps the year filing-safe', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
     const normalized = normalizeSessionData({
       session_key: 'val_123',
       session_data: {
@@ -292,5 +294,157 @@ describe('normalizeSessionData', () => {
       })
       expect(normalized.preSelectedValuationMethod).toBe('adjusted_nav')
     })
+  })
+
+  it('extracts NAV and real-estate carve-out fields into formData', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_nav',
+      session_data: {
+        nav_hidden_reserves: 50000,
+        nav_tax_latency_pct: 30,
+        exclude_real_estate: true,
+        real_estate_book_value: 200000,
+        estimated_market_rent: 12000,
+      },
+    })
+    expect(normalized.formData.nav_hidden_reserves).toBe(50000)
+    expect(normalized.formData.nav_tax_latency_pct).toBe(30)
+    expect(normalized.formData.exclude_real_estate).toBe(true)
+    expect(normalized.formData.real_estate_book_value).toBe(200000)
+    expect(normalized.formData.estimated_market_rent).toBe(12000)
+  })
+
+  it('reads camelCase NAV / carve-out aliases', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_nav_camel',
+      session_data: {
+        navHiddenReserves: 1,
+        excludeRealEstate: false,
+      },
+    })
+    expect(normalized.formData.nav_hidden_reserves).toBe(1)
+    expect(normalized.formData.exclude_real_estate).toBe(false)
+  })
+
+  it('extracts owner_salary_addback for SDE restore', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_sde',
+      session_data: { owner_salary_addback: 72_000 },
+    })
+    expect(normalized.formData.owner_salary_addback).toBe(72_000)
+  })
+
+  it('extracts DCF mode and assumption scalars for manual restore', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_dcf_restore',
+      session_data: {
+        dcf_input_mode: 'fcff_only',
+        dcf_wacc_pct: 9.25,
+        dcf_terminal_growth_pct: 2.5,
+        dcf_revenue_growth_pct: 8,
+        dcf_terminal_value_method: 'perpetuity_growth',
+      },
+    })
+    expect(normalized.formData.dcf_input_mode).toBe('fcff_only')
+    expect(normalized.formData.dcf_wacc_pct).toBe(9.25)
+    expect(normalized.formData.dcf_terminal_growth_pct).toBe(2.5)
+    expect(normalized.formData.dcf_revenue_growth_pct).toBe(8)
+    expect(normalized.formData.dcf_terminal_value_method).toBe('perpetuity_growth')
+  })
+
+  it('extracts user_configured_dcf from session (snake or camel alias)', () => {
+    const snake = normalizeSessionData({
+      session_key: 'val_ucd_snake',
+      session_data: { user_configured_dcf: true },
+    })
+    expect(snake.formData.user_configured_dcf).toBe(true)
+    const camel = normalizeSessionData({
+      session_key: 'val_ucd_camel',
+      session_data: { userConfiguredDcf: true },
+    })
+    expect(camel.formData.user_configured_dcf).toBe(true)
+  })
+
+  it('extracts business-type adaptive metadata for restore', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_internal_meta',
+      session_data: {
+        _internal_key_metrics: ['ebitda'],
+        _internal_typical_employee_range: { min: 5, max: 50 },
+        _internal_typical_revenue_range: { min: 1e6, max: 5e6 },
+      },
+    })
+    expect(normalized.formData._internal_key_metrics).toEqual(['ebitda'])
+    expect(normalized.formData._internal_typical_employee_range).toEqual({ min: 5, max: 50 })
+    expect(normalized.formData._internal_typical_revenue_range).toEqual({ min: 1e6, max: 5e6 })
+  })
+
+  it('extracts SaaS, revenue-quality, subIndustry, and legacy tax_latencies for adaptive restore', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_adaptive_restore',
+      session_data: {
+        subIndustry: 'SaaS vertical',
+        saas_arr: 1_200_000,
+        saas_nrr_pct: 110,
+        rev_recurring_amount: 400_000,
+        rev_top_client_concentration_pct: 22,
+        tax_latencies: [{ type: 'passive', description: 'x', temporary_difference: 1, tax_rate: 25 }],
+      },
+    })
+    expect(normalized.formData.subIndustry).toBe('SaaS vertical')
+    expect(normalized.formData.saas_arr).toBe(1_200_000)
+    expect(normalized.formData.saas_nrr_pct).toBe(110)
+    expect(normalized.formData.rev_recurring_amount).toBe(400_000)
+    expect(normalized.formData.rev_top_client_concentration_pct).toBe(22)
+    expect(Array.isArray(normalized.formData.tax_latencies)).toBe(true)
+    expect((normalized.formData.tax_latencies as unknown[]).length).toBe(1)
+  })
+
+  it('promotes adaptive scalars from business_context when top-level keys are missing', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_bc_promote',
+      session_data: {
+        business_context: {
+          saas_arr: 1_200_000,
+          saas_nrr_pct: 115,
+          dcf_wacc_pct: 9.5,
+          nav_hidden_reserves: 40_000,
+          rev_recurring_amount: 300_000,
+        },
+      },
+    })
+    expect(normalized.formData.saas_arr).toBe(1_200_000)
+    expect(normalized.formData.saas_nrr_pct).toBe(115)
+    expect(normalized.formData.dcf_wacc_pct).toBe(9.5)
+    expect(normalized.formData.nav_hidden_reserves).toBe(40_000)
+    expect(normalized.formData.rev_recurring_amount).toBe(300_000)
+  })
+
+  it('promotes API camelCase adaptive metadata from business_context onto _internal_*', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_bc_camel',
+      session_data: {
+        business_context: {
+          keyMetrics: ['ebitda', 'revenue'],
+          typicalEmployeeRange: { min: 2, max: 20 },
+          dcfPreference: 0.6,
+        },
+      },
+    })
+    expect(normalized.formData._internal_key_metrics).toEqual(['ebitda', 'revenue'])
+    expect(normalized.formData._internal_typical_employee_range).toEqual({ min: 2, max: 20 })
+    expect(normalized.formData._internal_dcf_preference).toBe(0.6)
+  })
+
+  it('does not override top-level adaptive fields with business_context', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_bc_no_override',
+      session_data: {
+        saas_arr: 500_000,
+        business_context: { saas_arr: 9_999_999, dcf_wacc_pct: 12 },
+      },
+    })
+    expect(normalized.formData.saas_arr).toBe(500_000)
+    expect(normalized.formData.dcf_wacc_pct).toBe(12)
   })
 })

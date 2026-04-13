@@ -15,6 +15,7 @@ const OPTIONAL_SCALAR_KEYS = [
   'net_income',
   'use_dcf',
   'use_multiples',
+  'user_configured_dcf',
   'projection_years',
   'dcf_input_mode',
   'government_bond_yield',
@@ -82,6 +83,15 @@ const OPTIONAL_SCALAR_KEYS = [
 export const OPTIONAL_SESSION_PREFILL_SCALAR_KEYS = OPTIONAL_SCALAR_KEYS
 
 /**
+ * Structured fields from business-type / adaptive context (not scalars) — must autosave + fingerprint.
+ */
+export const OPTIONAL_SESSION_STRUCT_SYNC_KEYS = [
+  '_internal_key_metrics',
+  '_internal_typical_employee_range',
+  '_internal_typical_revenue_range',
+] as const
+
+/**
  * Compact stable fingerprint of optional prefill *sources* (session JSON, package blob).
  * Ignores unrelated session keys so referential churn does not false-positive as “changed”.
  */
@@ -93,6 +103,12 @@ export function stableOptionalPrefillSourceSignature(record: Record<string, unkn
     if (incoming === undefined || incoming === null) continue
     if (typeof incoming === 'string' && incoming.trim() === '') continue
     parts.push(`${key}:${String(incoming)}`)
+  }
+  for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(record, key)) continue
+    const incoming = record[key]
+    if (incoming === undefined || incoming === null) continue
+    parts.push(`${key}:${JSON.stringify(incoming)}`)
   }
   const tl = record['tax_latencies']
   if (Array.isArray(tl) && tl.length > 0) parts.push(`tax_latencies:${tl.length}`)

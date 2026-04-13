@@ -707,6 +707,19 @@ describe('buildValuationRequest', () => {
     expect(result.recurring_revenue_percentage).toBe(0.65)
   })
 
+  it('forwards owner_salary_addback on the valuation request for SDE', () => {
+    const result = buildValuationRequest(makeFormData({ owner_salary_addback: 85_000 }), [])
+    expect(result.owner_salary_addback).toBe(85_000)
+  })
+
+  it('omits owner_salary_addback when unset or non-finite', () => {
+    expect(buildValuationRequest(makeFormData({}), []).owner_salary_addback).toBeUndefined()
+    expect(
+      buildValuationRequest(makeFormData({ owner_salary_addback: Number.NaN as any }), [])
+        .owner_salary_addback
+    ).toBeUndefined()
+  })
+
   it('serializes adaptive DCF and NAV inputs into business_context', () => {
     const result = buildValuationRequest(
       makeFormData({

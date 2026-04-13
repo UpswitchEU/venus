@@ -147,6 +147,7 @@ import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
+import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
@@ -2822,7 +2823,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           const saveStartDirtyVersion = useSessionStore.getState().dirtyVersion
           try {
             await reportService.saveReportAssets(idForApi, {
-              sessionData: storeSnapshot,
+              sessionData: mergeSessionDataForReportAssets(
+                storeSnapshot as Record<string, unknown>,
+                request as Record<string, unknown>,
+                useTaxLatencyStore.getState().items
+              ),
               valuationResult: calcResult,
               htmlReport: calcResult.html_report || undefined,
               name: sessionName,
@@ -4344,7 +4349,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           setLastSaved(new Date())
           try {
             await reportService.saveReportAssets(idForApi, {
-              sessionData: requestSource,
+              sessionData: mergeSessionDataForReportAssets(
+                requestSource as Record<string, unknown>,
+                request as Record<string, unknown>,
+                useTaxLatencyStore.getState().items
+              ),
               valuationResult: calcResult,
               htmlReport: calcResult.html_report || undefined,
               name: sessionName,

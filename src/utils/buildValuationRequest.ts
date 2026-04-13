@@ -711,6 +711,10 @@ export function buildValuationRequest(
     ...(fd.estimated_market_rent != null && {
       estimated_market_rent: Number(fd.estimated_market_rent),
     }),
+    ...(fd.owner_salary_addback != null &&
+      Number.isFinite(Number(fd.owner_salary_addback)) && {
+        owner_salary_addback: Number(fd.owner_salary_addback),
+      }),
     ...(hasUsableOfficialFinancialsContent((formData as any).official_financials) &&
       (formData as any).official_financials && {
         official_financials: (formData as any).official_financials,

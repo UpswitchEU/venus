@@ -19,12 +19,125 @@
  */
 
 import { useCallback, useEffect } from 'react'
+import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { debounceWithFlush } from '../utils/debounce'
 import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from '../utils/fiscalYear'
 import { generalLogger } from '../utils/logger'
 import { NameGenerator } from '../utils/nameGenerator'
+import {
+  OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
+  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+  stableOptionalPrefillSourceSignature,
+} from '../utils/mergeOptionalSessionPrefillFields'
 import { buildCurrentYearData, OPTIONAL_YEAR_DATA_FIELDS } from '../utils/yearData'
+
+const SKIP_OPTIONAL_SESSION_SYNC_KEYS = new Set<string>(['revenue', 'ebitda', 'shares_for_sale'])
+
+function taxLatenciesEqualForAutosync(
+  storeItems: unknown[] | undefined,
+  sessionData: Record<string, unknown> | null | undefined
+): boolean {
+  if (storeItems === undefined) return true
+  const s = sessionData?._taxLatencies
+  const normalized = Array.isArray(s) ? s : []
+  return JSON.stringify(storeItems) === JSON.stringify(normalized)
+}
+
+/** Exported for tests — debounced autosave must not treat DCF / NAV-only edits as “no change”. */
+export function areFormAndSessionDataEqualForAutosync(
+  formData: any,
+  sessionData: any,
+  taxLatencyItems?: unknown[]
+): boolean {
+  if (!sessionData || !formData) return false
+
+  const keyFields = [
+    'company_name',
+    'revenue',
+    'ebitda',
+    'industry',
+    'business_model',
+    'founding_year',
+    'business_type_id',
+    'rev_recurring_amount',
+    'rev_top_client_amount',
+    'rev_gross_churn_pct',
+  ]
+
+  for (const field of keyFields) {
+    if (formData[field] !== sessionData[field]) {
+      return false
+    }
+  }
+
+  if (formData.filing_year_confirmed !== sessionData.filing_year_confirmed) {
+    return false
+  }
+
+  const formCurrentYear = formData.current_year_data
+  const sessionCurrentYear = sessionData.current_year_data
+  if (!!formCurrentYear !== !!sessionCurrentYear) {
+    return false
+  }
+  if (formCurrentYear || sessionCurrentYear) {
+    const fieldsToCompare = ['year', 'revenue', 'ebitda', ...OPTIONAL_YEAR_DATA_FIELDS]
+    for (const field of fieldsToCompare) {
+      if (formCurrentYear?.[field] !== sessionCurrentYear?.[field]) {
+        return false
+      }
+    }
+  }
+
+  const formHistNorm = Array.isArray(formData.historical_years_data)
+    ? formData.historical_years_data
+    : []
+  const sessHistNorm = Array.isArray(sessionData.historical_years_data)
+    ? sessionData.historical_years_data
+    : []
+  if (formHistNorm.length !== sessHistNorm.length) return false
+  const formStr = JSON.stringify(
+    formHistNorm
+      .map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
+      .sort((a: any, b: any) => a.year - b.year)
+  )
+  const sessStr = JSON.stringify(
+    sessHistNorm
+      .map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
+      .sort((a: any, b: any) => a.year - b.year)
+  )
+  if (formStr !== sessStr) return false
+
+  const formFc = Array.isArray(formData.forecast_years_data) ? formData.forecast_years_data : []
+  const sessFc = Array.isArray(sessionData.forecast_years_data)
+    ? sessionData.forecast_years_data
+    : []
+  if (formFc.length !== sessFc.length) return false
+  const fcFormStr = JSON.stringify(
+    formFc
+      .map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
+      .sort((a: any, b: any) => a.year - b.year)
+  )
+  const fcSessStr = JSON.stringify(
+    sessFc
+      .map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda }))
+      .sort((a: any, b: any) => a.year - b.year)
+  )
+  if (fcFormStr !== fcSessStr) return false
+
+  if (
+    stableOptionalPrefillSourceSignature(formData as Record<string, unknown>) !==
+    stableOptionalPrefillSourceSignature((sessionData ?? {}) as Record<string, unknown>)
+  ) {
+    return false
+  }
+
+  if (!taxLatenciesEqualForAutosync(taxLatencyItems, sessionData as Record<string, unknown>)) {
+    return false
+  }
+
+  return true
+}
 
 interface UseFormSessionSyncOptions {
   reportId: string | null | undefined
@@ -39,81 +152,12 @@ interface UseFormSessionSyncOptions {
  * Restoration (session → form) is handled centrally by SessionRestorationService
  */
 export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOptions) => {
-  // Helper to check if form data matches session data (prevent unnecessary syncs)
-  const isDataEqual = useCallback((formData: any, sessionData: any): boolean => {
-    if (!sessionData || !formData) return false
-
-    // Compare key fields that indicate meaningful changes
-    const keyFields = [
-      'company_name',
-      'revenue',
-      'ebitda',
-      'industry',
-      'business_model',
-      'founding_year',
-      'business_type_id',
-      'rev_recurring_amount',
-      'rev_top_client_amount',
-      'rev_gross_churn_pct',
-    ]
-
-    for (const field of keyFields) {
-      if (formData[field] !== sessionData[field]) {
-        return false
-      }
-    }
-
-    if (formData.filing_year_confirmed !== sessionData.filing_year_confirmed) {
-      return false
-    }
-
-    // Compare current_year_data
-    const formCurrentYear = formData.current_year_data
-    const sessionCurrentYear = sessionData.current_year_data
-    if (!!formCurrentYear !== !!sessionCurrentYear) {
-      return false
-    }
-    if (formCurrentYear || sessionCurrentYear) {
-      const fieldsToCompare = ['year', 'revenue', 'ebitda', ...OPTIONAL_YEAR_DATA_FIELDS]
-      for (const field of fieldsToCompare) {
-        if (formCurrentYear?.[field] !== sessionCurrentYear?.[field]) {
-          return false
-        }
-      }
-    }
-
-    // Compare historical_years_data (prevents skipping sync when only historical data changed)
-    const formHist = formData.historical_years_data
-    const sessHist = sessionData.historical_years_data
-    if (!Array.isArray(formHist) && !Array.isArray(sessHist)) return true
-    if (!Array.isArray(formHist) || !Array.isArray(sessHist)) return false
-    if (formHist.length !== sessHist.length) return false
-    const formStr = JSON.stringify(
-      formHist.map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda })).sort((a: any, b: any) => a.year - b.year)
-    )
-    const sessStr = JSON.stringify(
-      sessHist.map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda })).sort((a: any, b: any) => a.year - b.year)
-    )
-    if (formStr !== sessStr) return false
-
-    // Treat missing vs [] as equivalent — both mean "no persisted forecast rows".
-    const formFc = Array.isArray(formData.forecast_years_data)
-      ? formData.forecast_years_data
-      : []
-    const sessFc = Array.isArray(sessionData.forecast_years_data)
-      ? sessionData.forecast_years_data
-      : []
-    if (formFc.length !== sessFc.length) return false
-    const fcFormStr = JSON.stringify(
-      formFc.map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda })).sort((a: any, b: any) => a.year - b.year)
-    )
-    const fcSessStr = JSON.stringify(
-      sessFc.map((y: any) => ({ year: y.year, revenue: y.revenue, ebitda: y.ebitda })).sort((a: any, b: any) => a.year - b.year)
-    )
-    if (fcFormStr !== fcSessStr) return false
-
-    return true
-  }, [])
+  const taxLatencyItems = useTaxLatencyStore((s) => s.items)
+  const isDataEqual = useCallback(
+    (fd: any, sd: any, tax: unknown[] | undefined) =>
+      areFormAndSessionDataEqualForAutosync(fd, sd, tax),
+    []
+  )
 
   // Debounced sync: form data → session store (500ms delay)
   // CRITICAL: Read session state inside the debounced function, not as a dependency
@@ -138,8 +182,12 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         return
       }
 
+      const taxItems = useTaxLatencyStore.getState().items
       // Skip sync if data matches what's already in session (prevents loops during restoration)
-      if (currentSession.sessionData && isDataEqual(data, currentSession.sessionData)) {
+      if (
+        currentSession.sessionData &&
+        isDataEqual(data, currentSession.sessionData, taxItems)
+      ) {
         generalLogger.debug('Skipping sync - form data matches session data', {
           reportId: currentSession.reportId,
         })
@@ -201,6 +249,27 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           nace_code: data.nace_code,
           nace_description: data.nace_description,
         }
+
+        for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) {
+          if (SKIP_OPTIONAL_SESSION_SYNC_KEYS.has(key)) continue
+          const v = (data as Record<string, unknown>)[key]
+          if (v !== undefined) {
+            ;(sessionUpdate as Record<string, unknown>)[key] = v
+          }
+        }
+        for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) {
+          const v = (data as Record<string, unknown>)[key]
+          if (v !== undefined) {
+            ;(sessionUpdate as Record<string, unknown>)[key] = v
+          }
+        }
+        if (data.tax_latencies !== undefined) {
+          sessionUpdate.tax_latencies = data.tax_latencies
+        }
+        if (data.balance_sheet_adjustments !== undefined) {
+          sessionUpdate.balance_sheet_adjustments = data.balance_sheet_adjustments
+        }
+        sessionUpdate._taxLatencies = useTaxLatencyStore.getState().items
 
         // Remove undefined values
         Object.keys(sessionUpdate).forEach((key) => {
@@ -292,7 +361,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
     if (formData && Object.keys(formData).length > 0 && reportId) {
       debouncedSyncToSession(formData)
     }
-  }, [formData, debouncedSyncToSession, reportId])
+  }, [formData, debouncedSyncToSession, reportId, taxLatencyItems])
 
   // Flush pending debounced sync on page unload and tab hide to prevent data loss.
   // NOTE: We do NOT flush in cleanup — that can race with unmount and cause async work after

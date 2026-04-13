@@ -659,7 +659,7 @@ class SessionRestorationServiceImpl {
         })
       } else {
         const rawTL = (data.formData as any)?._taxLatencies
-        if (rawTL && Array.isArray(rawTL) && rawTL.length > 0) {
+        if (rawTL !== undefined && Array.isArray(rawTL)) {
           taxLatStore.setItems(rawTL)
           generalLogger.info('[SessionRestoration] Tax latencies hydrated from session metadata', {
             count: rawTL.length,
@@ -942,11 +942,12 @@ class SessionRestorationServiceImpl {
             if (recoveredTL && recoveredTL.length > 0) {
               useTaxLatencyStore.getState().setItems(recoveredTL)
             } else if (
-              raw._taxLatencies &&
-              Array.isArray(raw._taxLatencies) &&
-              (raw._taxLatencies as any[]).length > 0
+              Object.prototype.hasOwnProperty.call(raw, '_taxLatencies') &&
+              Array.isArray((raw as { _taxLatencies?: unknown })._taxLatencies)
             ) {
-              useTaxLatencyStore.getState().setItems(raw._taxLatencies as any)
+              useTaxLatencyStore.getState().setItems(
+                (raw as { _taxLatencies: unknown[] })._taxLatencies as any
+              )
             }
           } catch {
             // Non-critical

@@ -28,6 +28,10 @@ import {
   SESSION_USER_WEIGHTS_KEY,
   SESSION_USER_WEIGHT_JUSTIFICATION_KEY,
 } from '../../constants/sessionUiKeys'
+import {
+  OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
+  OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
+} from '../../utils/mergeOptionalSessionPrefillFields'
 
 /**
  * Pricing range structure for valuation results
@@ -157,11 +161,80 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ['ebitda'],
     ['use_dcf', 'useDcf'],
     ['use_multiples', 'useMultiples'],
+    ['user_configured_dcf', 'userConfiguredDcf'],
     ['projection_years', 'projectionYears'],
     ['comparables'],
     ['_normalizations'],
     ['_taxLatencies'],
     ['_import_quality'],
+    // Adjusted NAV + real-estate carve-out (manual left panel) — must round-trip through extractFormData
+    ['nav_real_estate_adjustment', 'navRealEstateAdjustment'],
+    ['nav_inventory_adjustment', 'navInventoryAdjustment'],
+    ['nav_hidden_reserves', 'navHiddenReserves'],
+    ['nav_goodwill_writeoff', 'navGoodwillWriteoff'],
+    ['nav_receivables_adjustment', 'navReceivablesAdjustment'],
+    ['nav_other_revaluations', 'navOtherRevaluations'],
+    ['nav_tax_latency_pct', 'navTaxLatencyPct'],
+    ['nav_off_balance_items', 'navOffBalanceItems'],
+    ['exclude_real_estate', 'excludeRealEstate'],
+    ['real_estate_book_value', 'realEstateBookValue'],
+    ['estimated_market_rent', 'estimatedMarketRent'],
+    ['owner_salary_addback', 'ownerSalaryAddback'],
+    // DCF left-panel inputs — persisted by useFormSessionSync; must hydrate into manual form on restore
+    ['dcf_input_mode', 'dcfInputMode'],
+    ['dcf_revenue_growth_pct', 'dcfRevenueGrowthPct'],
+    ['dcf_ebitda_margin_pct', 'dcfEbitdaMarginPct'],
+    ['dcf_capex_pct', 'dcfCapexPct'],
+    ['dcf_da_pct', 'dcfDaPct'],
+    ['dcf_nwc_pct', 'dcfNwcPct'],
+    ['dcf_tax_rate_pct', 'dcfTaxRatePct'],
+    ['dcf_wacc_pct', 'dcfWaccPct'],
+    ['dcf_terminal_growth_pct', 'dcfTerminalGrowthPct'],
+    ['dcf_exit_multiple', 'dcfExitMultiple'],
+    ['dcf_risk_free_rate_pct', 'dcfRiskFreeRatePct'],
+    ['dcf_equity_risk_premium_pct', 'dcfEquityRiskPremiumPct'],
+    ['dcf_beta', 'dcfBeta'],
+    ['dcf_cost_of_debt_pct', 'dcfCostOfDebtPct'],
+    ['dcf_debt_equity_pct', 'dcfDebtEquityPct'],
+    ['dcf_tax_shield_pct', 'dcfTaxShieldPct'],
+    ['dcf_terminal_value_method', 'dcfTerminalValueMethod'],
+    // Adaptive / SaaS / revenue-quality / preparer / legacy tax rows — must mirror
+    // `OPTIONAL_SESSION_PREFILL_SCALAR_KEYS` in mergeOptionalSessionPrefillFields.ts (except keys
+    // already listed above: revenue, ebitda, shares, number_of_owners, business_highlights, etc.).
+    ['subIndustry'],
+    ['net_income', 'netIncome'],
+    ['owner_role', 'ownerRole'],
+    ['owner_hours', 'ownerHours'],
+    ['delegation_capability', 'delegationCapability'],
+    ['succession_plan', 'successionPlan'],
+    ['saas_arr', 'saasArr'],
+    ['saas_mrr', 'saasMrr'],
+    ['saas_arr_growth_pct', 'saasArrGrowthPct'],
+    ['saas_churn_pct', 'saasChurnPct'],
+    ['saas_customer_churn_pct', 'saasCustomerChurnPct'],
+    ['saas_nrr_pct', 'saasNrrPct'],
+    ['saas_gross_margin_pct', 'saasGrossMarginPct'],
+    ['saas_cac', 'saasCac'],
+    ['saas_customer_concentration_pct', 'saasCustomerConcentrationPct'],
+    ['saas_expansion_revenue_pct', 'saasExpansionRevenuePct'],
+    ['saas_sm_spend', 'saasSmSpend'],
+    ['rev_recurring_pct', 'revRecurringPct'],
+    ['rev_recurring_amount', 'revRecurringAmount'],
+    ['rev_top_client_concentration_pct', 'revTopClientConcentrationPct'],
+    ['rev_top_client_amount', 'revTopClientAmount'],
+    ['rev_contract_backlog', 'revContractBacklog'],
+    ['rev_gross_churn_pct', 'revGrossChurnPct'],
+    ['rev_capitalized_rd_amount', 'revCapitalizedRdAmount'],
+    ['preparer_ev_ebitda_median', 'preparerEvEbitdaMedian'],
+    ['preparer_ev_ebitda_override', 'preparerEvEbitdaOverride'],
+    ['_internal_dcf_preference'],
+    ['_internal_multiples_preference'],
+    ['_internal_owner_dependency_impact'],
+    ['_internal_key_metrics'],
+    ['_internal_typical_employee_range'],
+    ['_internal_typical_revenue_range'],
+    ['tax_latencies', 'taxLatencies'],
+    ['balance_sheet_adjustments', 'balanceSheetAdjustments'],
   ]
 
   const formData: Partial<ValuationRequest> = {}
@@ -257,7 +330,69 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     ;(fd as any).nace_description = activityLabel
   }
 
+  promoteAdaptiveFieldsFromBusinessContext(fd, sessionData as Record<string, unknown>)
+
   return formData
+}
+
+/** Core financials / registry keys — never pull from `business_context` when top-level is missing. */
+const SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE = new Set<string>([
+  'revenue',
+  'ebitda',
+  'shares_for_sale',
+  'activity_code',
+  'canonical_nace_code',
+])
+
+/**
+ * Titan persists adaptive inputs under `business_context`; Venus autosave also keeps top-level
+ * `saas_*`, `dcf_*`, etc. Legacy blobs may only nest them — promote so the panel and
+ * `buildValuationRequest` match.
+ */
+function promoteAdaptiveFieldsFromBusinessContext(
+  fd: Record<string, unknown>,
+  sessionData: Record<string, unknown>
+): void {
+  const rawBc =
+    fd.business_context ?? sessionData.business_context ?? sessionData.businessContext
+  if (!rawBc || typeof rawBc !== 'object' || Array.isArray(rawBc)) return
+  const bc = rawBc as Record<string, unknown>
+
+  for (const key of OPTIONAL_SESSION_PREFILL_SCALAR_KEYS) {
+    if (SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE.has(key)) continue
+    const cur = fd[key]
+    if (cur !== undefined && cur !== null) continue
+    const incoming = bc[key]
+    if (incoming !== undefined && incoming !== null) {
+      fd[key] = incoming
+    }
+  }
+
+  for (const key of OPTIONAL_SESSION_STRUCT_SYNC_KEYS) {
+    const cur = fd[key]
+    if (cur !== undefined && cur !== null) continue
+    const incoming = bc[key]
+    if (incoming !== undefined && incoming !== null) {
+      fd[key] = incoming
+    }
+  }
+
+  const camelToInternal: [string, string][] = [
+    ['keyMetrics', '_internal_key_metrics'],
+    ['typicalEmployeeRange', '_internal_typical_employee_range'],
+    ['typicalRevenueRange', '_internal_typical_revenue_range'],
+    ['dcfPreference', '_internal_dcf_preference'],
+    ['multiplesPreference', '_internal_multiples_preference'],
+    ['ownerDependencyImpact', '_internal_owner_dependency_impact'],
+  ]
+  for (const [camel, snake] of camelToInternal) {
+    const cur = fd[snake]
+    if (cur !== undefined && cur !== null) continue
+    const incoming = bc[camel]
+    if (incoming !== undefined && incoming !== null) {
+      fd[snake] = incoming
+    }
+  }
 }
 
 /**
