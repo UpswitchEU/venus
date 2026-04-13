@@ -943,12 +943,12 @@
 		},
 		"paywall": {
 			"title": "Upgrade uw abonnement",
-			"message": "Uw gratis rapporten bevatten een watermerk. Upgrade naar Starter (€990/jaar) voor onbeperkte rapporten zonder watermerk in uw huisstijl, met alle 8 methodes. Pro (€1.990/jaar) voegt live boekhoudsync toe — geen manuele invoer.",
+			"message": "Uw gratis rapporten bevatten een watermerk. Upgrade naar Starter (€1.490/jaar of €149/maand) voor alle 8 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (€2.990/jaar of €299/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.",
 			"upgrade": "Bekijk plannen en upgrade",
 			"cancel": "Misschien Later",
 			"accountantPaidRequired": "Een betaald adviseur-abonnement is vereist. Upgrade naar Starter of Pro via je dashboard (Instellingen → Facturatie) om door te gaan.",
 			"clientPremiumRequired": "Een Premium-abonnement is vereist om door te gaan. Bekijk de prijzen om te upgraden.",
-			"insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€990/jaar, ~€83/maand excl. BTW) voor onbeperkte waarderingen zonder watermerk, alle 8 methodes en branded rapporten."
+			"insufficientCredits": "U heeft uw gratis waarderingen voor deze periode gebruikt. Upgrade naar Starter (€1.490/jaar of €149/maand excl. BTW) voor onbeperkte waarderingen zonder watermerk, alle 8 methodes en branded rapporten."
 		},
 		"versionComparison": {
 			"title": "Versies Vergelijken",

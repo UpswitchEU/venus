@@ -943,12 +943,12 @@
 		},
 		"paywall": {
 			"title": "Upgrade your plan",
-			"message": "Your free reports include a watermark. Upgrade to Starter (€990/year) for unlimited watermark-free branded reports with all 8 methods. Pro (€1,990/year) — stop typing, live sync with your accounting software.",
+			"message": "Your free reports include a watermark. Upgrade to Starter (€1,490/year or €149/month) for all 8 methods, manual control over every adjustment, and watermark-free branded reports. Pro (€2,990/year or €299/month) adds live sync with your accounting software so you can value your client base without manual entry.",
 			"upgrade": "View plans & upgrade",
 			"cancel": "Maybe Later",
 			"accountantPaidRequired": "A paid advisor plan is required. Upgrade to Starter or Pro from your dashboard (Settings → Billing) to continue.",
 			"clientPremiumRequired": "A Premium plan is required to continue. View pricing to upgrade.",
-			"insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€990/year, ~€83/month excl. VAT) for unlimited watermark-free valuations, all 8 methods, and branded reports."
+			"insufficientCredits": "You've used your free valuations for this period. Upgrade to Starter (€1,490/year or €149/month excl. VAT) for unlimited watermark-free valuations, all 8 methods, and branded reports."
 		},
 		"versionComparison": {
 			"title": "Compare Versions",

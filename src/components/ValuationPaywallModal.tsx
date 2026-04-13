@@ -25,10 +25,10 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
 }) => {
   const locale = useLocale()
   const isNl = locale === 'nl'
-  const starterEq = Math.round(ACCOUNTANT_PRICING.starter.yearly / 12)
-  const proEq = Math.round(ACCOUNTANT_PRICING.pro.yearly / 12)
   const starterYear = formatEuroAmount(ACCOUNTANT_PRICING.starter.yearly, locale)
   const proYear = formatEuroAmount(ACCOUNTANT_PRICING.pro.yearly, locale)
+  const starterMonth = ACCOUNTANT_PRICING.starter.monthly
+  const proMonth = ACCOUNTANT_PRICING.pro.monthly
 
   if (!isOpen) return null
 
@@ -48,8 +48,8 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
             {message || (isNl
-              ? `Uw gratis rapporten zijn read-only met watermerk (geen PDF-download). Upgrade naar Starter (${starterYear}/jaar) voor onbeperkte downloadbare rapporten zonder watermerk in uw huisstijl, alle 8 methodes, EBITDA-normalisatie & belastinglatenties, volledig auditspoor en live Benelux sector-multiples. Pro (${proYear}/jaar) voegt live sync met uw boekhoudsoftware toe — geen manuele invoer.`
-              : `Your free reports are read-only with a watermark (no PDF download). Upgrade to Starter (${starterYear}/year) for unlimited downloadable watermark-free branded reports, all 8 methods, EBITDA normalization & tax latencies, full audit trail, and live Benelux sector multiples. Pro (${proYear}/year) adds live sync with your accounting software.`)}
+              ? `Uw gratis rapporten zijn read-only met watermerk (geen PDF-download). Starter (${starterYear}/jaar of €${starterMonth}/maand) geeft u alle 8 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (${proYear}/jaar of €${proMonth}/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.`
+              : `Your free reports are read-only with a watermark (no PDF download). Starter (${starterYear}/year or €${starterMonth}/month) gives you all 8 methods, manual control over every adjustment, and watermark-free branded reports. Pro (${proYear}/year or €${proMonth}/month) adds live sync with your accounting software so you can value your client base without manual entry.`)}
           </p>
         </div>
 

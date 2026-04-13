@@ -5565,12 +5565,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {methodPaywallReason === 'methods' &&
                   (currentLocale === 'nl'
-                    ? 'Je gratis plan bevat Adaptive, DCF, EBITDA en adjusted NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 8 methodes, downloadbare rapporten zonder watermerk in uw huisstijl, en live Benelux sector-multiples.'
-                    : 'Your free plan includes Adaptive, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all 8 methods, downloadable watermark-free branded reports, and live Benelux sector multiples.')}
+                    ? 'Je gratis plan bevat Upswitch marktbenadering, DCF, EBITDA en gecorrigeerd NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 8 methodes, manuele controle over elke aanpassing, downloadbare rapporten zonder watermerk in uw huisstijl en live Benelux sector-multiples.'
+                    : 'Your free plan includes Upswitch market approach, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all 8 methods, manual control over every adjustment, downloadable watermark-free branded reports, and live Benelux sector multiples.')}
                 {methodPaywallReason === 'normalization' &&
                   (currentLocale === 'nl'
-                    ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, EBITDA-normalisatie en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'
-                    : 'The full normalization hub (incl. tax latencies) is on Starter — together with branded PDFs, EBITDA normalization, and the ability to overwrite valuations with full audit trail.')}
+                    ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, volledige manuele controle en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'
+                    : 'The full normalization hub (incl. tax latencies) is on Starter together with branded PDFs, full manual control, and the ability to overwrite valuations with full audit trail.')}
                 {methodPaywallReason === 'version_history' &&
                   (currentLocale === 'nl'
                     ? 'Overschrijven & verfijnen bij wijzigende cijfers — met volledig auditspoor — vanaf Starter.'
@@ -5581,8 +5581,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     : 'Blend multiple valuation methods with weighted averages and defend your choice in the PDF report. Upgrade to Starter for the full valuation synthesis.')}
                 {methodPaywallReason === 'pdf_download' &&
                   (currentLocale === 'nl'
-                    ? 'Uw gratis rapport is read-only met watermerk. Upgrade naar Starter voor downloadbare PDF-rapporten zonder watermerk in uw huisstijl.'
-                    : 'Your free report is read-only with a watermark. Upgrade to Starter for downloadable, watermark-free PDF reports with your branding.')}
+                    ? 'Uw gratis rapport is read-only met watermerk. Upgrade naar Starter voor downloadbare PDF-rapporten zonder watermerk in uw huisstijl en alle 8 methodes.'
+                    : 'Your free report is read-only with a watermark. Upgrade to Starter for downloadable watermark-free PDF reports with your branding and all 8 methods.')}
               </p>
             </div>
             <div className="flex gap-3">
