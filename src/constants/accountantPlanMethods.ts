@@ -9,6 +9,22 @@ export const FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS = [
   'adjusted_nav',
 ] as const
 
+/** Trim + lowercase; empty input resolves like Titan free tier. */
+export function normalizeAccountantPlanTypeKey(planType: string | undefined): string {
+  if (planType == null || planType === '') return 'free'
+  return planType.trim().toLowerCase()
+}
+
+/**
+ * Free PLG tier and Starter — Titan defaults keep `integrations_enabled: false`.
+ * Venus uses the same integration-entry upsell + manual path for both (not Pro+ live import).
+ * Same predicate as Mercury `isAccountantFreeOrStarterTier` (`shared/utils/billing/plan-helpers.ts`).
+ */
+export function isAccountantFreeOrStarterTier(planType: string | undefined): boolean {
+  const p = normalizeAccountantPlanTypeKey(planType)
+  return p === 'free' || p === 'starter'
+}
+
 /**
  * @param allowedFromApi - from GET /api/v2/credits/plan `allowed_methods`; omit if unknown
  * @param planType - user plan_type when API omits allowed_methods

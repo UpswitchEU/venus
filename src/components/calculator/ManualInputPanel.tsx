@@ -39,6 +39,7 @@ import {
   type KBOCompany,
   KBOSearchInput,
 } from '@/design-system'
+import { isAccountantFreeOrStarterTier } from '@/constants/accountantPlanMethods'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import {
@@ -2930,7 +2931,7 @@ export function ManualInputPanel({
                     </div>
                   </div>
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[220px]">
-                    {!integrationsEnabled && planType === 'starter' ? (
+                    {!integrationsEnabled && isAccountantFreeOrStarterTier(planType) ? (
                       <>
                         <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3.5">
                           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
@@ -3005,7 +3006,7 @@ export function ManualInputPanel({
                           : mi('integrationEntry.connectCta')}
                       </AuroraButton>
                     )}
-                    {(integrationsEnabled || planType !== 'starter') && (
+                    {(integrationsEnabled || !isAccountantFreeOrStarterTier(planType)) && (
                       <AuroraButton
                         type="button"
                         variant="secondary"
