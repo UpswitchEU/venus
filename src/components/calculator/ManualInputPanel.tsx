@@ -40,6 +40,7 @@ import {
   KBOSearchInput,
 } from '@/design-system'
 import { isAccountantFreeOrStarterTier } from '@/constants/accountantPlanMethods'
+import { TARGET_COUNTRIES } from '../../config/countries'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import {
@@ -1003,6 +1004,7 @@ export function ManualInputPanel({
       naceDescription: formData.naceDescription,
       industry: formData.industry,
       country: formData.country,
+      businessModel: formData.business_model ?? storeBusinessModel,
       yearFounded: formData.yearFounded,
       ownerManagers: formData.ownerManagers,
       fteEmployees: formData.fteEmployees,
@@ -1077,6 +1079,8 @@ export function ManualInputPanel({
     formData.naceDescription,
     formData.industry,
     formData.country,
+    formData.business_model,
+    storeBusinessModel,
     formData.yearFounded,
     formData.ownerManagers,
     formData.fteEmployees,
@@ -3110,15 +3114,17 @@ export function ManualInputPanel({
 
               <AuroraSelect
                 label={mi('fields.operatingCountry')}
-                options={[
-                  { value: 'BE', label: mi('countryOptionBE') },
-                  { value: 'NL', label: mi('countryOptionNL') },
-                ]}
+                options={TARGET_COUNTRIES.map((c) => ({
+                  value: c.code,
+                  label: `${c.flag} ${c.name} (${c.currencySymbol})`,
+                }))}
                 value={formData.country || initialData.country || 'BE'}
                 onChange={(val) => {
                   countryUserOverrideRef.current = true
                   const prev = formData.country || initialData.country || 'BE'
                   updateField('country', val)
+                  const cc = String(val).trim().toUpperCase().substring(0, 2)
+                  if (cc) updateFormData({ country_code: cc })
                   if (val !== prev) {
                     setSelectedCompany(null)
                     setCompanySearchValue('')

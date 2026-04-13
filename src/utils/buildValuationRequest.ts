@@ -175,8 +175,12 @@ export function buildValuationRequest(
   const companyName = formData.company_name?.trim() || 'Unknown Company'
 
   // Normalize country code (2-letter uppercase).
-  // Only fall back to Belgium when no authoritative country was hydrated.
-  const countryCode = (formData.country_code?.trim() || 'BE').toUpperCase().substring(0, 2)
+  // Prefer `country_code`; manual panel may only have synced `country` until the store bridge runs.
+  const countryRaw =
+    formData.country_code?.trim() ||
+    (formData as { country?: string }).country?.trim() ||
+    ''
+  const countryCode = (countryRaw || 'BE').toUpperCase().substring(0, 2)
 
   // Normalize industry and business model
   // Priority: formData.industry > business_type metadata > default

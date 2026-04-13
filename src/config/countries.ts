@@ -1,5 +1,6 @@
 // 🗺️ Target Countries Configuration
-// Benelux (BE, NL, LU) aligned with Mercury accountant flows + public index; plus DE, FR, GB for broader EU/UK.
+// Aligned with Upswitch Index / Athena `INDEX_COUNTRY_ISO2_ORDERED` so operating country,
+// registry hints, and Titan benchmark enrichment (per-country multiples) stay consistent.
 // Use ISO 3166-1 alpha-2 (GB for United Kingdom, not UK).
 
 export interface Country {
@@ -12,6 +13,7 @@ export interface Country {
   taxSystem: string
 }
 
+/** Same ISO2 order as Athena `INDEX_COUNTRY_ISO2_ORDERED` (toolbar / index markets). */
 export const TARGET_COUNTRIES: Country[] = [
   {
     code: 'BE',
@@ -41,13 +43,13 @@ export const TARGET_COUNTRIES: Country[] = [
     taxSystem: 'luxembourg',
   },
   {
-    code: 'DE',
-    name: 'Germany',
-    flag: '🇩🇪',
-    currency: 'EUR',
-    currencySymbol: '€',
-    locale: 'de-DE',
-    taxSystem: 'german',
+    code: 'GB',
+    name: 'United Kingdom',
+    flag: '🇬🇧',
+    currency: 'GBP',
+    currencySymbol: '£',
+    locale: 'en-GB',
+    taxSystem: 'uk',
   },
   {
     code: 'FR',
@@ -59,13 +61,67 @@ export const TARGET_COUNTRIES: Country[] = [
     taxSystem: 'french',
   },
   {
-    code: 'GB',
-    name: 'United Kingdom',
-    flag: '🇬🇧',
-    currency: 'GBP',
-    currencySymbol: '£',
-    locale: 'en-GB',
-    taxSystem: 'uk',
+    code: 'DE',
+    name: 'Germany',
+    flag: '🇩🇪',
+    currency: 'EUR',
+    currencySymbol: '€',
+    locale: 'de-DE',
+    taxSystem: 'german',
+  },
+  {
+    code: 'AT',
+    name: 'Austria',
+    flag: '🇦🇹',
+    currency: 'EUR',
+    currencySymbol: '€',
+    locale: 'de-AT',
+    taxSystem: 'austrian',
+  },
+  {
+    code: 'CH',
+    name: 'Switzerland',
+    flag: '🇨🇭',
+    currency: 'CHF',
+    currencySymbol: 'CHF',
+    locale: 'de-CH',
+    taxSystem: 'swiss',
+  },
+  {
+    code: 'SE',
+    name: 'Sweden',
+    flag: '🇸🇪',
+    currency: 'SEK',
+    currencySymbol: 'kr',
+    locale: 'sv-SE',
+    taxSystem: 'swedish',
+  },
+  {
+    code: 'FI',
+    name: 'Finland',
+    flag: '🇫🇮',
+    currency: 'EUR',
+    currencySymbol: '€',
+    locale: 'fi-FI',
+    taxSystem: 'finnish',
+  },
+  {
+    code: 'DK',
+    name: 'Denmark',
+    flag: '🇩🇰',
+    currency: 'DKK',
+    currencySymbol: 'kr',
+    locale: 'da-DK',
+    taxSystem: 'danish',
+  },
+  {
+    code: 'NO',
+    name: 'Norway',
+    flag: '🇳🇴',
+    currency: 'NOK',
+    currencySymbol: 'kr',
+    locale: 'nb-NO',
+    taxSystem: 'norwegian',
   },
 ]
 

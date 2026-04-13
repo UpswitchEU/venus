@@ -5,6 +5,7 @@
  * This enables Manual → Conversational flow with conversation history
  */
 
+import { getCountryByCode } from '../config/countries'
 import type { Message } from '../types/message'
 import type { ValuationFormData } from '../types/valuation'
 import { normalizeCurrentYearForFiling } from './fiscalYear'
@@ -88,20 +89,16 @@ export function generateConversationFromFormData(
   }
 
   // Country
-  if (formData.country_code) {
-    const countryNames: Record<string, string> = {
-      BE: 'Belgium',
-      NL: 'Netherlands',
-      FR: 'France',
-      DE: 'Germany',
-      UK: 'United Kingdom',
-      US: 'United States',
-    }
+  const resolvedCountryCode =
+    formData.country_code?.trim() ||
+    (formData as { country?: string }).country?.trim()
+  if (resolvedCountryCode) {
+    const label = getCountryByCode(resolvedCountryCode)?.name ?? resolvedCountryCode
     addMessagePair(
       'Select your primary operating country',
-      countryNames[formData.country_code] || formData.country_code,
+      label,
       'country_code',
-      { country_code: formData.country_code }
+      { country_code: resolvedCountryCode }
     )
   }
 

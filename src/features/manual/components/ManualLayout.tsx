@@ -212,6 +212,8 @@ interface CollectedData {
   /** Canonical NACE (store-aligned); optional when equal to display naceCode */
   canonicalNaceCode?: string
   businessType?: string
+  /** ValuationRequest.business_model (enum), not business type id — synced from Zustand for the bridge. */
+  businessModel?: string
   industry?: string
   country?: string
   yearFounded?: string
@@ -357,7 +359,27 @@ function useIsMobile() {
 // to Venus store's ValuationFormData (snake_case, API format)
 // ─────────────────────────────────────────
 
-function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
+function mapClarityFormToVenusStore(raw: any): Partial<VenusFormData> {
+  // Bridge: panel submit uses `business_model` (snake); live sync uses `businessModel` (camel).
+  // Fall back to current Zustand so submit never strips a prefilled enum via default `'services'`.
+  // Same for operating country: partial `onFormDataChange` payloads may omit `country` briefly.
+  const storeForm = useManualFormStore.getState().formData
+  const data = {
+    ...raw,
+    business_model: raw.business_model ?? storeForm.business_model,
+    businessModel: raw.businessModel ?? raw.business_model ?? storeForm.business_model,
+    country:
+      (typeof raw.country === 'string' && raw.country.trim()) ||
+      (typeof raw.country_code === 'string' && raw.country_code.trim()) ||
+      storeForm.country_code?.trim() ||
+      '',
+  }
+
+  const resolvedBusinessModel =
+    (typeof data.businessModel === 'string' && data.businessModel.trim()) ||
+    (typeof data.business_model === 'string' && data.business_model.trim()) ||
+    ''
+
   const yearlyFinancials = (data.yearlyFinancials || []) as Array<{
     year: string
     revenue: number
@@ -405,9 +427,9 @@ function mapClarityFormToVenusStore(data: any): Partial<VenusFormData> {
 
   return {
     company_name: data.companyName || '',
-    country_code: (data.country || '').toUpperCase(),
+    country_code: (data.country || 'BE').toUpperCase().substring(0, 2),
     industry: data.industry || 'services',
-    business_model: data.businessType || 'services',
+    ...(resolvedBusinessModel ? { business_model: resolvedBusinessModel } : {}),
     founding_year: parseInt(data.yearFounded, 10) || getCurrentFilingYear() - 5,
     number_of_owners: data.ownerManagers || 1,
     number_of_employees: data.fteEmployees,
@@ -1475,6 +1497,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const formCompanyName = useManualFormStore((s) => s.formData.company_name)
   const formBusinessTypeId = useManualFormStore((s) => s.formData.business_type_id)
   const formIndustry = useManualFormStore((s) => s.formData.industry)
+  const formBusinessModel = useManualFormStore((s) => s.formData.business_model)
   const formCountry = useManualFormStore((s) => s.formData.country_code)
   const formYearFounded = useManualFormStore((s) => s.formData.founding_year)
   const formKboNumber = useManualFormStore((s) => s.formData.kbo_number)
@@ -1499,6 +1522,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     naceDescription: formNaceDescription || '',
     businessType: formBusinessTypeId || '',
     industry: formIndustry || '',
+    businessModel: formBusinessModel || 'services',
     country: formCountry || 'BE',
     yearFounded: formYearFounded ? String(formYearFounded) : '',
     ownerManagers: 1,
@@ -1691,6 +1715,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if ((formBusinessTypeId ?? '') !== prev.businessType)
         next.businessType = formBusinessTypeId ?? ''
       if (formIndustry && formIndustry !== prev.industry) next.industry = formIndustry
+      const bm = formBusinessModel || 'services'
+      if (bm !== (prev.businessModel || '')) next.businessModel = bm
       if (formCountry && formCountry !== prev.country) next.country = formCountry
       const yearStr = formYearFounded ? String(formYearFounded) : ''
       if (yearStr && yearStr !== prev.yearFounded) next.yearFounded = yearStr
@@ -1709,6 +1735,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     companyName,
     formBusinessTypeId,
     formIndustry,
+    formBusinessModel,
     formCountry,
     formYearFounded,
     formKboNumber,
@@ -2617,6 +2644,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         companyName: data.companyName,
         businessType: data.businessType,
         industry: data.industry,
+        businessModel:
+          (typeof data.business_model === 'string' && data.business_model) ||
+          (typeof data.businessModel === 'string' && data.businessModel) ||
+          useManualFormStore.getState().formData.business_model,
         country: data.country,
         yearFounded: data.yearFounded,
         ownerManagers: data.ownerManagers,
