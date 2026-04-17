@@ -103,12 +103,14 @@ class NaceBusinessTypeService {
    */
   async getBusinessTypeForNaceCode(
     naceCode: string,
+    marketCountryCode?: string,
     signal?: AbortSignal
   ): Promise<BusinessType | null> {
     if (!naceCode || !naceCode.trim()) return null
 
     const trimmed = naceCode.trim()
-    const cacheKey = `bt:nace:${trimmed}`
+    const normalizedCountry = marketCountryCode?.trim().toUpperCase() || ''
+    const cacheKey = `bt:nace:${trimmed}:${normalizedCountry || 'ANY'}`
 
     const cached = this.cache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -126,6 +128,9 @@ class NaceBusinessTypeService {
 
     try {
       const params = new URLSearchParams({ naceCode: trimmed })
+      if (normalizedCountry) {
+        params.set('country_code', normalizedCountry)
+      }
       const response = await fetch(`/api/nace/search?${params}`, {
         method: 'GET',
         headers: { Accept: 'application/json' },

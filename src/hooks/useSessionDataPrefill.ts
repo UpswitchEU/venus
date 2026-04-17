@@ -203,7 +203,8 @@ export function useSessionDataPrefill() {
         if (looksLikeNaceCode(rawBusinessType)) {
           try {
             const resolved = await naceBusinessTypeService.getBusinessTypeForNaceCode(
-              rawBusinessType.trim()
+              rawBusinessType.trim(),
+              mergedData.country_code || mergedData.country || undefined,
             )
             if (cancelledRef.current) return
             if (resolved?.id) {

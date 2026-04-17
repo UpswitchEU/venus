@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const businessTypeId = searchParams.get('businessTypeId')
     const naceCode = searchParams.get('naceCode')
     const limit = searchParams.get('limit') || '10'
+    const countryCode = searchParams.get('country_code')
 
     const titanUrl = getTitanApiUrl(request)
     const controller = new AbortController()
@@ -29,7 +30,11 @@ export async function GET(request: NextRequest) {
     try {
       let url: string
       if (naceCode) {
-        url = `${titanUrl}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type`
+        const lookupParams = new URLSearchParams({ naceCode })
+        if (countryCode) {
+          lookupParams.set('country_code', countryCode.toUpperCase())
+        }
+        url = `${titanUrl}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type?${lookupParams}`
       } else if (businessTypeId) {
         url = `${titanUrl}/api/v2/business-types/${businessTypeId}/nace`
       } else if (q && q.length >= 1) {
