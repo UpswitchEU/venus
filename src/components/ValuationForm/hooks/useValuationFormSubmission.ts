@@ -414,8 +414,8 @@ export const useValuationFormSubmission = (
 
               await reportService.saveReportAssets(reportId, {
                 sessionData: mergeSessionDataForReportAssets(
-                  formData as Record<string, unknown>,
-                  request as Record<string, unknown>,
+                  formData as unknown as Record<string, unknown>,
+                  request as unknown as Record<string, unknown>,
                   useTaxLatencyStore.getState().items
                 ),
                 valuationResult: result,

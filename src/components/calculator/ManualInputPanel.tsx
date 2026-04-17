@@ -278,6 +278,7 @@ export interface ValuationFormData {
   businessTypeCode?: string
   industry: string
   country: string
+  country_code?: string
   yearFounded: string
   businessStructure: string
   ownerManagers: number

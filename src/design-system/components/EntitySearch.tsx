@@ -1168,6 +1168,8 @@ export interface BusinessTypeSearchInputProps extends VariantProps<typeof search
   loadError?: string | null
   /** Callback to retry loading types */
   onRetryLoad?: () => void
+  /** Country code for NACE lookups and normalized activity code presentation */
+  countryCode?: string
 }
 
 function normalizeForSearch(s: string): string {
@@ -1267,6 +1269,7 @@ export const BusinessTypeSearchInput = React.forwardRef<
       loading = false,
       loadError = null,
       onRetryLoad,
+      countryCode = 'BE',
     },
     ref
   ) => {
@@ -1274,6 +1277,7 @@ export const BusinessTypeSearchInput = React.forwardRef<
     const tInt = useTranslations('integrationStep')
     const tCommon = useTranslations('common.states')
     const displayLabel = label ?? t('businessType')
+    const effectiveCountryCode = (countryCode ?? 'BE').trim().toUpperCase().slice(0, 2)
     const [isFocused, setIsFocused] = React.useState(false)
     const [isOpen, setIsOpen] = React.useState(false)
     const [search, setSearch] = React.useState('')

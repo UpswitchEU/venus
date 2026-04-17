@@ -2824,8 +2824,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           try {
             await reportService.saveReportAssets(idForApi, {
               sessionData: mergeSessionDataForReportAssets(
-                storeSnapshot as Record<string, unknown>,
-                request as Record<string, unknown>,
+                storeSnapshot as unknown as Record<string, unknown>,
+                request as unknown as Record<string, unknown>,
                 useTaxLatencyStore.getState().items
               ),
               valuationResult: calcResult,
@@ -4350,8 +4350,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           try {
             await reportService.saveReportAssets(idForApi, {
               sessionData: mergeSessionDataForReportAssets(
-                requestSource as Record<string, unknown>,
-                request as Record<string, unknown>,
+                requestSource as unknown as Record<string, unknown>,
+                request as unknown as Record<string, unknown>,
                 useTaxLatencyStore.getState().items
               ),
               valuationResult: calcResult,
