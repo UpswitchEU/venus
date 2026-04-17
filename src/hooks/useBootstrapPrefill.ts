@@ -45,6 +45,7 @@ const logger = createContextLogger('BootstrapPrefill')
 function normalizeCountryCode(countryCode?: string | null): string | undefined {
   if (!countryCode) return undefined
   const normalized = countryCode.trim().toUpperCase()
+  if (normalized === 'UK') return 'GB'
   return normalized.length > 0 ? normalized : undefined
 }
 

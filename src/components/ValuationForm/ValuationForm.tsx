@@ -482,7 +482,10 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
     ;(async () => {
       try {
-        const bt = await businessTypesApiService.getBusinessTypeForNaceCode(naceCode)
+        const bt = await businessTypesApiService.getBusinessTypeForNaceCode(
+          naceCode,
+          formData.country_code || formData.country || undefined,
+        )
         if (cancelled || !bt) return
 
         // Always prefer the full BusinessType from the loaded list (has preference fields).
@@ -528,7 +531,14 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     return () => {
       cancelled = true
     }
-  }, [formData.nace_code, formData.business_type_id, businessTypes, updateFormData])
+  }, [
+    formData.nace_code,
+    formData.country_code,
+    formData.country,
+    formData.business_type_id,
+    businessTypes,
+    updateFormData,
+  ])
 
   // PRE-FILL: Priority 4 - prefilledQuery (URL parameter)
   // This runs after restoration and business types are loaded

@@ -100,6 +100,7 @@ interface SessionDataForPrefill {
 function normalizeCountryCode(countryCode?: string | null): string | undefined {
   if (!countryCode) return undefined
   const normalized = countryCode.trim().toUpperCase()
+  if (normalized === 'UK') return 'GB'
   return normalized.length > 0 ? normalized : undefined
 }
 
@@ -173,7 +174,13 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       const naceCode =
         companyInfo?.naceCode || (companyInfo as any)?.nace_code || kboResult?.kboData?.naceCode
       if (!businessType && naceCode?.trim()) {
-        const naceBusinessType = await this.fetchBusinessTypeForNaceCode(naceCode.trim())
+        const naceBusinessType = await this.fetchBusinessTypeForNaceCode(
+          naceCode.trim(),
+          resolveCountryCode(
+            companyInfo?.countryCode as string | undefined,
+            (companyInfo as any)?.country as string | undefined,
+          ) || 'BE',
+        )
         if (naceBusinessType) {
           businessType = naceBusinessType
           this.logger.info('[PrefillResolver] Resolved business type from NACE fallback', {
@@ -417,19 +424,24 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
    * Uses Titan's NACE→business type mapping.
    */
   private async fetchBusinessTypeForNaceCode(
-    naceCode: string
+    naceCode: string,
+    marketCountryCode?: string,
   ): Promise<BusinessTypeInfo | undefined> {
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 6000)
+      const params = new URLSearchParams({ naceCode })
+      if (marketCountryCode) {
+        params.set('country_code', marketCountryCode.toUpperCase())
+      }
       const response = await fetch(
-        `${API_URL}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type`,
+        `${API_URL}/api/v2/nace/codes/${encodeURIComponent(naceCode)}/business-type?${params}`,
         {
           method: 'GET',
           credentials: 'include',
           headers: { Accept: 'application/json' },
           signal: controller.signal,
-        }
+        },
       )
       clearTimeout(timeoutId)
 

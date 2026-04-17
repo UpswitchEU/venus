@@ -250,11 +250,22 @@ class BusinessTypesApiService {
    * Uses Titan's NACE→business type mapping (same as Mercury).
    * Returns null if no mapping exists.
    */
-  async getBusinessTypeForNaceCode(naceCode: string): Promise<BusinessType | null> {
+  async getBusinessTypeForNaceCode(
+    naceCode: string,
+    countryCode?: string,
+  ): Promise<BusinessType | null> {
     if (!naceCode?.trim()) return null
+    const normalizedCountry = countryCode?.trim().toUpperCase() || ''
+    const marketCountryCode = normalizedCountry === 'UK' ? 'GB' : normalizedCountry
 
     try {
-      const url = `${this.baseUrl}/api/v2/nace/codes/${encodeURIComponent(naceCode.trim())}/business-type`
+      const params = new URLSearchParams({ naceCode: naceCode.trim() })
+      if (marketCountryCode) {
+        params.set('country_code', marketCountryCode)
+      }
+      const url = `${this.baseUrl}/api/v2/nace/codes/${encodeURIComponent(
+        naceCode.trim(),
+      )}/business-type?${params.toString()}`
       const response = await axios.get<{ business_type: any; confidence: number }>(url, {
         timeout: 5000,
         headers: { Accept: 'application/json' },

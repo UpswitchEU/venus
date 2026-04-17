@@ -1363,7 +1363,7 @@ export const BusinessTypeSearchInput = React.forwardRef<
       setIsLoadingNaceSearch(true)
 
       naceBusinessTypeService
-        .getBusinessTypeForNaceCode(trimmedSearch, controller.signal)
+        .getBusinessTypeForNaceCode(trimmedSearch, controller.signal, effectiveCountryCode)
         .then((result) => {
           if (!controller.signal.aborted) {
             setNaceSearchResult(result)
@@ -1381,7 +1381,7 @@ export const BusinessTypeSearchInput = React.forwardRef<
         })
 
       return () => controller.abort()
-    }, [isOpen, search])
+  }, [isOpen, search, effectiveCountryCode])
 
     const handleSelect = (type: BusinessType) => {
       onChange(type.id, type)

@@ -861,7 +861,9 @@ export function ManualInputPanel({
       let industryToApply = prefill.industry
       if (businessTypeToApply && looksLikeNaceCode(businessTypeToApply)) {
         const resolved = await naceBusinessTypeService.getBusinessTypeForNaceCode(
-          businessTypeToApply.trim()
+          businessTypeToApply.trim(),
+          undefined,
+          prefill.country,
         )
         if (!isCurrent()) return
         if (resolved?.id) {
@@ -1438,7 +1440,11 @@ export function ManualInputPanel({
     setNacePrefillError(null)
 
     naceBusinessTypeService
-      .getBusinessTypeForNaceCode(naceCode, controller.signal)
+      .getBusinessTypeForNaceCode(
+        naceCode,
+        controller.signal,
+        formData.country || formData.country_code,
+      )
       .then((type) => {
         if (controller.signal.aborted) return
         if (type) {
@@ -1477,6 +1483,8 @@ export function ManualInputPanel({
   }, [
     formData.naceCode,
     formData.canonicalNaceCode,
+    formData.country,
+    formData.country_code,
     formData.businessType,
     selectedCompany?.naceCode,
     selectedCompany?.canonicalNaceCode,
@@ -2686,7 +2694,8 @@ export function ManualInputPanel({
         try {
           const bt = await naceBusinessTypeService.getBusinessTypeForNaceCode(
             naceCode,
-            controller.signal
+            controller.signal,
+            company.countryCode || undefined,
           )
           if (controller.signal.aborted) return
           if (bt) {
