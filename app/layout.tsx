@@ -99,7 +99,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <ViewTransitions>
       <html lang={locale} suppressHydrationWarning className="aurora-theme dark">
         <head>
-          {/* Google tag (gtag.js) - Venus G-0RW0LNCVBG */}
+          {/* Google tag (gtag.js) - valuation-engine property G-0RW0LNCVBG */}
           <script async src="https://www.googletagmanager.com/gtag/js?id=G-0RW0LNCVBG" />
           <script
             dangerouslySetInnerHTML={{

@@ -245,11 +245,16 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
             venusOrigin
           )
         } else {
+          // Standalone (non-embedded) report mark — neutral `#ready` instead
+          // of the legacy `#venus-ready` so the user-visible URL never
+          // reveals the internal codename. Mercury's transition loader and
+          // this same effect still recognise the legacy hash on the read
+          // path so in-flight tabs continue to work.
           if (window.location.hash !== '#ready' && window.location.hash !== '#venus-ready') {
             window.history.replaceState(
               null,
               '',
-              `${window.location.pathname}${window.location.search}#venus-ready`
+              `${window.location.pathname}${window.location.search}#ready`
             )
           }
         }
