@@ -58,6 +58,8 @@ export const METHOD_FIELD_CONFIG: Record<string, MethodFieldEntry> = {
   sde_multiple: { bonusSections: ['sde_owner_compensation'] },
   adjusted_nav: { bonusSections: ['nav_asset_schedule'] },
   fiscal_4x: { bonusSections: [] },
+  /** Startup engine renders its own dedicated `StartupValuationPanel` — no SME bonus sections. */
+  startup_valuation: { bonusSections: [] },
 }
 
 export const BUSINESS_TYPE_SECTIONS: Record<string, InputSectionKey[]> = {
@@ -172,6 +174,8 @@ export const PRE_SELECTABLE_METHODS = [
   'sde_multiple',
   'adjusted_nav',
   'fiscal_4x',
+  /** Venture / pre-revenue path — Berkus + Scorecard + VC blend. */
+  'startup_valuation',
 ] as const
 
 export type PreSelectableMethod = (typeof PRE_SELECTABLE_METHODS)[number]
@@ -199,7 +203,12 @@ export const COMBINABLE_METHODS = new Set([
  * Each serves a distinct legal/financial purpose (tax filing, proprietary algorithm) or
  * is the engine default umbrella (`upswitch_adaptive`).
  */
-export const STANDALONE_METHODS = new Set(['upswitch_adaptive', 'fiscal_4x'])
+export const STANDALONE_METHODS = new Set([
+  'upswitch_adaptive',
+  'fiscal_4x',
+  /** Startup engine consumes its own qualitative inputs and cannot be blended with SME methods. */
+  'startup_valuation',
+])
 
 /**
  * Methods that must not appear together in a blend (double-counting or duplicate lens).

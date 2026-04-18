@@ -246,8 +246,19 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
       accent: 'bg-accent',
     }
 
+    // ARIA labelling props belong on the role="slider" element — NOT on the
+    // outer wrapper — so screen readers announce the milestone instead of an
+    // anonymous "slider, 50". We pull them out of `...props` to avoid double
+    // application (and the resulting duplicate aria warning in jsdom).
+    const {
+      'aria-label': ariaLabel,
+      'aria-labelledby': ariaLabelledBy,
+      'aria-describedby': ariaDescribedBy,
+      ...wrapperProps
+    } = props as React.HTMLAttributes<HTMLDivElement>
+
     return (
-      <div ref={ref} className={cn('w-full', className)} {...props}>
+      <div ref={ref} className={cn('w-full', className)} {...wrapperProps}>
         {label && (
           <div className="flex justify-between items-center mb-2">
             <label className="text-sm font-medium text-foreground">{label}</label>
@@ -267,6 +278,9 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
           onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}
           role="slider"
+          aria-label={ariaLabel ?? label}
+          aria-labelledby={ariaLabelledBy}
+          aria-describedby={ariaDescribedBy}
           aria-valuemin={min}
           aria-valuemax={max}
           aria-valuenow={clampedValue}

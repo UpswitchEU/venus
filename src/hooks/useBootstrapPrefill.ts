@@ -650,6 +650,16 @@ function applyPrefillToForm(
           revenue: currentYearRow.revenue,
           ebitda: currentYearRow.ebitda,
         }
+      } else if (financials.yearData && Object.keys(financials.yearData).length > 0) {
+        // Every yearData row was beyond the filing window (e.g. only "future" years in H1).
+        // Replace stale manual-store defaults (current_year_data is initialized once at module load).
+        const filingYear = getCurrentFilingYear()
+        allData.current_year_data = {
+          year: filingYear,
+          revenue: 0,
+          ebitda: 0,
+        }
+        allData.historical_years_data = undefined
       }
     }
   }

@@ -3,13 +3,10 @@
  *
  * Fetches financial data from connected accounting software via Titan.
  *
- * **Provider paths (prefill sources — all valuation methods use the same `yearlyFinancials` + `business_context`):**
- * - **Bizzcontrol / Octopus**: Multi-year batch from Venus (`get*Bizzcontrol*Batch` / `get*Octopus*Batch`);
- *   `dcf_defaults` and SDE flags merge into `business_context._imported_ledger_analysis` on import.
- * - **Silverfin**: OAuth via Mercury; Titan batch API exists for in-app use but the primary flow is
- *   connect in Mercury → sync → same session/bootstrap prefill as other providers.
- * - **Yuki / Exact**: `getProviderFinancialData` (single year, post–Mercury sync). Venus may redirect to
- *   Mercury to connect; financials land in Titan session and hydrate like any saved report.
+ * **Prefill architecture:** Mercury + Hermes ingest; Titan persists. Venus autofills from **stored**
+ * session/bootstrap payloads (`historical_years_data`, `importQuality`, `_imported_ledger_analysis`).
+ * Titan financial-data routes exist for Mercury/sync and tooling; they are not a parallel “Venus-only”
+ * source of truth for first-time ingestion.
  */
 
 import axios from 'axios'
@@ -125,10 +122,10 @@ export interface IntegrationStatus {
 }
 
 /**
- * Venus manual-flow import order for `pickConnectedImportStatus`.
- * Bizzcontrol/Octopus support multi-year batch in-app; Silverfin/Yuki/Exact typically flow through
- * Mercury OAuth → Titan sync (see file header). QuickBooks/Xero in `GET /integrations/accounting/status`
- * are ignored so test environments never surface mock QB/Xero financials in this UI.
+ * Order for `pickConnectedImportStatus` when the UI needs “which integration badge to show” or
+ * optional recovery navigation to Mercury. **Primary** valuation prefill is Titan **stored**
+ * session/bootstrap after Mercury sync (see file header). QuickBooks/Xero in
+ * `GET /integrations/accounting/status` are ignored for this picker where mock data must not appear.
  */
 export const ACCOUNTING_IMPORT_PROVIDER_ORDER = [
   'silverfin',

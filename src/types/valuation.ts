@@ -205,6 +205,22 @@ export interface ValuationRequest {
   /** Accountant's textual rationale for the chosen weighting (printed in PDF synthesis page). */
   user_weight_justification?: string
 
+  /**
+   * Startup Valuation Engine inputs (only set when `selected_method === 'startup_valuation'`).
+   * Mirrors `apps/titan-api/src/valuations/dto/valuation-request.dto.ts` (`startupInputsSchema`).
+   */
+  startup_inputs?: Record<string, unknown>
+
+  /**
+   * Free-form caller metadata forwarded to ValuationIQ's `request.metadata`.
+   *
+   * Currently consumed keys:
+   *   - `startup_advisor_cta_url` — overrides the "Invite my Accountant"
+   *     CTA URL on the startup report (set automatically by
+   *     `buildStartupValuationRequest`).
+   */
+  metadata?: Record<string, unknown>
+
   // Optional comparable companies
   comparables?: Array<{
     name: string

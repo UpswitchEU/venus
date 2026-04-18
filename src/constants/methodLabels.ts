@@ -15,6 +15,7 @@ export const METHOD_LABEL_KEYS: Record<string, string> = {
   sde_multiple: 'manualInput.methodSelector.sdeMultiple',
   adjusted_nav: 'manualInput.methodSelector.adjustedNav',
   fiscal_4x: 'manualInput.methodSelector.fiscal4x',
+  startup_valuation: 'manualInput.methodSelector.startupValuation',
 }
 
 /** Methods that show an info tooltip in the nav dropdown (long-form i18n description). */
@@ -24,4 +25,5 @@ export const METHOD_DESCRIPTION_KEYS: Record<string, string> = {
   sde_multiple: 'manualInput.methodSelector.sdeMultipleDescription',
   adjusted_nav: 'manualInput.methodSelector.adjustedNavDescription',
   fiscal_4x: 'manualInput.methodSelector.fiscal4xDescription',
+  startup_valuation: 'manualInput.methodSelector.startupValuationDescription',
 }

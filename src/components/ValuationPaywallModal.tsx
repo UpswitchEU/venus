@@ -48,8 +48,8 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
             {message || (isNl
-              ? `Uw gratis rapporten zijn read-only met watermerk (geen PDF-download). Starter (${starterYear}/jaar of €${starterMonth}/maand) geeft u alle 8 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (${proYear}/jaar of €${proMonth}/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.`
-              : `Your free reports are read-only with a watermark (no PDF download). Starter (${starterYear}/year or €${starterMonth}/month) gives you all 8 methods, manual control over every adjustment, and watermark-free branded reports. Pro (${proYear}/year or €${proMonth}/month) adds live sync with your accounting software so you can value your client base without manual entry.`)}
+              ? `Uw gratis rapporten zijn read-only met watermerk (geen PDF-download). Starter (${starterYear}/jaar of €${starterMonth}/maand) geeft u alle 9 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (${proYear}/jaar of €${proMonth}/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.`
+              : `Your free reports are read-only with a watermark (no PDF download). Starter (${starterYear}/year or €${starterMonth}/month) gives you all 9 methods, manual control over every adjustment, and watermark-free branded reports. Pro (${proYear}/year or €${proMonth}/month) adds live sync with your accounting software so you can value your client base without manual entry.`)}
           </p>
         </div>
 

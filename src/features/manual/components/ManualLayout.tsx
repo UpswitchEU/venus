@@ -62,11 +62,13 @@ import {
   type ValuationReportData,
 } from '../../../components/calculator'
 import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
+import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
 import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
+import { filterPreSelectableMethodsForOwnerFounder } from '../../../constants/accountantPlanMethods'
 import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { getStarterPlanSummary } from '../../../constants/pricing'
 import { AuroraButton } from '../../../design-system/components/Button'
@@ -137,6 +139,7 @@ import type {
 } from '../../../types/valuation'
 import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
+import { buildManualValuationRequest } from '../../../utils/buildManualValuationRequest'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
@@ -711,9 +714,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   } = useManualResultsStore()
   const { updateFormData } = useManualFormStore()
   const formStoreData = useManualFormStore((s) => s.formData)
-  const { currentYearRevenueForMethodNav, preSelectableMethodsForNav } = useUpfrontMethodNavInputs(
-    formStoreData,
-    user?.firm_country_code
+  const { currentYearRevenueForMethodNav, preSelectableMethodsForNav: firmPreSelectableMethods } =
+    useUpfrontMethodNavInputs(formStoreData, user?.firm_country_code)
+  const preSelectableMethodsForNav = useMemo(
+    () => filterPreSelectableMethodsForOwnerFounder(firmPreSelectableMethods, isAccountantFlow),
+    [firmPreSelectableMethods, isAccountantFlow]
   )
   const planLockedMethodKeys = useMemo(() => {
     if (allowedMethodKeys === null) return undefined
@@ -2665,7 +2670,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // React `formStoreData` here can be one frame stale vs. the synchronous store update.
         const storeSnapshot = useManualFormStore.getState().formData
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-        const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
+        const request = buildManualValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
         if (preSelectedMethod) {
           request.selected_method = preSelectedMethod
@@ -3114,7 +3119,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         updateFormData(venusFormData)
         const storeSnapshot = useManualFormStore.getState().formData
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-        const request = buildValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
+        const request = buildManualValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
         ;(request as any).dataSource = 'manual'
         ;(request as any).reportId = idForVersions
         if (preSelectedMethod) {
@@ -4298,7 +4303,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           revenue: latestFinancialOverrides.revenue ?? formStoreData.revenue,
           ebitda: latestFinancialOverrides.ebitda ?? formStoreData.ebitda,
         } as VenusFormData
-        const request = buildValuationRequest(
+        const request = buildManualValuationRequest(
           requestSource,
           normalizations,
           recalcLocale as 'nl' | 'en'
@@ -5055,7 +5060,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)] min-h-0 flex flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <ManualInputPanel key={reportId} {...manualInputProps} />
+            <StartupAwareInputPanel key={reportId} {...manualInputProps} />
           </div>
         </div>
 
@@ -5264,7 +5269,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
             <div className="h-full flex flex-col min-h-0">
               <div className="flex-1 min-h-0 overflow-y-auto">
-                <ManualInputPanel key={reportId} {...manualInputProps} />
+                <StartupAwareInputPanel key={reportId} {...manualInputProps} />
               </div>
             </div>
           </ResizablePanel>
@@ -5605,8 +5610,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {methodPaywallReason === 'methods' &&
                   (currentLocale === 'nl'
-                    ? 'Je gratis plan bevat Upswitch marktbenadering, DCF, EBITDA en gecorrigeerd NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 8 methodes, manuele controle over elke aanpassing, downloadbare rapporten zonder watermerk in uw huisstijl en live Benelux sector-multiples.'
-                    : 'Your free plan includes Upswitch market approach, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all 8 methods, manual control over every adjustment, downloadable watermark-free branded reports, and live Benelux sector multiples.')}
+                    ? 'Je gratis plan bevat Upswitch marktbenadering, DCF, EBITDA en gecorrigeerd NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 9 methodes, manuele controle over elke aanpassing, downloadbare rapporten zonder watermerk in uw huisstijl en live Benelux sector-multiples.'
+                    : 'Your free plan includes Upswitch market approach, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all 9 methods, manual control over every adjustment, downloadable watermark-free branded reports, and live Benelux sector multiples.')}
                 {methodPaywallReason === 'normalization' &&
                   (currentLocale === 'nl'
                     ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, volledige manuele controle en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'
@@ -5621,8 +5626,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                     : 'Blend multiple valuation methods with weighted averages and defend your choice in the PDF report. Upgrade to Starter for the full valuation synthesis.')}
                 {methodPaywallReason === 'pdf_download' &&
                   (currentLocale === 'nl'
-                    ? 'Uw gratis rapport is read-only met watermerk. Upgrade naar Starter voor downloadbare PDF-rapporten zonder watermerk in uw huisstijl en alle 8 methodes.'
-                    : 'Your free report is read-only with a watermark. Upgrade to Starter for downloadable watermark-free PDF reports with your branding and all 8 methods.')}
+                    ? 'Uw gratis rapport is read-only met watermerk. Upgrade naar Starter voor downloadbare PDF-rapporten zonder watermerk in uw huisstijl en alle 9 methodes.'
+                    : 'Your free report is read-only with a watermark. Upgrade to Starter for downloadable watermark-free PDF reports with your branding and all 9 methods.')}
               </p>
             </div>
             <div className="flex gap-3">

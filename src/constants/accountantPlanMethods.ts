@@ -1,13 +1,39 @@
 /**
  * Mirrors Titan `PRICING_CONFIG[free].features.allowed_methods` — keep in sync with
  * apps/titan-api/src/billing/config/pricing.config.ts
+ *
+ * NOTE: ``arr_multiple`` and ``startup_valuation`` are part of the Free tier so
+ * pre-revenue founders + business owners can run the SaaS / Startup paths without
+ * upgrading. Both methods are non-combinable in the synthesis flow.
  */
 export const FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS = [
   'upswitch_adaptive',
   'dcf',
   'ebitda_multiple',
   'adjusted_nav',
+  'arr_multiple',
+  'startup_valuation',
 ] as const
+
+/**
+ * Business owners / founders in Venus (non-accountant flow): Light Venus + startup campaign.
+ * Intersected with firm-level preselect list so NL still drops fiscal_4x, etc.
+ */
+export const OWNER_FOUNDER_METHOD_KEYS = [
+  'upswitch_adaptive',
+  'arr_multiple',
+  'startup_valuation',
+] as const
+
+/** Nav methods shown to owners; accountants keep full firm list. */
+export function filterPreSelectableMethodsForOwnerFounder(
+  methods: readonly string[],
+  isAccountantFlow: boolean
+): readonly string[] {
+  if (isAccountantFlow) return methods
+  const allow = new Set<string>(OWNER_FOUNDER_METHOD_KEYS)
+  return methods.filter((m) => allow.has(m))
+}
 
 /** Trim + lowercase; empty input resolves like Titan free tier. */
 export function normalizeAccountantPlanTypeKey(planType: string | undefined): string {
