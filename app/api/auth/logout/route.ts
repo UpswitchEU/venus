@@ -9,6 +9,7 @@
  */
 
 import { NextResponse } from 'next/server'
+import { getBffCookieHeaderForTitan, getResponseSetCookieList } from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
@@ -17,11 +18,12 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: Request) {
   try {
     const titanApiUrl = getTitanApiUrl(request)
+    const { cookieHeader } = await getBffCookieHeaderForTitan(request)
 
     const response = await fetchWithTimeout(`${titanApiUrl}/api/v2/auth/logout`, {
       method: 'POST',
       headers: {
-        Cookie: request.headers.get('cookie') || '',
+        Cookie: cookieHeader,
       },
     })
 
@@ -29,8 +31,7 @@ export async function POST(request: Request) {
     const nextResponse = NextResponse.json({ success: true })
 
     // Get Set-Cookie headers from Titan (to clear cookies)
-    // Use getSetCookie() to get all cookies, then append each one
-    const setCookieHeaders = response.headers.getSetCookie()
+    const setCookieHeaders = getResponseSetCookieList(response)
 
     // Forward cookie clearing headers from Titan
     setCookieHeaders.forEach((cookie) => {

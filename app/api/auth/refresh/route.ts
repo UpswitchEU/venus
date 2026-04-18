@@ -8,8 +8,13 @@
  * Bank-grade: server-safe Titan URL, fetch timeout.
  */
 
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  AUTH_FETCH_TIMEOUT_MS,
+  AuthUpstreamTimeoutError,
+  getBffCookieHeaderForTitan,
+  getResponseSetCookieList,
+} from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
@@ -19,22 +24,9 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const titanApiUrl = getTitanApiUrl(request)
+    const { cookieHeader, refreshTokenFromStore } = await getBffCookieHeaderForTitan(request)
 
-    // CRITICAL: Prioritize request headers for cookies (works in iframe context)
-    const requestCookieHeader = request.headers.get('cookie') || ''
-
-    const cookieStore = await cookies()
-    const cookiePairs: string[] = []
-    cookieStore.getAll().forEach((cookie) => {
-      cookiePairs.push(`${cookie.name}=${cookie.value}`)
-    })
-    const cookieStoreHeader = cookiePairs.join('; ')
-
-    const cookieHeader = requestCookieHeader || cookieStoreHeader
-
-    const refreshTokenFromStore = cookieStore.get('upswitch_refresh_token')?.value
     const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=')
-    const refreshToken = refreshTokenFromStore || (hasRefreshToken ? 'present' : null)
 
     if (!hasRefreshToken && !refreshTokenFromStore) {
       return NextResponse.json(
@@ -46,15 +38,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const response = await fetchWithTimeout(`${titanApiUrl}/api/v2/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: cookieHeader,
+    const response = await fetchWithTimeout(
+      `${titanApiUrl}/api/v2/auth/refresh`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: cookieHeader,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ refreshToken: refreshTokenFromStore || undefined }),
       },
-      credentials: 'include',
-      body: JSON.stringify({ refreshToken }),
-    })
+      AUTH_FETCH_TIMEOUT_MS
+    )
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Token refresh failed' }))
@@ -69,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
 
-    const setCookieHeaders = response.headers.getSetCookie()
+    const setCookieHeaders = getResponseSetCookieList(response)
     const nextResponse = NextResponse.json({
       success: true,
       data: data,
@@ -83,6 +79,15 @@ export async function POST(request: NextRequest) {
     return nextResponse
   } catch (error) {
     console.error('[POST /api/auth/refresh] Error:', error)
+    if (error instanceof AuthUpstreamTimeoutError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Request timed out. Please try again.',
+        },
+        { status: 504 }
+      )
+    }
     return NextResponse.json(
       {
         success: false,

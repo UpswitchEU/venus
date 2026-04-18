@@ -9,8 +9,12 @@
  * - 401: No cookies or auth/me failed (expected when logged out)
  */
 
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  AUTH_FETCH_TIMEOUT_AUTH_ME_MS,
+  AuthUpstreamTimeoutError,
+  getBffCookieHeaderForTitan,
+} from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
@@ -18,14 +22,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const requestCookieHeader = request.headers.get('cookie') || ''
-    const cookieStore = await cookies()
-    const cookiePairs: string[] = []
-    cookieStore.getAll().forEach((cookie) => {
-      cookiePairs.push(`${cookie.name}=${cookie.value}`)
-    })
-    const cookieStoreHeader = cookiePairs.join('; ')
-    const cookieHeader = requestCookieHeader || cookieStoreHeader
+    const { cookieHeader, cookieSource } = await getBffCookieHeaderForTitan(request)
 
     const hasAccessToken = cookieHeader.includes('upswitch_access_token=')
     const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=')
@@ -34,8 +31,7 @@ export async function GET(request: NextRequest) {
       hasAccessToken,
       hasRefreshToken,
       hasAnyAuthCookie: hasAccessToken || hasRefreshToken,
-      hasRequestCookies: !!requestCookieHeader,
-      hasCookieStoreCookies: cookiePairs.length > 0,
+      cookieSource,
     }
 
     if (!hasAccessToken && !hasRefreshToken) {
@@ -46,10 +42,14 @@ export async function GET(request: NextRequest) {
     }
 
     const titanApiUrl = getTitanApiUrl(request)
-    const meResponse = await fetchWithTimeout(`${titanApiUrl}/api/v2/auth/me`, {
-      method: 'GET',
-      headers: { Cookie: cookieHeader },
-    })
+    const meResponse = await fetchWithTimeout(
+      `${titanApiUrl}/api/v2/auth/me`,
+      {
+        method: 'GET',
+        headers: { Cookie: cookieHeader },
+      },
+      AUTH_FETCH_TIMEOUT_AUTH_ME_MS
+    )
 
     if (!meResponse.ok) {
       return NextResponse.json(
@@ -69,6 +69,15 @@ export async function GET(request: NextRequest) {
       message: 'Auth cookies valid',
     })
   } catch (error) {
+    if (error instanceof AuthUpstreamTimeoutError) {
+      return NextResponse.json(
+        {
+          status: 'timeout',
+          message: error.message,
+        },
+        { status: 504 }
+      )
+    }
     return NextResponse.json(
       {
         status: 'error',

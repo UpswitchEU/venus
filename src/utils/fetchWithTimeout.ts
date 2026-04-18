@@ -5,12 +5,14 @@
  * long-running operations like complete-profile).
  */
 
-export const AUTH_FETCH_TIMEOUT_MS = 10_000
+import { AuthUpstreamTimeoutError } from '@/utils/bffAuthProxy'
+
+export { AUTH_FETCH_TIMEOUT_MS } from '@/utils/bffAuthProxy'
 
 export async function fetchWithTimeout(
   url: string,
   options: RequestInit,
-  timeoutMs: number = AUTH_FETCH_TIMEOUT_MS
+  timeoutMs: number = 10_000
 ): Promise<Response> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
@@ -25,7 +27,13 @@ export async function fetchWithTimeout(
   } catch (error) {
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timeout - please try again')
+      let targetHost = 'unknown'
+      try {
+        targetHost = new URL(url).host
+      } catch {
+        // keep unknown
+      }
+      throw new AuthUpstreamTimeoutError(targetHost)
     }
     throw error
   }

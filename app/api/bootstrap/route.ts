@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getBffCookieHeaderForTitan, getResponseSetCookieList } from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { generalLogger } from '@/utils/logger'
@@ -25,17 +26,19 @@ const TIMEOUT_MS = 15_000 // 15s per request (includes potential token refresh)
  * Attempt to refresh the access token and return new cookies
  */
 async function tryRefreshToken(
-  cookieHeader: string,
   request: NextRequest
 ): Promise<{ success: boolean; newCookies: string[] }> {
   try {
     const titanApiUrl = getTitanApiUrl(request)
+    const { cookieHeader, refreshTokenFromStore } = await getBffCookieHeaderForTitan(request)
     const refreshResponse = await fetchWithTimeout(`${titanApiUrl}/api/v2/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Cookie: cookieHeader,
       },
+      credentials: 'include',
+      body: JSON.stringify({ refreshToken: refreshTokenFromStore || undefined }),
     })
 
     if (!refreshResponse.ok) {
@@ -45,7 +48,7 @@ async function tryRefreshToken(
       return { success: false, newCookies: [] }
     }
 
-    const newCookies = refreshResponse.headers.getSetCookie()
+    const newCookies = getResponseSetCookieList(refreshResponse)
     generalLogger.debug('[Bootstrap Route] Token refresh successful', {
       newCookiesCount: newCookies.length,
     })
@@ -107,8 +110,8 @@ export async function POST(request: NextRequest) {
     // Get request body
     const body = await request.json().catch(() => ({}))
 
-    // Forward cookies for authentication
-    let cookieHeader = request.headers.get('cookie') || ''
+    // Forward cookies for authentication (merge request header + cookies() like Mercury BFF)
+    let cookieHeader = (await getBffCookieHeaderForTitan(request)).cookieHeader
 
     // Get guest session ID and client context headers if present
     // ✅ CRITICAL: Using centralized header constants for consistency
@@ -204,7 +207,7 @@ export async function POST(request: NextRequest) {
     if (response.status === 401) {
       generalLogger.debug('[Bootstrap Route] Got 401, attempting token refresh')
 
-      const refreshResult = await tryRefreshToken(cookieHeader, request)
+      const refreshResult = await tryRefreshToken(request)
 
       if (refreshResult.success && refreshResult.newCookies.length > 0) {
         // Store new cookies to forward to browser
@@ -224,7 +227,7 @@ export async function POST(request: NextRequest) {
         })
 
         // Add any new cookies from retry response
-        const retryCookies = response.headers.getSetCookie()
+        const retryCookies = getResponseSetCookieList(response)
         allSetCookieHeaders.push(...retryCookies)
       } else {
         // RELOAD LOOP FIX: Refresh failed - return explicit 401 so client redirects to login once
@@ -240,7 +243,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Get cookies from original response
-      allSetCookieHeaders = response.headers.getSetCookie()
+      allSetCookieHeaders = getResponseSetCookieList(response)
     }
 
     // Get response data

@@ -8,8 +8,13 @@
  * Bank-grade: server-safe Titan URL, 5xx vs 401 differentiation, fetch timeout.
  */
 
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  AUTH_FETCH_TIMEOUT_AUTH_ME_MS,
+  AuthUpstreamTimeoutError,
+  getBffCookieHeaderForTitan,
+  getResponseSetCookieList,
+} from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { generalLogger } from '@/utils/logger'
@@ -20,32 +25,15 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const titanApiUrl = getTitanApiUrl(request)
+    const { cookieHeader, cookieSource } = await getBffCookieHeaderForTitan(request)
 
-    // CRITICAL: Prioritize request headers for cookies (works in iframe context)
-    // HTTP-only cookies set for .upswitch.app domain are sent in request headers
-    // but may not be accessible via cookies() helper in iframe context
-    const requestCookieHeader = request.headers.get('cookie') || ''
-
-    // Also try cookies() helper as fallback
-    const cookieStore = await cookies()
-    const cookiePairs: string[] = []
-    cookieStore.getAll().forEach((cookie) => {
-      cookiePairs.push(`${cookie.name}=${cookie.value}`)
-    })
-    const cookieStoreHeader = cookiePairs.join('; ')
-
-    // Use request headers first (contains all cookies sent by browser), fallback to cookie store
-    const cookieHeader = requestCookieHeader || cookieStoreHeader
-
-    // Check for auth tokens in cookie header string
     const hasAccessToken = cookieHeader.includes('upswitch_access_token=')
     const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=')
 
     generalLogger.debug('[Venus /api/auth/me] Cookie state', {
       hasAccessToken,
       hasRefreshToken,
-      hasRequestCookies: !!requestCookieHeader,
-      hasCookieStoreCookies: cookiePairs.length > 0,
+      cookieSource,
     })
 
     if (!hasAccessToken && !hasRefreshToken) {
@@ -54,12 +42,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Forward request to Titan API with cookies (with timeout)
-    const response = await fetchWithTimeout(`${titanApiUrl}/api/v2/auth/me`, {
-      method: 'GET',
-      headers: {
-        Cookie: cookieHeader,
+    const response = await fetchWithTimeout(
+      `${titanApiUrl}/api/v2/auth/me`,
+      {
+        method: 'GET',
+        headers: {
+          Cookie: cookieHeader,
+        },
       },
-    })
+      AUTH_FETCH_TIMEOUT_AUTH_ME_MS
+    )
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
@@ -95,13 +87,27 @@ export async function GET(request: NextRequest) {
     })
 
     // Forward Set-Cookie headers from Titan so token rotations reach the browser
-    const setCookies = response.headers.getSetCookie?.() ?? []
+    const setCookies = getResponseSetCookieList(response)
     for (const cookie of setCookies) {
       res.headers.append('Set-Cookie', cookie)
     }
 
     return res
   } catch (error) {
+    if (error instanceof AuthUpstreamTimeoutError) {
+      generalLogger.error('[Venus /api/auth/me] upstream timeout (BFF→Titan)', {
+        code: error.code,
+        targetHost: error.targetHost,
+      })
+      return NextResponse.json(
+        {
+          isAuthenticated: false,
+          error: 'upstream_timeout',
+          message: 'Authentication service did not respond in time',
+        },
+        { status: 504 }
+      )
+    }
     generalLogger.error('[Venus /api/auth/me] Error', {
       error: error instanceof Error ? error.message : String(error),
     })

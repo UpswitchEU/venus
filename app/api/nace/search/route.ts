@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
+import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 
 export async function GET(request: NextRequest) {
@@ -45,11 +46,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data: [] })
       }
 
+      const { cookieHeader } = await getBffCookieHeaderForTitan(request)
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
-          Cookie: request.headers.get('cookie') || '',
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
         },
         signal: controller.signal,
       })
