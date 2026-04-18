@@ -28,6 +28,8 @@ export interface User {
   avatar_url?: string
   avatar?: string
   profile_picture?: string
+  /** OIDC / some providers expose photo as `picture` */
+  picture?: string
 
   // Business card fields
   company_name?: string

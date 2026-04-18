@@ -133,7 +133,9 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   // Use client avatar when acting as client, otherwise use user avatar
   const avatarUrl =
-    isActingAsClient && client ? client.avatarUrl : user?.avatar_url || user?.avatar || user?.profile_picture
+    isActingAsClient && client
+      ? client.avatarUrl
+      : user?.avatar_url || user?.avatar || user?.profile_picture || user?.picture
   const hasAvatar = !!avatarUrl
   // Always show accountant identity in toolbar; client name belongs in breadcrumb/context bar
   const displayName = user?.name || user?.email

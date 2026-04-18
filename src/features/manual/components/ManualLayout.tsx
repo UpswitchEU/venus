@@ -5000,7 +5000,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
           )}
           userEmail={user?.email}
-          avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture}
+          avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture || user?.picture}
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
           onOpenNormalization={() => {
@@ -5173,7 +5173,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           isAccountantMode && accountantDisplayName ? { name: accountantDisplayName } : user
         )}
         userEmail={user?.email}
-        avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture}
+        avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture || user?.picture}
         onOpenAssistant={handleOpenAssistant}
         isAssistantOpen={chatDrawerOpen}
         onOpenNormalization={() => openUnifiedNormalizationModal()}
