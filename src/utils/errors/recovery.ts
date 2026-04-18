@@ -5,6 +5,7 @@
  */
 
 import { markRefreshCompleted, wasRefreshedRecently } from '../auth/cross-tab-refresh'
+import { getLogoutAbortSignal } from '../auth/logout-abort'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '../auth/refreshMutex'
 import { apiLogger } from '../logger'
 import { AppError } from './types'
@@ -231,6 +232,7 @@ export class ErrorRecoveryManager {
               const response = await fetch('/api/auth/refresh', {
                 method: 'POST',
                 credentials: 'include',
+                signal: getLogoutAbortSignal(),
               })
               if (response.ok) {
                 markRefreshCompleted()

@@ -14,6 +14,7 @@ import {
   AuthUpstreamTimeoutError,
   getBffCookieHeaderForTitan,
   getResponseSetCookieList,
+  mergeCookieHeaderFromSetCookieHeaders,
 } from '@/utils/bffAuthProxy'
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
@@ -24,10 +25,22 @@ export const dynamic = 'force-dynamic'
 /** Room for refresh + GET /me BFF→Titan when only refresh cookie is present. */
 export const maxDuration = 30
 
+function appendForwardedSetCookies(res: NextResponse, setCookies: string[]): void {
+  for (const c of setCookies) {
+    res.headers.append('Set-Cookie', c)
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const titanApiUrl = getTitanApiUrl(request)
-    const { cookieHeader, cookieSource } = await getBffCookieHeaderForTitan(request)
+    const { cookieHeader: initialCookieHeader, cookieSource } =
+      await getBffCookieHeaderForTitan(request)
+
+    let cookieHeader = initialCookieHeader
+    let setCookiesToForward: string[] = []
+    /** Bearer fallback when server-side refresh returns a JSON token but Set-Cookie is stripped (rare cross-domain cases). */
+    const meAuthHeaders: Record<string, string> = {}
 
     const hasAccessToken = cookieHeader.includes('upswitch_access_token=')
     const hasRefreshToken = cookieHeader.includes('upswitch_refresh_token=')
@@ -43,6 +56,72 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ isAuthenticated: false }, { status: 401 })
     }
 
+    // BFF-side refresh hop (mirrors Mercury): when the browser only has a
+    // refresh cookie (returning user whose 15-min access cookie expired,
+    // OAuth right after callback, etc.), do the rotation here so the same
+    // request can complete with `200 + user` and a fresh `Set-Cookie`,
+    // instead of forcing the client into a `/me 401 → /refresh → /me` chain.
+    if (hasRefreshToken && !hasAccessToken) {
+      try {
+        const refreshRes = await fetchWithTimeout(
+          `${titanApiUrl}/api/v2/auth/refresh`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Cookie: cookieHeader,
+            },
+            body: JSON.stringify({}),
+          },
+          AUTH_FETCH_TIMEOUT_AUTH_ME_MS
+        )
+        if (refreshRes.ok) {
+          setCookiesToForward = getResponseSetCookieList(refreshRes)
+          let refreshBodyToken: string | undefined
+          try {
+            const refreshData = (await refreshRes.clone().json()) as { token?: unknown }
+            if (typeof refreshData?.token === 'string' && refreshData.token.length > 0) {
+              refreshBodyToken = refreshData.token
+            }
+          } catch {
+            // non-JSON body — rely on Set-Cookie only
+          }
+          if (setCookiesToForward.length > 0) {
+            cookieHeader = mergeCookieHeaderFromSetCookieHeaders(cookieHeader, setCookiesToForward)
+          }
+          if (refreshBodyToken && !cookieHeader.includes('upswitch_access_token=')) {
+            meAuthHeaders.Authorization = `Bearer ${refreshBodyToken}`
+          }
+        }
+      } catch (e) {
+        if (e instanceof AuthUpstreamTimeoutError) {
+          const res504 = NextResponse.json(
+            {
+              isAuthenticated: false,
+              error: 'upstream_timeout',
+              message: 'Authentication service did not respond in time',
+            },
+            { status: 504 }
+          )
+          appendForwardedSetCookies(res504, setCookiesToForward)
+          return res504
+        }
+        throw e
+      }
+    }
+
+    // If after the optional refresh hop we still have no usable credential,
+    // surface 401 cleanly instead of letting Titan return its own.
+    if (
+      !cookieHeader.includes('upswitch_access_token=') &&
+      !cookieHeader.includes('upswitch_refresh_token=') &&
+      !meAuthHeaders.Authorization
+    ) {
+      const res401 = NextResponse.json({ isAuthenticated: false }, { status: 401 })
+      appendForwardedSetCookies(res401, setCookiesToForward)
+      return res401
+    }
+
     // Forward request to Titan API with cookies (with timeout)
     const response = await fetchWithTimeout(
       `${titanApiUrl}/api/v2/auth/me`,
@@ -50,6 +129,7 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         headers: {
           Cookie: cookieHeader,
+          ...meAuthHeaders,
         },
       },
       AUTH_FETCH_TIMEOUT_AUTH_ME_MS
@@ -64,7 +144,7 @@ export async function GET(request: NextRequest) {
           error: errorData,
           titanUrl: `${titanApiUrl}/api/v2/auth/me`,
         })
-        return NextResponse.json(
+        const res500 = NextResponse.json(
           {
             isAuthenticated: false,
             error: 'Server error',
@@ -73,9 +153,13 @@ export async function GET(request: NextRequest) {
           },
           { status: 500 }
         )
+        appendForwardedSetCookies(res500, setCookiesToForward)
+        return res500
       }
 
-      return NextResponse.json({ isAuthenticated: false }, { status: 401 })
+      const res401 = NextResponse.json({ isAuthenticated: false }, { status: 401 })
+      appendForwardedSetCookies(res401, setCookiesToForward)
+      return res401
     }
 
     const data = await response.json()
@@ -88,7 +172,10 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Forward Set-Cookie headers from Titan so token rotations reach the browser
+    // Forward Set-Cookie from the BFF refresh hop FIRST (the rotated tokens
+    // we just minted). Titan's `/me` itself does not rotate, but if it
+    // ever started, those would override here in the natural order.
+    appendForwardedSetCookies(res, setCookiesToForward)
     const setCookies = getResponseSetCookieList(response)
     for (const cookie of setCookies) {
       res.headers.append('Set-Cookie', cookie)

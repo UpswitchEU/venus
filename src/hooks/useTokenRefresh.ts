@@ -26,6 +26,7 @@ import {
   subscribeRefreshCompleted,
   wasRefreshedRecently,
 } from '../utils/auth/cross-tab-refresh'
+import { getLogoutAbortSignal } from '../utils/auth/logout-abort'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '../utils/auth/refreshMutex'
 import { getSessionSyncManager } from '../utils/auth/sessionSync'
 import { CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS } from '../utils/auth-fetch-timeout'
@@ -96,6 +97,9 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
             {
               withCredentials: true,
               timeout: CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
+              // Abort if logout fires; otherwise the response Set-Cookie
+              // would write rotated tokens AFTER cookies were cleared.
+              signal: getLogoutAbortSignal(),
             }
           )
 
@@ -288,12 +292,14 @@ export const useManualTokenRefresh = () => {
           {
             withCredentials: true,
             timeout: CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
+            signal: getLogoutAbortSignal(),
           }
         )
 
         const user = response.data?.user ?? response.data?.data?.user
         const success = response.data?.success === true || !!user
         if (success) {
+          markRefreshCompleted()
           generalLogger.debug('Manual token refresh successful (dual-token rotation complete)')
           return true
         } else {

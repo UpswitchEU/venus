@@ -16,6 +16,7 @@ import {
   markRefreshCompleted,
   wasRefreshedRecently,
 } from '@/utils/auth/cross-tab-refresh'
+import { getLogoutAbortSignal } from '@/utils/auth/logout-abort'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '@/utils/auth/refreshMutex'
 import { getApiUrl, getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
@@ -242,11 +243,14 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
     const startTime = performance.now()
 
     try {
-      // Use Venus proxy route for same-origin request
+      // Use Venus proxy route for same-origin request.
+      // Logout signal aborts mid-flight so /me's BFF refresh hop can't
+      // write rotated `Set-Cookie` after a concurrent logout.
       const response = await fetchWithTimeoutClient('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
         headers: { Accept: 'application/json' },
+        signal: getLogoutAbortSignal(),
       })
 
       if (!response.ok) {
@@ -330,6 +334,7 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
           method: 'POST',
           credentials: 'include',
           headers: { Accept: 'application/json' },
+          signal: getLogoutAbortSignal(),
         })
         if (response.ok) {
           markRefreshCompleted()

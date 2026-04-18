@@ -159,6 +159,7 @@ import {
   markRefreshCompleted,
   wasRefreshedRecently,
 } from '../utils/auth/cross-tab-refresh'
+import { getLogoutAbortSignal, triggerLogoutAbort } from '../utils/auth/logout-abort'
 // Token refresh uses the shared mutex in utils/auth/refreshMutex.ts
 // so that checkSession() and useTokenRefresh don't fire concurrent
 // refresh requests (which would fail under strict token rotation).
@@ -424,12 +425,15 @@ export const useAuthStore = create<AuthState>()(
           try {
             // Try to get user with access token
             // Use Venus proxy route for same-origin request (no CORS issues)
+            // Pass logout signal: /api/auth/me may BFF-refresh and return
+            // rotated `Set-Cookie` that would otherwise undo a concurrent logout.
             let response = await fetchWithTimeoutClient('/api/auth/me', {
               method: 'GET',
               credentials: 'include', // Send cookies (upswitch_access_token, upswitch_refresh_token)
               headers: {
                 Accept: 'application/json',
               },
+              signal: getLogoutAbortSignal(),
             })
 
             if (abortCheckSessionIfLoggingOut()) return null
@@ -443,6 +447,7 @@ export const useAuthStore = create<AuthState>()(
                 method: 'GET',
                 credentials: 'include',
                 headers: { Accept: 'application/json' },
+                signal: getLogoutAbortSignal(),
               })
               if (retryResponse.ok) {
                 const data = await retryResponse.json()
@@ -484,6 +489,7 @@ export const useAuthStore = create<AuthState>()(
                         method: 'POST',
                         credentials: 'include',
                         headers: { Accept: 'application/json' },
+                        signal: getLogoutAbortSignal(),
                       })
 
                       if (!refreshResponse.ok) {
@@ -535,6 +541,7 @@ export const useAuthStore = create<AuthState>()(
                     headers: {
                       Accept: 'application/json',
                     },
+                    signal: getLogoutAbortSignal(),
                   })
 
                   if (retryResponse.ok) {
@@ -670,6 +677,13 @@ export const useAuthStore = create<AuthState>()(
         if (venusLogoutNavigationPending) return
         venusLogoutNavigationPending = true
         window.__isLoggingOut = true
+
+        // Abort in-flight refreshes BEFORE we touch cookies. A refresh
+        // response arriving after this point would otherwise install fresh
+        // `Set-Cookie: upswitch_access_token=...` headers and undo the
+        // logout. Aborting the fetch makes the browser drop the response
+        // (including its Set-Cookie) per spec.
+        triggerLogoutAbort()
 
         try {
           set({ user: null, loading: false, error: null })
