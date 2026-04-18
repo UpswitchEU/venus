@@ -71,7 +71,11 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     const msg = error.message.toLowerCase()
     const isAuthCrash = msg.includes('418') || msg.includes('401') || msg.includes('hydration')
 
-    if (isAuthCrash && typeof window !== 'undefined') {
+    if (
+      isAuthCrash &&
+      typeof window !== 'undefined' &&
+      !window.__isLoggingOut
+    ) {
       const locale = window.location.pathname.match(/^\/(en|nl)\//)?.[1] || 'en'
       const mercuryUrl = getMercuryUrl()
       const returnUrl = encodeURIComponent(window.location.href)

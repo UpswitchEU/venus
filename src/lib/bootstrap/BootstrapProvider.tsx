@@ -442,6 +442,15 @@ export function BootstrapProvider({
 
       // Check if this is an authentication error that requires redirect
       if (error instanceof AuthenticationRequiredError) {
+        // Navigational logout may clear cookies before the document unloads; resolver
+        // can throw auth-required. Do not send user to Mercury login on top of /api/auth/logout.
+        if (typeof window !== 'undefined' && window.__isLoggingOut) {
+          generalLogger.debug(
+            '[BootstrapProvider] Skip login redirect — logout in progress (cookies clearing)'
+          )
+          return
+        }
+
         generalLogger.debug('[BootstrapProvider] Authentication required - redirecting to login', {
           redirectUrl: error.redirectUrl,
           currentUrl: typeof window !== 'undefined' ? window.location.pathname : 'unknown',

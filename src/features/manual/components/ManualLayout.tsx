@@ -42,6 +42,7 @@ import {
   trackReturnToMercury,
   trackVersionHistoryOpen,
 } from '@/lib/analytics'
+import { useAuthStore } from '../../../lib/auth'
 // Calculator Components (full Clarity parity)
 import {
   CalculatorNav,
@@ -4100,16 +4101,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     ]
   )
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
-      // Redirect to Mercury login (Venus uses Titan auth; accountants enter from Mercury)
-      const mercuryBaseUrl = getMercuryUrl()
-      window.location.href = `${mercuryBaseUrl}/${currentLocale}/auth/login?returnUrl=${encodeURIComponent(window.location.origin + `/${currentLocale}/reports/new`)}`
-    } catch {
-      const mercuryBaseUrl = getMercuryUrl()
-      window.location.href = `${mercuryBaseUrl}/${currentLocale}`
-    }
+  const handleLogout = useCallback(() => {
+    const mercuryBaseUrl = getMercuryUrl()
+    const postLogoutUrl = `${mercuryBaseUrl}/${currentLocale}/auth/login?returnUrl=${encodeURIComponent(`${window.location.origin}/${currentLocale}/reports/new`)}`
+    void useAuthStore.getState().logout({ postLogoutUrl })
   }, [currentLocale])
 
   const handleAccountSettings = useCallback(() => {

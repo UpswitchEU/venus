@@ -21,6 +21,9 @@ import { generalLogger } from '../../../../src/utils/logger'
  */
 function TokenRefreshGuard() {
   const handleTokenExpired = useCallback(() => {
+    if (typeof window !== 'undefined' && window.__isLoggingOut) {
+      return
+    }
     // If auth recently succeeded, the access token is still valid even if
     // the refresh token is expired. Redirecting here would cause an infinite
     // loop: Venus -> Mercury login -> Mercury auto-redirects back -> repeat.

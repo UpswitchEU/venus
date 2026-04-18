@@ -33,12 +33,14 @@ export function LogoutListener() {
     })
 
     const cleanupLoginListener = listenForLogin(async () => {
+      if (typeof window !== 'undefined' && window.__isLoggingOut) return
       const { isInitializing, loading } = useAuthStore.getState()
       if (isInitializing || loading) return
       await useAuthStore.getState().checkSession()
     })
 
     const cleanupAuthWatcher = setupAuthStateWatcher(async (isAuthenticated) => {
+      if (typeof window !== 'undefined' && window.__isLoggingOut) return
       const { user, isInitializing, loading } = useAuthStore.getState()
       if (isInitializing || loading) return
 
@@ -51,6 +53,7 @@ export function LogoutListener() {
       }
 
       if (!user && isAuthenticated) {
+        if (typeof window !== 'undefined' && window.__isLoggingOut) return
         await useAuthStore.getState().checkSession()
       }
     })

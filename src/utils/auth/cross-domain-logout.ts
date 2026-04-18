@@ -10,8 +10,27 @@
  * Also watches for cookie changes via visibility/focus events
  */
 
+import { removeAuthRelatedSessionStorageKeys } from './clear-auth-session-storage'
+
 const LOGOUT_EVENT = 'upswitch-logout'
 const LOGIN_EVENT = 'upswitch-login'
+
+/** Same hostname on every tab — use a per-document id so cross-tab auth sync actually fires. */
+function getBroadcastInstanceId(): string {
+  if (typeof window === 'undefined') return ''
+  const w = window as Window & { __upswitchBroadcastInstanceId?: string }
+  if (!w.__upswitchBroadcastInstanceId) {
+    w.__upswitchBroadcastInstanceId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  }
+  return w.__upswitchBroadcastInstanceId
+}
+
+function shouldIgnoreOwnBroadcast(data: { broadcastInstanceId?: string } | undefined): boolean {
+  const id = data?.broadcastInstanceId
+  return id != null && id === getBroadcastInstanceId()
+}
+
+const AUTH_SYNC_CHANNEL = 'upswitch-auth-sync'
 const REPORT_CREATED_EVENT = 'upswitch-report-created'
 const REPORT_UPDATED_EVENT = 'upswitch-report-updated'
 const REPORT_DELETED_EVENT = 'upswitch-report-deleted'
@@ -33,12 +52,13 @@ export function broadcastLogout(): void {
       type: LOGOUT_EVENT,
       timestamp: Date.now(),
       source: window.location.hostname,
+      broadcastInstanceId: getBroadcastInstanceId(),
     }
 
     // Use BroadcastChannel if available (more efficient)
     if (typeof BroadcastChannel !== 'undefined') {
       try {
-        const channel = new BroadcastChannel('upswitch-auth-sync')
+        const channel = new BroadcastChannel(AUTH_SYNC_CHANNEL)
         channel.postMessage(message)
         channel.close() // Close after sending
       } catch (error) {
@@ -64,15 +84,26 @@ export function listenForLogout(callback: () => void): () => void {
     return () => {} // No-op cleanup function
   }
 
+  let channel: BroadcastChannel | null = null
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      channel = new BroadcastChannel(AUTH_SYNC_CHANNEL)
+      channel.onmessage = (event) => {
+        if (event.data?.type !== LOGOUT_EVENT) return
+        if (shouldIgnoreOwnBroadcast(event.data)) return
+        callback()
+      }
+    } catch {
+      channel = null
+    }
+  }
+
   const handleMessage = (event: MessageEvent) => {
     // STRICT: Only accept messages from same origin
     const isSameOrigin = event.origin === window.location.origin
 
-    if (
-      event.data?.type === LOGOUT_EVENT &&
-      isSameOrigin &&
-      event.data.source !== window.location.hostname // Don't react to our own messages
-    ) {
+    if (event.data?.type === LOGOUT_EVENT && isSameOrigin) {
+      if (shouldIgnoreOwnBroadcast(event.data)) return
       callback()
     }
   }
@@ -81,6 +112,7 @@ export function listenForLogout(callback: () => void): () => void {
 
   // Return cleanup function
   return () => {
+    channel?.close()
     window.removeEventListener('message', handleMessage)
   }
 }
@@ -89,8 +121,7 @@ export function listenForLogout(callback: () => void): () => void {
  * Listen for login events from other tabs/subdomains
  *
  * Uses BroadcastChannel for same-origin tabs (more efficient)
- * Also listens for custom 'user-login' events (Mercury pattern)
- * Falls back to postMessage for compatibility
+ * Falls back to postMessage for compatibility (same-origin).
  */
 export function listenForLogin(callback: () => void): () => void {
   if (typeof window === 'undefined') {
@@ -102,11 +133,11 @@ export function listenForLogin(callback: () => void): () => void {
   // Use BroadcastChannel if available (more efficient for same-origin)
   if (typeof BroadcastChannel !== 'undefined') {
     try {
-      channel = new BroadcastChannel('upswitch-auth-sync')
+      channel = new BroadcastChannel(AUTH_SYNC_CHANNEL)
       channel.onmessage = (event) => {
-        if (event.data?.type === LOGIN_EVENT && event.data.source !== window.location.hostname) {
-          callback()
-        }
+        if (event.data?.type !== LOGIN_EVENT) return
+        if (shouldIgnoreOwnBroadcast(event.data)) return
+        callback()
       }
     } catch (_error) {
       // BroadcastChannel not available, fall through to postMessage
@@ -116,21 +147,13 @@ export function listenForLogin(callback: () => void): () => void {
   const handleMessage = (event: MessageEvent) => {
     const isSameOrigin = event.origin === window.location.origin
 
-    if (
-      event.data?.type === LOGIN_EVENT &&
-      isSameOrigin &&
-      event.data.source !== window.location.hostname
-    ) {
+    if (event.data?.type === LOGIN_EVENT && isSameOrigin) {
+      if (shouldIgnoreOwnBroadcast(event.data)) return
       callback()
     }
   }
 
-  const handleCustomEvent = () => {
-    callback()
-  }
-
   window.addEventListener('message', handleMessage)
-  window.addEventListener('user-login', handleCustomEvent)
 
   // Return cleanup function
   return () => {
@@ -138,7 +161,6 @@ export function listenForLogin(callback: () => void): () => void {
       channel.close()
     }
     window.removeEventListener('message', handleMessage)
-    window.removeEventListener('user-login', handleCustomEvent)
   }
 }
 
@@ -157,12 +179,13 @@ export function broadcastLogin(): void {
       type: LOGIN_EVENT,
       timestamp: Date.now(),
       source: window.location.hostname,
+      broadcastInstanceId: getBroadcastInstanceId(),
     }
 
     // Use BroadcastChannel if available (more efficient)
     if (typeof BroadcastChannel !== 'undefined') {
       try {
-        const channel = new BroadcastChannel('upswitch-auth-sync')
+        const channel = new BroadcastChannel(AUTH_SYNC_CHANNEL)
         channel.postMessage(message)
         channel.close() // Close after sending
       } catch (error) {
@@ -172,9 +195,6 @@ export function broadcastLogin(): void {
 
     // Also use postMessage for compatibility
     window.postMessage(message, window.location.origin)
-
-    // Also dispatch custom event for Mercury compatibility
-    window.dispatchEvent(new CustomEvent('user-login', { detail: {} }))
   } catch (_error) {
     // Broadcast failed — non-critical, tab sync is best-effort
   }
@@ -199,8 +219,7 @@ export function clearAllAuthState(): void {
     ]
     localStorageKeys.forEach((key) => localStorage.removeItem(key))
 
-    // Clear sessionStorage
-    sessionStorage.clear()
+    removeAuthRelatedSessionStorageKeys()
 
     // DO NOT clear cookies here - server clears HttpOnly cookies
     // Client-side document.cookie cannot clear HttpOnly cookies anyway

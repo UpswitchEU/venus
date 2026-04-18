@@ -25,6 +25,7 @@ import { getApiUrl } from '../utils/getMercuryUrl'
 import { isSessionKey, isUuid } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
+import { removeAuthRelatedSessionStorageKeys } from '../utils/auth/clear-auth-session-storage'
 import { isLegacyReturnUrl, isSafeMercuryReturnUrlInput } from './return-url'
 
 // Backend API URL - environment-aware (shared utility)
@@ -63,6 +64,24 @@ function setAuthCache(user: User | null): void {
 
 export function clearAuthCache(): void {
   authCache = null
+}
+
+function abortCheckSessionIfLoggingOut(): boolean {
+  return typeof window !== 'undefined' && !!window.__isLoggingOut
+}
+
+async function broadcastLoginIfNewSession(
+  user: User,
+  priorUserId: string | null | undefined
+): Promise<void> {
+  if (typeof window === 'undefined') return
+  if (priorUserId != null && priorUserId === user.id) return
+  try {
+    const { broadcastLogin } = await import('../utils/auth/cross-domain-logout')
+    broadcastLogin()
+  } catch {
+    /* non-fatal */
+  }
 }
 
 /**
@@ -131,6 +150,9 @@ function sanitizeUrl(paramsToRemove: string[]): void {
  * Following Mercury's pattern for concurrent request deduplication
  */
 let checkSessionPromise: Promise<User | null> | null = null
+
+/** Prevents double navigational logout + races with checkSession/refresh */
+let venusLogoutNavigationPending = false
 
 // Token refresh uses the shared mutex in utils/auth/refreshMutex.ts
 // so that checkSession() and useTokenRefresh don't fire concurrent
@@ -328,7 +350,7 @@ interface AuthState {
   setIsRefreshing: (isRefreshing: boolean) => void
   checkSession: () => Promise<User | null>
   exchangeToken: (token: string) => Promise<User | null>
-  logout: () => void
+  logout: (options?: { postLogoutUrl?: string }) => Promise<void>
 }
 
 /**
@@ -372,6 +394,9 @@ export const useAuthStore = create<AuthState>()(
 
       // Check session with cookie (supports dual-token system with auto-refresh)
       checkSession: async (): Promise<User | null> => {
+        if (typeof window !== 'undefined' && window.__isLoggingOut) {
+          return null
+        }
         // CRITICAL: Check cache first (like Mercury)
         const cached = getAuthCache()
         if (cached) {
@@ -402,10 +427,13 @@ export const useAuthStore = create<AuthState>()(
               },
             })
 
+            if (abortCheckSessionIfLoggingOut()) return null
+
             // RELOAD LOOP FIX: On first 401, retry once after 600ms (cookie propagation from Mercury)
             if (response.status === 401) {
               generalLogger.info('[Auth] auth/me 401 — retrying after 600ms (cookie propagation)')
               await new Promise((r) => setTimeout(r, 600))
+              if (abortCheckSessionIfLoggingOut()) return null
               const retryResponse = await fetchWithTimeoutClient('/api/auth/me', {
                 method: 'GET',
                 credentials: 'include',
@@ -415,11 +443,14 @@ export const useAuthStore = create<AuthState>()(
                 const data = await retryResponse.json()
                 const user = data.success ? data.data?.user || data.data : data.user || data
                 if (user) {
+                  if (abortCheckSessionIfLoggingOut()) return null
+                  const priorUserId = get().user?.id ?? null
                   get().setUser(user)
                   trackAuthSuccess(user.id, 'cookie')
                   authMetrics.recordSuccess()
                   setAuthCache(user)
                   get().setError(null)
+                  await broadcastLoginIfNewSession(user, priorUserId)
                   return user
                 }
               }
@@ -428,6 +459,7 @@ export const useAuthStore = create<AuthState>()(
 
             // If access token expired (401), try to refresh automatically
             if (response.status === 401) {
+              if (abortCheckSessionIfLoggingOut()) return null
               // RELOAD LOOP FIX: Signal refresh in progress so AuthGate doesn't redirect prematurely
               get().setIsRefreshing(true)
               try {
@@ -479,6 +511,8 @@ export const useAuthStore = create<AuthState>()(
 
                 const refreshSuccess = await getActiveRefreshPromise()!
 
+                if (abortCheckSessionIfLoggingOut()) return null
+
                 if (refreshSuccess) {
                   // Retry with new access token
                   // Use Venus proxy route for same-origin request (no CORS issues)
@@ -495,6 +529,8 @@ export const useAuthStore = create<AuthState>()(
                     const user = data.success ? data.data?.user || data.data : data.user || data
 
                     if (user) {
+                      if (abortCheckSessionIfLoggingOut()) return null
+                      const priorUserId = get().user?.id ?? null
                       get().setUser(user)
                       trackAuthSuccess(user.id, 'cookie')
                       authMetrics.recordSuccess()
@@ -504,6 +540,7 @@ export const useAuthStore = create<AuthState>()(
                       // Clear any previous errors
                       get().setError(null)
 
+                      await broadcastLoginIfNewSession(user, priorUserId)
                       return user
                     }
                   } else {
@@ -534,6 +571,9 @@ export const useAuthStore = create<AuthState>()(
               const user = data.success ? data.data?.user || data.data : data.user || data
 
               if (user) {
+                if (abortCheckSessionIfLoggingOut()) return null
+                // Capture before setUser — getState().user is the new user after setUser.
+                const priorUserId = get().user?.id ?? null
                 get().setUser(user)
                 trackAuthSuccess(user.id, 'cookie')
                 authMetrics.recordSuccess()
@@ -542,20 +582,7 @@ export const useAuthStore = create<AuthState>()(
                 // Cache successful auth result (like Mercury)
                 setAuthCache(user)
 
-                // Broadcast login event to other tabs ONLY if this is a new login
-                // (not just a session check - avoid unnecessary broadcasts)
-                const previousUser = useAuthStore.getState().user
-                if (
-                  typeof window !== 'undefined' &&
-                  (!previousUser || previousUser.id !== user.id)
-                ) {
-                  try {
-                    const { broadcastLogin } = await import('../utils/auth/cross-domain-logout')
-                    broadcastLogin()
-                  } catch (error) {
-                    // Non-fatal
-                  }
-                }
+                await broadcastLoginIfNewSession(user, priorUserId)
 
                 return user
               }
@@ -624,62 +651,45 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Logout (clears cookies and state) - Idempotent and race-condition safe
-      logout: async () => {
-        // Idempotency check - prevent concurrent logout calls
-        if (get().loading === false && !get().user) {
-          // Already logged out, skip
-          return
-        }
+      // Logout: local clear + navigational BFF logout (Mercury-grade — no fetch/assign race)
+      logout: async (options?: { postLogoutUrl?: string }) => {
+        if (typeof window === 'undefined') return
+        if (venusLogoutNavigationPending) return
+        venusLogoutNavigationPending = true
+        window.__isLoggingOut = true
 
         try {
-          // 1. Clear local state IMMEDIATELY (optimistic UI)
           set({ user: null, loading: false, error: null })
           clearAuthCache()
 
-          // Clear client context on logout
           import('../stores/clientContext')
             .then(({ useClientContext }) => {
               useClientContext.getState().clearClientContext()
             })
-            .catch(() => {
-              // Non-critical
-            })
+            .catch(() => {})
 
-          // Clear bootstrap singleton cache so stale results aren't served after re-login
           import('./bootstrap/SessionBootstrapService')
             .then(({ bootstrapService }) => {
               bootstrapService.clearCache()
             })
-            .catch(() => {
-              // Non-critical
-            })
+            .catch(() => {})
 
-          // Reset module-level guards so re-login triggers fresh auth + bootstrap
           import('../components/AuthGate')
             .then(({ resetAuthGateGuard }) => {
               resetAuthGateGuard()
             })
-            .catch(() => {
-              // Non-critical
-            })
+            .catch(() => {})
           import('./bootstrap/BootstrapProvider')
             .then(({ resetBootstrapGuard }) => {
               resetBootstrapGuard()
             })
-            .catch(() => {
-              // Non-critical
-            })
+            .catch(() => {})
 
-          // BANK-GRADE: Reset session engine singleton on logout
-          // This ensures fresh engine state on next login
           import('../services/session/SessionEngineFactory')
             .then(({ resetSessionEngine }) => {
               resetSessionEngine()
             })
-            .catch(() => {
-              // Non-critical
-            })
+            .catch(() => {})
 
           checkSessionPromise = null
           setActiveRefreshPromise(null)
@@ -687,45 +697,31 @@ export const useAuthStore = create<AuthState>()(
           initPromise = null
           clearInitThrottle()
 
-          // 2. Clear localStorage/sessionStorage
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('upswitch_has_session')
-            localStorage.removeItem('upswitch_user')
-            sessionStorage.clear()
+          localStorage.removeItem('upswitch_has_session')
+          localStorage.removeItem('upswitch_user')
+          removeAuthRelatedSessionStorageKeys()
+
+          const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
+          broadcastLogout()
+
+          const url = new URL('/api/auth/logout', window.location.origin)
+          url.searchParams.set('fallback', '1')
+          if (options?.postLogoutUrl) {
+            url.searchParams.set('post_logout', options.postLogoutUrl)
           }
-
-          // 3. Call backend to clear cookies (AWAIT it properly)
-          await fetch('/api/auth/logout', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { Accept: 'application/json' },
-          })
-
-          // 4. Broadcast to same-origin tabs AFTER backend succeeds
-          if (typeof window !== 'undefined') {
-            const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
-            broadcastLogout()
-          }
-
-          // DO NOT clear cookies client-side (server does it with HttpOnly)
-          // DO NOT use setTimeout (use proper await)
+          window.location.assign(url.toString())
         } catch (error) {
           generalLogger.warn('[Venus Auth] Logout failed (non-fatal)', { error })
-
-          // Still broadcast logout on error (graceful degradation)
-          if (typeof window !== 'undefined') {
-            try {
-              const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
-              broadcastLogout()
-            } catch (broadcastError) {
-              // Non-fatal
-            }
+          venusLogoutNavigationPending = false
+          window.__isLoggingOut = false
+          try {
+            const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
+            broadcastLogout()
+          } catch {
+            /* non-fatal */
           }
-
-          // State already cleared, user can continue
         }
 
-        // Track logout
         authMetrics.recordLogout()
       },
     }),
@@ -759,6 +755,12 @@ export function getInitTraceId(): string | null {
  */
 async function initializeAuth(): Promise<void> {
   if (initCompleted) {
+    return
+  }
+
+  if (typeof window !== 'undefined' && window.__isLoggingOut) {
+    useAuthStore.getState().setLoading(false)
+    useAuthStore.getState().setIsInitializing(false)
     return
   }
 

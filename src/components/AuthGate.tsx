@@ -348,6 +348,9 @@ export function AuthGate({
 
     function checkAuth() {
       if (wasAuthReady) return
+      // Navigational logout clears the user before the document unloads; do not
+      // send a second redirect to Mercury on top of GET /api/auth/logout.
+      if (typeof window !== 'undefined' && window.__isLoggingOut) return
 
       // Wait for auth pipeline to fully settle
       if (authLoading || isInitializing || isRefreshing) return

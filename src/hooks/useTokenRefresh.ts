@@ -46,6 +46,9 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
    */
   const refreshToken = useCallback(
     async (retryCount = 0): Promise<boolean> => {
+      if (typeof window !== 'undefined' && window.__isLoggingOut) {
+        return false
+      }
       // MUTEX: if a refresh is already in-flight (from here OR from checkSession),
       // wait for it instead of sending a duplicate request.
       const existing = getActiveRefreshPromise()
@@ -95,6 +98,9 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
               )
               return false
             }
+            if (typeof window !== 'undefined' && window.__isLoggingOut) {
+              return false
+            }
             generalLogger.warn('Refresh token expired or invalid, user needs to re-login')
             onTokenExpired?.()
             return false
@@ -128,13 +134,19 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
    * Check if token needs refresh
    */
   const checkAndRefresh = useCallback(async () => {
+    if (typeof window !== 'undefined' && window.__isLoggingOut) {
+      return
+    }
     try {
       // Proactively refresh access token before it expires
       // Access tokens expire in 15 minutes, we check every 5 minutes
       generalLogger.debug('Proactive token refresh check (dual-token system)')
-      await refreshToken()
+      const ok = await refreshToken()
+      if (!ok) {
+        return
+      }
 
-      // Broadcast session refresh to other tabs AFTER successful refresh
+      // Broadcast session refresh to other tabs only after a successful rotation
       const syncManager = getSessionSyncManager()
       syncManager.broadcastSessionRefresh(window.location.hostname)
     } catch (error: any) {
@@ -211,6 +223,9 @@ export const useManualTokenRefresh = () => {
   const isRefreshingRef = useRef(false)
 
   const refreshToken = useCallback(async (): Promise<boolean> => {
+    if (typeof window !== 'undefined' && window.__isLoggingOut) {
+      return false
+    }
     const existing = getActiveRefreshPromise()
     if (existing) {
       generalLogger.debug('Token refresh already in progress (shared mutex), waiting')
