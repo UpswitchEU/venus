@@ -165,6 +165,14 @@ function addTitanCookieClears(
   appendCookieClearingHeaders(request, targetResponse)
 }
 
+/**
+ * Build the logout response.
+ *
+ * Titan call is fire-and-forget: blocking on it caused multi-second
+ * "spinning" during logout (cold-start latency). The BFF emits a
+ * complete set of Set-Cookie clears for every relevant Domain, which
+ * is the only thing the browser needs.
+ */
 async function buildLogoutResponse(
   request: Request,
   { redirect = false }: { redirect?: boolean } = {}
@@ -175,21 +183,23 @@ async function buildLogoutResponse(
   try {
     const titanApiUrl = getTitanApiUrl(request)
     const { cookieHeader } = await getBffCookieHeaderForTitan(request)
-    const titanResponse = await fetchWithTimeout(
+
+    void fetchWithTimeout(
       `${titanApiUrl}/api/v2/auth/logout`,
       {
         method: 'POST',
         headers: { Cookie: cookieHeader },
       },
-      10_000
-    )
-    addTitanCookieClears(titanResponse, request, response)
-    return response
+      2_500
+    ).catch((error) => {
+      console.warn('[Venus /api/auth/logout] Titan signal failed (non-fatal):', error)
+    })
   } catch (error) {
-    console.error('[Venus /api/auth/logout] Error:', error)
-    addTitanCookieClears(null, request, response)
-    return response
+    console.warn('[Venus /api/auth/logout] Could not signal Titan (non-fatal):', error)
   }
+
+  addTitanCookieClears(null, request, response)
+  return response
 }
 
 export async function POST(request: Request) {

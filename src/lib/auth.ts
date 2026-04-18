@@ -19,13 +19,13 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { User } from '../contexts/AuthContextTypes'
+import { removeAuthRelatedSessionStorageKeys } from '../utils/auth/clear-auth-session-storage'
 import { fetchWithTimeoutClient } from '../utils/auth-fetch-timeout'
 import { fetchWithBySession404Retry } from '../utils/fetchWithBySession404Retry'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { isSessionKey, isUuid } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from './authLogger'
-import { removeAuthRelatedSessionStorageKeys } from '../utils/auth/clear-auth-session-storage'
 import { isLegacyReturnUrl, isSafeMercuryReturnUrlInput } from './return-url'
 
 // Backend API URL - environment-aware (shared utility)
@@ -154,6 +154,7 @@ let checkSessionPromise: Promise<User | null> | null = null
 /** Prevents double navigational logout + races with checkSession/refresh */
 let venusLogoutNavigationPending = false
 
+import { markRefreshCompleted, wasRefreshedRecently } from '../utils/auth/cross-tab-refresh'
 // Token refresh uses the shared mutex in utils/auth/refreshMutex.ts
 // so that checkSession() and useTokenRefresh don't fire concurrent
 // refresh requests (which would fail under strict token rotation).
@@ -468,6 +469,13 @@ export const useAuthStore = create<AuthState>()(
                 if (!getActiveRefreshPromise()) {
                   const promise = (async () => {
                     try {
+                      // Cross-tab dedup: another tab may have refreshed in the
+                      // last few minutes; if so, the new cookies are already
+                      // in our jar — retry /me directly instead of racing a
+                      // POST /refresh against the now-rotated refresh token.
+                      if (wasRefreshedRecently()) {
+                        return true
+                      }
                       const refreshResponse = await fetch('/api/auth/refresh', {
                         method: 'POST',
                         credentials: 'include',
@@ -493,6 +501,7 @@ export const useAuthStore = create<AuthState>()(
                         return false
                       }
 
+                      markRefreshCompleted()
                       return true
                     } catch (refreshError) {
                       logAuthError('Token refresh failed - network error', {
@@ -703,6 +712,35 @@ export const useAuthStore = create<AuthState>()(
 
           const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
           broadcastLogout()
+
+          // Defense-in-depth: fire a keepalive POST to /api/auth/logout
+          // BEFORE the navigation. Browsers keep these requests open across
+          // navigation and apply their Set-Cookie clears to the cookie jar
+          // even if the original tab is gone. This guarantees cookies are
+          // cleared even if the navigation below is cancelled mid-flight.
+          try {
+            void fetch('/api/auth/logout', {
+              method: 'POST',
+              credentials: 'include',
+              cache: 'no-store',
+              keepalive: true,
+              headers: { 'Content-Type': 'application/json' },
+              body: '{}',
+            }).catch(() => {
+              /* keepalive failures are non-fatal */
+            })
+          } catch {
+            /* ignore */
+          }
+
+          // Notify in-page listeners that cookies are about to be cleared.
+          // This event is part of the public auth contract used by
+          // auth-provider / LogoutListener equivalents.
+          try {
+            window.dispatchEvent(new Event('upswitch-logout-cookies-cleared'))
+          } catch {
+            /* ignore */
+          }
 
           const url = new URL('/api/auth/logout', window.location.origin)
           url.searchParams.set('fallback', '1')

@@ -20,12 +20,24 @@
 import axios from 'axios'
 import { useCallback, useEffect, useRef } from 'react'
 import { useAuthStore } from '../lib/auth'
+import {
+  markRefreshCompleted,
+  RECENT_REFRESH_WINDOW_MS,
+  subscribeRefreshCompleted,
+  wasRefreshedRecently,
+} from '../utils/auth/cross-tab-refresh'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '../utils/auth/refreshMutex'
 import { getSessionSyncManager } from '../utils/auth/sessionSync'
 import { CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS } from '../utils/auth-fetch-timeout'
 import { generalLogger } from '../utils/logger'
 
 const CHECK_INTERVAL = 5 * 60 * 1000
+/** Spread interval fires across tabs to make thundering-herd refresh impossible. */
+const CHECK_INTERVAL_JITTER_MS = 30_000
+
+function jitteredInterval(): number {
+  return CHECK_INTERVAL + Math.floor(Math.random() * CHECK_INTERVAL_JITTER_MS)
+}
 
 interface RefreshOptions {
   onRefreshSuccess?: () => void
@@ -65,6 +77,14 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
         return false
       }
 
+      // Cross-tab dedup: if any other tab refreshed inside the recency
+      // window, the rotated cookies are already in the shared `.upswitch.app`
+      // jar. Skip our attempt so we don't race the now-rotated refresh token.
+      if (wasRefreshedRecently()) {
+        lastRefreshAttemptRef.current = now
+        return true
+      }
+
       isRefreshingRef.current = true
       lastRefreshAttemptRef.current = now
 
@@ -82,6 +102,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
           const user = response.data?.user ?? response.data?.data?.user
           const success = response.data?.success === true || !!user
           if (success) {
+            markRefreshCompleted()
             onRefreshSuccess?.()
             return true
           } else {
@@ -90,7 +111,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
         } catch (error: any) {
           generalLogger.error('Token refresh failed', { error })
 
-          if (error.response?.status === 401) {
+          if (error.response?.status === 401 || error.response?.status === 403) {
             const { isInitializing, loading } = useAuthStore.getState()
             if (isInitializing || loading) {
               generalLogger.debug(
@@ -101,7 +122,20 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
             if (typeof window !== 'undefined' && window.__isLoggingOut) {
               return false
             }
+            // Refresh token truly expired. Clear auth state IMMEDIATELY and
+            // stop the polling interval. Waiting for a subsequent /me call
+            // allowed UI to keep showing a logged-in shell while background
+            // fetches piled up against an expired session.
             generalLogger.warn('Refresh token expired or invalid, user needs to re-login')
+            try {
+              useAuthStore.setState({ user: null, error: null })
+            } catch {
+              /* non-fatal */
+            }
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current)
+              intervalRef.current = null
+            }
             onTokenExpired?.()
             return false
           }
@@ -190,10 +224,16 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
       checkAndRefresh()
     }, 60_000)
 
-    // Set up periodic checks
+    // Set up periodic checks (jittered so multi-tab fires spread out)
     intervalRef.current = setInterval(() => {
       checkAndRefresh()
-    }, CHECK_INTERVAL)
+    }, jitteredInterval())
+
+    // When another tab refreshes, treat that as a successful refresh here
+    // so our 60s-spam guard and the cross-tab window both shift correctly.
+    const unsubscribeBroadcast = subscribeRefreshCompleted((at) => {
+      lastRefreshAttemptRef.current = at
+    })
 
     // Cleanup
     return () => {
@@ -201,6 +241,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
         clearInterval(intervalRef.current)
       }
       clearTimeout(initialTimeout)
+      unsubscribeBroadcast()
       generalLogger.debug('Stopped token refresh checks')
     }
   }, [checkAndRefresh])
