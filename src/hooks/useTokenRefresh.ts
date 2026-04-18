@@ -22,6 +22,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useAuthStore } from '../lib/auth'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '../utils/auth/refreshMutex'
 import { getSessionSyncManager } from '../utils/auth/sessionSync'
+import { CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS } from '../utils/auth-fetch-timeout'
 import { generalLogger } from '../utils/logger'
 
 const CHECK_INTERVAL = 5 * 60 * 1000
@@ -71,7 +72,7 @@ export const useTokenRefresh = (options: RefreshOptions = {}) => {
             {},
             {
               withCredentials: true,
-              timeout: 10000,
+              timeout: CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
             }
           )
 
@@ -230,7 +231,7 @@ export const useManualTokenRefresh = () => {
           {},
           {
             withCredentials: true,
-            timeout: 10000,
+            timeout: CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
           }
         )
 

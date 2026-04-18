@@ -5,6 +5,9 @@
  */
 export const CLIENT_AUTH_ME_FETCH_TIMEOUT_MS = 22_000
 
+/** POST `/api/auth/refresh` — single BFF hop; mirrors Mercury `CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS`. */
+export const CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS = 22_000
+
 export async function fetchWithTimeoutClient(
   input: RequestInfo | URL,
   init: RequestInit & { timeoutMs?: number } = {},

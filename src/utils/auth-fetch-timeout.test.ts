@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   CLIENT_AUTH_ME_FETCH_TIMEOUT_MS,
+  CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS,
   fetchWithTimeoutClient,
 } from './auth-fetch-timeout'
 
@@ -12,6 +13,10 @@ describe('auth-fetch-timeout', () => {
   it('keeps client /api/auth/me budget above sequential BFF refresh + me', () => {
     expect(CLIENT_AUTH_ME_FETCH_TIMEOUT_MS).toBeGreaterThan(BFF_AUTH_ME_MS)
     expect(CLIENT_AUTH_ME_FETCH_TIMEOUT_MS).toBeGreaterThan(2 * BFF_AUTH_ME_MS)
+  })
+
+  it('keeps refresh client budget above default BFF upstream timeout (10s)', () => {
+    expect(CLIENT_AUTH_REFRESH_FETCH_TIMEOUT_MS).toBeGreaterThan(10_000)
   })
 
   it('rejects when request exceeds timeout', async () => {
