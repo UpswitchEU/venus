@@ -37,7 +37,12 @@ export default async function NewReportPage({ params, searchParams }: NewReportP
     const sp = searchParams ? await searchParams : {}
     const preservedParams: string[] = []
 
-    // Preserve important parameters for bootstrap
+    // Preserve important parameters for bootstrap. ANY param read by the
+    // report client (`/reports/{id}`) MUST appear in this list — otherwise it
+    // is silently stripped by the redirect below and the prefill is lost.
+    // When adding a new query param to the cross-app contract, add it here
+    // and add a regression test under
+    // `apps/venus/app/[locale]/reports/new/page.test.ts`.
     const paramsToPreserve = [
       'prefilledQuery',
       'clientToken',
@@ -49,11 +54,24 @@ export default async function NewReportPage({ params, searchParams }: NewReportP
       'guestSessionId',
       'embedded',
       // Guided resolution (Mercury → Venus)
+      'drawer',
       'spotlight',
       'focusField',
       'flagYear',
       // Upfront method preference (Mercury calculator → new session)
       'selected_method',
+      // Founder dashboard CTA: pre-selects the segmented control on the
+      // startup wizard so the founder lands on the correct stage.
+      'startup_stage',
+      // Anonymized benchmark opt-out: `0` disables the post-completion
+      // multiples submission. Read on the report page itself, so it must
+      // survive the redirect.
+      'benchmark_contribution',
+      // Optional surface controls — `?action=download` triggers PDF download
+      // after report load, `?tab=...` selects an initial tab. Mercury rarely
+      // sends these on `/reports/new` but preserving them is forward-safe.
+      'action',
+      'tab',
     ]
 
     for (const param of paramsToPreserve) {
