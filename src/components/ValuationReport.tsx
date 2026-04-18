@@ -10,7 +10,9 @@ import { reportService } from '../services'
 import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
+import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../constants/crossAppMessages'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
+import { resolveStandaloneReportReadyHash } from '../utils/standaloneReportReadyHash'
 import { submitAnonymizedBenchmarkContribution } from '../utils/submitAnonymizedBenchmarkContribution'
 
 // Lazy load heavy components for code splitting
@@ -238,7 +240,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
         if (window.parent !== window) {
           window.parent.postMessage(
             {
-              type: 'venus-ready',
+              type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineReady,
               reportId,
               timestamp: Date.now(),
             },
@@ -247,15 +249,16 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
         } else {
           // Standalone (non-embedded) report mark — neutral `#ready` instead
           // of the legacy `#venus-ready` so the user-visible URL never
-          // reveals the internal codename. Mercury's transition loader and
-          // this same effect still recognise the legacy hash on the read
-          // path so in-flight tabs continue to work.
-          if (window.location.hash !== '#ready' && window.location.hash !== '#venus-ready') {
-            window.history.replaceState(
-              null,
-              '',
-              `${window.location.pathname}${window.location.search}#ready`
-            )
+          // reveals the internal codename. The helper still tolerates the
+          // legacy hash on the read path so in-flight tabs are not
+          // unnecessarily rewritten.
+          const decision = resolveStandaloneReportReadyHash({
+            pathname: window.location.pathname,
+            search: window.location.search,
+            hash: window.location.hash,
+          })
+          if (decision.shouldReplace) {
+            window.history.replaceState(null, '', decision.nextUrl)
           }
         }
       }

@@ -1,5 +1,6 @@
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../constants/crossAppMessages'
 import { generalLogger } from '../utils/logger'
 
 export const EMBEDDED_STORAGE_KEY = 'upswitch_venus_embedded'
@@ -12,7 +13,10 @@ export function closeEmbeddedIfActive(): void {
   if (typeof window === 'undefined') return
   try {
     if (sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true') {
-      window.parent.postMessage({ type: 'venus-close', source: 'venus' }, '*')
+      window.parent.postMessage(
+        { type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose, source: 'venus' },
+        '*'
+      )
     }
   } catch {
     // Ignore
@@ -87,16 +91,16 @@ export function useEmbeddedMode() {
     }
   }, [isEmbedded])
 
-  // Notify parent (Mercury) that Venus is ready
+  // Notify parent (Mercury) that the engine is ready
   useEffect(() => {
     if (isEmbedded && typeof window !== 'undefined') {
       window.parent.postMessage(
         {
-          type: 'venus-ready',
+          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineReady,
           timestamp: Date.now(),
         },
         '*'
-      ) // Mercury will verify origin
+      ) // Mercury verifies origin on receipt
     }
   }, [isEmbedded])
 
@@ -111,18 +115,18 @@ export function useEmbeddedMode() {
     }
 
     // Send close message to parent (always try, even if we're not sure we're embedded)
-    // Mercury will ignore messages from non-Venus origins
+    // Mercury verifies the source origin before honouring this.
     try {
       window.parent.postMessage(
         {
-          type: 'venus-close',
+          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose,
           timestamp: Date.now(),
         },
         '*'
       )
-      generalLogger.debug('[useEmbeddedMode] Sent venus-close message to parent')
+      generalLogger.debug('[useEmbeddedMode] Sent engine-close message to parent')
     } catch (error) {
-      generalLogger.warn('[useEmbeddedMode] Failed to send venus-close message', { error })
+      generalLogger.warn('[useEmbeddedMode] Failed to send engine-close message', { error })
     }
   }
 
@@ -133,7 +137,7 @@ export function useEmbeddedMode() {
     try {
       window.parent.postMessage(
         {
-          type: 'venus-valuation-complete',
+          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.valuationComplete,
           data: { reportId },
           timestamp: Date.now(),
         },

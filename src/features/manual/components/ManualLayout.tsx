@@ -70,6 +70,7 @@ import { RecalculateConfirmationPopup } from '../../../components/normalization/
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { filterPreSelectableMethodsForOwnerFounder } from '../../../constants/accountantPlanMethods'
+import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../../../constants/crossAppMessages'
 import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { getStarterPlanSummary } from '../../../constants/pricing'
 import { AuroraButton } from '../../../design-system/components/Button'
@@ -3739,7 +3740,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
       // Try to close embedded mode (sends postMessage to parent)
       try {
-        window.parent?.postMessage({ type: 'venus-close', source: 'venus' }, '*')
+        window.parent?.postMessage(
+          { type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose, source: 'venus' },
+          '*'
+        )
       } catch {}
 
       const validLocale =
