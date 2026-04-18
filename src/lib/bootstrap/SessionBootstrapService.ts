@@ -769,58 +769,41 @@ export class SessionBootstrapService {
         headerKeys: Object.keys(headers).filter((k) => k.toLowerCase().startsWith('x-')),
       })
 
-      // Make request (proxy handles 401 refresh; only 5xx/network errors retried here)
-      // RELOAD LOOP FIX: On 401, retry once after 500ms — cookie propagation from Mercury can lag
-      type FetchResponse = Awaited<ReturnType<typeof this.makeBootstrapRequest>>
-      let successResponse: FetchResponse | null = null
+      // Make request (proxy handles 401 refresh; no client-side retry on 401).
       let lastErrorText = ''
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const apiStart = performance.now()
-        const response = await this.makeBootstrapRequest(requestBody, headers, traceId)
-        const apiMs = Math.round(performance.now() - apiStart)
-        this.logger.info(`[Bootstrap:${traceId}] Titan API request complete`, {
-          durationMs: apiMs,
-          status: response.status,
-          attempt: attempt + 1,
-        })
+      const apiStart = performance.now()
+      const response = await this.makeBootstrapRequest(requestBody, headers, traceId)
+      const apiMs = Math.round(performance.now() - apiStart)
+      this.logger.info(`[Bootstrap:${traceId}] Titan API request complete`, {
+        durationMs: apiMs,
+        status: response.status,
+      })
 
-        if (!response.ok) {
-          lastErrorText = await response.text()
-          this.logger.error('[Bootstrap] Bootstrap API failed', {
-            status: response.status,
-            statusText: response.statusText,
-            error: lastErrorText.substring(0, 200),
-            attempt: attempt + 1,
-          })
-          if (response.status === 401 && attempt === 0) {
-            this.logger.info(
-              `[Bootstrap:${traceId}] 401 on first attempt — retrying after 500ms (cookie propagation)`
-            )
-            await new Promise((r) => setTimeout(r, 500))
-            continue
-          }
-          if (response.status === 401) {
-            const mercuryUrl = getMercuryUrl()
-            const locale =
-              typeof window !== 'undefined'
-                ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
-                : 'en'
-            const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
-            const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
-            throw new AuthenticationRequiredError(
-              'Session expired or authentication required',
-              redirectUrl
-            )
-          }
-          throw new Error(
-            `Bootstrap API failed (${response.status}): ${lastErrorText.substring(0, 100)}`
+      if (!response.ok) {
+        lastErrorText = await response.text()
+        this.logger.error('[Bootstrap] Bootstrap API failed', {
+          status: response.status,
+          statusText: response.statusText,
+          error: lastErrorText.substring(0, 200),
+        })
+        if (response.status === 401) {
+          const mercuryUrl = getMercuryUrl()
+          const locale =
+            typeof window !== 'undefined'
+              ? window.location.pathname.match(/^\/(en|nl|fr|de)\//)?.[1] || 'en'
+              : 'en'
+          const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
+          const redirectUrl = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+          throw new AuthenticationRequiredError(
+            'Session expired or authentication required',
+            redirectUrl
           )
         }
-        successResponse = response
-        break
+        throw new Error(
+          `Bootstrap API failed (${response.status}): ${lastErrorText.substring(0, 100)}`
+        )
       }
 
-      const response = successResponse!
       const data = await response.json()
 
       // DIAGNOSTIC (dev only): Log bootstrap response for accountant + clientToken flow

@@ -427,7 +427,7 @@ export const useAuthStore = create<AuthState>()(
             // Use Venus proxy route for same-origin request (no CORS issues)
             // Pass logout signal: /api/auth/me may BFF-refresh and return
             // rotated `Set-Cookie` that would otherwise undo a concurrent logout.
-            let response = await fetchWithTimeoutClient('/api/auth/me', {
+            const response = await fetchWithTimeoutClient('/api/auth/me', {
               method: 'GET',
               credentials: 'include', // Send cookies (upswitch_access_token, upswitch_refresh_token)
               headers: {
@@ -437,35 +437,6 @@ export const useAuthStore = create<AuthState>()(
             })
 
             if (abortCheckSessionIfLoggingOut()) return null
-
-            // RELOAD LOOP FIX: On first 401, retry once after 600ms (cookie propagation from Mercury)
-            if (response.status === 401) {
-              generalLogger.info('[Auth] auth/me 401 — retrying after 600ms (cookie propagation)')
-              await new Promise((r) => setTimeout(r, 600))
-              if (abortCheckSessionIfLoggingOut()) return null
-              const retryResponse = await fetchWithTimeoutClient('/api/auth/me', {
-                method: 'GET',
-                credentials: 'include',
-                headers: { Accept: 'application/json' },
-                signal: getLogoutAbortSignal(),
-              })
-              if (retryResponse.ok) {
-                const data = await retryResponse.json()
-                const user = data.success ? data.data?.user || data.data : data.user || data
-                if (user) {
-                  if (abortCheckSessionIfLoggingOut()) return null
-                  const priorUserId = get().user?.id ?? null
-                  get().setUser(user)
-                  trackAuthSuccess(user.id, 'cookie')
-                  authMetrics.recordSuccess()
-                  setAuthCache(user)
-                  get().setError(null)
-                  await broadcastLoginIfNewSession(user, priorUserId)
-                  return user
-                }
-              }
-              response = retryResponse
-            }
 
             // If access token expired (401), try to refresh automatically
             if (response.status === 401) {
