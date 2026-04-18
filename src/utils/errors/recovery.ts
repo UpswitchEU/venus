@@ -4,6 +4,8 @@
  * Implements retry logic and recovery strategies for different error types
  */
 
+import { markRefreshCompleted, wasRefreshedRecently } from '../auth/cross-tab-refresh'
+import { getActiveRefreshPromise, setActiveRefreshPromise } from '../auth/refreshMutex'
 import { apiLogger } from '../logger'
 import { AppError } from './types'
 
@@ -209,19 +211,38 @@ export class ErrorRecoveryManager {
       getRetryDelay: (attempt) => Math.min(10000 * (attempt + 1), 60000),
     })
 
-    // Authentication error recovery
+    // Authentication error recovery — coordinated with useTokenRefresh and
+    // checkSession via the cross-tab marker and shared in-tab mutex so the
+    // recovery strategy never duplicates a refresh that is already in flight
+    // (which would race the rotated refresh token and 401).
     this.registerStrategy('AUTH_ERROR', {
       canRecover: () => true,
       recover: async () => {
         try {
-          // Try to refresh token
-          const response = await fetch('/api/auth/refresh', {
-            method: 'POST',
-            credentials: 'include',
-          })
-          return response.ok
+          if (wasRefreshedRecently()) {
+            return true
+          }
+          const existing = getActiveRefreshPromise()
+          if (existing) {
+            return existing
+          }
+          const promise = (async () => {
+            try {
+              const response = await fetch('/api/auth/refresh', {
+                method: 'POST',
+                credentials: 'include',
+              })
+              if (response.ok) {
+                markRefreshCompleted()
+              }
+              return response.ok
+            } finally {
+              setActiveRefreshPromise(null)
+            }
+          })()
+          setActiveRefreshPromise(promise)
+          return promise
         } catch {
-          // Redirect to login
           window.location.href = '/login'
           return false
         }

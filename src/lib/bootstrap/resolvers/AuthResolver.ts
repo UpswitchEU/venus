@@ -12,6 +12,11 @@
  */
 
 import { fetchWithTimeoutClient } from '@/utils/auth-fetch-timeout'
+import {
+  markRefreshCompleted,
+  wasRefreshedRecently,
+} from '@/utils/auth/cross-tab-refresh'
+import { getActiveRefreshPromise, setActiveRefreshPromise } from '@/utils/auth/refreshMutex'
 import { getApiUrl, getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
   BootstrapContext,
@@ -302,19 +307,42 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
   }
 
   /**
-   * Try to refresh expired access token
+   * Try to refresh expired access token.
+   *
+   * Coordinates with `useTokenRefresh` and `checkSession` via three layers:
+   *   1. Cross-tab dedup — skip if any tab refreshed recently
+   *   2. Shared in-tab mutex — wait on an existing refresh if one is in flight
+   *   3. Mark the result so other tabs can defer their own refresh
    */
   private async tryRefreshToken(): Promise<boolean> {
-    try {
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { Accept: 'application/json' },
-      })
-      return response.ok
-    } catch {
-      return false
+    // Cross-tab dedup: another tab just rotated tokens; the new cookies are
+    // already in our jar — no need to race the now-rotated refresh token.
+    if (wasRefreshedRecently()) {
+      return true
     }
+    const existing = getActiveRefreshPromise()
+    if (existing) {
+      return existing
+    }
+    const promise = (async () => {
+      try {
+        const response = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        })
+        if (response.ok) {
+          markRefreshCompleted()
+        }
+        return response.ok
+      } catch {
+        return false
+      } finally {
+        setActiveRefreshPromise(null)
+      }
+    })()
+    setActiveRefreshPromise(promise)
+    return promise
   }
 
   /**

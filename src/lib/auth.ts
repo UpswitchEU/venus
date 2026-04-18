@@ -154,7 +154,11 @@ let checkSessionPromise: Promise<User | null> | null = null
 /** Prevents double navigational logout + races with checkSession/refresh */
 let venusLogoutNavigationPending = false
 
-import { markRefreshCompleted, wasRefreshedRecently } from '../utils/auth/cross-tab-refresh'
+import {
+  clearLastRefreshAt,
+  markRefreshCompleted,
+  wasRefreshedRecently,
+} from '../utils/auth/cross-tab-refresh'
 // Token refresh uses the shared mutex in utils/auth/refreshMutex.ts
 // so that checkSession() and useTokenRefresh don't fire concurrent
 // refresh requests (which would fail under strict token rotation).
@@ -708,6 +712,10 @@ export const useAuthStore = create<AuthState>()(
 
           localStorage.removeItem('upswitch_has_session')
           localStorage.removeItem('upswitch_user')
+          // Cross-tab refresh marker is per-session; the next sign-in must
+          // start with a clean slate or the first proactive refresh might
+          // be deferred by the previous user's "we just refreshed" hint.
+          clearLastRefreshAt()
           removeAuthRelatedSessionStorageKeys()
 
           const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
