@@ -11,6 +11,7 @@
  * @module lib/bootstrap/resolvers/AuthResolver
  */
 
+import { fetchWithTimeoutClient } from '@/utils/auth-fetch-timeout'
 import { getApiUrl, getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
   BootstrapContext,
@@ -237,7 +238,7 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
 
     try {
       // Use Venus proxy route for same-origin request
-      const response = await fetch('/api/auth/me', {
+      const response = await fetchWithTimeoutClient('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
         headers: { Accept: 'application/json' },

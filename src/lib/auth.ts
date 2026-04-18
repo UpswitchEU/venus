@@ -19,6 +19,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { User } from '../contexts/AuthContextTypes'
+import { fetchWithTimeoutClient } from '../utils/auth-fetch-timeout'
 import { fetchWithBySession404Retry } from '../utils/fetchWithBySession404Retry'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { isSessionKey, isUuid } from '../utils/identifiers'
@@ -393,7 +394,7 @@ export const useAuthStore = create<AuthState>()(
           try {
             // Try to get user with access token
             // Use Venus proxy route for same-origin request (no CORS issues)
-            let response = await fetch('/api/auth/me', {
+            let response = await fetchWithTimeoutClient('/api/auth/me', {
               method: 'GET',
               credentials: 'include', // Send cookies (upswitch_access_token, upswitch_refresh_token)
               headers: {
@@ -405,7 +406,7 @@ export const useAuthStore = create<AuthState>()(
             if (response.status === 401) {
               generalLogger.info('[Auth] auth/me 401 — retrying after 600ms (cookie propagation)')
               await new Promise((r) => setTimeout(r, 600))
-              const retryResponse = await fetch('/api/auth/me', {
+              const retryResponse = await fetchWithTimeoutClient('/api/auth/me', {
                 method: 'GET',
                 credentials: 'include',
                 headers: { Accept: 'application/json' },
@@ -481,7 +482,7 @@ export const useAuthStore = create<AuthState>()(
                 if (refreshSuccess) {
                   // Retry with new access token
                   // Use Venus proxy route for same-origin request (no CORS issues)
-                  const retryResponse = await fetch('/api/auth/me', {
+                  const retryResponse = await fetchWithTimeoutClient('/api/auth/me', {
                     method: 'GET',
                     credentials: 'include',
                     headers: {
