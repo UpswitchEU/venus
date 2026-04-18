@@ -49,10 +49,20 @@ export function isSafeMercuryReturnUrlInput(
 }
 
 /**
- * Set or strip `from=venus` on a Mercury URL. Only set when returning after a completed
- * valuation so Mercury can show "added to business card" — never for a plain exit.
+ * Set or strip the celebration marker on a Mercury return URL. Only set when
+ * returning after a completed valuation so Mercury can show "added to business
+ * card" — never for a plain exit.
+ *
+ * The marker is the user-visible neutral value `from=valuation` (was previously
+ * the internal codename `from=venus`, kept as a legacy alias on the Mercury
+ * reader for in-flight URLs but never re-emitted).
  */
-/** Only client detail (or sub-routes) should carry `from=venus` — not dashboard fallbacks. */
+export const MERCURY_CELEBRATION_QUERY_KEY = 'from'
+export const MERCURY_CELEBRATION_QUERY_VALUE = 'valuation'
+/** Legacy value emitted before the codename strip — Mercury still accepts it on read. */
+export const MERCURY_CELEBRATION_QUERY_VALUE_LEGACY = 'venus'
+
+/** Only client detail (or sub-routes) should carry the celebration marker — not dashboard fallbacks. */
 function isAccountantClientPath(pathname: string): boolean {
   return (
     pathname.includes('/advisor/clients/') ||
@@ -65,10 +75,13 @@ export function applyMercuryCelebrationQuery(urlString: string, celebrate: boole
     const u = new URL(urlString)
     if (celebrate) {
       if (isAccountantClientPath(u.pathname)) {
-        u.searchParams.set('from', 'venus')
+        u.searchParams.set(
+          MERCURY_CELEBRATION_QUERY_KEY,
+          MERCURY_CELEBRATION_QUERY_VALUE
+        )
       }
     } else {
-      u.searchParams.delete('from')
+      u.searchParams.delete(MERCURY_CELEBRATION_QUERY_KEY)
     }
     return u.toString()
   } catch {
@@ -96,7 +109,7 @@ function pathnameWithLocale(pathname: string, locale: 'en' | 'nl'): string {
  * Returns a safe Mercury URL for redirect. If storedUrl is legacy or invalid,
  * falls back to dashboard or client valuations.
  *
- * @param celebrateMercuryReturn When true, appends `?from=venus` so Mercury can celebrate.
+ * @param celebrateMercuryReturn When true, appends `?from=valuation` so Mercury can celebrate.
  *   When false/undefined, strips `from` if present (defensive cleanup of old links).
  */
 export function getSafeMercuryReturnUrl(

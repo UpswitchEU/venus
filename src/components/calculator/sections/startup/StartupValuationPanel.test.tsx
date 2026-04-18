@@ -1,10 +1,11 @@
 /**
  * StartupValuationPanel — render + interaction smoke tests.
  *
- * Locks in the 3-screen wizard contract and the scalar `Slider` API
- * regression that previously rendered Berkus sliders silently broken
- * (we were passing `value={[v]}` / `onValueChange`, but the Aurora
- * primitive expects scalar `value` + `onChange`).
+ * Locks in the **stacked-section contract** (the panel renders the
+ * three numbered sections one beneath the other — no Next/Back wizard,
+ * matching the rhythm of every other left-panel method like DCF) and
+ * guards against the historical scalar-Slider-API regression that
+ * previously rendered Berkus sliders silently broken.
  *
  * Mirrors the `SaasMetricsSection.test.tsx` translation-mocking style
  * so we keep the suite snappy without spinning up next-intl.
@@ -17,17 +18,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StartupValuationPanel } from './StartupValuationPanel'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 
-vi.mock('next-intl', () => ({
-  useTranslations:
-    () =>
-    (key: string, values?: Record<string, string | number>) =>
-      values
-        ? `${key}:${Object.entries(values)
-            .map(([k, v]) => `${k}=${v}`)
-            .join(',')}`
-        : key,
-  useLocale: () => 'en',
-}))
+// `t` is the function the panels call: `t(key, values?)`.
+// `t.rich` is the next-intl helper for messages with React-element
+// fragments (e.g. <strong> tokens).  We mock it to render the same
+// templated key-with-values string and concatenate any rendered
+// fragments so assertions can grep through the resulting text.
+vi.mock('next-intl', () => {
+  const renderValues = (values?: Record<string, unknown>) =>
+    values
+      ? `:${Object.entries(values)
+          .map(([k, v]) => `${k}=${typeof v === 'function' ? '[fn]' : String(v)}`)
+          .join(',')}`
+      : ''
+
+  const t = (key: string, values?: Record<string, string | number>) =>
+    `${key}${renderValues(values)}`
+  ;(t as unknown as { rich: typeof t }).rich = (
+    key: string,
+    values?: Record<string, unknown>,
+  ) => `${key}${renderValues(values)}`
+
+  return {
+    useTranslations: () => t,
+    useLocale: () => 'en',
+  }
+})
 
 // Note: relative-path mocks must match the *importer's* resolved specifier.
 // `StartupValuationPanel.tsx` lives at `sections/startup/` and imports
@@ -53,81 +68,114 @@ describe('StartupValuationPanel', () => {
     useStartupValuationStore.getState().reset()
   })
 
-  it('renders the wizard chrome on first paint (step 1 / setup bar / progress)', () => {
+  it('renders the panel header, setup bar, and all three numbered sections at once', () => {
     render(<StartupValuationPanel />)
 
+    // Header + setup bar are persistent.
     expect(screen.getByText('panelTitle')).toBeInTheDocument()
     expect(screen.getByText('setupStageLabel')).toBeInTheDocument()
     expect(screen.getByText('setupSectorLabel')).toBeInTheDocument()
 
-    // ProgressBar exposes role=progressbar with the canonical aria attrs.
-    const bar = screen.getByRole('progressbar')
-    expect(bar).toHaveAttribute('aria-valuenow', '1')
-    expect(bar).toHaveAttribute('aria-valuemax', '3')
+    // All three numbered sections are visible simultaneously — this is
+    // the load-bearing assertion that the old wizard-with-Next/Back
+    // pattern has been replaced by stacked sections (matching DCF, NAV,
+    // SaaS layout). If the panel ever regresses to step-based hiding,
+    // the Year-5 input will disappear from the DOM.
+    expect(screen.getByText('section1Title')).toBeInTheDocument()
+    expect(screen.getByText('section2Title')).toBeInTheDocument()
+    expect(screen.getByText('section3Title')).toBeInTheDocument()
 
-    // Step 1 surfaces the Berkus sliders (label + value badge).
+    // Section 1 — Berkus sliders are visible on first paint.
     expect(screen.getByText('soundIdea')).toBeInTheDocument()
-    expect(screen.getByText('managementStrength')).toBeInTheDocument()
+    expect(screen.getByText('productRollout')).toBeInTheDocument()
+
+    // Section 3 — VC inputs visible on first paint (no Next click required).
+    expect(screen.getByTestId('currency-y5Revenue')).toBeInTheDocument()
+    expect(screen.getByTestId('pct-dilutionAssumption')).toBeInTheDocument()
   })
 
-  it('Berkus sliders honour the Aurora scalar API and write back to the store', () => {
+  it('every Berkus slider carries an aria-label and writes back to the store on keyboard input', () => {
     render(<StartupValuationPanel />)
 
-    // The Aurora `Slider` primitive exposes role="slider" with
-    // aria-valuenow reflecting the scalar `value` prop. If the panel
-    // ever regresses to `value={[v]}` / `onValueChange`, this assertion
-    // fails because aria-valuenow becomes NaN / 0 instead of the
-    // store-default 50, and ArrowRight will not write back to the store.
-    const sliders = screen.getAllByRole('slider')
-    expect(sliders.length).toBeGreaterThanOrEqual(5)
-
-    const first = sliders[0]
-    expect(first).toHaveAttribute('aria-valuenow', '50')
-
-    fireEvent.keyDown(first, { key: 'ArrowRight' })
-    expect(useStartupValuationStore.getState().sound_idea).toBe(55)
-  })
-
-  it('each Berkus slider carries an aria-label so screen readers announce the milestone', () => {
-    render(<StartupValuationPanel />)
-
-    // Step 1 surfaces all 5 Berkus sliders. They render as div[role="slider"]
-    // (no native <input>), so the panel forwards `aria-label` derived from
-    // the i18n label key. Without this, AT users hear an anonymous "slider, 50".
+    // The Aurora `Slider` primitive renders div[role="slider"] (no
+    // native <input>), so the panel must forward `aria-label` derived
+    // from the i18n label key. Without this, AT users hear an
+    // anonymous "slider, 50".
     expect(screen.getByRole('slider', { name: 'soundIdea' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'prototypeStatus' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'managementStrength' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'strategicRelationships' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'productRollout' })).toBeInTheDocument()
+
+    // Scalar-API regression guard — if the section ever regresses to
+    // `value={[v]}` / `onValueChange`, aria-valuenow becomes NaN/0
+    // and ArrowRight stops writing to the store.
+    const sound = screen.getByRole('slider', { name: 'soundIdea' })
+    expect(sound).toHaveAttribute('aria-valuenow', '50')
+    fireEvent.keyDown(sound, { key: 'ArrowRight' })
+    expect(useStartupValuationStore.getState().sound_idea).toBe(55)
   })
 
-  it('wizardNext advances to step 2 and updates the progressbar aria value', () => {
+  it('Berkus section surfaces the regional baseline pill and the live subtotal', () => {
     render(<StartupValuationPanel />)
 
-    const next = screen.getAllByText('wizardNext')[0]
-    fireEvent.click(next)
+    // Baseline pill: the engine-injected "Up to €X across 5 milestones"
+    // line. We assert the templated key is rendered with the right
+    // tokens — keeps the academic anchor in the founder's eyeline.
+    const baseline = screen.getByText((content) =>
+      content.startsWith('section1BaselineCallout:'),
+    )
+    expect(baseline).toBeInTheDocument()
+    expect(baseline.textContent).toContain('region=BE')
+    expect(baseline.textContent).toContain('stage=stageSeed')
 
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2')
-    expect(screen.getByText('wizardStep2Title')).toBeInTheDocument()
+    // Live subtotal pill — confirms the per-slider EUR rollup the
+    // founder will see in the report.
+    expect(screen.getByText('berkusSubtotalLabel')).toBeInTheDocument()
   })
 
-  it('reaching step 3 surfaces the VC inputs and the sector hint', () => {
+  it('forward-SaaS section shows fields by default and clears them on the skip toggle', () => {
+    // Pretend the founder typed some traction data before deciding
+    // they're pre-revenue; the skip toggle must scrub MRR/ARR/growth/
+    // churn so ValuationIQ does not silently anchor to stale numbers.
+    useStartupValuationStore.setState({
+      mrr: 25_000,
+      arr: 300_000,
+      mrr_growth_rate_pct: 18,
+      monthly_churn_pct: 4,
+    })
+
     render(<StartupValuationPanel />)
 
-    const next = screen.getAllByText('wizardNext')[0]
-    fireEvent.click(next)
-    fireEvent.click(next)
+    // Fields are visible since not-skipped.
+    expect(screen.getByTestId('currency-mrr')).toBeInTheDocument()
+    expect(screen.getByTestId('pct-mrrGrowth')).toBeInTheDocument()
 
-    expect(screen.getByText('wizardStep3Title')).toBeInTheDocument()
-    // hint copy is templated `wizardStep3SectorHint:sector=…,multiple=…`
-    expect(
-      screen.getByText((content) =>
-        content.startsWith('wizardStep3SectorHint:sector=sectorSaas,multiple=6')
-      )
-    ).toBeInTheDocument()
-    // VC method-specific input slots present
-    expect(screen.getByTestId('currency-y5Revenue')).toBeInTheDocument()
-    expect(screen.getByTestId('pct-dilutionAssumption')).toBeInTheDocument()
+    // Toggle says "I'm pre-revenue" while not-skipped.
+    fireEvent.click(screen.getByText('section2SkipBadgeOff'))
+
+    const state = useStartupValuationStore.getState()
+    expect(state.mrr).toBeNull()
+    expect(state.arr).toBeNull()
+    expect(state.mrr_growth_rate_pct).toBeNull()
+    expect(state.monthly_churn_pct).toBeNull()
+
+    // Toggle now reads "Re-enable" because the skip state is derived
+    // from "all 4 SaaS-leg fields are empty".
+    expect(screen.getByText('section2SkipBadgeOn')).toBeInTheDocument()
+  })
+
+  it('exit scenario renders the sector-specific exit-multiple suggestion + the stage-aware ROI hint', () => {
+    render(<StartupValuationPanel />)
+
+    // The hint surfaces the engine's stage-aware default (20× for seed)
+    // alongside the cross-stage UI default (15×). If either token
+    // disappears, founders lose the academic anchor for their VC ROI.
+    const hint = screen.getByText((content) =>
+      content.startsWith('section3RoiHint:'),
+    )
+    expect(hint.textContent).toContain('stageRoi=20')
+    expect(hint.textContent).toContain('defaultRoi=15')
   })
 
   it('advanced drawer is collapsed by default and reveals scorecard + cap-table inputs when toggled', () => {
@@ -143,35 +191,32 @@ describe('StartupValuationPanel', () => {
     expect(screen.getByText('addSafeNote')).toBeInTheDocument()
   })
 
-  it('"skip pre-revenue" clears traction inputs and jumps from step 2 straight to step 3', () => {
-    // Pretend the founder typed some traction data on step 2 before deciding
-    // they're pre-revenue; the skip CTA must scrub MRR/ARR/growth/churn so
-    // ValuationIQ does not silently anchor to stale numbers.
-    useStartupValuationStore.setState({
-      mrr: 25000,
-      arr: 300000,
-      mrr_growth_rate_pct: 18,
-      monthly_churn_pct: 4,
-    })
+  it('founder mode hides the Scorecard fine-tuning section but keeps cap-table inside the advanced drawer', () => {
+    // The founder triangulation deliberately drops Scorecard from the
+    // headline 3-leg blend (consortium spec). Showing the Scorecard
+    // sliders in founder mode would create the false impression that
+    // those numbers move the headline pre-money — they don't, until
+    // an accountant later switches the same valuation to advisor view.
+    render(<StartupValuationPanel mode="founder" />)
 
-    render(<StartupValuationPanel />)
-    fireEvent.click(screen.getAllByText('wizardNext')[0]) // → step 2
+    fireEvent.click(screen.getByText('advancedToggleTitle'))
 
-    fireEvent.click(screen.getByText('wizardStep2SkipPreRevenue'))
+    expect(screen.queryByText('advancedScorecardTitle')).not.toBeInTheDocument()
+    expect(screen.getByText('advancedCapTableTitle')).toBeInTheDocument()
+    expect(screen.getByText('addSafeNote')).toBeInTheDocument()
+  })
 
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '3')
-    const state = useStartupValuationStore.getState()
-    expect(state.mrr).toBeNull()
-    expect(state.arr).toBeNull()
-    expect(state.mrr_growth_rate_pct).toBeNull()
-    expect(state.monthly_churn_pct).toBeNull()
+  it('founder mode swaps the panel header copy', () => {
+    // Distinct keys (panelTitleFounder / panelIntroFounder) so the
+    // Mercury-driven founder funnel can A/B copy without touching
+    // accountant flows.
+    render(<StartupValuationPanel mode="founder" />)
+    expect(screen.getByText('panelTitleFounder')).toBeInTheDocument()
+    expect(screen.getByText('panelIntroFounder')).toBeInTheDocument()
+    expect(screen.queryByText('panelTitle')).not.toBeInTheDocument()
   })
 
   it('the stage SegmentedControl writes the picked stage back to the store', () => {
-    // The stage segmented control is the only setup-bar control that
-    // doesn't depend on a popover (which is finicky in jsdom). It still
-    // gives us a strong signal that `state.setField('stage', value)` is
-    // wired correctly on every option click.
     render(<StartupValuationPanel />)
 
     fireEvent.click(screen.getByText('stagePreSeed'))

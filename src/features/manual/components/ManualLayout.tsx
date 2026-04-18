@@ -63,6 +63,7 @@ import {
 } from '../../../components/calculator'
 import { SourceDataPanel } from '../../../components/calculator/SourceDataPanel'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
+import { StartupFounderDashboard } from '../../../components/calculator/sections/startup/StartupFounderDashboard'
 import { ValuationEditModal } from '../../../components/calculator/ValuationEditModal'
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
@@ -2005,6 +2006,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     const vr = result?.valuation_results as Record<string, ValuationMethodResult> | undefined
     return vr ?? null
   }, [result?.valuation_results])
+
+  // Founder dashboard mount — show the React founder one-pager (football
+  // field + live cap-table simulator) ABOVE the HTML report whenever a
+  // founder runs the 9th startup_valuation method. Advisors keep the
+  // pure HTML report and never see the dashboard so their workflow is
+  // untouched (KISS / SRP, no regression in the accountant flow).
+  const founderStartupResult = useMemo<ValuationMethodResult | null>(() => {
+    if (isAccountantFlow) return null
+    if (selectedMethod !== 'startup_valuation') return null
+    return synthesisValuationResults?.['startup_valuation'] ?? null
+  }, [isAccountantFlow, selectedMethod, synthesisValuationResults])
 
   const synthesisUnlocked = planFeatures?.valuation_synthesis ?? false
   const handleSelectVersion = useCallback(
@@ -5335,6 +5347,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                               </div>
                             </div>
                           )}
+                          {founderStartupResult && (
+                            <StartupFounderDashboard result={founderStartupResult} />
+                          )}
                           <div className="valuation-report">
                             <div
                               dangerouslySetInnerHTML={{
@@ -5416,6 +5431,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
                             </div>
                           </div>
                         </div>
+                      )}
+                      {founderStartupResult && (
+                        <StartupFounderDashboard result={founderStartupResult} />
                       )}
                       <div className="valuation-report">
                         <div

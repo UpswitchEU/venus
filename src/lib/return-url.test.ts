@@ -12,24 +12,45 @@ import {
 } from './return-url'
 
 describe('applyMercuryCelebrationQuery', () => {
-  it('strips from when not celebrating', () => {
+  it('strips from when not celebrating (legacy from=venus value)', () => {
     expect(
       applyMercuryCelebrationQuery('https://upswitch.app/nl/advisor/clients/x?from=venus', false)
     ).toBe('https://upswitch.app/nl/advisor/clients/x')
   })
 
-  it('sets from=venus on accountant client paths when celebrating', () => {
+  it('strips from when not celebrating (current from=valuation value)', () => {
+    expect(
+      applyMercuryCelebrationQuery(
+        'https://upswitch.app/nl/advisor/clients/x?from=valuation',
+        false
+      )
+    ).toBe('https://upswitch.app/nl/advisor/clients/x')
+  })
+
+  it('sets from=valuation on accountant client paths when celebrating (no codename leak)', () => {
     const u = applyMercuryCelebrationQuery('https://upswitch.app/nl/advisor/clients/abc', true)
-    expect(u).toContain('from=venus')
+    expect(u).toContain('from=valuation')
+    expect(u).not.toContain('from=venus')
   })
 
-  it('sets from=venus on legacy /accountant/clients/ paths when celebrating (301 may not run in iframe)', () => {
+  it('sets from=valuation on legacy /accountant/clients/ paths when celebrating (301 may not run in iframe)', () => {
     const u = applyMercuryCelebrationQuery('https://upswitch.app/nl/accountant/clients/abc', true)
-    expect(u).toContain('from=venus')
+    expect(u).toContain('from=valuation')
+    expect(u).not.toContain('from=venus')
   })
 
-  it('does not add from=venus on dashboard URLs when celebrating', () => {
+  it('does not add the celebration marker on dashboard URLs when celebrating', () => {
     const u = applyMercuryCelebrationQuery('https://upswitch.app/nl/advisor/dashboard', true)
+    expect(u).not.toContain('from=valuation')
+    expect(u).not.toContain('from=venus')
+  })
+
+  it('overwrites a stale from=venus with from=valuation on celebration to retire the codename', () => {
+    const u = applyMercuryCelebrationQuery(
+      'https://upswitch.app/nl/advisor/clients/abc?from=venus',
+      true
+    )
+    expect(u).toContain('from=valuation')
     expect(u).not.toContain('from=venus')
   })
 })
@@ -87,23 +108,26 @@ describe('getSafeMercuryReturnUrl', () => {
       { celebrateMercuryReturn: false }
     )
     expect(out).not.toContain('from=venus')
+    expect(out).not.toContain('from=valuation')
     expect(out).toContain('keep=1')
   })
 
-  it('appends from=venus for client URLs when celebrate is true', () => {
+  it('appends from=valuation (no codename) for client URLs when celebrate is true', () => {
     const out = getSafeMercuryReturnUrl('https://upswitch.app/nl/advisor/clients/c1', {
       celebrateMercuryReturn: true,
     })
-    expect(out).toContain('from=venus')
+    expect(out).toContain('from=valuation')
+    expect(out).not.toContain('from=venus')
   })
 
-  it('does not append from=venus to dashboard fallback when celebrate is true', () => {
+  it('does not append the celebration marker to dashboard fallback when celebrate is true', () => {
     const out = getSafeMercuryReturnUrl(null, {
       celebrateMercuryReturn: true,
       sourceApp: 'mercury',
       locale: 'nl',
     })
     expect(out).toBe('https://upswitch.app/nl/advisor/dashboard')
+    expect(out).not.toContain('from=valuation')
     expect(out).not.toContain('from=venus')
   })
 

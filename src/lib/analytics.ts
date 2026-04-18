@@ -161,3 +161,45 @@ export function trackPaywallShown(source: 'bootstrap_credit' | 'session_credit')
 export function trackPaywallUpgradeClick(source: 'bootstrap_credit' | 'session_credit'): void {
   trackEvent('venus_paywall_upgrade_click', { source })
 }
+
+// ── Founder Startup Wizard (UPS-STARTUP-001) ─────────────────────────
+//
+// Funnel events for the new venture / pre-revenue valuation flow that
+// founders enter from the Mercury KBO bypass screen and the dashboard
+// tile.  Names mirror the Mercury counterparts in
+// `apps/mercury/shared/lib/analytics.ts` so PostHog can stitch the
+// two surfaces into a single funnel.
+
+export type FounderStartupWizardStep = 'milestones' | 'traction' | 'exit' | 'review'
+
+/** Founder advanced to a wizard step (impression of the step). */
+export function trackFounderStartupWizardStep(
+  step: FounderStartupWizardStep,
+  stage?: 'pre_seed' | 'seed' | 'series_a',
+): void {
+  trackEvent('venus_founder_startup_wizard_step', {
+    step,
+    ...(stage ? { stage } : {}),
+  })
+}
+
+/** Founder completed the wizard and the engine returned a result. */
+export function trackFounderStartupWizardComplete(
+  reportId: string,
+  stage?: 'pre_seed' | 'seed' | 'series_a',
+): void {
+  trackEvent('venus_founder_startup_wizard_complete', {
+    report_id: reportId,
+    ...(stage ? { stage } : {}),
+  })
+}
+
+/** Founder clicked "Invite my Accountant" from the founder dashboard. */
+export function trackFounderStartupInvite(method: 'cta' | 'copy_link' | 'email'): void {
+  trackEvent('venus_founder_startup_invite', { method })
+}
+
+/** Founder downloaded the one-pager PDF from the founder dashboard. */
+export function trackFounderStartupPdfDownload(reportId: string): void {
+  trackEvent('venus_founder_startup_pdf_download', { report_id: reportId })
+}
