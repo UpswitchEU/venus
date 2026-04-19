@@ -52,6 +52,19 @@ export interface User {
 
   // Language preference (synced from Titan)
   language_preference?: string
+
+  /**
+   * Titan-resolved plan tier from the `/api/auth/me` payload (extracted from
+   * `user_plans[0].plan_type`). Used as a synchronous seed for `useCredits`
+   * on the standalone Venus path so paid advisors do not see the
+   * Free-tier locked-method flash while `/credits/plan` is in flight.
+   *
+   * Authoritative billing decisions still go through `/credits/plan`; this
+   * field is a UI-only optimization for the first paint. Possible values
+   * mirror Titan `PlanType`: `free | starter | pro | expert | enterprise |
+   * premium`. Always trim/lowercase before comparing.
+   */
+  plan_type?: string
 }
 
 export interface AuthContextType {

@@ -6,11 +6,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { MERCURY_TO_ENGINE_MESSAGE_TYPES } from '../constants/crossAppMessages'
 import { resolveAllowedMethodKeys } from '../constants/accountantPlanMethods'
+import { MERCURY_TO_ENGINE_MESSAGE_TYPES } from '../constants/crossAppMessages'
+import { useAuthStore } from '../lib/auth'
 import { backendAPI } from '../services/backendApi'
-import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { getCapturedMercuryAuthBootstrap } from '../utils/auth/mercury-auth-bootstrap'
+import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 
 interface UserPlan {
@@ -77,7 +78,9 @@ function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
     integrations_enabled: ['pro', 'expert', 'enterprise'].includes(pt),
     valuation_synthesis: ['starter', 'pro', 'expert', 'enterprise'].includes(pt),
     valuation_download: true,
-    live_benelux_sector_multiples: ['premium', 'starter', 'pro', 'expert', 'enterprise'].includes(pt),
+    live_benelux_sector_multiples: ['premium', 'starter', 'pro', 'expert', 'enterprise'].includes(
+      pt
+    ),
     team_seat_addons: ['starter', 'pro', 'expert', 'enterprise'].includes(pt),
   }
 }
@@ -104,34 +107,84 @@ import { env } from '../utils/env'
 const UNLIMITED_CREDITS_MODE = env.NEXT_PUBLIC_UNLIMITED_CREDITS_MODE === 'true'
 
 /**
- * Seed plan from Mercury's `authBootstrap` postMessage if it's already
- * arrived. Lets plan-gated UI render the correct method nav and feature
- * flags on the first frame; the real `backendAPI.getUserPlan()` call still
- * runs and overwrites with authoritative usage/credit numbers shortly
- * after.
+ * Synchronously seed `plan` for the very first render so plan-gated UI
+ * (method nav lock badges, feature gates) renders the correct tier on
+ * paint instead of flashing the Free-tier list while `/credits/plan` is
+ * in flight. Two complementary sources, in priority order:
+ *
+ *   1. Mercury `authBootstrap` postMessage (embedded modal warm path).
+ *      Available before any auth fetch resolves because Mercury fires it
+ *      on iframe `load`. Carries the only signal we have for the
+ *      embedded path before Venus's own `/api/auth/me` returns.
+ *   2. `useAuthStore.user.plan_type` (standalone path). Titan's `/me`
+ *      response already includes `plan_type` (resolved from
+ *      `user_plans[0].plan_type`), but `useCredits` historically waited
+ *      for a separate `/credits/plan` round-trip to learn the tier — so
+ *      a Pro/Expert advisor opening `https://venus.app/calculator` saw
+ *      DCF / fiscal_4x methods rendered as locked for ~200–600 ms until
+ *      Titan answered. Reading `user.plan_type` directly turns that
+ *      flash into a no-op.
+ *
+ * Both seeds intentionally leave credit counts at 0 — anything that
+ * needs an exact remaining-count must read after `backendAPI.getUserPlan()`
+ * resolves. Server-side `/credit*` endpoints are still authoritative.
  */
 function seedPlanFromMercuryBootstrap(): UserPlan | null {
   const bootstrap = getCapturedMercuryAuthBootstrap()
-  const planType = bootstrap?.user?.planType
-  if (!planType) return null
-  return {
-    id: 'mercury-bootstrap-seed',
-    user_id: bootstrap?.user?.id ?? 'mercury-bootstrap',
-    plan_type: planType,
-    // Treat seeded credit counts as "unknown but not zero" so UI does not
-    // misleadingly tell the user they have 0 credits before Titan answers.
-    // Anything that needs an exact number must read after the live fetch.
-    credits_per_period: 0,
-    credits_used: 0,
-    credits_remaining: 0,
-    created_at: new Date().toISOString(),
-    allowed_methods: undefined,
+  const bootstrapPlanType = bootstrap?.user?.planType
+  if (bootstrapPlanType) {
+    return {
+      id: 'mercury-bootstrap-seed',
+      user_id: bootstrap?.user?.id ?? 'mercury-bootstrap',
+      plan_type: bootstrapPlanType,
+      credits_per_period: 0,
+      credits_used: 0,
+      credits_remaining: 0,
+      created_at: new Date().toISOString(),
+      allowed_methods: undefined,
+    }
   }
+  // Standalone path: read whatever `/api/auth/me` already populated on
+  // the auth store. `getState()` is a synchronous Zustand read — safe to
+  // call from useState's lazy initializer.
+  const storeUser = useAuthStore.getState().user as {
+    id?: string
+    plan_type?: string | null
+  } | null
+  const storePlanType = storeUser?.plan_type
+  if (typeof storePlanType === 'string' && storePlanType.length > 0) {
+    return {
+      id: 'auth-store-plan-seed',
+      user_id: storeUser?.id ?? 'auth-store',
+      plan_type: storePlanType,
+      credits_per_period: 0,
+      credits_used: 0,
+      credits_remaining: 0,
+      created_at: new Date().toISOString(),
+      allowed_methods: undefined,
+    }
+  }
+  return null
 }
 
 export const useCredits = (): CreditContextValue => {
   const [plan, setPlan] = useState<UserPlan | null>(seedPlanFromMercuryBootstrap)
   const [isLoading, setIsLoading] = useState(true)
+  /**
+   * Late-arriving auth-store seed. When `useCredits` mounts before
+   * `BootstrapProvider`'s `/api/auth/me` has populated `user.plan_type`,
+   * the lazy `useState` initializer above sees `user = null` and falls
+   * through to the null branch — the user then experiences a brief
+   * Free-tier render flash on the method nav. Subscribing to the
+   * primitive `plan_type` slice lets us patch the seed the instant
+   * Titan's `/me` lands, even if `loadCredits` is still in flight. We
+   * never overwrite an authoritative `/credits/plan` response: the seed
+   * id ends in `-seed`, real Titan plans carry their UUID.
+   */
+  const userPlanTypeFromAuth = useAuthStore(
+    (s) => (s.user as { plan_type?: string | null } | null)?.plan_type ?? null
+  )
+  const userIdFromAuth = useAuthStore((s) => s.user?.id ?? null)
 
   const loadCredits = useCallback(async () => {
     try {
@@ -197,6 +250,27 @@ export const useCredits = (): CreditContextValue => {
     loadCredits()
   }, [loadCredits])
 
+  // Late-arriving auth-store seed (see comment on userPlanTypeFromAuth).
+  useEffect(() => {
+    if (!userPlanTypeFromAuth) return
+    setPlan((prev) => {
+      // Don't clobber an authoritative response: real Titan plans carry
+      // a UUID, our seeds end in `-seed`.
+      if (prev && !prev.id.endsWith('-seed')) return prev
+      if (prev?.plan_type === userPlanTypeFromAuth) return prev
+      return {
+        id: 'auth-store-plan-seed',
+        user_id: userIdFromAuth ?? 'auth-store',
+        plan_type: userPlanTypeFromAuth,
+        credits_per_period: prev?.credits_per_period ?? 0,
+        credits_used: prev?.credits_used ?? 0,
+        credits_remaining: prev?.credits_remaining ?? 0,
+        created_at: prev?.created_at ?? new Date().toISOString(),
+        allowed_methods: prev?.allowed_methods,
+      }
+    })
+  }, [userPlanTypeFromAuth, userIdFromAuth])
+
   // Live plan propagation. Mercury fires `upswitch-plan-refresh` whenever
   // the user's `plan_type` changes mid-session (Stripe webhook, trial
   // flip, manual admin change). Without this listener, Venus would keep
@@ -217,12 +291,10 @@ export const useCredits = (): CreditContextValue => {
       if (event.origin !== allowedOrigin) {
         if (process.env.NODE_ENV === 'production') return
         // Dev: tolerate localhost variants (Mercury :3000, Venus :3001).
-        if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(event.origin))
-          return
+        if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(event.origin)) return
       }
       const data = event.data as { type?: string; source?: string } | null
-      if (!data || data.type !== MERCURY_TO_ENGINE_MESSAGE_TYPES.planRefresh)
-        return
+      if (!data || data.type !== MERCURY_TO_ENGINE_MESSAGE_TYPES.planRefresh) return
       if (data.source && data.source !== 'mercury') return
       generalLogger.debug('Plan refresh requested by Mercury — refetching plan')
       void loadCredits()
