@@ -103,10 +103,16 @@ export default function ValuationReportClient({
   initialVersion,
   urlParams,
 }: ValuationReportClientProps) {
-  // Detect if this is an accountant flow (has clientToken or clientId)
+  // Detect if this is an accountant flow that requires the
+  // exchange-client-context handshake. Only a real `clientToken` triggers the
+  // gate — a bare `clientId` (e.g. Mercury's safety-net fallback or the
+  // "Open standalone" escape hatch) is a soft prefill hint and must NOT block
+  // the user behind AuthGate's "Failed to establish client context" error.
+  // Without this, a hung/failed Mercury BFF session-create call leaves the
+  // user permanently stranded on Venus with no recovery path.
   const hasClientToken = useMemo(() => {
-    return !!urlParams.clientToken || !!urlParams.clientId
-  }, [urlParams.clientToken, urlParams.clientId])
+    return !!urlParams.clientToken
+  }, [urlParams.clientToken])
 
   // Build bootstrap context from URL params.
   // Dependency array uses primitive values extracted from urlParams
