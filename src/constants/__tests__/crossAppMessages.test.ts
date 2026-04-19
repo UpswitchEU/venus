@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../crossAppMessages'
+import {
+  ENGINE_TO_MERCURY_MESSAGE_TYPES,
+  MERCURY_TO_ENGINE_MESSAGE_TYPES,
+} from '../crossAppMessages'
 
 /**
  * Producer-side contract-lock for the engine → Mercury postMessage envelope.
@@ -35,6 +38,17 @@ describe('crossAppMessages producer contract', () => {
 
   it('all envelope wire tokens are unique (no double-binding by accident)', () => {
     const values = Object.values(ENGINE_TO_MERCURY_MESSAGE_TYPES)
+    expect(new Set(values).size).toBe(values.length)
+  })
+
+  it('Mercury-side authBootstrap is the canonical `upswitch-auth-bootstrap` wire token', () => {
+    expect(MERCURY_TO_ENGINE_MESSAGE_TYPES.authBootstrap).toBe(
+      'upswitch-auth-bootstrap'
+    )
+  })
+
+  it('Mercury → Engine wire tokens are unique', () => {
+    const values = Object.values(MERCURY_TO_ENGINE_MESSAGE_TYPES)
     expect(new Set(values).size).toBe(values.length)
   })
 })

@@ -6,8 +6,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { MERCURY_TO_ENGINE_MESSAGE_TYPES } from '../constants/crossAppMessages'
 import { resolveAllowedMethodKeys } from '../constants/accountantPlanMethods'
 import { backendAPI } from '../services/backendApi'
+import { getMercuryUrl } from '../utils/getMercuryUrl'
+import { getCapturedMercuryAuthBootstrap } from '../utils/auth/mercury-auth-bootstrap'
 import { generalLogger } from '../utils/logger'
 
 interface UserPlan {
@@ -100,8 +103,34 @@ import { env } from '../utils/env'
 
 const UNLIMITED_CREDITS_MODE = env.NEXT_PUBLIC_UNLIMITED_CREDITS_MODE === 'true'
 
+/**
+ * Seed plan from Mercury's `authBootstrap` postMessage if it's already
+ * arrived. Lets plan-gated UI render the correct method nav and feature
+ * flags on the first frame; the real `backendAPI.getUserPlan()` call still
+ * runs and overwrites with authoritative usage/credit numbers shortly
+ * after.
+ */
+function seedPlanFromMercuryBootstrap(): UserPlan | null {
+  const bootstrap = getCapturedMercuryAuthBootstrap()
+  const planType = bootstrap?.user?.planType
+  if (!planType) return null
+  return {
+    id: 'mercury-bootstrap-seed',
+    user_id: bootstrap?.user?.id ?? 'mercury-bootstrap',
+    plan_type: planType,
+    // Treat seeded credit counts as "unknown but not zero" so UI does not
+    // misleadingly tell the user they have 0 credits before Titan answers.
+    // Anything that needs an exact number must read after the live fetch.
+    credits_per_period: 0,
+    credits_used: 0,
+    credits_remaining: 0,
+    created_at: new Date().toISOString(),
+    allowed_methods: undefined,
+  }
+}
+
 export const useCredits = (): CreditContextValue => {
-  const [plan, setPlan] = useState<UserPlan | null>(null)
+  const [plan, setPlan] = useState<UserPlan | null>(seedPlanFromMercuryBootstrap)
   const [isLoading, setIsLoading] = useState(true)
 
   const loadCredits = useCallback(async () => {
@@ -166,6 +195,40 @@ export const useCredits = (): CreditContextValue => {
 
   useEffect(() => {
     loadCredits()
+  }, [loadCredits])
+
+  // Live plan propagation. Mercury fires `upswitch-plan-refresh` whenever
+  // the user's `plan_type` changes mid-session (Stripe webhook, trial
+  // flip, manual admin change). Without this listener, Venus would keep
+  // showing the old tier's gates until the iframe was unmounted/remounted
+  // — `loadCredits` only ran once on mount. The listener is intentionally
+  // strict about origin and source so a hostile parent page can't fake a
+  // plan upgrade and unlock paid methods in the UI; the actual save call
+  // is still server-checked.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    let allowedOrigin: string
+    try {
+      allowedOrigin = new URL(getMercuryUrl()).origin
+    } catch {
+      return
+    }
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== allowedOrigin) {
+        if (process.env.NODE_ENV === 'production') return
+        // Dev: tolerate localhost variants (Mercury :3000, Venus :3001).
+        if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(event.origin))
+          return
+      }
+      const data = event.data as { type?: string; source?: string } | null
+      if (!data || data.type !== MERCURY_TO_ENGINE_MESSAGE_TYPES.planRefresh)
+        return
+      if (data.source && data.source !== 'mercury') return
+      generalLogger.debug('Plan refresh requested by Mercury — refetching plan')
+      void loadCredits()
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
   }, [loadCredits])
 
   const allowedMethodKeys = useMemo(() => {

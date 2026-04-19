@@ -58,7 +58,11 @@ export interface BootstrapStatus {
  */
 export function useBootstrapStatus(): BootstrapStatus {
   const bootstrap = useBootstrapSafe()
-  const authStore = useAuthStore()
+  // Subscribe only to `user` — the rest of the auth store (loading flags,
+  // refresh markers, error strings) does not influence the status payload
+  // returned here, and re-rendering every consumer of this hook on
+  // unrelated mutations is wasteful.
+  const authUser = useAuthStore((s) => s.user)
   const sessionStore = useSessionStore()
   const formStore = useManualFormStore()
 
@@ -73,11 +77,11 @@ export function useBootstrapStatus(): BootstrapStatus {
         bootstrapDurationMs: 0,
 
         // AUTH-FIRST: Default to 'authenticated' or 'unknown' - guest is deprecated
-        identityType: authStore.user ? 'authenticated' : 'unknown',
+        identityType: authUser ? 'authenticated' : 'unknown',
         isGuest: false, // AUTH-FIRST: Always false
-        isAuthenticated: !!authStore.user,
+        isAuthenticated: !!authUser,
         isAccountantFlow: false,
-        userId: authStore.user?.id || null,
+        userId: authUser?.id || null,
 
         reportMode: sessionStore.session ? 'existing' : 'new',
         reportId: sessionStore.session?.reportId || null,
@@ -104,7 +108,7 @@ export function useBootstrapStatus(): BootstrapStatus {
 
     // Check legacy store sync - ensure boolean results
     // AUTH-FIRST: 'guest' type is deprecated, check for authenticated or accountant_for_client
-    const authStoreSynced: boolean = !!(identity.userId && authStore.user?.id === identity.userId)
+    const authStoreSynced: boolean = !!(identity.userId && authUser?.id === identity.userId)
 
     const sessionStoreSynced: boolean =
       report.mode === 'new' || sessionStore.session?.reportId === report.reportId
@@ -148,7 +152,7 @@ export function useBootstrapStatus(): BootstrapStatus {
       sessionStoreSynced,
       formStoreSynced,
     }
-  }, [bootstrap, authStore.user, sessionStore.session, formStore.formData.company_name])
+  }, [bootstrap, authUser, sessionStore.session, formStore.formData.company_name])
 }
 
 /**

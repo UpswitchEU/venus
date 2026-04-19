@@ -22,7 +22,6 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useAuthStore } from '../lib/auth'
 import {
   markRefreshCompleted,
-  RECENT_REFRESH_WINDOW_MS,
   subscribeRefreshCompleted,
   wasRefreshedRecently,
 } from '../utils/auth/cross-tab-refresh'

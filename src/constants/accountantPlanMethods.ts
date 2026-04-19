@@ -54,6 +54,13 @@ export function isAccountantFreeOrStarterTier(planType: string | undefined): boo
 /**
  * @param allowedFromApi - from GET /api/v2/credits/plan `allowed_methods`; omit if unknown
  * @param planType - user plan_type when API omits allowed_methods
+ *
+ * Returning `null` means "all methods allowed" (paid tiers). For unknown
+ * plan strings we fall back to the Free-tier restricted list so a typo or
+ * a new tier name added on the backend does NOT accidentally unlock paid
+ * methods in the UI before the matching Venus deploy lands. Server-side
+ * `CreditAPI.saveValuation` is still authoritative and will 402 on
+ * insufficient credits regardless of what the UI shows.
  */
 export function resolveAllowedMethodKeys(
   allowedFromApi: string[] | null | undefined,
@@ -63,7 +70,7 @@ export function resolveAllowedMethodKeys(
     return allowedFromApi
   }
   const pt = (planType || 'free').toLowerCase()
-  if (pt === 'free') return [...FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS]
-  if (['starter', 'pro', 'expert', 'enterprise', 'premium'].includes(pt)) return null
-  return null
+  if (['starter', 'pro', 'expert', 'enterprise', 'premium'].includes(pt))
+    return null
+  return [...FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS]
 }

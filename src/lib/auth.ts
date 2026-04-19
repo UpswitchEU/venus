@@ -154,6 +154,7 @@ let checkSessionPromise: Promise<User | null> | null = null
 /** Prevents double navigational logout + races with checkSession/refresh */
 let venusLogoutNavigationPending = false
 
+import { broadcastLogout as broadcastLogoutNow } from '../utils/auth/cross-domain-logout'
 import {
   clearLastRefreshAt,
   markRefreshCompleted,
@@ -356,7 +357,7 @@ interface AuthState {
   setIsRefreshing: (isRefreshing: boolean) => void
   checkSession: () => Promise<User | null>
   exchangeToken: (token: string) => Promise<User | null>
-  logout: (options?: { postLogoutUrl?: string }) => Promise<void>
+  logout: (options?: { postLogoutUrl?: string }) => void
 }
 
 /**
@@ -642,14 +643,22 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Logout: local clear + navigational BFF logout (Mercury-grade — no fetch/assign race)
-      logout: async (options?: { postLogoutUrl?: string }) => {
+      // Logout: synchronous local clear + navigational BFF logout (Mercury-grade).
+      //
+      // PERF CONTRACT: this function is intentionally synchronous up to the
+      // `window.location.assign()` call. Every dynamic import / await before
+      // navigation was a measurable spinner-frame on slower devices. All
+      // optional cleanup (auxiliary store resets) is fire-and-forget AFTER
+      // navigation is scheduled — the browser keeps the JS context alive
+      // long enough for those microtasks to run, and any that don't finish
+      // simply die with the document, which is fine.
+      logout: (options?: { postLogoutUrl?: string }) => {
         if (typeof window === 'undefined') return
         if (venusLogoutNavigationPending) return
         venusLogoutNavigationPending = true
         window.__isLoggingOut = true
 
-        // Abort in-flight refreshes BEFORE we touch cookies. A refresh
+        // 1) Abort in-flight refreshes BEFORE we touch cookies. A refresh
         // response arriving after this point would otherwise install fresh
         // `Set-Cookie: upswitch_access_token=...` headers and undo the
         // logout. Aborting the fetch makes the browser drop the response
@@ -657,37 +666,9 @@ export const useAuthStore = create<AuthState>()(
         triggerLogoutAbort()
 
         try {
+          // 2) Synchronous in-memory + storage cleanup. No awaits.
           set({ user: null, loading: false, error: null })
           clearAuthCache()
-
-          import('../stores/clientContext')
-            .then(({ useClientContext }) => {
-              useClientContext.getState().clearClientContext()
-            })
-            .catch(() => {})
-
-          import('./bootstrap/SessionBootstrapService')
-            .then(({ bootstrapService }) => {
-              bootstrapService.clearCache()
-            })
-            .catch(() => {})
-
-          import('../components/AuthGate')
-            .then(({ resetAuthGateGuard }) => {
-              resetAuthGateGuard()
-            })
-            .catch(() => {})
-          import('./bootstrap/BootstrapProvider')
-            .then(({ resetBootstrapGuard }) => {
-              resetBootstrapGuard()
-            })
-            .catch(() => {})
-
-          import('../services/session/SessionEngineFactory')
-            .then(({ resetSessionEngine }) => {
-              resetSessionEngine()
-            })
-            .catch(() => {})
 
           checkSessionPromise = null
           setActiveRefreshPromise(null)
@@ -703,10 +684,14 @@ export const useAuthStore = create<AuthState>()(
           clearLastRefreshAt()
           removeAuthRelatedSessionStorageKeys()
 
-          const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
-          broadcastLogout()
+          // 3) Synchronous broadcast (statically imported — no chunk hop).
+          try {
+            broadcastLogoutNow()
+          } catch {
+            /* non-fatal */
+          }
 
-          // Defense-in-depth: fire a keepalive POST to /api/auth/logout
+          // 4) Defense-in-depth: fire a keepalive POST to /api/auth/logout
           // BEFORE the navigation. Browsers keep these requests open across
           // navigation and apply their Set-Cookie clears to the cookie jar
           // even if the original tab is gone. This guarantees cookies are
@@ -726,7 +711,7 @@ export const useAuthStore = create<AuthState>()(
             /* ignore */
           }
 
-          // Notify in-page listeners that cookies are about to be cleared.
+          // 5) Notify in-page listeners that cookies are about to be cleared.
           // This event is part of the public auth contract used by
           // auth-provider / LogoutListener equivalents.
           try {
@@ -735,19 +720,57 @@ export const useAuthStore = create<AuthState>()(
             /* ignore */
           }
 
+          // 6) Schedule the navigation. From here on the page is on its way
+          // out; everything below is best-effort cleanup that may or may
+          // not flush before unload — we don't await it.
           const url = new URL('/api/auth/logout', window.location.origin)
           url.searchParams.set('fallback', '1')
           if (options?.postLogoutUrl) {
             url.searchParams.set('post_logout', options.postLogoutUrl)
           }
           window.location.assign(url.toString())
+
+          // 7) Fire-and-forget auxiliary cleanup. These modules form
+          // import cycles with auth.ts (AuthGate / BootstrapProvider /
+          // SessionBootstrapService all import from this file), so they
+          // MUST stay dynamic. Running them after assign() means the
+          // user-perceived logout latency is the network round-trip,
+          // not the chunk-load + module-init time.
+          import('../stores/clientContext')
+            .then(({ useClientContext }) => {
+              useClientContext.getState().clearClientContext()
+            })
+            .catch(() => {})
+
+          import('./bootstrap/SessionBootstrapService')
+            .then(({ bootstrapService }) => {
+              bootstrapService.clearCache()
+            })
+            .catch(() => {})
+
+          import('../components/AuthGate')
+            .then(({ resetAuthGateGuard }) => {
+              resetAuthGateGuard()
+            })
+            .catch(() => {})
+
+          import('./bootstrap/BootstrapProvider')
+            .then(({ resetBootstrapGuard }) => {
+              resetBootstrapGuard()
+            })
+            .catch(() => {})
+
+          import('../services/session/SessionEngineFactory')
+            .then(({ resetSessionEngine }) => {
+              resetSessionEngine()
+            })
+            .catch(() => {})
         } catch (error) {
           generalLogger.warn('[Venus Auth] Logout failed (non-fatal)', { error })
           venusLogoutNavigationPending = false
           window.__isLoggingOut = false
           try {
-            const { broadcastLogout } = await import('../utils/auth/cross-domain-logout')
-            broadcastLogout()
+            broadcastLogoutNow()
           } catch {
             /* non-fatal */
           }

@@ -17,6 +17,12 @@ import {
   wasRefreshedRecently,
 } from '@/utils/auth/cross-tab-refresh'
 import { getLogoutAbortSignal } from '@/utils/auth/logout-abort'
+import {
+  awaitMercuryAuthBootstrap,
+  getCapturedMercuryAuthBootstrap,
+  installMercuryAuthBootstrapListener,
+  type MercuryAuthBootstrap,
+} from '@/utils/auth/mercury-auth-bootstrap'
 import { getActiveRefreshPromise, setActiveRefreshPromise } from '@/utils/auth/refreshMutex'
 import { getApiUrl, getMercuryUrl } from '@/utils/getMercuryUrl'
 import type {
@@ -83,6 +89,19 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
           success: true,
           data: existingContextResult.data,
           source: 'existing_store',
+          durationMs: performance.now() - startTime,
+        }
+      }
+
+      // Priority 1.7: Mercury embedded modal — Mercury posts the auth user
+      // via `postMessage` (`upswitch-auth-bootstrap`) the moment the iframe
+      // loads. Use it instead of round-tripping `/api/auth/me`.
+      const bootstrapResult = await this.resolveFromMercuryBootstrap()
+      if (bootstrapResult.success && bootstrapResult.data.type === 'authenticated') {
+        return {
+          success: true,
+          data: bootstrapResult.data,
+          source: 'mercury_bootstrap',
           durationMs: performance.now() - startTime,
         }
       }
@@ -233,6 +252,74 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
         error: error instanceof Error ? error.message : 'Network error',
         durationMs: performance.now() - startTime,
       }
+    }
+  }
+
+  /**
+   * Resolve identity from a Mercury → Engine `upswitch-auth-bootstrap`
+   * `postMessage` payload. Only attempts the wait when running inside an
+   * iframe — otherwise we exit immediately so standalone Venus loads keep
+   * the cookie/refresh path on the critical timeline.
+   *
+   * Budget:
+   *   - 0 ms when the message has already arrived (synchronous read).
+   *   - 1500 ms when waiting for it (Mercury posts on `iframe.onload`,
+   *     which usually fires within a few hundred ms).
+   */
+  private async resolveFromMercuryBootstrap(): Promise<ResolverResult<IdentityState>> {
+    const startTime = performance.now()
+    if (typeof window === 'undefined') {
+      return {
+        success: false,
+        data: this.fallback(),
+        error: 'No window',
+        durationMs: performance.now() - startTime,
+      }
+    }
+    const isEmbedded = (() => {
+      try {
+        return window.parent !== window
+      } catch {
+        return true
+      }
+    })()
+    if (!isEmbedded) {
+      return {
+        success: false,
+        data: this.fallback(),
+        error: 'Standalone — skipping Mercury bootstrap',
+        durationMs: performance.now() - startTime,
+      }
+    }
+    installMercuryAuthBootstrapListener()
+    let payload: MercuryAuthBootstrap | null = getCapturedMercuryAuthBootstrap()
+    if (!payload) {
+      payload = await awaitMercuryAuthBootstrap(1500)
+    }
+    if (!payload?.user?.id) {
+      return {
+        success: false,
+        data: this.fallback(),
+        error: 'No Mercury bootstrap payload',
+        durationMs: performance.now() - startTime,
+      }
+    }
+    const identity: IdentityState = {
+      type: 'authenticated',
+      userId: payload.user.id,
+      email: payload.user.email,
+      firstName: payload.user.firstName,
+      lastName: payload.user.lastName,
+    }
+    this.logger.info('[AuthResolver] Mercury bootstrap accepted', {
+      userId: truncateForLog(payload.user.id),
+      mode: payload.mode,
+    })
+    return {
+      success: true,
+      data: identity,
+      source: 'mercury_bootstrap',
+      durationMs: performance.now() - startTime,
     }
   }
 

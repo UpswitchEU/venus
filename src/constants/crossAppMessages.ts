@@ -39,3 +39,32 @@ export const ENGINE_TO_MERCURY_MESSAGE_TYPES = {
 
 export type EngineToMercuryMessageType =
   (typeof ENGINE_TO_MERCURY_MESSAGE_TYPES)[keyof typeof ENGINE_TO_MERCURY_MESSAGE_TYPES]
+
+/**
+ * Mercury → Engine `postMessage` envelope types. Engine is the CONSUMER side;
+ * the Mercury producer counterpart lives at:
+ *   `apps/mercury/shared/constants/cross-app-messages.ts`.
+ *
+ * If you rename a value here, update BOTH apps and both contract-lock tests
+ * in the same change set, then deploy the two apps together.
+ */
+export const MERCURY_TO_ENGINE_MESSAGE_TYPES = {
+  /**
+   * Mercury pre-hydrates the embedded engine with the authenticated user so
+   * the engine can skip its own `/api/auth/me` round-trip on bootstrap.
+   * Posted by Mercury once the iframe `load` event fires.
+   */
+  authBootstrap: 'upswitch-auth-bootstrap',
+
+  /**
+   * Mercury notifies the engine that the user's plan_type changed (Stripe
+   * upgrade/downgrade, trial flip, manual admin change). Engine should
+   * re-fetch its `/credits/plan` so plan-gated UI updates without a full
+   * iframe reload. Payload includes an optimistic `planType` hint; the
+   * server response is still authoritative.
+   */
+  planRefresh: 'upswitch-plan-refresh',
+} as const
+
+export type MercuryToEngineMessageType =
+  (typeof MERCURY_TO_ENGINE_MESSAGE_TYPES)[keyof typeof MERCURY_TO_ENGINE_MESSAGE_TYPES]

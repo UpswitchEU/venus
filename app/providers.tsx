@@ -12,6 +12,16 @@ import { registerServiceWorker } from '../src/utils/serviceWorkerRegistration'
 import '../src/utils/performance/rum'
 // Auth is auto-initialized on import
 import '../src/lib/auth'
+import { installMercuryAuthBootstrapListener } from '../src/utils/auth/mercury-auth-bootstrap'
+
+// Install the Mercury → Engine auth bootstrap listener as early as possible
+// (before bootstrap resolvers run). When Venus loads inside the Mercury
+// embedded modal, Mercury posts the authenticated user as soon as the iframe
+// `load` event fires; capturing that here lets `AuthResolver` skip its own
+// `/api/auth/me` round-trip on the warm path.
+if (typeof window !== 'undefined') {
+  installMercuryAuthBootstrapListener()
+}
 
 /**
  * Root Providers Component
