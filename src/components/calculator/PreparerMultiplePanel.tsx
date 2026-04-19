@@ -6,6 +6,7 @@ import { cn } from '@/design-system/utils'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { isAccountantTierRole } from '../../constants/accountantPlanMethods'
 import { useAuth } from '../../hooks/useAuth'
 import { useCredits } from '../../hooks/useCredits'
 import { getMercuryUrl } from '../../utils/getMercuryUrl'
@@ -45,9 +46,7 @@ export function PreparerMultiplePanel({
   const locale = useLocale()
   const [open, setOpen] = useState(true)
   const firmCountry = user?.firm_country_code?.trim().toUpperCase().substring(0, 2) ?? 'BE'
-  const role = user?.role ?? ''
-  const isAccountantTier =
-    role === 'accountant' || role === 'expert' || role === 'enterprise' || role === 'admin'
+  const isAccountantTier = isAccountantTierRole(user?.role)
   const hasLiveBeneluxMultiples = planFeatures?.live_benelux_sector_multiples === true
   const beneluxBenchmarkLocked = isAccountantTier && !hasLiveBeneluxMultiples
 

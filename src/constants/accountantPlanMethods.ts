@@ -25,12 +25,54 @@ export const OWNER_FOUNDER_METHOD_KEYS = [
   'startup_valuation',
 ] as const
 
-/** Nav methods shown to owners; accountants keep full firm list. */
+/**
+ * Roles that always see the full advisor method list (no owner-founder filter).
+ * Mirrors Mercury `ACCOUNTANT_TIER_ROLES` (`shared/constants/auth-roles.ts`)
+ * — `admin` is included so Upswitch staff debugging client sessions are not
+ * accidentally restricted to the 3-method founder list. Keep these two
+ * literals in sync; the matrix is part of the cross-app role contract.
+ */
+const ACCOUNTANT_TIER_ROLE_KEYS = new Set<string>([
+  'accountant',
+  'expert',
+  'enterprise',
+  'admin',
+])
+
+/**
+ * True when the user's role grants the full advisor method navigation.
+ *
+ * Why this exists: `filterPreSelectableMethodsForOwnerFounder` historically
+ * keyed off `isAccountantFlow` (= `identity.type === 'accountant_for_client'`),
+ * which is only true on the **client-context** path (URL `clientToken=` or
+ * `mode=accountant&clientId=`). An accountant who opens the standalone
+ * `/calculator` (no client) was therefore wrongly restricted to the 3 owner
+ * methods — losing DCF / EBITDA-multiple / NAV / fiscal entries from their
+ * own nav. Pair this guard with `isAccountantFlow` so we light up the full
+ * list for **any** advisor surface.
+ */
+export function isAccountantTierRole(
+  role: string | null | undefined
+): boolean {
+  if (typeof role !== 'string') return false
+  const normalized = role.trim().toLowerCase()
+  return ACCOUNTANT_TIER_ROLE_KEYS.has(normalized)
+}
+
+/**
+ * Nav methods shown to owners; accountants keep full firm list.
+ *
+ * `showFullAdvisorList` should be `true` whenever the *current viewer* is an
+ * accountant-tier role **or** is acting on behalf of a client. Callers should
+ * compute this as `isAccountantFlow || isAccountantTierRole(user.role)` so
+ * that both the explicit accountant-for-client path and the standalone
+ * advisor entry route to the same advisor nav.
+ */
 export function filterPreSelectableMethodsForOwnerFounder(
   methods: readonly string[],
-  isAccountantFlow: boolean
+  showFullAdvisorList: boolean
 ): readonly string[] {
-  if (isAccountantFlow) return methods
+  if (showFullAdvisorList) return methods
   const allow = new Set<string>(OWNER_FOUNDER_METHOD_KEYS)
   return methods.filter((m) => allow.has(m))
 }

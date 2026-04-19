@@ -38,6 +38,15 @@ export interface UsePreSelectedMethodSessionSyncParams {
   /** Current-year turnover when known (same source as nav); omzet URL seed rejected at €0. */
   currentYearRevenue?: number | null
   hasValuationResult: boolean
+  /**
+   * Optional narrower allowed-methods list (e.g. owner-founder × firm). When
+   * provided, the URL seed is rejected if the requested `selected_method` is
+   * not in this list — prevents owners from landing on an "active but
+   * invisible" method (e.g. `?selected_method=dcf` for a seller whose nav
+   * only renders the 3 owner-founder methods). Defaults to the firm-only
+   * list inside `sanitizePreSelectedValuationMethod`.
+   */
+  allowedMethodsForNav?: readonly string[] | null
 }
 
 /**
@@ -52,6 +61,7 @@ export function usePreSelectedMethodSessionSync({
   firmCountryCode,
   currentYearRevenue,
   hasValuationResult,
+  allowedMethodsForNav,
 }: UsePreSelectedMethodSessionSyncParams): void {
   const { preSelectedMethod, selectedMethod, preSelectedMethods, userWeights, userWeightJustification } = useManualResultsStore(
     (s) => ({
@@ -143,7 +153,8 @@ export function usePreSelectedMethodSessionSync({
         sanitizePreSelectedValuationMethod(
           initialSelectedMethodFromUrl,
           firmCountryCode,
-          currentYearRevenue
+          currentYearRevenue,
+          allowedMethodsForNav
         )
       )
     urlSeedDoneRef.current = true
@@ -154,5 +165,6 @@ export function usePreSelectedMethodSessionSync({
     hasValuationResult,
     firmCountryCode,
     currentYearRevenue,
+    allowedMethodsForNav,
   ])
 }

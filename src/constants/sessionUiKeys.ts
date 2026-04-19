@@ -42,18 +42,31 @@ export function sessionHasStoredPreSelectedMethod(sessionData: unknown): boolean
 
 /**
  * Normalize a persisted or URL-provided method key to a valid pre-selectable method, or null.
- * Uses the same rules as the calculator nav ({@link getPreSelectableMethodsForFirmAndRevenue}).
+ *
+ * By default, "valid" means present in the firm's calculator-nav list
+ * ({@link getPreSelectableMethodsForFirmAndRevenue}). Pass `allowedMethodsOverride`
+ * to gate against a narrower list — e.g. an owner/founder visiting the standalone
+ * `/calculator` should never have a URL like `?selected_method=dcf` resolve to
+ * an active method, because the nav only renders the 3 owner-founder methods
+ * and the active selection would otherwise be invisible. The owner-founder
+ * intersection is computed in `ManualLayout` (via
+ * `filterPreSelectableMethodsForOwnerFounder`) and forwarded into
+ * `usePreSelectedMethodSessionSync`.
  */
 export function sanitizePreSelectedValuationMethod(
   raw: string | null | undefined,
   firmCountryCode?: string | null,
-  currentYearRevenue?: number | null
+  currentYearRevenue?: number | null,
+  allowedMethodsOverride?: readonly string[] | null
 ): string | null {
   if (raw == null || typeof raw !== 'string') return null
   const trimmed = raw.trim()
   if (!trimmed) return null
   const lower = trimmed.toLowerCase()
-  const allowed = getPreSelectableMethodsForFirmAndRevenue(firmCountryCode, currentYearRevenue)
+  const allowed =
+    allowedMethodsOverride && allowedMethodsOverride.length > 0
+      ? allowedMethodsOverride
+      : getPreSelectableMethodsForFirmAndRevenue(firmCountryCode, currentYearRevenue)
   if (!isUpfrontMethodAllowedForNav(lower, allowed)) return null
   return lower === 'upswitch_adaptive' ? null : lower
 }

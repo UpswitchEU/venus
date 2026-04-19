@@ -70,7 +70,10 @@ import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
-import { filterPreSelectableMethodsForOwnerFounder } from '../../../constants/accountantPlanMethods'
+import {
+  filterPreSelectableMethodsForOwnerFounder,
+  isAccountantTierRole,
+} from '../../../constants/accountantPlanMethods'
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../../../constants/crossAppMessages'
 import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
 import { getStarterPlanSummary } from '../../../constants/pricing'
@@ -719,9 +722,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const formStoreData = useManualFormStore((s) => s.formData)
   const { currentYearRevenueForMethodNav, preSelectableMethodsForNav: firmPreSelectableMethods } =
     useUpfrontMethodNavInputs(formStoreData, user?.firm_country_code)
+  // Show the full advisor method nav whenever the viewer is accountant-tier
+  // *or* is acting on behalf of a client. `isAccountantFlow` alone misses
+  // standalone advisor sessions (no client context), which previously got
+  // restricted to the 3-method owner-founder list — see the helper docstring
+  // for the full rationale and the cross-app role contract.
+  const showFullAdvisorMethodNav = isAccountantFlow || isAccountantTierRole(user?.role)
   const preSelectableMethodsForNav = useMemo(
-    () => filterPreSelectableMethodsForOwnerFounder(firmPreSelectableMethods, isAccountantFlow),
-    [firmPreSelectableMethods, isAccountantFlow]
+    () =>
+      filterPreSelectableMethodsForOwnerFounder(
+        firmPreSelectableMethods,
+        showFullAdvisorMethodNav
+      ),
+    [firmPreSelectableMethods, showFullAdvisorMethodNav]
   )
   const planLockedMethodKeys = useMemo(() => {
     if (allowedMethodKeys === null) return undefined
@@ -807,16 +820,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       })
   }, [])
 
-  const showPreparerMultiplePanel = useMemo(() => {
-    const role = user?.role ?? ''
-    return (
-      isAccountantMode ||
-      role === 'accountant' ||
-      role === 'expert' ||
-      role === 'enterprise' ||
-      role === 'admin'
-    )
-  }, [isAccountantMode, user?.role])
+  const showPreparerMultiplePanel = useMemo(
+    () => isAccountantMode || isAccountantTierRole(user?.role),
+    [isAccountantMode, user?.role]
+  )
 
   const linkedIdentifier = useMemo(() => {
     const id = resolvedReportId || reportId
@@ -1639,6 +1646,15 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     firmCountryCode: user?.firm_country_code,
     currentYearRevenue: currentYearRevenueForMethodNav,
     hasValuationResult: !!result,
+    /**
+     * Owner/founder URLs (`?selected_method=dcf` from a stale Mercury link or
+     * hand-edited address bar) used to bypass the nav restriction and leave
+     * the calculator with an "active but invisible" method — DCF would be the
+     * preselected method while the nav only rendered the 3 owner-founder
+     * methods. Pass the same intersected list the nav renders so the URL
+     * seed can never escape the nav contract for owners.
+     */
+    allowedMethodsForNav: preSelectableMethodsForNav,
   })
 
   // When report is restored (e.g. from URL) without our submit, set baseline from form store so we can detect edits
