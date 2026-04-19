@@ -26,6 +26,10 @@ import { AuroraButton, GlassCard } from '@/design-system'
 import type { User } from '../contexts/AuthContextTypes'
 import { useLanguageSync } from '../hooks/useLanguageSync'
 import { clearInitThrottle, clearReloadCounter, getInitTraceId, useAuthStore } from '../lib/auth'
+import {
+  clearLastClientTokenExchangeFailure,
+  getLastClientTokenExchangeFailure,
+} from '../lib/bootstrap/resolvers/AuthResolver'
 import { getSafeMercuryReturnUrl } from '../lib/return-url'
 import { useClientContext } from '../stores/clientContext'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
@@ -148,10 +152,14 @@ function DefaultLoadingState({ state }: { state: AuthGateState }) {
 
 function DefaultErrorState({
   error,
+  errorCorrelationId,
+  errorStatus,
   returnUrl,
   onRetry,
 }: {
   error: string
+  errorCorrelationId?: string | null
+  errorStatus?: number | null
   returnUrl?: string
   onRetry: () => void
 }) {
@@ -188,7 +196,14 @@ function DefaultErrorState({
           <AlertCircle className="w-6 h-6 text-destructive/70" aria-hidden />
         </div>
         <h1 className="text-xl font-semibold text-foreground mb-2">{t('failed')}</h1>
-        <p className="text-sm text-muted-foreground mb-6">{error}</p>
+        <p className="text-sm text-muted-foreground mb-3">{error}</p>
+        {(errorStatus || errorCorrelationId) && (
+          <p className="text-[11px] font-mono text-muted-foreground/60 mb-6">
+            {errorStatus ? `HTTP ${errorStatus}` : ''}
+            {errorStatus && errorCorrelationId ? ' · ' : ''}
+            {errorCorrelationId ? `ref: ${errorCorrelationId}` : ''}
+          </p>
+        )}
         <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
           <AuroraButton
             onClick={handleLogIn}
@@ -254,6 +269,8 @@ export function AuthGate({
   const t = useTranslations('auth.authGate')
   const [state, setState] = useState<AuthGateState>(wasAuthReady ? 'ready' : 'checking')
   const [error, setError] = useState<string | null>(null)
+  const [errorCorrelationId, setErrorCorrelationId] = useState<string | null>(null)
+  const [errorStatus, setErrorStatus] = useState<number | null>(null)
   const [isReady, setIsReady] = useState(wasAuthReady)
 
   // Stable refs for callback props — avoids useEffect re-runs when parent
@@ -291,6 +308,7 @@ export function AuthGate({
     wasAuthReady = false
     clearRedirectCount()
     clearReloadCounter()
+    clearLastClientTokenExchangeFailure()
     window.location.reload()
   }, [])
 
@@ -319,6 +337,15 @@ export function AuthGate({
         onAuthReadyRef.current?.(user)
       } else if (outcome === 'error') {
         setState('error')
+        // Hydrate the diagnostic chip from the most recent
+        // /exchange-client-context failure (if any). Surfaces the Titan
+        // correlation id so support can trace which upstream request
+        // actually failed instead of guessing from a generic message.
+        const exchangeFailure = getLastClientTokenExchangeFailure()
+        if (exchangeFailure) {
+          setErrorCorrelationId(exchangeFailure.correlationId)
+          setErrorStatus(exchangeFailure.status || null)
+        }
         setError(payload ?? 'Unknown error')
         onAuthErrorRef.current?.(payload ?? 'Unknown error')
       } else if (outcome === 'redirect' && typeof window !== 'undefined') {
@@ -383,14 +410,26 @@ export function AuthGate({
       if (needsClientContext) {
         const ctx = useClientContext.getState()
         if (!ctx.isActingAsClient || !ctx.accountant || !ctx.relationshipId) {
+          const exchangeFailure = getLastClientTokenExchangeFailure()
           generalLogger.warn('[AuthGate] Client context check failed', {
             isActingAsClient: ctx.isActingAsClient,
             hasClient: !!ctx.client,
             hasAccountant: !!ctx.accountant,
             hasRelationshipId: !!ctx.relationshipId,
+            exchangeStatus: exchangeFailure?.status ?? null,
+            exchangeCorrelationId: exchangeFailure?.correlationId ?? null,
+            exchangeReason: exchangeFailure?.reason ?? null,
           })
           const storeError = useAuthStore.getState().error
-          settle('error', storeError || 'Failed to establish client context. Please try again.')
+          // Prefer the actual upstream reason over the generic message so the
+          // user sees something actionable (e.g. "Token expired" vs "try
+          // again"). The correlation id is rendered by DefaultErrorState via
+          // the module-level getter.
+          const reason =
+            storeError ||
+            exchangeFailure?.reason ||
+            'Failed to establish client context. Please try again.'
+          settle('error', reason)
           return
         }
       }
@@ -426,7 +465,15 @@ export function AuthGate({
     if (errorComponent) {
       return <>{errorComponent}</>
     }
-    return <DefaultErrorState error={error} returnUrl={returnUrl} onRetry={handleRetry} />
+    return (
+      <DefaultErrorState
+        error={error}
+        errorCorrelationId={errorCorrelationId}
+        errorStatus={errorStatus}
+        returnUrl={returnUrl}
+        onRetry={handleRetry}
+      />
+    )
   }
 
   if (!isReady && !wasAuthReady) {
