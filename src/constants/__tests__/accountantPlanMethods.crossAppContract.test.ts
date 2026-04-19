@@ -38,6 +38,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS,
+  isAccountantTierRole,
   resolveAllowedMethodKeys,
 } from '../accountantPlanMethods'
 
@@ -51,6 +52,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const TITAN_PRICING_CONFIG_PATH = join(
   __dirname,
   '../../../../../apps/titan-api/src/billing/config/pricing.config.ts'
+)
+const MERCURY_AUTH_ROLES_PATH = join(
+  __dirname,
+  '../../../../../apps/mercury/shared/constants/auth-roles.ts'
 )
 
 /**
@@ -127,6 +132,70 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
     // collapses to `null`. Without this, a degraded `/credits/plan`
     // response would lock paid users out of paid methods in the UI.
     expect(resolveAllowedMethodKeys(undefined, planType)).toEqual(expected)
+  })
+
+  it('Venus advisor-tier role set matches Mercury ROLES_ALLOWED_ACCOUNTANT_ROUTES exactly', () => {
+    // Mercury's `CalculatorRedirectClient` only sets `?mode=accountant` for
+    // viewers in `ROLES_ALLOWED_ACCOUNTANT_ROUTES`. Venus's `lib/auth.ts`
+    // only fetches client context when `isAccountantTierRole(user.role)` is
+    // true. If those two sets diverge, an Expert / Enterprise / Admin user
+    // gets `mode=accountant` from Mercury but Venus refuses to fetch the
+    // client context, leaving them stuck on AuthGate's "Failed to establish
+    // client context" error.
+    //
+    // Symmetrical Mercury-side guard:
+    // `apps/mercury/shared/constants/auth-roles.ts → ROLES_ALLOWED_ACCOUNTANT_ROUTES`.
+    // Update both literals + this test in the same change set.
+    const mercurySource = readFileSync(MERCURY_AUTH_ROLES_PATH, 'utf-8')
+    // Match the array literal: ROLES_ALLOWED_ACCOUNTANT_ROUTES = [...] as const
+    const match = mercurySource.match(
+      /ROLES_ALLOWED_ACCOUNTANT_ROUTES\s*=\s*\[([\s\S]*?)\]\s*as\s+const/m
+    )
+    expect(
+      match,
+      'Could not find ROLES_ALLOWED_ACCOUNTANT_ROUTES in Mercury auth-roles.ts'
+    ).not.toBeNull()
+    const mercuryRoles = Array.from((match?.[1] ?? '').matchAll(/['"]([a-z_]+)['"]/g)).map(
+      (m) => m[1]
+    )
+    // ACCOUNTANT_TIER_ROLES is spread inside the array; resolve the spread by
+    // also reading that constant if present.
+    if (mercurySource.match(/\.\.\.ACCOUNTANT_TIER_ROLES/)) {
+      const tierMatch = mercurySource.match(
+        /ACCOUNTANT_TIER_ROLES\s*=\s*\[([\s\S]*?)\]\s*as\s+const/m
+      )
+      const tierRoles = Array.from((tierMatch?.[1] ?? '').matchAll(/['"]([a-z_]+)['"]/g)).map(
+        (m) => m[1]
+      )
+      // Replace the spread sentinel so we get the resolved set.
+      const spreadIndex = mercuryRoles.indexOf(
+        // After the regex above, the spread doesn't yield a literal — but if
+        // for some reason it slipped in, drop it.
+        '...ACCOUNTANT_TIER_ROLES'
+      )
+      if (spreadIndex !== -1) mercuryRoles.splice(spreadIndex, 1)
+      // Prepend the resolved tier roles.
+      mercuryRoles.unshift(...tierRoles)
+    }
+    // Sanity: every role Mercury allows for `/advisor/*` must also satisfy
+    // Venus's `isAccountantTierRole` predicate (the predicate is what gates
+    // client-context fetch in `lib/auth.ts`).
+    for (const role of mercuryRoles) {
+      expect(
+        isAccountantTierRole(role),
+        `Role "${role}" is in Mercury ROLES_ALLOWED_ACCOUNTANT_ROUTES but Venus isAccountantTierRole returns false`
+      ).toBe(true)
+    }
+    // And: nothing extra in Venus that Mercury would not authorize for
+    // `/advisor/*`. This catches the inverse drift where Venus would render
+    // the full advisor nav for a role that Mercury never sends to Venus
+    // with `mode=accountant`.
+    for (const role of ['accountant', 'expert', 'enterprise', 'admin']) {
+      expect(
+        mercuryRoles.includes(role),
+        `Venus treats "${role}" as advisor-tier but Mercury does not list it in ROLES_ALLOWED_ACCOUNTANT_ROUTES`
+      ).toBe(true)
+    }
   })
 
   it('Venus FREE list contains exactly the founder triad + advisor extras (snapshot)', () => {

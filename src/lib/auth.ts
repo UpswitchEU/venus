@@ -18,6 +18,7 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import { isAccountantTierRole } from '../constants/accountantPlanMethods'
 import type { User } from '../contexts/AuthContextTypes'
 import { removeAuthRelatedSessionStorageKeys } from '../utils/auth/clear-auth-session-storage'
 import { fetchWithTimeoutClient } from '../utils/auth-fetch-timeout'
@@ -1141,9 +1142,15 @@ async function initializeAuth(): Promise<void> {
           const mode = params.get('mode')
           const clientIdParam = params.get('clientId')
 
-          if (mode === 'accountant' && clientIdParam && user.role === 'accountant') {
+          // Use the shared advisor-tier predicate so Expert / Enterprise / Admin
+          // viewers get the same client-context fetch path as base `accountant`
+          // role. Without this, an Expert advisor opening a client report via
+          // `?mode=accountant&clientId=X` was silently skipped here, landed on
+          // AuthGate without client context, and bounced to the generic
+          // "Failed to establish client context" error.
+          if (mode === 'accountant' && clientIdParam && isAccountantTierRole(user.role)) {
             generalLogger.info(
-              `[Auth:${traceId}] Accountant mode with clientId - fetching client context`
+              `[Auth:${traceId}] Advisor-tier mode with clientId - fetching client context`
             )
 
             // Initialize deferred promise for client context
@@ -1200,7 +1207,13 @@ async function initializeAuth(): Promise<void> {
           // ========================================================================
           // When accountant returns to existing report page, restore context from report's accountant_customer_id
           // This handles the case where clientToken was cleaned from URL but report still needs context
-          if (!clientIdParam && user.role === 'accountant') {
+          // Same shared advisor-tier predicate as the clientId branch above.
+          // Without this, an Expert/Enterprise/Admin viewer returning to an
+          // existing client report (URL already cleaned of `clientId=`) would
+          // never restore client context from the report's
+          // `accountant_customer_id` and would render the calculator without
+          // the "Acting on behalf of …" toolbar identity.
+          if (!clientIdParam && isAccountantTierRole(user.role)) {
             // Check if we're viewing an existing report (reportId in pathname)
             const reportIdMatch = window.location.pathname.match(/\/reports\/([^/]+)/)
             const reportId = reportIdMatch ? reportIdMatch[1] : null
