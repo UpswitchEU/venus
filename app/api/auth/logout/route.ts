@@ -97,7 +97,11 @@ function parseSafePostLogoutRedirect(request: Request): URL | null {
   }
 
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null
-  if (parsed.protocol === 'http:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+  if (
+    parsed.protocol === 'http:' &&
+    parsed.hostname !== 'localhost' &&
+    parsed.hostname !== '127.0.0.1'
+  ) {
     return null
   }
 
@@ -136,10 +140,15 @@ function createLogoutRedirectResponse(request: Request): NextResponse {
   return NextResponse.redirect(redirectUrl, 303)
 }
 
+/**
+ * Match Titan cookie identity for clears (RFC 6265). See Mercury
+ * `apps/mercury/app/api/auth/logout/route.ts` — access/refresh use SameSite=None;
+ * legacy `upswitch_session` may be Lax (Titan `clearAuthCookies` legacy branch).
+ */
 function appendCookieClearingHeaders(request: Request, response: NextResponse): void {
   const cookieDomains = getCookieDomainsToClear(request)
 
-  COOKIES_TO_CLEAR.forEach((cookieName) => {
+  const appendNoneClears = (cookieName: string): void => {
     cookieDomains.forEach((cookieDomain) => {
       response.headers.append(
         'Set-Cookie',
@@ -150,6 +159,26 @@ function appendCookieClearingHeaders(request: Request, response: NextResponse): 
       'Set-Cookie',
       `${cookieName}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; HttpOnly; SameSite=None; Secure`
     )
+  }
+
+  const appendLaxClears = (cookieName: string): void => {
+    cookieDomains.forEach((cookieDomain) => {
+      response.headers.append(
+        'Set-Cookie',
+        `${cookieName}=; Path=/; Domain=${cookieDomain}; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; HttpOnly; SameSite=Lax; Secure`
+      )
+    })
+    response.headers.append(
+      'Set-Cookie',
+      `${cookieName}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; HttpOnly; SameSite=Lax; Secure`
+    )
+  }
+
+  COOKIES_TO_CLEAR.forEach((cookieName) => {
+    appendNoneClears(cookieName)
+    if (cookieName === 'upswitch_session') {
+      appendLaxClears(cookieName)
+    }
   })
 }
 
@@ -177,7 +206,9 @@ async function buildLogoutResponse(
   request: Request,
   { redirect = false }: { redirect?: boolean } = {}
 ): Promise<NextResponse> {
-  const response = redirect ? createLogoutRedirectResponse(request) : NextResponse.json({ success: true })
+  const response = redirect
+    ? createLogoutRedirectResponse(request)
+    : NextResponse.json({ success: true })
   applyNoStoreHeaders(response)
 
   try {
