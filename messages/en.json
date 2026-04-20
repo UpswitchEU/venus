@@ -1157,7 +1157,7 @@
 			"cancel": "Keep current company",
 			"confirm": "Change company"
 		},
-		"registryNlSearchHint": "Search by company name or KVK number, or enter details manually. Live KVK autocomplete may be unavailable until a commercial registry feed is configured for your workspace.",
+		"registryNlSearchHint": "Search the live KVK trade register by company name or KVK number, or enter the details manually if your company isn't found.",
 		"registryNlNoResults": "No registry match found. You can continue with the company name you typed.",
 		"normalized": "Normalized",
 		"year": "year",

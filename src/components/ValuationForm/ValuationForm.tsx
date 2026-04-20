@@ -280,7 +280,12 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // Form data is used directly in form submission
 
   // Convert historicalInputs to formData.historical_years_data
-  // Backend requires chronological order (oldest first), but UI shows most recent first
+  // Backend requires chronological order (oldest first), but UI shows most recent first.
+  // The filing year is captured separately via formData.revenue / formData.ebitda
+  // (rendered by the "Last Full Year Financials" section AND the filing-year row in
+  // HistoricalDataInputs). To avoid a duplicate-year ValidationError in
+  // buildValuationRequest, the filing year is excluded from historical_years_data here
+  // and instead mirrored into the canonical revenue/ebitda fields below.
   useEffect(() => {
     const maxHistoricalYear = normalizeCurrentYearForFiling(
       formData.current_year_data?.year,
@@ -288,13 +293,13 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     )
     const historicalYears: { year: number; revenue: number; ebitda: number }[] = []
 
-    // Extract all years from historicalInputs
+    // Extract all years from historicalInputs (strictly older than the filing year)
     const yearSet = new Set<number>()
     Object.keys(historicalInputs).forEach((key) => {
       const match = key.match(/^(\d{4})_(revenue|ebitda)$/)
       if (match) {
         const year = parseInt(match[1])
-        if (year >= 2000 && year <= maxHistoricalYear) {
+        if (year >= 2000 && year < maxHistoricalYear) {
           yearSet.add(year)
         }
       }
@@ -349,11 +354,89 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         historical_years_data: undefined,
       })
     }
+
+    // Mirror the filing-year row in historicalInputs into the canonical
+    // formData.revenue / formData.ebitda fields. This makes the 2025 row in
+    // HistoricalDataInputs and the "Last Full Year Financials" section share a
+    // single source of truth — edits in either place propagate to the other via
+    // the restoration effect above (lines ~124-177).
+    const filingRevenueKey = `${maxHistoricalYear}_revenue`
+    const filingEbitdaKey = `${maxHistoricalYear}_ebitda`
+    const rawFilingRevenue = historicalInputs[filingRevenueKey]
+    const rawFilingEbitda = historicalInputs[filingEbitdaKey]
+    const updates: Partial<typeof formData> = {}
+
+    if (rawFilingRevenue !== undefined && rawFilingRevenue !== '') {
+      const parsed = parseFloat(rawFilingRevenue.replace(/,/g, ''))
+      const next = Number.isFinite(parsed) ? parsed : undefined
+      if (next !== formData.revenue) {
+        updates.revenue = next
+      }
+    }
+    if (rawFilingEbitda !== undefined && rawFilingEbitda !== '') {
+      const parsed = parseFloat(rawFilingEbitda.replace(/,/g, ''))
+      const next = Number.isFinite(parsed) ? parsed : undefined
+      if (next !== formData.ebitda) {
+        updates.ebitda = next
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      updateFormData(updates)
+    }
   }, [
     formData.current_year_data?.year,
     formData.filing_year_confirmed,
+    formData.revenue,
+    formData.ebitda,
     historicalInputs,
     updateFormData,
+  ])
+
+  // Mirror canonical formData.revenue / formData.ebitda back into the filing-year
+  // row of historicalInputs whenever the user edits the "Last Full Year Financials"
+  // section. Skipped when the values already match to avoid effect loops.
+  useEffect(() => {
+    const filingYear = normalizeCurrentYearForFiling(
+      formData.current_year_data?.year,
+      Boolean(formData.filing_year_confirmed)
+    )
+    const revenueKey = `${filingYear}_revenue`
+    const ebitdaKey = `${filingYear}_ebitda`
+
+    const desiredRevenue =
+      formData.revenue !== undefined && formData.revenue !== null ? String(formData.revenue) : ''
+    const desiredEbitda =
+      formData.ebitda !== undefined && formData.ebitda !== null ? String(formData.ebitda) : ''
+
+    const currentRevenue = historicalInputs[revenueKey] ?? ''
+    const currentEbitda = historicalInputs[ebitdaKey] ?? ''
+
+    // Compare numerically to ignore formatting differences ("1000" vs "1,000")
+    const numericEqual = (a: string, b: string) => {
+      const na = parseFloat(a.replace(/,/g, ''))
+      const nb = parseFloat(b.replace(/,/g, ''))
+      if (a === '' && b === '') return true
+      if (a === '' || b === '') return false
+      if (Number.isNaN(na) && Number.isNaN(nb)) return a === b
+      return na === nb
+    }
+
+    const revenueDiff = !numericEqual(currentRevenue, desiredRevenue)
+    const ebitdaDiff = !numericEqual(currentEbitda, desiredEbitda)
+
+    if (revenueDiff || ebitdaDiff) {
+      setHistoricalInputs((prev) => ({
+        ...prev,
+        ...(revenueDiff ? { [revenueKey]: desiredRevenue } : {}),
+        ...(ebitdaDiff ? { [ebitdaKey]: desiredEbitda } : {}),
+      }))
+    }
+  }, [
+    formData.current_year_data?.year,
+    formData.filing_year_confirmed,
+    formData.revenue,
+    formData.ebitda,
+    historicalInputs,
   ])
 
   // Clear owner concentration fields when switching to sole-trader

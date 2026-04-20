@@ -242,7 +242,7 @@ export function PreparerMultiplePanel({
                 const n = parseFloat(v)
                 if (Number.isFinite(n)) setAppliedMedian(n)
               }}
-              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums"
+              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             <input
               type="range"

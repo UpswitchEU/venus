@@ -71,6 +71,7 @@ const FieldInput: React.FC<FieldInputProps> = ({
   const baseClasses = `
     w-full px-3 py-2 bg-muted border rounded-lg text-foreground placeholder-muted-foreground
     focus:outline-none focus:ring-2 focus:ring-primary
+    [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none
     ${hasErrors ? 'border-destructive' : 'border-foreground/20'}
     ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
   `

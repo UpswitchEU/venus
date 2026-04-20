@@ -1157,7 +1157,7 @@
 			"cancel": "Huidig bedrijf behouden",
 			"confirm": "Bedrijf wijzigen"
 		},
-		"registryNlSearchHint": "Zoek op bedrijfsnaam of KVK-nummer, of vul gegevens handmatig in. Live KVK-autocomplete kan ontbreken zolang er geen commerciële registerkoppeling voor uw omgeving is geconfigureerd.",
+		"registryNlSearchHint": "Zoek live in het KVK-handelsregister op bedrijfsnaam of KVK-nummer, of vul de gegevens handmatig in als u uw bedrijf niet vindt.",
 		"registryNlNoResults": "Geen registermatch gevonden. U kunt doorgaan met de bedrijfsnaam die u heeft ingevoerd.",
 		"normalized": "Genormaliseerd",
 		"year": "jaar",

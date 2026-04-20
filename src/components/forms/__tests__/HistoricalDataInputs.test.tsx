@@ -25,7 +25,7 @@ describe('HistoricalDataInputs', () => {
     vi.useRealTimers()
   })
 
-  it('shows the prior two historical filing years in Q1', () => {
+  it('shows the filing year and the two prior years in Q1', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
 
@@ -37,9 +37,10 @@ describe('HistoricalDataInputs', () => {
       />
     )
 
+    expect(screen.getByDisplayValue('2024')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2023')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2022')).toBeInTheDocument()
-    expect(screen.queryByDisplayValue('2024')).not.toBeInTheDocument()
+    expect(screen.queryByDisplayValue('2025')).not.toBeInTheDocument()
   })
 
   it('moves the window forward after the April cutoff', () => {
@@ -54,6 +55,7 @@ describe('HistoricalDataInputs', () => {
       />
     )
 
+    expect(screen.getByDisplayValue('2025')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2024')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2023')).toBeInTheDocument()
     expect(screen.queryByDisplayValue('2022')).not.toBeInTheDocument()
@@ -72,6 +74,7 @@ describe('HistoricalDataInputs', () => {
       />
     )
 
+    expect(screen.getByDisplayValue('2024')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2023')).toBeInTheDocument()
     expect(screen.getByDisplayValue('2022')).toBeInTheDocument()
   })

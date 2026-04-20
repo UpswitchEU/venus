@@ -243,7 +243,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, revenue: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
@@ -262,7 +262,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, ebitda: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
@@ -281,7 +281,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, net_income: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
@@ -300,7 +300,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, total_assets: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
@@ -319,7 +319,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, total_debt: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
@@ -338,7 +338,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                     onChange={(e) =>
                       setEditedData({ ...editedData, cash: parseFloat(e.target.value) })
                     }
-                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
+                    className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">

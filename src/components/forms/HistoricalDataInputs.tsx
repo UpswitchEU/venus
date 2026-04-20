@@ -32,7 +32,7 @@ export const HistoricalDataInputs: React.FC<HistoricalDataInputsProps> = ({
 
   const calculateHistoricalYears = (): number[] => {
     const filingYear = currentYear ?? getCurrentFilingYear()
-    return getHistoricalYearRange(filingYear, 2, 1)
+    return getHistoricalYearRange(filingYear, 3, 0)
   }
 
   const yearsToShow = calculateHistoricalYears()

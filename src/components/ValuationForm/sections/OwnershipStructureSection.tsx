@@ -83,7 +83,6 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
             min={1}
             max={100}
             step={1}
-            showArrows={true}
             helpText={t('ownerManagersHelp')}
           />
 
@@ -113,7 +112,6 @@ export const OwnershipStructureSection: React.FC<OwnershipStructureSectionProps>
             name="number_of_employees"
             min={0}
             step={1}
-            showArrows={true}
             error={employeeCountError || undefined}
             touched={!!employeeCountError}
             required={

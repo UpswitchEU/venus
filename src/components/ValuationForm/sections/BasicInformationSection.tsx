@@ -436,7 +436,6 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           name="founding_year"
           min={1900}
           max={new Date().getFullYear()}
-          showArrows={true}
           helpText={t('forms.fields.yearBusinessCommencedHelp')}
           required
         />

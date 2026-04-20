@@ -74,6 +74,7 @@ const inputFieldVariants = cva(
     'placeholder:text-transparent',
     'text-foreground',
     'disabled:cursor-not-allowed',
+    '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
   ],
   {
     variants: {
