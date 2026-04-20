@@ -42,7 +42,6 @@ import {
   trackReturnToMercury,
   trackVersionHistoryOpen,
 } from '@/lib/analytics'
-import { useAuthStore } from '../../../lib/auth'
 // Calculator Components (full Clarity parity)
 import {
   CalculatorNav,
@@ -97,6 +96,7 @@ import { usePrefillRestorationCoordinator } from '../../../hooks/usePrefillResto
 import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMethodSessionSync'
 import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
+import { useAuthStore } from '../../../lib/auth'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
 import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../../../lib/return-url'
 import { reportService, valuationService } from '../../../services'
@@ -144,8 +144,8 @@ import type {
   YearDataInput,
 } from '../../../types/valuation'
 import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
-import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { buildManualValuationRequest } from '../../../utils/buildManualValuationRequest'
+import { buildValuationRequest } from '../../../utils/buildValuationRequest'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
@@ -156,7 +156,6 @@ import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../utils/importedLedgerTaxLatencies'
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
-import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
@@ -165,6 +164,7 @@ import {
 } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { hasUsableOfficialFinancialsContent } from '../../../utils/officialFinancialsContent'
+import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -730,10 +730,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const showFullAdvisorMethodNav = isAccountantFlow || isAccountantTierRole(user?.role)
   const preSelectableMethodsForNav = useMemo(
     () =>
-      filterPreSelectableMethodsForOwnerFounder(
-        firmPreSelectableMethods,
-        showFullAdvisorMethodNav
-      ),
+      filterPreSelectableMethodsForOwnerFounder(firmPreSelectableMethods, showFullAdvisorMethodNav),
     [firmPreSelectableMethods, showFullAdvisorMethodNav]
   )
   const planLockedMethodKeys = useMemo(() => {
@@ -797,28 +794,38 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   const [clientContextId, setClientContextId] = useState<string | undefined>(undefined)
   const [accountantDisplayName, setAccountantDisplayName] = useState<string | undefined>(undefined)
 
+  const ctxIsActingAsClient = useClientContext((s) => s.isActingAsClient)
+  const ctxRelationshipId = useClientContext((s) => s.relationshipId)
+  const ctxClient = useClientContext((s) => s.client)
+  const ctxRelationshipCustomerName = useClientContext((s) => s.relationshipCustomerName)
+  const ctxAccountant = useClientContext((s) => s.accountant)
+
   useEffect(() => {
-    // Detect accountant mode from client context store
-    import('../../../stores/clientContext')
-      .then(({ useClientContext }) => {
-        const ctx = useClientContext.getState()
-        if (ctx.isActingAsClient && ctx.client) {
-          setIsAccountantMode(true)
-          setClientContextName(ctx.client.fullName || ctx.client.email || undefined)
-          // CRITICAL: Only use relationshipId (accountant_customers.id) for navigation.
-          // ctx.client.id is the Supabase Auth user UUID (owner_user_id) which is NOT
-          // a valid accountant_customers ID and would cause 404 on Mercury client detail pages.
-          setClientContextId(ctx.relationshipId ?? undefined)
-          // Use the accountant's own name for the toolbar identity display
-          if (ctx.accountant) {
-            setAccountantDisplayName(ctx.accountant.fullName || ctx.accountant.email || undefined)
-          }
-        }
-      })
-      .catch(() => {
-        // Non-critical
-      })
-  }, [])
+    // Subscribe to client context so accountant mode updates when context hydrates
+    // async (auth, get-client-context, zustand persist) — a one-shot mount effect
+    // missed this and left isAccountantMode false → back button used router.back().
+    if (ctxIsActingAsClient && ctxRelationshipId) {
+      setIsAccountantMode(true)
+      setClientContextName(
+        ctxClient?.fullName || ctxClient?.email || ctxRelationshipCustomerName || undefined
+      )
+      setClientContextId(ctxRelationshipId)
+      if (ctxAccountant) {
+        setAccountantDisplayName(ctxAccountant.fullName || ctxAccountant.email || undefined)
+      }
+    } else {
+      setIsAccountantMode(false)
+      setClientContextName(undefined)
+      setClientContextId(undefined)
+      setAccountantDisplayName(undefined)
+    }
+  }, [
+    ctxIsActingAsClient,
+    ctxRelationshipId,
+    ctxClient,
+    ctxRelationshipCustomerName,
+    ctxAccountant,
+  ])
 
   const showPreparerMultiplePanel = useMemo(
     () => isAccountantMode || isAccountantTierRole(user?.role),
@@ -2700,7 +2707,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         // React `formStoreData` here can be one frame stale vs. the synchronous store update.
         const storeSnapshot = useManualFormStore.getState().formData
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-        const request = buildManualValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
+        const request = buildManualValuationRequest(
+          storeSnapshot,
+          undefined,
+          validLocale as 'nl' | 'en'
+        )
         ;(request as any).dataSource = 'manual'
         if (preSelectedMethod) {
           request.selected_method = preSelectedMethod
@@ -3149,7 +3160,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         updateFormData(venusFormData)
         const storeSnapshot = useManualFormStore.getState().formData
         const validLocale = currentLocale === 'en' || currentLocale === 'nl' ? currentLocale : 'nl'
-        const request = buildManualValuationRequest(storeSnapshot, undefined, validLocale as 'nl' | 'en')
+        const request = buildManualValuationRequest(
+          storeSnapshot,
+          undefined,
+          validLocale as 'nl' | 'en'
+        )
         ;(request as any).dataSource = 'manual'
         ;(request as any).reportId = idForVersions
         if (preSelectedMethod) {
@@ -3738,10 +3753,6 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   ])
 
   // ─── Navigation Handlers ───
-  const handleBack = useCallback(() => {
-    router.back()
-  }, [router])
-
   const handleExitClientView = useCallback(() => {
     try {
       import('../../../stores/clientContext')
@@ -3789,6 +3800,28 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       } catch {}
     }
   }, [clientContextId, currentLocale])
+
+  /**
+   * Top bar back: Mercury handoffs store `upswitch_return_url` during auth init.
+   * Prefer explicit navigation to Mercury — `router.back()` is unreliable when
+   * history is shallow, the tab was opened directly, or Next.js added internal
+   * entries (feels like a reload). When no stored return URL, fall back to
+   * browser history.
+   */
+  const handleBack = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const returnUrl = sessionStorage.getItem('upswitch_return_url')
+        if (returnUrl && !isLegacyReturnUrl(returnUrl)) {
+          handleExitClientView()
+          return
+        }
+      } catch {
+        /* sessionStorage unavailable */
+      }
+    }
+    router.back()
+  }, [router, handleExitClientView])
 
   const handlePreview = useCallback(() => {
     trackPreviewOpen()
