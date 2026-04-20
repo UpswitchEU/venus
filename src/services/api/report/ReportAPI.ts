@@ -46,12 +46,22 @@ export class ReportAPI extends HttpClient {
       ? `/api/v2/valuations/reports/by-session/${reportId}`
       : `/api/v2/valuations/reports/${reportId}`
 
+    const { bySession404Attempts: session404Cap, ...executeOpts } = options ?? {}
     const requestOptions: APIRequestConfig = {
-      ...options,
-      retry: { ...options?.retry, maxRetries: 0 },
+      ...executeOpts,
+      retry: { ...executeOpts?.retry, maxRetries: 0 },
     }
 
-    const maxAttempts = isBySession ? BY_SESSION_404_BACKOFF_MS.length : 1
+    const defaultSessionAttempts = BY_SESSION_404_BACKOFF_MS.length
+    const maxAttempts = isBySession
+      ? Math.min(
+          defaultSessionAttempts,
+          Math.max(
+            1,
+            typeof session404Cap === 'number' ? session404Cap : defaultSessionAttempts
+          )
+        )
+      : 1
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) {
         await new Promise((r) => setTimeout(r, BY_SESSION_404_BACKOFF_MS[attempt]))

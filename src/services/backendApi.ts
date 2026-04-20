@@ -131,8 +131,8 @@ class BackendAPI {
 
   // ===== REPORT OPERATIONS =====
 
-  async getReport(reportId: string): Promise<ValuationResponse> {
-    return this.reportAPI.getReport(reportId)
+  async getReport(reportId: string, options?: APIRequestConfig): Promise<ValuationResponse> {
+    return this.reportAPI.getReport(reportId, options)
   }
 
   async updateReport(

@@ -52,6 +52,12 @@ export interface APIRequestConfig {
   idempotencyKey?: string
   /** Skip idempotency key generation */
   skipIdempotency?: boolean
+  /**
+   * GET `/reports/by-session/:key` only: cap 404 retry attempts (default = full
+   * backoff table in ReportAPI). Use `1` on polling paths to avoid hammering
+   * the API when no report row exists yet.
+   */
+  bySession404Attempts?: number
   retry?: {
     maxRetries?: number
     initialDelay?: number

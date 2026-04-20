@@ -2278,7 +2278,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       if (pdfStalePollInFlightRef.current) return
       pdfStalePollInFlightRef.current = true
       try {
-        const fresh = await backendAPI.getReport(persistedReportLookupId)
+        const fresh = await backendAPI.getReport(
+          persistedReportLookupId,
+          isSessionKey(persistedReportLookupId)
+            ? { bySession404Attempts: 1 }
+            : undefined
+        )
         const latestExistingResult = useManualResultsStore.getState().result
         const nextValuationResults =
           getHydratedValuationResults(fresh) ?? getHydratedValuationResults(latestExistingResult)
