@@ -3828,10 +3828,22 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         sourceApp = sessionStorage.getItem('upswitch_source')
       } catch {}
 
+      // Mirror the `onContinueToListing` heuristic so seller exits emit the
+      // `?from=valuation` celebration marker only when an actual valuation
+      // has been produced. Without this, Mercury's seller dashboard would
+      // never refresh the freshly-saved business-card snapshot until the
+      // 60s React Query staleTime elapsed (cache key: ['client','context']).
+      const hasCompletedValuation =
+        (!!report &&
+          typeof report.valuation === 'number' &&
+          Number.isFinite(report.valuation)) ||
+        !!(session?.valuationResult || session?.htmlReport)
+
       const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
         clientContextId: clientContextId ?? undefined,
         locale: validLocale,
         sourceApp: sourceApp ?? undefined,
+        celebrateMercuryReturn: hasCompletedValuation,
       })
       window.location.href = targetUrl
     } catch (error) {
@@ -3851,7 +3863,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         window.location.href = fallbackDashboardForSource(sourceApp, loc, getMercuryUrl())
       } catch {}
     }
-  }, [clientContextId, currentLocale])
+  }, [clientContextId, currentLocale, report, session])
 
   /**
    * Top bar back: Mercury handoffs store `upswitch_return_url` during auth init.

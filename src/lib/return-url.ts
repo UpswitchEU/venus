@@ -62,26 +62,77 @@ export const MERCURY_CELEBRATION_QUERY_VALUE = 'valuation'
 /** Legacy value emitted before the codename strip — Mercury still accepts it on read. */
 export const MERCURY_CELEBRATION_QUERY_VALUE_LEGACY = 'venus'
 
-/** Only client detail (or sub-routes) should carry the celebration marker — not dashboard fallbacks. */
-function isAccountantClientPath(pathname: string): boolean {
-  return (
-    pathname.includes('/advisor/clients/') ||
-    pathname.includes('/accountant/clients/')
-  )
+/**
+ * Pathnames that should carry the celebration marker on a successful return.
+ *
+ * - `/advisor/clients/<id>` and the legacy `/accountant/clients/<id>` are
+ *   the per-client detail surfaces an accountant returns to after running a
+ *   valuation for one specific client. We mark these so Mercury can show
+ *   the "added to client card" celebration.
+ *
+ * - `/business/dashboard` is the self-managed seller (PLG) dashboard — the
+ *   ONLY destination the seller flow ever returns to. Marking it lets the
+ *   Mercury seller dashboard invalidate its `client/context` query and
+ *   surface a "valuation added to your business card" celebration without
+ *   waiting for the 60-second `staleTime` to elapse.
+ *
+ * Generic accountant `dashboard` fallbacks are intentionally NOT marked —
+ * they are reached when no specific client context exists, so a celebration
+ * would be confusing.
+ */
+function shouldCarryCelebrationMarker(pathname: string): boolean {
+  if (pathname.includes('/advisor/clients/')) return true
+  if (pathname.includes('/accountant/clients/')) return true
+  // Match `/<locale>/business/dashboard` and any sub-route the seller
+  // dashboard might mount in the future. The locale-prefix is left as-is
+  // because `getSafeMercuryReturnUrl` always re-stamps the path with the
+  // explicit locale before this helper runs.
+  if (/\/(?:en|nl)\/business\/dashboard(?:\/|$)/.test(pathname)) return true
+  return false
+}
+
+/**
+ * Values of the `from=` query parameter that this app owns. Only these are
+ * ever overwritten or stripped — any other `from=` value (e.g. campaign
+ * attribution like `from=email_campaign`, `from=newsletter`) is left
+ * untouched so a Venus round-trip never silently drops the seller's
+ * marketing context. The historical codename `venus` stays in the list as
+ * the legacy alias Mercury still accepts on read.
+ */
+const MERCURY_OWNED_CELEBRATION_VALUES = new Set<string>([
+  MERCURY_CELEBRATION_QUERY_VALUE,
+  MERCURY_CELEBRATION_QUERY_VALUE_LEGACY,
+])
+
+function isMercuryOwnedCelebrationValue(value: string | null): boolean {
+  if (value === null) return false
+  return MERCURY_OWNED_CELEBRATION_VALUES.has(value)
 }
 
 export function applyMercuryCelebrationQuery(urlString: string, celebrate: boolean): string {
   try {
     const u = new URL(urlString)
+    const existingFrom = u.searchParams.get(MERCURY_CELEBRATION_QUERY_KEY)
     if (celebrate) {
-      if (isAccountantClientPath(u.pathname)) {
-        u.searchParams.set(
-          MERCURY_CELEBRATION_QUERY_KEY,
-          MERCURY_CELEBRATION_QUERY_VALUE
-        )
+      if (shouldCarryCelebrationMarker(u.pathname)) {
+        // Only overwrite when the existing `from=` is unset OR is one of
+        // OUR celebration values. Foreign values (`from=email_campaign`)
+        // are preserved so a round-trip through Venus does not erase the
+        // seller's original campaign attribution.
+        if (existingFrom === null || isMercuryOwnedCelebrationValue(existingFrom)) {
+          u.searchParams.set(
+            MERCURY_CELEBRATION_QUERY_KEY,
+            MERCURY_CELEBRATION_QUERY_VALUE
+          )
+        }
       }
     } else {
-      u.searchParams.delete(MERCURY_CELEBRATION_QUERY_KEY)
+      // Only strip when the existing value is OURS; leaving foreign
+      // `from=` values intact preserves analytics / campaign context for
+      // plain (non-celebration) exits too.
+      if (isMercuryOwnedCelebrationValue(existingFrom)) {
+        u.searchParams.delete(MERCURY_CELEBRATION_QUERY_KEY)
+      }
     }
     return u.toString()
   } catch {
@@ -112,15 +163,26 @@ function pathnameWithLocale(pathname: string, locale: 'en' | 'nl'): string {
  * so we can default to the safer "owner" experience (the dashboard owners
  * can always reach) when the signal is ambiguous and an explicit
  * `return_url` is missing.
+ *
+ * `client_dashboard` is included because Mercury's `StartupValuationTile`
+ * passes `source='client_dashboard'` (it's mounted on the seller dashboard
+ * at `/business/dashboard`). Without this token the StartupValuationTile's
+ * exit fallback would route to `/advisor/dashboard` whenever sessionStorage
+ * dropped the explicit `return_url` — a wrong-persona 404 for sellers.
+ *
+ * The `mercury_seller_*` and `*orphaned_seller*` entries are redundant with
+ * the broader `seller` token but are kept explicit so a future audit can
+ * see at a glance which seller surfaces hand off to Venus today.
  */
 const SELLER_SOURCE_TOKENS = [
   'business_',
   'seller',
   'owner',
   'startup',
-  'for_owners',
+  'for_owner',
   'mercury_seller',
   'orphaned_seller',
+  'client_dashboard',
 ] as const
 
 const ACCOUNTANT_SOURCE_TOKENS = ['accountant', 'advisor'] as const
