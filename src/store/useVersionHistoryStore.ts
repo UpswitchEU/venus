@@ -9,6 +9,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
+import { coalesceFiniteNumber } from '../lib/omniPreview'
 import { VersionAPI } from '../services/api/version/VersionAPI'
 import type {
   CreateVersionRequest,
@@ -24,6 +25,7 @@ import {
 } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
+import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
 import { buildCurrentYearData } from '../utils/yearData'
 import { useNormalizationStore, mapFrontendCategoryToBackend } from './useNormalizationStore'
 import { useTaxLatencyStore } from './useTaxLatencyStore'
@@ -137,33 +139,37 @@ function detectChanges(oldData: any, newData: any): VersionChanges {
 
   const timestamp = new Date()
 
-  // Financial changes
-  if (oldData.current_year_data?.revenue !== newData.current_year_data?.revenue) {
-    const oldVal = oldData.current_year_data?.revenue || 0
-    const newVal = newData.current_year_data?.revenue || 0
+  // Financial changes (same resolution as buildValuationRequest / detectVersionChanges)
+  const oldRev = resolveFormRevenue(oldData)
+  const newRev = resolveFormRevenue(newData)
+  if (oldRev !== newRev) {
+    const percentChange =
+      oldRev !== 0 ? ((newRev - oldRev) / Math.abs(oldRev)) * 100 : 0
     changes.revenue = {
-      from: oldVal,
-      to: newVal,
-      percentChange: oldVal > 0 ? ((newVal - oldVal) / oldVal) * 100 : 0,
+      from: oldRev,
+      to: newRev,
+      percentChange,
       timestamp,
     }
     changes.totalChanges++
-    if (Math.abs(changes.revenue.percentChange || 0) > 10) {
+    if (Math.abs(percentChange) > 10) {
       changes.significantChanges.push('revenue')
     }
   }
 
-  if (oldData.current_year_data?.ebitda !== newData.current_year_data?.ebitda) {
-    const oldVal = oldData.current_year_data?.ebitda || 0
-    const newVal = newData.current_year_data?.ebitda || 0
+  const oldEbit = resolveFormEbitda(oldData)
+  const newEbit = resolveFormEbitda(newData)
+  if (oldEbit !== newEbit) {
+    const percentChange =
+      oldEbit !== 0 ? ((newEbit - oldEbit) / Math.abs(oldEbit)) * 100 : 0
     changes.ebitda = {
-      from: oldVal,
-      to: newVal,
-      percentChange: oldVal > 0 ? ((newVal - oldVal) / oldVal) * 100 : 0,
+      from: oldEbit,
+      to: newEbit,
+      percentChange,
       timestamp,
     }
     changes.totalChanges++
-    if (Math.abs(changes.ebitda.percentChange || 0) > 10) {
+    if (Math.abs(percentChange) > 10) {
       changes.significantChanges.push('ebitda')
     }
   }
@@ -390,18 +396,18 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
               : lastFullYear
             const allDataYears = Array.from(new Set([currentYear, ...historicalYears]))
             const yearEbitdaMap: Record<number, number> = {
-              [currentYear]:
-                Number(
-                  currentYearData?.ebitda_normalization_metadata?.reported_ebitda ??
-                    currentYearData?.ebitda ??
-                    0
-                ) || 0,
+              [currentYear]: coalesceFiniteNumber(
+                currentYearData?.ebitda_normalization_metadata?.reported_ebitda ??
+                  currentYearData?.ebitda ??
+                  0
+              ),
             }
             normalizedHistoricalYearData?.forEach((y: any) => {
               const yearMeta = y?.ebitda_normalization_metadata
               if (y?.ebitda != null && y?.year != null) {
-                yearEbitdaMap[Number(y.year)] =
-                  Number(yearMeta?.reported_ebitda ?? y.ebitda ?? 0) || 0
+                yearEbitdaMap[Number(y.year)] = coalesceFiniteNumber(
+                  yearMeta?.reported_ebitda ?? y.ebitda ?? 0
+                )
               }
             })
 
@@ -779,24 +785,26 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           typeof vA.valuationResult === 'object' &&
           vB.valuationResult &&
           typeof vB.valuationResult === 'object'
-            ? {
-                absoluteChange:
-                  ((vB.valuationResult as any).valuation_summary?.final_valuation || 0) -
-                  ((vA.valuationResult as any).valuation_summary?.final_valuation || 0),
-                percentChange:
-                  ((((vB.valuationResult as any).valuation_summary?.final_valuation || 0) -
-                    ((vA.valuationResult as any).valuation_summary?.final_valuation || 0)) /
-                    ((vA.valuationResult as any).valuation_summary?.final_valuation || 1)) *
-                  100,
-                direction:
-                  ((vB.valuationResult as any).valuation_summary?.final_valuation || 0) >
-                  ((vA.valuationResult as any).valuation_summary?.final_valuation || 0)
-                    ? ('increase' as const)
-                    : ((vB.valuationResult as any).valuation_summary?.final_valuation || 0) <
-                        ((vA.valuationResult as any).valuation_summary?.final_valuation || 0)
-                      ? ('decrease' as const)
-                      : ('unchanged' as const),
-              }
+            ? (() => {
+                const vAVal = coalesceFiniteNumber(
+                  (vA.valuationResult as any).valuation_summary?.final_valuation
+                )
+                const vBVal = coalesceFiniteNumber(
+                  (vB.valuationResult as any).valuation_summary?.final_valuation
+                )
+                const absoluteChange = vBVal - vAVal
+                const denom = Math.abs(vAVal) > 1e-9 ? Math.abs(vAVal) : null
+                return {
+                  absoluteChange,
+                  percentChange: denom != null ? (absoluteChange / denom) * 100 : 0,
+                  direction:
+                    vBVal > vAVal
+                      ? ('increase' as const)
+                      : vBVal < vAVal
+                        ? ('decrease' as const)
+                        : ('unchanged' as const),
+                }
+              })()
             : null
 
         // Generate highlights

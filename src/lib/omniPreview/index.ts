@@ -8,7 +8,7 @@
  * @see README.md in this folder for the module map.
  */
 export { resolveBookEquityFromYearRow, type YearRowForBookEquity } from './bookEquityFromYearRow'
-export { toFiniteNumber } from './guards'
+export { coalesceFiniteNumber, toFiniteNumber } from './guards'
 export {
   createManualCurrencyFormatter,
   createManualMetricFormatter,

@@ -5,13 +5,51 @@ import {
   getLatestCompleteYearlyFinancial,
   historicalYearRowNeedsRemovalWarning,
   isCompleteYearlyFinancial,
+  yearlyFinancialRowHasNonPlaceholderData,
+  yearlyFinancialsContainsNonPlaceholderData,
 } from '../yearlyFinancials'
 
 describe('yearlyFinancials helpers', () => {
-  it('treats a year as complete only when revenue is positive and EBITDA is numeric', () => {
+  it('treats a year as complete when revenue and EBITDA are explicit and not both zero', () => {
     expect(isCompleteYearlyFinancial({ year: '2025', revenue: 1_000_000, ebitda: 100_000 })).toBe(true)
-    expect(isCompleteYearlyFinancial({ year: '2025', revenue: 0, ebitda: 100_000 })).toBe(false)
+    expect(isCompleteYearlyFinancial({ year: '2025', revenue: 0, ebitda: 100_000 })).toBe(true)
+    expect(isCompleteYearlyFinancial({ year: '2025', revenue: 1_000_000, ebitda: 0 })).toBe(true)
+    expect(isCompleteYearlyFinancial({ year: '2025', revenue: 0, ebitda: 0 })).toBe(false)
     expect(isCompleteYearlyFinancial({ year: '2025', revenue: 1_000_000, ebitda: null })).toBe(false)
+    expect(
+      isCompleteYearlyFinancial({ year: '2025', revenue: 0, ebitda: 0, free_cash_flow: 50_000 })
+    ).toBe(true)
+    expect(
+      isCompleteYearlyFinancial({ year: '2025', revenue: 0, ebitda: 0, free_cash_flow: 0 })
+    ).toBe(false)
+    expect(
+      isCompleteYearlyFinancial({ year: '2025', revenue: 500_000, free_cash_flow: 50_000 })
+    ).toBe(false)
+    expect(isCompleteYearlyFinancial({ year: '2025', free_cash_flow: 40_000 })).toBe(true)
+    expect(isCompleteYearlyFinancial({ year: '2025', free_cash_flow: 0 })).toBe(false)
+  })
+
+  it('detects non-placeholder rows for integration entry and snapshots', () => {
+    expect(yearlyFinancialRowHasNonPlaceholderData({ year: '2024', revenue: 0, ebitda: 0 })).toBe(false)
+    expect(
+      yearlyFinancialRowHasNonPlaceholderData({
+        year: '2024',
+        revenue: 0,
+        ebitda: 0,
+        free_cash_flow: 25_000,
+      })
+    ).toBe(true)
+    expect(yearlyFinancialRowHasNonPlaceholderData({ year: '2024', revenue: 0, ebitda: -5000 })).toBe(true)
+    expect(yearlyFinancialRowHasNonPlaceholderData({ year: '2025', revenue: 0, ebitda: 0, isForecast: true })).toBe(
+      true
+    )
+    expect(yearlyFinancialsContainsNonPlaceholderData([{ year: '2024', revenue: 0, ebitda: 0 }])).toBe(false)
+    expect(
+      yearlyFinancialsContainsNonPlaceholderData([
+        { year: '2024', revenue: 0, ebitda: 0 },
+        { year: '2023', revenue: 100, ebitda: 0 },
+      ])
+    ).toBe(true)
   })
 
   it('picks the latest complete year instead of the first placeholder row', () => {

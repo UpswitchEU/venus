@@ -90,7 +90,7 @@ class BusinessCardServiceImpl implements BusinessCardService {
     businessCardLogger.info('Transforming business card to valuation request', {
       hasCompanyName: !!businessCard.company_name,
       hasIndustry: !!businessCard.industry,
-      hasRevenue: !!businessCard.revenue,
+      hasRevenue: businessCard.revenue != null && Number.isFinite(businessCard.revenue),
     })
 
     const valuationRequest: Partial<ValuationRequest> = {}
@@ -139,14 +139,15 @@ class BusinessCardServiceImpl implements BusinessCardService {
       valuationRequest.reason_for_selling = businessCard.reason_for_selling
     }
 
-    // Revenue goes into current_year_data
-    if (businessCard.revenue && businessCard.revenue > 0) {
+    // Revenue goes into current_year_data (including 0 — pre-revenue / explicit zero).
+    const rev = businessCard.revenue
+    if (rev != null && Number.isFinite(rev)) {
       const currentYear = getCurrentFilingYear()
 
       valuationRequest.current_year_data = {
         year: currentYear,
-        revenue: businessCard.revenue,
-        ebitda: 0, // Will be filled by user
+        revenue: rev,
+        ebitda: 0, // Will be filled by user unless card gains EBITDA later
       } as YearDataInput
     }
 

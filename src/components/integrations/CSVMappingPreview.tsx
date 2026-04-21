@@ -31,6 +31,7 @@ import { AuroraButton as Button } from '@/design-system/components/Button'
 import { GlassCard } from '@/design-system/components/GlassCard'
 import { AuroraInput as Input } from '@/design-system/components/Input'
 import { Body, Caption, Heading, Mono } from '@/design-system/components/Typography'
+import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import { cn } from '@/design-system/utils'
 import type { ParsedCSVData } from './CSVUploadCard'
 
@@ -102,8 +103,7 @@ const mapCSVToAccounts = (data: ParsedCSVData): MappedAccount[] => {
 
     const values: Record<string, number> = {}
     yearIndices.forEach(({ header, index }) => {
-      const value = parseFloat(row[index]?.replace(/[^\d.-]/g, '') || '0')
-      values[header] = Number.isFinite(value) ? value : 0
+      values[header] = coalesceFiniteNumber(row[index]?.replace(/[^\d.-]/g, ''))
     })
 
     return {

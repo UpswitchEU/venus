@@ -19,6 +19,12 @@ describe('patchCurrentYearDataFromTopLevelFinancials', () => {
     expect(out?.year).toBe(2025)
   })
 
+  it('allows revenue 0 (pre-revenue) without treating it as a clear', () => {
+    const out = patchCurrentYearDataFromTopLevelFinancials(base, { revenue: 0 })
+    expect(out?.revenue).toBe(0)
+    expect(out?.ebitda).toBe(100_000)
+  })
+
   it('deletes revenue when cleared (undefined) and own property', () => {
     const out = patchCurrentYearDataFromTopLevelFinancials(base, { revenue: undefined })
     expect(Object.prototype.hasOwnProperty.call(out, 'revenue')).toBe(false)

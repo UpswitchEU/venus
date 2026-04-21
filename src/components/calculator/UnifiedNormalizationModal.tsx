@@ -61,6 +61,7 @@ import {
   trackNormalizationAdd,
   trackNormalizationEdit,
 } from '@/lib/analytics'
+import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import {
   formatCurrencyTaxLatency,
   getNetTaxLatencyImpact,
@@ -1936,7 +1937,9 @@ export function UnifiedNormalizationModal({
                               getNormalizationAmountForBase(
                                 {
                                   type: newType,
-                                  value: parseFloat(newValue.replace(/[^0-9.-]/g, '')) || 0,
+                                  value: coalesceFiniteNumber(
+                                    newValue.replace(/[^0-9.-]/g, '')
+                                  ),
                                   adjustment: 0,
                                 },
                                 safeOriginalEBITDA
@@ -1956,7 +1959,9 @@ export function UnifiedNormalizationModal({
                               getNormalizationAmountForBase(
                                 {
                                   type: newType,
-                                  value: parseFloat(newValue.replace(/[^0-9.-]/g, '')) || 0,
+                                  value: coalesceFiniteNumber(
+                                    newValue.replace(/[^0-9.-]/g, '')
+                                  ),
                                   adjustment: 0,
                                 },
                                 safeOriginalEBITDA

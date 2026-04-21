@@ -14,6 +14,7 @@
  * @module services/session/SessionNormalizer
  */
 
+import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
 import {
   normalizeCurrentYearForFiling,
@@ -505,9 +506,9 @@ function extractPricingRange(sessionData: any, topLevelSession: any): PricingRan
     // Only return if we have at least one valid value
     if (min !== undefined || mid !== undefined || max !== undefined) {
       return {
-        min: typeof min === 'string' ? parseFloat(min) : min || 0,
-        mid: typeof mid === 'string' ? parseFloat(mid) : mid || 0,
-        max: typeof max === 'string' ? parseFloat(max) : max || 0,
+        min: coalesceFiniteNumber(min),
+        mid: coalesceFiniteNumber(mid),
+        max: coalesceFiniteNumber(max),
         currency: (valuationResult as any).currency || 'EUR',
       }
     }

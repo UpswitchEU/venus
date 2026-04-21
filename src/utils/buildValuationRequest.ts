@@ -277,8 +277,8 @@ export function buildValuationRequest(
         }
       const rawYearEbitda = yearEbitdaMap[y] ?? 0
       const yearEbitda = Number.isFinite(rawYearEbitda) ? rawYearEbitda : 0
-      const val = Number.isFinite(Number(n.value)) ? Number(n.value) || 0 : 0
-      let amount = Number.isFinite(Number(n.adjustment)) ? Number(n.adjustment) || 0 : 0
+      const val = toFiniteNumber(n.value) ?? 0
+      let amount = toFiniteNumber(n.adjustment) ?? 0
       if (n.type === 'add_percent') amount = (yearEbitda * val) / 100
       else if (n.type === 'subtract_percent') amount = -((yearEbitda * val) / 100)
       else if (n.type === 'absolute') amount = val - yearEbitda
@@ -320,14 +320,14 @@ export function buildValuationRequest(
       items: [
         ...(legacy.adjustments ?? []).map((a: any) => ({
           category: a.category ?? 'other_adjustments',
-          amount: Number(a.amount) || 0,
+          amount: toFiniteNumber(a.amount) ?? 0,
           source: 'manual',
           confidence: a.confidence ?? 'medium',
           ...(a.ledger_code && { ledger_code: a.ledger_code }),
         })),
         ...(legacy.custom_adjustments ?? []).map((a: any) => ({
           category: 'other_adjustments',
-          amount: Number(a.amount) || 0,
+          amount: toFiniteNumber(a.amount) ?? 0,
           source: 'manual',
           confidence: 'medium',
         })),
@@ -526,11 +526,14 @@ export function buildValuationRequest(
   // Priority: explicit percentage > currency amount derived > legacy field
   // Use current year revenue as primary reference (matches the UI's
   // latestCompleteYearlyFinancial), falling back to latest historical year.
-  const latestRevenue = revenue > 0
-    ? revenue
-    : historicalYearsData.length > 0
-      ? historicalYearsData.reduce((latest, y) => (y.year > latest.year ? y : latest)).revenue
-      : undefined
+  // Prefer positive current-year revenue as denominator for % fields; if current year is
+  // zero-revenue, fall back to the latest historical year's revenue (may still be 0).
+  const latestRevenue =
+    Number.isFinite(revenue) && revenue > 0
+      ? revenue
+      : historicalYearsData.length > 0
+        ? historicalYearsData.reduce((latest, y) => (y.year > latest.year ? y : latest)).revenue
+        : undefined
   // Priority: explicit percentage > currency amount (new UX) > legacy pct > default 0.
   // When rev_recurring_amount is set, it always wins over rev_recurring_pct to
   // stay consistent with adaptiveFields derivation and the UI badge.

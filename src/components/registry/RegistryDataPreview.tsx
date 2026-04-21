@@ -11,7 +11,18 @@ import {
 import React, { useMemo, useState } from 'react'
 import { useManualFormStore } from '../../store/manual'
 import type { CompanyFinancialData, FinancialFilingYear } from '../../types/registry'
+import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
+
+/** Controlled `input type="number"` value — finite numbers including 0; empty otherwise. */
+function finiteNumberInputValue(n: unknown): number | '' {
+  return typeof n === 'number' && Number.isFinite(n) ? n : ''
+}
+
+function parseOptionalFiniteNumber(raw: string): number | undefined {
+  const v = parseFloat(raw.replace(/,/g, ''))
+  return Number.isFinite(v) ? v : undefined
+}
 
 const createDefaultFilingYear = (): FinancialFilingYear => ({
   year: getCurrentFilingYear(),
@@ -75,7 +86,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
       ebitda: editedData.ebitda,
       current_year_data: {
         year: currentYear,
-        revenue: editedData.revenue || 0,
+        revenue: editedData.revenue ?? 0,
         ebitda:
           editedData.ebitda !== undefined && editedData.ebitda !== null ? editedData.ebitda : 0, // Preserve negative values
         ...(editedData.net_income !== undefined && { net_income: editedData.net_income }),
@@ -86,7 +97,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
       // Add historical data if available (excluding the current year)
       historical_years_data: safeFilingHistory.slice(1).map((year) => ({
         year: year.year,
-        revenue: year.revenue || 0,
+        revenue: year.revenue ?? 0,
         ebitda: year.ebitda !== undefined && year.ebitda !== null ? year.ebitda : 0, // Preserve negative values
         ...(year.net_income !== undefined && { net_income: year.net_income }),
         ...(year.total_assets !== undefined && { total_assets: year.total_assets }),
@@ -128,7 +139,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
       ebitda: editedData.ebitda,
       current_year_data: {
         year: currentYear,
-        revenue: editedData.revenue || 0,
+        revenue: editedData.revenue ?? 0,
         ebitda:
           editedData.ebitda !== undefined && editedData.ebitda !== null ? editedData.ebitda : 0, // Preserve negative values
       },
@@ -140,7 +151,7 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
               .filter((year) => year.ebitda !== undefined && year.ebitda !== null) // Only include years with EBITDA values
               .map((year) => ({
                 year: year.year,
-                revenue: year.revenue || 0,
+                revenue: year.revenue ?? 0,
                 ebitda: year.ebitda ?? 0, // Preserve negative values (already filtered for undefined/null)
               }))
           : undefined,
@@ -239,15 +250,18 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                 {isEditing ? (
                   <input
                     type="number"
-                    value={editedData.revenue || ''}
+                    value={finiteNumberInputValue(editedData.revenue)}
                     onChange={(e) =>
-                      setEditedData({ ...editedData, revenue: parseFloat(e.target.value) })
+                      setEditedData({
+                        ...editedData,
+                        revenue: parseOptionalFiniteNumber(e.target.value),
+                      })
                     }
                     className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
-                    {formatCurrency(editedData.revenue || 0)}
+                    {formatCurrency(coalesceFiniteNumber(editedData.revenue))}
                   </div>
                 )}
               </div>
@@ -258,15 +272,18 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                 {isEditing ? (
                   <input
                     type="number"
-                    value={editedData.ebitda || ''}
+                    value={finiteNumberInputValue(editedData.ebitda)}
                     onChange={(e) =>
-                      setEditedData({ ...editedData, ebitda: parseFloat(e.target.value) })
+                      setEditedData({
+                        ...editedData,
+                        ebitda: parseOptionalFiniteNumber(e.target.value),
+                      })
                     }
                     className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
-                    {formatCurrency(editedData.ebitda || 0)}
+                    {formatCurrency(coalesceFiniteNumber(editedData.ebitda))}
                   </div>
                 )}
               </div>
@@ -277,15 +294,18 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                 {isEditing ? (
                   <input
                     type="number"
-                    value={editedData.net_income || ''}
+                    value={finiteNumberInputValue(editedData.net_income)}
                     onChange={(e) =>
-                      setEditedData({ ...editedData, net_income: parseFloat(e.target.value) })
+                      setEditedData({
+                        ...editedData,
+                        net_income: parseOptionalFiniteNumber(e.target.value),
+                      })
                     }
                     className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
-                    {formatCurrency(editedData.net_income || 0)}
+                    {formatCurrency(coalesceFiniteNumber(editedData.net_income))}
                   </div>
                 )}
               </div>
@@ -296,15 +316,18 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                 {isEditing ? (
                   <input
                     type="number"
-                    value={editedData.total_assets || ''}
+                    value={finiteNumberInputValue(editedData.total_assets)}
                     onChange={(e) =>
-                      setEditedData({ ...editedData, total_assets: parseFloat(e.target.value) })
+                      setEditedData({
+                        ...editedData,
+                        total_assets: parseOptionalFiniteNumber(e.target.value),
+                      })
                     }
                     className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
-                    {formatCurrency(editedData.total_assets || 0)}
+                    {formatCurrency(coalesceFiniteNumber(editedData.total_assets))}
                   </div>
                 )}
               </div>
@@ -315,15 +338,18 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                 {isEditing ? (
                   <input
                     type="number"
-                    value={editedData.total_debt || ''}
+                    value={finiteNumberInputValue(editedData.total_debt)}
                     onChange={(e) =>
-                      setEditedData({ ...editedData, total_debt: parseFloat(e.target.value) })
+                      setEditedData({
+                        ...editedData,
+                        total_debt: parseOptionalFiniteNumber(e.target.value),
+                      })
                     }
                     className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
-                    {formatCurrency(editedData.total_debt || 0)}
+                    {formatCurrency(coalesceFiniteNumber(editedData.total_debt))}
                   </div>
                 )}
               </div>
@@ -334,15 +360,15 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                 {isEditing ? (
                   <input
                     type="number"
-                    value={editedData.cash || ''}
+                    value={finiteNumberInputValue(editedData.cash)}
                     onChange={(e) =>
-                      setEditedData({ ...editedData, cash: parseFloat(e.target.value) })
+                      setEditedData({ ...editedData, cash: parseOptionalFiniteNumber(e.target.value) })
                     }
                     className="w-full text-xl font-bold text-foreground bg-white border border-foreground/10 rounded px-2 py-1"
                   />
                 ) : (
                   <div className="text-2xl font-bold text-foreground">
-                    {formatCurrency(editedData.cash || 0)}
+                    {formatCurrency(coalesceFiniteNumber(editedData.cash))}
                   </div>
                 )}
               </div>
@@ -388,14 +414,14 @@ export const RegistryDataPreview: React.FC<RegistryDataPreviewProps> = ({
                       <tr key={idx} className="border-b border-foreground/10 hover:bg-muted">
                         <td className="px-4 py-3 font-medium">{year.year}</td>
                         <td className="px-4 py-3 text-right">
-                          {formatCurrency(year.revenue || 0)}
+                          {formatCurrency(coalesceFiniteNumber(year.revenue))}
                         </td>
-                        <td className="px-4 py-3 text-right">{formatCurrency(year.ebitda || 0)}</td>
+                        <td className="px-4 py-3 text-right">{formatCurrency(coalesceFiniteNumber(year.ebitda))}</td>
                         <td className="px-4 py-3 text-right">
-                          {formatCurrency(year.net_income || 0)}
+                          {formatCurrency(coalesceFiniteNumber(year.net_income))}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {formatCurrency(year.total_assets || 0)}
+                          {formatCurrency(coalesceFiniteNumber(year.total_assets))}
                         </td>
                       </tr>
                     ))}

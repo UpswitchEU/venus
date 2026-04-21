@@ -23,6 +23,7 @@ import { useEbitdaNormalizationStore } from '../../../store/useEbitdaNormalizati
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationFormData } from '../../../types/valuation'
+import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { patchCurrentYearDataFromTopLevelFinancials } from '../utils/currentYearDataMirror'
 import { getNormalizationAmountForBase } from '../../../utils/normalizationMath'
@@ -91,19 +92,33 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
     [formData.historical_years_data, lastFullYear]
   )
 
+  /** Narrowed last-full-year revenue when it is a finite number (including 0). */
+  const revenueNumber = useMemo((): number | undefined => {
+    const r = formData.revenue
+    return typeof r === 'number' && Number.isFinite(r) ? r : undefined
+  }, [formData.revenue])
+
+  /** Narrowed EBITDA when it is a finite number (including 0 and negatives). */
+  const ebitdaNumber = useMemo((): number | undefined => {
+    if (formData.ebitda === undefined || formData.ebitda === null) return undefined
+    const n = Number(formData.ebitda)
+    return Number.isFinite(n) ? n : undefined
+  }, [formData.ebitda])
+
   const reportedEbitdaByYear = useMemo(() => {
     const byYear: Record<number, number> = {
       [lastFullYear]:
-        Number(
+        coalesceFiniteNumber(
           (formData.current_year_data as any)?.ebitda_normalization_metadata?.reported_ebitda ??
             formData.ebitda ??
             0
-        ) || 0,
+        ),
     }
     formData.historical_years_data?.forEach((year) => {
       if (year?.year != null && year?.ebitda != null) {
-        byYear[Number(year.year)] =
-          Number((year as any)?.ebitda_normalization_metadata?.reported_ebitda ?? year.ebitda ?? 0) || 0
+        byYear[Number(year.year)] = coalesceFiniteNumber(
+          (year as any)?.ebitda_normalization_metadata?.reported_ebitda ?? year.ebitda ?? 0
+        )
       }
     })
     return byYear
@@ -112,7 +127,7 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
   const hasUnifiedNormalization = unifiedAcceptedForYear.length > 0
   const unifiedTotalAdjustments = unifiedAcceptedForYear.reduce(
     (sum, item) =>
-      sum + getNormalizationAmountForBase(item, Number(formData.ebitda ?? 0) || 0),
+      sum + getNormalizationAmountForBase(item, coalesceFiniteNumber(formData.ebitda)),
     0
   )
   const legacyHasNormalization = hasLegacyNormalization(lastFullYear)
@@ -205,9 +220,9 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
           {(() => {
             const revenueGuidance = getIndustryGuidance(formData.industry || 'other', 'revenue')
             const validation =
-              formData.revenue && formData.industry
+              revenueNumber !== undefined && formData.industry
                 ? validateRevenue(
-                    formData.revenue,
+                    revenueNumber,
                     formData.industry,
                     formData.subIndustry,
                     formData.number_of_employees,
@@ -221,9 +236,11 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
               revenueGuidance.tip ? `Tip: ${revenueGuidance.tip}` : '',
               revenueGuidance.why ? `Why: ${revenueGuidance.why}` : '',
               validation?.message ? `Note: ${validation.message}` : '',
-              formData.number_of_employees && formData.number_of_employees > 0 && formData.revenue
+              formData.number_of_employees &&
+              formData.number_of_employees > 0 &&
+              revenueNumber !== undefined
                 ? `Revenue per employee: €${Math.round(
-                    formData.revenue / formData.number_of_employees
+                    revenueNumber / formData.number_of_employees
                   ).toLocaleString()}`
                 : '',
             ]
@@ -234,9 +251,12 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
               <AuroraNumberInput
                 label={t('revenueRequired')}
                 placeholder={t('revenueExamplePlaceholder')}
-                value={formData.revenue || ''}
+                value={formData.revenue !== undefined && formData.revenue !== null ? formData.revenue : ''}
                 onChange={(e) => {
-                  const revenue = parseFloat(e.target.value.replace(/,/g, '')) || undefined
+                  const cleanedValue = e.target.value.replace(/,/g, '')
+                  const numValue = parseFloat(cleanedValue)
+                  // Match EBITDA: only clear on NaN — 0 is valid pre-revenue / break-even revenue.
+                  const revenue = Number.isFinite(numValue) ? numValue : undefined
                   const nextCyd = patchCurrentYearDataFromTopLevelFinancials(
                     formData.current_year_data,
                     { revenue }
@@ -264,10 +284,10 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
           {(() => {
             const ebitdaGuidance = getIndustryGuidance(formData.industry || 'other', 'ebitda')
             const validation =
-              formData.revenue && formData.ebitda
+              revenueNumber !== undefined && ebitdaNumber !== undefined
                 ? validateEbitdaMargin(
-                    formData.revenue,
-                    formData.ebitda,
+                    revenueNumber,
+                    ebitdaNumber,
                     formData.industry || 'other'
                   )
                 : null
@@ -311,8 +331,8 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                       onChange={(e) => {
                         const cleanedValue = e.target.value.replace(/,/g, '')
                         const numValue = parseFloat(cleanedValue)
-                        // Preserve negative values: only set undefined if NaN, not if value is 0 or negative
-                        const ebitda = isNaN(numValue) ? undefined : numValue
+                        // Preserve 0 and negatives; only clear on non-finite (NaN, Infinity).
+                        const ebitda = Number.isFinite(numValue) ? numValue : undefined
                         const nextCyd = patchCurrentYearDataFromTopLevelFinancials(
                           formData.current_year_data,
                           { ebitda }

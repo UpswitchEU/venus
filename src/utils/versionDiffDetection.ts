@@ -11,6 +11,31 @@ import { formatCurrency } from '../config/countries'
 import type { FieldChange, VersionChanges } from '../types/ValuationVersion'
 import type { ValuationRequest } from '../types/valuation'
 
+/** Mirrors `buildValuationRequest`: top-level financials win when present and finite. */
+export type VersionDiffFormSlice = Partial<ValuationRequest> & { ebitda?: number }
+
+export function resolveFormRevenue(data: VersionDiffFormSlice): number {
+  if (data.revenue != null && Number.isFinite(Number(data.revenue))) {
+    return Number(data.revenue)
+  }
+  const cyd = data.current_year_data?.revenue
+  if (cyd != null && Number.isFinite(Number(cyd))) {
+    return Number(cyd)
+  }
+  return 0
+}
+
+export function resolveFormEbitda(data: VersionDiffFormSlice): number {
+  if (data.ebitda != null && Number.isFinite(Number(data.ebitda))) {
+    return Number(data.ebitda)
+  }
+  const cyd = data.current_year_data?.ebitda
+  if (cyd != null && Number.isFinite(Number(cyd))) {
+    return Number(cyd)
+  }
+  return 0
+}
+
 /**
  * Detect all changes between two valuation data sets
  *
@@ -72,19 +97,19 @@ export function detectVersionChanges(
   }
 
   // Financial changes (most critical for M&A)
-  const oldRevenue = oldData.current_year_data?.revenue || 0
-  const newRevenue = newData.current_year_data?.revenue || 0
+  const oldRevenue = resolveFormRevenue(oldData as VersionDiffFormSlice)
+  const newRevenue = resolveFormRevenue(newData as VersionDiffFormSlice)
   if (oldRevenue !== newRevenue) {
     const percentChange =
-      oldRevenue > 0 ? Math.abs(((newRevenue - oldRevenue) / oldRevenue) * 100) : 0
+      oldRevenue !== 0 ? Math.abs(((newRevenue - oldRevenue) / Math.abs(oldRevenue)) * 100) : 0
     changes.revenue = createChange('revenue', oldRevenue, newRevenue, percentChange > 10)
   }
 
-  const oldEbitda = oldData.current_year_data?.ebitda || 0
-  const newEbitda = newData.current_year_data?.ebitda || 0
+  const oldEbitda = resolveFormEbitda(oldData as VersionDiffFormSlice)
+  const newEbitda = resolveFormEbitda(newData as VersionDiffFormSlice)
   if (oldEbitda !== newEbitda) {
     const percentChange =
-      oldEbitda !== 0 ? Math.abs(((newEbitda - oldEbitda) / oldEbitda) * 100) : 0
+      oldEbitda !== 0 ? Math.abs(((newEbitda - oldEbitda) / Math.abs(oldEbitda)) * 100) : 0
     changes.ebitda = createChange('ebitda', oldEbitda, newEbitda, percentChange > 10)
   }
 

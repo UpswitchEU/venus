@@ -9,6 +9,7 @@ import { getCountryByCode } from '../config/countries'
 import type { Message } from '../types/message'
 import type { ValuationFormData } from '../types/valuation'
 import { normalizeCurrentYearForFiling } from './fiscalYear'
+import { resolveFormEbitda, resolveFormRevenue } from './versionDiffDetection'
 
 /**
  * Generate conversation messages that represent manual form data
@@ -129,9 +130,13 @@ export function generateConversationFromFormData(
     )
   }
 
-  // Revenue
-  if (formData.revenue || formData.current_year_data?.revenue) {
-    const revenue = formData.revenue || formData.current_year_data?.revenue || 0
+  // Revenue (explicit finite only; 0 is valid — matches buildValuationRequest resolution)
+  const hasExplicitRevenue =
+    (formData.revenue != null && Number.isFinite(Number(formData.revenue))) ||
+    (formData.current_year_data?.revenue != null &&
+      Number.isFinite(Number(formData.current_year_data.revenue)))
+  if (hasExplicitRevenue) {
+    const revenue = resolveFormRevenue(formData)
     const year = normalizeCurrentYearForFiling(
       formData.current_year_data?.year,
       Boolean(formData.filing_year_confirmed)
@@ -143,8 +148,12 @@ export function generateConversationFromFormData(
   }
 
   // EBITDA
-  if (formData.ebitda !== undefined || formData.current_year_data?.ebitda !== undefined) {
-    const ebitda = formData.ebitda ?? formData.current_year_data?.ebitda ?? 0
+  const hasExplicitEbitda =
+    (formData.ebitda != null && Number.isFinite(Number(formData.ebitda))) ||
+    (formData.current_year_data?.ebitda != null &&
+      Number.isFinite(Number(formData.current_year_data.ebitda)))
+  if (hasExplicitEbitda) {
+    const ebitda = resolveFormEbitda(formData)
     const year = normalizeCurrentYearForFiling(
       formData.current_year_data?.year,
       Boolean(formData.filing_year_confirmed)

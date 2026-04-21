@@ -28,6 +28,7 @@ import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
+import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
 import { hasExistingValuationVersion, shouldOpenVersionConfirmation } from '../../utils/versionConfirmation'
@@ -325,8 +326,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       if (revenue || ebitda) {
         historicalYears.push({
           year,
-          revenue: revenue ? parseFloat(revenue.replace(/,/g, '')) || 0 : 0,
-          ebitda: ebitda ? parseFloat(ebitda.replace(/,/g, '')) || 0 : 0,
+          revenue: revenue ? coalesceFiniteNumber(revenue.replace(/,/g, '')) : 0,
+          ebitda: ebitda ? coalesceFiniteNumber(ebitda.replace(/,/g, '')) : 0,
         })
       }
     })
@@ -343,8 +344,8 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         historicalYearsCount: historicalYears.length,
         historicalYears: historicalYears.map((h) => ({
           year: h.year,
-          hasRevenue: h.revenue > 0,
-          hasEbitda: h.ebitda > 0,
+          hasRevenue: Number.isFinite(h.revenue),
+          hasEbitda: Number.isFinite(h.ebitda),
         })),
       })
     }

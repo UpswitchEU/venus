@@ -60,6 +60,7 @@ import {
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import {
+  coalesceFiniteNumber,
   computeFiscal4xPreview,
   resolveBookEquityFromYearRow,
   useManualPreviewFormatters,
@@ -153,6 +154,8 @@ import {
   getLatestCompleteYearlyFinancial,
   hasExplicitNumericValue as hasExplicitFinancialValue,
   historicalYearRowNeedsRemovalWarning,
+  isCompleteYearlyFinancial,
+  yearlyFinancialsContainsNonPlaceholderData,
 } from '../../utils/yearlyFinancials'
 import { CurrencyInput } from './CurrencyInput'
 import { FilingYearPrompt } from './FilingYearPrompt'
@@ -524,11 +527,7 @@ const generateDefaultYearlyFinancials = (
   }))
 
 const hasMeaningfulYearlyFinancials = (yearlyFinancials?: YearlyFinancials[]): boolean =>
-  Array.isArray(yearlyFinancials) &&
-  yearlyFinancials.some(
-    (year) =>
-      !!year.isForecast || (Number(year.revenue) || 0) > 0 || hasExplicitFinancialValue(year.ebitda)
-  )
+  yearlyFinancialsContainsNonPlaceholderData(yearlyFinancials)
 
 export const getSeedBaseFilingYear = (
   initialData: Partial<ValuationFormData>,
@@ -905,7 +904,7 @@ export function ManualInputPanel({
         applyPrefill(prev, updates, 'fteEmployees', prefill.fteEmployees)
         if (
           prefill.yearlyFinancials?.length &&
-          prefill.yearlyFinancials.some((yf: YearlyFinancials) => yf.revenue > 0 || yf.ebitda !== 0)
+          yearlyFinancialsContainsNonPlaceholderData(prefill.yearlyFinancials)
         ) {
           const currentIsDefault = prev.yearlyFinancials.every(
             (yf) => yf.revenue === 0 && yf.ebitda === 0
@@ -1293,12 +1292,10 @@ export function ManualInputPanel({
         (y) => !y.isForecast && y.year != null && Number(y.year) >= 2000 && Number(y.year) <= 2100
       )
       .sort((a, b) => Number(a.year) - Number(b.year))
-    const yearsWithEbitda = validYears.filter(
-      (y) => (Number(y.revenue) || 0) > 0 && hasExplicitNumericValue(y.ebitda)
-    )
+    const completeHistoricalYears = validYears.filter((y) => isCompleteYearlyFinancial(y))
     let weightedSum = 0
     let totalWeight = 0
-    yearsWithEbitda.forEach((y, index) => {
+    completeHistoricalYears.forEach((y, index) => {
       const weight = index + 1 // Ascending: oldest=1, most recent=highest
       const norm = Number.isFinite(y.normalizedEbitda) ? y.normalizedEbitda : 0
       weightedSum += norm * weight
@@ -1310,14 +1307,13 @@ export function ManualInputPanel({
     return {
       years,
       averageNormalizedEbitda,
-      totalYearsWithData: yearsWithEbitda.length,
+      totalYearsWithData: completeHistoricalYears.length,
       annualFictiveRentDeduction,
     }
   }, [
     formData.yearlyFinancials,
     formData.exclude_real_estate,
     formData.estimated_market_rent,
-    hasExplicitNumericValue,
     normalizationItems,
   ])
 
@@ -1685,8 +1681,8 @@ export function ManualInputPanel({
           const raw = yearPayload.data as { capex?: number; depreciation?: number }
           const nextYear: YearlyFinancials = {
             year,
-            revenue: Number(yearPayload.data.revenue) || 0,
-            ebitda: Number(yearPayload.data.ebitda) || 0,
+            revenue: coalesceFiniteNumber(yearPayload.data.revenue),
+            ebitda: coalesceFiniteNumber(yearPayload.data.ebitda),
             depreciation:
               yearPayload.data.depreciation != null
                 ? Number(yearPayload.data.depreciation)
@@ -1714,9 +1710,12 @@ export function ManualInputPanel({
               yearPayload.data.short_term_financial_debt != null
                 ? Number(yearPayload.data.short_term_financial_debt)
                 : undefined,
-            total_debt:
-              (Number(yearPayload.data.long_term_debt) || 0) +
-                (Number(yearPayload.data.short_term_financial_debt) || 0) || undefined,
+            total_debt: (() => {
+              const ltd = yearPayload.data.long_term_debt
+              const std = yearPayload.data.short_term_financial_debt
+              if (ltd == null && std == null) return undefined
+              return coalesceFiniteNumber(ltd, 0) + coalesceFiniteNumber(std, 0)
+            })(),
           }
           const index = merged.findIndex((entry) => entry.year === year)
           if (index >= 0) merged[index] = { ...merged[index], ...nextYear }
@@ -2000,7 +1999,7 @@ export function ManualInputPanel({
 
     // Validate yearly financials
     for (const yf of formData.yearlyFinancials) {
-      if (yf.revenue > 0 && yf.revenue > 1_000_000_000) {
+      if (Number.isFinite(yf.revenue) && yf.revenue > 1_000_000_000) {
         warnings[`revenue-${yf.year}`] = mi('validation.revenueOver1B')
       }
       if (
@@ -2014,7 +2013,7 @@ export function ManualInputPanel({
         if (yf.ebitda < -100_000_000) errors[`ebitda-${yf.year}`] = mi('validation.ebitdaBelow100M')
         else if (yf.ebitda > 500_000_000)
           errors[`ebitda-${yf.year}`] = mi('validation.ebitdaAbove500M')
-        if (yf.revenue > 0) {
+        if (Number.isFinite(yf.revenue) && yf.revenue !== 0) {
           const margin = (yf.ebitda / yf.revenue) * 100
           if (margin < -50)
             warnings[`margin-${yf.year}`] = mi('validation.marginLow', {
@@ -2069,16 +2068,24 @@ export function ManualInputPanel({
         : [],
     [hasDcfSelected, sortedYearlyFinancials]
   )
-  const latestHistoricalRevenue = useMemo(() => {
-    const historical = sortedYearlyFinancials.filter((y) => !y.isForecast && y.revenue > 0)
-    return historical.length > 0 ? historical[0].revenue : undefined
-  }, [sortedYearlyFinancials])
-
-  const latestHistoricalEbitda = useMemo(() => {
-    const historical = sortedYearlyFinancials.filter((y) => !y.isForecast && y.revenue > 0)
-    if (historical.length === 0) return undefined
-    const e = historical[0].ebitda
-    return typeof e === 'number' && Number.isFinite(e) ? e : undefined
+  // Most recent non-forecast row with at least one finite financial figure (revenue may be 0;
+  // exclude rows where both are missing / non-finite so DCF defaults still see EBITDA-only history).
+  const { latestHistoricalRevenue, latestHistoricalEbitda } = useMemo(() => {
+    const historical = sortedYearlyFinancials.filter(
+      (y) =>
+        !y.isForecast &&
+        (Number.isFinite(Number(y.revenue)) || Number.isFinite(Number(y.ebitda)))
+    )
+    if (historical.length === 0) {
+      return { latestHistoricalRevenue: undefined as number | undefined, latestHistoricalEbitda: undefined as number | undefined }
+    }
+    const row = historical[0]
+    const r = row.revenue
+    const e = row.ebitda
+    return {
+      latestHistoricalRevenue: typeof r === 'number' && Number.isFinite(r) ? r : undefined,
+      latestHistoricalEbitda: typeof e === 'number' && Number.isFinite(e) ? e : undefined,
+    }
   }, [sortedYearlyFinancials])
 
   /** CFA-style defaults from historical CAGR, margins, and sector WACC base (Mercury/Titan-aligned). */
@@ -2816,8 +2823,7 @@ export function ManualInputPanel({
     .filter(
       (yf) =>
         !yf.isForecast &&
-        (((Number(yf.revenue) || 0) > 0 && !hasExplicitNumericValue(yf.ebitda)) ||
-          (hasExplicitNumericValue(yf.ebitda) && (Number(yf.revenue) || 0) <= 0))
+        hasExplicitNumericValue(yf.revenue) !== hasExplicitNumericValue(yf.ebitda)
     )
     .map((yf) => yf.year)
 
@@ -3576,9 +3582,10 @@ export function ManualInputPanel({
                             ? 'border-dashed border-primary/20 bg-primary/[0.02]'
                             : partialYears.includes(yearData.year)
                               ? 'border-warning/40 bg-warning/[0.03]'
-                              : yearData.ebitda > 0 && yearData.revenue > 0
-                                ? 'border-foreground/[0.08] bg-foreground/[0.02]'
-                                : 'border-dashed border-foreground/[0.06]'
+                              : Number.isFinite(yearData.revenue) &&
+                                Number.isFinite(yearData.ebitda)
+                              ? 'border-foreground/[0.08] bg-foreground/[0.02]'
+                              : 'border-dashed border-foreground/[0.06]'
                         )}
                       >
                         <div className="flex items-center justify-between mb-3">

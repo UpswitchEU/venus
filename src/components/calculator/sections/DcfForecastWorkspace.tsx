@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Plus, Table2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCallback, useMemo, useState } from 'react'
-import { useManualPreviewFormatters } from '@/lib/omniPreview'
+import { coalesceFiniteNumber, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { cn } from '@/design-system/utils'
 import { DcfFcffOnlyTable } from './DcfFcffOnlyTable'
@@ -56,7 +56,7 @@ interface DcfForecastWorkspaceProps {
   onRequestRemoveForecastYears?: () => void
   /**
    * Live projection from forecast defaults (growth, margin, bridge %) via deriveDcfProjectionPreview.
-   * Inline grid uses these until a forecast row has revenue > 0 (applied or manual override).
+   * Inline grid uses these until a forecast row has user input (revenue, EBITDA, bridge lines, or FCFF).
    */
   derivedProjectionPreview?: DcfProjectionPreviewRow[]
 }
@@ -98,7 +98,11 @@ export function DcfForecastWorkspace({
         (r) => typeof r.free_cash_flow === 'number' && Number.isFinite(r.free_cash_flow)
       )
     }
-    return sortedRows.every((r) => !(r.revenue <= 0 && r.ebitda === 0))
+    return sortedRows.every((r) => {
+      const rev = Number(r.revenue)
+      const ebit = Number(r.ebitda)
+      return Number.isFinite(rev) && Number.isFinite(ebit) && (rev !== 0 || ebit !== 0)
+    })
   }, [sortedRows, dcfInputMode])
 
   const baseYear = useMemo(() => {
@@ -125,8 +129,9 @@ export function DcfForecastWorkspace({
       const derivedRow = derivedByYear.get(Number(row.year))
       // Prefer stored row whenever the user has entered any forecast line (not only revenue).
       const hasStoredForecastInput =
-        (Number(row.revenue) || 0) > 0 ||
-        (Number(row.ebitda) || 0) !== 0 ||
+        coalesceFiniteNumber(row.revenue) !== 0 ||
+        coalesceFiniteNumber(row.ebitda) !== 0 ||
+        (typeof row.free_cash_flow === 'number' && Number.isFinite(row.free_cash_flow)) ||
         (row.capex != null && Number.isFinite(row.capex)) ||
         (row.depreciation != null && Number.isFinite(row.depreciation)) ||
         (row.nwc_change != null && Number.isFinite(row.nwc_change))
@@ -163,11 +168,13 @@ export function DcfForecastWorkspace({
     if (projectionRows.length === 0) return []
     return projectionRows.map((row, i) => {
       const prevRev = i === 0 ? (latestHistoricalRevenue ?? 0) : projectionRows[i - 1].revenue
-      const yoyPct = prevRev > 0 ? ((row.revenue - prevRev) / prevRev) * 100 : null
-      const marginPct = row.revenue > 0 ? (row.ebitda / row.revenue) * 100 : 0
-      const capexPctOfRev = row.revenue > 0 ? (row.capex / row.revenue) * 100 : 0
-      const daPctOfRev = row.revenue > 0 ? (row.da / row.revenue) * 100 : 0
-      const nwcPctOfRev = row.revenue > 0 ? (row.nwcChange / row.revenue) * 100 : 0
+      const yoyPct =
+        prevRev !== 0 && Number.isFinite(prevRev) ? ((row.revenue - prevRev) / prevRev) * 100 : null
+      const revDenom = Number.isFinite(row.revenue) && row.revenue !== 0 ? row.revenue : null
+      const marginPct = revDenom != null ? (row.ebitda / revDenom) * 100 : 0
+      const capexPctOfRev = revDenom != null ? (row.capex / revDenom) * 100 : 0
+      const daPctOfRev = revDenom != null ? (row.da / revDenom) * 100 : 0
+      const nwcPctOfRev = revDenom != null ? (row.nwcChange / revDenom) * 100 : 0
       return { yoyPct, marginPct, capexPctOfRev, daPctOfRev, nwcPctOfRev }
     })
   }, [projectionRows, latestHistoricalRevenue])

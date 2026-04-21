@@ -15,6 +15,12 @@ import { NormalizationCategory } from '../../types/ebitdaNormalization'
 import { AdjustmentAmountInput } from './AdjustmentAmountInput'
 import { NormalizationPreview } from './NormalizationPreview'
 
+function parseFiniteAmount(cleaned: string): number {
+  if (cleaned === '' || cleaned === '-') return 0
+  const n = parseFloat(cleaned)
+  return Number.isFinite(n) ? n : 0
+}
+
 interface NormalizationModalProps {
   isOpen: boolean
   year: number
@@ -86,7 +92,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
     }))
 
     // Update store with parsed value
-    const numValue = parseFloat(cleanedValue) || 0
+    const numValue = parseFiniteAmount(cleanedValue)
     updateAdjustment(year, category, numValue, localAdjustments[category]?.note)
   }
 
@@ -99,7 +105,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
       },
     }))
 
-    const numValue = parseFloat(localAdjustments[category]?.amount || '0') || 0
+    const numValue = parseFiniteAmount(localAdjustments[category]?.amount || '0')
     updateAdjustment(year, category, numValue, note)
   }
 
@@ -288,7 +294,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                       <div className="mt-4">
                         <AdjustmentAmountInput
                           category={categoryDef}
-                          value={parseFloat(amount) || 0}
+                          value={parseFiniteAmount(amount)}
                           onChange={(newValue) =>
                             handleAmountChange(categoryDef.id, String(newValue))
                           }
@@ -377,7 +383,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                               value={custom.amount?.toString() || '0'}
                               onChange={(e) => {
                                 const cleanedValue = e.target.value.replace(/,/g, '')
-                                const numValue = parseFloat(cleanedValue) || 0
+                                const numValue = parseFiniteAmount(cleanedValue)
                                 updateCustomAdjustment(
                                   year,
                                   custom.id!,

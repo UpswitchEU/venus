@@ -571,7 +571,13 @@ export const validateEbitdaMargin = (
   message: string
   severity: 'success' | 'warning' | 'info'
 } => {
-  if (!revenue || revenue === 0 || !ebitda) {
+  if (
+    revenue == null ||
+    !Number.isFinite(revenue) ||
+    revenue === 0 ||
+    ebitda == null ||
+    !Number.isFinite(ebitda)
+  ) {
     return { isValid: true, message: '', severity: 'info' }
   }
 
@@ -630,7 +636,12 @@ export const validateRevenue = (
   foundingYear?: number,
   _country?: string
 ): RevenueValidationResult => {
-  if (!revenue || !industry) {
+  if (
+    !industry ||
+    revenue == null ||
+    typeof revenue !== 'number' ||
+    !Number.isFinite(revenue)
+  ) {
     return { isValid: true, message: '', severity: 'info' }
   }
 

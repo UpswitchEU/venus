@@ -40,6 +40,20 @@ describe('generateConversationFromFormData', () => {
     expect(messages.some((message) => message.content === 'What was your EBITDA in 2022?')).toBe(true)
   })
 
+  it('includes a revenue turn when revenue is explicitly zero (pre-revenue)', () => {
+    const messages = generateConversationFromFormData(
+      {
+        company_name: 'Acme BV',
+        revenue: 0,
+        ebitda: 50_000,
+      } as any,
+      'report-zero-rev'
+    )
+
+    expect(messages.some((m) => m.metadata?.collected_field === 'revenue')).toBe(true)
+    expect(messages.some((m) => m.content.includes('€0'))).toBe(true)
+  })
+
   it('clamps an unconfirmed future year back to the filing year in H1', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))

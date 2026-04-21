@@ -24,7 +24,9 @@ import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import type { StartupStage } from '@/store/manual/useStartupValuationStore'
 import { ManualInputPanel } from '../../ManualInputPanel'
+import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useRef, type ComponentProps } from 'react'
+import { isStartupStudioV2Enabled } from '@/config/features'
 import { StartupValuationPanel } from './StartupValuationPanel'
 
 export type StartupAwareInputPanelProps = ComponentProps<typeof ManualInputPanel>
@@ -60,6 +62,38 @@ function useStartupStageDeepLinkPrefill() {
   }, [setField])
 }
 
+/**
+ * Re-route founders to the Studio v2 wizard the first time they land
+ * on the legacy slider panel.  Idempotent: bails out the moment a
+ * startup result already exists in the manual results store (so we
+ * never yank the user away from an in-flight report) or the source
+ * query param marks them as already coming from the Studio.
+ */
+function useStartupStudioRedirect(method: string | null | undefined) {
+  const router = useRouter()
+  const params = useParams<{ locale?: string }>()
+  // Treat the founder as "in-flight" the moment a result has been
+  // computed in this session — we don't want to yank them out of an
+  // open report into the wizard.
+  const hasStartupResult = useManualResultsStore((s) => s.result != null)
+  const redirectedRef = useRef(false)
+
+  useEffect(() => {
+    if (redirectedRef.current) return
+    if (method !== 'startup_valuation') return
+    if (!isStartupStudioV2Enabled()) return
+    if (hasStartupResult) return
+    if (typeof window === 'undefined') return
+    const search = new URLSearchParams(window.location.search)
+    if (search.get('source') === 'studio_v2') return
+    if (search.get('studio') === 'legacy') return
+
+    redirectedRef.current = true
+    const locale = params?.locale === 'nl' ? 'nl' : 'en'
+    router.push(`/${locale}/startup-valuation`)
+  }, [method, hasStartupResult, router, params])
+}
+
 export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
   const effectiveMethod = useManualResultsStore(
     (s) => s.preSelectedMethod ?? s.selectedMethod
@@ -73,6 +107,9 @@ export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
     bootstrap?.isAccountantFlow ? 'advisor' : 'founder'
 
   useStartupStageDeepLinkPrefill()
+  // Founder Studio v2 redirect — advisors keep the legacy panel until
+  // the round-simulator step ships in the wizard's advisor surface.
+  useStartupStudioRedirect(startupMode === 'founder' ? effectiveMethod : null)
 
   if (effectiveMethod === 'startup_valuation') {
     return <StartupValuationPanel mode={startupMode} />

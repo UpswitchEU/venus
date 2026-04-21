@@ -291,7 +291,7 @@ function ValuationSummaryCard({
                 </p>
               </div>
             )}
-          {version.ebitda != null && version.ebitda > 0 && (
+          {version.ebitda != null && Number.isFinite(version.ebitda) && (
             <div>
               <p className="text-[9px] font-medium uppercase tracking-wider mb-1 text-foreground/40">
                 {hp('normalizedEbitda')}

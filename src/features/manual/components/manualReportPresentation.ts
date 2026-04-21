@@ -1,3 +1,4 @@
+import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import type { ValuationResponse } from '../../../types/valuation'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
 
@@ -81,22 +82,22 @@ export function deriveManualReportPresentation(
     valuation,
     valuationLow:
       valuationLowRaw != null
-        ? Number(valuationLowRaw) || 0
-        : valuation
+        ? coalesceFiniteNumber(valuationLowRaw)
+        : valuation != null && Number.isFinite(valuation)
           ? Math.round(valuation * 0.8)
           : undefined,
     valuationHigh:
       valuationHighRaw != null
-        ? Number(valuationHighRaw) || 0
-        : valuation
+        ? coalesceFiniteNumber(valuationHighRaw)
+        : valuation != null && Number.isFinite(valuation)
           ? Math.round(valuation * 1.2)
           : undefined,
-    multiple: multipleRaw != null ? Number(multipleRaw) || 0 : undefined,
+    multiple: multipleRaw != null ? coalesceFiniteNumber(multipleRaw) : undefined,
     multipleRange:
       multipleLowRaw != null && multipleHighRaw != null
         ? {
-            low: Number(multipleLowRaw) || 0,
-            high: Number(multipleHighRaw) || 0,
+            low: coalesceFiniteNumber(multipleLowRaw),
+            high: coalesceFiniteNumber(multipleHighRaw),
           }
         : undefined,
   }
@@ -114,16 +115,23 @@ export function deriveNavPricesForVersionNav(
 ): NavVersionPrices {
   const r = result as any
   const presentation = deriveManualReportPresentation(result, selectedMethod)
-  const valuationLow = presentation.valuationLow || undefined
-  const valuationHigh = presentation.valuationHigh || undefined
+  const valuationLow = presentation.valuationLow
+  const valuationHigh = presentation.valuationHigh
   const valuation = presentation.valuation
-  const askingPrice =
-    Number(r?.recommended_asking_price ?? r?.details?.recommended_asking_price) || 0
-  const askPrice = askingPrice || valuation
+  const askingRaw = r?.recommended_asking_price ?? r?.details?.recommended_asking_price
+  const askingFinite =
+    askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
+  const askPrice = askingFinite ?? valuation
   return {
     priceRange: {
-      min: valuationLow ?? Math.round(valuation * 0.85),
-      max: valuationHigh ?? Math.round(valuation * 1.15),
+      min:
+        valuationLow != null && Number.isFinite(valuationLow)
+          ? valuationLow
+          : Math.round(valuation * 0.85),
+      max:
+        valuationHigh != null && Number.isFinite(valuationHigh)
+          ? valuationHigh
+          : Math.round(valuation * 1.15),
     },
     askPrice,
   }

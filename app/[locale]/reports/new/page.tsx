@@ -72,6 +72,10 @@ export default async function NewReportPage({ params, searchParams }: NewReportP
       // sends these on `/reports/new` but preserving them is forward-safe.
       'action',
       'tab',
+      // Studio v2 attribution — `?partner=<slug>` tags the run with a
+      // co-branded partner (imec.istart, Start it @KBC, …) so analytics
+      // and the partner dashboard at /partners/<slug> can attribute it.
+      'partner',
     ]
 
     for (const param of paramsToPreserve) {

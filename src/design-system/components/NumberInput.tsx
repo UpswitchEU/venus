@@ -117,10 +117,16 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
 
     const isFloated = isFocused || hasValue
 
+    const numericFromInput = (v: string | number): number => {
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0
+      if (v === '') return 0
+      const n = parseFloat(v)
+      return Number.isFinite(n) ? n : 0
+    }
+
     // Handle arrow click
     const handleArrowClick = (direction: 'up' | 'down') => {
-      const currentValue =
-        typeof value === 'string' ? (value === '' ? 0 : parseFloat(value) || 0) : value || 0
+      const currentValue = numericFromInput(value)
       let newValue: number
 
       if (direction === 'up') {

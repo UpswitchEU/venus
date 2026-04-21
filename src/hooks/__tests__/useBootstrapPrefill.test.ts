@@ -478,4 +478,61 @@ describe('useBootstrapPrefill', () => {
     })
     expect(formData.historical_years_data).toBeUndefined()
   })
+
+  it('preserves yearData rows where revenue or EBITDA is legitimate zero', async () => {
+    // Regression: previously `(data?.revenue || data?.ebitda)` dropped any
+    // row where both metrics were 0/undefined. After the fix we keep a row
+    // whenever at least one metric is a finite number — including zero —
+    // so break-even years and CBSO-filled placeholder rows survive into
+    // the wizard.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-27T12:00:00Z'))
+
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: true,
+      updatePrefillData: vi.fn(),
+      report: { mode: 'new', reportId: 'val_zero_year', hasExistingData: false },
+      prefillData: {
+        sources: ['session', 'nbb_cbso_multi_year'],
+        companyInfo: {
+          companyName: 'Break Even BV',
+          countryCode: 'BE',
+        },
+        financials: {
+          yearData: {
+            // 2024: real data
+            2024: { revenue: 500_000, ebitda: 60_000 },
+            // 2023: legitimate break-even year (zero ebitda but real revenue)
+            2023: { revenue: 480_000, ebitda: 0 },
+            // 2022: revenue=0 but ebitda is real (e.g., partial year)
+            2022: { revenue: 0, ebitda: 5_000 },
+          },
+        },
+        confidence: 0.7,
+        fieldsPopulated: ['company_name', 'current_year_data'],
+        fieldsRemaining: [],
+        readOnlyKbo: false,
+        autoAdvancePastPrefilledSteps: false,
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+
+    const formData = useManualFormStore.getState().formData as any
+    expect(formData.current_year_data).toMatchObject({
+      year: 2024,
+      revenue: 500_000,
+      ebitda: 60_000,
+    })
+    // Both prior years must round-trip — including 2022 with revenue=0.
+    expect(formData.historical_years_data).toEqual([
+      { year: 2023, revenue: 480_000, ebitda: 0 },
+      { year: 2022, revenue: 0, ebitda: 5_000 },
+    ])
+  })
 })

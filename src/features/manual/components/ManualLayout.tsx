@@ -150,6 +150,7 @@ import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
 import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../../utils/fiscalYear'
+import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
@@ -178,6 +179,7 @@ import { buildCurrentYearData, mergeYearDataRows } from '../../../utils/yearData
 import {
   getCompleteYearlyFinancialsDesc,
   getLatestCompleteYearlyFinancial,
+  yearlyFinancialRowHasNonPlaceholderData,
 } from '../../../utils/yearlyFinancials'
 import { deleteValuationEntry } from '../utils/deleteValuationEntry'
 import {
@@ -925,7 +927,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         : Array.isArray(bsaRaw)
           ? bsaRaw.reduce(
               (s: number, item: any) =>
-                s + (Number(item?.amount ?? item?.value ?? item?.adjustment ?? 0) || 0),
+                s + coalesceFiniteNumber(item?.amount ?? item?.value ?? item?.adjustment),
               0
             )
           : 0
@@ -1330,8 +1332,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     if (cyd?.year && cyd.year >= 2000 && cyd.year <= 2100) {
       allYears.push({
         year: String(cyd.year),
-        revenue: Number(cyd.revenue) || 0,
-        ebitda: Number(cyd.ebitda) || 0,
+        revenue: coalesceFiniteNumber(cyd.revenue),
+        ebitda: coalesceFiniteNumber(cyd.ebitda),
         capex: typeof cyd.capex === 'number' ? cyd.capex : undefined,
         depreciation: typeof cyd.depreciation === 'number' ? cyd.depreciation : undefined,
         tax_expense: typeof cyd.tax_expense === 'number' ? cyd.tax_expense : undefined,
@@ -1358,8 +1360,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ) {
           allYears.push({
             year: String(y.year),
-            revenue: Number(y.revenue) || 0,
-            ebitda: Number(y.ebitda) || 0,
+            revenue: coalesceFiniteNumber(y.revenue),
+            ebitda: coalesceFiniteNumber(y.ebitda),
             capex: typeof y.capex === 'number' ? y.capex : undefined,
             depreciation: typeof y.depreciation === 'number' ? y.depreciation : undefined,
             tax_expense: typeof y.tax_expense === 'number' ? y.tax_expense : undefined,
@@ -1390,8 +1392,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         ) {
           allYears.push({
             year: String(y.year),
-            revenue: Number(y.revenue) || 0,
-            ebitda: Number(y.ebitda) || 0,
+            revenue: coalesceFiniteNumber(y.revenue),
+            ebitda: coalesceFiniteNumber(y.ebitda),
             capex: typeof y.capex === 'number' ? y.capex : undefined,
             depreciation: typeof y.depreciation === 'number' ? y.depreciation : undefined,
             tax_expense: typeof y.tax_expense === 'number' ? y.tax_expense : undefined,
@@ -2073,9 +2075,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
 
         const r = result as any
         const presentation = deriveManualReportPresentation(r, selectedMethod)
-        const ebitda = Number(r.current_year_data?.ebitda) || 0
-        const normalizedEbitda = Number(r.latest_normalized_ebitda) || ebitda
-        const revenue = r.current_year_data?.revenue || 0
+        const ebitda = coalesceFiniteNumber(r.current_year_data?.ebitda)
+        const latestNormRaw = r.latest_normalized_ebitda
+        const normalizedEbitda =
+          latestNormRaw != null && Number.isFinite(Number(latestNormRaw))
+            ? Number(latestNormRaw)
+            : ebitda
+        const revenue = coalesceFiniteNumber(r.current_year_data?.revenue)
         const p25 = r.multiples_valuation?.p25_ebitda_multiple
         const p75 = r.multiples_valuation?.p75_ebitda_multiple
         const rawConfidence = r.overall_confidence ?? r.details?.overall_confidence
@@ -2084,8 +2090,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             ? (rawConfidence.toLowerCase() as 'high' | 'medium' | 'low')
             : undefined
 
+        const askingRaw = r.recommended_asking_price ?? r.details?.recommended_asking_price
         const askingPrice =
-          Number(r.recommended_asking_price ?? r.details?.recommended_asking_price) || 0
+          askingRaw != null && Number.isFinite(Number(askingRaw)) ? Number(askingRaw) : undefined
         const htmlReport = r.html_report ?? r.details?.html_report
         const dcfHistoricalFcfReadiness =
           r.dcf_valuation?.historical_fcf_readiness ??
@@ -2096,10 +2103,16 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           id: reportId || r.valuation_id || r.id || 'draft',
           companyName: r.company_name ?? r.business_name ?? tReport('defaultCompanyName'),
           valuation: presentation.valuation,
-          valuationLow: presentation.valuationLow || undefined,
-          valuationHigh: presentation.valuationHigh || undefined,
+          valuationLow:
+            presentation.valuationLow != null && Number.isFinite(presentation.valuationLow)
+              ? presentation.valuationLow
+              : undefined,
+          valuationHigh:
+            presentation.valuationHigh != null && Number.isFinite(presentation.valuationHigh)
+              ? presentation.valuationHigh
+              : undefined,
           ebitda,
-          normalizedEbitda: normalizedEbitda || undefined,
+          normalizedEbitda: Number.isFinite(normalizedEbitda) ? normalizedEbitda : undefined,
           multiple: presentation.multiple ?? 0,
           multipleRange:
             presentation.multipleRange ??
@@ -2108,7 +2121,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           confidenceLevel: confidence || 'medium',
           htmlReport: htmlReport || undefined,
           dcfHistoricalFcfReadiness,
-          recommendedAskingPrice: askingPrice || undefined,
+          recommendedAskingPrice: askingPrice,
           metrics: [
             {
               label: tReport('metrics.avgRevenue'),
@@ -2116,7 +2129,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             },
             {
               label: tReport('metrics.ebitdaMargin'),
-              value: revenue ? `${((ebitda / revenue) * 100).toFixed(1)}%` : '—',
+              value:
+                revenue !== 0 && Number.isFinite(revenue)
+                  ? `${((ebitda / revenue) * 100).toFixed(1)}%`
+                  : '—',
             },
             {
               label: tReport('metrics.sector'),
@@ -2860,7 +2876,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
             isForecast: true,
           })),
         ]
-          .filter((y: any) => y.revenue > 0 || y.ebitda !== 0)
+          .filter((y: any) => yearlyFinancialRowHasNonPlaceholderData(y))
           .sort((a: any, b: any) => parseInt(b.year) - parseInt(a.year))
         lastSubmittedFinancialSnapshotRef.current = {
           revenue: cyd?.revenue ?? (request as any).revenue,
@@ -4795,8 +4811,8 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           ledgerName: s.description || s.ledgerName || '',
           category: s.category || 'other',
           type: 'add' as const,
-          value: s.amount || s.value || 0,
-          adjustment: s.amount || s.adjustment || 0,
+          value: coalesceFiniteNumber(s.amount ?? s.value),
+          adjustment: coalesceFiniteNumber(s.amount ?? s.adjustment),
           reason: s.reason || '',
           source: source as any,
           sourceRef: s.sourceRef || `${labels[source]}`,

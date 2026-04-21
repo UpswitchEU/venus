@@ -123,9 +123,9 @@ export function useBootstrapPrefill(): {
         !!bootstrap.prefillData.companyInfo?.vatNumber ||
         (bootstrap.prefillData.financials &&
           ((bootstrap.prefillData.financials.revenue != null &&
-            bootstrap.prefillData.financials.revenue > 0) ||
+            Number.isFinite(Number(bootstrap.prefillData.financials.revenue))) ||
             (bootstrap.prefillData.financials.ebitda != null &&
-              bootstrap.prefillData.financials.ebitda > 0) ||
+              Number.isFinite(Number(bootstrap.prefillData.financials.ebitda))) ||
             (bootstrap.prefillData.financials.yearData &&
               Object.keys(bootstrap.prefillData.financials.yearData).length > 0))))
 
@@ -613,7 +613,15 @@ function applyPrefillToForm(
     if (financials.yearData && Object.keys(financials.yearData).length > 0) {
       Object.entries(financials.yearData).forEach(([yearStr, data]) => {
         const year = parseInt(yearStr, 10)
-        if (year >= 2000 && year <= 2100 && (data?.revenue || data?.ebitda)) {
+        // Keep a year row whenever ANY finite numeric value is present —
+        // including legitimate zero. The previous `(data?.revenue || data?.ebitda)`
+        // guard silently dropped break-even years AND placeholder rows that the
+        // server would otherwise refresh from CBSO/integrations on next sync.
+        const hasFiniteRevenue =
+          data?.revenue != null && Number.isFinite(Number(data.revenue))
+        const hasFiniteEbitda =
+          data?.ebitda != null && Number.isFinite(Number(data.ebitda))
+        if (year >= 2000 && year <= 2100 && (hasFiniteRevenue || hasFiniteEbitda)) {
           historicalYears.push({
             year,
             revenue: data.revenue ?? 0,
@@ -626,8 +634,8 @@ function applyPrefillToForm(
       // the company had zero growth, which depresses growth-driven methods. Instead, leave
       // just the one year; the engine handles single-year inputs correctly.
     } else if (
-      (financials.revenue !== undefined && financials.revenue > 0) ||
-      (financials.ebitda !== undefined && financials.ebitda > 0)
+      (financials.revenue !== undefined && Number.isFinite(Number(financials.revenue))) ||
+      (financials.ebitda !== undefined && Number.isFinite(Number(financials.ebitda)))
     ) {
       // Scalar revenue/ebitda (no per-year breakdown available) — prefill current year only.
       // Again, do NOT duplicate to a prior year with identical figures.

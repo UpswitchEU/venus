@@ -33,6 +33,89 @@ export type StartupSector =
   | 'hardware'
   | 'other'
 
+/**
+ * Studio v2 — Maturity selector levels.
+ *
+ * Replaces the 0–100 sliders with discrete, evidence-based statements
+ * (Berkus 2024 refresh + Bill Payne 2024 refresh). Each level maps to
+ * a 0–100 score that the Python engine continues to consume unchanged
+ * — see `MATURITY_TO_SCORE` and `setMaturity` below.
+ */
+export type MaturityLevel = 'none' | 'basic' | 'strong' | 'exceptional'
+
+/**
+ * Maturity → 0–100 score mapping.
+ *
+ * Calibrated so that:
+ *   - `none`          → 0   (no value attributed)
+ *   - `basic`         → 40  (initial evidence)
+ *   - `strong`        → 75  (defensible evidence)
+ *   - `exceptional`   → 100 (top-decile)
+ *
+ * Mirrors the bands the Python engine effectively maps to in the
+ * Berkus/Scorecard math (see `berkus.calculate_berkus`).
+ */
+export const MATURITY_TO_SCORE: Record<MaturityLevel, number> = {
+  none: 0,
+  basic: 40,
+  strong: 75,
+  exceptional: 100,
+}
+
+/**
+ * Inverse mapping used by the v3 → v4 store migration so existing
+ * 0–100 slider scores get bucketed into a sensible maturity level.
+ */
+export function scoreToMaturity(score: number | null | undefined): MaturityLevel {
+  if (typeof score !== 'number' || !Number.isFinite(score) || score <= 0) return 'none'
+  if (score < 50) return 'basic'
+  if (score < 90) return 'strong'
+  return 'exceptional'
+}
+
+/**
+ * Strongly-typed milestone keys covered by the Studio v2 wizard.
+ * Mirrors the engine's request payload field names so the maturity
+ * model is a thin shell over the existing 0–100 fields — Python
+ * schema does not move.
+ */
+export type StudioBerkusKey =
+  | 'sound_idea'
+  | 'prototype_status'
+  | 'management_strength'
+  | 'strategic_relationships'
+  | 'product_rollout'
+
+export type StudioScorecardKey =
+  | 'opportunity_size'
+  | 'competitive_environment'
+  | 'sales_marketing_channels'
+  | 'need_for_additional_funding'
+  | 'other_factors'
+
+export type StudioMilestoneKey = StudioBerkusKey | StudioScorecardKey
+
+export const STUDIO_BERKUS_KEYS: readonly StudioBerkusKey[] = [
+  'sound_idea',
+  'prototype_status',
+  'management_strength',
+  'strategic_relationships',
+  'product_rollout',
+] as const
+
+export const STUDIO_SCORECARD_KEYS: readonly StudioScorecardKey[] = [
+  'opportunity_size',
+  'competitive_environment',
+  'sales_marketing_channels',
+  'need_for_additional_funding',
+  'other_factors',
+] as const
+
+export const STUDIO_MILESTONE_KEYS: readonly StudioMilestoneKey[] = [
+  ...STUDIO_BERKUS_KEYS,
+  ...STUDIO_SCORECARD_KEYS,
+] as const
+
 /** Sector → conservative default exit EV/Revenue multiple (mirrors regional_data.py). */
 export const STARTUP_SECTOR_EXIT_MULTIPLES: Record<StartupSector, number> = {
   saas: 6,
@@ -134,6 +217,32 @@ export interface StartupValuationState {
 
   cap_table: StartupCapTableState
 
+  // ---------------------------------------------------------------
+  // Studio v2 — milestone-card state.
+  //
+  // `maturity` mirrors the legacy 0–100 fields above (`sound_idea`,
+  // `prototype_status`, …) but stores the discrete option chosen by
+  // the founder.  The 0–100 fields are derived via `setMaturity` so
+  // the existing Python engine schema does not move.
+  // ---------------------------------------------------------------
+
+  /** Discrete maturity choice per Studio milestone (Berkus + Scorecard). */
+  maturity: Record<StudioMilestoneKey, MaturityLevel>
+
+  /**
+   * Free-text evidence per milestone — surfaced in the investor PDF as
+   * the "why we scored ourselves like this" sentence under each card.
+   * Wizard-only state; not threaded into the engine payload (yet — the
+   * v2 Claude scorer will consume it).
+   */
+  evidence_notes: Record<StudioMilestoneKey, string>
+
+  /** Founder-supplied one-liner / pitch (Studio Step 0). */
+  description: string
+
+  /** Optional TAM / SAM / SOM trio for the Step 4 exit-story builder. */
+  tam_sam_som: { tam: number | null; sam: number | null; som: number | null }
+
   /**
    * True once the founder has explicitly picked a sector through the UI.
    * Persisted so we never re-seed away from a deliberate choice on a
@@ -146,6 +255,19 @@ export interface StartupValuationState {
 interface StartupValuationStore extends StartupValuationState {
   setField: <K extends keyof StartupValuationState>(key: K, value: StartupValuationState[K]) => void
   setCapField: <K extends keyof StartupCapTableState>(key: K, value: StartupCapTableState[K]) => void
+  /**
+   * Studio v2 setter — picks a maturity level for a milestone and
+   * derives the 0–100 score the Python engine consumes.  This is the
+   * canonical write hatch from the wizard; legacy slider sections still
+   * use `setField` directly.
+   */
+  setMaturity: (key: StudioMilestoneKey, level: MaturityLevel) => void
+  /** Studio v2 — evidence note setter (free-text per milestone). */
+  setEvidenceNote: (key: StudioMilestoneKey, note: string) => void
+  /** Studio v2 — Step 4 TAM/SAM/SOM trio setter. */
+  setTamSamSom: (
+    next: Partial<{ tam: number | null; sam: number | null; som: number | null }>,
+  ) => void
   addSafeNote: () => void
   updateSafeNote: (id: string, patch: Partial<StartupSafeNote>) => void
   removeSafeNote: (id: string) => void
@@ -210,6 +332,36 @@ const INITIAL_STATE: StartupValuationState = {
 
   cap_table: INITIAL_CAP_TABLE,
 
+  // Studio v2 ---------------------------------------------------------
+  // Default to `none` so the live receipt does not anchor the founder
+  // with a phantom €1.7M baseline before they have answered anything.
+  maturity: {
+    sound_idea: 'none',
+    prototype_status: 'none',
+    management_strength: 'none',
+    strategic_relationships: 'none',
+    product_rollout: 'none',
+    opportunity_size: 'none',
+    competitive_environment: 'none',
+    sales_marketing_channels: 'none',
+    need_for_additional_funding: 'none',
+    other_factors: 'none',
+  },
+  evidence_notes: {
+    sound_idea: '',
+    prototype_status: '',
+    management_strength: '',
+    strategic_relationships: '',
+    product_rollout: '',
+    opportunity_size: '',
+    competitive_environment: '',
+    sales_marketing_channels: '',
+    need_for_additional_funding: '',
+    other_factors: '',
+  },
+  description: '',
+  tam_sam_som: { tam: null, sam: null, som: null },
+
   _sectorWasUserSet: false,
 }
 
@@ -243,6 +395,28 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
           if (key === 'sector') next._sectorWasUserSet = true
           return next
         }),
+
+      setMaturity: (key, level) =>
+        set((state) => ({
+          ...state,
+          maturity: { ...state.maturity, [key]: level },
+          // Keep the legacy 0–100 field in lock-step so the engine
+          // payload built by `toRequestPayload` is byte-identical to
+          // what the legacy slider panel would have produced.
+          [key]: MATURITY_TO_SCORE[level],
+        }) as StartupValuationState),
+
+      setEvidenceNote: (key, note) =>
+        set((state) => ({
+          ...state,
+          evidence_notes: { ...state.evidence_notes, [key]: note },
+        })),
+
+      setTamSamSom: (next) =>
+        set((state) => ({
+          ...state,
+          tam_sam_som: { ...state.tam_sam_som, ...next },
+        })),
 
       seedSectorFromNaceIfDefault: (nace) =>
         set((state) => {
@@ -321,6 +495,24 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             })
           )
 
+        // Studio v2 metadata — wizard-only signals that the engine
+        // ignores today (the v2 Claude scorer will read them).
+        const hasEvidence = Object.values(state.evidence_notes).some((v) => v.trim().length > 0)
+        const studioMetadata: Record<string, unknown> = {}
+        if (state.description.trim()) studioMetadata.description = state.description.trim()
+        if (hasEvidence) {
+          studioMetadata.evidence_notes = Object.fromEntries(
+            Object.entries(state.evidence_notes).filter(([, v]) => v.trim().length > 0),
+          )
+        }
+        if (
+          state.tam_sam_som.tam != null ||
+          state.tam_sam_som.sam != null ||
+          state.tam_sam_som.som != null
+        ) {
+          studioMetadata.tam_sam_som = state.tam_sam_som
+        }
+
         return {
           stage: state.stage,
           country_code: state.country_code || 'BE',
@@ -352,12 +544,13 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
             investment_amount_sought: state.investment_amount_sought,
           }),
           cap_table: { ...capTable, safe_notes },
+          ...(Object.keys(studioMetadata).length > 0 ? { studio_v2: studioMetadata } : {}),
         }
       },
     }),
     {
       name: 'venus.startup_valuation.v1',
-      version: 3,
+      version: 4,
       // Migration history:
       //   v1 → v2: added `_sectorWasUserSet` flag (NACE smart-default guard).
       //   v2 → v3: added `investment_amount_sought` (consortium-spec VC
@@ -365,6 +558,11 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
       //            Benelux seed-stage median so returning users see a
       //            credible cap-table simulator on first re-open
       //            instead of a blank field.
+      //   v3 → v4: Studio v2 — added `maturity`, `evidence_notes`,
+      //            `description`, `tam_sam_som`.  The 0–100 fields are
+      //            preserved (the engine still consumes them); maturity
+      //            is bucketed from the existing scores so legacy users
+      //            land on a wizard pre-filled with their last picks.
       migrate: (persistedState: unknown, version: number) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState as StartupValuationState
@@ -376,12 +574,54 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
         if (version < 3 && s.investment_amount_sought === undefined) {
           s.investment_amount_sought = STARTUP_STAGE_DEFAULT_RAISE.seed
         }
+        if (version < 4) {
+          // Bucket the persisted 0–100 scores into discrete maturity
+          // levels so the v2 wizard has something to highlight without
+          // pestering the founder to re-answer.
+          const inferMaturity = (raw: unknown): MaturityLevel => {
+            const n = typeof raw === 'number' ? raw : Number(raw)
+            return scoreToMaturity(Number.isFinite(n) ? n : 0)
+          }
+          if (!s.maturity) {
+            s.maturity = {
+              sound_idea: inferMaturity(s.sound_idea),
+              prototype_status: inferMaturity(s.prototype_status),
+              management_strength: inferMaturity(s.management_strength),
+              strategic_relationships: inferMaturity(s.strategic_relationships),
+              product_rollout: inferMaturity(s.product_rollout),
+              opportunity_size: inferMaturity(s.opportunity_size),
+              competitive_environment: inferMaturity(s.competitive_environment),
+              sales_marketing_channels: inferMaturity(s.sales_marketing_channels),
+              need_for_additional_funding: inferMaturity(s.need_for_additional_funding),
+              other_factors: inferMaturity(s.other_factors),
+            }
+          }
+          if (!s.evidence_notes) {
+            s.evidence_notes = {
+              sound_idea: '',
+              prototype_status: '',
+              management_strength: '',
+              strategic_relationships: '',
+              product_rollout: '',
+              opportunity_size: '',
+              competitive_environment: '',
+              sales_marketing_channels: '',
+              need_for_additional_funding: '',
+              other_factors: '',
+            }
+          }
+          if (s.description === undefined) s.description = ''
+          if (!s.tam_sam_som) s.tam_sam_som = { tam: null, sam: null, som: null }
+        }
         return s as StartupValuationState
       },
       partialize: (state) => {
         const {
           setField,
           setCapField,
+          setMaturity,
+          setEvidenceNote,
+          setTamSamSom,
           addSafeNote,
           updateSafeNote,
           removeSafeNote,
@@ -392,6 +632,9 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
         } = state
         void setField
         void setCapField
+        void setMaturity
+        void setEvidenceNote
+        void setTamSamSom
         void addSafeNote
         void updateSafeNote
         void removeSafeNote

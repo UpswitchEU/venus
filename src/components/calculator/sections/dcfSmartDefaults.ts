@@ -73,7 +73,7 @@ export function deriveDcfSmartDefaults(args: {
       : 5
 
   const marginSamples = historical
-    .filter((row) => row.revenue > 0)
+    .filter((row) => row.revenue !== 0)
     .map((row) => (row.ebitda / row.revenue) * 100)
   const ebitdaMarginPct =
     marginSamples.length > 0

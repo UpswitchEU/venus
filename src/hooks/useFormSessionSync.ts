@@ -286,8 +286,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
             years: sessionUpdate.historical_years_data.map((d: any) => d.year),
             yearsWithData: sessionUpdate.historical_years_data.map((d: any) => ({
               year: d.year,
-              hasRevenue: !!(d.revenue && d.revenue > 0),
-              hasEbitda: !!(d.ebitda && d.ebitda > 0),
+              hasRevenue: d.revenue != null && Number.isFinite(Number(d.revenue)),
+              hasEbitda: d.ebitda != null && Number.isFinite(Number(d.ebitda)),
             })),
           })
         }

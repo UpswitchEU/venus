@@ -334,8 +334,8 @@ export const useValuationFormSubmission = (
         try {
           generalLogger.info('[Manual] Calling valuation service', {
             requestKeys: Object.keys(request),
-            hasRevenue: !!request.current_year_data?.revenue,
-            hasEbitda: !!request.current_year_data?.ebitda,
+            hasRevenue: request.current_year_data?.revenue != null,
+            hasEbitda: request.current_year_data?.ebitda != null,
             industry: request.industry,
             country_code: request.country_code,
           })

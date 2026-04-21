@@ -89,8 +89,8 @@ export const FormSubmitSection: React.FC<FormSubmitSectionProps> = ({
     generalLogger.debug('[FormSubmitSection] Form validation state', {
       isFormValid,
       isSubmitting,
-      hasRevenue: !!formData.revenue,
-      hasEbitda: !!formData.ebitda,
+      hasRevenue: formData.revenue != null,
+      hasEbitda: formData.ebitda != null,
       hasIndustry: !!formData.industry,
       hasCountryCode: !!formData.country_code,
       revenue: formData.revenue,

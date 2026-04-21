@@ -641,8 +641,12 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     }
 
     if (financials) {
-      if (financials.revenue) populated.push('revenue')
-      if (financials.ebitda) populated.push('ebitda')
+      if (financials.revenue != null && Number.isFinite(Number(financials.revenue))) {
+        populated.push('revenue')
+      }
+      if (financials.ebitda != null && Number.isFinite(Number(financials.ebitda))) {
+        populated.push('ebitda')
+      }
       if (financials.employeeCount) populated.push('employee_count')
     }
 

@@ -7,6 +7,8 @@
  * These types match the ValuationReportData schema from ValuationIQ.
  */
 
+import { coalesceFiniteNumber } from '../../../lib/omniPreview'
+
 export interface ValuationMetric {
   label: string
   value: string
@@ -139,9 +141,12 @@ export function convertApiResponseToReportData(
   const currentYear = apiResponse.current_year_data as Record<string, unknown> | undefined
   const financialMetrics = apiResponse.financial_metrics as Record<string, unknown> | undefined
 
-  const ebitda = Number(currentYear?.ebitda || 0)
-  const revenue = Number(currentYear?.revenue || 0)
-  const ebitdaMultiple = Number(multiples?.ebitda_multiple || 0)
+  const ebitda = coalesceFiniteNumber(currentYear?.ebitda)
+  const revenueOptional =
+    currentYear?.revenue != null && Number.isFinite(Number(currentYear.revenue))
+      ? Number(currentYear.revenue)
+      : undefined
+  const ebitdaMultiple = coalesceFiniteNumber(multiples?.ebitda_multiple)
 
   return {
     id: String(apiResponse.valuation_id || apiResponse.id || ''),
@@ -152,7 +157,7 @@ export function convertApiResponseToReportData(
         ? new Date(String(apiResponse.generated_at))
         : new Date(),
 
-    valuation: Number(apiResponse.equity_value_mid || 0),
+    valuation: coalesceFiniteNumber(apiResponse.equity_value_mid),
     valuationLow:
       apiResponse.equity_value_low != null ? Number(apiResponse.equity_value_low) : undefined,
     valuationHigh:
@@ -169,7 +174,7 @@ export function convertApiResponseToReportData(
       ? apiResponse.ebitda_adjustments.map((adj: Record<string, unknown>) => ({
           id: String(adj.id || ''),
           label: String(adj.label || ''),
-          value: Number(adj.value || 0),
+          value: coalesceFiniteNumber(adj.value),
           type: String(adj.type || 'add') as EBITDAAdjustment['type'],
           category: String(adj.category || 'normalization') as EBITDAAdjustment['category'],
           description: adj.description ? String(adj.description) : undefined,
@@ -191,7 +196,7 @@ export function convertApiResponseToReportData(
 
     industry: apiResponse.industry ? String(apiResponse.industry) : undefined,
     industryEmoji: apiResponse.industry_emoji ? String(apiResponse.industry_emoji) : undefined,
-    revenue: revenue || undefined,
+    revenue: revenueOptional,
     employeeCount:
       apiResponse.employee_count != null ? Number(apiResponse.employee_count) : undefined,
     foundedYear: apiResponse.founded_year != null ? Number(apiResponse.founded_year) : undefined,

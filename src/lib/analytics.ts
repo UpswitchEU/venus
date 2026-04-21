@@ -203,3 +203,73 @@ export function trackFounderStartupInvite(method: 'cta' | 'copy_link' | 'email')
 export function trackFounderStartupPdfDownload(reportId: string): void {
   trackEvent('venus_founder_startup_pdf_download', { report_id: reportId })
 }
+
+// ── Studio v2 (UPS-STUDIO-001) ───────────────────────────────────────
+//
+// Funnel events for the redesigned full-screen valuation wizard that
+// replaces the slider-heavy left-rail panel.  Names mirror the legacy
+// founder funnel above so we can A/B-compare the two flows.
+
+export type StudioStep =
+  | 'profile'
+  | 'berkus'
+  | 'scorecard'
+  | 'traction'
+  | 'exit_story'
+  | 'round_simulator'
+  | 'report'
+
+export function trackStudioStepCompleted(
+  step: StudioStep,
+  stage?: 'pre_seed' | 'seed' | 'series_a',
+): void {
+  trackEvent('venus_studio_step_completed', {
+    step,
+    ...(stage ? { stage } : {}),
+  })
+}
+
+export function trackStudioEvidenceAdded(milestone: string): void {
+  trackEvent('venus_studio_evidence_added', { milestone })
+}
+
+/**
+ * Fires every time the founder hits "Next" on a step that still has
+ * unmet validation. Powers the abandonment funnel — if 60% of founders
+ * get blocked on `profile` (no company name), the wizard copy needs a
+ * rewrite.  The `reason` is the human-readable blocker sentence already
+ * shown next to the disabled button.
+ */
+export function trackStudioStepBlocked(step: StudioStep, reason: string): void {
+  trackEvent('venus_studio_step_blocked', { step, reason })
+}
+
+/**
+ * Fires whenever the founder lands on a step (after the initial mount).
+ * Combined with `venus_studio_step_completed` this gives us drop-off
+ * per step — a step with high "viewed" but low "completed" is a UX
+ * hot-spot for the next iteration.
+ */
+export function trackStudioStepViewed(
+  step: StudioStep,
+  stage?: 'pre_seed' | 'seed' | 'series_a',
+): void {
+  trackEvent('venus_studio_step_viewed', {
+    step,
+    ...(stage ? { stage } : {}),
+  })
+}
+
+export function trackStudioReportShared(method: 'pdf' | 'link' | 'email'): void {
+  trackEvent('venus_studio_report_shared', { method })
+}
+
+export function trackStudioRunComplete(
+  reportId: string,
+  stage?: 'pre_seed' | 'seed' | 'series_a',
+): void {
+  trackEvent('venus_studio_run_complete', {
+    report_id: reportId,
+    ...(stage ? { stage } : {}),
+  })
+}

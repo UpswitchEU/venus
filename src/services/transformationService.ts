@@ -181,12 +181,12 @@ const calculateDataQuality = (data: CompanyFinancialData): number => {
 
     // Required fields (60% weight)
     checks += 6
-    if (latest.revenue) score += 1
-    if (latest.ebitda !== undefined) score += 1
-    if (latest.net_income !== undefined) score += 1
-    if (latest.total_assets) score += 1
-    if (latest.total_debt !== undefined) score += 1
-    if (latest.cash) score += 1
+    if (latest.revenue != null && Number.isFinite(Number(latest.revenue))) score += 1
+    if (latest.ebitda != null && Number.isFinite(Number(latest.ebitda))) score += 1
+    if (latest.net_income != null && Number.isFinite(Number(latest.net_income))) score += 1
+    if (latest.total_assets != null && Number.isFinite(Number(latest.total_assets))) score += 1
+    if (latest.total_debt != null && Number.isFinite(Number(latest.total_debt))) score += 1
+    if (latest.cash != null && Number.isFinite(Number(latest.cash))) score += 1
   }
 
   // Historical data (20% weight)

@@ -7,6 +7,7 @@
  */
 
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
+import { coalesceFiniteNumber } from '../lib/omniPreview'
 import { getCurrentFilingYear } from './fiscalYear'
 
 /** Minimal shape for flags from `_imported_ledger_analysis` or bootstrap financials */
@@ -79,8 +80,8 @@ export function buildNormalizationItemsFromImportedLedgerAnalysis(
     category: mapImportedLedgerCategory(flag.category),
     backendCategory: mapImportedLedgerBackendCategory(flag.category),
     type: 'add' as const,
-    value: Number(flag.amount) || 0,
-    adjustment: Number(flag.amount) || 0,
+    value: coalesceFiniteNumber(flag.amount),
+    adjustment: coalesceFiniteNumber(flag.amount),
     reason: flag.rationale || flag.suggested_question,
     source: 'auto' as const,
     sourceRef: `${flag.year ?? ''}:${flag.ledger_code}`,
