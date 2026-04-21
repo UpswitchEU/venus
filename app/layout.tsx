@@ -4,6 +4,7 @@ import { ViewTransitions } from 'next-view-transitions'
 import './globals.css'
 import { defaultLocale, type Locale, locales } from '../i18n'
 import { VenusAnalytics } from '../src/components/analytics/VenusAnalytics'
+import { VenusIdentitySync } from '../src/components/analytics/VenusIdentitySync'
 import { Providers } from './providers'
 
 export function generateStaticParams() {
@@ -99,7 +100,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <ViewTransitions>
       <html lang={locale} suppressHydrationWarning className="aurora-theme dark">
         <head>
-          {/* Google tag (gtag.js) - valuation-engine property G-0RW0LNCVBG */}
+          {/*
+           * Google tag (gtag.js) — valuation-engine property G-0RW0LNCVBG.
+           *
+           * `send_page_view: false` is intentional. Auto page_view from
+           * `gtag('config', …)` would race the SPA `page_view` emitted from
+           * `<VenusAnalytics />`, double-counting every initial paint (the
+           * same regression that drove Mercury's 16.2 views/user signal on
+           * `/nl/calculator`). `<VenusAnalytics />` is the single source of
+           * truth for `page_view` events from now on.
+           */}
           <script async src="https://www.googletagmanager.com/gtag/js?id=G-0RW0LNCVBG" />
           <script
             dangerouslySetInnerHTML={{
@@ -117,6 +127,7 @@ gtag('consent', 'default', {
 });
 gtag('config', 'G-0RW0LNCVBG', {
   anonymize_ip: true,
+  send_page_view: false,
   linker: { domains: ['upswitch.app', 'valuation.upswitch.app'], accept_incoming: true }
 });
 `,
@@ -131,6 +142,7 @@ gtag('config', 'G-0RW0LNCVBG', {
         </head>
         <body className="bg-background text-foreground antialiased">
           <VenusAnalytics />
+          <VenusIdentitySync />
           <Providers>{children}</Providers>
         </body>
       </html>

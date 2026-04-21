@@ -169,6 +169,7 @@ import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../../ut
 import { mapLegalFormToBusinessStructure } from '../../../utils/legalFormMapping'
 import { generalLogger } from '../../../utils/logger'
 import { mergeOptionalSessionPrefillFields } from '../../../utils/mergeOptionalSessionPrefillFields'
+import { writeNewValuationPrefill } from '../../../utils/newValuationPrefillStorage'
 import { getReportedEbitdaBaseline } from '../../../utils/normalizationMath'
 import {
   persistNormalizationsBeforeCalculate,
@@ -4016,27 +4017,19 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       collectedData.companyName?.trim() ||
       (isAccountantFlow && identity.clientContext?.clientCompanyName?.trim())
     try {
-      // Store current form data for prefill on new valuation (business + financials)
+      // Snapshot current form for "Nieuwe schatting" prefill. The helper
+      // attaches a KBO/VAT/company-name fingerprint so a stale snapshot for
+      // company A cannot poison a later bootstrap for company B (the
+      // client-side twin of the orphaned-seller bug we fixed in Titan's
+      // bootstrap.service buildPrefill precedence).
       try {
         const formData = useManualFormStore.getState().formData
         const normItems = useNormalizationStore
           .getState()
           .items.filter((n) => n.status === 'accepted')
-        const prefillPayload: Record<string, unknown> = {
-          ...formData,
-          _fromNewValuation: true,
-          _normCount: normItems.length,
-        }
-        // Exclude large/blob and non-serializable fields
-        delete (prefillPayload as any).html_report
-        delete (prefillPayload as any).valuation_result
-        // Safe stringify: skip functions, undefined, symbols
-        const json = JSON.stringify(prefillPayload, (_, v) =>
-          typeof v === 'function' || typeof v === 'symbol' ? undefined : v
-        )
-        if (json && json.length < 500_000) {
-          sessionStorage.setItem('venus_new_valuation_prefill', json)
-        }
+        writeNewValuationPrefill(formData as unknown as Record<string, unknown>, {
+          normCount: normItems.length,
+        })
       } catch {
         /* sessionStorage unavailable or serialization failed */
       }

@@ -4,24 +4,105 @@
  * Tracks the full valuation funnel:
  *   Mercury CTA → Venus session → calculation → normalizations → recalc → PDF → return
  *
- * All events are no-ops when gtag hasn't loaded (before consent).
+ * Every event is consent-gated and enriched with `traffic_type`, `locale`,
+ * and (when set) `user_role` / `current_plan` so the Venus GA4 property
+ * carries the same dimensions Mercury's marketing/app streams do. Routing
+ * cross-app cohorts works without a join: pivot on `user_role=advisor` +
+ * `current_plan=free` and the Venus events show up alongside the Mercury
+ * ones in any GA4 exploration.
+ *
+ * The helper is a no-op until gtag has loaded AND the user has granted
+ * `analytics_storage` consent — emitting before that is both a GDPR risk
+ * and a data-quality issue (events from non-consented sessions inflate
+ * funnels).
  */
 
+import { isAnalyticsConsentGranted } from './analytics-consent'
+import { getAnalyticsContext } from './analytics-context'
+import { isInternalEmail } from './is-internal-user'
+
+const VENUS_MEASUREMENT_ID = 'G-0RW0LNCVBG'
+
+let stickyUserRole: string | undefined
+let stickyCurrentPlan: string | undefined
+let stickyIsInternal = false
+
 function trackEvent(name: string, params?: Record<string, string | number | boolean>): void {
-  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
-    window.gtag('event', name, params)
+  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return
+  if (!isAnalyticsConsentGranted()) return
+  try {
+    const ctx = getAnalyticsContext()
+    // Internal users override `traffic_type` regardless of which Venus
+    // surface they're on — without this, staff dogfooding the calculator
+    // count as customer `app` traffic and inflate funnel rates.
+    const trafficType = stickyIsInternal ? 'internal' : ctx.traffic_type
+    const enriched: Record<string, string | number | boolean> = {
+      traffic_type: trafficType,
+      locale: ctx.locale,
+      ...(stickyUserRole ? { user_role: stickyUserRole } : {}),
+      ...(stickyCurrentPlan ? { current_plan: stickyCurrentPlan } : {}),
+      ...(stickyIsInternal ? { is_internal: 'true' } : {}),
+      // Venus is its own GA4 property, but `send_to` is still set so a
+      // future cross-property mirror (e.g. forwarding venus_* events into
+      // Mercury's app stream for unified funnels) doesn't fan out into all
+      // configured streams the way Mercury's pre-fix `trackEvent` did.
+      send_to: VENUS_MEASUREMENT_ID,
+      ...(params ?? {}),
+    }
+    window.gtag('event', name, enriched)
+  } catch {
+    // analytics must never throw into product code
   }
 }
 
 // ── Identity ─────────────────────────────────────────────────────────
 
-/** Set user ID for cross-device stitching (shared auth with Mercury) */
-export function identifyUser(userId: string, role?: string): void {
-  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+/**
+ * Set user ID for cross-device stitching (shared auth with Mercury) and
+ * mirror `user_role` / `current_plan` onto every subsequent event so the
+ * Venus property segments match the Mercury property segments without a
+ * follow-up GA4 join.
+ */
+export function identifyUser(
+  userId: string,
+  options?: { role?: string; plan?: string; email?: string },
+): void {
+  // Always update the sticky cache so subsequent `trackEvent` calls have
+  // the latest enrichment, even before gtag has loaded or consent is granted.
+  if (options?.role) stickyUserRole = options.role
+  if (options?.plan) stickyCurrentPlan = options.plan
+  stickyIsInternal = isInternalEmail(options?.email)
+
+  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return
+  if (!isAnalyticsConsentGranted()) return
+  try {
     window.gtag('set', { user_id: userId })
-    if (role) {
-      window.gtag('set', 'user_properties', { user_role: role })
+    const userProps: Record<string, string> = {
+      is_internal: stickyIsInternal ? 'true' : 'false',
     }
+    if (options?.role) userProps.user_role = options.role
+    if (options?.plan) userProps.current_plan = options.plan
+    window.gtag('set', 'user_properties', userProps)
+  } catch {
+    /* never block UI */
+  }
+}
+
+/** Clear the per-session user identity on sign-out. */
+export function clearUserIdentity(): void {
+  stickyUserRole = undefined
+  stickyCurrentPlan = undefined
+  stickyIsInternal = false
+  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return
+  try {
+    window.gtag('set', { user_id: undefined })
+    window.gtag('set', 'user_properties', {
+      user_role: undefined,
+      current_plan: undefined,
+      is_internal: undefined,
+    })
+  } catch {
+    /* ignore */
   }
 }
 

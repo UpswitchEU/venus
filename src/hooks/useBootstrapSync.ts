@@ -27,6 +27,10 @@ import {
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
 import { mergeOptionalSessionPrefillFields } from '../utils/mergeOptionalSessionPrefillFields'
+import {
+  buildIdentityFingerprint,
+  readNewValuationPrefill,
+} from '../utils/newValuationPrefillStorage'
 
 const logger = createContextLogger('BootstrapSync')
 
@@ -364,65 +368,56 @@ function syncSession(state: SessionBootstrapState): void {
           }
         }
 
-        // Prefill from "Nieuwe schatting" - user chose to start new but keep current data
+        // Prefill from "Nieuwe schatting" — the user chose to start over but
+        // keep their typed financials. The helper:
+        //   • discards storage entirely when the stored fingerprint refers
+        //     to a different company (cross-company poisoning guard — the
+        //     client-side twin of the Titan orphaned-seller bug);
+        //   • strips identity fields defensively even on a legacy entry
+        //     written before fingerprinting landed, so the bootstrap
+        //     identity is never overwritten by stale local state.
         try {
-          const stored =
-            typeof window !== 'undefined' && sessionStorage.getItem('venus_new_valuation_prefill')
-          if (stored) {
-            const parsed = JSON.parse(stored) as Record<string, unknown>
-            if (parsed && typeof parsed === 'object' && parsed._fromNewValuation) {
-              delete parsed._fromNewValuation
-              delete parsed._normCount
-              // Sanitize: only pass plain objects/arrays/primitives, skip functions
-              const sanitized: Record<string, unknown> = {}
-              for (const [k, v] of Object.entries(parsed)) {
-                if (k.startsWith('_')) continue
-                if (v !== undefined && v !== null && typeof v !== 'function' && typeof v !== 'symbol') {
-                  sanitized[k] = v
-                }
+          const targetIdentity = buildIdentityFingerprint(prefillData.companyInfo)
+          const restored = readNewValuationPrefill(targetIdentity)
+          if (restored) {
+            const sanitized = restored.data
+            const filingYearConfirmed = Boolean(
+              sanitized.filing_year_confirmed ?? sanitized.filingYearConfirmed
+            )
+            const currentYearData = sanitized.current_year_data as
+              | { year?: number; revenue?: number; ebitda?: number }
+              | undefined
+            if (currentYearData && typeof currentYearData === 'object') {
+              sanitized.current_year_data = {
+                ...currentYearData,
+                year: normalizeCurrentYearForFiling(currentYearData.year, filingYearConfirmed),
               }
-              const filingYearConfirmed = Boolean(
-                sanitized.filing_year_confirmed ?? sanitized.filingYearConfirmed
+            }
+            if (Array.isArray(sanitized.historical_years_data)) {
+              sanitized.historical_years_data = normalizeHistoricalYearsForFiling(
+                sanitized.historical_years_data as Array<{
+                  year: number
+                  revenue?: number
+                  ebitda?: number
+                }>,
+                filingYearConfirmed
               )
-              const currentYearData = sanitized.current_year_data as
-                | { year?: number; revenue?: number; ebitda?: number }
-                | undefined
-              if (currentYearData && typeof currentYearData === 'object') {
-                sanitized.current_year_data = {
-                  ...currentYearData,
-                  year: normalizeCurrentYearForFiling(currentYearData.year, filingYearConfirmed),
-                }
-              }
-              if (Array.isArray(sanitized.historical_years_data)) {
-                sanitized.historical_years_data = normalizeHistoricalYearsForFiling(
-                  sanitized.historical_years_data as Array<{
-                    year: number
-                    revenue?: number
-                    ebitda?: number
-                  }>,
-                  filingYearConfirmed
-                )
-              }
-              if (Object.keys(sanitized).length > 0) {
-                const formStore = useManualFormStore.getState()
-                formStore.updateFormData(sanitized as any)
-                logger.info('Hydrated form from previous valuation (new schatting prefill)', {
-                  reportId: report.reportId.substring(0, 30),
-                  formFieldsCount: Object.keys(sanitized).length,
-                })
-              }
-              sessionStorage.removeItem('venus_new_valuation_prefill')
+            }
+            if (Object.keys(sanitized).length > 0) {
+              const formStore = useManualFormStore.getState()
+              formStore.updateFormData(sanitized as any)
+              logger.info('Hydrated form from previous valuation (new schatting prefill)', {
+                reportId: report.reportId.substring(0, 30),
+                formFieldsCount: Object.keys(sanitized).length,
+                fingerprintMatched: restored.matched,
+                legacyEntry: restored.legacy,
+              })
             }
           }
         } catch (e) {
           logger.warn('Prefill from new valuation failed', {
             error: e instanceof Error ? e.message : String(e),
           })
-          try {
-            sessionStorage.removeItem('venus_new_valuation_prefill')
-          } catch {
-            /* ignore */
-          }
         }
 
         logger.info('Created minimal session for new report from bootstrap', {

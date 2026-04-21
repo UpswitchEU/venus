@@ -3,12 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useEffect, useRef, useState } from 'react'
-import {
-  identifyUser,
-  trackReportCreate,
-  trackReportOpen,
-  trackSessionStart,
-} from '@/lib/analytics'
+import { trackReportCreate, trackReportOpen, trackSessionStart } from '@/lib/analytics'
 import { ALL_BUSINESS_VIDEOS } from '../../constants/videos'
 import { RecentReportsSection } from '../../features/reports'
 import { useAuth } from '../../hooks/useAuth'
@@ -136,8 +131,12 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     const source = document.referrer.includes('upswitch.app') ? 'mercury' : 'direct'
     trackSessionStart(source)
-    if (user?.id) identifyUser(user.id, (user as any).role)
-  }, [user?.id])
+    // Note: `identifyUser` is wired centrally in `VenusIdentitySync` (mounted
+    // in `app/layout.tsx`) so every Venus surface — not just `HomePage` —
+    // attaches `user_id`, `is_internal`, `current_plan`, and `user_role` to
+    // events. Calling it again here used to mean only the home page got a
+    // proper identity, breaking cross-route GA4 stitching.
+  }, [])
 
   useEffect(() => {
     if (textareaRef.current) {
