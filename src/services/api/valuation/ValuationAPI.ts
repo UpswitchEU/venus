@@ -113,9 +113,13 @@ export class ValuationAPI extends HttpClient {
         {
           ...options,
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
+          // /calculate is non-idempotent (consumes credits, renders report).
+          // Retrying on 503/network amplifies load and log noise; ValuationIQ
+          // now ships a safety-net report so a 503 here is genuinely a hard
+          // failure worth surfacing once, not masking with 2–3 silent retries.
           retry: {
-            maxRetries: 2,
-            initialDelay: 1000,
+            maxRetries: 0,
+            initialDelay: 0,
             ...options?.retry,
           },
         }
@@ -147,6 +151,13 @@ export class ValuationAPI extends HttpClient {
         {
           ...options,
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
+          // See calculateManualValuation() — same /calculate endpoint, same
+          // non-idempotent contract, same no-retry policy.
+          retry: {
+            maxRetries: 0,
+            initialDelay: 0,
+            ...options?.retry,
+          },
         }
       )
     } catch (error) {
@@ -176,6 +187,13 @@ export class ValuationAPI extends HttpClient {
         {
           ...options,
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
+          // See calculateManualValuation() — same /calculate endpoint, same
+          // non-idempotent contract, same no-retry policy.
+          retry: {
+            maxRetries: 0,
+            initialDelay: 0,
+            ...options?.retry,
+          },
         }
       )
     } catch (error) {
@@ -213,9 +231,13 @@ export class ValuationAPI extends HttpClient {
         {
           ...options,
           timeout: options?.timeout ?? VALUATION_TIMEOUT_MS, // 120s for valuations
+          // See calculateManualValuation() — calculate is non-idempotent,
+          // don't retry. ValuationIQ guarantees a response (with safety-net
+          // report when templating fails); a 503 here means the caller
+          // should surface the issue, not spawn a retry storm.
           retry: {
-            maxRetries: 3,
-            initialDelay: 1000,
+            maxRetries: 0,
+            initialDelay: 0,
             ...options?.retry,
           },
         }
