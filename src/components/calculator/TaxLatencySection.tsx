@@ -344,7 +344,11 @@ export function TaxLatencySection({
   // (e.g. a Dutch '30xxx' inventory account is not flagged with the same logic).
   // When NL/EU coverage lands, broaden this guard with country-specific matchers.
   const conflictingLatencyItems = useMemo(() => {
-    if (countryCode && countryCode !== 'BE') return []
+    // Require an EXPLICIT 'BE' before firing MAR-based heuristics. During
+    // initial form hydration `countryCode` can be undefined; falling through
+    // would render a BE-flavoured warning on a blank form. Once the form
+    // wizard sets the country we re-evaluate.
+    if (countryCode !== 'BE') return []
 
     const navPctActive =
       typeof navTaxLatencyPct === 'number' &&

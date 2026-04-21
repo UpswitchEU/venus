@@ -60,6 +60,84 @@ describe('TaxLatencySection', () => {
     })
   })
 
+  it('renders the NAV-vs-BSA conflict banner only when a passive MAR 22x latency overlaps a positive real-estate revaluation on a BE client', async () => {
+    useManualFormStore.getState().updateFormData({
+      country_code: 'BE',
+      // Active NAV-% applied AND a positive real-estate uplift → both channels
+      // would deduct latent tax against the same gain → expect the warning.
+      nav_tax_latency_pct: 25,
+      nav_real_estate_adjustment: 200000,
+    } as any)
+    useTaxLatencyStore.getState().setItems([
+      {
+        id: 'be-real-estate',
+        type: 'passive',
+        accountCode: '222000',
+        accountName: 'Gebouwen',
+        description: 'Latentie op gebouw',
+        temporaryDifference: 150000,
+        taxRate: 25,
+      },
+    ])
+
+    const { rerender } = render(<TaxLatencySection alwaysExpanded />)
+
+    expect(await screen.findByText('navConflictTitle')).toBeInTheDocument()
+
+    // Same setup but country is NL → BE-prefix matchers are out of scope and
+    // we should NOT show the false-positive warning.
+    useManualFormStore.getState().updateFormData({ country_code: 'NL' } as any)
+    rerender(<TaxLatencySection alwaysExpanded />)
+    expect(screen.queryByText('navConflictTitle')).not.toBeInTheDocument()
+  })
+
+  it('does not render the conflict banner before the form has assigned a country (undefined country_code)', async () => {
+    // Strip country_code so it's undefined — the conflict heuristic must NOT
+    // fire because BE-specific MAR rules would yield false positives during
+    // initial form hydration.
+    useManualFormStore.getState().resetForm()
+    useManualFormStore.getState().updateFormData({
+      nav_tax_latency_pct: 25,
+      nav_real_estate_adjustment: 200000,
+    } as any)
+    useTaxLatencyStore.getState().setItems([
+      {
+        id: 'be-real-estate',
+        type: 'passive',
+        accountCode: '222000',
+        accountName: 'Gebouwen',
+        description: 'Latentie op gebouw',
+        temporaryDifference: 150000,
+        taxRate: 25,
+      },
+    ])
+
+    render(<TaxLatencySection alwaysExpanded />)
+    expect(screen.queryByText('navConflictTitle')).not.toBeInTheDocument()
+  })
+
+  it('does not render the conflict banner when the NAV % is 0 or no positive uplift is set', async () => {
+    useManualFormStore.getState().updateFormData({
+      country_code: 'BE',
+      nav_tax_latency_pct: 0,
+      nav_real_estate_adjustment: 200000,
+    } as any)
+    useTaxLatencyStore.getState().setItems([
+      {
+        id: 'be-real-estate',
+        type: 'passive',
+        accountCode: '222000',
+        accountName: 'Gebouwen',
+        description: 'Latentie op gebouw',
+        temporaryDifference: 150000,
+        taxRate: 25,
+      },
+    ])
+
+    render(<TaxLatencySection alwaysExpanded />)
+    expect(screen.queryByText('navConflictTitle')).not.toBeInTheDocument()
+  })
+
   it('dismisses a suggested candidate after saving it as a tax latency row', async () => {
     useTaxLatencyStore.getState().setCandidates([
       {

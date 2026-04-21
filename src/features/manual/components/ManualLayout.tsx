@@ -98,7 +98,11 @@ import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOption
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useAuthStore } from '../../../lib/auth'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
-import { getSafeMercuryReturnUrl, isLegacyReturnUrl } from '../../../lib/return-url'
+import {
+  fallbackDashboardForSource,
+  getSafeMercuryReturnUrl,
+  isLegacyReturnUrl,
+} from '../../../lib/return-url'
 import { reportService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { backendAPI } from '../../../services/backendApi'
@@ -3834,10 +3838,17 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       generalLogger.error('[ManualLayout] handleExitClientView failed', {
         error: error instanceof Error ? error.message : String(error),
       })
+      // Fallback uses the same source-aware dashboard helper as the happy
+      // path so a seller never lands on `/advisor/dashboard` when the
+      // primary navigation throws (sessionStorage unavailable, etc.).
       try {
         const loc =
           currentLocale && (currentLocale === 'en' || currentLocale === 'nl') ? currentLocale : 'en'
-        window.location.href = `${getMercuryUrl()}/${loc}/advisor/dashboard`
+        let sourceApp: string | null = null
+        try {
+          sourceApp = sessionStorage.getItem('upswitch_source')
+        } catch {}
+        window.location.href = fallbackDashboardForSource(sourceApp, loc, getMercuryUrl())
       } catch {}
     }
   }, [clientContextId, currentLocale])
@@ -4590,6 +4601,44 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
     let lastSignature = JSON.stringify(useTaxLatencyStore.getState().items)
 
+    // Concurrency guard: serialise recalcs and use a generation counter so a
+    // late-arriving response from an earlier call cannot clobber the result of
+    // a newer one. `recalculateWithNormalizations` calls `setResult(calcResult)`
+    // unconditionally, so without this guard rapid latency edits could end up
+    // displaying a stale valuation.
+    //
+    // KNOWN LIMITATION: this only protects against latency-edit ordering. A
+    // truly stale recalc that fires across a *different* report (user edits
+    // latency on report A, then navigates to report B before the recalc
+    // completes) is still a pre-existing race in `recalculateWithNormalizations`
+    // because `valuationService.calculateValuation` is not abortable. In
+    // practice the navigation re-mounts ManualLayout, so the stale `setResult`
+    // becomes a no-op against an unmounted component (React logs a warning).
+    // Wiring an AbortController is the proper fix and is tracked separately.
+    let recalcGeneration = 0
+    let inflightGeneration: number | null = null
+    let pendingAfterInflight = false
+
+    const runRecalc = async () => {
+      recalcGeneration += 1
+      const myGeneration = recalcGeneration
+      inflightGeneration = myGeneration
+      try {
+        await recalculateWithNormalizationsRef.current(useNormalizationStore.getState().items)
+      } finally {
+        // If another mutation arrived while this call was in-flight, schedule a
+        // single follow-up recalc so the latest store state is reflected. Only
+        // applies to the *latest* generation — older ones just no-op on exit.
+        if (inflightGeneration === myGeneration) {
+          inflightGeneration = null
+          if (pendingAfterInflight) {
+            pendingAfterInflight = false
+            void runRecalc()
+          }
+        }
+      }
+    }
+
     const signatureFor = (items: ReturnType<typeof useTaxLatencyStore.getState>['items']) =>
       JSON.stringify(
         items
@@ -4615,23 +4664,51 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       // set() would fire the subscription, return early on the equality check, and
       // leave the counter incremented — silently swallowing the user's next real
       // edit.
-      if (consumeLatencyRecalcSuppression()) return
+      if (consumeLatencyRecalcSuppression()) {
+        // A programmatic mutation supersedes any user edit that was still
+        // debouncing. Cancel the pending recalc so it can't fire AFTER the
+        // version-restore / hydration completes and clobber the restored
+        // valuation result.
+        if (debounceTimer) {
+          clearTimeout(debounceTimer)
+          debounceTimer = null
+        }
+        // Also drop any "queued after inflight" follow-up — the suppressing caller
+        // (e.g. version-restore) takes ownership of the next recalc itself.
+        pendingAfterInflight = false
+        return
+      }
 
       if (!changed) return
 
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
-        // Pass current normalizations from store; buildManualValuationRequest also
-        // re-reads tax latencies from useTaxLatencyStore directly.
-        void recalculateWithNormalizationsRef.current(useNormalizationStore.getState().items)
+        debounceTimer = null
+        if (inflightGeneration !== null) {
+          // A recalc is already running. Mark that we need ONE follow-up after
+          // it completes; collapse multiple rapid edits into a single trailing
+          // recalc instead of queueing N stale ones.
+          pendingAfterInflight = true
+          return
+        }
+        void runRecalc()
       }, 400)
     })
 
     return () => {
       unsub()
       if (debounceTimer) clearTimeout(debounceTimer)
+      pendingAfterInflight = false
     }
-  }, [report])
+    // We intentionally depend on `Boolean(report)` rather than `report` itself.
+    // `setReport(...)` is invoked from many unrelated paths (htmlReport patches,
+    // metadata updates, version restore) and each call changes object identity.
+    // Depending on the object would tear down + re-mount this effect on every
+    // such update — clearing the pending `debounceTimer` and silently dropping
+    // any latency edit the user made within the prior 400 ms. The effect body
+    // only uses `report` as an "is this report ready" gate (see the early
+    // return), so the boolean carries all the information we actually need.
+  }, [Boolean(report)])
 
   const handleAcceptNormalisation = useCallback(
     async (id: string) => {

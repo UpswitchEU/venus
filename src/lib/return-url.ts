@@ -106,6 +106,54 @@ function pathnameWithLocale(pathname: string, locale: 'en' | 'nl'): string {
 }
 
 /**
+ * Tokens in the cross-app `source` query value that mark a flow as
+ * originating from the business owner / seller side of Mercury rather than
+ * the accountant workspace. Kept separate from `ACCOUNTANT_SOURCE_TOKENS`
+ * so we can default to the safer "owner" experience (the dashboard owners
+ * can always reach) when the signal is ambiguous and an explicit
+ * `return_url` is missing.
+ */
+const SELLER_SOURCE_TOKENS = [
+  'business_',
+  'seller',
+  'owner',
+  'startup',
+  'for_owners',
+  'mercury_seller',
+  'orphaned_seller',
+] as const
+
+const ACCOUNTANT_SOURCE_TOKENS = ['accountant', 'advisor'] as const
+
+/**
+ * Pick the right Mercury dashboard fallback when no explicit `return_url`
+ * was stored. Sellers must never land on `/advisor/dashboard` (404 / wrong
+ * persona) and accountants must never land on `/business/dashboard`.
+ *
+ * The match is case-insensitive and uses substring tokens so future
+ * `source` values that follow the same naming convention are routed
+ * automatically without code changes.
+ */
+export function fallbackDashboardForSource(
+  sourceApp: string | null | undefined,
+  pathLocale: 'en' | 'nl',
+  mercuryUrl: string
+): string {
+  const base = mercuryUrl.replace(/\/$/, '')
+  const source = sourceApp?.toLowerCase().trim() ?? ''
+  if (source && ACCOUNTANT_SOURCE_TOKENS.some((token) => source.includes(token))) {
+    return `${base}/${pathLocale}/advisor/dashboard`
+  }
+  if (source && SELLER_SOURCE_TOKENS.some((token) => source.includes(token))) {
+    return `${base}/${pathLocale}/business/dashboard`
+  }
+  // Ambiguous (`source=mercury` or empty): keep the historical advisor
+  // default to avoid silently changing destinations for accountant flows
+  // that never paired the cross-app handoff with a more specific source.
+  return `${base}/${pathLocale}/advisor/dashboard`
+}
+
+/**
  * Returns a safe Mercury URL for redirect. If storedUrl is legacy or invalid,
  * falls back to dashboard or client valuations.
  *
@@ -130,13 +178,15 @@ export function getSafeMercuryReturnUrl(
 
   let result: string
 
+  const sourceFallback = fallbackDashboardForSource(options?.sourceApp, pathLocale, mercuryUrl)
+
   const raw = storedUrl?.trim()
   if (isSafeMercuryReturnUrlInput(raw)) {
     if (raw.startsWith('http://') || raw.startsWith('https://')) {
       try {
         const url = new URL(raw)
         if (!isTrustedUpswitchHostname(url.hostname) || isLegacyReturnUrl(url.pathname)) {
-          result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
+          result = sourceFallback
         } else {
           const allowHttp =
             url.protocol === 'http:' &&
@@ -150,11 +200,11 @@ export function getSafeMercuryReturnUrl(
           result = url.toString()
         }
       } catch {
-        result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
+        result = sourceFallback
       }
     } else if (raw.startsWith('//')) {
       // Protocol-relative "URLs" must not be concatenated onto a base (open-redirect footgun).
-      result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
+      result = sourceFallback
     } else {
       if (explicitLocaleOpt !== undefined) {
         const rel = raw.startsWith('/') ? raw : `/${raw}`
@@ -166,10 +216,8 @@ export function getSafeMercuryReturnUrl(
     }
   } else if (options?.clientContextId) {
     result = `${mercuryUrl}/${pathLocale}/advisor/clients/${options.clientContextId}/valuations`
-  } else if (options?.sourceApp?.includes('mercury')) {
-    result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
   } else {
-    result = `${mercuryUrl}/${pathLocale}/advisor/dashboard`
+    result = sourceFallback
   }
 
   return applyMercuryCelebrationQuery(result, celebrate)

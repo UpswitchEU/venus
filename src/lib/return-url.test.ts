@@ -6,6 +6,7 @@ vi.mock('@/utils/getMercuryUrl', () => ({
 
 import {
   applyMercuryCelebrationQuery,
+  fallbackDashboardForSource,
   getSafeMercuryReturnUrl,
   isSafeMercuryReturnUrlInput,
   isTrustedUpswitchHostname,
@@ -143,5 +144,92 @@ describe('getSafeMercuryReturnUrl', () => {
       locale: 'en',
     })
     expect(out).toBe('https://upswitch.app/en/advisor/clients/c1')
+  })
+
+  it('falls back to /business/dashboard when the storedUrl is missing for a seller-flagged source', () => {
+    // Regression: a seller who clicked "Vul uw cijfers in" on the business
+    // dashboard would land on /advisor/dashboard (404 / wrong persona) when
+    // sessionStorage was cleared. The source token preserves the persona
+    // signal even without an explicit return_url.
+    const out = getSafeMercuryReturnUrl(null, {
+      sourceApp: 'business_dashboard_orphaned_seller',
+      locale: 'nl',
+    })
+    expect(out).toBe('https://upswitch.app/nl/business/dashboard')
+  })
+
+  it('keeps /advisor/dashboard fallback for accountant-flagged sources', () => {
+    const out = getSafeMercuryReturnUrl(null, {
+      sourceApp: 'mercury_advisor_review',
+      locale: 'en',
+    })
+    expect(out).toBe('https://upswitch.app/en/advisor/dashboard')
+  })
+
+  it('routes typosquat (untrusted host) for a seller source to /business/dashboard, not /advisor/', () => {
+    const out = getSafeMercuryReturnUrl('https://notupswitch.app/phish', {
+      sourceApp: 'mercury_seller_card',
+      locale: 'nl',
+    })
+    expect(out).toBe('https://upswitch.app/nl/business/dashboard')
+  })
+})
+
+describe('fallbackDashboardForSource', () => {
+  const mercury = 'https://upswitch.app'
+
+  it('routes seller / owner / startup tokens to /business/dashboard', () => {
+    for (const source of [
+      'business_dashboard_orphaned_seller',
+      'mercury_seller_card',
+      'for_owners_landing',
+      'mercury_startup_bypass',
+      'orphaned_seller_modal',
+    ]) {
+      expect(fallbackDashboardForSource(source, 'nl', mercury)).toBe(
+        'https://upswitch.app/nl/business/dashboard'
+      )
+    }
+  })
+
+  it('routes accountant / advisor tokens to /advisor/dashboard', () => {
+    for (const source of [
+      'mercury_advisor_review',
+      'accountant_dashboard',
+      'advisor_clients_list',
+    ]) {
+      expect(fallbackDashboardForSource(source, 'en', mercury)).toBe(
+        'https://upswitch.app/en/advisor/dashboard'
+      )
+    }
+  })
+
+  it('returns /advisor/dashboard for ambiguous / unknown / empty source values', () => {
+    for (const source of ['mercury', '', null, undefined, 'unknown_widget']) {
+      expect(fallbackDashboardForSource(source, 'nl', mercury)).toBe(
+        'https://upswitch.app/nl/advisor/dashboard'
+      )
+    }
+  })
+
+  it('is case-insensitive', () => {
+    expect(
+      fallbackDashboardForSource('MERCURY_SELLER_HERO', 'en', mercury)
+    ).toBe('https://upswitch.app/en/business/dashboard')
+  })
+
+  it('strips a trailing slash on the mercuryUrl base', () => {
+    expect(
+      fallbackDashboardForSource('seller_dashboard', 'nl', 'https://upswitch.app/')
+    ).toBe('https://upswitch.app/nl/business/dashboard')
+  })
+
+  it('prefers accountant routing when both tokens appear (advisor wins by check order)', () => {
+    // Edge case: a hypothetical `advisor_for_seller` source. Advisor is
+    // checked first so we never silently change destinations for an
+    // accountant flow that pairs an owner-ish token with the advisor mode.
+    expect(
+      fallbackDashboardForSource('advisor_for_seller', 'nl', mercury)
+    ).toBe('https://upswitch.app/nl/advisor/dashboard')
   })
 })
