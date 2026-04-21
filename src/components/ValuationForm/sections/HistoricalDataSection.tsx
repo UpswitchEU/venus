@@ -33,7 +33,7 @@ export const HistoricalDataSection: React.FC<HistoricalDataSectionProps> = ({
   return (
     <AuroraFormSection
       title="Historical Data (Optional)"
-      description="Historical financials allow for CAGR (Compound Annual Growth Rate) calculation and trend analysis. Demonstrating consistent growth and margin stability reduces perceived risk, directly supporting a higher valuation tier."
+      description={`Historical financials allow for CAGR (Compound Annual Growth Rate) calculation and trend analysis. Demonstrating consistent growth and margin stability reduces perceived risk, directly supporting a higher valuation tier. The most recent year (${lastFullYear}) is shared with the "Last Full Year Financials" section above — edits in either place stay in sync.`}
     >
       <HistoricalDataInputs
         historicalInputs={historicalInputs}

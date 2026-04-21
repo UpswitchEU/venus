@@ -720,7 +720,7 @@ function StakeCalculatorSection({ equityValue }: { equityValue: number | null })
             const v = parseFloat(e.target.value)
             if (Number.isFinite(v)) setStakePercent(Math.min(100, Math.max(1, v)))
           }}
-          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums"
         />
         <input
           type="range"
@@ -1361,7 +1361,7 @@ export function ValuationEditModal({
                     const n = parseFloat(v)
                     if (Number.isFinite(n)) setAppliedMedian(Math.min(20, Math.max(0.1, n)))
                   }}
-                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono tabular-nums"
                 />
                 <input
                   type="range"

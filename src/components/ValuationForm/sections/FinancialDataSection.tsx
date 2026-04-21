@@ -24,6 +24,7 @@ import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationFormData } from '../../../types/valuation'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
+import { patchCurrentYearDataFromTopLevelFinancials } from '../utils/currentYearDataMirror'
 import { getNormalizationAmountForBase } from '../../../utils/normalizationMath'
 import { NormalizationModal } from '../../normalization/NormalizationModal'
 import { NormalizedEBITDAField } from '../../normalization/NormalizedEBITDAField'
@@ -234,11 +235,17 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                 label={t('revenueRequired')}
                 placeholder={t('revenueExamplePlaceholder')}
                 value={formData.revenue || ''}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const revenue = parseFloat(e.target.value.replace(/,/g, '')) || undefined
+                  const nextCyd = patchCurrentYearDataFromTopLevelFinancials(
+                    formData.current_year_data,
+                    { revenue }
+                  )
                   updateFormData({
-                    revenue: parseFloat(e.target.value.replace(/,/g, '')) || undefined,
+                    revenue,
+                    ...(nextCyd ? { current_year_data: nextCyd } : {}),
                   })
-                }
+                }}
                 onBlur={() => {}}
                 name="revenue"
                 min={0}
@@ -305,7 +312,15 @@ export const FinancialDataSection: React.FC<FinancialDataSectionProps> = ({
                         const cleanedValue = e.target.value.replace(/,/g, '')
                         const numValue = parseFloat(cleanedValue)
                         // Preserve negative values: only set undefined if NaN, not if value is 0 or negative
-                        updateFormData({ ebitda: isNaN(numValue) ? undefined : numValue })
+                        const ebitda = isNaN(numValue) ? undefined : numValue
+                        const nextCyd = patchCurrentYearDataFromTopLevelFinancials(
+                          formData.current_year_data,
+                          { ebitda }
+                        )
+                        updateFormData({
+                          ebitda,
+                          ...(nextCyd ? { current_year_data: nextCyd } : {}),
+                        })
                       }}
                       onBlur={() => {}}
                       name="ebitda"

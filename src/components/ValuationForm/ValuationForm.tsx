@@ -39,6 +39,15 @@ import { FormSubmitSection } from './sections/FormSubmitSection'
 import { HistoricalDataSection } from './sections/HistoricalDataSection'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
 import { buildBusinessTypeFormData } from './utils/businessTypeFormData'
+import { patchCurrentYearDataFromTopLevelFinancials } from './utils/currentYearDataMirror'
+import {
+  areMergedYearRowsEqual,
+  collectForecastRowsForMerge,
+  computeNextHistoricalFromFormData,
+  mergeHistoricalAndForecastRows,
+  mirrorHistoricalToFormData,
+  pickForecastRowsToPreserve,
+} from './utils/filingYearSync'
 
 export interface ValuationFormProps {
   /** Initial version to load (for M&A workflow - edit previous versions) */
@@ -340,103 +349,114 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       })
     }
 
-    // Update formData with sorted historical data
+    // Preserve any forecast rows (`is_forecast: true`) already on formData —
+    // they are entered through `ManualInputPanel`, which writes to the same
+    // `useManualFormStore`, but are NOT represented in this form's
+    // `historicalInputs` state. Wholesale-overwriting `historical_years_data`
+    // without re-attaching them would silently drop user-entered forecasts
+    // whenever the user touched the ValuationForm. Merge logic + conflict
+    // policy live in `mergeHistoricalAndForecastRows` (unit-tested).
+    //
+    // `formData.historical_years_data` is included in the effect deps so a
+    // session restore / autosave merge that only touches forecasts still
+    // re-runs this effect. `areMergedYearRowsEqual` prevents redundant writes
+    // that would otherwise ping-pong renders.
+    const existingRows = formData.historical_years_data ?? []
+    const forecastPool = collectForecastRowsForMerge(
+      formData.historical_years_data,
+      formData.forecast_years_data
+    )
+    const formUpdates: Partial<typeof formData> = {}
+
     if (historicalYears.length > 0) {
       historicalInputsEverPopulatedRef.current = true
-      updateFormData({
-        historical_years_data: historicalYears,
-      })
+      const merged = mergeHistoricalAndForecastRows(historicalYears, forecastPool)
+      if (!areMergedYearRowsEqual(merged, formData.historical_years_data)) {
+        formUpdates.historical_years_data = merged
+      }
     } else if (historicalInputsEverPopulatedRef.current) {
-      // Only clear if user previously had data and then removed it.
+      // Only clear if user previously had historical data and then removed it.
       // On initial mount historicalInputs is {} -- skip clearing to preserve
       // historical_years_data that was set by bootstrap prefill / restoration.
-      updateFormData({
-        historical_years_data: undefined,
-      })
-    }
-
-    // Mirror the filing-year row in historicalInputs into the canonical
-    // formData.revenue / formData.ebitda fields. This makes the 2025 row in
-    // HistoricalDataInputs and the "Last Full Year Financials" section share a
-    // single source of truth — edits in either place propagate to the other via
-    // the restoration effect above (lines ~124-177).
-    const filingRevenueKey = `${maxHistoricalYear}_revenue`
-    const filingEbitdaKey = `${maxHistoricalYear}_ebitda`
-    const rawFilingRevenue = historicalInputs[filingRevenueKey]
-    const rawFilingEbitda = historicalInputs[filingEbitdaKey]
-    const updates: Partial<typeof formData> = {}
-
-    if (rawFilingRevenue !== undefined && rawFilingRevenue !== '') {
-      const parsed = parseFloat(rawFilingRevenue.replace(/,/g, ''))
-      const next = Number.isFinite(parsed) ? parsed : undefined
-      if (next !== formData.revenue) {
-        updates.revenue = next
+      // When the user has cleared all historical rows but forecast rows exist,
+      // keep the forecast rows so we don't drop them.
+      const remainingForecasts = pickForecastRowsToPreserve(existingRows)
+      const nextHistorical =
+        remainingForecasts.length > 0 ? remainingForecasts : undefined
+      if (!areMergedYearRowsEqual(nextHistorical, formData.historical_years_data)) {
+        formUpdates.historical_years_data = nextHistorical
       }
     }
-    if (rawFilingEbitda !== undefined && rawFilingEbitda !== '') {
-      const parsed = parseFloat(rawFilingEbitda.replace(/,/g, ''))
-      const next = Number.isFinite(parsed) ? parsed : undefined
-      if (next !== formData.ebitda) {
-        updates.ebitda = next
+
+    // Bidirectional sync between the filing-year row in `historicalInputs` and
+    // the canonical `formData.revenue` / `formData.ebitda` fields. We MUST run
+    // both directions inside the same effect so the reverse step uses the
+    // post-conversion value as its source of truth. Splitting them into two
+    // separate effects causes the reverse effect to read a stale `formData` from
+    // the same render and clobber a partial typing buffer (e.g. "1.") in the
+    // historical row before the conversion's `updateFormData` re-render lands.
+    const revenueKey = `${maxHistoricalYear}_revenue`
+    const ebitdaKey = `${maxHistoricalYear}_ebitda`
+
+    // Forward: historical row → formData (skips NaN partial inputs).
+    const revenueMirror = mirrorHistoricalToFormData(historicalInputs[revenueKey], formData.revenue)
+    const ebitdaMirror = mirrorHistoricalToFormData(historicalInputs[ebitdaKey], formData.ebitda)
+    if (revenueMirror.changed) formUpdates.revenue = revenueMirror.next
+    if (ebitdaMirror.changed) formUpdates.ebitda = ebitdaMirror.next
+
+    // Keep `current_year_data` aligned with the filing-year mirror so autosave /
+    // session packages and `buildValuationRequest` fallbacks cannot resurrect
+    // stale revenue or EBITDA after the user edits or clears the historical row.
+    if (formData.current_year_data && (revenueMirror.changed || ebitdaMirror.changed)) {
+      const cyd = formData.current_year_data
+      const cydFilingYear = normalizeCurrentYearForFiling(
+        cyd.year,
+        Boolean(formData.filing_year_confirmed)
+      )
+      if (cydFilingYear === maxHistoricalYear) {
+        const keys: Partial<{ revenue: number | undefined; ebitda: number | undefined }> = {}
+        if (revenueMirror.changed) keys.revenue = revenueMirror.next
+        if (ebitdaMirror.changed) keys.ebitda = ebitdaMirror.next
+        const patched = patchCurrentYearDataFromTopLevelFinancials(cyd, keys)
+        if (patched) {
+          formUpdates.current_year_data = patched as NonNullable<typeof formData.current_year_data>
+        }
       }
     }
-    if (Object.keys(updates).length > 0) {
-      updateFormData(updates)
-    }
-  }, [
-    formData.current_year_data?.year,
-    formData.filing_year_confirmed,
-    formData.revenue,
-    formData.ebitda,
-    historicalInputs,
-    updateFormData,
-  ])
 
-  // Mirror canonical formData.revenue / formData.ebitda back into the filing-year
-  // row of historicalInputs whenever the user edits the "Last Full Year Financials"
-  // section. Skipped when the values already match to avoid effect loops.
-  useEffect(() => {
-    const filingYear = normalizeCurrentYearForFiling(
-      formData.current_year_data?.year,
-      Boolean(formData.filing_year_confirmed)
+    // Reverse: formData → historical row, using the AUTHORITATIVE values that
+    // the forward step just produced. This prevents the race where the reverse
+    // step sees stale formData and overwrites the user's keystrokes.
+    const effectiveRevenue = revenueMirror.changed ? revenueMirror.next : formData.revenue
+    const effectiveEbitda = ebitdaMirror.changed ? ebitdaMirror.next : formData.ebitda
+    const nextHistRevenue = computeNextHistoricalFromFormData(
+      effectiveRevenue,
+      historicalInputs[revenueKey] ?? ''
     )
-    const revenueKey = `${filingYear}_revenue`
-    const ebitdaKey = `${filingYear}_ebitda`
+    const nextHistEbitda = computeNextHistoricalFromFormData(
+      effectiveEbitda,
+      historicalInputs[ebitdaKey] ?? ''
+    )
 
-    const desiredRevenue =
-      formData.revenue !== undefined && formData.revenue !== null ? String(formData.revenue) : ''
-    const desiredEbitda =
-      formData.ebitda !== undefined && formData.ebitda !== null ? String(formData.ebitda) : ''
-
-    const currentRevenue = historicalInputs[revenueKey] ?? ''
-    const currentEbitda = historicalInputs[ebitdaKey] ?? ''
-
-    // Compare numerically to ignore formatting differences ("1000" vs "1,000")
-    const numericEqual = (a: string, b: string) => {
-      const na = parseFloat(a.replace(/,/g, ''))
-      const nb = parseFloat(b.replace(/,/g, ''))
-      if (a === '' && b === '') return true
-      if (a === '' || b === '') return false
-      if (Number.isNaN(na) && Number.isNaN(nb)) return a === b
-      return na === nb
+    if (Object.keys(formUpdates).length > 0) {
+      updateFormData(formUpdates)
     }
-
-    const revenueDiff = !numericEqual(currentRevenue, desiredRevenue)
-    const ebitdaDiff = !numericEqual(currentEbitda, desiredEbitda)
-
-    if (revenueDiff || ebitdaDiff) {
+    if (nextHistRevenue !== null || nextHistEbitda !== null) {
       setHistoricalInputs((prev) => ({
         ...prev,
-        ...(revenueDiff ? { [revenueKey]: desiredRevenue } : {}),
-        ...(ebitdaDiff ? { [ebitdaKey]: desiredEbitda } : {}),
+        ...(nextHistRevenue !== null ? { [revenueKey]: nextHistRevenue } : {}),
+        ...(nextHistEbitda !== null ? { [ebitdaKey]: nextHistEbitda } : {}),
       }))
     }
   }, [
     formData.current_year_data?.year,
     formData.filing_year_confirmed,
+    formData.forecast_years_data,
+    formData.historical_years_data,
     formData.revenue,
     formData.ebitda,
     historicalInputs,
+    updateFormData,
   ])
 
   // Clear owner concentration fields when switching to sole-trader

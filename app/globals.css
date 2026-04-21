@@ -806,3 +806,25 @@
 .valuation-report-preview div:has(svg[class*="circle-check"]):has(h2) {
   display: none !important;
 }
+
+/* ─────────────────────────────────────────
+ * Suppress native browser spinners on number inputs globally.
+ *
+ * Why globally: Aurora's number inputs use type="text" + inputMode="decimal" and
+ * never trigger native spinners, but several legacy/native <input type="number">
+ * sites (registry preview, calculator panels, manual form renderer, filing-year
+ * prompt) still render WebKit/Firefox up/down arrows. Putting the suppression
+ * here covers those sites and any future ones without per-callsite className
+ * sprawl. Custom controls (e.g. AuroraNumberInput's optional showArrows={true})
+ * are unaffected because they don't use type="number".
+ * ───────────────────────────────────────── */
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}

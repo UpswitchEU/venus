@@ -105,7 +105,7 @@ export function FilingYearPrompt({
             value={customYear}
             onChange={(e) => setCustomYear(e.target.value)}
             aria-label={locale === 'nl' ? 'Aangepast boekjaar' : 'Custom filing year'}
-            className="h-9 w-28 rounded-lg border border-amber-500/20 bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-primary/40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="h-9 w-28 rounded-lg border border-amber-500/20 bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-primary/40"
           />
           <button
             type="submit"
