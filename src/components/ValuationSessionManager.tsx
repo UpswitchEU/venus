@@ -25,11 +25,13 @@ import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { trackPaywallShown, trackPaywallUpgradeClick } from '../lib/analytics'
+import { useAuthStore } from '../lib/auth'
 import {
 	isAccountantBillingUpgradePath,
 	isClientPremiumUpgradePath,
 	useBootstrapSafe,
 } from '../lib/bootstrap'
+import { isAccountantTierRole } from '../constants/accountantPlanMethods'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import { sessionService } from '../services/session/SessionService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
@@ -91,6 +93,11 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // WORLD CLASS: Bootstrap integration - check if bootstrap has already loaded session
     const bootstrap = useBootstrapSafe()
+    // The user role drives paywall audience selection (advisor vs BO copy/CTA).
+    // Bootstrap.identity does not carry role, so we read it from the auth store
+    // directly. The subscription keeps the modal in sync if the role flips
+    // mid-session (e.g. after a SwitchWorkspace).
+    const authUser = useAuthStore((s) => s.user) as { role?: string } | null
     const isBootstrapping = bootstrap?.isBootstrapping ?? false
     const bootstrapReportId = bootstrap?.report.reportId
     // Bootstrap is complete when isBootstrapping is false and there's no error
@@ -702,57 +709,84 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
           showTimeoutWarning,
         })}
 
-        {/* ⭐ PLAN ENFORCEMENT: Paywall Modal */}
-        {/* Show credit error from bootstrap if credits insufficient */}
-        {showCreditError && (
-          <ValuationPaywallModal
-            isOpen={true}
-            onClose={() => {
-              router.push('/') // Redirect to homepage
-            }}
-            current={bootstrapCreditStatus.credits_remaining}
-            limit={bootstrapCreditStatus.credits_limit}
-            message={
-              bootstrapCreditStatus.message ||
-              (isAccountantBillingUpgradePath(bootstrapCreditStatus.upgrade_path)
-                ? t('paywall.accountantPaidRequired')
-                : isClientPremiumUpgradePath(bootstrapCreditStatus.upgrade_path)
-                  ? t('paywall.clientPremiumRequired')
-                  : t('paywall.insufficientCredits'))
-            }
-            onUpgrade={() => {
-              const locale = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
-              trackPaywallUpgradeClick('bootstrap_credit')
-              const base = getMercuryUrl()
-              const upgradePath = isAccountantBillingUpgradePath(
-                bootstrapCreditStatus.upgrade_path,
-              )
-                ? `${base}/${locale}/advisor/settings?tab=billing`
-                : isClientPremiumUpgradePath(bootstrapCreditStatus.upgrade_path)
-                  ? `${base}/${locale}/pricing?tab=sellers`
-                  : `${base}/${locale}/pricing`
-              window.location.href = upgradePath
-            }}
-          />
-        )}
-        {/* Show paywall from session store (for other credit errors) */}
-        {!showCreditError && (
-          <ValuationPaywallModal
-            isOpen={!!paywallData}
-            onClose={() => {
-              clearPaywall()
-              router.push('/') // Redirect to homepage
-            }}
-            current={paywallData?.current || 0}
-            limit={paywallData?.limit || 1}
-            message={paywallData?.message}
-            onUpgrade={() => {
-              const loc = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
-              trackPaywallUpgradeClick('session_credit')
-              window.location.href = `${getMercuryUrl()}/${loc}/pricing`
-            }}
-          />
-        )}
+        {/* ⭐ PLAN ENFORCEMENT: Paywall Modal
+           Audience drives both the copy and the upgrade target. The advisor
+           SaaS Starter plan is the wrong path for business owners — they go
+           through the C2B2B referral loop instead (open business dashboard →
+           invite an advisor). See `.cursor/rules/plg-client-invite-loop.mdc`. */}
+        {(() => {
+          const isAdvisorAudience =
+            !!bootstrap?.isAccountantFlow ||
+            bootstrap?.identity?.type === 'accountant_for_client' ||
+            isAccountantTierRole(authUser?.role) ||
+            // The bootstrap upgrade_path explicitly mentioning advisor billing
+            // also flips us to advisor audience even when the identity record
+            // is incomplete.
+            isAccountantBillingUpgradePath(bootstrapCreditStatus?.upgrade_path)
+          const audience: 'advisor' | 'business_owner' = isAdvisorAudience
+            ? 'advisor'
+            : 'business_owner'
+
+          if (showCreditError) {
+            return (
+              <ValuationPaywallModal
+                isOpen={true}
+                audience={audience}
+                onClose={() => {
+                  router.push('/')
+                }}
+                current={bootstrapCreditStatus.credits_remaining}
+                limit={bootstrapCreditStatus.credits_limit}
+                message={
+                  bootstrapCreditStatus.message ||
+                  (isAccountantBillingUpgradePath(bootstrapCreditStatus.upgrade_path)
+                    ? t('paywall.accountantPaidRequired')
+                    : isClientPremiumUpgradePath(bootstrapCreditStatus.upgrade_path)
+                      ? t('paywall.clientPremiumRequired')
+                      : t('paywall.insufficientCredits'))
+                }
+                onUpgrade={() => {
+                  const locale = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
+                  trackPaywallUpgradeClick('bootstrap_credit')
+                  const base = getMercuryUrl()
+                  const upgradePath = isAccountantBillingUpgradePath(
+                    bootstrapCreditStatus.upgrade_path,
+                  )
+                    ? `${base}/${locale}/advisor/settings?tab=billing`
+                    : isClientPremiumUpgradePath(bootstrapCreditStatus.upgrade_path)
+                      ? `${base}/${locale}/pricing?tab=sellers`
+                      : audience === 'business_owner'
+                        ? `${base}/${locale}/business/dashboard`
+                        : `${base}/${locale}/pricing`
+                  window.location.href = upgradePath
+                }}
+              />
+            )
+          }
+
+          return (
+            <ValuationPaywallModal
+              isOpen={!!paywallData}
+              audience={audience}
+              onClose={() => {
+                clearPaywall()
+                router.push('/')
+              }}
+              current={paywallData?.current || 0}
+              limit={paywallData?.limit || 1}
+              message={paywallData?.message}
+              onUpgrade={() => {
+                const loc = pathname?.match(/^\/(en|nl)/)?.[1] || 'en'
+                trackPaywallUpgradeClick('session_credit')
+                const base = getMercuryUrl()
+                window.location.href =
+                  audience === 'business_owner'
+                    ? `${base}/${loc}/business/dashboard`
+                    : `${base}/${loc}/pricing`
+              }}
+            />
+          )
+        })()}
       </>
     )
   }

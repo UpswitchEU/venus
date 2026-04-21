@@ -6,6 +6,20 @@ import {
   getStarterAndProPlansLabel,
 } from '../constants/pricing'
 
+/**
+ * Paywall audience selects the copy + CTA label.
+ *
+ * - 'advisor'        — accountant / M&A advisor: shows the Starter/Pro SaaS
+ *                      pricing they themselves subscribe to (€1.490/year etc.).
+ * - 'business_owner' — seller / SME founder: shows the C2B2B referral copy.
+ *                      The advisor's SaaS plan is the wrong upgrade path for
+ *                      them (see `.cursor/rules/plg-client-invite-loop.mdc`
+ *                      and `.cursor/rules/plg-watermark-branding.mdc`).
+ *                      The CTA leads to their dashboard where they can invite
+ *                      an advisor.
+ */
+export type ValuationPaywallAudience = 'advisor' | 'business_owner'
+
 interface ValuationPaywallModalProps {
   isOpen: boolean
   onClose: () => void
@@ -13,6 +27,9 @@ interface ValuationPaywallModalProps {
   limit: number
   message?: string
   onUpgrade: () => void
+  /** Defaults to 'advisor' to preserve existing advisor copy on legacy
+   *  call-sites that haven't been migrated yet. */
+  audience?: ValuationPaywallAudience
 }
 
 export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
@@ -22,6 +39,7 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
   limit,
   message,
   onUpgrade,
+  audience = 'advisor',
 }) => {
   const locale = useLocale()
   const isNl = locale === 'nl'
@@ -33,6 +51,22 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
   if (!isOpen) return null
 
   const used = Math.min(current, limit)
+
+  const isBusinessOwner = audience === 'business_owner'
+
+  const defaultAdvisorCopy = isNl
+    ? `Uw gratis rapporten zijn read-only met watermerk (geen PDF-download). Starter (${starterYear}/jaar of €${starterMonth}/maand) geeft u alle 9 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (${proYear}/jaar of €${proMonth}/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.`
+    : `Your free reports are read-only with a watermark (no PDF download). Starter (${starterYear}/year or €${starterMonth}/month) gives you all 9 methods, manual control over every adjustment, and watermark-free branded reports. Pro (${proYear}/year or €${proMonth}/month) adds live sync with your accounting software so you can value your client base without manual entry.`
+
+  const defaultBusinessOwnerCopy = isNl
+    ? `U heeft uw gratis waarderingen voor dit jaar gebruikt. Open uw dashboard om uw rapport te beheren of nodig uw boekhouder of M&A-adviseur uit — zij ontgrendelen onbeperkte waarderingen en een merkversie zonder watermerk via hun abonnement. Voor u blijft het gratis.`
+    : `You've used your free valuations for this year. Open your dashboard to manage your report or invite your accountant or M&A advisor — they unlock unlimited valuations and a watermark-free branded report through their subscription. Your access stays free.`
+
+  const upgradeButtonLabel = isBusinessOwner
+    ? isNl
+      ? 'Open mijn dashboard'
+      : 'Open my dashboard'
+    : getStarterAndProPlansLabel(locale)
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -47,9 +81,14 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
               : `You've used ${used} of ${limit} free valuations`}
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            {message || (isNl
-              ? `Uw gratis rapporten zijn read-only met watermerk (geen PDF-download). Starter (${starterYear}/jaar of €${starterMonth}/maand) geeft u alle 9 methodes, manuele controle over elke aanpassing en rapporten zonder watermerk in uw huisstijl. Pro (${proYear}/jaar of €${proMonth}/maand) voegt live boekhoudsync toe zodat u uw klantenbestand zonder manuele invoer kunt waarderen.`
-              : `Your free reports are read-only with a watermark (no PDF download). Starter (${starterYear}/year or €${starterMonth}/month) gives you all 9 methods, manual control over every adjustment, and watermark-free branded reports. Pro (${proYear}/year or €${proMonth}/month) adds live sync with your accounting software so you can value your client base without manual entry.`)}
+            {/* For business owners we always prefer the audience-correct default
+                copy. Backend-supplied `message` strings (e.g. "Upgrade to
+                Starter or higher for unlimited valuations") are written for
+                the advisor SaaS plan and would mislead a seller into thinking
+                they need to subscribe to the wrong product. */}
+            {isBusinessOwner
+              ? defaultBusinessOwnerCopy
+              : message || defaultAdvisorCopy}
           </p>
         </div>
 
@@ -77,7 +116,7 @@ export const ValuationPaywallModal: React.FC<ValuationPaywallModalProps> = ({
             onClick={onUpgrade}
             className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg transition-colors"
           >
-            {getStarterAndProPlansLabel(locale)}
+            {upgradeButtonLabel}
           </button>
         </div>
       </div>

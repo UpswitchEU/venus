@@ -403,10 +403,14 @@ export function CalculatorNav({
   )
 
   const pdfPlanLocked = hasReport && !canDownloadPdf
+  // Neutral tooltip — the actual upsell copy (Starter for advisors vs. invite-
+  // your-advisor for business owners) is rendered by the audience-aware
+  // paywall modal that opens on click. Keeping the tooltip neutral avoids
+  // showing advisor SaaS pricing to sellers in a hover state.
   const pdfDownloadTooltip = pdfPlanLocked
     ? navLocale === 'nl'
-      ? 'PDF-download vanaf Starter — uw rapport is read-only met watermerk'
-      : 'PDF download from Starter — your report is read-only with a watermark'
+      ? 'Read-only met watermerk — klik voor opties om de PDF zonder watermerk te ontgrendelen'
+      : 'Read-only with watermark — click for options to unlock the watermark-free PDF'
     : null
 
   const selectedMethodLabel = t(
@@ -671,7 +675,18 @@ export function CalculatorNav({
                         <span className={valuationNavAmountClass}>
                           {formatPrice(displaySummary.askPrice)}
                         </span>
-                        <span className={valuationNavAmountClass}>
+                        <span
+                          className={cn(
+                            valuationNavAmountClass,
+                            // Below xl (1280px) the askPrice is enough — the
+                            // full range overflows on standard laptop widths,
+                            // especially when paired with the Assistant /
+                            // Normalisaties buttons on the right edge. The
+                            // dropdown trigger still surfaces the full range
+                            // on click for users who want it.
+                            'hidden xl:inline'
+                          )}
+                        >
                           {formatPrice(displaySummary.priceRange.min)}–
                           {formatPrice(displaySummary.priceRange.max)}
                         </span>
@@ -821,8 +836,8 @@ export function CalculatorNav({
                 )}
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>{t('assistant.title')}</span>
-                <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded bg-foreground/[0.06] text-[10px] font-mono text-foreground/40 ml-1">
+                <span className="hidden xl:inline">{t('assistant.title')}</span>
+                <kbd className="hidden xl:inline-flex items-center px-1.5 py-0.5 rounded bg-foreground/[0.06] text-[10px] font-mono text-foreground/40 ml-1">
                   {t('assistant.shortcut')}
                 </kbd>
                 {openTasksCount > 0 && (
@@ -860,9 +875,9 @@ export function CalculatorNav({
                   )}
                 >
                   <FileSpreadsheet className="w-4 h-4" />
-                  <span>{t('normalization.title')}</span>
+                  <span className="hidden xl:inline">{t('normalization.title')}</span>
                   {normalizationFeatureLocked && (
-                    <span className="ml-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700/90 dark:text-amber-300/90">
+                    <span className="hidden xl:inline ml-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700/90 dark:text-amber-300/90">
                       Starter+
                     </span>
                   )}

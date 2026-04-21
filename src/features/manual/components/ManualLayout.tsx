@@ -5248,9 +5248,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture || user?.picture}
           onOpenAssistant={handleOpenAssistant}
           isAssistantOpen={chatDrawerOpen}
-          onOpenNormalization={() => {
-            openUnifiedNormalizationModal()
-          }}
+          onOpenNormalization={
+            showFullAdvisorMethodNav ? () => openUnifiedNormalizationModal() : undefined
+          }
           normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
           openTasksCount={pendingNormalizationCount + pendingUpdates.length}
           isExporting={isExporting || isMethodSwitchRendering}
@@ -5281,10 +5281,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           preSelectableMethodsForNav={preSelectableMethodsForNav}
           planLockedMethodKeys={planLockedMethodKeys}
           onPlanLockedMethodAction={handlePlanLockedMethodAction}
-          normalizationFeatureLocked={ebitdaNormalizationLocked}
-          onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
-          versionControlFeatureLocked={versionControlLocked}
-          onVersionControlFeatureLocked={() => openStarterPaywall('version_history')}
+          normalizationFeatureLocked={
+            showFullAdvisorMethodNav ? ebitdaNormalizationLocked : false
+          }
+          onNormalizationFeatureLocked={
+            showFullAdvisorMethodNav ? () => openStarterPaywall('normalization') : undefined
+          }
+          versionControlFeatureLocked={
+            showFullAdvisorMethodNav ? versionControlLocked : false
+          }
+          onVersionControlFeatureLocked={
+            showFullAdvisorMethodNav ? () => openStarterPaywall('version_history') : undefined
+          }
           canDownloadPdf={canDownloadPdf}
           valuationSummary={navValuationSummary}
         />
@@ -5421,7 +5429,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         avatarUrl={user?.avatar_url || user?.avatar || user?.profile_picture || user?.picture}
         onOpenAssistant={handleOpenAssistant}
         isAssistantOpen={chatDrawerOpen}
-        onOpenNormalization={() => openUnifiedNormalizationModal()}
+        onOpenNormalization={
+          showFullAdvisorMethodNav ? () => openUnifiedNormalizationModal() : undefined
+        }
         normalizationCount={normalizationItems.filter((n) => n.status === 'accepted').length}
         openTasksCount={pendingNormalizationCount + pendingUpdates.length}
         isExporting={isExporting || isMethodSwitchRendering}
@@ -5486,10 +5496,18 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         preSelectableMethodsForNav={preSelectableMethodsForNav}
         planLockedMethodKeys={planLockedMethodKeys}
         onPlanLockedMethodAction={handlePlanLockedMethodAction}
-        normalizationFeatureLocked={ebitdaNormalizationLocked}
-        onNormalizationFeatureLocked={() => openStarterPaywall('normalization')}
-        versionControlFeatureLocked={versionControlLocked}
-        onVersionControlFeatureLocked={() => openStarterPaywall('version_history')}
+        normalizationFeatureLocked={
+          showFullAdvisorMethodNav ? ebitdaNormalizationLocked : false
+        }
+        onNormalizationFeatureLocked={
+          showFullAdvisorMethodNav ? () => openStarterPaywall('normalization') : undefined
+        }
+        versionControlFeatureLocked={
+          showFullAdvisorMethodNav ? versionControlLocked : false
+        }
+        onVersionControlFeatureLocked={
+          showFullAdvisorMethodNav ? () => openStarterPaywall('version_history') : undefined
+        }
         canDownloadPdf={canDownloadPdf}
       />
 
@@ -5828,93 +5846,152 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         showPreparerMultiple={showPreparerMultiplePanel}
         isMethodPersisting={isMethodSwitchRendering}
         firmCountryCode={user?.firm_country_code}
-        planAllowedMethodKeys={allowedMethodKeys}
-        onPlanLockedMethodClick={() => openStarterPaywall('methods')}
+        // Only inject "Starter+" plan-locked teaser rows in the OmniCalc
+        // panorama for advisor-tier viewers — those teasers exist to upsell
+        // the advisor SaaS plan. Business owners get the focused 3-method
+        // owner-founder experience without the cross-sell.
+        planAllowedMethodKeys={showFullAdvisorMethodNav ? allowedMethodKeys : null}
+        onPlanLockedMethodClick={
+          showFullAdvisorMethodNav ? () => openStarterPaywall('methods') : undefined
+        }
       />
 
-      {/* Starter paywall — methods, normalization hub, or version history (Free tier teasers) */}
-      {methodPaywallOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-popover border border-foreground/10 rounded-xl p-6 max-w-md w-full shadow-xl">
-            <div className="text-center mb-6">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-primary"
-                >
-                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-semibold text-foreground mb-2">
-                {methodPaywallReason === 'methods' &&
-                  (currentLocale === 'nl'
-                    ? 'Upgrade voor alle methodes'
-                    : 'Upgrade for all methods')}
-                {methodPaywallReason === 'normalization' &&
-                  (currentLocale === 'nl'
-                    ? 'EBITDA-normalisatie & belastinglatenties'
-                    : 'EBITDA normalization & tax latencies')}
-                {methodPaywallReason === 'version_history' &&
-                  (currentLocale === 'nl'
-                    ? 'Overschrijven, verfijnen & auditspoor'
-                    : 'Overwrite, refine & audit trail')}
-                {methodPaywallReason === 'synthesis' &&
-                  (currentLocale === 'nl' ? 'Waarderingssynthese' : 'Valuation Synthesis')}
-                {methodPaywallReason === 'pdf_download' &&
-                  (currentLocale === 'nl'
-                    ? 'PDF-download vanaf Starter'
-                    : 'PDF download from Starter')}
-              </h2>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                {methodPaywallReason === 'methods' &&
-                  (currentLocale === 'nl'
-                    ? 'Je gratis plan bevat Upswitch marktbenadering, DCF, EBITDA en gecorrigeerd NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 9 methodes, manuele controle over elke aanpassing, downloadbare rapporten zonder watermerk in uw huisstijl en live Benelux sector-multiples.'
-                    : 'Your free plan includes Upswitch market approach, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all 9 methods, manual control over every adjustment, downloadable watermark-free branded reports, and live Benelux sector multiples.')}
-                {methodPaywallReason === 'normalization' &&
-                  (currentLocale === 'nl'
-                    ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, volledige manuele controle en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'
-                    : 'The full normalization hub (incl. tax latencies) is on Starter together with branded PDFs, full manual control, and the ability to overwrite valuations with full audit trail.')}
-                {methodPaywallReason === 'version_history' &&
-                  (currentLocale === 'nl'
-                    ? 'Overschrijven & verfijnen bij wijzigende cijfers — met volledig auditspoor — vanaf Starter.'
-                    : 'Overwrite & refine as financials evolve — with full audit trail — from Starter.')}
-                {methodPaywallReason === 'synthesis' &&
-                  (currentLocale === 'nl'
+      {/* Starter paywall — methods, normalization hub, or version history (Free tier teasers).
+          The advisor SaaS Starter plan (€1.490/year) is the wrong upgrade path for
+          business owners — they should be funneled into the C2B2B referral loop
+          instead (invite an advisor → advisor pays SaaS → BO unlocks branded PDF).
+          See `.cursor/rules/plg-client-invite-loop.mdc` and
+          `.cursor/rules/plg-watermark-branding.mdc` for the audience contract. */}
+      {methodPaywallOpen &&
+        (() => {
+          const isBusinessOwnerAudience = !showFullAdvisorMethodNav
+          const businessDashboardUrl = `${getMercuryUrl()}/${currentLocale}/business/dashboard`
+          const advisorPricingUrl = `${getMercuryUrl()}/${currentLocale}/pricing`
+
+          const titleNl =
+            methodPaywallReason === 'methods'
+              ? isBusinessOwnerAudience
+                ? 'Meer methodes via uw adviseur'
+                : 'Upgrade voor alle methodes'
+              : methodPaywallReason === 'normalization'
+                ? isBusinessOwnerAudience
+                  ? 'Normalisaties via uw adviseur'
+                  : 'EBITDA-normalisatie & belastinglatenties'
+                : methodPaywallReason === 'version_history'
+                  ? isBusinessOwnerAudience
+                    ? 'Versiebeheer via uw adviseur'
+                    : 'Overschrijven, verfijnen & auditspoor'
+                  : methodPaywallReason === 'synthesis'
+                    ? isBusinessOwnerAudience
+                      ? 'Waarderingssynthese via uw adviseur'
+                      : 'Waarderingssynthese'
+                    : isBusinessOwnerAudience
+                      ? 'Krijg uw merkrapport — deel met uw adviseur'
+                      : 'PDF-download vanaf Starter'
+
+          const titleEn =
+            methodPaywallReason === 'methods'
+              ? isBusinessOwnerAudience
+                ? 'More methods via your advisor'
+                : 'Upgrade for all methods'
+              : methodPaywallReason === 'normalization'
+                ? isBusinessOwnerAudience
+                  ? 'Normalization via your advisor'
+                  : 'EBITDA normalization & tax latencies'
+                : methodPaywallReason === 'version_history'
+                  ? isBusinessOwnerAudience
+                    ? 'Version control via your advisor'
+                    : 'Overwrite, refine & audit trail'
+                  : methodPaywallReason === 'synthesis'
+                    ? isBusinessOwnerAudience
+                      ? 'Valuation synthesis via your advisor'
+                      : 'Valuation Synthesis'
+                    : isBusinessOwnerAudience
+                      ? 'Get your branded report — share with your advisor'
+                      : 'PDF download from Starter'
+
+          const bodyNl = isBusinessOwnerAudience
+            ? methodPaywallReason === 'pdf_download'
+              ? 'Uw gratis rapport blijft online beschikbaar met watermerk. Voor een merkversie zonder watermerk in PDF: nodig uw boekhouder of M&A-adviseur uit. Zij beheren het abonnement — voor u blijft alles gratis.'
+              : 'Deze functie is onderdeel van het Starter-abonnement van uw adviseur. Nodig uw boekhouder of M&A-adviseur uit zodat zij deze functies voor uw rapport kunnen ontgrendelen — voor u blijft het gebruik gratis.'
+            : methodPaywallReason === 'methods'
+              ? 'Je gratis plan bevat Upswitch marktbenadering, DCF, EBITDA en gecorrigeerd NAV (read-only, geen PDF-download). Upgrade naar Starter voor alle 9 methodes, manuele controle over elke aanpassing, downloadbare rapporten zonder watermerk in uw huisstijl en live Benelux sector-multiples.'
+              : methodPaywallReason === 'normalization'
+                ? 'De volledige normalisatiehub (incl. belastinglatenties) zit in Starter. Je krijgt ook gepersonaliseerde PDF-rapporten, volledige manuele controle en de mogelijkheid om waarderingen te overschrijven met volledig auditspoor.'
+                : methodPaywallReason === 'version_history'
+                  ? 'Overschrijven & verfijnen bij wijzigende cijfers — met volledig auditspoor — vanaf Starter.'
+                  : methodPaywallReason === 'synthesis'
                     ? 'Combineer meerdere waarderingsmethodes met een gewogen gemiddelde en verdedig uw keuze in het PDF-rapport. Upgrade naar Starter voor de volledige waarderingssynthese.'
-                    : 'Blend multiple valuation methods with weighted averages and defend your choice in the PDF report. Upgrade to Starter for the full valuation synthesis.')}
-                {methodPaywallReason === 'pdf_download' &&
-                  (currentLocale === 'nl'
-                    ? 'Uw gratis rapport is read-only met watermerk. Upgrade naar Starter voor downloadbare PDF-rapporten zonder watermerk in uw huisstijl en alle 9 methodes.'
-                    : 'Your free report is read-only with a watermark. Upgrade to Starter for downloadable watermark-free PDF reports with your branding and all 9 methods.')}
-              </p>
+                    : 'Uw gratis rapport is read-only met watermerk. Upgrade naar Starter voor downloadbare PDF-rapporten zonder watermerk in uw huisstijl en alle 9 methodes.'
+
+          const bodyEn = isBusinessOwnerAudience
+            ? methodPaywallReason === 'pdf_download'
+              ? 'Your free report stays available online with a watermark. For a branded watermark-free PDF, invite your accountant or M&A advisor. They manage the subscription — your access stays free.'
+              : 'This feature is part of your advisor’s Starter plan. Invite your accountant or M&A advisor so they can unlock these features on your report — your access stays free.'
+            : methodPaywallReason === 'methods'
+              ? 'Your free plan includes Upswitch market approach, DCF, EBITDA, and adjusted NAV (read-only, no PDF download). Upgrade to Starter for all 9 methods, manual control over every adjustment, downloadable watermark-free branded reports, and live Benelux sector multiples.'
+              : methodPaywallReason === 'normalization'
+                ? 'The full normalization hub (incl. tax latencies) is on Starter together with branded PDFs, full manual control, and the ability to overwrite valuations with full audit trail.'
+                : methodPaywallReason === 'version_history'
+                  ? 'Overwrite & refine as financials evolve — with full audit trail — from Starter.'
+                  : methodPaywallReason === 'synthesis'
+                    ? 'Blend multiple valuation methods with weighted averages and defend your choice in the PDF report. Upgrade to Starter for the full valuation synthesis.'
+                    : 'Your free report is read-only with a watermark. Upgrade to Starter for downloadable watermark-free PDF reports with your branding and all 9 methods.'
+
+          const ctaHref = isBusinessOwnerAudience ? businessDashboardUrl : advisorPricingUrl
+          const ctaLabel = isBusinessOwnerAudience
+            ? currentLocale === 'nl'
+              ? 'Open mijn dashboard'
+              : 'Open my dashboard'
+            : getStarterPlanSummary(currentLocale)
+
+          return (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-popover border border-foreground/10 rounded-xl p-6 max-w-md w-full shadow-xl">
+                <div className="text-center mb-6">
+                  <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-primary"
+                    >
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </div>
+                  <h2 className="text-lg font-semibold text-foreground mb-2">
+                    {currentLocale === 'nl' ? titleNl : titleEn}
+                  </h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    {currentLocale === 'nl' ? bodyNl : bodyEn}
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMethodPaywallOpen(false)}
+                    className="flex-1 px-4 py-2.5 bg-muted hover:bg-foreground/10 text-foreground text-sm font-medium rounded-lg transition-colors"
+                  >
+                    {currentLocale === 'nl' ? 'Sluiten' : 'Close'}
+                  </button>
+                  <a
+                    href={ctaHref}
+                    className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg transition-colors text-center"
+                  >
+                    {ctaLabel}
+                  </a>
+                </div>
+              </div>
             </div>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setMethodPaywallOpen(false)}
-                className="flex-1 px-4 py-2.5 bg-muted hover:bg-foreground/10 text-foreground text-sm font-medium rounded-lg transition-colors"
-              >
-                {currentLocale === 'nl' ? 'Sluiten' : 'Close'}
-              </button>
-              <a
-                href={`${getMercuryUrl()}/${currentLocale}/pricing`}
-                className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold rounded-lg transition-colors text-center"
-              >
-                {getStarterPlanSummary(currentLocale)}
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+          )
+        })()}
     </div>
   )
 }
