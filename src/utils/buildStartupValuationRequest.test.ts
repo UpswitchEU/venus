@@ -56,6 +56,16 @@ describe('buildStartupValuationRequest', () => {
     expect(req.country_code).toBe('NL')
   })
 
+  it('maps UK to GB for ValuationIQ country_code validation', () => {
+    const req = buildStartupValuationRequest({
+      companyName: 'Acme',
+      countryCode: 'uk',
+      startupInputs: baseStartupInputs,
+    })
+
+    expect(req.country_code).toBe('GB')
+  })
+
   it('rejects invalid founding years and substitutes a recent year', () => {
     const req = buildStartupValuationRequest({
       companyName: 'Acme',

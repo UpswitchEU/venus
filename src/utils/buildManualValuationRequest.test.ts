@@ -99,5 +99,71 @@ describe('buildManualValuationRequest', () => {
 
     expect(req.company_name).toBeTruthy()
     expect(req.country_code).toBe('BE')
+    expect((req.startup_inputs as Record<string, unknown>).country_code).toBe('BE')
+  })
+
+  it('aligns startup_inputs.country_code with KBO-prefilled form when studio store still defaults to BE', () => {
+    useManualResultsStore.setState({
+      preSelectedMethod: 'startup_valuation',
+      selectedMethod: 'startup_valuation',
+    })
+    useStartupValuationStore.getState().reset()
+    useStartupValuationStore.getState().setField('country_code', 'BE')
+
+    const req = buildManualValuationRequest({
+      ...baseFormData,
+      country_code: 'NL',
+    })
+
+    expect(req.country_code).toBe('NL')
+    expect((req.startup_inputs as Record<string, unknown>).country_code).toBe('NL')
+  })
+
+  it('falls back to the studio store country when the form identity country is still blank', () => {
+    useManualResultsStore.setState({
+      preSelectedMethod: 'startup_valuation',
+      selectedMethod: 'startup_valuation',
+    })
+    useStartupValuationStore.getState().reset()
+    useStartupValuationStore.getState().setField('country_code', 'LU')
+
+    const req = buildManualValuationRequest({
+      ...baseFormData,
+      country_code: '',
+    })
+
+    expect(req.country_code).toBe('LU')
+    expect((req.startup_inputs as Record<string, unknown>).country_code).toBe('LU')
+  })
+
+  it('threads KBO nace_code into startup_inputs (canonical ValuationIQ field)', () => {
+    useManualResultsStore.setState({
+      preSelectedMethod: 'startup_valuation',
+      selectedMethod: 'startup_valuation',
+    })
+
+    const req = buildManualValuationRequest({
+      ...baseFormData,
+      nace_code: '62.01',
+    })
+
+    expect(req.nace_code).toBe('62.01')
+    expect((req.startup_inputs as Record<string, unknown>).nace_code).toBe('62.01')
+  })
+
+  it('uses canonical_nace_code when nace_code is empty', () => {
+    useManualResultsStore.setState({
+      preSelectedMethod: 'startup_valuation',
+      selectedMethod: 'startup_valuation',
+    })
+
+    const req = buildManualValuationRequest({
+      ...baseFormData,
+      nace_code: '',
+      canonical_nace_code: '70.22',
+    } as typeof baseFormData)
+
+    expect(req.nace_code).toBe('70.22')
+    expect((req.startup_inputs as Record<string, unknown>).nace_code).toBe('70.22')
   })
 })

@@ -13,6 +13,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { StudioShell } from '@/features/startup-studio/components/StudioShell'
 import { ProfileStep } from '@/features/startup-studio/components/ProfileStep'
 import { BerkusStep } from '@/features/startup-studio/components/BerkusStep'
@@ -31,6 +32,29 @@ export function StartupStudioPage({ locale }: Props) {
   const searchParams = useSearchParams()
   const [currentStep, setCurrentStep] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // One-shot wizard reset — `?reset=1` clears the persisted Studio
+  // store before the wizard renders.  Used by:
+  //   • Partner landing pages (imec.istart, Start it @KBC) that funnel
+  //     a NEW founder into the wizard and must NOT inherit the previous
+  //     session's milestone picks.
+  //   • Founder dashboard "Start a new valuation" CTAs.
+  // Plain navigation to `/startup-valuation` keeps the persisted state
+  // intact (the "leave-and-come-back" UX is a feature).
+  const resetAppliedRef = useRef(false)
+  useEffect(() => {
+    if (resetAppliedRef.current) return
+    resetAppliedRef.current = true
+    if (searchParams?.get('reset') === '1') {
+      useStartupValuationStore.getState().reset()
+      // Strip the param so a hard refresh doesn't keep wiping inputs.
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('reset')
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+  }, [searchParams])
 
   // Capture `?partner=<slug>` once and stash it on `sessionStorage` so
   // the analytics events fired across step transitions (and downstream

@@ -15,6 +15,7 @@ import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import { buildStartupValuationRequest } from './buildStartupValuationRequest'
 import { buildValuationRequest } from './buildValuationRequest'
+import { resolveVentureCountryIso2 } from './resolveVentureCountryIso2'
 
 export function buildManualValuationRequest(
   formData: ValuationFormData,
@@ -26,17 +27,22 @@ export function buildManualValuationRequest(
     useManualResultsStore.getState().selectedMethod
 
   if (effectiveMethod === 'startup_valuation') {
-    const startupInputs = useStartupValuationStore.getState().toRequestPayload()
+    const resolvedCountry = resolveVentureCountryIso2(formData)
+    const startupInputsBase = useStartupValuationStore.getState().toRequestPayload()
+    const naceTrim =
+      formData.nace_code?.trim() || formData.canonical_nace_code?.trim() || ''
+    const startupInputs = {
+      ...startupInputsBase,
+      country_code: resolvedCountry,
+      ...(naceTrim ? { nace_code: naceTrim } : {}),
+    }
     return buildStartupValuationRequest({
       companyName: formData.company_name ?? 'Unknown Startup',
-      countryCode:
-        formData.country_code ??
-        (formData as { country?: string }).country ??
-        'BE',
+      countryCode: resolvedCountry,
       industry: formData.industry,
       businessModel: formData.business_model,
       foundingYear: formData.founding_year,
-      naceCode: formData.nace_code,
+      naceCode: naceTrim || undefined,
       naceDescription: formData.nace_description,
       businessTypeId: formData.business_type_id,
       businessType: formData.business_type,

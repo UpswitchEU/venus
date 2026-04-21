@@ -45,21 +45,49 @@ export function PreviewMetricCard({
   hint,
   status,
   statusLabel,
+  emphasis = 'default',
+  className,
 }: {
   label: string
   value: string
   hint?: string
   status?: MetricHealthStatus | null
   statusLabel?: string
+  /**
+   * Visual prominence of the card. Use `'primary'` to highlight the result of
+   * a calculation (e.g. an implied/derived value the other cards roll up to).
+   */
+  emphasis?: 'default' | 'primary'
+  className?: string
 }) {
+  const isPrimary = emphasis === 'primary'
   return (
-    <div className="rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-3 py-2.5">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/45">{label}</p>
-      <div className="mt-1 flex items-center gap-2">
-        <p className={cn(
-          'text-sm font-semibold',
-          status ? STATUS_TEXT_COLORS[status] : 'text-foreground'
-        )}>
+    <div
+      className={cn(
+        // `min-w-0` is required so long labels don't blow out CSS-grid cells.
+        // Without it, grid items default to `min-width: auto` (= content size),
+        // which causes long Dutch/German labels to overflow the card.
+        'min-w-0 rounded-xl border px-3 py-2.5',
+        isPrimary
+          ? 'border-foreground/15 bg-foreground/[0.04]'
+          : 'border-foreground/[0.08] bg-foreground/[0.02]',
+        className
+      )}
+    >
+      <p
+        className="break-words text-[10px] font-medium uppercase leading-tight tracking-wide text-foreground/45"
+        title={label}
+      >
+        {label}
+      </p>
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <p
+          className={cn(
+            'min-w-0 break-words font-semibold tabular-nums',
+            isPrimary ? 'text-base' : 'text-sm',
+            status ? STATUS_TEXT_COLORS[status] : 'text-foreground'
+          )}
+        >
           {value}
         </p>
         {status && statusLabel && (
@@ -71,7 +99,9 @@ export function PreviewMetricCard({
           </span>
         )}
       </div>
-      {hint ? <p className="mt-1 text-[10px] leading-snug text-foreground/45">{hint}</p> : null}
+      {hint ? (
+        <p className="mt-1 break-words text-[10px] leading-snug text-foreground/45">{hint}</p>
+      ) : null}
     </div>
   )
 }

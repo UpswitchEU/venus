@@ -148,6 +148,53 @@ let pendingReportId: string | null = null
 let pendingVisibilityFlushReportId: string | null = null
 let lastItemsJson = ''
 
+// ─────────────────────────────────────────
+// AUTO-RECALC SUPPRESSION
+// Programmatic mutations (version restore, session hydration, abandon-clear) must
+// NOT trigger the post-valuation auto-recalculation in ManualLayout, because that
+// would overwrite the restored/hydrated valuation result with a fresh calc.
+//
+// Callers about to perform a non-user mutation increment the suppression counter,
+// then call the mutation; the recalc subscription decrements + skips. The counter
+// is on module scope so it survives across any subscriber instance.
+// ─────────────────────────────────────────
+
+let pendingRecalcSuppressions = 0
+
+/**
+ * Suppress the next N mutations from triggering the latency auto-recalc subscription.
+ * Call this immediately BEFORE a programmatic store update (e.g. setItems from a
+ * version restore). N defaults to 1 — pass a higher value when a single restore
+ * sequence performs multiple mutations (e.g. setItems + setCandidates).
+ */
+export function suppressNextLatencyRecalc(count = 1): void {
+  pendingRecalcSuppressions += Math.max(0, count)
+}
+
+/**
+ * Internal: read-and-decrement helper used by the ManualLayout recalc subscription.
+ * Returns true when the current change should be skipped (suppression was active).
+ */
+export function consumeLatencyRecalcSuppression(): boolean {
+  if (pendingRecalcSuppressions > 0) {
+    pendingRecalcSuppressions -= 1
+    return true
+  }
+  return false
+}
+
+/**
+ * Drop any pending suppressions. Called by the recalc-subscription effect on mount
+ * so that bumps emitted BEFORE a subscriber was listening (e.g. session hydration
+ * that ran while `report` was still undefined) cannot leak into the first user
+ * edit observed by the new subscription. A pre-mount bump cannot possibly relate
+ * to a mutation that this fresh subscriber will observe — only post-mount bumps
+ * matter for it.
+ */
+export function resetLatencyRecalcSuppression(): void {
+  pendingRecalcSuppressions = 0
+}
+
 const LS_PENDING_PREFIX = '_taxlat_pending_'
 
 function saveToLocalStorage(reportId: string, items: TaxLatencyItem[]) {
@@ -212,7 +259,15 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
       updateItem: (id, partial) =>
         set(
           (state) => ({
-            items: state.items.map((i) => (i.id === id ? { ...i, ...partial } : i)),
+            // Route through normalizeTaxLatencyItem so partial updates from the UI cannot
+            // introduce invalid values (negative temporaryDifference, taxRate > 100, NaN,
+            // wrong-cased type). Falls back to the existing item if normalization rejects
+            // the merged shape (defensive — should never happen for valid id).
+            items: state.items.map((i) => {
+              if (i.id !== id) return i
+              const merged = { ...i, ...partial }
+              return normalizeTaxLatencyItem(merged) ?? i
+            }),
           }),
           false,
           'updateItem'

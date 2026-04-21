@@ -197,6 +197,7 @@ import {
   deriveDcfProjectionPreview,
 } from './sections/dcfProjectionPreview'
 import { deriveDcfSmartDefaults } from './sections/dcfSmartDefaults'
+import { FiscalReferencePreviewCard } from './sections/FiscalReferencePreviewCard'
 import { PreviewMetricCard } from './sections/previewMetricCards'
 import { deriveSaasArrProjectionPreview } from './sections/saasArrProjectionPreview'
 
@@ -4405,62 +4406,11 @@ export function AdaptiveSections({
                 </p>
               </div>
             </div>
-            <div className="rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-4 py-3">
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                  <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-foreground">
-                      {t('sections.fiscalDerivedMetrics')}
-                    </h4>
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                      {t('fields.fiscalPreviewFootnote')}
-                    </p>
-                  </div>
-                </div>
-                {fiscalPreviewUnavailableMessage && (
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    {fiscalPreviewUnavailableMessage}
-                  </p>
-                )}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <PreviewMetricCard
-                    label={t('fields.fiscalPreviewAnchor')}
-                    value={
-                      fiscalPreview.fiscalAnchor != null
-                        ? previewCurrencyFormatter.format(fiscalPreview.fiscalAnchor)
-                        : '—'
-                    }
-                  />
-                  <PreviewMetricCard
-                    label={t('fields.fiscalPreviewBookEquity')}
-                    value={
-                      fiscalPreview.bookEquityUsed != null
-                        ? previewCurrencyFormatter.format(fiscalPreview.bookEquityUsed)
-                        : '—'
-                    }
-                  />
-                  <PreviewMetricCard
-                    label={t('fields.fiscalPreviewOwnershipStake')}
-                    value={
-                      fiscalPreview.ownershipMultiplierApplied != null
-                        ? t('fields.fiscalPreviewOwnershipStakeValue', {
-                            pct: Math.round(fiscalPreview.ownershipMultiplierApplied * 100),
-                          })
-                        : '—'
-                    }
-                    hint={t('fields.fiscalPreviewOwnershipStakeHint')}
-                  />
-                  <PreviewMetricCard
-                    label={t('fields.fiscalPreviewImpliedEquity')}
-                    value={
-                      fiscalPreview.impliedFiscalEquity != null
-                        ? previewCurrencyFormatter.format(fiscalPreview.impliedFiscalEquity)
-                        : '—'
-                    }
-                  />
-                </div>
-              </div>
-            </div>
+            <FiscalReferencePreviewCard
+              fiscalPreview={fiscalPreview}
+              previewCurrencyFormatter={previewCurrencyFormatter}
+              unavailableMessage={fiscalPreviewUnavailableMessage}
+            />
           </motion.div>
         )}
         {sections.includes('dcf_projections') &&

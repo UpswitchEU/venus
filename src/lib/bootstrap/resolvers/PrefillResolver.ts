@@ -52,6 +52,27 @@ const ALL_PREFILL_FIELDS = [
   'canonical_nace_code',
 ]
 
+/**
+ * Raw KBO record shape returned by the Titan registry endpoints
+ * (`/api/v2/registry/search` and `/api/v2/registry/kbo/lookup`).
+ * Mirrors `KboCompanyEntity` in `apps/titan-api/src/integrations/registry/dto/kbo-lookup.dto.ts`.
+ */
+interface RawKboRecord {
+  kbo_number: string
+  company_name: string
+  legal_form?: string
+  status?: string
+  vat_number?: string
+  address?: string
+  postal_code?: string
+  city?: string
+  country_code?: string
+  nace_code?: string
+  nace_description?: string
+  foundation_date?: string
+  is_active?: boolean
+}
+
 interface UserProfile {
   id: string
   email?: string
@@ -115,6 +136,67 @@ function resolveCountryCode(
   return undefined
 }
 
+/**
+ * Parsed identifiers extracted from a `prefilledQuery` URL parameter.
+ *
+ * Mercury builds prefilled queries as `"{businessName} {kbo} {nace}"` (see
+ * `apps/mercury/shared/utils/buildSellerValuationPrefilledQuery.ts`), but
+ * other sources may pass less-structured strings. We detect identifiers
+ * defensively so the registry call can be a precise lookup instead of a
+ * fuzzy name search with `limit: 1`.
+ */
+export interface ParsedPrefilledQueryIdentifiers {
+  /** Belgian enterprise number, formatted with dots (e.g. `0861.786.602`). */
+  kboNumber?: string
+  /** Belgian VAT number prefixed with `BE` and no separators. */
+  vatNumber?: string
+  /** Activity / NACE code (4 or 5 digits). Best-effort. */
+  naceCode?: string
+  /** Original query with detected identifiers stripped — usable as a name search. */
+  cleanedName: string
+}
+
+/**
+ * Extract Belgian KBO/VAT and NACE identifiers from a free-form prefilled
+ * query string. Defensive against missing/extra whitespace and `BE` prefix
+ * variants. NACE extraction only runs after a KBO is found, since a 4-digit
+ * sequence in an arbitrary company name (year, postal code) would otherwise
+ * be a false positive.
+ */
+export function parsePrefilledQueryIdentifiers(
+  query: string,
+): ParsedPrefilledQueryIdentifiers {
+  const result: ParsedPrefilledQueryIdentifiers = { cleanedName: query.trim() }
+  if (!query) return result
+
+  // Match Belgian enterprise number: optional "BE" prefix, exactly 10 digits
+  // starting with 0, with optional dots/spaces/hyphens between groups.
+  const kboPattern = /\b(?:BE\s*)?0\d{3}[.\s-]?\d{3}[.\s-]?\d{3}\b/i
+  const kboMatch = result.cleanedName.match(kboPattern)
+  if (kboMatch) {
+    const digits = kboMatch[0].replace(/[^0-9]/g, '')
+    if (digits.length === 10 && digits.startsWith('0')) {
+      result.kboNumber = `${digits.slice(0, 4)}.${digits.slice(4, 7)}.${digits.slice(7, 10)}`
+      result.vatNumber = `BE${digits}`
+      result.cleanedName = result.cleanedName.replace(kboMatch[0], ' ').trim()
+    }
+  }
+
+  // Only attempt NACE extraction if we already isolated a KBO. The Mercury
+  // builder concatenates `name kbo nace`; once kbo is removed, a remaining
+  // 4–5 digit token is overwhelmingly the NACE code.
+  if (result.kboNumber) {
+    const naceMatch = result.cleanedName.match(/\b\d{4,5}\b/)
+    if (naceMatch) {
+      result.naceCode = naceMatch[0]
+      result.cleanedName = result.cleanedName.replace(naceMatch[0], ' ').trim()
+    }
+  }
+
+  result.cleanedName = result.cleanedName.replace(/\s{2,}/g, ' ').trim()
+  return result
+}
+
 export class PrefillResolver implements BootstrapResolver<PrefillData> {
   private readonly logger = console
 
@@ -159,7 +241,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       if (profileResult) sources.push('user_profile')
       if (sessionResult) sources.push('session')
 
-      // Merge with priority: Session > Profile > KBO > URL params
+      // Merge company info — see `mergeCompanyInfo` for the precedence rules.
+      // Summary: KBO (URL-driven) wins for identity fields when present;
+      // otherwise session > profile.
       const companyInfo = this.mergeCompanyInfo(
         sessionResult?.companyInfo,
         profileResult?.companyInfo,
@@ -254,12 +338,125 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
   }
 
   /**
-   * Fetch KBO registry data by company name search
+   * Fetch KBO registry data for a `prefilledQuery` URL parameter.
+   *
+   * Strategy:
+   *   1. Parse out a Belgian KBO/VAT identifier if present and call the
+   *      exact-match `kbo/lookup` endpoint. This is deterministic and
+   *      cannot return the wrong company.
+   *   2. If no identifier is parseable, fall back to the previous fuzzy
+   *      `registry/search` behavior with the cleaned company name.
    */
   private async fetchKBO(query: string, countryCode: string): Promise<{
     companyInfo?: CompanyInfo
     kboData?: KBOCompanyEntity
   } | null> {
+    const identifiers = parsePrefilledQueryIdentifiers(query)
+    const kbo =
+      identifiers.kboNumber || identifiers.vatNumber
+        ? await this.lookupKBOByIdentifier(identifiers, countryCode)
+        : await this.searchKBOByName(identifiers.cleanedName || query, countryCode)
+
+    if (!kbo) return null
+
+    const kboData: KBOCompanyEntity = {
+      kboNumber: kbo.kbo_number,
+      companyName: kbo.company_name,
+      legalForm: kbo.legal_form,
+      status: kbo.status,
+      vatNumber: kbo.vat_number,
+      address: kbo.address,
+      postalCode: kbo.postal_code,
+      city: kbo.city,
+      countryCode: resolveCountryCode(kbo.country_code, countryCode) || 'BE',
+      naceCode: kbo.nace_code,
+      naceDescription: kbo.nace_description,
+      foundationDate: kbo.foundation_date,
+      isActive: kbo.is_active,
+    }
+
+    const companyInfo: CompanyInfo = {
+      companyName: kbo.company_name,
+      kboNumber: kbo.kbo_number,
+      vatNumber: kbo.vat_number,
+      legalForm: kbo.legal_form,
+      address: kbo.address,
+      postalCode: kbo.postal_code,
+      city: kbo.city,
+      countryCode: resolveCountryCode(kbo.country_code, countryCode) || 'BE',
+      naceCode: kbo.nace_code,
+      naceDescription: kbo.nace_description,
+      foundingYear: kbo.foundation_date ? new Date(kbo.foundation_date).getFullYear() : undefined,
+      isActive: kbo.is_active,
+    }
+
+    this.logger.info('[PrefillResolver] KBO data fetched', {
+      companyName: truncateForLog(kbo.company_name, 20),
+      kboNumber: kbo.kbo_number,
+    })
+
+    return { companyInfo, kboData }
+  }
+
+  /**
+   * Exact-match registry lookup using a parsed KBO/VAT identifier.
+   *
+   * The lookup endpoint accepts `kbo_number`, `vat_number`, or `company_name`
+   * and returns a single canonical record — eliminating the ambiguity of a
+   * fuzzy name search with `limit: 1` when the URL has already given us a
+   * unique identifier.
+   */
+  private async lookupKBOByIdentifier(
+    identifiers: ParsedPrefilledQueryIdentifiers,
+    countryCode: string,
+  ): Promise<RawKboRecord | null> {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 6000)
+      const body: Record<string, string> = {}
+      if (identifiers.kboNumber) body.kbo_number = identifiers.kboNumber
+      if (identifiers.vatNumber) body.vat_number = identifiers.vatNumber
+      if (identifiers.cleanedName) body.company_name = identifiers.cleanedName
+
+      const response = await fetch(`${API_URL}/api/v2/registry/kbo/lookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        // 404 is expected when the identifier doesn't resolve in the registry
+        // — fall back to a name search so we still get a best-effort match.
+        if (response.status === 404 && identifiers.cleanedName) {
+          return this.searchKBOByName(identifiers.cleanedName, countryCode)
+        }
+        this.logger.warn('[PrefillResolver] KBO lookup failed', {
+          status: response.status,
+        })
+        return null
+      }
+
+      const data = await response.json()
+      const record = (data?.data || null) as RawKboRecord | null
+      return record
+    } catch (error) {
+      this.logger.error('[PrefillResolver] KBO lookup error:', error)
+      return null
+    }
+  }
+
+  /**
+   * Fuzzy registry search by company name. Used as a fallback when no
+   * structured identifier is present in the prefilled query.
+   */
+  private async searchKBOByName(
+    name: string,
+    countryCode: string,
+  ): Promise<RawKboRecord | null> {
+    if (!name || name.trim().length < 2) return null
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 6000)
@@ -268,7 +465,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          company_name: query,
+          company_name: name.trim(),
           country_code: countryCode,
           limit: 1,
         }),
@@ -284,53 +481,10 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       }
 
       const data = await response.json()
-      const results = data.results || []
-
-      if (results.length === 0) {
-        return null
-      }
-
-      const kbo = results[0]
-
-      const kboData: KBOCompanyEntity = {
-        kboNumber: kbo.kbo_number,
-        companyName: kbo.company_name,
-        legalForm: kbo.legal_form,
-        status: kbo.status,
-        vatNumber: kbo.vat_number,
-        address: kbo.address,
-        postalCode: kbo.postal_code,
-        city: kbo.city,
-        countryCode: resolveCountryCode(kbo.country_code, countryCode) || 'BE',
-        naceCode: kbo.nace_code,
-        naceDescription: kbo.nace_description,
-        foundationDate: kbo.foundation_date,
-        isActive: kbo.is_active,
-      }
-
-      const companyInfo: CompanyInfo = {
-        companyName: kbo.company_name,
-        kboNumber: kbo.kbo_number,
-        vatNumber: kbo.vat_number,
-        legalForm: kbo.legal_form,
-        address: kbo.address,
-        postalCode: kbo.postal_code,
-        city: kbo.city,
-        countryCode: resolveCountryCode(kbo.country_code, countryCode) || 'BE',
-        naceCode: kbo.nace_code,
-        naceDescription: kbo.nace_description,
-        foundingYear: kbo.foundation_date ? new Date(kbo.foundation_date).getFullYear() : undefined,
-        isActive: kbo.is_active,
-      }
-
-      this.logger.info('[PrefillResolver] KBO data fetched', {
-        companyName: truncateForLog(kbo.company_name, 20),
-        kboNumber: kbo.kbo_number,
-      })
-
-      return { companyInfo, kboData }
+      const results = (data?.results || []) as RawKboRecord[]
+      return results[0] || null
     } catch (error) {
-      this.logger.error('[PrefillResolver] KBO fetch error:', error)
+      this.logger.error('[PrefillResolver] KBO search error:', error)
       return null
     }
   }
@@ -589,7 +743,24 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
   }
 
   /**
-   * Merge company info with priority
+   * Merge company info from session, user profile, and KBO sources.
+   *
+   * **Precedence rules:**
+   *
+   * - When KBO data is present, it came from an explicit URL `prefilledQuery`
+   *   (the user navigated here to value *that specific company*). KBO must
+   *   beat the signed-in user's business card for the **company identity**
+   *   fields (name, KBO/VAT, legal form, address, NACE, founding year).
+   *   Otherwise an owner-operator who is also valuing an external target
+   *   (e.g. orphaned-seller flow on Mercury) sees their own company's
+   *   identity overwrite the URL-driven one. See incident: bakery owner
+   *   valuing a restaurant via the dashboard CTA.
+   *
+   * - For non-identity fields KBO doesn't carry (e.g. `industry`), the
+   *   normal session > profile fallback still applies via the spread.
+   *
+   * - When KBO is absent, fall back to the prior behavior:
+   *   session > profile (later sources win in `mergeWithPriority`).
    */
   private mergeCompanyInfo(
     session?: CompanyInfo,
@@ -600,7 +771,14 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       return undefined
     }
 
-    return mergeWithPriority(kbo, profile, session) as CompanyInfo
+    if (!kbo) {
+      return mergeWithPriority(profile, session) as CompanyInfo
+    }
+
+    // KBO present: identity fields are authoritative. Order: profile, session,
+    // kbo so that kbo wins for any field it provides while session/profile
+    // still fill gaps (e.g. an `industry` value not present on the KBO record).
+    return mergeWithPriority(profile, session, kbo) as CompanyInfo
   }
 
   /**

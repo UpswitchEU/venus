@@ -15,7 +15,7 @@
  * we never have to listen for back-pressure here.
  */
 
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import { AuroraSelect } from '@/design-system/components/Select'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
@@ -69,13 +69,39 @@ export function ProfileStep({ locale = 'en' }: ProfileStepProps) {
   const companyName = useManualFormStore((s) => s.formData.company_name ?? '')
   const updateFormData = useManualFormStore((s) => s.updateFormData)
 
-  // Mirror the country into the form store on every change so that the
-  // downstream report page has both identity fields when the calculation
-  // fires. We deliberately *don't* mirror sector — it lives on the
-  // Studio store and is read by `buildStartupValuationRequest` directly.
+  // Country bridge — only mirror when the founder actively changes the
+  // country inside the Studio.  A `useEffect` that mirrors on every
+  // render would silently clobber a country the user previously set in
+  // a different surface (SME flow, Mercury KBO prefill) the moment they
+  // open the Studio because the Studio store always defaults to ``BE``.
+  // Triggering only inside the onChange handler keeps the bridge
+  // intent-revealing and side-effect free.
+  const handleCountryChange = useCallback(
+    (next: string) => {
+      const code = String(next)
+      setField('country_code', code)
+      updateFormData({ country_code: code })
+    },
+    [setField, updateFormData],
+  )
+
+  // Mercury KBO calculator → Studio handoff: when a founder lands here
+  // via `?prefilledQuery=Acme%20Robotics`, seed the company-name field
+  // exactly once.  Only prefill when the field is empty so we never
+  // clobber a name the founder already typed (or one that was prefilled
+  // by a previous KBO lookup and persisted in the form store).
+  const prefilledRef = useRef(false)
   useEffect(() => {
-    updateFormData({ country_code: country })
-  }, [country, updateFormData])
+    if (prefilledRef.current) return
+    if (typeof window === 'undefined') return
+    prefilledRef.current = true
+    const params = new URLSearchParams(window.location.search)
+    const query = params.get('prefilledQuery')?.trim()
+    if (!query) return
+    const current = useManualFormStore.getState().formData.company_name?.trim() ?? ''
+    if (current) return
+    updateFormData({ company_name: query.slice(0, 120) })
+  }, [updateFormData])
 
   return (
     <div className="space-y-6">
@@ -144,7 +170,7 @@ export function ProfileStep({ locale = 'en' }: ProfileStepProps) {
             <AuroraSelect
               options={COUNTRY_OPTIONS.map((o) => ({ value: o.value, label: o.label[locale] }))}
               value={country}
-              onChange={(value) => setField('country_code', String(value))}
+              onChange={(value) => handleCountryChange(String(value))}
             />
           </div>
         </div>

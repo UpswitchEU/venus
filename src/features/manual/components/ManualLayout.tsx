@@ -126,7 +126,13 @@ import {
   spotlightDomId,
   useSpotlightStore,
 } from '../../../store/useSpotlightStore'
-import { enableTaxLatencyAutoPersist, useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
+import {
+  consumeLatencyRecalcSuppression,
+  enableTaxLatencyAutoPersist,
+  resetLatencyRecalcSuppression,
+  suppressNextLatencyRecalc,
+  useTaxLatencyStore,
+} from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
 import {
@@ -146,6 +152,7 @@ import type {
 import { attachSynthesisWeightsToValuationRequest } from '../../../utils/attachSynthesisWeightsToValuationRequest'
 import { buildManualValuationRequest } from '../../../utils/buildManualValuationRequest'
 import { buildValuationRequest } from '../../../utils/buildValuationRequest'
+import { coerceIso2OrNull } from '../../../utils/coerceIso2Country'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
@@ -439,7 +446,7 @@ function mapClarityFormToVenusStore(raw: any): Partial<VenusFormData> {
 
   return {
     company_name: data.companyName || '',
-    country_code: (data.country || 'BE').toUpperCase().substring(0, 2),
+    country_code: coerceIso2OrNull(data.country) ?? 'BE',
     industry: data.industry || 'services',
     ...(resolvedBusinessModel ? { business_model: resolvedBusinessModel } : {}),
     founding_year: parseInt(data.yearFounded, 10) || getCurrentFilingYear() - 5,
@@ -1922,11 +1929,13 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     return unsub
   }, [reportId, resolvedReportId])
 
-  // Enable auto-persist for tax latency store
+  // Enable auto-persist for tax latency store (use resolvedReportId for session key consistency,
+  // matching normalization auto-persist above — otherwise normalisations and latencies can save
+  // under different session keys and partially desync on restore).
   useEffect(() => {
-    const unsub = enableTaxLatencyAutoPersist(() => reportId || undefined)
+    const unsub = enableTaxLatencyAutoPersist(() => resolvedReportId || reportId || undefined)
     return unsub
-  }, [reportId])
+  }, [reportId, resolvedReportId])
 
   // ─── Keyboard Shortcuts ───
   useEffect(() => {
@@ -2680,16 +2689,27 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // ─── Manual Form Submit Handler (REAL - wired to Venus services) ───
   const handleManualSubmit = useCallback(
     async (data: any) => {
-      // Validation
+      // Validation — companyName is universally required (it shows up
+      // on every report). The SME-only checks (businessType + a
+      // complete historical year) are bypassed for the venture path
+      // because the startup engine derives value from milestones,
+      // SAFE/cap-table data and forward-looking traction — never from
+      // historical accounts. Without this exemption, founders coming
+      // out of Studio v2 cannot trigger a calculation at all.
+      const effectiveMethod =
+        useManualResultsStore.getState().preSelectedMethod ??
+        useManualResultsStore.getState().selectedMethod
+      const isStartupRoute = effectiveMethod === 'startup_valuation'
+
       if (!data.companyName?.trim()) {
         toast.error(t('companyNameMissing'), { description: t('companyNameMissingDesc') })
         return
       }
-      if (!data.businessType?.trim()) {
+      if (!isStartupRoute && !data.businessType?.trim()) {
         toast.error(t('businessTypeMissing'), { description: t('businessTypeMissingDesc') })
         return
       }
-      if (!getLatestCompleteYearlyFinancial(data.yearlyFinancials || [])) {
+      if (!isStartupRoute && !getLatestCompleteYearlyFinancial(data.yearlyFinancials || [])) {
         toast.error(t('financialDataIncomplete'), { description: t('financialDataIncompleteDesc') })
         return
       }
@@ -4003,6 +4023,9 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       useManualResultsStore.getState().clearResults()
       useManualResultsStore.getState().setCalculating(false)
       useNormalizationStore.getState().clear()
+      // Programmatic clear during abandon — must not trigger the latency auto-recalc
+      // subscription (would attempt a recalc against a stale/cleared form).
+      suppressNextLatencyRecalc()
       useTaxLatencyStore.getState().clear()
       useNbbPrefillStore.getState().clear()
       if (reportId) useVersionHistoryStore.getState().clearVersions(reportId)
@@ -4540,6 +4563,76 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     ]
   )
 
+  // ─── Auto-recalculate when tax latencies change (post-valuation review) ───
+  // TaxLatencySection mutates useTaxLatencyStore directly (no callback prop).
+  // Without this subscription, latency-only edits would update the UI but leave the
+  // cached valuation result (and PDF/equity bridge) stale until the user touched a
+  // normalization row or pressed Calculate again. Mirrors the normalization auto-recalc
+  // path; buildManualValuationRequest reads tax latencies from the store directly.
+  //
+  // The subscription effect intentionally does NOT depend on
+  // `recalculateWithNormalizations` (which is a useCallback with ~17 deps that
+  // change on every form-field edit). Re-creating the subscription on every
+  // keystroke would tear down the pending debounce timer and cause user latency
+  // edits to be silently dropped if any other form field changes within 400 ms.
+  // Instead we keep the latest callback in a ref and read it inside the timer.
+  const recalculateWithNormalizationsRef = useRef(recalculateWithNormalizations)
+  useEffect(() => {
+    recalculateWithNormalizationsRef.current = recalculateWithNormalizations
+  }, [recalculateWithNormalizations])
+  useEffect(() => {
+    if (!report) return
+    // Drop any suppression bumps emitted BEFORE this subscriber was listening.
+    // Those bumps were paired with mutations this subscription never observed
+    // (e.g. session hydration that ran while `report` was still undefined). If we
+    // kept them around, the first real user edit would be silently swallowed.
+    resetLatencyRecalcSuppression()
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    let lastSignature = JSON.stringify(useTaxLatencyStore.getState().items)
+
+    const signatureFor = (items: ReturnType<typeof useTaxLatencyStore.getState>['items']) =>
+      JSON.stringify(
+        items
+          .map((item) => ({
+            id: item.id,
+            type: item.type,
+            temporaryDifference: item.temporaryDifference,
+            taxRate: item.taxRate,
+          }))
+          .sort((a, b) => a.id.localeCompare(b.id))
+      )
+
+    const unsub = useTaxLatencyStore.subscribe((state) => {
+      const signature = signatureFor(state.items)
+      const changed = signature !== lastSignature
+      // Update baseline unconditionally so a no-op programmatic set() (e.g. clear()
+      // when items are already empty, or version-restore to the same snapshot)
+      // doesn't leave us comparing against a stale signature next tick.
+      lastSignature = signature
+
+      // Always consume any pending programmatic-mutation suppression FIRST, even
+      // when the signature didn't actually change. Otherwise a no-op programmatic
+      // set() would fire the subscription, return early on the equality check, and
+      // leave the counter incremented — silently swallowing the user's next real
+      // edit.
+      if (consumeLatencyRecalcSuppression()) return
+
+      if (!changed) return
+
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        // Pass current normalizations from store; buildManualValuationRequest also
+        // re-reads tax latencies from useTaxLatencyStore directly.
+        void recalculateWithNormalizationsRef.current(useNormalizationStore.getState().items)
+      }, 400)
+    })
+
+    return () => {
+      unsub()
+      if (debounceTimer) clearTimeout(debounceTimer)
+    }
+  }, [report])
+
   const handleAcceptNormalisation = useCallback(
     async (id: string) => {
       trackAINormalizationAccept()
@@ -4720,7 +4813,12 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           }
         }
 
-        // 5. Restore tax latencies from version snapshot
+        // 5. Restore tax latencies from version snapshot. The valuation result was
+        // already restored in step 3 via setResult(version.valuationResult); we must
+        // suppress the latency-change auto-recalc so it does NOT overwrite that
+        // restored result with a fresh calculation. Candidates are not part of the
+        // recalc signature (only items are), so they don't need suppression.
+        suppressNextLatencyRecalc()
         if (
           version.tax_latency_data &&
           Array.isArray(version.tax_latency_data) &&

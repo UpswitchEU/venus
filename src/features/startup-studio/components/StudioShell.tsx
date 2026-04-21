@@ -188,7 +188,9 @@ export function StudioShell({
               <div className="flex flex-col items-end gap-2">
                 {blocker && (
                   <p
+                    id="studio-shell-blocker"
                     role="status"
+                    aria-live="polite"
                     className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400"
                   >
                     <AlertCircle className="h-3.5 w-3.5" aria-hidden />
@@ -202,6 +204,7 @@ export function StudioShell({
                   loading={isCompleting && isLast}
                   disabled={blocker != null || (isCompleting && isLast)}
                   aria-disabled={blocker != null}
+                  aria-describedby={blocker ? 'studio-shell-blocker' : undefined}
                 >
                   {isLast
                     ? locale === 'nl'

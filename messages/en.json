@@ -1765,6 +1765,7 @@
 				"fiscalPreviewOwnershipStake": "Equity stake valued",
 				"fiscalPreviewOwnershipStakeValue": "{pct}%",
 				"fiscalPreviewOwnershipStakeHint": "Matches omni: (book + anchor) × (shares for sale ÷ 100). Manual flow keeps 100% stake unless the product exposes partial stakes later.",
+				"fiscalPreviewFormulaA11y": "Formula: fiscal anchor plus book equity equals implied reference equity.",
 				"fiscalPreviewUnavailableNonBe": "Fiscal reference applies to Belgian companies (company country).",
 				"fiscalPreviewUnavailableEbitda": "Positive EBITDA is required for the 4× anchor.",
 				"fiscalPreviewUnavailableMissingEbitda": "Add a complete historical year with EBITDA to preview the fiscal anchor.",
@@ -2506,7 +2507,12 @@
 		"editItem": "Edit",
 		"cancelEdit": "Cancel",
 		"itemCount": "{count, plural, one {# item} other {# items}}",
-		"summary": "{count, plural, one {# latency} other {# latencies}}"
+		"summary": "{count, plural, one {# latency} other {# latencies}}",
+		"navDefaultBadge": "NAV",
+		"navDefaultTooltip": "Default {rate}% pulled from the NAV-schedule tax latency setting. Override per row if needed.",
+		"navConflictTitle": "Possible double-count with the NAV schedule",
+		"navConflictBodyPrefix": "The NAV schedule already applies {rate}% latent tax to positive revaluations. The following ledger-bound latencies may deduct the same latent tax again: ",
+		"navConflictBodySuffix": ". Pick one channel (NAV % or itemised) to avoid double-counting."
 	},
 	"csvUpload": {
 		"title": "Upload Ledger Export",

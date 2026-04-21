@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PrefillResolver } from './PrefillResolver'
+import { parsePrefilledQueryIdentifiers, PrefillResolver } from './PrefillResolver'
 
 describe('PrefillResolver session fallback years', () => {
   afterEach(() => {
@@ -22,5 +22,114 @@ describe('PrefillResolver session fallback years', () => {
     expect(result.financials?.yearData).toEqual({
       2024: { revenue: 1_000_000, ebitda: 120_000 },
     })
+  })
+})
+
+describe('parsePrefilledQueryIdentifiers', () => {
+  it('extracts a Belgian KBO with BE prefix and dot separators', () => {
+    const result = parsePrefilledQueryIdentifiers('RESTAURANT AB BE0861.786.602 47110')
+    expect(result.kboNumber).toBe('0861.786.602')
+    expect(result.vatNumber).toBe('BE0861786602')
+    expect(result.naceCode).toBe('47110')
+    expect(result.cleanedName).toBe('RESTAURANT AB')
+  })
+
+  it('extracts a KBO without dots and without BE prefix', () => {
+    const result = parsePrefilledQueryIdentifiers('Northwind BV 0861786602')
+    expect(result.kboNumber).toBe('0861.786.602')
+    expect(result.vatNumber).toBe('BE0861786602')
+    expect(result.naceCode).toBeUndefined()
+    expect(result.cleanedName).toBe('Northwind BV')
+  })
+
+  it('does not extract NACE when no KBO is present (avoids name false positives)', () => {
+    // 4-digit token in a name without a KBO is more likely a year/postal code
+    // than a NACE code. Skip the heuristic to avoid corrupting the search query.
+    const result = parsePrefilledQueryIdentifiers('Cafe 2002')
+    expect(result.kboNumber).toBeUndefined()
+    expect(result.naceCode).toBeUndefined()
+    expect(result.cleanedName).toBe('Cafe 2002')
+  })
+
+  it('rejects 9-digit and 11-digit numbers that are not valid KBOs', () => {
+    expect(parsePrefilledQueryIdentifiers('Foo 086178660').kboNumber).toBeUndefined()
+    expect(parsePrefilledQueryIdentifiers('Foo 08617866020').kboNumber).toBeUndefined()
+  })
+
+  it('returns the raw query when no identifier is present', () => {
+    const result = parsePrefilledQueryIdentifiers('Le Bistro')
+    expect(result.kboNumber).toBeUndefined()
+    expect(result.vatNumber).toBeUndefined()
+    expect(result.cleanedName).toBe('Le Bistro')
+  })
+
+  it('handles empty input safely', () => {
+    const result = parsePrefilledQueryIdentifiers('')
+    expect(result).toEqual({ cleanedName: '' })
+  })
+})
+
+describe('PrefillResolver.mergeCompanyInfo precedence', () => {
+  const resolver = new PrefillResolver()
+  const merge = (resolver as any).mergeCompanyInfo.bind(resolver)
+
+  it('lets KBO override the user business card for company identity (orphaned-seller bug)', () => {
+    // Reproduces the production bug: a Bakkerij Van Damme owner valuing
+    // RESTAURANT AB via the dashboard "Vul uw cijfers in" CTA. The URL
+    // prefilledQuery is the explicit signal of which company they're
+    // valuing — the signed-in user's business card must not overwrite it.
+    const profile = {
+      companyName: 'BAKKERIJ VAN DAMME',
+      kboNumber: '0123.456.789',
+      naceCode: '10710',
+      city: 'Brugge',
+    }
+    const kbo = {
+      companyName: 'RESTAURANT AB',
+      kboNumber: '0861.786.602',
+      vatNumber: 'BE0861786602',
+      naceCode: '47110',
+      city: 'Gent',
+      legalForm: 'BV',
+    }
+
+    const merged = merge(undefined, profile, kbo)
+
+    expect(merged.companyName).toBe('RESTAURANT AB')
+    expect(merged.kboNumber).toBe('0861.786.602')
+    expect(merged.vatNumber).toBe('BE0861786602')
+    expect(merged.naceCode).toBe('47110')
+    expect(merged.city).toBe('Gent')
+    expect(merged.legalForm).toBe('BV')
+  })
+
+  it('falls back to profile fields not provided by KBO', () => {
+    const profile = {
+      companyName: 'BAKKERIJ VAN DAMME',
+      industry: 'food-and-beverage',
+    } as any
+    const kbo = {
+      companyName: 'RESTAURANT AB',
+      kboNumber: '0861.786.602',
+    }
+
+    const merged = merge(undefined, profile, kbo)
+
+    expect(merged.companyName).toBe('RESTAURANT AB')
+    expect(merged.industry).toBe('food-and-beverage')
+  })
+
+  it('keeps prior session>profile precedence when no KBO is present', () => {
+    const profile = { companyName: 'Profile Co', city: 'Brussels' }
+    const session = { companyName: 'Session Co' }
+
+    const merged = merge(session, profile, undefined)
+
+    expect(merged.companyName).toBe('Session Co')
+    expect(merged.city).toBe('Brussels')
+  })
+
+  it('returns undefined when all sources are absent', () => {
+    expect(merge(undefined, undefined, undefined)).toBeUndefined()
   })
 })

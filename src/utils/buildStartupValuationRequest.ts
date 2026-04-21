@@ -14,6 +14,7 @@
  * @module utils/buildStartupValuationRequest
  */
 
+import { coerceIso2OrNull } from './coerceIso2Country'
 import { getMercuryUrl } from './getMercuryUrl'
 import type { ValuationRequest } from '../types/valuation'
 
@@ -76,7 +77,7 @@ export function buildStartupValuationRequest({
   locale,
 }: BuildStartupValuationRequestOptions): ValuationRequest {
   const cleanCompanyName = (companyName || 'Unknown Startup').trim() || 'Unknown Startup'
-  const cleanCountry = ((countryCode || 'BE').trim() || 'BE').toUpperCase().substring(0, 2)
+  const cleanCountry = coerceIso2OrNull(countryCode) ?? 'BE'
   const cleanFoundingYear = (() => {
     const year = Number(foundingYear)
     if (!Number.isFinite(year) || year < 1900 || year > 2100) {

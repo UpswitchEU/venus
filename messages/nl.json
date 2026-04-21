@@ -1765,6 +1765,7 @@
 				"fiscalPreviewOwnershipStake": "Gewaardeerd aandelenbelang",
 				"fiscalPreviewOwnershipStakeValue": "{pct}%",
 				"fiscalPreviewOwnershipStakeHint": "Zelfde logica als omni: (boek + anker) × (te waarderen aandelen ÷ 100). De handmatige flow staat standaard op 100% tenzij later een ander belang wordt ingevoerd.",
+				"fiscalPreviewFormulaA11y": "Formule: fiscaal anker plus boekhoudkundig eigen vermogen is gelijk aan impliciete referentie-EV.",
 				"fiscalPreviewUnavailableNonBe": "Fiscale referentie geldt voor Belgische vennootschappen (land vennootschap).",
 				"fiscalPreviewUnavailableEbitda": "Positieve EBITDA is vereist voor het 4×-anker.",
 				"fiscalPreviewUnavailableMissingEbitda": "Vul een volledig historisch jaar met EBITDA in om het fiscale anker te tonen.",
@@ -2506,7 +2507,12 @@
 		"editItem": "Bewerken",
 		"cancelEdit": "Annuleren",
 		"itemCount": "{count, plural, one {# item} other {# items}}",
-		"summary": "{count, plural, one {# latentie} other {# latenties}}"
+		"summary": "{count, plural, one {# latentie} other {# latenties}}",
+		"navDefaultBadge": "NAV",
+		"navDefaultTooltip": "Standaard {rate}% overgenomen uit het NAV-schema. Per regel aanpasbaar indien nodig.",
+		"navConflictTitle": "Mogelijke dubbeltelling met NAV-schema",
+		"navConflictBodyPrefix": "Het NAV-schema past al {rate}% belastinglatentie toe op positieve herwaarderingen. De volgende ledger-gebonden latenties kunnen dezelfde latente belasting nogmaals aftrekken: ",
+		"navConflictBodySuffix": ". Kies één kanaal (NAV-% of itemized) om dubbeltelling te vermijden."
 	},
 	"csvUpload": {
 		"title": "Grootboekexport Uploaden",

@@ -21,6 +21,7 @@ export {
   PreviewMetricCard,
   roundPreviewMetric,
 } from './previewMetricCards'
+export { FiscalReferencePreviewCard } from './FiscalReferencePreviewCard'
 export { MethodPreviewAuditDevPanel } from './MethodPreviewAuditDevPanel'
 export { NavAssetScheduleSection } from './NavAssetScheduleSection'
 export { RealEstateCarveOutSection } from './RealEstateCarveOutSection'

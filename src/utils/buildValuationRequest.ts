@@ -14,6 +14,7 @@ import { calculateLatencyAmount, useTaxLatencyStore } from '../store/useTaxLaten
 import type { DataResponse } from '../types/data-collection'
 import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
+import { coerceIso2OrNull } from './coerceIso2Country'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import {
   getCurrentFilingYear,
@@ -180,7 +181,7 @@ export function buildValuationRequest(
     formData.country_code?.trim() ||
     (formData as { country?: string }).country?.trim() ||
     ''
-  const countryCode = (countryRaw || 'BE').toUpperCase().substring(0, 2)
+  const countryCode = coerceIso2OrNull(countryRaw) ?? 'BE'
 
   // Normalize industry and business model
   // Priority: formData.industry > business_type metadata > default

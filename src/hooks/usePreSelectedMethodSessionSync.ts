@@ -5,13 +5,14 @@
  *
  * - **SSR**: Client-only hook; calculator shell uses `dynamic(..., { ssr: false })`. `selected_method`
  *   must come from server `searchParams` → `urlParams` (no `useSearchParams` here).
- * - **Order**: URL seed runs only after `restorationComplete`; persisted session keys win over `?selected_method=`.
+ * - **Order**: URL seed runs in `useLayoutEffect` (after `restorationComplete`) so it wins over
+ *   child `useEffect` hooks (e.g. Studio auto-calculate); persisted session keys still win over `?selected_method=`.
  * - **Persist**: Debounced flush reads `getState()` so the last toggle wins.
  *
  * @module hooks/usePreSelectedMethodSessionSync
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { shallow } from 'zustand/shallow'
 import {
   SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
@@ -121,8 +122,17 @@ export function usePreSelectedMethodSessionSync({
     reportId,
   ])
 
-  // URL seed: reset per report, then apply at most once when conditions hold
-  useEffect(() => {
+  // URL seed: reset per report, then apply at most once when conditions hold.
+  //
+  // **useLayoutEffect** (not useEffect): Mercury / Studio deep-links ship
+  // `?selected_method=startup_valuation` so the report shell swaps to the
+  // venture panel.  That swap must happen *before* child passive effects
+  // (e.g. Studio v2 auto-calculate) run — otherwise a descendant effect
+  // could theoretically fire in the same flush while the store still reads
+  // `upswitch_adaptive`.  Layout effects run synchronously after DOM
+  // mutations and before `useEffect`, guaranteeing the method is seeded
+  // before any `useEffect` in descendants.
+  useLayoutEffect(() => {
     if (lastReportKeyRef.current !== reportKey) {
       lastReportKeyRef.current = reportKey ?? null
       urlSeedDoneRef.current = false

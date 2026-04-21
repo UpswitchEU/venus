@@ -294,6 +294,34 @@ export function TaxLatencySection({
   const locale = useLocale()
   const currencyLocale = locale === 'en' ? 'en-BE' : 'nl-BE'
   const countryCode = useManualFormStore((s) => s.formData.country_code)
+  // Pull the user-chosen NAV-schedule tax rate so newly added latency rows default to
+  // the same percentage as the asset-based NAV bridge (e.g. 0% for participation
+  // exemption, custom rate for non-BE jurisdictions). Without this, new rows always
+  // defaulted to 25% even when the user explicitly set NAV % to something else.
+  const navTaxLatencyPct = useManualFormStore(
+    (s) => (s.formData as { nav_tax_latency_pct?: number }).nav_tax_latency_pct
+  )
+  const effectiveDefaultRate =
+    typeof navTaxLatencyPct === 'number' && Number.isFinite(navTaxLatencyPct)
+      ? Math.min(100, Math.max(0, navTaxLatencyPct))
+      : defaultTaxRate
+  const defaultRateSource: 'navSchedule' | 'fallback' =
+    typeof navTaxLatencyPct === 'number' && Number.isFinite(navTaxLatencyPct)
+      ? 'navSchedule'
+      : 'fallback'
+
+  // Pull NAV-schedule uplift fields so we can warn when a positive uplift will be
+  // taxed via the NAV-% deduction at the same time as the user adds an itemised
+  // BSA tax_latency row for the same asset class (real estate is the typical case).
+  const navAssets = useManualFormStore(
+    (s) =>
+      s.formData as {
+        nav_real_estate_adjustment?: number
+        nav_inventory_adjustment?: number
+        nav_hidden_reserves?: number
+        nav_other_revaluations?: number
+      }
+  )
 
   const items = useTaxLatencyStore((s) => s.items)
   const candidates = useTaxLatencyStore((s) => s.candidates)
@@ -305,12 +333,60 @@ export function TaxLatencySection({
   const netImpact = getNetTaxLatencyImpact(items)
   const hasItems = items.length > 0
 
+  // Conflict detection: NAV-% deduction (asset-based bridge) AND a BSA tax_latency
+  // row (equity bridge) on overlapping asset classes will both deduct latent tax
+  // from equity → double-count. Detect the most common case (real estate, MAR 22x)
+  // and surface a non-blocking warning so the accountant can choose one channel.
+  //
+  // Scope: BE-only for now. Dutch RGS uses different prefixes (e.g. 0xx for fixed
+  // assets, 3xx for inventory may overlap with BE 30 but means a different thing
+  // in some sub-codes). Firing the BE rules on NL data would yield false positives
+  // (e.g. a Dutch '30xxx' inventory account is not flagged with the same logic).
+  // When NL/EU coverage lands, broaden this guard with country-specific matchers.
+  const conflictingLatencyItems = useMemo(() => {
+    if (countryCode && countryCode !== 'BE') return []
+
+    const navPctActive =
+      typeof navTaxLatencyPct === 'number' &&
+      Number.isFinite(navTaxLatencyPct) &&
+      navTaxLatencyPct > 0
+    if (!navPctActive) return []
+
+    const grossPositiveNav =
+      Math.max(0, Number(navAssets.nav_real_estate_adjustment) || 0) +
+      Math.max(0, Number(navAssets.nav_inventory_adjustment) || 0) +
+      Math.max(0, Number(navAssets.nav_hidden_reserves) || 0) +
+      Math.max(0, Number(navAssets.nav_other_revaluations) || 0)
+    if (grossPositiveNav <= 0) return []
+
+    return items.filter((item) => {
+      if (item.type !== 'passive') return false
+      const code = (item.accountCode || '').trim()
+      // Belgian MAR 22x = property/buildings; if the user also entered a positive
+      // real-estate revaluation in the NAV schedule, both channels apply latent tax.
+      const realEstateOverlap =
+        code.startsWith('22') && Number(navAssets.nav_real_estate_adjustment) > 0
+      // MAR 3x = inventory revaluations.
+      const inventoryOverlap =
+        code.startsWith('3') && Number(navAssets.nav_inventory_adjustment) > 0
+      return realEstateOverlap || inventoryOverlap
+    })
+  }, [
+    countryCode,
+    items,
+    navTaxLatencyPct,
+    navAssets.nav_real_estate_adjustment,
+    navAssets.nav_inventory_adjustment,
+    navAssets.nav_hidden_reserves,
+    navAssets.nav_other_revaluations,
+  ])
+
   const [draftType, setDraftType] = useState<TaxLatencyType>('passive')
   const [draftAccountCode, setDraftAccountCode] = useState('')
   const [draftAccountName, setDraftAccountName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
   const [draftAmount, setDraftAmount] = useState('')
-  const [draftRate, setDraftRate] = useState(String(defaultTaxRate))
+  const [draftRate, setDraftRate] = useState(String(effectiveDefaultRate))
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draftCandidateId, setDraftCandidateId] = useState<string | null>(null)
   const [ledgerQuery, setLedgerQuery] = useState('')
@@ -394,12 +470,12 @@ export function TaxLatencySection({
     setDraftAccountName('')
     setDraftDescription('')
     setDraftAmount('')
-    setDraftRate(String(defaultTaxRate))
+    setDraftRate(String(effectiveDefaultRate))
     setEditingId(null)
     setDraftCandidateId(null)
     setLedgerQuery('')
     setShowLedgerDropdown(false)
-  }, [defaultTaxRate])
+  }, [effectiveDefaultRate])
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return
@@ -722,9 +798,27 @@ export function TaxLatencySection({
 
         {/* Tax Rate */}
         <div>
-          <label className="block text-[11px] font-medium text-foreground/50 mb-1 uppercase tracking-wide">
-            {t('taxRate')}
-          </label>
+          <div className="flex items-center gap-1 mb-1">
+            <label className="block text-[11px] font-medium text-foreground/50 uppercase tracking-wide">
+              {t('taxRate')}
+            </label>
+            {/* Surface where the default came from so accountants understand why a new
+                row defaults to e.g. 0% (participation exemption) vs the BE 25% fallback. */}
+            {defaultRateSource === 'navSchedule' && !editingId && (
+              <TooltipProvider delayDuration={200}>
+                <TooltipRoot>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center px-1 py-0 rounded text-[9px] font-semibold uppercase tracking-wide bg-primary/10 text-primary cursor-help">
+                      {t('navDefaultBadge')}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[240px] text-xs">
+                    {t('navDefaultTooltip', { rate: effectiveDefaultRate })}
+                  </TooltipContent>
+                </TooltipRoot>
+              </TooltipProvider>
+            )}
+          </div>
           <div className="relative">
             <input
               type="text"
@@ -881,9 +975,36 @@ export function TaxLatencySection({
       </div>
     ) : null
 
+  // Non-blocking warning shown when an itemised passive latency overlaps with a
+  // positive NAV-schedule revaluation that is already being taxed via
+  // `nav_tax_latency_pct`. Both channels would otherwise reduce equity for the
+  // same latent gain (double-count in the EV→Equity bridge).
+  const conflictBanner =
+    conflictingLatencyItems.length > 0 ? (
+      <div className="rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/15 dark:border-amber-700/40 p-3 mb-3">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-amber-900 dark:text-amber-200 space-y-1 min-w-0">
+            <p className="font-semibold">{t('navConflictTitle')}</p>
+            <p className="text-amber-900/80 dark:text-amber-200/80">
+              {t('navConflictBodyPrefix', { rate: navTaxLatencyPct ?? 0 })}
+              <span className="font-medium">
+                {conflictingLatencyItems
+                  .map((item) => item.accountCode || item.description)
+                  .filter(Boolean)
+                  .join(', ')}
+              </span>
+              {t('navConflictBodySuffix')}
+            </p>
+          </div>
+        </div>
+      </div>
+    ) : null
+
   if (alwaysExpanded) {
     return (
       <div className="pt-2">
+        {conflictBanner}
         {candidateCards}
         {inputForm}
         {itemsList}
@@ -965,6 +1086,7 @@ export function TaxLatencySection({
             className="overflow-hidden"
           >
             <div className={cn('pt-2 pb-1')}>
+              {conflictBanner}
               {candidateCards}
               {inputForm}
               {itemsList}

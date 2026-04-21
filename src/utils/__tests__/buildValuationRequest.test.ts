@@ -37,6 +37,16 @@ describe('buildValuationRequest', () => {
     vi.useRealTimers()
   })
 
+  it('maps UK registry shorthand to GB on the wire (ISO-3166)', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        country_code: 'UK',
+      }),
+      []
+    )
+    expect(result.country_code).toBe('GB')
+  })
+
   it('preserves zero historical years when none were entered', () => {
     const result = buildValuationRequest(
       makeFormData({

@@ -27,6 +27,7 @@ import {
 } from '../../store/useNormalizationStore'
 import {
   recoverPendingTaxLatencies,
+  suppressNextLatencyRecalc,
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
 import { generalLogger } from '../../utils/logger'
@@ -936,15 +937,20 @@ class SessionRestorationServiceImpl {
           markMercurySessionPrefillSuppressed(reportId)
 
           // Hydrate tax latencies and normalizations from package (instant restoration on refresh)
-          // Priority: localStorage recovery (beforeunload buffer) > package formData
+          // Priority: localStorage recovery (beforeunload buffer) > package formData.
+          // Suppress the latency auto-recalc subscription for this hydration — at this
+          // point ManualLayout's recalc subscription may already be active, and a fresh
+          // calc would either race with the page-load valuation fetch or overwrite it.
           try {
             const recoveredTL = recoverPendingTaxLatencies(reportId)
             if (recoveredTL && recoveredTL.length > 0) {
+              suppressNextLatencyRecalc()
               useTaxLatencyStore.getState().setItems(recoveredTL)
             } else if (
               Object.prototype.hasOwnProperty.call(raw, '_taxLatencies') &&
               Array.isArray((raw as { _taxLatencies?: unknown })._taxLatencies)
             ) {
+              suppressNextLatencyRecalc()
               useTaxLatencyStore.getState().setItems(
                 (raw as { _taxLatencies: unknown[] })._taxLatencies as any
               )
