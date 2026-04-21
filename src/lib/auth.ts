@@ -20,6 +20,7 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { isAccountantTierRole } from '../constants/accountantPlanMethods'
 import type { User } from '../contexts/AuthContextTypes'
+import { useClientContext } from '../stores/clientContext'
 import { removeAuthRelatedSessionStorageKeys } from '../utils/auth/clear-auth-session-storage'
 import { fetchWithTimeoutClient } from '../utils/auth-fetch-timeout'
 import { fetchWithBySession404Retry } from '../utils/fetchWithBySession404Retry'
@@ -377,6 +378,20 @@ export const useAuthStore = create<AuthState>()(
 
       // Set user
       setUser: (user: User | null) => {
+        const prior = get().user
+        // Clear stale accountant client-context only on sign-out and on real identity
+        // switches — NOT on the first `null → user` transition (checkSession, OAuth),
+        // or we would tear down context before the clientToken handshake and fight persist rehydration.
+        const shouldClearClientContext =
+          (user == null && prior?.id != null) ||
+          (user != null && prior?.id != null && prior.id !== user.id)
+        if (shouldClearClientContext) {
+          try {
+            useClientContext.getState().clearClientContext()
+          } catch (e) {
+            generalLogger.warn('[Auth] clearClientContext on identity change failed', { e })
+          }
+        }
         set({ user, loading: false, error: null })
       },
 

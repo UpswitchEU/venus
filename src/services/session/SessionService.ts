@@ -18,7 +18,9 @@
  */
 
 import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '../../types/errors'
+import type { ValuationSessionResponse } from '../../types/api-responses'
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
+import { isUuid } from '../../utils/identifiers'
 import { sessionCircuitBreaker } from '../../utils/circuitBreaker'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
@@ -34,6 +36,9 @@ import { validateSessionData } from '../../utils/sessionValidation'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
+
+/** Deduplicate concurrent self-heal calls per Titan report UUID */
+const ensureHtmlInFlight = new Set<string>()
 
 /**
  * Fetch business card data from Titan API
@@ -1714,6 +1719,86 @@ export class SessionService {
     })
   }
 
+  private valuationSnapshotHasRange(vr: unknown): boolean {
+    if (!vr || typeof vr !== 'object') return false
+    const o = vr as Record<string, unknown>
+    return (
+      o.equity_value_mid != null || o.equity_value_low != null || o.equity_value_high != null
+    )
+  }
+
+  private sessionUsableHtmlMissing(s: ValuationSession): boolean {
+    const h = s.htmlReport
+    if (typeof h === 'string' && h.trim().length >= 100) return false
+    const vr = s.valuationResult as Record<string, unknown> | null | undefined
+    if (!vr) return true
+    const top = typeof vr.html_report === 'string' ? vr.html_report : ''
+    const d =
+      typeof vr.details === 'object' && vr.details !== null
+        ? (vr.details as { html_report?: string }).html_report
+        : undefined
+    const dStr = typeof d === 'string' ? d : ''
+    return Math.max(top.trim().length, dStr.trim().length) < 100
+  }
+
+  private pickTitanReportUuidForEnsure(urlId: string, s: ValuationSession): string | null {
+    if (isUuid(urlId)) return urlId
+    const vid = (s.valuationResult as { valuation_id?: string } | undefined)?.valuation_id
+    if (typeof vid === 'string' && isUuid(vid)) return vid
+    return null
+  }
+
+  private sessionNeedsHtmlRecovery(merged: ValuationSession): boolean {
+    if (!merged?.valuationResult) return false
+    if (!this.valuationSnapshotHasRange(merged.valuationResult)) return false
+    return this.sessionUsableHtmlMissing(merged)
+  }
+
+  /**
+   * Titan self-heal: when persisted valuation has a range but no usable HTML, render and store HTML.
+   * Refetches the session on success so cache + Zustand pick up the report body.
+   */
+  private async tryRefetchAfterEnsureHtml(
+    reportId: string,
+    mergedSession: ValuationSession
+  ): Promise<ValuationSessionResponse | null> {
+    if (!this.sessionNeedsHtmlRecovery(mergedSession)) {
+      return null
+    }
+    const uuid = this.pickTitanReportUuidForEnsure(reportId, mergedSession)
+    if (!uuid) {
+      logger.debug('HTML self-heal skipped: no Titan report UUID (need URL UUID or valuationResult.valuation_id)', {
+        reportId: reportId?.substring(0, 24),
+      })
+      return null
+    }
+    if (ensureHtmlInFlight.has(uuid)) {
+      return null
+    }
+    ensureHtmlInFlight.add(uuid)
+    try {
+      const res = await backendAPI.ensureReportHtml(uuid, { sync: true })
+      if (res == null) {
+        logger.debug('ensureReportHtml returned null (upstream error or self-heal disabled) — not refetching', {
+          reportId: reportId?.substring(0, 24),
+        })
+        return null
+      }
+      if ((res as { success?: boolean }).success === false) {
+        return null
+      }
+      return (await backendAPI.getValuationSession(reportId)) ?? null
+    } catch (e) {
+      logger.warn('tryRefetchAfterEnsureHtml failed', {
+        reportId,
+        error: getErrorMessage(e),
+      })
+      return null
+    } finally {
+      ensureHtmlInFlight.delete(uuid)
+    }
+  }
+
   /**
    * Revalidate session cache in background
    *
@@ -1728,13 +1813,21 @@ export class SessionService {
       logger.debug('Starting background revalidation', { reportId })
 
       // Fetch fresh data from backend
-      const sessionResponse = await backendAPI.getValuationSession(reportId)
+      let sessionResponse = await backendAPI.getValuationSession(reportId)
 
       if (sessionResponse?.session) {
         // Validate and normalize the fresh session
         validateSessionData(sessionResponse.session)
-        const normalizedSession = normalizeSessionDates(sessionResponse.session)
-        const mergedSession = mergeSessionFields(normalizedSession)
+        let normalizedSession = normalizeSessionDates(sessionResponse.session)
+        let mergedSession = mergeSessionFields(normalizedSession)
+
+        const afterEnsure = await this.tryRefetchAfterEnsureHtml(reportId, mergedSession)
+        if (afterEnsure?.session) {
+          sessionResponse = afterEnsure
+          validateSessionData(sessionResponse.session)
+          normalizedSession = normalizeSessionDates(sessionResponse.session)
+          mergedSession = mergeSessionFields(normalizedSession)
+        }
 
         // ✅ DIAGNOSTIC: Verify business card data survived merging (background revalidation)
         // ✅ FIX: Check if company_name is actually filled (not empty string)

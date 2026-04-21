@@ -99,6 +99,10 @@ export type PrefillSource =
   | 'official_belgian_filing_pending'
   | 'nbb_cbso_multi_year'
 
+/** Titan `buildPrefill`: present when linked `accountant_customers` has financial data from sync. */
+export const PREFILL_SOURCE_ACCOUNTING_INTEGRATION =
+  'accounting_integration' as const satisfies PrefillSource
+
 export interface CompanyInfo {
   companyName?: string
   kboNumber?: string

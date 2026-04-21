@@ -98,6 +98,7 @@ import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOption
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
 import { useAuthStore } from '../../../lib/auth'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
+import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import {
   fallbackDashboardForSource,
   getSafeMercuryReturnUrl,
@@ -161,7 +162,6 @@ import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
 import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../../utils/fiscalYear'
-import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
@@ -178,6 +178,7 @@ import {
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { hasUsableOfficialFinancialsContent } from '../../../utils/officialFinancialsContent'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
+import { shouldPreferIntegrationEntry } from '../../../utils/shouldPreferIntegrationEntry'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
@@ -708,7 +709,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // Venus infrastructure
   const { user } = useAuth()
   const { allowedMethodKeys, planFeatures, plan } = useCredits()
-  const { identity, isAccountantFlow } = useBootstrap()
+  const { identity, isAccountantFlow, prefillData } = useBootstrap()
   useBootstrapSync()
   const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
   /** Session blob may gain DCF/NAV/SaaS after bootstrap — gap-fill empty store slots. */
@@ -771,6 +772,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     !!importQualityMap &&
     typeof importQualityMap === 'object' &&
     Object.keys(importQualityMap).length > 0
+  const preferIntegrationEntry = useMemo(
+    () => shouldPreferIntegrationEntry(hasImportQuality, prefillData?.sources),
+    [hasImportQuality, prefillData?.sources]
+  )
   const { createVersion, getLatestVersion } = useVersionHistoryStore()
 
   // Resolve session key (val_xxx) to UUID before PDF hook — POST /api/valuations/:id/pdf must match Titan id
@@ -2310,9 +2315,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       try {
         const fresh = await backendAPI.getReport(
           persistedReportLookupId,
-          isSessionKey(persistedReportLookupId)
-            ? { bySession404Attempts: 1 }
-            : undefined
+          isSessionKey(persistedReportLookupId) ? { bySession404Attempts: 1 } : undefined
         )
         const latestExistingResult = useManualResultsStore.getState().result
         const nextValuationResults =
@@ -3835,9 +3838,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
       // never refresh the freshly-saved business-card snapshot until the
       // 60s React Query staleTime elapsed (cache key: ['client','context']).
       const hasCompletedValuation =
-        (!!report &&
-          typeof report.valuation === 'number' &&
-          Number.isFinite(report.valuation)) ||
+        (!!report && typeof report.valuation === 'number' && Number.isFinite(report.valuation)) ||
         !!(session?.valuationResult || session?.htmlReport)
 
       const targetUrl = getSafeMercuryReturnUrl(returnUrl, {
@@ -5066,10 +5067,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     formDataRef: latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>,
     readOnlyKbo,
     autoAdvancePastPrefilledSteps,
-    preferIntegrationEntry:
-      isAccountantFlow ||
-      hasImportQuality ||
-      Boolean(identity.clientContext?.clientCompanyName?.trim()),
+    preferIntegrationEntry,
     integrationsEnabled: planFeatures?.integrations_enabled ?? false,
     planType: plan?.plan_type ?? 'free',
     synthesisWeights: userWeights,
@@ -5281,15 +5279,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
           preSelectableMethodsForNav={preSelectableMethodsForNav}
           planLockedMethodKeys={planLockedMethodKeys}
           onPlanLockedMethodAction={handlePlanLockedMethodAction}
-          normalizationFeatureLocked={
-            showFullAdvisorMethodNav ? ebitdaNormalizationLocked : false
-          }
+          normalizationFeatureLocked={showFullAdvisorMethodNav ? ebitdaNormalizationLocked : false}
           onNormalizationFeatureLocked={
             showFullAdvisorMethodNav ? () => openStarterPaywall('normalization') : undefined
           }
-          versionControlFeatureLocked={
-            showFullAdvisorMethodNav ? versionControlLocked : false
-          }
+          versionControlFeatureLocked={showFullAdvisorMethodNav ? versionControlLocked : false}
           onVersionControlFeatureLocked={
             showFullAdvisorMethodNav ? () => openStarterPaywall('version_history') : undefined
           }
@@ -5496,15 +5490,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
         preSelectableMethodsForNav={preSelectableMethodsForNav}
         planLockedMethodKeys={planLockedMethodKeys}
         onPlanLockedMethodAction={handlePlanLockedMethodAction}
-        normalizationFeatureLocked={
-          showFullAdvisorMethodNav ? ebitdaNormalizationLocked : false
-        }
+        normalizationFeatureLocked={showFullAdvisorMethodNav ? ebitdaNormalizationLocked : false}
         onNormalizationFeatureLocked={
           showFullAdvisorMethodNav ? () => openStarterPaywall('normalization') : undefined
         }
-        versionControlFeatureLocked={
-          showFullAdvisorMethodNav ? versionControlLocked : false
-        }
+        versionControlFeatureLocked={showFullAdvisorMethodNav ? versionControlLocked : false}
         onVersionControlFeatureLocked={
           showFullAdvisorMethodNav ? () => openStarterPaywall('version_history') : undefined
         }

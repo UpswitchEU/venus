@@ -135,6 +135,13 @@ class BackendAPI {
     return this.reportAPI.getReport(reportId, options)
   }
 
+  async ensureReportHtml(
+    reportId: string,
+    options?: { sync?: boolean }
+  ): Promise<Record<string, unknown> | null> {
+    return this.reportAPI.ensureReportHtml(reportId, options)
+  }
+
   async updateReport(
     reportId: string,
     data: Partial<ValuationRequest>

@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PREFILL_SOURCE_ACCOUNTING_INTEGRATION } from '../../lib/bootstrap/types'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSpotlightStore } from '../../store/useSpotlightStore'
@@ -174,7 +175,7 @@ describe('useBootstrapPrefill', () => {
       updatePrefillData: vi.fn(),
       report: { mode: 'new', reportId: 'val_saas_import', hasExistingData: false },
       prefillData: {
-        sources: ['accounting_integration'],
+        sources: [PREFILL_SOURCE_ACCOUNTING_INTEGRATION],
         companyInfo: {
           companyName: 'Recurring Co',
           countryCode: 'BE',
@@ -229,7 +230,7 @@ describe('useBootstrapPrefill', () => {
       updatePrefillData: vi.fn(),
       report: { mode: 'new', reportId: 'val_tax_latency_import', hasExistingData: false },
       prefillData: {
-        sources: ['accounting_integration'],
+        sources: [PREFILL_SOURCE_ACCOUNTING_INTEGRATION],
         companyInfo: {
           companyName: 'Property Co',
           countryCode: 'BE',
@@ -343,7 +344,7 @@ describe('useBootstrapPrefill', () => {
       updatePrefillData: vi.fn(),
       report: { mode: 'new', reportId: 'val_exact_mercury_prefill', hasExistingData: false },
       prefillData: {
-        sources: ['accounting_integration'],
+        sources: [PREFILL_SOURCE_ACCOUNTING_INTEGRATION],
         companyInfo: {
           companyName: 'Exact Sync BV',
           countryCode: 'BE',
@@ -431,9 +432,7 @@ describe('useBootstrapPrefill', () => {
       revenue: 950000,
       ebitda: 95000,
     })
-    expect(formData.historical_years_data).toEqual([
-      { year: 2023, revenue: 850000, ebitda: 85000 },
-    ])
+    expect(formData.historical_years_data).toEqual([{ year: 2023, revenue: 850000, ebitda: 85000 }])
   })
 
   it('drops prefill current-year data entirely when only future yearData rows exist in H1', async () => {

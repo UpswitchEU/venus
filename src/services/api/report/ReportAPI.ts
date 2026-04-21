@@ -9,7 +9,7 @@
 
 import { APIError, AuthenticationError, NetworkError } from '../../../types/errors'
 import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
-import { isSessionKey } from '../../../utils/identifiers'
+import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { BY_SESSION_404_BACKOFF_MS } from '../../../constants/reportBySessionRetry'
 import { apiLogger } from '../../../utils/logger'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
@@ -85,6 +85,33 @@ export class ReportAPI extends HttpClient {
       }
     }
     throw new Error('Unreachable: getReport exhausted retries without response')
+  }
+
+  /**
+   * Best-effort: ask Titan to render/persist report HTML (self-heal when numbers exist but HTML is missing).
+   * Only valid for canonical report UUIDs (not val_* session keys).
+   */
+  async ensureReportHtml(
+    reportId: string,
+    options?: { sync?: boolean }
+  ): Promise<Record<string, unknown> | null> {
+    if (!isUuid(reportId)) {
+      return null
+    }
+    try {
+      return await this.executeRequest<Record<string, unknown>>(
+        {
+          method: 'POST',
+          url: `/api/v2/valuations/reports/${encodeURIComponent(reportId)}/ensure-html`,
+          data: { sync: options?.sync !== false },
+          headers: {},
+        } as any,
+        { timeout: 60_000 }
+      )
+    } catch (error) {
+      apiLogger.warn('ensureReportHtml request failed', { reportId, error })
+      return null
+    }
   }
 
   /**

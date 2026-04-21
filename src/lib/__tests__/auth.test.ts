@@ -9,9 +9,19 @@ import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearAuthCache, useAuthStore } from '../auth'
 
+const clearClientContextMock = vi.fn()
+vi.mock('../../stores/clientContext', () => ({
+  useClientContext: {
+    getState: () => ({
+      clearClientContext: clearClientContextMock,
+    }),
+  },
+}))
+
 describe('Authentication Module', () => {
   beforeEach(() => {
     clearAuthCache()
+    clearClientContextMock.mockClear()
     // Reset store state
     useAuthStore.setState({
       user: null,
@@ -69,6 +79,28 @@ describe('Authentication Module', () => {
       expect(useAuthStore.getState().user).toEqual(mockUser)
       expect(useAuthStore.getState().loading).toBe(false)
       expect(useAuthStore.getState().error).toBeNull()
+    })
+
+    it('setUser: does not clear client context on first sign-in (null → user)', () => {
+      const { setUser } = useAuthStore.getState()
+      setUser({ id: 'u1', email: 'a@b.com', name: 'A', role: 'user' })
+      expect(clearClientContextMock).not.toHaveBeenCalled()
+    })
+
+    it('setUser: clears client context when switching to a different user', () => {
+      const { setUser } = useAuthStore.getState()
+      setUser({ id: 'u1', email: 'a@b.com', name: 'A', role: 'user' })
+      clearClientContextMock.mockClear()
+      setUser({ id: 'u2', email: 'b@b.com', name: 'B', role: 'user' })
+      expect(clearClientContextMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('setUser: clears client context when user signs out (null)', () => {
+      const { setUser } = useAuthStore.getState()
+      setUser({ id: 'u1', email: 'a@b.com', name: 'A', role: 'user' })
+      clearClientContextMock.mockClear()
+      setUser(null)
+      expect(clearClientContextMock).toHaveBeenCalledTimes(1)
     })
 
     it('should handle no active session gracefully', async () => {
