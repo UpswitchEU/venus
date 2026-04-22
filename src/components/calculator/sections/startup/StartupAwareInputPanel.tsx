@@ -10,17 +10,16 @@
  * Keeps the venture flow modular: the SME panel stays untouched and the
  * startup form does not have to share its 4.6k-line shell.
  *
- * The startup panel itself supports two surface modes (``founder`` and
- * ``advisor``); we derive the right one here from the bootstrap
- * identity so the rest of the calculator never has to thread the flag
- * through.  Accountant-for-client sessions get the full advisor surface
- * (4-leg blend + scorecard fine-tuning); everyone else (founders /
- * direct business owners) gets the founder surface (3-leg blend, no
- * scorecard fine-tuning, founder-targeted copy).
+ * The startup panel supports ``founder`` vs ``advisor`` surfaces; mode is
+ * ``showAdvisorCalculatorSurface(isAccountantForClient, user.role)`` so it
+ * stays aligned with ``ManualLayout`` nav filtering and founder-dashboard
+ * gating (single contract — no drift).
  */
 
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
+import { showAdvisorCalculatorSurface } from '@/constants/accountantPlanMethods'
 import { useBootstrapSafe } from '@/lib/bootstrap/BootstrapProvider'
+import { useAuth } from '@/hooks/useAuth'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import type { StartupSector, StartupStage } from '@/store/manual/useStartupValuationStore'
@@ -30,6 +29,7 @@ import { useCallback, useEffect, useRef, type ComponentProps } from 'react'
 import { isStartupStudioV2Enabled } from '@/config/features'
 import { AuroraButton } from '@/design-system'
 import type { ValuationFormData } from '@/types/valuation'
+import { getCurrentFilingYear } from '@/utils/fiscalYear'
 import { resolveVentureCountryIso2 } from '@/utils/resolveVentureCountryIso2'
 import { StartupValuationPanel } from './StartupValuationPanel'
 
@@ -111,6 +111,11 @@ export function buildStartupSubmitPayload(): Record<string, unknown> {
   const studio = useStartupValuationStore.getState()
   const sector: StartupSector = studio.sector
   const resolvedCountry = resolveVentureCountryIso2(formState)
+  const fy = formState.founding_year
+  const yearFounded =
+    typeof fy === 'number' && Number.isFinite(fy) && fy >= 1900 && fy <= 2100
+      ? fy
+      : getCurrentFilingYear()
   return {
     companyName: (formState.company_name?.trim() || 'Unknown Startup'),
     businessType: formState.business_type ?? 'startup',
@@ -118,7 +123,7 @@ export function buildStartupSubmitPayload(): Record<string, unknown> {
     business_model: formState.business_model ?? sector,
     businessModel: formState.business_model ?? sector,
     country: resolvedCountry,
-    yearFounded: formState.founding_year ?? new Date().getFullYear() - 1,
+    yearFounded,
     yearlyFinancials: [],
     ownerManagers: 1,
     fteEmployees: 0,
@@ -259,13 +264,17 @@ export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
   const effectiveMethod = useManualResultsStore(
     (s) => s.preSelectedMethod ?? s.selectedMethod
   )
-  // ``useBootstrapSafe`` returns ``null`` when the panel is mounted
-  // outside the BootstrapProvider (test renders, Storybook).  Treating
-  // that as a non-accountant flow keeps the founder surface as the
-  // safe default for those contexts.
+  // ``useBootstrapSafe`` may be null (tests, Storybook). ``useAuth`` supplies
+  // role for standalone advisors — same helper as ``ManualLayout``'s
+  // ``showFullAdvisorMethodNav`` (`showAdvisorCalculatorSurface`).
   const bootstrap = useBootstrapSafe()
-  const startupMode: 'founder' | 'advisor' =
-    bootstrap?.isAccountantFlow ? 'advisor' : 'founder'
+  const { user } = useAuth()
+  const startupMode: 'founder' | 'advisor' = showAdvisorCalculatorSurface(
+    Boolean(bootstrap?.isAccountantFlow),
+    user?.role,
+  )
+    ? 'advisor'
+    : 'founder'
 
   const isCalculating = useManualResultsStore((s) => s.isCalculating)
 

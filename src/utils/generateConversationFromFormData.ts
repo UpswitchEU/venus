@@ -139,7 +139,7 @@ export function generateConversationFromFormData(
     const revenue = resolveFormRevenue(formData)
     const year = normalizeCurrentYearForFiling(
       formData.current_year_data?.year,
-      Boolean(formData.filing_year_confirmed)
+      formData.filing_year_confirmed
     )
     addMessagePair(`What was your revenue in ${year}?`, `€${revenue.toLocaleString()}`, 'revenue', {
       revenue,
@@ -156,7 +156,7 @@ export function generateConversationFromFormData(
     const ebitda = resolveFormEbitda(formData)
     const year = normalizeCurrentYearForFiling(
       formData.current_year_data?.year,
-      Boolean(formData.filing_year_confirmed)
+      formData.filing_year_confirmed
     )
     addMessagePair(`What was your EBITDA in ${year}?`, `€${ebitda.toLocaleString()}`, 'ebitda', {
       ebitda,

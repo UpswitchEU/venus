@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { buildStartupValuationRequest } from './buildStartupValuationRequest'
+import { getCurrentFilingYear } from './fiscalYear'
 
 describe('buildStartupValuationRequest', () => {
   const baseStartupInputs = {
@@ -31,6 +32,38 @@ describe('buildStartupValuationRequest', () => {
     expect(req.current_year_data).toMatchObject({ revenue: 0, ebitda: 0 })
     expect(req.historical_years_data).toEqual([])
     expect(req.forecast_years_data).toEqual([])
+  })
+
+  it('uses filing-safe year so current_year_data.year never exceeds Titan max (calendar year − 1)', () => {
+    // April 2026: filing year 2025; Titan rejects year > 2025
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-22T12:00:00Z'))
+    try {
+      const req = buildStartupValuationRequest({
+        companyName: 'Acme',
+        startupInputs: baseStartupInputs,
+      })
+      const maxConfirmable = new Date().getFullYear() - 1
+      expect(req.current_year_data?.year).toBeLessThanOrEqual(maxConfirmable)
+      expect(req.current_year_data?.year).toBe(2025)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('uses year − 2 in Jan–Mar when books for prior year are not yet filed', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-02-15T12:00:00Z'))
+    try {
+      const req = buildStartupValuationRequest({
+        companyName: 'Acme',
+        startupInputs: baseStartupInputs,
+      })
+      expect(req.current_year_data?.year).toBe(2024)
+      expect(req.current_year_data?.year).toBeLessThanOrEqual(new Date().getFullYear() - 1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('falls back to safe defaults for company name, country and founding year', () => {
@@ -74,6 +107,22 @@ describe('buildStartupValuationRequest', () => {
     })
 
     expect(req.founding_year).toBeGreaterThan(2000)
+  })
+
+  it('clamps founding year to the current filing year (cannot be after closed books)', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-15T12:00:00Z'))
+    try {
+      const filing = getCurrentFilingYear()
+      const req = buildStartupValuationRequest({
+        companyName: 'Acme',
+        foundingYear: 2030,
+        startupInputs: baseStartupInputs,
+      })
+      expect(req.founding_year).toBe(filing)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('threads optional NACE / business-type fields when provided', () => {

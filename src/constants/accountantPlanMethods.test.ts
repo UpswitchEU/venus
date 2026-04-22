@@ -6,6 +6,7 @@ import {
   normalizeAccountantPlanTypeKey,
   OWNER_FOUNDER_METHOD_KEYS,
   resolveAllowedMethodKeys,
+  showAdvisorCalculatorSurface,
 } from './accountantPlanMethods'
 
 describe('normalizeAccountantPlanTypeKey', () => {
@@ -91,6 +92,21 @@ describe('OWNER_FOUNDER_METHOD_KEYS', () => {
   })
 })
 
+describe('showAdvisorCalculatorSurface', () => {
+  it('is true when acting for a client even if role is a business-owner key', () => {
+    expect(showAdvisorCalculatorSurface(true, 'seller')).toBe(true)
+  })
+  it('is true for advisor-tier role without client context (standalone calculator)', () => {
+    expect(showAdvisorCalculatorSurface(false, 'accountant')).toBe(true)
+    expect(showAdvisorCalculatorSurface(false, 'admin')).toBe(true)
+  })
+  it('is false for PLG / business-owner viewers', () => {
+    expect(showAdvisorCalculatorSurface(false, 'seller')).toBe(false)
+    expect(showAdvisorCalculatorSurface(false, null)).toBe(false)
+    expect(showAdvisorCalculatorSurface(false, undefined)).toBe(false)
+  })
+})
+
 describe('isAccountantTierRole', () => {
   // Mirrors Mercury `ACCOUNTANT_TIER_ROLES` + admin (cross-app contract).
   // Bug history: Venus previously gated the full advisor method nav purely
@@ -115,19 +131,18 @@ describe('isAccountantTierRole', () => {
     expect(isAccountantTierRole('EXPERT')).toBe(true)
   })
   it('keeps the full advisor method list when paired with `isAccountantFlow=false` (standalone advisor)', () => {
-    // Composes the way the call site composes it: any "advisor surface"
-    // — client-context **or** advisor role — must show every method.
+    // Must match `showAdvisorCalculatorSurface(false, role)` — advisor surface
+    // without client context.
     const all = ['upswitch_adaptive', 'dcf', 'ebitda_multiple', 'adjusted_nav', 'fiscal_4x']
-    const isAccountantFlow = false
     for (const role of ['accountant', 'expert', 'enterprise', 'admin']) {
-      const showFullAdvisorList = isAccountantFlow || isAccountantTierRole(role)
+      const showFullAdvisorList = showAdvisorCalculatorSurface(false, role)
       expect(filterPreSelectableMethodsForOwnerFounder(all, showFullAdvisorList)).toEqual(all)
     }
   })
   it('still restricts the nav for sellers/buyers even when the firm list is wide', () => {
     const all = ['upswitch_adaptive', 'dcf', 'ebitda_multiple', 'arr_multiple', 'startup_valuation']
     for (const role of ['seller', 'buyer']) {
-      const showFullAdvisorList = false || isAccountantTierRole(role)
+      const showFullAdvisorList = showAdvisorCalculatorSurface(false, role)
       expect(filterPreSelectableMethodsForOwnerFounder(all, showFullAdvisorList)).toEqual([
         'upswitch_adaptive',
         'arr_multiple',

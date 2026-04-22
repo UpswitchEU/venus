@@ -226,7 +226,7 @@ export function RiskReductionScorecardSection({
       transition={{ duration: 0.18, ease: 'easeOut' }}
       aria-labelledby={`${sectionId}-heading`}
       className={[
-        'space-y-3 rounded-xl border border-foreground/[0.06] bg-background/40 p-4',
+        'space-y-5 rounded-xl border border-foreground/[0.06] bg-background/40 p-5',
         className,
       ]
         .filter(Boolean)

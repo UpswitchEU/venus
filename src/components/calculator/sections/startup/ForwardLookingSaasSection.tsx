@@ -29,7 +29,7 @@
  *     the engine will actually multiply.
  */
 
-import { useId, useMemo } from 'react'
+import { useId, useLayoutEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { AuroraButton, AuroraInput } from '@/design-system'
@@ -49,6 +49,15 @@ const FORWARD_MONTHS = 12
  * annually = 23× — defensible only on slides, not in valuations).
  */
 const MAX_MOM_GROWTH_PCT = 20
+
+function isSaaSLegCoreEmpty(
+  mrr: number | null,
+  arr: number | null,
+  mrrGrowthPct: number | null,
+  monthlyChurnPct: number | null,
+): boolean {
+  return mrr == null && arr == null && mrrGrowthPct == null && monthlyChurnPct == null
+}
 
 /**
  * Compute the forward 12-month ARR preview.  Pure function — same
@@ -130,15 +139,18 @@ export function ForwardLookingSaasSection({
   const t = useTranslations('manualInput.startupValuation')
   const locale = useLocale()
 
-  // "Skip" is derived state — the founder is "pre-revenue" iff every
-  // SaaS-leg input is empty.  Computed instead of stored so the founder
-  // can re-enable simply by typing into a field, and so the persisted
-  // store doesn't grow a redundant boolean.
-  const isSkipped = useMemo(
-    () =>
-      mrr == null && arr == null && mrrGrowthPct == null && monthlyChurnPct == null,
-    [mrr, arr, mrrGrowthPct, monthlyChurnPct],
+  // Explicit pre-revenue UI mode — "Heractiveer" must re-open the form
+  // (derived-only skip made the re-enable button a no-op when fields were hidden).
+  const [isPreRevenue, setIsPreRevenue] = useState(() =>
+    isSaaSLegCoreEmpty(mrr, arr, mrrGrowthPct, monthlyChurnPct),
   )
+
+  // When persisted traction loads, exit pre-revenue UI before paint.
+  useLayoutEffect(() => {
+    if (!isSaaSLegCoreEmpty(mrr, arr, mrrGrowthPct, monthlyChurnPct)) {
+      setIsPreRevenue(false)
+    }
+  }, [mrr, arr, mrrGrowthPct, monthlyChurnPct])
 
   const formatEur = useMemo(
     () => (n: number) => {
@@ -163,21 +175,25 @@ export function ForwardLookingSaasSection({
   )
 
   /**
-   * Toggle the "pre-revenue" state.  Skip-on clears the SaaS-leg inputs
-   * (so the engine drops the leg and re-normalises Berkus + VC); skip-off
-   * is a no-op (the founder will start typing into the now-visible
-   * fields, which automatically flips `isSkipped` to false).
+   * Toggle pre-revenue mode. "I'm pre-revenue" clears the four SaaS-leg
+   * inputs so the engine drops the forward-SaaS leg; "Re-enable" shows
+   * the fields again without prefilling.
    */
   const handleToggleSkip = () => {
-    if (isSkipped) {
-      // No-op — see the JSDoc above.  We *could* prefill suggested
-      // numbers here, but that risks anchoring the founder.
+    if (isPreRevenue) {
+      setIsPreRevenue(false)
       return
     }
+    // Clear every SaaS-traction field so the engine cannot anchor on stale
+    // unit-economics after the founder says "pre-revenue" (matches TractionStep).
     onFieldChange('mrr', null)
     onFieldChange('arr', null)
     onFieldChange('mrr_growth_rate_pct', null)
     onFieldChange('monthly_churn_pct', null)
+    onFieldChange('cac', null)
+    onFieldChange('burn_rate_monthly', null)
+    onFieldChange('runway_months', null)
+    setIsPreRevenue(true)
   }
 
   const reactId = useId()
@@ -193,7 +209,7 @@ export function ForwardLookingSaasSection({
       transition={{ duration: 0.18, ease: 'easeOut' }}
       aria-labelledby={`${sectionId}-heading`}
       className={[
-        'space-y-3 rounded-xl border border-foreground/[0.06] bg-background/40 p-4',
+        'space-y-5 rounded-xl border border-foreground/[0.06] bg-background/40 p-5',
         className,
       ]
         .filter(Boolean)
@@ -203,7 +219,7 @@ export function ForwardLookingSaasSection({
         <div id={`${sectionId}-heading`} className="flex-1">
           <ValuationSectionHeader
             step={step}
-            complete={!isSkipped && (mrr != null || arr != null)}
+            complete={!isPreRevenue && (mrr != null || arr != null)}
             title={t('section2Title')}
           />
         </div>
@@ -211,22 +227,22 @@ export function ForwardLookingSaasSection({
         <AuroraButton
           id={skipBtnId}
           type="button"
-          variant={isSkipped ? 'primary' : 'ghost'}
+          variant={isPreRevenue ? 'primary' : 'ghost'}
           size="sm"
           onClick={handleToggleSkip}
-          aria-pressed={isSkipped}
+          aria-pressed={isPreRevenue}
         >
-          {isSkipped ? t('section2SkipBadgeOn') : t('section2SkipBadgeOff')}
+          {isPreRevenue ? t('section2SkipBadgeOn') : t('section2SkipBadgeOff')}
         </AuroraButton>
       </div>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        {isSkipped ? t('section2DescriptionSkipped') : t('section2Description')}
+        {isPreRevenue ? t('section2DescriptionSkipped') : t('section2Description')}
       </p>
 
-      {!isSkipped && (
+      {!isPreRevenue && (
         <>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="flex flex-col gap-4">
             <CurrencyInput
               size="sm"
               label={t('mrr')}

@@ -331,7 +331,7 @@ export function useBootstrapPrefill(): {
                 ...cyd,
                 year: normalizeCurrentYearForFiling(
                   cyd.year,
-                  Boolean(fdBefore.filing_year_confirmed)
+                  fdBefore.filing_year_confirmed
                 ),
                 revenue:
                   cyd.revenue == null && mapped.revenue != null ? mapped.revenue : cyd.revenue,
@@ -341,7 +341,7 @@ export function useBootstrapPrefill(): {
             if (Array.isArray(fdBefore.historical_years_data)) {
               financialPatch.historical_years_data = normalizeHistoricalYearsForFiling(
                 fdBefore.historical_years_data,
-                Boolean(fdBefore.filing_year_confirmed)
+                fdBefore.filing_year_confirmed
               )
             }
             updateFormData(financialPatch)
@@ -648,7 +648,7 @@ function applyPrefillToForm(
       historicalYears.sort((a, b) => b.year - a.year) // Most recent first
       const safeHistoricalYears = normalizeHistoricalYearsForFiling(
         historicalYears,
-        Boolean(allData.filing_year_confirmed)
+        allData.filing_year_confirmed
       )
       if (safeHistoricalYears.length > 0) {
         const currentYearRow = safeHistoricalYears[0]

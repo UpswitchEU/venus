@@ -15,6 +15,7 @@
  */
 
 import { coerceIso2OrNull } from './coerceIso2Country'
+import { getCurrentFilingYear } from './fiscalYear'
 import { getMercuryUrl } from './getMercuryUrl'
 import type { ValuationRequest } from '../types/valuation'
 
@@ -78,12 +79,14 @@ export function buildStartupValuationRequest({
 }: BuildStartupValuationRequestOptions): ValuationRequest {
   const cleanCompanyName = (companyName || 'Unknown Startup').trim() || 'Unknown Startup'
   const cleanCountry = coerceIso2OrNull(countryCode) ?? 'BE'
+  const filingYear = getCurrentFilingYear()
   const cleanFoundingYear = (() => {
     const year = Number(foundingYear)
     if (!Number.isFinite(year) || year < 1900 || year > 2100) {
-      return new Date().getFullYear() - 1
+      return filingYear
     }
-    return year
+    // Cannot be founded after the latest closed-books year used for SME framing.
+    return Math.min(year, filingYear)
   })()
 
   return {
@@ -99,12 +102,13 @@ export function buildStartupValuationRequest({
 
     // Placeholder financial frame — the Startup Valuation Engine does not
     // consume historical figures; it derives value from qualitative milestones,
-    // SAFE/cap-table data and forward-looking traction.
+    // SAFE/cap-table data and forward-looking traction. Year must align with
+    // Titan's `getMaxConfirmableYear()` (calendar year − 1) and filing logic.
     current_year_data: {
-      year: new Date().getFullYear(),
+      year: getCurrentFilingYear(),
       revenue: 0,
       ebitda: 0,
-    } as any,
+    },
     historical_years_data: [],
     forecast_years_data: [],
 

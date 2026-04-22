@@ -40,6 +40,8 @@ export interface CurrencyInputProps {
   description?: string
   /** When false, long floating labels wrap instead of ellipsis */
   truncateLabel?: boolean
+  /** Shows required asterisk on floating label (maps to `required` on the input). */
+  required?: boolean
 }
 
 export function CurrencyInput({
@@ -57,6 +59,7 @@ export function CurrencyInput({
   name,
   description,
   truncateLabel,
+  required,
 }: CurrencyInputProps) {
   const locale = useLocale()
   const inputId = useId()
@@ -141,6 +144,7 @@ export function CurrencyInput({
         aria-label={ariaLabel}
         description={description}
         truncateLabel={truncateLabel}
+        required={required}
         leftIcon={<span className="text-foreground/40 text-xs font-medium select-none">€</span>}
         rightIcon={rightIcon}
       />

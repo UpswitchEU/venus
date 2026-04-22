@@ -23,6 +23,7 @@ import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
 import { createContextLogger } from '../utils/logger'
 import {
+  isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
@@ -381,7 +382,7 @@ function syncSession(state: SessionBootstrapState): void {
           const restored = readNewValuationPrefill(targetIdentity)
           if (restored) {
             const sanitized = restored.data
-            const filingYearConfirmed = Boolean(
+            const filingYearConfirmed = isFilingYearConfirmedValue(
               sanitized.filing_year_confirmed ?? sanitized.filingYearConfirmed
             )
             const currentYearData = sanitized.current_year_data as

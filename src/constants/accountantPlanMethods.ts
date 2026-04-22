@@ -60,13 +60,28 @@ export function isAccountantTierRole(
 }
 
 /**
+ * Single source of truth for “advisor-tier” calculator UX: full method nav,
+ * `StartupValuationPanel` advisor mode, and hiding the founder-only startup
+ * dashboard — as opposed to PLG business owners / founders.
+ *
+ * Pass `isAccountantForClient` from bootstrap (`identity.type ===
+ * 'accountant_for_client'`). When bootstrap is unavailable (tests), pass
+ * `false` and rely on `userRole` alone.
+ */
+export function showAdvisorCalculatorSurface(
+  isAccountantForClient: boolean,
+  userRole: string | null | undefined
+): boolean {
+  return isAccountantForClient || isAccountantTierRole(userRole)
+}
+
+/**
  * Nav methods shown to owners; accountants keep full firm list.
  *
  * `showFullAdvisorList` should be `true` whenever the *current viewer* is an
- * accountant-tier role **or** is acting on behalf of a client. Callers should
- * compute this as `isAccountantFlow || isAccountantTierRole(user.role)` so
- * that both the explicit accountant-for-client path and the standalone
- * advisor entry route to the same advisor nav.
+ * accountant-tier role **or** is acting on behalf of a client. Prefer
+ * {@link showAdvisorCalculatorSurface} at call sites so startup panel mode
+ * and nav stay aligned.
  */
 export function filterPreSelectableMethodsForOwnerFounder(
   methods: readonly string[],

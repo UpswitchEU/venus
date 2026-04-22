@@ -12,7 +12,7 @@
  */
 
 import { Calculator } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
@@ -23,15 +23,30 @@ interface TractionStepProps {
   locale?: 'en' | 'nl'
 }
 
+function hasRevenueSignal(
+  mrr: number | null | undefined,
+  arr: number | null | undefined,
+): boolean {
+  return (typeof mrr === 'number' && mrr > 0) || (typeof arr === 'number' && arr > 0)
+}
+
 export function TractionStep({ locale = 'en' }: TractionStepProps) {
   const mrr = useStartupValuationStore((s) => s.mrr)
+  const storedArr = useStartupValuationStore((s) => s.arr)
   const growth = useStartupValuationStore((s) => s.mrr_growth_rate_pct)
   const churn = useStartupValuationStore((s) => s.monthly_churn_pct)
   const cac = useStartupValuationStore((s) => s.cac)
   const ltv = useStartupValuationStore((s) => s.ltv)
   const setField = useStartupValuationStore((s) => s.setField)
 
-  const [hasRevenue, setHasRevenue] = useState<'yes' | 'no'>(mrr != null && mrr > 0 ? 'yes' : 'no')
+  const [hasRevenue, setHasRevenue] = useState<'yes' | 'no'>(() =>
+    hasRevenueSignal(mrr, storedArr) ? 'yes' : 'no',
+  )
+
+  // Session hydrate: MRR or ARR can arrive after first paint — open the traction form.
+  useEffect(() => {
+    if (hasRevenueSignal(mrr, storedArr)) setHasRevenue('yes')
+  }, [mrr, storedArr])
 
   const handleToggle = (value: 'yes' | 'no') => {
     setHasRevenue(value)
@@ -47,7 +62,8 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
 
   // Live unit economics preview --------------------------------------
   const ltvCacRatio = cac && cac > 0 && ltv && ltv > 0 ? ltv / cac : null
-  const arr = mrr ? mrr * 12 : null
+  const currentArrPreview =
+    storedArr ?? (mrr != null && mrr > 0 ? mrr * 12 : null)
   // Forward 12-month ARR using compounding monthly growth (simple model).
   const forwardArr =
     mrr && growth != null
@@ -137,14 +153,14 @@ export function TractionStep({ locale = 'en' }: TractionStepProps) {
           </div>
 
           {/* Live unit-economics preview */}
-          {(arr || ltvCacRatio || forwardArr || paybackMonths) && (
+          {(currentArrPreview || ltvCacRatio || forwardArr || paybackMonths) && (
             <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl bg-primary/5 p-4 sm:grid-cols-4">
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-foreground/55">
                   {locale === 'nl' ? 'Huidige ARR' : 'Current ARR'}
                 </p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                  {arr != null ? formatEur(arr) : '—'}
+                  {currentArrPreview != null ? formatEur(currentArrPreview) : '—'}
                 </p>
               </div>
               <div>

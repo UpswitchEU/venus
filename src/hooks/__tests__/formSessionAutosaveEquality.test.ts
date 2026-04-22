@@ -67,4 +67,28 @@ describe('areFormAndSessionDataEqualForAutosync', () => {
     const sess = { ...base, _taxLatencies: tl }
     expect(areFormAndSessionDataEqualForAutosync(form, sess, tl)).toBe(true)
   })
+
+  it('treats boolean true and string "true" as equal for filing_year_confirmed (no sync thrash)', () => {
+    const a = { ...base, filing_year_confirmed: true as const }
+    const b = { ...base, filing_year_confirmed: 'true' as any }
+    expect(areFormAndSessionDataEqualForAutosync(a, b)).toBe(true)
+  })
+
+  it('treats boolean true and string "1" as equal (ORM / DB bit serialization)', () => {
+    const a = { ...base, filing_year_confirmed: true as const }
+    const b = { ...base, filing_year_confirmed: '1' as any }
+    expect(areFormAndSessionDataEqualForAutosync(a, b)).toBe(true)
+  })
+
+  it('treats false and string "false" as equal for filing_year_confirmed', () => {
+    const a = { ...base, filing_year_confirmed: false as const }
+    const b = { ...base, filing_year_confirmed: 'false' as any }
+    expect(areFormAndSessionDataEqualForAutosync(a, b)).toBe(true)
+  })
+
+  it('returns false when only filing_year_confirmed semantically differs', () => {
+    const a = { ...base, filing_year_confirmed: true as const }
+    const b = { ...base, filing_year_confirmed: false as const }
+    expect(areFormAndSessionDataEqualForAutosync(a, b)).toBe(false)
+  })
 })

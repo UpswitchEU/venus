@@ -62,7 +62,7 @@ export function convertFormDataToDataResponses(formData: ValuationFormData): Dat
       'current_year',
       normalizeCurrentYearForFiling(
         formData.current_year_data.year,
-        Boolean(formData.filing_year_confirmed)
+        formData.filing_year_confirmed
       )
     )
     if (formData.current_year_data.revenue !== undefined) {
@@ -82,7 +82,7 @@ export function convertFormDataToDataResponses(formData: ValuationFormData): Dat
   // Historical Data
   const normalizedHistoricalYears = normalizeHistoricalYearsForFiling(
     formData.historical_years_data,
-    Boolean(formData.filing_year_confirmed)
+    formData.filing_year_confirmed
   )
   if (normalizedHistoricalYears.length > 0) {
     normalizedHistoricalYears.forEach((yearData, index) => {

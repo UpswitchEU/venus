@@ -31,7 +31,7 @@ import {
 	isClientPremiumUpgradePath,
 	useBootstrapSafe,
 } from '../lib/bootstrap'
-import { isAccountantTierRole } from '../constants/accountantPlanMethods'
+import { showAdvisorCalculatorSurface } from '../constants/accountantPlanMethods'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import { sessionService } from '../services/session/SessionService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
@@ -716,12 +716,9 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
            invite an advisor). See `.cursor/rules/plg-client-invite-loop.mdc`. */}
         {(() => {
           const isAdvisorAudience =
-            !!bootstrap?.isAccountantFlow ||
-            bootstrap?.identity?.type === 'accountant_for_client' ||
-            isAccountantTierRole(authUser?.role) ||
-            // The bootstrap upgrade_path explicitly mentioning advisor billing
-            // also flips us to advisor audience even when the identity record
-            // is incomplete.
+            showAdvisorCalculatorSurface(!!bootstrap?.isAccountantFlow, authUser?.role) ||
+            // Bootstrap upgrade_path can imply advisor billing before identity
+            // fields are fully hydrated — keep parity with prior paywall logic.
             isAccountantBillingUpgradePath(bootstrapCreditStatus?.upgrade_path)
           const audience: 'advisor' | 'business_owner' = isAdvisorAudience
             ? 'advisor'

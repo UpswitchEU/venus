@@ -13,6 +13,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const setFieldSpy = vi.fn()
 const useManualResultsStoreSelector = vi.fn(() => 'arr_multiple')
+const useAuthMock = vi.fn(() => ({ user: null as { role?: string } | null }))
+const useBootstrapSafeMock = vi.fn(() => null)
 
 vi.mock('@/store/manual/useStartupValuationStore', () => ({
   useStartupValuationStore: <T,>(selector: (s: { setField: typeof setFieldSpy }) => T) =>
@@ -24,7 +26,11 @@ vi.mock('@/store/manual/useManualResultsStore', () => ({
 }))
 
 vi.mock('@/lib/bootstrap/BootstrapProvider', () => ({
-  useBootstrapSafe: () => null,
+  useBootstrapSafe: () => useBootstrapSafeMock(),
+}))
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => useAuthMock(),
 }))
 
 vi.mock('../../ManualInputPanel', () => ({
@@ -44,6 +50,8 @@ describe('StartupAwareInputPanel — startup_stage deep-link prefill', () => {
 
   beforeEach(() => {
     setFieldSpy.mockClear()
+    useAuthMock.mockReturnValue({ user: null })
+    useBootstrapSafeMock.mockReturnValue(null)
     useManualResultsStoreSelector.mockReturnValue('arr_multiple')
     Object.defineProperty(window, 'location', {
       configurable: true,
@@ -109,5 +117,19 @@ describe('StartupAwareInputPanel — startup_stage deep-link prefill', () => {
     const { getByTestId } = render(<StartupAwareInputPanel />)
     const panel = getByTestId('startup-valuation-panel')
     expect(panel.getAttribute('data-mode')).toBe('founder')
+  })
+
+  it('renders advisor mode for accountant-tier role (standalone advisor)', () => {
+    useManualResultsStoreSelector.mockReturnValue('startup_valuation')
+    useAuthMock.mockReturnValue({ user: { role: 'accountant' } })
+    const { getByTestId } = render(<StartupAwareInputPanel />)
+    expect(getByTestId('startup-valuation-panel').getAttribute('data-mode')).toBe('advisor')
+  })
+
+  it('renders advisor mode when bootstrap is accountant-for-client', () => {
+    useBootstrapSafeMock.mockReturnValue({ isAccountantFlow: true } as never)
+    useManualResultsStoreSelector.mockReturnValue('startup_valuation')
+    const { getByTestId } = render(<StartupAwareInputPanel />)
+    expect(getByTestId('startup-valuation-panel').getAttribute('data-mode')).toBe('advisor')
   })
 })

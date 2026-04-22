@@ -57,27 +57,30 @@ const getSafeCurrentFilingYear = () => {
   return Math.min(getCurrentFilingYear(), 2100)
 }
 
-const defaultFormData: ValuationFormData = {
-  company_name: '', // Empty by default - user must enter company name
-  country_code: '',
-  industry: 'services', // Default to valid industry code
-  business_model: 'services', // Default business model (matches Python enum)
-  founding_year: getSafeCurrentFilingYear() - 5, // Default to 5 years before filing year
-  business_type: 'company',
-  shares_for_sale: 100,
-  number_of_owners: 1, // Default to 1 owner
-  revenue: undefined,
-  ebitda: undefined,
-  current_year_data: {
-    year: getSafeCurrentFilingYear(),
-    revenue: 0,
-    ebitda: 0,
-  },
+function getDefaultFormData(): ValuationFormData {
+  const filing = getSafeCurrentFilingYear()
+  return {
+    company_name: '', // Empty by default - user must enter company name
+    country_code: '',
+    industry: 'services', // Default to valid industry code
+    business_model: 'services', // Default business model (matches Python enum)
+    founding_year: filing - 5, // Default to 5 years before filing year
+    business_type: 'company',
+    shares_for_sale: 100,
+    number_of_owners: 1, // Default to 1 owner
+    revenue: undefined,
+    ebitda: undefined,
+    current_year_data: {
+      year: filing,
+      revenue: 0,
+      ebitda: 0,
+    },
+  }
 }
 
 export const useManualFormStore = create<ManualFormStore>((set, get) => ({
   // Initial state
-  formData: defaultFormData,
+  formData: getDefaultFormData(),
   isDirty: false,
   isValidating: false,
   validationErrors: {},
@@ -139,7 +142,7 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
   resetForm: () => {
     set((state) => ({
       ...state,
-      formData: defaultFormData,
+      formData: getDefaultFormData(),
       isDirty: false,
       validationErrors: {},
     }))

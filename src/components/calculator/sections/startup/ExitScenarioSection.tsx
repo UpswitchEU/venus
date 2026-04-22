@@ -25,7 +25,7 @@
  *     watches their VC valuation silently disappear.
  */
 
-import { useId, useMemo } from 'react'
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { AuroraInput } from '@/design-system'
@@ -33,20 +33,32 @@ import { CurrencyInput } from '../../CurrencyInput'
 import { AdaptivePercentInput } from '../AdaptivePercentInput'
 import { ValuationSectionHeader } from '../ValuationSectionHeader'
 import {
+  STARTUP_SECTOR_DEFAULT_Y5_REVENUE,
   STARTUP_SECTOR_EXIT_MULTIPLES,
   type StartupSector,
   type StartupStage,
 } from '@/store/manual/useStartupValuationStore'
 import { getRegionalBaseline } from './regionalBaseline'
 
-/**
- * UI default Target ROI.  Academic mid-point (Sahlman/INSEAD) — the
- * actual stage-aware default the engine uses comes from
- * `regional_data.default_target_roi_x` and is surfaced to the
- * founder as a "Suggested for {stage}" placeholder so they can
- * override on a per-deal basis.
- */
+/** UI default Target ROI — academic mid-point surfaced in copy. */
 export const DEFAULT_TARGET_ROI_X = 15
+
+const STAGE_LABEL_KEY: Record<StartupStage, string> = {
+  pre_seed: 'stagePreSeed',
+  seed: 'stageSeed',
+  series_a: 'stageSeriesA',
+}
+
+const SECTOR_LABEL_KEY: Record<StartupSector, string> = {
+  saas: 'sectorSaas',
+  marketplace: 'sectorMarketplace',
+  fintech: 'sectorFintech',
+  biotech_healthtech: 'sectorBiotech',
+  deeptech_ai: 'sectorDeeptech',
+  consumer: 'sectorConsumer',
+  hardware: 'sectorHardware',
+  other: 'sectorOther',
+}
 
 /**
  * Academic VC formula — pure mirror of `vc_method.calculate_vc_method`
@@ -77,11 +89,9 @@ export function previewVcMethod({
   const post = (y5 * m) / roi
   if (post <= 0) return null
 
-  // When no investment is supplied, the entire post-money becomes pre-money.
   if (inv <= 0) return { post, pre: post, investment: 0, dilution: 0 }
 
   const pre = Math.max(0, post - inv)
-  // Match the report-side defensive clamp on dilution.
   const rawDilution = (inv / post) * 100
   const dilution = Math.max(0, Math.min(100, rawDilution))
   return { post, pre, investment: inv, dilution }
@@ -89,20 +99,14 @@ export function previewVcMethod({
 
 export interface ExitScenarioSectionProps {
   step: number
-  /**
-   * Setup-bar selections — flowed in from the parent panel so we can
-   * surface sector-aware default copy (multiple suggestions, ROI hint).
-   */
   sector: StartupSector
   stage: StartupStage
   countryCode: string
-  /** VC-method inputs (current store values). */
   year5Revenue: number | null
   exitMultiple: number | null
   targetRoi: number | null
   investmentSought: number | null
   dilutionPct: number | null
-  /** Single dispatch for every field this section owns. */
   onFieldChange: (
     field:
       | 'year5_revenue_projection'
@@ -137,6 +141,11 @@ export function ExitScenarioSection({
   )
   const stageRoiSuggestion = baseline.default_target_roi_x
 
+  const sectorLabel = t(SECTOR_LABEL_KEY[sector])
+  const stageLabel = t(STAGE_LABEL_KEY[stage])
+  const y5Suggestion = STARTUP_SECTOR_DEFAULT_Y5_REVENUE[sector]
+  const sectorMultiple = STARTUP_SECTOR_EXIT_MULTIPLES[sector]
+
   const formatEur = useMemo(
     () => (n: number) => {
       const tag = locale === 'en' ? 'en-BE' : 'nl-BE'
@@ -144,8 +153,7 @@ export function ExitScenarioSection({
         return new Intl.NumberFormat(tag, {
           style: 'currency',
           currency: 'EUR',
-          notation: 'compact',
-          maximumFractionDigits: 1,
+          maximumFractionDigits: 0,
         }).format(n)
       } catch {
         return `€${Math.round(n).toLocaleString()}`
@@ -166,9 +174,19 @@ export function ExitScenarioSection({
     [year5Revenue, exitMultiple, targetRoi, investmentSought, stageRoiSuggestion],
   )
 
-  const reactId = useId()
   const sectionId = 'startup-section-exit-scenario'
   const oversubscribed = preview && preview.investment > 0 && preview.pre <= 0
+
+  const missingVcLabels = useMemo(() => {
+    const out: string[] = []
+    if (year5Revenue == null || year5Revenue <= 0) out.push(t('y5Revenue'))
+    if (exitMultiple == null || exitMultiple <= 0) out.push(t('exitMultiple'))
+    if (targetRoi == null || targetRoi <= 0) out.push(t('targetRoi'))
+    if (investmentSought == null || investmentSought <= 0) out.push(t('investmentAmountSought'))
+    return out
+  }, [year5Revenue, exitMultiple, targetRoi, investmentSought, t])
+
+  const vcSectionComplete = missingVcLabels.length === 0
 
   return (
     <motion.section
@@ -179,7 +197,7 @@ export function ExitScenarioSection({
       transition={{ duration: 0.18, ease: 'easeOut' }}
       aria-labelledby={`${sectionId}-heading`}
       className={[
-        'space-y-3 rounded-xl border border-foreground/[0.06] bg-background/40 p-4',
+        'space-y-5 rounded-xl border border-foreground/[0.06] bg-background/40 p-5',
         className,
       ]
         .filter(Boolean)
@@ -188,47 +206,78 @@ export function ExitScenarioSection({
       <div id={`${sectionId}-heading`}>
         <ValuationSectionHeader
           step={step}
-          complete={year5Revenue != null && year5Revenue > 0 && investmentSought != null && investmentSought > 0}
+          complete={vcSectionComplete}
           title={t('section3Title')}
         />
       </div>
 
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        {t('section3Description')}
-      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{t('section3Description')}</p>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div
+        role="status"
+        className={[
+          'rounded-lg border px-3 py-2 text-xs leading-relaxed',
+          vcSectionComplete
+            ? 'border-primary/30 bg-primary/[0.06] text-foreground'
+            : 'border-foreground/10 bg-background/60 text-muted-foreground',
+        ].join(' ')}
+      >
+        {vcSectionComplete
+          ? t('vcSectionValidityReady')
+          : t('vcSectionValidityTodo', { items: missingVcLabels.join(' · ') })}
+      </div>
+
+      <div className="flex flex-col gap-4">
         <CurrencyInput
           size="sm"
+          required
           label={t('y5Revenue')}
+          description={t('y5RevenueDescription', {
+            sectorLabel,
+            suggestion: formatEur(y5Suggestion),
+          })}
           value={year5Revenue ?? undefined}
           onChange={(v) => onFieldChange('year5_revenue_projection', v ?? null)}
         />
+
         <AuroraInput
           size="sm"
+          required
           type="number"
           inputMode="decimal"
           step="0.5"
           label={t('exitMultiple')}
-          // Show the sector-specific multiple as a placeholder so the
-          // founder sees the academic suggestion before they type.
+          description={t('exitMultipleDescription', {
+            sectorLabel,
+            multiple: sectorMultiple,
+          })}
           placeholder={t('exitMultiplePlaceholder', {
-            multiple: STARTUP_SECTOR_EXIT_MULTIPLES[sector],
+            multiple: sectorMultiple,
           })}
           value={exitMultiple ?? ''}
           onChange={(e) => {
             const raw = e.target.value
-            onFieldChange('exit_revenue_multiple', raw === '' ? null : Number(raw))
+            if (raw === '') {
+              onFieldChange('exit_revenue_multiple', null)
+              return
+            }
+            const n = Number(raw)
+            onFieldChange('exit_revenue_multiple', Number.isFinite(n) ? n : null)
           }}
         />
+
         <AuroraInput
           size="sm"
+          required
           type="number"
           inputMode="decimal"
           step="1"
           label={t('targetRoi')}
-          // Engine uses stage-aware default; surface it so founders
-          // know which suggestion the engine will fall back to.
+          description={t('targetRoiDescription', {
+            stageLabel,
+            stageRoi: stageRoiSuggestion,
+            defaultRoi: DEFAULT_TARGET_ROI_X,
+          })}
           placeholder={t('targetRoiPlaceholder', {
             stageRoi: stageRoiSuggestion,
             defaultRoi: DEFAULT_TARGET_ROI_X,
@@ -236,35 +285,32 @@ export function ExitScenarioSection({
           value={targetRoi ?? ''}
           onChange={(e) => {
             const raw = e.target.value
-            onFieldChange('target_roi_x', raw === '' ? null : Number(raw))
+            if (raw === '') {
+              onFieldChange('target_roi_x', null)
+              return
+            }
+            const n = Number(raw)
+            onFieldChange('target_roi_x', Number.isFinite(n) ? n : null)
           }}
-          aria-describedby={`exit-roi-hint-${reactId}`}
         />
+
         <CurrencyInput
           size="sm"
+          required
           label={t('investmentAmountSought')}
           description={t('investmentAmountSoughtHelper')}
           value={investmentSought ?? undefined}
           onChange={(v) => onFieldChange('investment_amount_sought', v ?? null)}
         />
+
         <AdaptivePercentInput
-          label={t('dilutionAssumption')}
+          label={t('dilutionAssumptionOptional')}
+          description={t('dilutionDescription')}
           value={dilutionPct ?? undefined}
           onChange={(v) => onFieldChange('dilution_assumption_pct', v ?? null)}
         />
       </div>
 
-      <p
-        id={`exit-roi-hint-${reactId}`}
-        className="text-[11px] leading-tight text-muted-foreground"
-      >
-        {t('section3RoiHint', {
-          stageRoi: stageRoiSuggestion,
-          defaultRoi: DEFAULT_TARGET_ROI_X,
-        })}
-      </p>
-
-      {/* Live cap-table preview — confirms the implied dilution */}
       {preview && preview.investment > 0 && preview.pre > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 6 }}
@@ -289,7 +335,6 @@ export function ExitScenarioSection({
         </motion.div>
       )}
 
-      {/* Asking-too-much warning */}
       {oversubscribed && preview && (
         <motion.div
           initial={{ opacity: 0, y: 6 }}

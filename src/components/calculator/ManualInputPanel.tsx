@@ -115,6 +115,7 @@ import type {
 import {
   getCurrentFilingYear,
   getFilingYearHistoricalOffset,
+  isFilingYearConfirmedValue,
   normalizeHistoricalYearsForFiling,
 } from '../../utils/fiscalYear'
 import {
@@ -155,6 +156,7 @@ import {
   hasExplicitNumericValue as hasExplicitFinancialValue,
   historicalYearRowNeedsRemovalWarning,
   isCompleteYearlyFinancial,
+  yearlyFinancialRowHasNonPlaceholderData,
   yearlyFinancialsContainsNonPlaceholderData,
 } from '../../utils/yearlyFinancials'
 import { CurrencyInput } from './CurrencyInput'
@@ -530,18 +532,58 @@ const generateDefaultYearlyFinancials = (
 const hasMeaningfulYearlyFinancials = (yearlyFinancials?: YearlyFinancials[]): boolean =>
   yearlyFinancialsContainsNonPlaceholderData(yearlyFinancials)
 
+/** True when stored session fields contain any non-placeholder revenue/EBITDA (or FCFF). */
+const sessionHasNonPlaceholderFinancials = (d: Partial<ValuationFormData>): boolean => {
+  if (hasMeaningfulYearlyFinancials(d.yearlyFinancials)) {
+    return true
+  }
+  const cyd = d.current_year_data
+  if (cyd && cyd.year != null) {
+    if (
+      yearlyFinancialRowHasNonPlaceholderData({
+        year: cyd.year,
+        revenue: cyd.revenue,
+        ebitda: cyd.ebitda,
+        free_cash_flow: cyd.free_cash_flow,
+      })
+    ) {
+      return true
+    }
+  }
+  const h = d.historical_years_data
+  if (Array.isArray(h)) {
+    for (const row of h) {
+      if (
+        row &&
+        yearlyFinancialRowHasNonPlaceholderData({
+          year: row.year,
+          revenue: row.revenue,
+          ebitda: row.ebitda,
+          free_cash_flow: row.free_cash_flow,
+        })
+      ) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
 export const getSeedBaseFilingYear = (
   initialData: Partial<ValuationFormData>,
   now: Date = new Date()
 ): number => {
   const filingYear = getCurrentFilingYear(now)
   const maxSelectableYear = Math.min(Math.max(now.getFullYear() - 1, 2000), 2100)
+  if (!sessionHasNonPlaceholderFinancials(initialData) && !isFilingYearConfirmedValue(initialData.filingYearConfirmed)) {
+    return filingYear
+  }
   const explicitYear = Number(initialData.current_year_data?.year)
   if (!Number.isFinite(explicitYear) || explicitYear < 2000) {
     return filingYear
   }
 
-  const maxSeedYear = initialData.filingYearConfirmed === true ? maxSelectableYear : filingYear
+  const maxSeedYear = isFilingYearConfirmedValue(initialData.filingYearConfirmed) ? maxSelectableYear : filingYear
   return Math.min(explicitYear, maxSeedYear)
 }
 
@@ -549,11 +591,12 @@ export const getSeedYearlyFinancials = (
   initialData: Partial<ValuationFormData>
 ): YearlyFinancials[] => {
   const initialYearlyFinancials = initialData.yearlyFinancials
-  if (
+  const keepInitial =
     Array.isArray(initialYearlyFinancials) &&
     initialYearlyFinancials.length > 0 &&
-    (initialYearlyFinancials.length > 1 || hasMeaningfulYearlyFinancials(initialYearlyFinancials))
-  ) {
+    (hasMeaningfulYearlyFinancials(initialYearlyFinancials) ||
+      sessionHasNonPlaceholderFinancials(initialData))
+  if (keepInitial) {
     return initialYearlyFinancials
   }
   return generateDefaultYearlyFinancials(getSeedBaseFilingYear(initialData))
@@ -580,7 +623,7 @@ export const shouldAutoConfirmPrefilledFilingYear = (
 
   return (
     hasMeaningfulYearlyFinancials(initialData.yearlyFinancials) ||
-    initialData.filingYearConfirmed === true ||
+    isFilingYearConfirmedValue(initialData.filingYearConfirmed) ||
     (Number.isFinite(explicitInitialYear) &&
       explicitInitialYear >= 2000 &&
       explicitInitialYear <= currentFilingYear)
@@ -656,10 +699,10 @@ export function ManualInputPanel({
     current_year_data: getSeedCurrentYearData(initialData),
     historical_years_data: normalizeHistoricalYearsForFiling(
       initialData.historical_years_data,
-      Boolean(initialData.filingYearConfirmed)
+      initialData.filingYearConfirmed
     ),
     forecast_years_data: initialData.forecast_years_data,
-    filingYearConfirmed: initialData.filingYearConfirmed ?? false,
+    filingYearConfirmed: isFilingYearConfirmedValue(initialData.filingYearConfirmed),
     dcf_input_mode: initialData.dcf_input_mode ?? 'ebitda',
   })
   const [importBatchData, setImportBatchData] = useState<AccountingBatchPayload | null>(null)
@@ -795,7 +838,9 @@ export function ManualInputPanel({
   useEffect(() => {
     if (shouldAutoConfirmPrefilledFilingYear(initialData, currentFilingYear)) {
       setFormData((prev) =>
-        prev.filingYearConfirmed ? prev : { ...prev, filingYearConfirmed: true }
+        isFilingYearConfirmedValue(prev.filingYearConfirmed)
+          ? prev
+          : { ...prev, filingYearConfirmed: true }
       )
     }
   }, [
@@ -3406,7 +3451,7 @@ export function ManualInputPanel({
                 <FilingYearPrompt
                   defaultYear={currentFilingYear}
                   dismissed={
-                    formData.filingYearConfirmed === true ||
+                    isFilingYearConfirmedValue(formData.filingYearConfirmed) ||
                     hasMeaningfulYearlyFinancials(formData.yearlyFinancials)
                   }
                   onSelect={handleSelectFilingYear}

@@ -163,7 +163,7 @@ export function buildValuationRequest(
   // Respect an explicitly selected filing year when the accountant confirms a newer year.
   const currentFiscalYear = normalizeCurrentYearForFiling(
     formData.current_year_data?.year,
-    Boolean(formData.filing_year_confirmed)
+    formData.filing_year_confirmed
   )
 
   // Normalize founding year (1900-2100)
@@ -241,7 +241,7 @@ export function buildValuationRequest(
   // Separate historical actuals from explicit forecast projections.
   const normalizedHistoricalData = normalizeHistoricalYearsForFiling(
     formData.historical_years_data?.filter((y) => !y.is_forecast),
-    Boolean(formData.filing_year_confirmed)
+    formData.filing_year_confirmed
   )
   const actualHistoricalData = normalizedHistoricalData
   const rawForecastData =

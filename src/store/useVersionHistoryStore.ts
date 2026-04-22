@@ -375,10 +375,9 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             // CRITICAL: Respect applyAllYears and applyYears — put each item under every year it applies to
             const accepted = normStore.items.filter((n) => n.status === 'accepted')
             const lastFullYear = getCurrentFilingYear()
-            const filingYearConfirmed = Boolean(enrichedRequest.formData?.filing_year_confirmed)
             const normalizedHistoricalYearData = normalizeHistoricalYearsForFiling(
               enrichedRequest.formData?.historical_years_data,
-              filingYearConfirmed
+              enrichedRequest.formData?.filing_year_confirmed
             )
             const historicalYears =
               normalizedHistoricalYearData
@@ -392,7 +391,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 }
               | undefined
             const currentYear = currentYearData?.year
-              ? normalizeCurrentYearForFiling(currentYearData.year, filingYearConfirmed)
+              ? normalizeCurrentYearForFiling(
+                  currentYearData.year,
+                  enrichedRequest.formData?.filing_year_confirmed
+                )
               : lastFullYear
             const allDataYears = Array.from(new Set([currentYear, ...historicalYears]))
             const yearEbitdaMap: Record<number, number> = {
@@ -899,7 +901,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                   ? buildCurrentYearData({
                       year: normalizeCurrentYearForFiling(
                         fd.current_year_data.year,
-                        Boolean(fd?.filing_year_confirmed)
+                        fd?.filing_year_confirmed
                       ),
                       revenue: fd.current_year_data.revenue,
                       ebitda: fd.current_year_data.ebitda,

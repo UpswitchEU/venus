@@ -297,7 +297,7 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
   if (Array.isArray(fd.historical_years_data)) {
     fd.historical_years_data = normalizeHistoricalYearsForFiling(
       fd.historical_years_data as Array<{ year: number; revenue?: number; ebitda?: number }>,
-      Boolean(fd.filing_year_confirmed)
+      fd.filing_year_confirmed
     )
   }
 
@@ -307,7 +307,7 @@ function extractFormData(sessionData: any): Partial<ValuationRequest> {
     | { year?: number; revenue?: number | null; ebitda?: number | null }
     | undefined
   if (cyd) {
-    cyd.year = normalizeCurrentYearForFiling(cyd.year, Boolean(fd.filing_year_confirmed))
+    cyd.year = normalizeCurrentYearForFiling(cyd.year, fd.filing_year_confirmed)
   }
   if (cyd && (fd.revenue === undefined || fd.ebitda === undefined)) {
     if (fd.revenue === undefined && cyd.revenue != null) (fd as any).revenue = Number(cyd.revenue)

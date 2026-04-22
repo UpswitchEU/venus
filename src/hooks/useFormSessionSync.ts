@@ -22,7 +22,11 @@ import { useCallback, useEffect } from 'react'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { debounceWithFlush } from '../utils/debounce'
-import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from '../utils/fiscalYear'
+import {
+  isFilingYearConfirmedValue,
+  normalizeCurrentYearForFiling,
+  normalizeHistoricalYearsForFiling,
+} from '../utils/fiscalYear'
 import { generalLogger } from '../utils/logger'
 import { NameGenerator } from '../utils/nameGenerator'
 import {
@@ -71,7 +75,10 @@ export function areFormAndSessionDataEqualForAutosync(
     }
   }
 
-  if (formData.filing_year_confirmed !== sessionData.filing_year_confirmed) {
+  if (
+    isFilingYearConfirmedValue(formData.filing_year_confirmed) !==
+    isFilingYearConfirmedValue(sessionData.filing_year_confirmed)
+  ) {
     return false
   }
 
@@ -199,11 +206,11 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         // ✅ FIX: Include ALL form fields for complete persistence
         const normalizedCurrentYear = normalizeCurrentYearForFiling(
           data.current_year_data?.year ?? data.year,
-          Boolean(data.filing_year_confirmed)
+          data.filing_year_confirmed
         )
         const normalizedHistoricalYears = normalizeHistoricalYearsForFiling(
           data.historical_years_data,
-          Boolean(data.filing_year_confirmed)
+          data.filing_year_confirmed
         )
 
         const sessionUpdate: Partial<any> = {

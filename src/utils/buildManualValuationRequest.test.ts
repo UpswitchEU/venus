@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { buildManualValuationRequest } from './buildManualValuationRequest'
+import { getCurrentFilingYear } from './fiscalYear'
 
 const baseFormData = {
   company_name: 'Acme BV',
@@ -165,5 +166,46 @@ describe('buildManualValuationRequest', () => {
 
     expect(req.nace_code).toBe('70.22')
     expect((req.startup_inputs as Record<string, unknown>).nace_code).toBe('70.22')
+  })
+
+  it('venture path forwards metadata.startup_advisor_cta_url for ValuationIQ PDF CTA (Titan merges metadata)', () => {
+    useManualResultsStore.setState({
+      preSelectedMethod: 'startup_valuation',
+      selectedMethod: 'startup_valuation',
+    })
+    useStartupValuationStore.getState().setField('stage', 'seed')
+
+    const req = buildManualValuationRequest(baseFormData, undefined, 'en')
+    const meta = (req as { metadata?: Record<string, unknown> }).metadata
+    expect(meta).toBeDefined()
+    const cta = meta?.startup_advisor_cta_url
+    expect(typeof cta).toBe('string')
+    expect((cta as string).length).toBeGreaterThan(10)
+    expect(cta as string).toMatch(/^https?:\/\//)
+  })
+
+  it('venture path sets filing-safe current_year_data (ignores stale form year for Titan)', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-22T12:00:00Z'))
+    try {
+      useManualResultsStore.setState({
+        preSelectedMethod: 'startup_valuation',
+        selectedMethod: 'startup_valuation',
+      })
+
+      const req = buildManualValuationRequest({
+        ...baseFormData,
+        current_year_data: {
+          year: 2026,
+          revenue: 0,
+          ebitda: 0,
+        },
+      })
+
+      expect(req.current_year_data?.year).toBe(getCurrentFilingYear())
+      expect(req.current_year_data?.year).toBeLessThanOrEqual(new Date().getFullYear() - 1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

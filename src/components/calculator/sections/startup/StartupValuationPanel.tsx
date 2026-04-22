@@ -40,7 +40,7 @@
 
 import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import { AuroraButton, AuroraInput, SegmentedControl, Slider } from '@/design-system'
 import { AuroraSelect } from '@/design-system/components/Select'
 import { CurrencyInput } from '../../CurrencyInput'
@@ -133,7 +133,7 @@ function SafeNoteRow({
 }) {
   const t = useTranslations('manualInput.startupValuation')
   return (
-    <div className="rounded-lg border border-foreground/[0.06] bg-background/60 p-3 space-y-2">
+    <div className="rounded-lg border border-foreground/[0.06] bg-background/60 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-foreground/80">
           {t('safeNoteRowTitle', { index: index + 1 })}
@@ -142,7 +142,7 @@ function SafeNoteRow({
           {t('removeSafeNote')}
         </AuroraButton>
       </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="flex flex-col gap-4">
         <CurrencyInput
           size="sm"
           label={t('safeAmount')}
@@ -230,7 +230,7 @@ export function StartupValuationPanel({
   const seedSectorFromNaceIfDefault = useStartupValuationStore(
     (s) => s.seedSectorFromNaceIfDefault,
   )
-  useEffect(() => {
+  useLayoutEffect(() => {
     seedSectorFromNaceIfDefault(naceCode)
   }, [naceCode, seedSectorFromNaceIfDefault])
 
@@ -324,7 +324,7 @@ export function StartupValuationPanel({
   }
 
   return (
-    <div className={['aurora-theme space-y-4 p-4 pb-32', className].filter(Boolean).join(' ')}>
+    <div className={['aurora-theme space-y-5 p-4 pb-32', className].filter(Boolean).join(' ')}>
       <header className="space-y-1">
         <h2 className="text-sm font-semibold text-foreground">
           {isFounderMode ? t('panelTitleFounder') : t('panelTitle')}
@@ -335,7 +335,7 @@ export function StartupValuationPanel({
       </header>
 
       {/* Setup bar — always visible context */}
-      <section className="space-y-3 rounded-xl border border-foreground/[0.06] bg-background/40 p-4">
+      <section className="space-y-3 rounded-xl border border-foreground/[0.06] bg-background/40 p-5">
         <div className="space-y-1.5">
           <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('setupStageLabel')}
@@ -398,7 +398,7 @@ export function StartupValuationPanel({
       />
 
       {/* Advanced drawer — Scorecard fine-tuning + Cap-table & SAFEs */}
-      <section className="space-y-3 rounded-xl border border-foreground/[0.06] bg-background/40 p-4">
+      <section className="space-y-3 rounded-xl border border-foreground/[0.06] bg-background/40 p-5">
         <button
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
@@ -460,7 +460,7 @@ export function StartupValuationPanel({
               <p className="text-[11px] leading-tight text-muted-foreground">
                 {t('advancedCapTableGdprNote')}
               </p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="flex flex-col gap-4">
                 <CurrencyInput
                   size="sm"
                   label={t('preMoneyTarget')}

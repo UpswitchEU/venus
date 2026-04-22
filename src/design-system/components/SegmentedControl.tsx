@@ -78,8 +78,6 @@ export function SegmentedControl<T extends string = string>({
     left: number
     width: number
   } | null>(null)
-  const [hasMounted, setHasMounted] = React.useState(false)
-
   const instanceId = React.useId()
 
   const updateIndicator = React.useCallback(() => {
@@ -100,17 +98,11 @@ export function SegmentedControl<T extends string = string>({
     }
   }, [value, options])
 
-  React.useEffect(() => {
-    setHasMounted(true)
-    const timer = setTimeout(updateIndicator, 10)
-    return () => clearTimeout(timer)
-  }, [])
-
-  React.useEffect(() => {
-    if (hasMounted) {
-      updateIndicator()
-    }
-  }, [value, options, hasMounted, updateIndicator])
+  // Measure synchronously after DOM commits (replaces a deferred setTimeout)
+  // so the pill aligns on the first paint.
+  React.useLayoutEffect(() => {
+    updateIndicator()
+  }, [updateIndicator])
 
   React.useEffect(() => {
     const handleResize = () => updateIndicator()

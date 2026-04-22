@@ -10,6 +10,18 @@ export default defineConfig({
     setupFiles: ['./src/__tests__/setup.ts'],
     include: ['**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', '.next', 'cypress', 'e2e/**', 'tests/e2e/**'],
+    // Narrow filter: zustand-persist + Framer layout work can log one benign
+    // React act() line in jsdom while assertions still prove correct behavior.
+    onConsoleLog(log: string, type: 'stderr' | 'stdout') {
+      if (
+        type === 'stderr' &&
+        log.includes('not wrapped in act') &&
+        (log.includes('StartupValuationPanel') || log.includes('SegmentedControl'))
+      ) {
+        return false
+      }
+      return true
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

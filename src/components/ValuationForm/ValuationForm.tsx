@@ -299,7 +299,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   useEffect(() => {
     const maxHistoricalYear = normalizeCurrentYearForFiling(
       formData.current_year_data?.year,
-      Boolean(formData.filing_year_confirmed)
+      formData.filing_year_confirmed
     )
     const historicalYears: { year: number; revenue: number; ebitda: number }[] = []
 
@@ -412,7 +412,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
       const cyd = formData.current_year_data
       const cydFilingYear = normalizeCurrentYearForFiling(
         cyd.year,
-        Boolean(formData.filing_year_confirmed)
+        formData.filing_year_confirmed
       )
       if (cydFilingYear === maxHistoricalYear) {
         const keys: Partial<{ revenue: number | undefined; ebitda: number | undefined }> = {}

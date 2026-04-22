@@ -2,7 +2,7 @@
   "config": {
     "configFile": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/playwright.config.ts",
     "rootDir": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e",
-    "forbidOnly": true,
+    "forbidOnly": false,
     "fullyParallel": true,
     "globalSetup": null,
     "globalTeardown": null,
@@ -11,16 +11,16 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 1
+      "actualWorkers": 2
     },
     "preserveOutput": "always",
     "projects": [
       {
         "outputDir": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results",
         "repeatEach": 1,
-        "retries": 2,
+        "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 2
         },
         "id": "chromium",
         "name": "chromium",
@@ -34,9 +34,9 @@
       {
         "outputDir": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results",
         "repeatEach": 1,
-        "retries": 2,
+        "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 2
         },
         "id": "firefox",
         "name": "firefox",
@@ -50,9 +50,9 @@
       {
         "outputDir": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results",
         "repeatEach": 1,
-        "retries": 2,
+        "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 2
         },
         "id": "webkit",
         "name": "webkit",
@@ -66,9 +66,9 @@
       {
         "outputDir": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results",
         "repeatEach": 1,
-        "retries": 2,
+        "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 2
         },
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
@@ -82,9 +82,9 @@
       {
         "outputDir": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results",
         "repeatEach": 1,
-        "retries": 2,
+        "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 2
         },
         "id": "Mobile Safari",
         "name": "Mobile Safari",
@@ -123,26 +123,31 @@
     "updateSnapshots": "missing",
     "updateSourceMethod": "patch",
     "version": "1.58.2",
-    "workers": 1,
-    "webServer": null
+    "workers": 5,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:3001",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
   },
   "suites": [
     {
-      "title": "mercury-exact-prefill.spec.ts",
-      "file": "mercury-exact-prefill.spec.ts",
+      "title": "startup-valuation-happy-path.spec.ts",
+      "file": "startup-valuation-happy-path.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Mercury Exact prefill",
-          "file": "mercury-exact-prefill.spec.ts",
-          "line": 3,
+          "title": "Startup valuation (pre-select URL)",
+          "file": "startup-valuation-happy-path.spec.ts",
+          "line": 18,
           "column": 6,
           "specs": [
             {
-              "title": "prefills the manual flow from synced Exact data without calling Exact batch import",
-              "ok": false,
+              "title": "en /reports/new?selected_method=startup_valuation stays on reports shell",
+              "ok": true,
               "tags": [],
               "tests": [
                 {
@@ -155,159 +160,57 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 14566,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62",
-                        "location": {
-                          "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
-                          "column": 62,
-                          "line": 119
-                        },
-                        "snippet": "  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
-                            "column": 62,
-                            "line": 119
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62"
-                        }
-                      ],
+                      "status": "passed",
+                      "duration": 5337,
+                      "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-27T13:47:58.695Z",
+                      "startTime": "2026-04-22T07:21:18.401Z",
                       "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium/video.webm"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
-                        "column": 62,
-                        "line": 119
-                      }
-                    },
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 7907,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\u001b[2m    - waiting for\" http://localhost:3001/en/reports/val_1774619299297_v1cqz08yx1?flow=manual&source=mercury\" navigation to finish...\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\u001b[2m    - waiting for\" http://localhost:3001/en/reports/val_1774619299297_v1cqz08yx1?flow=manual&source=mercury\" navigation to finish...\u001b[22m\n\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62",
-                        "location": {
-                          "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
-                          "column": 62,
-                          "line": 119
-                        },
-                        "snippet": "  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
-                            "column": 62,
-                            "line": 119
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\u001b[2m    - waiting for\" http://localhost:3001/en/reports/val_1774619299297_v1cqz08yx1?flow=manual&source=mercury\" navigation to finish...\u001b[22m\n\n\n  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 1,
-                      "startTime": "2026-03-27T13:48:18.274Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry1/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry1/video.webm"
-                        },
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry1/trace.zip"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
-                        "column": 62,
-                        "line": 119
-                      }
-                    },
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 7874,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62",
-                        "location": {
-                          "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
-                          "column": 62,
-                          "line": 119
-                        },
-                        "snippet": "  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
-                            "column": 62,
-                            "line": 119
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('input[name=\"company_name\"]')\nExpected: \u001b[32m\"Exact Sync BV\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[name=\"company_name\"]')\u001b[22m\n\n\n  117 |     await page.goto('/en/reports/new?flow=manual&source=mercury')\n  118 |\n> 119 |     await expect(page.locator('input[name=\"company_name\"]')).toHaveValue('Exact Sync BV')\n      |                                                              ^\n  120 |     await expect(page.locator('input[name=\"revenue\"]')).toHaveValue(/1.?500.?000|1500000/)\n  121 |     await expect(page.locator('input[name=\"ebitda\"]')).toHaveValue(/250.?000|250000/)\n  122 |\n    at /Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts:119:62"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 2,
-                      "startTime": "2026-03-27T13:48:27.933Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry2/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/test-results/mercury-exact-prefill-Merc-9145a--calling-Exact-batch-import-chromium-retry2/video.webm"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/Users/matthiasmandiau/Desktop/projects/current/upswitch/apps/venus/tests/e2e/mercury-exact-prefill.spec.ts",
-                        "column": 62,
-                        "line": 119
-                      }
+                      "attachments": []
                     }
                   ],
-                  "status": "unexpected"
+                  "status": "expected"
                 }
               ],
-              "id": "bb9bdeba735068dbedbf-4842b4244ecc2723e9bf",
-              "file": "mercury-exact-prefill.spec.ts",
-              "line": 4,
+              "id": "d1ce2c2483a99e16204c-6b50f396ba14a7917506",
+              "file": "startup-valuation-happy-path.spec.ts",
+              "line": 19,
+              "column": 3
+            },
+            {
+              "title": "nl /reports/new?selected_method=startup_valuation stays on reports shell",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 5355,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-22T07:21:18.401Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d1ce2c2483a99e16204c-8e5c7e797fdd8844c429",
+              "file": "startup-valuation-happy-path.spec.ts",
+              "line": 34,
               "column": 3
             }
           ]
@@ -317,11 +220,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-03-27T13:47:57.161Z",
-    "duration": 39351.106,
-    "expected": 0,
+    "startTime": "2026-04-22T07:20:59.284Z",
+    "duration": 25882.842,
+    "expected": 2,
     "skipped": 0,
-    "unexpected": 1,
+    "unexpected": 0,
     "flaky": 0
   }
 }

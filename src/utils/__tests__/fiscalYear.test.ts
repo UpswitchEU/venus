@@ -2,6 +2,7 @@ import {
   getCurrentFilingYear,
   getFilingYearHistoricalOffset,
   getLastFullFiscalYear,
+  isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
 } from '../fiscalYear'
 
@@ -64,6 +65,24 @@ describe('getFilingYearHistoricalOffset', () => {
   })
 })
 
+describe('isFilingYearConfirmedValue', () => {
+  it('is true for boolean true, string true, and numeric 1', () => {
+    expect(isFilingYearConfirmedValue(true)).toBe(true)
+    expect(isFilingYearConfirmedValue('true')).toBe(true)
+    expect(isFilingYearConfirmedValue('TRUE')).toBe(true)
+    expect(isFilingYearConfirmedValue('1')).toBe(true)
+    expect(isFilingYearConfirmedValue(1)).toBe(true)
+  })
+
+  it('is false for boolean false, string false, and wrong strings (not Boolean() semantics)', () => {
+    expect(isFilingYearConfirmedValue(false)).toBe(false)
+    expect(isFilingYearConfirmedValue('false')).toBe(false)
+    expect(isFilingYearConfirmedValue('0')).toBe(false)
+    expect(isFilingYearConfirmedValue(undefined)).toBe(false)
+    expect(isFilingYearConfirmedValue('')).toBe(false)
+  })
+})
+
 describe('normalizeCurrentYearForFiling', () => {
   it('clamps unconfirmed years to the filing year in H1', () => {
     expect(normalizeCurrentYearForFiling(2025, false, new Date('2026-03-27'))).toBe(2024)
@@ -71,5 +90,9 @@ describe('normalizeCurrentYearForFiling', () => {
 
   it('preserves confirmed years up to the last calendar year', () => {
     expect(normalizeCurrentYearForFiling(2025, true, new Date('2026-03-27'))).toBe(2025)
+  })
+
+  it('treats string "true" as confirmed (coercion-safe)', () => {
+    expect(normalizeCurrentYearForFiling(2025, 'true', new Date('2026-03-27'))).toBe(2025)
   })
 })

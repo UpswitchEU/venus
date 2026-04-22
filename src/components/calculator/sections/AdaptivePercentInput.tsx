@@ -20,6 +20,7 @@ interface AdaptivePercentInputProps {
   step?: string
   /** When false, long floating labels wrap instead of ellipsis */
   truncateLabel?: boolean
+  required?: boolean
 }
 
 export function AdaptivePercentInput({
@@ -31,6 +32,7 @@ export function AdaptivePercentInput({
   readOnly,
   description,
   truncateLabel,
+  required,
   step: _step,
 }: AdaptivePercentInputProps) {
   const {
@@ -56,6 +58,7 @@ export function AdaptivePercentInput({
       readOnly={readOnly}
       description={description}
       truncateLabel={truncateLabel}
+      required={required}
       className={cn(
         'tabular-nums',
         readOnly && 'cursor-default',

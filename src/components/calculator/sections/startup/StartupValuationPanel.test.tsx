@@ -13,10 +13,16 @@
 
 import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { StartupValuationPanel } from './StartupValuationPanel'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
+
+function renderStartupValuationPanel(
+  props: React.ComponentProps<typeof StartupValuationPanel> = {},
+) {
+  return render(<StartupValuationPanel {...props} />)
+}
 
 // `t` is the function the panels call: `t(key, values?)`.
 // `t.rich` is the next-intl helper for messages with React-element
@@ -61,6 +67,7 @@ vi.mock('../AdaptivePercentInput', () => ({
 
 describe('StartupValuationPanel', () => {
   beforeEach(() => {
+    localStorage.removeItem('venus.startup_valuation.v1')
     useStartupValuationStore.getState().reset()
   })
 
@@ -69,7 +76,7 @@ describe('StartupValuationPanel', () => {
   })
 
   it('renders the panel header, setup bar, and all three numbered sections at once', () => {
-    render(<StartupValuationPanel />)
+    renderStartupValuationPanel()
 
     // Header + setup bar are persistent.
     expect(screen.getByText('panelTitle')).toBeInTheDocument()
@@ -91,11 +98,11 @@ describe('StartupValuationPanel', () => {
 
     // Section 3 — VC inputs visible on first paint (no Next click required).
     expect(screen.getByTestId('currency-y5Revenue')).toBeInTheDocument()
-    expect(screen.getByTestId('pct-dilutionAssumption')).toBeInTheDocument()
+    expect(screen.getByTestId('pct-dilutionAssumptionOptional')).toBeInTheDocument()
   })
 
   it('every Berkus slider carries an aria-label and writes back to the store on keyboard input', () => {
-    render(<StartupValuationPanel />)
+    renderStartupValuationPanel()
 
     // The Aurora `Slider` primitive renders div[role="slider"] (no
     // native <input>), so the panel must forward `aria-label` derived
@@ -117,7 +124,7 @@ describe('StartupValuationPanel', () => {
   })
 
   it('Berkus section surfaces the regional baseline pill and the live subtotal', () => {
-    render(<StartupValuationPanel />)
+    renderStartupValuationPanel()
 
     // Baseline pill: the engine-injected "Up to €X across 5 milestones"
     // line. We assert the templated key is rendered with the right
@@ -143,9 +150,12 @@ describe('StartupValuationPanel', () => {
       arr: 300_000,
       mrr_growth_rate_pct: 18,
       monthly_churn_pct: 4,
+      cac: 500,
+      burn_rate_monthly: 40_000,
+      runway_months: 14,
     })
 
-    render(<StartupValuationPanel />)
+    renderStartupValuationPanel()
 
     // Fields are visible since not-skipped.
     expect(screen.getByTestId('currency-mrr')).toBeInTheDocument()
@@ -159,27 +169,37 @@ describe('StartupValuationPanel', () => {
     expect(state.arr).toBeNull()
     expect(state.mrr_growth_rate_pct).toBeNull()
     expect(state.monthly_churn_pct).toBeNull()
+    expect(state.cac).toBeNull()
+    expect(state.burn_rate_monthly).toBeNull()
+    expect(state.runway_months).toBeNull()
 
-    // Toggle now reads "Re-enable" because the skip state is derived
-    // from "all 4 SaaS-leg fields are empty".
+    // Toggle now reads "Re-enable" — explicit pre-revenue mode.
     expect(screen.getByText('section2SkipBadgeOn')).toBeInTheDocument()
+    expect(screen.queryByTestId('currency-mrr')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('section2SkipBadgeOn'))
+    expect(screen.getByTestId('currency-mrr')).toBeInTheDocument()
+    expect(screen.getByText('section2SkipBadgeOff')).toBeInTheDocument()
   })
 
-  it('exit scenario renders the sector-specific exit-multiple suggestion + the stage-aware ROI hint', () => {
-    render(<StartupValuationPanel />)
+  it('exit scenario shows validity todo until required VC fields are filled', () => {
+    renderStartupValuationPanel()
 
-    // The hint surfaces the engine's stage-aware default (20× for seed)
-    // alongside the cross-stage UI default (15×). If either token
-    // disappears, founders lose the academic anchor for their VC ROI.
-    const hint = screen.getByText((content) =>
-      content.startsWith('section3RoiHint:'),
+    const todo = screen.getByRole('status')
+    expect(todo.textContent).toContain('vcSectionValidityTodo:')
+    expect(todo.textContent).toContain('y5Revenue')
+    expect(todo.textContent).toContain('exitMultiple')
+    expect(todo.textContent).toContain('targetRoi')
+
+    const roiDesc = screen.getByText((content) =>
+      content.startsWith('targetRoiDescription:'),
     )
-    expect(hint.textContent).toContain('stageRoi=20')
-    expect(hint.textContent).toContain('defaultRoi=15')
+    expect(roiDesc.textContent).toContain('stageRoi=20')
+    expect(roiDesc.textContent).toContain('defaultRoi=15')
   })
 
   it('advanced drawer is collapsed by default and reveals scorecard + cap-table inputs when toggled', () => {
-    render(<StartupValuationPanel />)
+    renderStartupValuationPanel()
 
     expect(screen.queryByText('advancedScorecardTitle')).not.toBeInTheDocument()
     expect(screen.queryByText('advancedCapTableTitle')).not.toBeInTheDocument()
@@ -197,7 +217,7 @@ describe('StartupValuationPanel', () => {
     // sliders in founder mode would create the false impression that
     // those numbers move the headline pre-money — they don't, until
     // an accountant later switches the same valuation to advisor view.
-    render(<StartupValuationPanel mode="founder" />)
+    renderStartupValuationPanel({ mode: 'founder' })
 
     fireEvent.click(screen.getByText('advancedToggleTitle'))
 
@@ -210,14 +230,14 @@ describe('StartupValuationPanel', () => {
     // Distinct keys (panelTitleFounder / panelIntroFounder) so the
     // Mercury-driven founder funnel can A/B copy without touching
     // accountant flows.
-    render(<StartupValuationPanel mode="founder" />)
+    renderStartupValuationPanel({ mode: 'founder' })
     expect(screen.getByText('panelTitleFounder')).toBeInTheDocument()
     expect(screen.getByText('panelIntroFounder')).toBeInTheDocument()
     expect(screen.queryByText('panelTitle')).not.toBeInTheDocument()
   })
 
   it('the stage SegmentedControl writes the picked stage back to the store', () => {
-    render(<StartupValuationPanel />)
+    renderStartupValuationPanel()
 
     fireEvent.click(screen.getByText('stagePreSeed'))
     expect(useStartupValuationStore.getState().stage).toBe('pre_seed')

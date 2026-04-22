@@ -71,7 +71,7 @@ import { ReportPlaceholder } from '../../../components/skeletons/ReportPlacehold
 import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import {
   filterPreSelectableMethodsForOwnerFounder,
-  isAccountantTierRole,
+  showAdvisorCalculatorSurface,
 } from '../../../constants/accountantPlanMethods'
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../../../constants/crossAppMessages'
 import { isUpfrontMethodAllowedForNav } from '../../../constants/methodFieldConfig'
@@ -161,7 +161,11 @@ import { coerceIso2OrNull } from '../../../utils/coerceIso2Country'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { isAuthError } from '../../../utils/errorDetection'
 import { extractValuationResultsMap } from '../../../utils/extractValuationResultsMap'
-import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../../utils/fiscalYear'
+import {
+  getCurrentFilingYear,
+  isFilingYearConfirmedValue,
+  normalizeCurrentYearForFiling,
+} from '../../../utils/fiscalYear'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
@@ -455,7 +459,17 @@ function mapClarityFormToVenusStore(raw: any): Partial<VenusFormData> {
     country_code: coerceIso2OrNull(data.country) ?? 'BE',
     industry: data.industry || 'services',
     ...(resolvedBusinessModel ? { business_model: resolvedBusinessModel } : {}),
-    founding_year: parseInt(data.yearFounded, 10) || getCurrentFilingYear() - 5,
+    founding_year: (() => {
+      const raw = data.yearFounded
+      const parsed =
+        typeof raw === 'number' && Number.isFinite(raw)
+          ? Math.trunc(raw)
+          : parseInt(String(raw ?? '').trim(), 10)
+      if (Number.isFinite(parsed) && parsed >= 1900 && parsed <= 2100) {
+        return parsed
+      }
+      return getCurrentFilingYear() - 5
+    })(),
     number_of_owners: data.ownerManagers || 1,
     number_of_employees: data.fteEmployees,
     shares_for_sale: 100,
@@ -473,7 +487,7 @@ function mapClarityFormToVenusStore(raw: any): Partial<VenusFormData> {
         ? buildCurrentYearData({
             year: normalizeCurrentYearForFiling(
               existingCurrentYearData.year,
-              Boolean(data.filingYearConfirmed)
+              data.filingYearConfirmed
             ),
             revenue: existingCurrentYearData.revenue,
             ebitda: existingCurrentYearData.ebitda,
@@ -511,7 +525,7 @@ function mapClarityFormToVenusStore(raw: any): Partial<VenusFormData> {
           )
         : existingForecastYears,
     ...(data.filingYearConfirmed !== undefined && {
-      filing_year_confirmed: Boolean(data.filingYearConfirmed),
+      filing_year_confirmed: isFilingYearConfirmedValue(data.filingYearConfirmed),
     }),
     ...(data.dcf_input_mode != null && { dcf_input_mode: data.dcf_input_mode }),
     ...(companySectionActive
@@ -742,7 +756,7 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // standalone advisor sessions (no client context), which previously got
   // restricted to the 3-method owner-founder list — see the helper docstring
   // for the full rationale and the cross-app role contract.
-  const showFullAdvisorMethodNav = isAccountantFlow || isAccountantTierRole(user?.role)
+  const showFullAdvisorMethodNav = showAdvisorCalculatorSurface(isAccountantFlow, user?.role)
   const preSelectableMethodsForNav = useMemo(
     () =>
       filterPreSelectableMethodsForOwnerFounder(firmPreSelectableMethods, showFullAdvisorMethodNav),
@@ -846,9 +860,11 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
     ctxAccountant,
   ])
 
+  // Match advisor nav + startup surface: bootstrap client-session **or** tier role,
+  // plus client-context store (can lead bootstrap by a frame).
   const showPreparerMultiplePanel = useMemo(
-    () => isAccountantMode || isAccountantTierRole(user?.role),
-    [isAccountantMode, user?.role]
+    () => showFullAdvisorMethodNav || isAccountantMode,
+    [showFullAdvisorMethodNav, isAccountantMode]
   )
 
   const linkedIdentifier = useMemo(() => {
@@ -2059,10 +2075,10 @@ export const ManualLayout: React.FC<ManualLayoutProps> = ({
   // pure HTML report and never see the dashboard so their workflow is
   // untouched (KISS / SRP, no regression in the accountant flow).
   const founderStartupResult = useMemo<ValuationMethodResult | null>(() => {
-    if (isAccountantFlow) return null
+    if (showFullAdvisorMethodNav) return null
     if (selectedMethod !== 'startup_valuation') return null
     return synthesisValuationResults?.['startup_valuation'] ?? null
-  }, [isAccountantFlow, selectedMethod, synthesisValuationResults])
+  }, [showFullAdvisorMethodNav, selectedMethod, synthesisValuationResults])
 
   const synthesisUnlocked = planFeatures?.valuation_synthesis ?? false
   const handleSelectVersion = useCallback(

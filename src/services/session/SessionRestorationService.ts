@@ -921,7 +921,7 @@ class SessionRestorationServiceImpl {
               ...mappedCurrentYearData,
               year: normalizeCurrentYearForFiling(
                 mappedCurrentYearData.year,
-                Boolean(mapped.filing_year_confirmed)
+                mapped.filing_year_confirmed
               ),
             }
           }
@@ -929,7 +929,7 @@ class SessionRestorationServiceImpl {
           if (Array.isArray(mapped.historical_years_data)) {
             mapped.historical_years_data = normalizeHistoricalYearsForFiling(
               mapped.historical_years_data as Array<{ year: number; revenue?: number; ebitda?: number }>,
-              Boolean(mapped.filing_year_confirmed)
+              mapped.filing_year_confirmed
             )
           }
 

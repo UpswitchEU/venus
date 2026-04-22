@@ -198,11 +198,11 @@ export const useValuationFormSubmission = (
           try {
             const currentYear = normalizeCurrentYearForFiling(
               formData.current_year_data?.year,
-              Boolean(formData.filing_year_confirmed)
+              formData.filing_year_confirmed
             )
             const normalizedHistoricalYears = normalizeHistoricalYearsForFiling(
               formData.historical_years_data,
-              Boolean(formData.filing_year_confirmed)
+              formData.filing_year_confirmed
             )
             // Convert formData to session format
             const sessionUpdate: Partial<any> = {
